@@ -130,7 +130,7 @@ class HeaderCollection(object):
             try:
                 name, value = line.split(':', 1)
             except:
-                raise ParseError('Invalid header format')
+                raise ParseError('Invalid header format: [%s]' % line)
             name = name.strip()
             value = value.strip()
             line = rfile.readline()

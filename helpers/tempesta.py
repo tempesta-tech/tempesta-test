@@ -1,6 +1,6 @@
 import re
 import os
-from . import error
+from . import error, remote, tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -33,16 +33,11 @@ def version():
     global tfw_version
     if tfw_version:
         return tfw_version
-    version_header = ''.join([os.path.dirname(os.path.realpath(__file__)),
-                              '/../../../tempesta_fw.h'])
-    with open(version_header, 'r') as header:
-        read_data = header.read()
-        m = re.search(r'#define TFW_VERSION\s+"([0-9a-z.-]+)"', read_data)
-        error.assertTrue(m)
-        tfw_version = m.group(1)
-        return tfw_version
-    error.bug()
-
+    hdr_filename = remote.tempesta.workdir+"/tempesta_fw/tempesta_fw.h"
+    parse_cmd = r"grep TFW_VERSION | awk -F '[\" ]' '{printf $3}'"
+    cmd = "cat %s | %s" % (hdr_filename, parse_cmd)
+    version, _ = remote.tempesta.run_cmd(cmd=cmd)
+    return version
 
 class Stats(object):
     """ Parser for TempestaFW performance statistics (/proc/tempesta/perfstat).
