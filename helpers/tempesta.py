@@ -37,6 +37,8 @@ def version():
     parse_cmd = r"grep TFW_VERSION | awk -F '[\" ]' '{printf $3}'"
     cmd = "cat %s | %s" % (hdr_filename, parse_cmd)
     version, _ = remote.tempesta.run_cmd(cmd=cmd)
+    tfw_version = version
+    error.assertTrue(tfw_version)
     return version
 
 class Stats(object):
