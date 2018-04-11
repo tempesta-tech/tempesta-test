@@ -499,7 +499,6 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.tester = None
         if addr is None:
             addr = tf_cfg.cfg.get(host, 'ip')
-        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.' % (addr, port))
         self.addr = addr
         self.port = port
         self.stop_procedures = [self.__stop_client]

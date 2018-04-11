@@ -16,6 +16,8 @@ class ConfigError(Exception):
 
 class TestFrameworkCfg(object):
 
+    kvs = {}
+
     cfg_file = os.path.relpath(os.path.join(
         os.path.dirname(__file__),
         '..',
@@ -29,8 +31,16 @@ class TestFrameworkCfg(object):
         self.cfg_err = None
         try:
             self.config.read(self.cfg_file)
+            self.__fill_kvs()
         except:
             self.cfg_err = sys.exc_info()
+
+    def __fill_kvs(self):
+        for section in ['General','Client', 'Tempesta', 'Server']:
+            cfg = self.config[section]
+            for key in cfg.keys():
+                id = '_'.join([section.lower(), key])
+                self.kvs[id] = cfg[key]
 
     def defaults(self):
         self.config = configparser.ConfigParser()
@@ -59,6 +69,8 @@ class TestFrameworkCfg(object):
                                           'aliases_interface': 'eth0',
                                           'aliases_base_ip': '192.168.10.1',
                                           'max_workers': '16',
+                                          'keepalive_timeout' : '60',
+                                          'keepalive_requests' : '100',
                                           }
                               })
 

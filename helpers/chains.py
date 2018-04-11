@@ -75,6 +75,57 @@ def response_400(date=None, connection=None):
                                    date=date, body='')
     return resp
 
+def request(method, uri):
+    common_req_headers = [
+        'Host: %s' % tf_cfg.cfg.get('Tempesta', 'ip'),
+        'User-Agent: curl/7.53.1',
+        'Connection: keep-alive',
+        'Accept: */*'
+    ]
+    sample_headers = [
+        'Content-Length: 138',
+        'Content-type: text/html'
+    ]
+    sample_body = (
+        "<html>\r\n"
+        "<head>\r\n"
+        "  <title>An Example Page</title>\r\n"
+        "</head>\r\n"
+        "<body>\r\n"
+        "  Hello World, this is a very simple HTML document.\r\n"
+        "</body>\r\n"
+        "</html>\r\n"
+    )
+    common_req_body = ''
+    client_req_headers_addn = [
+    ]
+    if method == "POST":
+        common_req_headers += [
+            'Content-type: multipart/form-data;boundary="boundary"',
+            'Content-Length: 162'
+        ]
+        common_req_body = (
+            '--boundary\r\n'
+            'Content-Disposition: form-data; name="field1"\r\n'
+            '\r\n'
+            'value1\r\n'
+            '--boundary\r\n'
+            'Content-Disposition: form-data; name="field2"; filename="example.txt"\r\n'
+            '\r\n'
+            'value2\r\n'
+        )
+    elif method == "PUT":
+        common_req_headers += sample_headers
+        common_req_body = sample_body
+    client_req = deproxy.Request.create(
+        method=method,
+        headers=common_req_headers + client_req_headers_addn,
+        uri=uri,
+        body=common_req_body
+    )
+    return client_req
+    
+
 def base(uri='/', method='GET', forward=True, date=None):
     """Base message chain. Looks like simple Curl request to Tempesta and
     response for it.
