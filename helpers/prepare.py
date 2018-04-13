@@ -10,7 +10,6 @@ def configure_tcp():
     Release them quicker to reuse the ports in the next test case. """
 
     for node in [remote.server, remote.tempesta, remote.client]:
-        node.run_cmd("sysctl -w net.ipv4.tcp_tw_recycle=1")
         node.run_cmd("sysctl -w net.ipv4.tcp_tw_reuse=1")
         node.run_cmd("sysctl -w net.ipv4.tcp_fin_timeout=10")
 
