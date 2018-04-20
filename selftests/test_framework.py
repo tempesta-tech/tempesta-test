@@ -1,6 +1,6 @@
 import time
 
-from helpers import chains, tf_cfg
+from helpers import chains, tf_cfg, deproxy
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -181,3 +181,16 @@ server ${server_ip}:8000;
         cl.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
         time.sleep(1)
         tf_cfg.dbg(3, "deproxy response:\n%s" % str(cl.last_response))
+
+    def test_deproxy_srvclient_direct_check(self):
+        """ Simple test with deproxy server """
+        dsrv = self.get_server('deproxy')
+        dsrv.start()
+        cl = self.get_client('deproxy_direct')
+        cl.start()
+        cl.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        time.sleep(1)
+        # expected response
+        send = deproxy.Response(dsrv.response)
+        send.set_expected()
+        assert cl.last_response == send
