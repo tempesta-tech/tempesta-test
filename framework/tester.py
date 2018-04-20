@@ -1,4 +1,5 @@
 import unittest
+import time
 
 from helpers import tempesta, control, stateful, tf_cfg
 
@@ -144,6 +145,8 @@ class TempestaTest(unittest.TestCase):
         self.__create_tempesta()
         self.__create_clients()
         self.__deproxy_manager.start()
+        # preventing race between manager start and servers start
+        time.sleep(0.2)
 
     def tearDown(self):
         for id in self.__clients:
