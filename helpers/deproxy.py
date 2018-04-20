@@ -394,6 +394,8 @@ class Request(HttpMessage):
         self.body = ''
 
     def __eq__(self, other):
+        if other is None:
+            return False
         return ((self.method == other.method)
                 and (self.version == other.version)
                 and (self.uri == other.uri)
@@ -467,6 +469,8 @@ class Response(HttpMessage):
         return ' '.join([self.version, self.status, reason])
 
     def __eq__(self, other):
+        if other is None:
+            return False
         return ((self.status == other.status)
                 and (self.version == other.version)
                 and (self.reason == other.reason)
