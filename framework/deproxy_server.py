@@ -1,6 +1,8 @@
 import abc
 import asyncore
 import sys
+import threading
+import socket
 
 from helpers import deproxy, tf_cfg, error
 
@@ -66,6 +68,12 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
 class BaseDeproxyServer(deproxy.Server):
 
+    def __init__(self, *args, **kwargs):
+        deproxy.Server.__init__(self, *args, **kwargs)
+        self.stop_procedures = [self.__stop_server]
+        self.is_polling = threading.Event()
+        self.sockets_changing = threading.Event()
+
     def handle_accept(self):
         pair = self.accept()
         if pair is not None:
@@ -76,6 +84,42 @@ class BaseDeproxyServer(deproxy.Server):
             assert len(self.connections) <= self.conns_n, \
                 ('Too lot connections, expect %d, got %d'
                  % (self.conns_n, len(self.connections)))
+
+    def run_start(self):
+        tf_cfg.dbg(3, '\tDeproxy: Server: Start on %s:%d.' % \
+                   (self.ip, self.port))
+
+        while self.is_polling.is_set():
+            pass
+        self.sockets_changing.set()
+
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.set_reuse_addr()
+        self.bind((self.ip, self.port))
+        self.listen(socket.SOMAXCONN)
+
+        self.sockets_changing.clear()
+
+    def __stop_server(self):
+        tf_cfg.dbg(3, '\tDeproxy: Server: Stop on %s:%d.' % (self.ip,
+                                                             self.port))
+        while self.is_polling.is_set():
+            pass
+        self.sockets_changing.set()
+
+        self.close()
+        connections = [conn for conn in self.connections]
+        for conn in connections:
+            conn.handle_close()
+        if self.tester:
+            self.tester.servers.remove(self)
+
+        self.sockets_changing.clear()
+
+
+    def set_events(self, is_polling, sockets_changing):
+        self.is_polling = is_polling
+        self.sockets_changing = sockets_changing
 
     @abc.abstractmethod
     def recieve_request(self, request, connection):
