@@ -13,7 +13,7 @@ __license__ = 'GPL2'
 def finish_all_deproxy():
     asyncore.close_all()
 
-def run_deproxy_server(deproxy, exit_event, is_polling, sockets_changing):
+def run_deproxy_server(deproxy, exit_event, polling_lock):
     tf_cfg.dbg(3, "Running deproxy server manager")
 
     if hasattr(select, 'poll'):
@@ -21,15 +21,9 @@ def run_deproxy_server(deproxy, exit_event, is_polling, sockets_changing):
     else:
         poll_fun = asyncore.poll
     while not exit_event.is_set():
-        while sockets_changing.is_set() and not exit_event.is_set():
-            pass
-        if exit_event.is_set():
-            break
-        is_polling.set()
+        polling_lock.acquire()
         poll_fun()
-        is_polling.clear()
-        # servers need some time for locking
-        time.sleep(0.0001)
+        polling_lock.release()
 
     tf_cfg.dbg(3, "Stopped deproxy manager")
 
@@ -39,15 +33,14 @@ class DeproxyManager(stateful.Stateful):
         self.servers = []
         self.clients = []
         self.exit_event = threading.Event()
-        # event is set, when polling
-        self.is_polling = threading.Event()
-        # event is set, when server changes sockets
-        self.sockets_changing = threading.Event()
+
+        self.polling_lock = threading.Lock()
+
         self.stop_procedures = [self.__stop]
         self.proc = None
 
     def add_server(self, server):
-        server.set_events(self.is_polling, self.sockets_changing)
+        server.set_events(self.polling_lock)
         self.servers.append(server)
 
     def add_clients(self, client):
@@ -59,8 +52,7 @@ class DeproxyManager(stateful.Stateful):
         self.exit_event.clear()
         self.proc = threading.Thread(target = run_deproxy_server,
                                     args=(self, self.exit_event,
-                                          self.is_polling,
-                                          self.sockets_changing))
+                                          self.polling_lock))
         self.proc.start()
 
     def __stop(self):

@@ -37,7 +37,7 @@ class TempestaTest(unittest.TestCase):
 
     def __create_client_wrk(self, client):
         addr = client['addr']
-        wrk = wrk_client.Wrk(addr=addr)
+        wrk = wrk_client.Wrk(server_addr=addr)
         wrk.set_script(client['id']+"_script", content="")
         return wrk
 
@@ -51,7 +51,7 @@ class TempestaTest(unittest.TestCase):
     def __create_srv_nginx(self, server, name):
         if not 'config' in server.keys():
             return None
-        srv = nginx_server.Nginx(server['config'], name)
+        srv = nginx_server.Nginx(server['config'], name, server['status_uri'])
         return srv
 
     def __create_srv_deproxy(self, server):

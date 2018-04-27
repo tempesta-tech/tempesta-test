@@ -89,23 +89,19 @@ class BaseDeproxyServer(deproxy.Server):
         tf_cfg.dbg(3, '\tDeproxy: Server: Start on %s:%d.' % \
                    (self.ip, self.port))
 
-        while self.is_polling.is_set():
-            pass
-        self.sockets_changing.set()
+        self.polling_lock.acquire()
 
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((self.ip, self.port))
         self.listen(socket.SOMAXCONN)
 
-        self.sockets_changing.clear()
+        self.polling_lock.release()
 
     def __stop_server(self):
         tf_cfg.dbg(3, '\tDeproxy: Server: Stop on %s:%d.' % (self.ip,
                                                              self.port))
-        while self.is_polling.is_set():
-            pass
-        self.sockets_changing.set()
+        self.polling_lock.acquire()
 
         self.close()
         connections = [conn for conn in self.connections]
@@ -114,12 +110,10 @@ class BaseDeproxyServer(deproxy.Server):
         if self.tester:
             self.tester.servers.remove(self)
 
-        self.sockets_changing.clear()
+        self.polling_lock.release()
 
-
-    def set_events(self, is_polling, sockets_changing):
-        self.is_polling = is_polling
-        self.sockets_changing = sockets_changing
+    def set_events(self, polling_lock):
+        self.polling_lock = polling_lock
 
     @abc.abstractmethod
     def recieve_request(self, request, connection):

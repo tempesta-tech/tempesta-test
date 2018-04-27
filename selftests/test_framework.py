@@ -19,6 +19,7 @@ class ExampleTest(tester.TempestaTest):
         {
             'id' : 'nginx',
             'type' : 'nginx',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
             'config' : """
 pid ${backend_pid};
 worker_processes  auto;
