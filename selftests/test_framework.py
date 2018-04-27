@@ -130,7 +130,7 @@ server ${server_ip}:8000;
         deproxy = self.get_server('deproxy')
         deproxy.start()
         self.start_tempesta()
-        time.sleep(1)
+        self.assertTrue(deproxy.wait_for_connections(timeout=1))
         wrk1 = self.get_client('wrk_1')
         wrk1.start()
         while wrk1.is_busy():
@@ -171,7 +171,7 @@ server ${server_ip}:8000;
         dsrv = self.get_server('deproxy')
         dsrv.start()
         self.start_tempesta()
-        time.sleep(1)
+        self.assertTrue(dsrv.wait_for_connections(timeout=1))
         cl = self.get_client('deproxy')
         cl.start()
         cl.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
@@ -199,4 +199,4 @@ server ${server_ip}:8000;
         # expected response
         send = deproxy.Response(dsrv.response)
         send.set_expected()
-        assert cl.last_response == send
+        self.assertEqual(cl.last_response, send)

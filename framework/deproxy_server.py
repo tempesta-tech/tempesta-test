@@ -3,8 +3,9 @@ import asyncore
 import sys
 import threading
 import socket
+import time
 
-from helpers import deproxy, tf_cfg, error
+from helpers import deproxy, tf_cfg, error, stateful
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -114,6 +115,17 @@ class BaseDeproxyServer(deproxy.Server):
 
     def set_events(self, polling_lock):
         self.polling_lock = polling_lock
+
+    def wait_for_connections(self, timeout=1):
+        if self.state != stateful.STATE_STARTED:
+            return False
+
+        t0 = time.time()
+        while len(self.connections) < self.conns_n:
+            t = time.time()
+            if t - t0 > timeout:
+                return False
+        return True
 
     @abc.abstractmethod
     def recieve_request(self, request, connection):
