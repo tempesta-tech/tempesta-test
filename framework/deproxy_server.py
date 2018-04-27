@@ -125,6 +125,7 @@ class BaseDeproxyServer(deproxy.Server):
             t = time.time()
             if t - t0 > timeout:
                 return False
+            time.sleep(0.001) # to prevent redundant CPU usage
         return True
 
     @abc.abstractmethod

@@ -175,7 +175,7 @@ server ${server_ip}:8000;
         cl = self.get_client('deproxy')
         cl.start()
         cl.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
-        time.sleep(1)
+        cl.wait_for_response(timeout=5)
         tf_cfg.dbg(3, "deproxy response:\n%s" % str(cl.last_response))
 
     def test_deproxy_srvclient_direct(self):
@@ -185,7 +185,7 @@ server ${server_ip}:8000;
         cl = self.get_client('deproxy_direct')
         cl.start()
         cl.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
-        time.sleep(1)
+        cl.wait_for_response(timeout=5)
         tf_cfg.dbg(3, "deproxy response:\n%s" % str(cl.last_response))
 
     def test_deproxy_srvclient_direct_check(self):
@@ -195,7 +195,7 @@ server ${server_ip}:8000;
         cl = self.get_client('deproxy_direct')
         cl.start()
         cl.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
-        time.sleep(1)
+        cl.wait_for_response(timeout=5)
         # expected response
         send = deproxy.Response(dsrv.response)
         send.set_expected()

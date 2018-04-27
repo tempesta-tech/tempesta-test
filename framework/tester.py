@@ -32,7 +32,7 @@ class TempestaTest(unittest.TestCase):
     def __create_client_deproxy(self, client):
         addr = fill_template(client['addr'])
         port = int(fill_template(client['port']))
-        clt = deproxy_client.LastDeproxyClient(addr=addr, port=port)
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
         return clt
 
     def __create_client_wrk(self, client):
