@@ -18,6 +18,8 @@ class TempestaTest(unittest.TestCase):
     2) clients: [...]
     3) several test functions.
     function name should start with 'test'
+
+    Verbose documentation is placed in README.md
     """
 
     backends = []
