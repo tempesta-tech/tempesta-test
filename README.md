@@ -208,23 +208,46 @@ $ touch my_test/test_some_feature.py
 $ echo "__all__ = [ 'test_some_feature' ]" >> my_test/__init.py__
 ```
 
-Import module `unittest`, and derive you test class from `stress.StressTest`
-or `functional.FunctionalTest`
-class from `testers` module. Add functions started with `test_`. Test class may
-have any name. Here is example of `my_test/test_some_feature.py`:
-```python
-import unittest
-from testers import stress
+Import `framework.tester`: `from framework import tester`,
+and derive you test class from `tester.TempestaTest`
 
-class MyTester(stress.StressTest):
-    """ Test class documentation. """
+`class Test(tester.TempestaTest)`
 
-    tempesta_defconfig = 'cache 0;\n'
+This class should have lists with backend
+and client configuration.
 
-    def test_some_featue(self):
-        """ Test documentation. """
-        self.generic_test_routine(self.tempesta_defconfig)
-```
+`backends = [...]`
+`clients = [...]`
+
+Each config is a structure, containing item id, type, and
+other options, depending on item type.
+
+Now such backends are supported:
+1) type == nginx
+    status_uri: uri where nginx status is located
+    config: nginx config
+
+2) type == deproxy
+    port: listen this port
+    response: type of response. Now only 'static' is supported
+        response == static:
+            response_content: always response this content
+
+and such clients:
+1) type == wrk
+    addr: 'ip:port'
+
+2) type == deproxy
+    addr: ip addr of server to connect
+    port: port
+
+All options are mandatory
+
+nginx config, deproxy response, addr and port can use templates
+in format `${part_variable}` where `part` is one of 'server',
+'tempesta', 'client' or 'backend'
+
+Example tests can be found in `selftests/test_framework.py`
 
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).

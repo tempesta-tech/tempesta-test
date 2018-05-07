@@ -285,9 +285,12 @@ class HttpMessage(object):
         size = int(self.headers['Content-Length'])
 
         self.body = stream.read(size)
-        if len(self.body) != size:
+        if len(self.body) > size:
             raise ParseError(("Wrong body size: expect %d but got %d!"
                               % (size, len(self.body))))
+        elif len(self.body) < size:
+            tf_cfg.dbg(5, "Incomplite message recieved")
+            raise IncompliteMessage()
 
     def parse_trailer(self, stream):
         self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
@@ -394,6 +397,8 @@ class Request(HttpMessage):
         self.body = ''
 
     def __eq__(self, other):
+        if other is None:
+            return False
         return ((self.method == other.method)
                 and (self.version == other.version)
                 and (self.uri == other.uri)
@@ -467,6 +472,8 @@ class Response(HttpMessage):
         return ' '.join([self.version, self.status, reason])
 
     def __eq__(self, other):
+        if other is None:
+            return False
         return ((self.status == other.status)
                 and (self.version == other.version)
                 and (self.reason == other.reason)
@@ -499,7 +506,6 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.tester = None
         if addr is None:
             addr = tf_cfg.cfg.get(host, 'ip')
-        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.' % (addr, port))
         self.addr = addr
         self.port = port
         self.stop_procedures = [self.__stop_client]
