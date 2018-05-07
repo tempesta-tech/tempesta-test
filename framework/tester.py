@@ -12,7 +12,13 @@ __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class TempestaTest(unittest.TestCase):
-    """ Test for tempesta """
+    """ Basic tempesta test class.
+    Tempesta tests should have:
+    1) backends: [...]
+    2) clients: [...]
+    3) several test functions.
+    function name should start with 'test'
+    """
 
     backends = []
 

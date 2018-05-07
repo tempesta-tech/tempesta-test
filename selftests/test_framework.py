@@ -1,6 +1,6 @@
 import time
 
-from helpers import chains, tf_cfg, deproxy
+from helpers import tf_cfg, deproxy
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'

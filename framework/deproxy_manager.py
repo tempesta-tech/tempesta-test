@@ -28,6 +28,9 @@ def run_deproxy_server(deproxy, exit_event, polling_lock):
     tf_cfg.dbg(3, "Stopped deproxy manager")
 
 class DeproxyManager(stateful.Stateful):
+    """ Class for running and managing
+    deproxy servers and clients. polling cycle is also here.
+    Tests don't need to manually use this class."""
 
     def __init__(self):
         self.servers = []
