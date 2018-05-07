@@ -1,5 +1,6 @@
 import os
 import re
+import time
 
 from helpers import tf_cfg, remote, tempesta, stateful
 from templates import fill_template
@@ -62,6 +63,20 @@ class Nginx(stateful.Stateful):
             self.active_conns = int(m.group(1)) - 1
             # Get rid of stats requests influence to statistics.
             self.requests = int(m.group(2)) - self.stats_ask_times
+
+    def wait_for_connections(self, timeout=1):
+        if self.state != stateful.STATE_STARTED:
+            return False
+
+        t0 = time.time()
+        t = time.time()
+        while t - t0 <= timeout:
+            self.get_stats()
+            if self.active_conns >= self.conns_n:
+                return True
+            time.sleep(0.001) # to prevent redundant CPU usage
+            t = time.time()
+        return False
 
     def run_start(self):
         tf_cfg.dbg(3, '\tStarting Nginx on %s' % self.get_name())

@@ -106,7 +106,7 @@ server ${server_ip}:8000;
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
-        time.sleep(1)
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
         wrk1 = self.get_client('wrk_1')
         wrk1.start()
         while wrk1.is_busy():
@@ -117,7 +117,7 @@ server ${server_ip}:8000;
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
-        time.sleep(1)
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
         wrk1 = self.get_client('wrk_1')
         wrk2 = self.get_client('wrk_2')
         wrk1.start()
@@ -150,11 +150,11 @@ server ${server_ip}:8000;
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
-        time.sleep(1)
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
         deproxy = self.get_client('deproxy')
         deproxy.start()
         deproxy.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
-        time.sleep(1)
+        deproxy.wait_for_response(timeout=5)
         tf_cfg.dbg(3, "nginx response:\n%s" % str(deproxy.last_response))
 
     def test_deproxy_client_direct(self):
@@ -164,6 +164,7 @@ server ${server_ip}:8000;
         deproxy = self.get_client('deproxy_direct')
         deproxy.start()
         deproxy.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        deproxy.wait_for_response(timeout=5)
         tf_cfg.dbg(3, "nginx response:\n%s" % str(deproxy.last_response))
 
     def test_deproxy_srvclient(self):
