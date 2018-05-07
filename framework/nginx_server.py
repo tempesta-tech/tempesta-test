@@ -10,7 +10,8 @@ __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class Nginx(stateful.Stateful):
-    """ Nginx class """
+    """ The set of wrappers to manage Nginx, such as to start,
+    stop, get statistics etc., from other Python classes."""
 
     class Config(object):
 

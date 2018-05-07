@@ -13,7 +13,8 @@ __license__ = 'GPL2'
 
 
 class Wrk(client.Client):
-    """ Wrk client """
+    """ The set of wrappers to manage Wrk, such as to start,
+    stop, get statistics etc., from other Python classes."""
 
     FAIL_ON_SOCK_ERR=False
 

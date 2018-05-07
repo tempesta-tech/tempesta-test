@@ -124,19 +124,19 @@ class TempestaTest(unittest.TestCase):
         for id in self.__servers:
             srv = self.__servers[id]
             srv.start()
-            if srv.state != stateful.STATE_STARTED:
+            if not srv.is_running():
                 raise Exception("Can not start server %s" % id)
 
     def start_tempesta(self):
         self.__tempesta.start()
-        if self.__tempesta.state != stateful.STATE_STARTED:
+        if not self.__tempesta.is_running():
             raise Exception("Can not start Tempesta")
 
     def start_all_clients(self):
         for id in self.__clients:
             client = self.__clients[id]
             client.start()
-            if client.state != stateful.STATE_STARTED:
+            if not client.is_running():
                 raise Exception("Can not start client %s" % id)
 
     def setUp(self):
@@ -161,3 +161,11 @@ class TempestaTest(unittest.TestCase):
             deproxy_manager.finish_all_deproxy()
         except:
             print ('Unknown exception in stopping deproxy')
+
+    def wait_while_busy(self, *items):
+        if items is None:
+            return
+
+        for item in items:
+            if item.is_running():
+                item.wait_for_finish()

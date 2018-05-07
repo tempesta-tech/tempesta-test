@@ -109,8 +109,7 @@ server ${server_ip}:8000;
         self.assertTrue(nginx.wait_for_connections(timeout=1))
         wrk1 = self.get_client('wrk_1')
         wrk1.start()
-        while wrk1.is_busy():
-            time.sleep(1)
+        self.wait_while_busy(wrk1)
 
     def test2(self):
         """ Simple test 2 """
@@ -122,8 +121,7 @@ server ${server_ip}:8000;
         wrk2 = self.get_client('wrk_2')
         wrk1.start()
         wrk2.start()
-        while wrk1.is_busy() or wrk2.is_busy():
-            time.sleep(1)
+        self.wait_while_busy(wrk1, wrk2)
 
     def test_deproxy_srv(self):
         """ Simple test with deproxy server """
@@ -133,8 +131,7 @@ server ${server_ip}:8000;
         self.assertTrue(deproxy.wait_for_connections(timeout=1))
         wrk1 = self.get_client('wrk_1')
         wrk1.start()
-        while wrk1.is_busy():
-            time.sleep(1)
+        self.wait_while_busy(wrk1)
 
     def test_deproxy_srv_direct(self):
         """ Simple test with deproxy server """
@@ -142,8 +139,7 @@ server ${server_ip}:8000;
         deproxy.start()
         wrk0 = self.get_client('wrk_0')
         wrk0.start()
-        while wrk0.is_busy():
-            time.sleep(1)
+        self.wait_while_busy(wrk0)
 
     def test_deproxy_client(self):
         """ Simple test with deproxy client """

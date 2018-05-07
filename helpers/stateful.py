@@ -1,11 +1,18 @@
 from . import tf_cfg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 STATE_BEGIN_START = "begin_start"
 STATE_STARTED = "started"
 STATE_STOPPED = "stopped"
 STATE_ERROR = "error"
 
 class Stateful(object):
+    """ Class for stateful items, who have states
+    stopped -> started -> stopped """
+
     state = STATE_STOPPED
     stop_procedures = []
 
@@ -50,3 +57,6 @@ class Stateful(object):
                 tf_cfg.dbg(3, "%s not started" % obj)
             return
         self.force_stop()
+
+    def is_running(self):
+        return (self.state == STATE_STARTED)

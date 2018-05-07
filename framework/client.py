@@ -150,3 +150,6 @@ class Client(stateful.Stateful):
 
     def set_user_agent(self, ua):
         self.options.append('-H \'User-Agent: %s\'' % ua)
+
+    def wait_for_finish(self):
+        self.proc.join()

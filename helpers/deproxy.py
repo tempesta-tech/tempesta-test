@@ -285,9 +285,12 @@ class HttpMessage(object):
         size = int(self.headers['Content-Length'])
 
         self.body = stream.read(size)
-        if len(self.body) != size:
+        if len(self.body) > size:
             raise ParseError(("Wrong body size: expect %d but got %d!"
                               % (size, len(self.body))))
+        elif len(self.body) < size:
+            tf_cfg.dbg(5, "Incomplite message recieved")
+            raise IncompliteMessage()
 
     def parse_trailer(self, stream):
         self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
