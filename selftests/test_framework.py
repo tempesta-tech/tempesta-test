@@ -14,7 +14,12 @@ class ExampleTest(tester.TempestaTest):
             'type' : 'deproxy',
             'port' : '8000',
             'response' : 'static',
-            'response_content' : """HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"""
+            'response_content' :
+"""HTTP/1.1 200 OK
+Content-Length: 0
+Connection: close
+
+"""
         },
         {
             'id' : 'nginx',
