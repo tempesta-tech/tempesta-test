@@ -15,8 +15,8 @@ class StressTls(stress.StressTest):
     """Load Tempesta with multiple TLS connections.
     """
 
-    defconfig = ("ssl_certificate %s/tfw-root.crt;\n"
-                 "ssl_certificate_key %s/tfw-root.key;\n"
+    defconfig = ("tls_certificate %s/tfw-root.crt;\n"
+                 "tls_certificate_key %s/tfw-root.key;\n"
                  "listen 443 proto=https;\n\n")
 
     def create_clients(self):
