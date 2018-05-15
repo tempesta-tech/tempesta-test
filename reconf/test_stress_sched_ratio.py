@@ -60,8 +60,8 @@ class SchedRatioStaticCustomSg(SchedRatioStaticImplDefaultSg):
 
     sg_name = 'custom'
     defconfig = (
-        'sched_http_rules {\n'
-        '  match custom * * *;\n'
+        'http_chain {\n'
+        '  -> custom;\n'
         '}\n'
         '\n')
 

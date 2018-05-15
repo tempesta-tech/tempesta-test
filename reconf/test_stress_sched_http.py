@@ -17,8 +17,8 @@ class SchedHttp(reconf_stress.LiveReconfStress):
 
     def configure_http_sched(self, active_group):
         defconfig = (
-        'sched_http_rules {\n'
-        '  match %s * * *;\n'
+        'http_chain {\n'
+        '  -> %s;\n'
         '}\n'
         '\n' % active_group)
         config = self.make_config(self.orig_sg, self.const_srvs, defconfig)
