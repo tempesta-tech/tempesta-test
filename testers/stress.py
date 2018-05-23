@@ -13,6 +13,7 @@ class StressTest(unittest.TestCase):
 
     pipelined_req = 1
     tfw_msg_errors = False
+    errors_500 = 0
     errors_502 = 0
     errors_504 = 0
     errors_connect = 0
@@ -112,6 +113,7 @@ class StressTest(unittest.TestCase):
     def assert_client(self, req, err, statuses):
         msg = 'HTTP client detected %i/%i errors. Results: %s' % \
                 (err, req, str(statuses))
+        e_500 = 0
         e_502 = 0
         e_504 = 0
         e_connect = 0
@@ -128,6 +130,8 @@ class StressTest(unittest.TestCase):
             e_write = statuses["write_error"]
         if "timeout_error" in statuses.keys():
             e_timeout = statuses["timeout_error"]
+        if 500 in statuses.keys():
+            e_500 = statuses[500]
         if 502 in statuses.keys():
             e_502 = statuses[502]
         if 504 in statuses.keys():
@@ -137,15 +141,17 @@ class StressTest(unittest.TestCase):
         self.errors_read += e_read
         self.errors_write += e_write
         self.errors_timeout += e_timeout
+        self.errors_500 += e_500
         self.errors_502 += e_502
         self.errors_504 += e_504
+        tf_cfg.dbg(2, "errors 500: %i" % e_500)
         tf_cfg.dbg(2, "errors 502: %i" % e_502)
         tf_cfg.dbg(2, "errors 504: %i" % e_504)
         tf_cfg.dbg(2, "errors connect: %i" % e_connect)
         tf_cfg.dbg(2, "errors read: %i" % e_read)
         tf_cfg.dbg(2, "errors write: %i" % e_write)
         tf_cfg.dbg(2, "errors timeout: %i" % e_timeout)
-        self.assertEqual(err, e_502 + e_504 + e_connect, msg=msg)
+        self.assertEqual(err, e_500 + e_502 + e_504 + e_connect, msg=msg)
 
     def assert_clients(self):
         """ Check benchmark result: no errors happen, no packet loss. """
