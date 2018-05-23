@@ -249,7 +249,7 @@ class ResponseSmallBodyLength(ResponseCorrectEmptyBodyLength):
                          msg=(msg % 'responses'))
         self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
                          msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 1,
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 2,
                          msg=(msg % 'responses'))
 
 class ResponseForbiddenZeroBodyLength(ResponseCorrectEmptyBodyLength):
