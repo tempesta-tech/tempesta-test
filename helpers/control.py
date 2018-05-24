@@ -359,6 +359,10 @@ class TempestaFI(Tempesta):
     def __init__(self, stap_script, mod=False, mod_name='stap_tempesta'):
         Tempesta.__init__(self)
         self.stap = ''.join([stap_script, '.stp'])
+
+        self.stap_local = \
+                os.path.dirname(__file__) + "/../systemtap/" + self.stap
+
         self.module_stap = mod
         self.module_name = mod_name
         if self.module_stap:
@@ -374,11 +378,12 @@ class TempestaFI(Tempesta):
             self.node.run_cmd('mkdir %s' % self.modules_dir)
             cmd = 'find %s/ -name "*.ko" | xargs cp -t %s'
             self.node.run_cmd(cmd % (self.workdir, self.modules_dir))
+            self.node.copy_file_to_node(self.stap_local, '/tmp/')
 
     def inject(self):
-        cmd = 'stap -g -m %s -F %s/tempesta_fw/t/functional/systemtap/%s'
-        self.node.run_cmd(cmd % (self.module_name, self.workdir, self.stap),
-                          timeout=30, err_msg=(self.stap_msg %
+        cmd = 'stap -g -m %s -F /tmp/%s' % (self.module_name, self.stap)
+        tf_cfg.dbg(3, "\tstap cmd: %s" % cmd)
+        self.node.run_cmd(cmd, timeout=30, err_msg=(self.stap_msg %
                                                ('inject', 'into')))
 
     def letout(self):
