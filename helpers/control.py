@@ -338,7 +338,7 @@ class Tempesta(stateful.Stateful):
         """Live reconfiguration"""
         tf_cfg.dbg(3, '\tReconfiguring TempestaFW on %s' % self.host)
         self.node.copy_file(self.config_name, self.config.get_config())
-        cmd = '%s/scripts/tempesta.sh --reload' % self.workdir
+        cmd = '%s/scripts/tempesta.sh --reload' % self.srcdir
         env = { 'TFW_CFG_PATH': self.config_name }
         self.node.run_cmd(cmd, timeout=30, env=env,
                           err_msg=(self.err_msg % 'reload'))
