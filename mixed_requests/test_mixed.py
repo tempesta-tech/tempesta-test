@@ -60,6 +60,10 @@ class HeadGetRequests(mixed_test.MixedRequests):
         port = tempesta.upstream_port_start_from()
         self.servers = [control.Nginx(listen_port=port)]
 
+    @unittest.expectedFailure
+    def test(self):
+        mixed_test.MixedRequests.test(self)
+
 class EmptyPostRequests(mixed_test.MixedRequests):
     """ POST requests """
     script = "post_empty"
