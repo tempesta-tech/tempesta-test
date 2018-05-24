@@ -4,7 +4,7 @@ Test fo http scheduler:
 
 from __future__ import print_function
 import asyncore
-from helpers import tempesta, deproxy, tf_cfg, chains
+from helpers import tempesta, deproxy, tf_cfg, chains, control
 from testers import functional
 
 import unittest
@@ -151,9 +151,15 @@ class HttpRulesBackupServers(HttpRules):
         'cache 0;\n'
         '\n'
         'sched_http_rules {\n'
-        '  match primary * * * backup=backup;\n'
+        '  match primary * * *;\n'
+        '}\n'
+        'vhost primary {\n'
+        '\tproxy_pass primary backup=backup;\n'
         '}\n'
         '\n')
+
+    def create_tempesta(self):
+        self.tempesta = control.Tempesta(vhost_auto=False)
 
     def make_chains(self, empty=True):
         chain = None

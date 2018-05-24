@@ -304,14 +304,14 @@ def clients_parallel_load(client, count=None):
 # Tempesta
 #-------------------------------------------------------------------------------
 class Tempesta(stateful.Stateful):
-    def __init__(self):
+    def __init__(self, vhost_auto=True):
         self.node = remote.tempesta
         self.workdir = self.node.workdir
         self.node.mkdir(self.workdir)
         self.srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
         self.config_name = os.path.join(self.workdir,
                                         tf_cfg.cfg.get('Tempesta', 'config'))
-        self.config = tempesta.Config()
+        self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
         self.host = tf_cfg.cfg.get('Tempesta', 'hostname')
         self.err_msg = ' '.join(["Can't %s TempestaFW on", self.host])
@@ -358,8 +358,8 @@ class Tempesta(stateful.Stateful):
 class TempestaFI(Tempesta):
     """ Tempesta class for testing with fault injection."""
 
-    def __init__(self, stap_script, mod=False, mod_name='stap_tempesta'):
-        Tempesta.__init__(self)
+    def __init__(self, stap_script, mod=False, mod_name='stap_tempesta', vhost_auto=True):
+        Tempesta.__init__(self, vhost_auto=vhost_auto)
         self.stap = ''.join([stap_script, '.stp'])
 
         self.stap_local = \
