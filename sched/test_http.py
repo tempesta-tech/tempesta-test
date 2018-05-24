@@ -150,11 +150,11 @@ class HttpRulesBackupServers(HttpRules):
     config = (
         'cache 0;\n'
         '\n'
-        'sched_http_rules {\n'
-        '  match primary * * *;\n'
-        '}\n'
         'vhost primary {\n'
         '\tproxy_pass primary backup=backup;\n'
+        '}\n'
+        'sched_http_rules {\n'
+        '\tmatch primary * * *;\n'
         '}\n'
         '\n')
 
@@ -182,8 +182,6 @@ class HttpRulesBackupServers(HttpRules):
         self.servers.append(self.main_server)
         self.servers.append(self.backup_server)
 
-    # tempesta#1025
-    @unittest.expectedFailure
     def test_scheduler(self):
         self.init()
         # Main server is online, backup server must not recieve traffic.
