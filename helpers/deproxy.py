@@ -707,7 +707,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
             raise v
         else:
             raise  Exception('\tDeproxy: Server %s:%d: %s' % \
-             (self.ip, self.port, type(v)))
+             (self.ip, self.port, str(v)))
 
     def handle_close(self):
         self.close()
