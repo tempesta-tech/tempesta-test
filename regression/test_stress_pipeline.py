@@ -60,6 +60,8 @@ class PipelineFaultInjection(stress.StressTest):
         self.assertTrue(self.tempesta.stats.cl_msg_other_errors > 0,
                         msg=err_msg)
 
+    # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=892995;msg=5
+    @unittest.expectedFailure
     def test_502_resp_fault(self):
         """Low keep_alive value, make the server to close connection after
         the limit is exhausted; thus Tempesta must generate 502 response.
