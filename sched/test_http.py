@@ -7,6 +7,8 @@ import asyncore
 from helpers import tempesta, deproxy, tf_cfg, chains
 from testers import functional
 
+import unittest
+
 class HttpRules(functional.FunctionalTest):
     """All requests must be forwarded to the right server groups according to
     sched_http_rules.
@@ -174,6 +176,8 @@ class HttpRulesBackupServers(HttpRules):
         self.servers.append(self.main_server)
         self.servers.append(self.backup_server)
 
+    # tempesta#1025
+    @unittest.expectedFailure
     def test_scheduler(self):
         self.init()
         # Main server is online, backup server must not recieve traffic.
