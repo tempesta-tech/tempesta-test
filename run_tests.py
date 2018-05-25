@@ -185,9 +185,16 @@ if clean_old:
 #
 
 # process filter arguments
+use_tests = []
 inclusions = []
 exclusions = []
+
+# remove empty arguments
 for name in remainder:
+    if len(name) > 0:
+        use_tests.append(name)
+
+for name in use_tests:
     # determine if this is an inclusion or exclusion
     if name.startswith('-'):
         name = name[1:]
