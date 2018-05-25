@@ -13,6 +13,8 @@ from time import sleep
 from testers import stress
 from helpers import tf_cfg, control, tempesta, remote
 
+from framework import tester
+
 def drop_caches():
     """ Drop caches """
     remote.tempesta.run_cmd("echo 3 > /proc/sys/vm/drop_caches")
@@ -71,68 +73,133 @@ def used_memory():
         return -1
     return totalmem - freemem
 
-class LeakTest(stress.StressTest):
+class LeakTest(tester.TempestaTest):
     """ Leaks testing """
-    config = 'cache 0;\n'
-    backend_connections = 10
     memory_leak_thresold = 32*1024 # in kib
 
-    def assert_tempesta(self):
-        """ We don't check that traffic is parsed correctly. Only detect leaks. """
+    backends = [
+        {
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : """
+pid ${backend_pid};
+worker_processes  auto;
 
-    def assert_clients(self):
-        """ Check only traffic size. We don't need to check responses. """
-        cl_req_cnt = 0
-        cl_conn_cnt = 0
-        for client in self.clients:
-            req, err, _, _ = client.results()
-            cl_req_cnt += req
-            cl_conn_cnt += client.connections * self.pipelined_req
-        exp_min = cl_req_cnt
-        exp_max = cl_req_cnt + cl_conn_cnt
-        self.assertTrue(
-            self.tempesta.stats.cl_msg_received >= exp_min and
-            self.tempesta.stats.cl_msg_received <= exp_max,
-            "Wrong cl_msg_received"
-        )
+events {
+    worker_connections   1024;
+    use epoll;
+}
 
-    def create_servers(self):
-        """ Overrirde to create needed amount of upstream servers. """
-        port = tempesta.upstream_port_start_from()
-        self.servers = [control.Nginx(listen_port=port)]
-        for server in self.servers:
-            server.config.set_ka(self.backend_connections)
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests 10;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8000;
+
+        location / {
+            root ${server_resources};
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+""",
+        }
+    ]
+
+    clients = [
+        {
+            'id' : 'wrk',
+            'type' : 'wrk',
+            'addr' : "${tempesta_ip}:80",
+        },
+    ]
+
+    tempesta = {
+        'config' : """
+cache 0;
+listen 80;
+
+srv_group default {
+    server ${server_ip}:8000;
+}
+
+vhost default {
+    proxy_pass default;
+}
+""",
+    }
+
+    def run_routine(self, backend, client):
+        tempesta = self.get_tempesta()
+        backend.start()
+        tempesta.start()
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        tempesta.stop()
+        backend.stop()
 
     def test_kmemleak(self):
         """ Detecting leaks with kmemleak """
         if not has_kmemleak():
             return unittest.TestCase.skipTest(self, "No kmemleak")
 
+        nginx = self.get_server('nginx')
+        wrk = self.get_client('wrk')
+
         kml1 = read_kmemleaks()
-        self.generic_test_routine(self.config)
+        self.run_routine(nginx, wrk)
         kml2 = read_kmemleaks()
-        self.assertTrue(kml1 == kml2)
+
+        self.assertEqual(kml1, kml2)
 
     def test_slab_memory(self):
         """ Detecting leaks with slab memory measure """
         if not has_meminfo():
             return unittest.TestCase.skipTest(self, "No meminfo")
 
+        nginx = self.get_server('nginx')
+        wrk = self.get_client('wrk')
+
         used1 = slab_memory()
-        self.generic_test_routine(self.config)
-        self.tearDown()
+        self.run_routine(nginx, wrk)
         used2 = slab_memory()
-        tf_cfg.dbg(2, "used %i kib of slab memory=%s kib - %s kib" % (used2 - used1, used2, used1))
-        self.assertTrue(used2 - used1 < self.memory_leak_thresold)
+
+        tf_cfg.dbg(2, "used %i kib of slab memory=%s kib - %s kib" % \
+                    (used2 - used1, used2, used1))
+        self.assertLess(used2 - used1, self.memory_leak_thresold)
 
     def test_used_memory(self):
         """ Detecting leaks with total used memory measure """
         if not has_meminfo():
             return unittest.TestCase.skipTest(self, "No meminfo")
 
+        nginx = self.get_server('nginx')
+        wrk = self.get_client('wrk')
+
         used1 = used_memory()
-        self.generic_test_routine(self.config)
-        self.tearDown()
+        self.run_routine(nginx, wrk)
         used2 = used_memory()
-        tf_cfg.dbg(2, "used %i kib of memory = %s kib - %s kib" % (used2 - used1, used2, used1))
-        self.assertTrue(used2 - used1 < self.memory_leak_thresold)
+
+        tf_cfg.dbg(2, "used %i kib of memory = %s kib - %s kib" % \
+                    (used2 - used1, used2, used1))
+        self.assertLess(used2 - used1, self.memory_leak_thresold)
