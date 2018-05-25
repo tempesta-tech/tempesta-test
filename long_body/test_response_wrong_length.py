@@ -252,6 +252,11 @@ class ResponseSmallBodyLength(ResponseCorrectEmptyBodyLength):
         self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 1,
                          msg=(msg % 'responses'))
 
+    # To be fixed in tempesta#1012
+    @unittest.expectedFailure
+    def test(self):
+        ResponseCorrectEmptyBodyLength.test(self)
+
 class ResponseForbiddenZeroBodyLength(ResponseCorrectEmptyBodyLength):
     """ Forbidden body length """
 

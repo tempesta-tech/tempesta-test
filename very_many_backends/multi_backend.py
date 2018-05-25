@@ -34,7 +34,12 @@ def create_interface(iface_id, base_iface_name, base_ip):
 
     command = "LANG=C ip address add %s/24 dev %s label %s" % \
         (iface_ip, base_iface_name, iface)
-    remote.server.run_cmd(command)
+    try:
+        tf_cfg.dbg(3, "Adding ip %s" % iface_ip)
+        remote.server.run_cmd(command)
+    except:
+        tf_cfg.dbg(3, "Interface alias already added")
+
     return (iface, iface_ip)
 
 def remove_interface(interface_name, iface_ip):

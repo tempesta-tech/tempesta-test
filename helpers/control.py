@@ -304,12 +304,13 @@ def clients_parallel_load(client, count=None):
 # Tempesta
 #-------------------------------------------------------------------------------
 class Tempesta(stateful.Stateful):
-    def __init__(self):
+    def __init__(self, vhost_auto=True):
         self.node = remote.tempesta
         self.workdir = self.node.workdir
+        self.srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
         self.config_name = os.path.join(self.workdir,
                                         tf_cfg.cfg.get('Tempesta', 'config'))
-        self.config = tempesta.Config()
+        self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
         self.host = tf_cfg.cfg.get('Tempesta', 'hostname')
         self.err_msg = ' '.join(["Can't %s TempestaFW on", self.host])
@@ -319,14 +320,14 @@ class Tempesta(stateful.Stateful):
         tf_cfg.dbg(3, '\tStarting TempestaFW on %s' % self.host)
         self.stats.clear()
         self.node.copy_file(self.config_name, self.config.get_config())
-        cmd = '%s/scripts/tempesta.sh --start' % self.workdir
+        cmd = '%s/scripts/tempesta.sh --start' % self.srcdir
         env = { 'TFW_CFG_PATH': self.config_name }
         self.node.run_cmd(cmd, timeout=30, env=env,
                           err_msg=(self.err_msg % 'start'))
 
     def stop_tempesta(self):
         tf_cfg.dbg(3, '\tStoping TempestaFW on %s' % self.host)
-        cmd = '%s/scripts/tempesta.sh --stop' % self.workdir
+        cmd = '%s/scripts/tempesta.sh --stop' % self.srcdir
         self.node.run_cmd(cmd, timeout=30, err_msg=(self.err_msg % 'stop'))
 
     def remove_config(self):
@@ -336,7 +337,7 @@ class Tempesta(stateful.Stateful):
         """Live reconfiguration"""
         tf_cfg.dbg(3, '\tReconfiguring TempestaFW on %s' % self.host)
         self.node.copy_file(self.config_name, self.config.get_config())
-        cmd = '%s/scripts/tempesta.sh --reload' % self.workdir
+        cmd = '%s/scripts/tempesta.sh --reload' % self.srcdir
         env = { 'TFW_CFG_PATH': self.config_name }
         self.node.run_cmd(cmd, timeout=30, env=env,
                           err_msg=(self.err_msg % 'reload'))
@@ -356,9 +357,13 @@ class Tempesta(stateful.Stateful):
 class TempestaFI(Tempesta):
     """ Tempesta class for testing with fault injection."""
 
-    def __init__(self, stap_script, mod=False, mod_name='stap_tempesta'):
-        Tempesta.__init__(self)
+    def __init__(self, stap_script, mod=False, mod_name='stap_tempesta', vhost_auto=True):
+        Tempesta.__init__(self, vhost_auto=vhost_auto)
         self.stap = ''.join([stap_script, '.stp'])
+
+        self.stap_local = \
+                os.path.dirname(__file__) + "/../systemtap/" + self.stap
+
         self.module_stap = mod
         self.module_name = mod_name
         if self.module_stap:
@@ -373,12 +378,15 @@ class TempestaFI(Tempesta):
         if self.module_stap:
             self.node.run_cmd('mkdir %s' % self.modules_dir)
             cmd = 'find %s/ -name "*.ko" | xargs cp -t %s'
-            self.node.run_cmd(cmd % (self.workdir, self.modules_dir))
+            self.node.run_cmd(cmd % (self.srcdir, self.modules_dir))
+            self.node.copy_file_to_node(self.stap_local, self.workdir)
 
     def inject(self):
-        cmd = 'stap -g -m %s -F %s/tempesta_fw/t/functional/systemtap/%s'
-        self.node.run_cmd(cmd % (self.module_name, self.workdir, self.stap),
-                          timeout=30, err_msg=(self.stap_msg %
+        cmd = 'stap -g -m %s -F %s/%s' % \
+                        (self.module_name, self.workdir, self.stap)
+
+        tf_cfg.dbg(3, "\tstap cmd: %s" % cmd)
+        self.node.run_cmd(cmd, timeout=30, err_msg=(self.stap_msg %
                                                ('inject', 'into')))
 
     def letout(self):

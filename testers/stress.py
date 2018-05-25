@@ -210,11 +210,11 @@ class StressTest(unittest.TestCase):
         total = self.errors_502 + self.errors_504 + \
                 self.errors_connect + self.errors_timeout
         err_msg = msg % (cl_other_err, 'requests')
-        self.assertTrue(cl_other_err <= total, msg=err_msg)
+        self.assertLessEqual(cl_other_err, total, msg=err_msg)
         # See comment on "positive allowance" in `assert_clients()`
         expected_err = cl_conn_cnt
         err_msg = msg % (srv_other_err, 'responses')
-        self.assertTrue(srv_other_err <= expected_err, msg=err_msg)
+        self.assertLessEqual(srv_other_err, expected_err, msg=err_msg)
 
     def assert_servers(self):
         # Nothing to do for nginx in default configuration.

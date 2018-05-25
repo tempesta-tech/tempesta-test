@@ -33,7 +33,8 @@ def version():
     global tfw_version
     if tfw_version:
         return tfw_version
-    hdr_filename = remote.tempesta.workdir+"/tempesta_fw/tempesta_fw.h"
+    srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
+    hdr_filename = srcdir + "/tempesta_fw/tempesta_fw.h"
     parse_cmd = r"grep TFW_VERSION | awk -F '[\" ]' '{printf $3}'"
     cmd = "cat %s | %s" % (hdr_filename, parse_cmd)
     version, _ = remote.tempesta.run_cmd(cmd=cmd)

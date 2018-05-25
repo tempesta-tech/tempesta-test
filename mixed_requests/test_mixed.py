@@ -60,6 +60,11 @@ class HeadGetRequests(mixed_test.MixedRequests):
         port = tempesta.upstream_port_start_from()
         self.servers = [control.Nginx(listen_port=port)]
 
+    # wrk problem - wrk don't handle correctly HEAD requests
+    @unittest.expectedFailure
+    def test(self):
+        mixed_test.MixedRequests.test(self)
+
 class EmptyPostRequests(mixed_test.MixedRequests):
     """ POST requests """
     script = "post_empty"

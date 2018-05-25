@@ -50,6 +50,7 @@ class RatioFailovering(stress.StressTest):
         """
         self.run_test(100)
 
+    @unittest.expectedFailure
     def test_unlimited_ka(self):
         """Almost unlimited maximum amount of requests during one connection.
         No connections failovering in this case.

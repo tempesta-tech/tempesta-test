@@ -99,16 +99,22 @@ hostname = localhost
 
 # Absolute path to the TempestaFW source tree.
 #
-# ex.: workdir = /home/user/tempesta (default /root/tempesta)
+# ex.: srcdir = /home/user/tempesta (default /root/tempesta)
 #
-workdir = /root/tempesta
+srcdir = /root/tempesta
 
-# Absolute or workdir-relative path to the temporary TempestaFW config
+# Absolute path to directory with tempesta config etc
+#
+# ex.: workdir = /tmp/tempesta (default /tmp/tempesta)
+#
+workdir = /tmp/tempesta
+
+# Workdir-relative path to the temporary TempestaFW config
 # (created during testing).
 #
-# ex.: config = etc/tempesta_test.conf (default /tmp/tempesta.conf)
+# ex.: config = etc/tempesta_test.conf (default tempesta.conf)
 #
-config = /tmp/tempesta.conf
+config = tempesta.conf
 
 
 [Server]

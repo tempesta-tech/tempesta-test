@@ -72,7 +72,14 @@ http {
         'config' : """
 cache 0;
 listen 80;
-server ${server_ip}:8000;
+
+srv_group default {
+    server ${server_ip}:8000;
+}
+
+vhost default {
+    proxy_pass default;
+}
 """,
     }
 

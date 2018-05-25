@@ -62,7 +62,7 @@ class FairLoadEqualConns(RatioStressTest):
         s_reqs_expected = cl_reqs / len(self.servers)
         s_reqs = 0
         for s in self.servers:
-            self.assertTrue(math.fabs(s.requests - s_reqs_expected) <
+            self.assertLess(math.fabs(s.requests - s_reqs_expected),
                             (self.precision * s_reqs_expected))
             s_reqs += s.requests
         self.assertEqual(s_reqs, self.tempesta.stats.cl_msg_forwarded)
