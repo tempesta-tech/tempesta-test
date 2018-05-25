@@ -307,7 +307,6 @@ class Tempesta(stateful.Stateful):
     def __init__(self, vhost_auto=True):
         self.node = remote.tempesta
         self.workdir = self.node.workdir
-        self.node.mkdir(self.workdir)
         self.srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
         self.config_name = os.path.join(self.workdir,
                                         tf_cfg.cfg.get('Tempesta', 'config'))

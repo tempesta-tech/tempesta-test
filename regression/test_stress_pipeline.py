@@ -61,6 +61,7 @@ class PipelineFaultInjection(stress.StressTest):
                         msg=err_msg)
 
     # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=892995;msg=5
+    # systemtap runtime compilation problem in debian
     @unittest.expectedFailure
     def test_502_resp_fault(self):
         """Low keep_alive value, make the server to close connection after

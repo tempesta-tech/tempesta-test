@@ -250,7 +250,7 @@ def connect():
     global server
     server = create_node('Server')
 
-    for node in [client, server]:
+    for node in [client, server, tempesta]:
         node.mkdir(node.workdir)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

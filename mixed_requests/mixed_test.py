@@ -17,7 +17,7 @@ class MixedRequests(stress.StressTest):
         self.wrk.set_script(self.script)
         self.clients = [self.wrk]
 
-    # temporary until fixed
+    # Temporary workaround until fixed
     def assert_tempesta(self):
         pass
 
