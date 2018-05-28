@@ -182,6 +182,24 @@ class StressTest(unittest.TestCase):
         )
 
     def assert_tempesta(self):
+        """ Don't make asserts by default """
+
+        cl_conn_cnt = 0
+        for c in self.clients:
+            cl_conn_cnt += c.connections
+
+        cl_parsing_err = self.tempesta.stats.cl_msg_parsing_errors
+        srv_parsing_err = self.tempesta.stats.srv_msg_parsing_errors
+        cl_other_err = self.tempesta.stats.cl_msg_other_errors
+        srv_other_err = self.tempesta.stats.srv_msg_other_errors
+
+        tf_cfg.dbg(2, "CL Msg parsing errors: %i" % cl_parsing_err)
+        tf_cfg.dbg(2, "SRV Msg parsing errors: %i" % srv_parsing_err)
+        tf_cfg.dbg(2, "CL Msg other errors: %i" % cl_other_err)
+        tf_cfg.dbg(2, "SRV Msg other errors: %i" % srv_other_err)
+
+
+    def assert_tempesta_strict(self):
         """ Assert that tempesta had no errors during test. """
         msg = 'Tempesta have %i errors in processing HTTP %s.'
         cl_conn_cnt = 0

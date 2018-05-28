@@ -50,6 +50,12 @@ Testsuite execution is automatically resumed if it was interrupted, or it can
 be resumed manually from any given test.
 """)
 
+DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
+disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
+
+disabled_reader = shell.DisabledListLoader(disfile)
+disabled_reader.try_load()
+
 state_reader = shell.TestState()
 state_reader.load()
 test_resume = shell.TestResume(state_reader)
@@ -201,6 +207,11 @@ for name in use_tests:
         exclusions.append(name)
     else:
         inclusions.append(name)
+
+if disabled_reader.disable:
+    for name in disabled_reader.disabled:
+        tf_cfg.dbg(2, "Disabled test %s" % name)
+        exclusions.append(name)
 
 # load resume state file, if needed
 test_resume.set_filters(inclusions, exclusions)
