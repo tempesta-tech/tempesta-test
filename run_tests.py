@@ -7,6 +7,8 @@ import os
 import resource
 import subprocess
 
+import xmlrunner
+
 from helpers import tf_cfg, remote, shell, control, prepare
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -269,10 +271,13 @@ Running functional tests%s...
 #
 
 testsuite = unittest.TestSuite(tests)
-testRunner = unittest.runner.TextTestRunner(verbosity=v_level,
-                                            failfast=fail_fast,
-                                            descriptions=False,
-                                            resultclass=test_resume.resultclass())
+testRunner=xmlrunner.XMLTestRunner(verbosity=v_level,
+                                   failfast=fail_fast,
+                                   descriptions=False)
+#testRunner = unittest.runner.TextTestRunner(verbosity=v_level,
+#                                            failfast=fail_fast,
+#                                            descriptions=False,
+#                                            resultclass=test_resume.resultclass())
 result = testRunner.run(testsuite)
 
 # check if we finished running the tests
