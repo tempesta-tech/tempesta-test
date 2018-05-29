@@ -357,6 +357,7 @@ wrk.uri = "/"
 """
         wrk = self.routine(lua_trace)
         self.assertFalse(wrk.statuses.has_key(200))
+        self.assertTrue(wrk.statuses.has_key(405))
         self.assertGreater(wrk.statuses[405], 0)
 
     def test_connect(self):
