@@ -216,7 +216,7 @@ class MixedRequests(tester.TempestaTest):
         {
             'id' : 'nginx',
             'type' : 'nginx',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'status_uri' : 'http://${server_ip}:8600/nginx_status',
             'config' : """
 pid ${backend_pid};
 worker_processes  auto;
@@ -246,7 +246,7 @@ http {
     access_log off;
 
     server {
-        listen        ${server_ip}:8000;
+        listen        ${server_ip}:8600;
 
         location / {
             return 200;
@@ -274,7 +274,7 @@ cache 0;
 listen 80;
 
 srv_group default {
-    server ${server_ip}:8000;
+    server ${server_ip}:8600;
 }
 
 vhost default {
@@ -284,11 +284,14 @@ vhost default {
     }
 
     def routine(self, lua):
+        nginx = self.get_server('nginx')
         wrk = self.get_client("wrk")
 
         wrk.set_script("wrk", lua)
 
-        self.start_all_servers()
+        nginx.start()
+        nginx.wait_for_connections(timeout=3)
+
         self.start_tempesta()
 
         wrk.start()
