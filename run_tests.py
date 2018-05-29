@@ -271,13 +271,13 @@ Running functional tests%s...
 #
 
 testsuite = unittest.TestSuite(tests)
-testRunner=xmlrunner.XMLTestRunner(verbosity=v_level,
-                                   failfast=fail_fast,
-                                   descriptions=False)
-#testRunner = unittest.runner.TextTestRunner(verbosity=v_level,
-#                                            failfast=fail_fast,
-#                                            descriptions=False,
-#                                            resultclass=test_resume.resultclass())
+#testRunner=xmlrunner.XMLTestRunner(verbosity=v_level,
+#                                   failfast=fail_fast,
+#                                   descriptions=False)
+testRunner = unittest.runner.TextTestRunner(verbosity=v_level,
+                                            failfast=fail_fast,
+                                            descriptions=False,
+                                            resultclass=test_resume.resultclass())
 result = testRunner.run(testsuite)
 
 # check if we finished running the tests

@@ -1,6 +1,11 @@
 {
     "disable" : true,
     "disabled" : [
-        "regression.test_stress_pipeline.PipelineFaultInjection"
+        "regression.test_stress_pipeline.PipelineFaultInjection",
+        "sched.test_ratio.FairLoadRandConns.test_ratio",
+        "sessions.test_sticky_sess_stress.OneClient",
+        "sched.test_hash_stress.BindToServer",
+        "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq"
+
     ]
 }
