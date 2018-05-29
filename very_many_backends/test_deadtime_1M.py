@@ -226,12 +226,12 @@ class DontModifyBackend(stress.StressTest):
 
     def pre_test(self):
         if remote.server != remote.tempesta:
-            remote.server.run_cmd("sysctl -w net.core.somaxconn=8192")
+            remote.server.run_cmd("sysctl -w net.core.somaxconn=131072")
             remote.server.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
         # tempesta somaxconn sysctl setups from tempesta.sh
         remote.tempesta.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
         if remote.client != remote.tempesta:
-            remote.client.run_cmd("sysctl -w net.core.somaxconn=8192")
+            remote.client.run_cmd("sysctl -w net.core.somaxconn=131072")
             remote.client.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
 
         for server in self.servers:
