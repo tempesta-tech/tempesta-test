@@ -82,11 +82,20 @@ class TempestaTest(unittest.TestCase):
 
     def __create_backend(self, server):
         srv = None
+        checks = []
         sid = server['id']
+        if server.has_key('check_ports'):
+            for check in server['check_ports']:
+                ip = fill_template(check['ip'])
+                port = fill_template(check['port'])
+                checks.append((ip, port))
+        
         if server['type'] == 'nginx':
             srv = self.__create_srv_nginx(server, sid)
         elif server['type'] == 'deproxy':
             srv = self.__create_srv_deproxy(server)
+        
+        srv.port_checks = checks
         self.__servers[sid] = srv
 
     def __create_servers(self):

@@ -216,7 +216,13 @@ class MixedRequests(tester.TempestaTest):
         {
             'id' : 'nginx',
             'type' : 'nginx',
-            'status_uri' : 'http://${server_ip}:8600/nginx_status',
+            'check_ports' : [
+                {
+                    "ip" : "${server_ip}",
+                    "port" : "8000",
+                }
+            ],
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
             'config' : """
 pid ${backend_pid};
 worker_processes  auto;
@@ -246,7 +252,7 @@ http {
     access_log off;
 
     server {
-        listen        ${server_ip}:8600;
+        listen        ${server_ip}:8000;
 
         location / {
             return 200;

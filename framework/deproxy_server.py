@@ -5,7 +5,9 @@ import threading
 import socket
 import time
 
-from helpers import deproxy, tf_cfg, error, stateful
+from helpers import deproxy, tf_cfg, error, stateful, remote
+
+import port_checks
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -67,13 +69,14 @@ class ServerConnection(asyncore.dispatcher_with_send):
             return
         self.send_response(response)
 
-class BaseDeproxyServer(deproxy.Server):
+class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
     def __init__(self, *args, **kwargs):
         deproxy.Server.__init__(self, *args, **kwargs)
         self.stop_procedures = [self.__stop_server]
         self.is_polling = threading.Event()
         self.sockets_changing = threading.Event()
+        self.node = remote.host
 
     def handle_accept(self):
         pair = self.accept()
@@ -89,7 +92,7 @@ class BaseDeproxyServer(deproxy.Server):
     def run_start(self):
         tf_cfg.dbg(3, '\tDeproxy: Server: Start on %s:%d.' % \
                    (self.ip, self.port))
-
+        self.check_ports_status()
         self.polling_lock.acquire()
 
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
