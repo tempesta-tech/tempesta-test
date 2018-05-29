@@ -1,6 +1,6 @@
 {
     "disable" : true,
     "disabled" : [
-        
+        "regression.test_stress_pipeline.PipelineFaultInjection"
     ]
 }

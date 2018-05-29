@@ -5,7 +5,6 @@ from framework import tester
 
 import os
 import unittest
-import mixed_test
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
@@ -312,8 +311,6 @@ vhost default {
     def test_get_post(self):
         self.routine(lua_get_post)
 
-    # wrk problem - wrk don't handle correctly HEAD requests
-    @unittest.expectedFailure
     def test_head_get(self):
         self.routine(lua_head_get)
 
