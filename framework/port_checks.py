@@ -15,6 +15,17 @@ class FreePortsChecker(object):
         cmd = "netstat --inet -apn"
         netstat, _ = self.node.run_cmd(cmd)
 
+        listen = []
+
+        for line in netstat.splitlines():
+            portline = line.split()
+            if portline[0] != 'tcp':
+                continue
+            if portline[5] != 'LISTEN':
+                continue
+            tf_cfg.dbg(3, "\tListen %s" % str(portline))
+            listen.append(portline)
+
         for addrport in self.port_checks:
             ip = addrport[0]
             port = addrport[1]
@@ -23,14 +34,7 @@ class FreePortsChecker(object):
             match_common = "0.0.0.0:%s" % port
 
             tf_cfg.dbg(3, "\tChecking %s:%s" % (ip, port))
-
-            for line in netstat.splitlines():
-                portline = line.split()
-                if portline[0] != 'tcp':
-                    continue
-                if portline[5] != 'LISTEN':
-                    continue
-                tf_cfg.dbg(3, "Listen %s" % str(portline))
+            for portline in listen:
                 if portline[3] == match_common or portline[3] == match_exact:
                     tf_cfg.dbg(2, "Error: port aleady used %s" % str(portline))
                     msg = "Trying to use already used port: %s" % portline
