@@ -41,6 +41,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -l, --log <file>                  - Duplcate tests' stderr to this file
 -L, --list                        - List all discovered tests subject to filters
 -C, --clean                       - Stop old instances of Tempesta and Nginx
+-D, --debug-files                 - Don't remove generated config files
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -67,11 +68,11 @@ list_tests = False
 clean_old = False
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LC',
+    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LCD',
                                        ['help', 'verbose', 'defaults',
                                         'duration=', 'failfast', 'resume=',
                                         'resume-after=', 'no-resume', 'log=',
-                                        'list', 'clean'])
+                                        'list', 'clean', 'debug-files'])
 
 except getopt.GetoptError as e:
     print(e)
@@ -106,6 +107,8 @@ for opt, arg in options:
         list_tests = True
     elif opt in ('-C', '--clean'):
         clean_old = True
+    elif opt in ('-D', '--debug-files'):
+        remote.DEBUG_FILES = True
 
 tf_cfg.cfg.check()
 

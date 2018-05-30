@@ -355,7 +355,20 @@ wrk.body    = body
 wrk.method = "TRACE"
 wrk.uri = "/"
 """
-        wrk = self.routine(lua_trace)
+        nginx = self.get_server('nginx')
+        wrk = self.get_client("wrk")
+
+        wrk.set_script("wrk", lua_trace)
+
+        nginx.start()
+        nginx.wait_for_connections(timeout=3)
+
+        self.start_tempesta()
+
+        wrk.start()
+        self.wait_while_busy(wrk)
+        wrk.stop()
+
         self.assertFalse(wrk.statuses.has_key(200))
         self.assertTrue(wrk.statuses.has_key(405))
         self.assertGreater(wrk.statuses[405], 0)

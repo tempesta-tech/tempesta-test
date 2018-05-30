@@ -13,6 +13,9 @@
         "very_many_backends.test_stress_1M.ManyBackends1InGroup",
         "very_many_backends.test_stress_1M.ManyBackends32InGroup",
         "long_body.test_long_response.ResponseTest1M",
-        "long_body.test_long_response.ResponseTest1k"
+        "long_body.test_long_response.ResponseTest1k",
+        "mixed_requests.test_mixed.MixedRequests.test_trace",
+        "long_body.test_response_wrong_length.ResponseSmallBodyLength",
+        "cache.test_purge.TestPurge.test_purge"
     ]
 }
