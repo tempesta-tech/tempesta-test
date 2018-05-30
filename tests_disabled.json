@@ -9,6 +9,10 @@
         "regression.test_srv_failovering.FailoveringTest.test_on_close",
         "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
         "regression.test_shutdown.ShutdownTest.test_shutdown",
-        "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic"
+        "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic",
+        "very_many_backends.test_stress_1M.ManyBackends1InGroup",
+        "very_many_backends.test_stress_1M.ManyBackends32InGroup",
+        "long_body.test_long_response.ResponseTest1M",
+        "long_body.test_long_response.ResponseTest1k"
     ]
 }
