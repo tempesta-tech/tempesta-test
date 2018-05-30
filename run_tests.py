@@ -212,7 +212,9 @@ for name in use_tests:
 
 if disabled_reader.disable:
     for name in disabled_reader.disabled:
-        tf_cfg.dbg(2, "Disabled test %s" % name)
+        if v_level == 0:
+            tf_cfg.dbg(0, "D")
+        tf_cfg.dbg(1, "Disabled test %s" % name)
         exclusions.append(name)
 
 # load resume state file, if needed

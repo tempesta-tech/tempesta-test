@@ -5,7 +5,10 @@
         "sched.test_ratio.FairLoadRandConns.test_ratio",
         "sessions.test_sticky_sess_stress.OneClient",
         "sched.test_hash_stress.BindToServer",
-        "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq"
-
+        "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
+        "regression.test_srv_failovering.FailoveringTest.test_on_close",
+        "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
+        "regression.test_shutdown.ShutdownTest.test_shutdown",
+        "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic"
     ]
 }
