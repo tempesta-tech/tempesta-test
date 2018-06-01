@@ -332,8 +332,8 @@ vhost default {
     def test_post_big(self):
         # Too big text to put it here explicitly
 
-        onegin = open(os.path.dirname(__file__) + "/onegin")
-        text = onegin.read()
+        hamlet = open(os.path.dirname(__file__) + "/hamlet")
+        text = hamlet.read()
         lua_post_big = r"""local body = [[
 """ + text + r"""]]
 
@@ -342,7 +342,7 @@ wrk.path = "/"
 wrk.headers = {["Content-Type"]="text/plain", ["Content-Length"]=string.len(body), ["Host"] = "localhost"}
 wrk.body    = body
 """
-        onegin.close()
+        hamlet.close()
 
         self.routine(lua_post_big)
 
