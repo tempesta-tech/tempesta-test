@@ -332,8 +332,7 @@ vhost default {
     def test_post_big(self):
         # Too big text to put it here explicitly
 
-        hamlet = open(os.path.dirname(__file__) + "/hamlet")
-        text = hamlet.read()
+        text = "content " * 8192
         lua_post_big = r"""local body = [[
 """ + text + r"""]]
 
@@ -342,7 +341,6 @@ wrk.path = "/"
 wrk.headers = {["Content-Type"]="text/plain", ["Content-Length"]=string.len(body), ["Host"] = "localhost"}
 wrk.body    = body
 """
-        hamlet.close()
 
         self.routine(lua_post_big)
 
