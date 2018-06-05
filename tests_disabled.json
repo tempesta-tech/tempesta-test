@@ -1,21 +1,69 @@
 {
     "disable" : true,
     "disabled" : [
-        "regression.test_stress_pipeline.PipelineFaultInjection",
-        "sched.test_ratio.FairLoadRandConns.test_ratio",
-        "sessions.test_sticky_sess_stress.OneClient",
-        "sched.test_hash_stress.BindToServer",
-        "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
-        "regression.test_srv_failovering.FailoveringTest.test_on_close",
-        "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
-        "regression.test_shutdown.ShutdownTest.test_shutdown",
-        "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic",
-        "very_many_backends.test_stress_1M.ManyBackends1InGroup",
-        "very_many_backends.test_stress_1M.ManyBackends32InGroup",
-        "long_body.test_long_response.ResponseTest1M",
-        "long_body.test_long_response.ResponseTest1k",
-        "mixed_requests.test_mixed.MixedRequests.test_trace",
-        "long_body.test_response_wrong_length.ResponseSmallBodyLength",
-        "cache.test_purge.TestPurge.test_purge"
+        {
+            "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
+            "reason" : ""
+        },
+        {
+            "name" : "sched.test_ratio.FairLoadRandConns.test_ratio",
+            "reason" : ""
+        },
+        {
+            "name" : "sessions.test_sticky_sess_stress.OneClient",
+            "reason" : ""
+        },
+        {
+            "name" : "sched.test_hash_stress.BindToServer",
+            "reason" : ""
+        },
+        {
+            "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic",
+            "reason" : ""
+        },
+        {
+            "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
+            "reason" : ""
+        },
+        {
+            "name" : "very_many_backends.test_stress_1M.ManyBackends32InGroup",
+            "reason" : ""
+        },
+        {
+            "name" : "long_body.test_long_response.ResponseTest1M",
+            "reason" : ""
+        },
+        {
+            "name" : "long_body.test_long_response.ResponseTest1k",
+            "reason" : ""
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
+            "reason" : "Too many 502, sometimes no good answers at all"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseSmallBodyLength",
+            "reason" : ""
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge",
+            "reason" : ""
+        }
     ]
 }

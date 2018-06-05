@@ -41,10 +41,7 @@ class DisabledListLoader(object):
 
     @staticmethod
     def __parse_file(dis_file):
-        dump = json.load(dis_file)
-        # convert lists to sets where needed
-        dump['disabled'] = set(dump['disabled'])
-        return dump
+        return json.load(dis_file)
 
 
 class TestStateLoader(object):

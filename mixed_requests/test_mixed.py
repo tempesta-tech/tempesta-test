@@ -333,14 +333,15 @@ vhost default {
         # Too big text to put it here explicitly
 
         text = "content " * 8192
-        lua_post_big = r"""local body = [[
-""" + text + r"""]]
-
-wrk.method  = "POST"
-wrk.path = "/"
-wrk.headers = {["Content-Type"]="text/plain", ["Content-Length"]=string.len(body), ["Host"] = "localhost"}
-wrk.body    = body
-"""
+        lua_post_big = "local body = [[\n" + text + "]]\n\n" \
+            "wrk.method  = \"POST\"\n" \
+            "wrk.path = \"/\"\n" \
+            "wrk.headers = {\n" \
+            "   [\"Content-Type\"]=\"text/plain\",\n" \
+            "   [\"Content-Length\"]=string.len(body),\n" \
+            "   [\"Host\"] = \"localhost\"\n" \
+            "}\n" \
+            "wrk.body    = body"
 
         self.routine(lua_post_big)
 
@@ -349,10 +350,10 @@ wrk.body    = body
 
     # nginx always send 405 for TRACE
     def test_trace(self):
-        lua_trace = r"""
-wrk.method = "TRACE"
-wrk.uri = "/"
-"""
+        lua_trace = \
+            "wrk.method = \"TRACE\"\n" \
+            "wrk.uri = \"/\"\n"
+
         nginx = self.get_server('nginx')
         wrk = self.get_client("wrk")
 
@@ -373,7 +374,7 @@ wrk.uri = "/"
 
     def test_connect(self):
         lua_connect = \
-r"""wrk.method = "CONNECT"
-wrk.uri = "/"
-"""
+            "wrk.method = \"CONNECT\"\n" \
+            "wrk.uri = \"/\"\n"
+
         self.routine(lua_connect)

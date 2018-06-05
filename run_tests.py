@@ -214,10 +214,12 @@ for name in use_tests:
         inclusions.append(name)
 
 if disabled_reader.disable:
-    for name in disabled_reader.disabled:
+    for disabled in disabled_reader.disabled:
         if v_level == 0:
             tf_cfg.dbg(0, "D")
-        tf_cfg.dbg(1, "Disabled test %s" % name)
+        name = disabled['name']
+        reason = disabled['reason']
+        tf_cfg.dbg(1, "Disabled test \"%s\" : %s" % (name, reason))
         exclusions.append(name)
 
 # load resume state file, if needed
@@ -276,9 +278,6 @@ Running functional tests%s...
 #
 
 testsuite = unittest.TestSuite(tests)
-#testRunner=xmlrunner.XMLTestRunner(verbosity=v_level,
-#                                   failfast=fail_fast,
-#                                   descriptions=False)
 testRunner = unittest.runner.TextTestRunner(verbosity=v_level,
                                             failfast=fail_fast,
                                             descriptions=False,

@@ -43,14 +43,12 @@ class RatioFailovering(stress.StressTest):
             s.config.set_ka(ka_reqs)
         self.generic_test_routine('cache 0;\n')
 
-    #@unittest.expectedFailure
     def test_limited_ka(self):
         """Small amount of keep-alive requests, make Tempesta failover
         connections on a high rates.
         """
         self.run_test(100)
 
-    #@unittest.expectedFailure
     def test_unlimited_ka(self):
         """Almost unlimited maximum amount of requests during one connection.
         No connections failovering in this case.
