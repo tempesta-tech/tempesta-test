@@ -3,11 +3,11 @@
     "disabled" : [
         {
             "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
-            "reason" : ""
+            "reason" : "Problems with stap"
         },
         {
             "name" : "sched.test_ratio.FairLoadRandConns.test_ratio",
-            "reason" : ""
+            "reason" : "9.0 not less than 2.37"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
@@ -15,11 +15,11 @@
         },
         {
             "name" : "sched.test_hash_stress.BindToServer",
-            "reason" : ""
+            "reason" : "18596 != 7700"
         },
         {
             "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
-            "reason" : ""
+            "reason" : "Garbage after response end"
         },
         {
             "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
@@ -39,11 +39,11 @@
         },
         {
             "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
-            "reason" : ""
+            "reason" : "Read errors"
         },
         {
             "name" : "very_many_backends.test_stress_1M.ManyBackends32InGroup",
-            "reason" : ""
+            "reason" : "Read errors"
         },
         {
             "name" : "long_body.test_long_response.ResponseTest1M",
