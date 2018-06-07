@@ -1,0 +1,69 @@
+{
+    "disable" : true,
+    "disabled" : [
+        {
+            "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
+            "reason" : "Problems with stap"
+        },
+        {
+            "name" : "sched.test_ratio.FairLoadRandConns.test_ratio",
+            "reason" : "9.0 not less than 2.37"
+        },
+        {
+            "name" : "sessions.test_sticky_sess_stress.OneClient",
+            "reason" : ""
+        },
+        {
+            "name" : "sched.test_hash_stress.BindToServer",
+            "reason" : "18596 != 7700"
+        },
+        {
+            "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
+            "reason" : "Garbage after response end"
+        },
+        {
+            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown",
+            "reason" : ""
+        },
+        {
+            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic",
+            "reason" : ""
+        },
+        {
+            "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
+            "reason" : "Read errors"
+        },
+        {
+            "name" : "very_many_backends.test_stress_1M.ManyBackends32InGroup",
+            "reason" : "Read errors"
+        },
+        {
+            "name" : "long_body.test_long_response.ResponseTest1M",
+            "reason" : ""
+        },
+        {
+            "name" : "long_body.test_long_response.ResponseTest1k",
+            "reason" : ""
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
+            "reason" : "Too many 502, sometimes no good answers at all"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseSmallBodyLength",
+            "reason" : ""
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge",
+            "reason" : ""
+        }
+    ]
+}

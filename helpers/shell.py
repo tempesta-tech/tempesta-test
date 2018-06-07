@@ -12,6 +12,38 @@ __license__ = 'GPL2'
 
 STATE_FILE_NAME = "tests_resume.json"
 
+class DisabledListLoader(object):
+
+    def __init__(self, disabled_list_file):
+        self.disabled_list_file = disabled_list_file
+        self.has_file = False
+        self.disabled = []
+        self.disable = False
+
+    def try_load(self):
+        """ Try to load specified state file"""
+        tf_cfg.dbg(2, "Loading disabled file")
+        try:
+            self.disabled = []
+            with open(self.disabled_list_file, 'r') as dis_file:
+                f = self.__parse_file(dis_file)
+                self.disable = f['disable']
+                if self.disable == False:
+                    return True
+                self.disabled = f['disabled']
+                return True
+        except IOError as err:
+            if err.errno != errno.ENOENT:
+                raise Exception("Error loading disabled tests")
+            else:
+                tf_cfg.dbg(2, "File %s not found" % self.disabled_list_file)
+        return False
+
+    @staticmethod
+    def __parse_file(dis_file):
+        return json.load(dis_file)
+
+
 class TestStateLoader(object):
 
     def __init__(self, state_file):

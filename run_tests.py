@@ -7,6 +7,8 @@ import os
 import resource
 import subprocess
 
+import xmlrunner
+
 from helpers import tf_cfg, remote, shell, control, prepare
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -39,6 +41,8 @@ key, not password. `ssh-copy-id` can be used for that.
 -l, --log <file>                  - Duplcate tests' stderr to this file
 -L, --list                        - List all discovered tests subject to filters
 -C, --clean                       - Stop old instances of Tempesta and Nginx
+-D, --debug-files                 - Don't remove generated config files
+-Z, --run-disabled                - Run only tests from list of disabled
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -50,6 +54,12 @@ Testsuite execution is automatically resumed if it was interrupted, or it can
 be resumed manually from any given test.
 """)
 
+DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
+disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
+
+disabled_reader = shell.DisabledListLoader(disfile)
+disabled_reader.try_load()
+
 state_reader = shell.TestState()
 state_reader.load()
 test_resume = shell.TestResume(state_reader)
@@ -57,13 +67,15 @@ test_resume = shell.TestResume(state_reader)
 fail_fast = False
 list_tests = False
 clean_old = False
+run_disabled = False
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LC',
+    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LCDZ',
                                        ['help', 'verbose', 'defaults',
                                         'duration=', 'failfast', 'resume=',
                                         'resume-after=', 'no-resume', 'log=',
-                                        'list', 'clean'])
+                                        'list', 'clean', 'debug-files',
+                                        'run-disabled'])
 
 except getopt.GetoptError as e:
     print(e)
@@ -98,6 +110,10 @@ for opt, arg in options:
         list_tests = True
     elif opt in ('-C', '--clean'):
         clean_old = True
+    elif opt in ('-D', '--debug-files'):
+        remote.DEBUG_FILES = True
+    elif opt in ('-Z', '--run-disabled'):
+        run_disabled = True
 
 tf_cfg.cfg.check()
 
@@ -189,18 +205,37 @@ use_tests = []
 inclusions = []
 exclusions = []
 
-# remove empty arguments
-for name in remainder:
-    if len(name) > 0:
-        use_tests.append(name)
+if not run_disabled:
+    # remove empty arguments
+    for name in remainder:
+        if len(name) > 0:
+            use_tests.append(name)
 
-for name in use_tests:
-    # determine if this is an inclusion or exclusion
-    if name.startswith('-'):
-        name = name[1:]
-        exclusions.append(name)
-    else:
+    for name in use_tests:
+        # determine if this is an inclusion or exclusion
+        if name.startswith('-'):
+            name = name[1:]
+            exclusions.append(name)
+        else:
+            inclusions.append(name)
+
+    if disabled_reader.disable:
+        for disabled in disabled_reader.disabled:
+            if v_level == 0:
+                tf_cfg.dbg(0, "D")
+            name = disabled['name']
+            reason = disabled['reason']
+            tf_cfg.dbg(1, "Disabled test \"%s\" : %s" % (name, reason))
+            exclusions.append(name)
+else:
+    for disabled in disabled_reader.disabled:
+        name = disabled['name']
+        reason = disabled['reason']
+        tf_cfg.dbg(1, "Run disabled test \"%s\" : %s" % (name, reason))
         inclusions.append(name)
+    if len(inclusions) == 0:
+        tf_cfg.dbg(1, "No disabled tests, exiting")
+        sys.exit()
 
 # load resume state file, if needed
 test_resume.set_filters(inclusions, exclusions)

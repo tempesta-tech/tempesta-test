@@ -208,7 +208,9 @@ class RemoteNode(Node):
             error.bug(("Error removing file %s on %s" %
                        (filename, self.host)))
 
-
+def create_host_node():
+    workdir = tf_cfg.cfg.get('General', 'workdir')
+    return LocalNode('General', 'localhost', workdir)
 
 def create_node(host):
     hostname = tf_cfg.cfg.get(host, 'hostname')
@@ -239,6 +241,7 @@ def get_max_thread_count(node):
 client = None
 tempesta = None
 server = None
+host = None
 
 def connect():
     global client
@@ -250,7 +253,23 @@ def connect():
     global server
     server = create_node('Server')
 
-    for node in [client, server, tempesta]:
+    global host
+    host = create_host_node()
+
+    for node in [client, server, tempesta, host]:
         node.mkdir(node.workdir)
+
+    if server.host != tempesta.host:
+        server.run_cmd("sysctl -w net.core.somaxconn=131072")
+        server.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+    # tempesta somaxconn sysctl setups from tempesta.sh
+    tempesta.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+    if client.host != tempesta.host:
+        client.run_cmd("sysctl -w net.core.somaxconn=131072")
+        client.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+    # temporary solution, while deproxy runs on 'host' instead clent and server
+    if host.host != tempesta.host:
+        host.run_cmd("sysctl -w net.core.somaxconn=131072")
+        host.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

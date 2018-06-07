@@ -46,7 +46,7 @@ class DeproxyManager(stateful.Stateful):
         server.set_events(self.polling_lock)
         self.servers.append(server)
 
-    def add_clients(self, client):
+    def add_client(self, client):
         self.clients.append(client)
 
     # run section
