@@ -31,6 +31,7 @@ class HttpRules(functional.FunctionalTest):
         '  hdr_ref ==  "example.com" -> hdr_r_e;\n'
         '  hdr_ref ==  "*.com" -> hdr_r_s;\n'
         '  hdr_ref ==  "http://example.com*" -> hdr_r_p;\n'
+        '  -> default;\n'
         '}\n'
         '\n')
 
