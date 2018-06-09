@@ -10,8 +10,8 @@ from testers import functional
 import unittest
 
 class HttpRules(functional.FunctionalTest):
-    """All requests must be forwarded to the right server groups according to
-    sched_http_rules.
+    """All requests must be forwarded to the right vhosts and
+    server groups according to rule in http_chain.
     """
 
     requests_n = 20
@@ -19,18 +19,19 @@ class HttpRules(functional.FunctionalTest):
     config = (
         'cache 0;\n'
         '\n'
-        'sched_http_rules {\n'
-        '  match uri_p    uri       prefix  "/static";\n'
-        '  match uri_s    uri       suffix  ".php";\n'
-        '  match host_p   host      prefix  "static.";\n'
-        '  match host_s   host      suffix  "tempesta-tech.com";\n'
-        '  match host_e   host      eq      "foo.example.com";\n'
-        '  match hdr_h_p  hdr_host  prefix  "bar.";\n'
-        '  match hdr_h_e  hdr_host  eq      "buzz.natsys-lab.com";\n'
-        '  match hdr_h_s  hdr_host  suffix  "natsys-lab.com";\n'
-        '  match hdr_r_e  hdr_ref   eq      "example.com";\n'
-        '  match hdr_r_s  hdr_ref   suffix  ".com";\n'
-        '  match hdr_r_p  hdr_ref   prefix  "http://example.com";\n'
+        'http_chain {\n'
+        '  uri == "/static*" -> uri_p;\n'
+        '  uri == "*.php" -> uri_s;\n'
+        '  host == "static.*" -> host_p;\n'
+        '  host == "*tempesta-tech.com" -> host_s;\n'
+        '  host == "foo.example.com" -> host_e;\n'
+        '  hdr_host == "bar.*" -> hdr_h_p;\n'
+        '  hdr_host == "buzz.natsys-lab.com" -> hdr_h_e;\n'
+        '  hdr_host == "*natsys-lab.com" -> hdr_h_s;\n'
+        '  hdr_ref ==  "example.com" -> hdr_r_e;\n'
+        '  hdr_ref ==  "*.com" -> hdr_r_s;\n'
+        '  hdr_ref ==  "http://example.com*" -> hdr_r_p;\n'
+        '  -> default;\n'
         '}\n'
         '\n')
 
@@ -150,11 +151,11 @@ class HttpRulesBackupServers(HttpRules):
     config = (
         'cache 0;\n'
         '\n'
-        'vhost primary {\n'
+        'vhost host {\n'
         '\tproxy_pass primary backup=backup;\n'
         '}\n'
-        'sched_http_rules {\n'
-        '\tmatch primary * * *;\n'
+        'http_chain {\n'
+        '\t-> host;\n'
         '}\n'
         '\n')
 
@@ -168,6 +169,12 @@ class HttpRulesBackupServers(HttpRules):
         else:
             chain = chains.base()
         return [chain for _ in range(self.requests_n)]
+
+    def create_tempesta(self):
+        """ Disable vhosts auto configuration mode.
+        """
+        functional.FunctionalTest.create_tempesta(self)
+        self.tempesta.config.vhost_auto_mode = False
 
     def create_server_helper(self, group, port):
         server = deproxy.Server(port=port, conns_n=1)

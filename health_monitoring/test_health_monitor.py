@@ -167,6 +167,7 @@ class TestHealthMonitor(functional.FunctionalTest):
     def get_config(self):
         crc32_conf = ''
         rcodes_conf = ''
+        vhost = self.srv_group
         if self.crc_check:
             crc32_conf = 'resp_crc32 %s;\n' % self.crc32
         if self.resp_codes_list:
@@ -185,8 +186,8 @@ class TestHealthMonitor(functional.FunctionalTest):
             + [crc32_conf] + [rcodes_conf] + ['}\n']
         )
         rules_config = ''.join(
-            ['sched_http_rules {\n'] +
-            ['match %s * * * ;\n' % self.srv_group] +
+            ['http_chain {\n'] +
+            ['-> %s;\n' % vhost] +
             ['}\n']
         )
         return config + hm_config + rules_config

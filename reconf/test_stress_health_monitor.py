@@ -23,8 +23,8 @@ class HealthMonitorCustomSg(reconf_stress.LiveReconfStress):
         '  resp_code 200;\n'
         '  timeout 15;\n'
         '}\n'
-        'sched_http_rules {\n'
-        '  match custom * * *;\n'
+        'http_chain {\n'
+        '  -> custom;\n'
         '}\n'
         '\n')
 
