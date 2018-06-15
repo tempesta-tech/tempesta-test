@@ -234,6 +234,14 @@ class HttpTablesTest(tester.TempestaTest):
             self.init_chain(self.requests_opt[i])
         tester.TempestaTest.setUp(self)
 
+    def wait_all_connections(self, tmt=1):
+        sids = self.get_servers_id()
+        for id in sids:
+            srv = self.get_server(id)
+            if not srv.wait_for_connections(timeout=tmt):
+                return False
+        return True
+
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
