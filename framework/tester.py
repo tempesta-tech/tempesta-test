@@ -144,10 +144,21 @@ class TempestaTest(unittest.TestCase):
             if not srv.is_running():
                 raise Exception("Can not start server %s" % id)
 
+    def wait_all_connections(self, tmt=1):
+        for id in self.__servers:
+            srv = self.__servers[id]
+            self.assertTrue(srv.wait_for_connections(timeout=tmt))
+
     def start_tempesta(self):
         self.__tempesta.start()
         if not self.__tempesta.is_running():
             raise Exception("Can not start Tempesta")
+
+    def set_nf_mark(self, mark):
+        self.__tempesta.set_mark(mark)
+
+    def del_nf_mark(self, mark):
+        self.__tempesta.del_mark(mark)
 
     def start_all_clients(self):
         for id in self.__clients:
