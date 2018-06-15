@@ -11,6 +11,79 @@ __license__ = 'GPL2'
 
 class HttpTablesTest(tester.TempestaTest):
 
+    backends = [
+        {
+            'id' : 0,
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        },
+        {
+            'id' : 1,
+            'type' : 'deproxy',
+            'port' : '8001',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        },
+        {
+            'id' : 2,
+            'type' : 'deproxy',
+            'port' : '8002',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        },
+        {
+            'id' : 3,
+            'type' : 'deproxy',
+            'port' : '8003',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        },
+        {
+            'id' : 4,
+            'type' : 'deproxy',
+            'port' : '8004',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        },
+        {
+            'id' : 5,
+            'type' : 'deproxy',
+            'port' : '8005',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        },
+        {
+            'id' : 6,
+            'type' : 'deproxy',
+            'port' : '8006',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n\r\n'
+        }
+    ]
+
     tempesta = {
         'config' :
         """
@@ -154,22 +227,11 @@ class HttpTablesTest(tester.TempestaTest):
                 request.update()
         self.chains.append(ch)
 
-    def init_server(self, id, srv_response):
-        srv = {}
-        srv['id'] = id
-        srv['type'] = 'deproxy'
-        srv['port'] = str(8000 + id)
-        srv['response'] = 'static'
-        srv['response_content'] = srv_response.msg
-        self.backends.append(srv)
-
     def setUp(self):
         del(self.chains[:])
-        del(self.backends[:])
         count = len(self.requests_opt)
         for i in range(count):
             self.init_chain(self.requests_opt[i])
-            self.init_server(i, self.chains[i].server_response)
         tester.TempestaTest.setUp(self)
 
     def start_all(self):
