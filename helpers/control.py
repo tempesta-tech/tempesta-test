@@ -342,14 +342,6 @@ class Tempesta(stateful.Stateful):
         self.node.run_cmd(cmd, timeout=30, env=env,
                           err_msg=(self.err_msg % 'reload'))
 
-    def set_mark(self, mark):
-        cmd = 'iptables -t mangle -A PREROUTING -p tcp -j MARK --set-mark %s' % mark
-        self.node.run_cmd(cmd, timeout=30)
-
-    def del_mark(self, mark):
-        cmd = 'iptables -t mangle -D PREROUTING -p tcp -j MARK --set-mark %s' % mark
-        self.node.run_cmd(cmd, timeout=30)
-
     def get_stats(self):
         cmd = 'cat /proc/tempesta/perfstat'
         stdout, _ = self.node.run_cmd(cmd,
