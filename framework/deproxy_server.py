@@ -86,7 +86,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
                                        keep_alive=self.keep_alive)
             self.connections.append(handler)
             assert len(self.connections) <= self.conns_n, \
-                ('Too lot connections, expect %d, got %d'
+                ('Too many connections, expect %d, got %d'
                  % (self.conns_n, len(self.connections)))
 
     def run_start(self):
