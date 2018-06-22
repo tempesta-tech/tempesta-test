@@ -85,7 +85,12 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
             handler = ServerConnection(server=self, sock=sock,
                                        keep_alive=self.keep_alive)
             self.connections.append(handler)
-            assert len(self.connections) <= self.conns_n, \
+            # --------- ATTENTION -------------
+            # Due to the polling cycle, creating new connection can be
+            # performed before removing old connection.
+            # So we can have case with expected + 1 amount of connections
+            # It's not a error case, it's a problem of polling
+            assert len(self.connections) <= self.conns_n + 1, \
                 ('Too many connections, expect %d, got %d'
                  % (self.conns_n, len(self.connections)))
 
