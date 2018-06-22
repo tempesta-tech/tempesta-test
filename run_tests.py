@@ -68,14 +68,15 @@ fail_fast = False
 list_tests = False
 clean_old = False
 run_disabled = False
+prepare_tcp = True
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LCDZ',
+    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LCDZp',
                                        ['help', 'verbose', 'defaults',
                                         'duration=', 'failfast', 'resume=',
                                         'resume-after=', 'no-resume', 'log=',
                                         'list', 'clean', 'debug-files',
-                                        'run-disabled'])
+                                        'run-disabled', 'dont-prepare'])
 
 except getopt.GetoptError as e:
     print(e)
@@ -114,6 +115,8 @@ for opt, arg in options:
         remote.DEBUG_FILES = True
     elif opt in ('-Z', '--run-disabled'):
         run_disabled = True
+    elif opt in ('-p', '--dont-prepare'):
+        prepare_tcp = False
 
 tf_cfg.cfg.check()
 
@@ -171,7 +174,9 @@ if root_required:
 
 remote.connect()
 
-prepare.configure()
+# allows run tests from docker container
+if prepare_tcp:
+    prepare.configure()
 
 #
 # Clear garbage after previous run of test suite

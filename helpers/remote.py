@@ -259,17 +259,4 @@ def connect():
     for node in [client, server, tempesta, host]:
         node.mkdir(node.workdir)
 
-    if server.host != tempesta.host:
-        server.run_cmd("sysctl -w net.core.somaxconn=131072")
-        server.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
-    # tempesta somaxconn sysctl setups from tempesta.sh
-    tempesta.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
-    if client.host != tempesta.host:
-        client.run_cmd("sysctl -w net.core.somaxconn=131072")
-        client.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
-    # temporary solution, while deproxy runs on 'host' instead clent and server
-    if host.host != tempesta.host:
-        host.run_cmd("sysctl -w net.core.somaxconn=131072")
-        host.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
-
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
