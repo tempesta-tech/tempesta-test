@@ -42,28 +42,35 @@ class FailoveringTest(functional.FunctionalTest):
         self.create_tester()
         self.tester.start()
 
+    def check_server_connections(self):
+        for s in self.servers:
+            self.assertLessEqual(s.connections, s.conns_n)
+
     def test_on_close(self):
         self.init()
         self.tester.loop(self.timeout_limit)
         self.assertTrue(self.tester.is_srvs_ready())
+        self.check_server_connections()
 
         self.tester.random_close()
         self.assertFalse(self.tester.is_srvs_ready())
         # Wait for connections failovering.
         self.tester.loop(self.timeout_limit)
         self.assertTrue(self.tester.is_srvs_ready())
+        self.check_server_connections()
 
     def test_on_shutdown(self):
         self.init()
         self.tester.loop(self.timeout_limit)
         self.assertTrue(self.tester.is_srvs_ready())
+        self.check_server_connections()
 
         self.tester.random_shutdown()
         self.assertFalse(self.tester.is_srvs_ready())
         # Wait for connections failovering.
         self.tester.loop(self.timeout_limit)
         self.assertTrue(self.tester.is_srvs_ready())
-
+        self.check_server_connections()
 
 class FailoverTester(deproxy.Deproxy):
 

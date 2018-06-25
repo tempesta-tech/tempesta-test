@@ -85,14 +85,11 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
             handler = ServerConnection(server=self, sock=sock,
                                        keep_alive=self.keep_alive)
             self.connections.append(handler)
-            # --------- ATTENTION -------------
+            # ATTENTION
             # Due to the polling cycle, creating new connection can be
             # performed before removing old connection.
             # So we can have case with > expected amount of connections
             # It's not a error case, it's a problem of polling
-            #assert len(self.connections) <= self.conns_n, \
-            #    ('Too many connections, expect %d, got %d'
-            #     % (self.conns_n, len(self.connections)))
 
     def run_start(self):
         tf_cfg.dbg(3, '\tDeproxy: Server: Start on %s:%d.' % \
