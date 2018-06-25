@@ -97,10 +97,15 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         self.check_ports_status()
         self.polling_lock.acquire()
 
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind((self.ip, self.port))
-        self.listen(socket.SOMAXCONN)
+        try:
+            self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.set_reuse_addr()
+            self.bind((self.ip, self.port))
+            self.listen(socket.SOMAXCONN)
+        except Exception as e:
+            tf_cfg.dbg(2, "Error while creating socket: %s" % str(e))
+            self.polling_lock.release()
+            raise e
 
         self.polling_lock.release()
 

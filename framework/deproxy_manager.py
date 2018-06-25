@@ -16,16 +16,20 @@ def finish_all_deproxy():
 def run_deproxy_server(deproxy, exit_event, polling_lock):
     tf_cfg.dbg(3, "Running deproxy server manager")
 
-    if hasattr(select, 'poll'):
-        poll_fun = asyncore.poll2
-    else:
-        poll_fun = asyncore.poll
-    while not exit_event.is_set():
-        polling_lock.acquire()
-        poll_fun()
+    try:
+        if hasattr(select, 'poll'):
+            poll_fun = asyncore.poll2
+        else:
+            poll_fun = asyncore.poll
+        while not exit_event.is_set():
+            polling_lock.acquire()
+            poll_fun()
+            polling_lock.release()
+    except Exception as e:
+        tf_cfg.dbg(2, "Error while polling: %s" % str(e))
         polling_lock.release()
-
-    tf_cfg.dbg(3, "Stopped deproxy manager")
+        raise e
+    tf_cfg.dbg(3, "Finished deproxy manager")
 
 class DeproxyManager(stateful.Stateful):
     """ Class for running and managing
