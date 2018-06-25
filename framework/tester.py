@@ -89,12 +89,12 @@ class TempestaTest(unittest.TestCase):
                 ip = fill_template(check['ip'])
                 port = fill_template(check['port'])
                 checks.append((ip, port))
-        
+
         if server['type'] == 'nginx':
             srv = self.__create_srv_nginx(server, sid)
         elif server['type'] == 'deproxy':
             srv = self.__create_srv_deproxy(server)
-        
+
         srv.port_checks = checks
         self.__servers[sid] = srv
 
@@ -121,7 +121,7 @@ class TempestaTest(unittest.TestCase):
         if not self.__clients.has_key(cid):
             return None
         return self.__clients[cid]
-    
+
     def get_clients_id(self):
         """ Return list of registered clients id """
         return self.__clients.keys()
