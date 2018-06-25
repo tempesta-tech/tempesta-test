@@ -70,7 +70,7 @@ class HttpRules(functional.FunctionalTest):
             (('default'), ('/'), None, None)]
 
         for group, uri, header, value in server_options:
-            # Dont need too lot connections here.
+            # Dont need too many connections here.
             server = deproxy.Server(port=port, conns_n=1)
             port += 1
             server.group = group

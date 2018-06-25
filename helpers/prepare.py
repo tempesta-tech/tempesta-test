@@ -13,6 +13,20 @@ def configure_tcp():
         node.run_cmd("sysctl -w net.ipv4.tcp_tw_reuse=1")
         node.run_cmd("sysctl -w net.ipv4.tcp_fin_timeout=10")
 
+    if remote.server.host != remote.tempesta.host:
+        remote.server.run_cmd("sysctl -w net.core.somaxconn=131072")
+        remote.server.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+    # tempesta somaxconn sysctl setups from tempesta.sh
+    remote.tempesta.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+    if remote.client.host != remote.tempesta.host:
+        remote.client.run_cmd("sysctl -w net.core.somaxconn=131072")
+        remote.client.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+    # temporary solution, while deproxy runs on 'host' instead clent and server
+    if remote.host.host != remote.tempesta.host:
+        remote.host.run_cmd("sysctl -w net.core.somaxconn=131072")
+        remote.host.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
+
+
 def configure():
     """ Prepare nodes before running tests """
 

@@ -54,7 +54,7 @@ class InvalidResponseServer(deproxy.Server):
     def __stop_server(self):
         deproxy.Server.__stop_server(self)
         assert len(self.connections) <= self.conns_n, \
-                ('Too lot connections, expect %d, got %d'
+                ('Too many connections, expect %d, got %d'
                  % (self.conns_n, len(self.connections)))
 
     def handle_accept(self):
