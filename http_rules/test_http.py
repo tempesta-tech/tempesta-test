@@ -1,5 +1,5 @@
 """
-Test fo http scheduler:
+Set of tests to verify HTTP rules processing correctness (in one HTTP chain).
 """
 
 from __future__ import print_function
