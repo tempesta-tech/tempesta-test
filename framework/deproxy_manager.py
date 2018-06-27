@@ -37,7 +37,7 @@ class DeproxyManager(stateful.Stateful):
     Tests don't need to manually use this class."""
 
     def __init__(self):
-        self.exception = Queue.Queue()
+        self.thread_expts = Queue.Queue()
         self.servers = []
         self.clients = []
         self.exit_event = threading.Event()
@@ -60,13 +60,14 @@ class DeproxyManager(stateful.Stateful):
         self.exit_event.clear()
         self.proc = threading.Thread(target = run_deproxy_server,
                                     args=(self, self.exit_event,
-                                          self.polling_lock, self.exception))
+                                          self.polling_lock, self.thread_expts))
         self.proc.start()
 
     def thread_exception(self):
-        if self.exception.empty():
+        try:
+            return self.thread_expts.get()
+        except Queue.Empty:
             return None
-        return self.exception.get()
 
     def __stop(self):
         tf_cfg.dbg(3, "Stopping deproxy")

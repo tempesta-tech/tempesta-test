@@ -166,15 +166,12 @@ class TempestaTest(unittest.TestCase):
         time.sleep(0.2)
 
     def tearDown(self):
-        tf_cfg.dbg(2, "\tTeardown")
+        tf_cfg.dbg(3, "\tTeardown")
         for id in self.__clients:
-            tf_cfg.dbg(2, "\tStop client: %s" % id)
             client = self.__clients[id]
             client.stop()
-        tf_cfg.dbg(2, "\tStop tempesta")
         self.__tempesta.stop()
         for id in self.__servers:
-            tf_cfg.dbg(2, "\tStop server: %s" % id)
             server = self.__servers[id]
             server.stop()
         self.__deproxy_manager.stop()
