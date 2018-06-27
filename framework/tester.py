@@ -166,6 +166,7 @@ class TempestaTest(unittest.TestCase):
         time.sleep(0.2)
 
     def tearDown(self):
+        tf_cfg.dbg(3, "\tTeardown")
         for id in self.__clients:
             client = self.__clients[id]
             client.stop()

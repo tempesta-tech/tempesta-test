@@ -13,19 +13,23 @@ __license__ = 'GPL2'
 def finish_all_deproxy():
     asyncore.close_all()
 
-def run_deproxy_server(deproxy, exit_event, polling_lock):
+def run_deproxy_server(deproxy, exit_event, polling_lock, q):
     tf_cfg.dbg(3, "Running deproxy server manager")
 
-    if hasattr(select, 'poll'):
-        poll_fun = asyncore.poll2
-    else:
-        poll_fun = asyncore.poll
-    while not exit_event.is_set():
-        polling_lock.acquire()
-        poll_fun()
+    try:
+        if hasattr(select, 'poll'):
+            poll_fun = asyncore.poll2
+        else:
+            poll_fun = asyncore.poll
+        while not exit_event.is_set():
+            polling_lock.acquire()
+            poll_fun()
+            polling_lock.release()
+    except Exception as e:
+        tf_cfg.dbg(2, "Error while polling: %s" % str(e))
         polling_lock.release()
-
-    tf_cfg.dbg(3, "Stopped deproxy manager")
+        q.put(e)
+    tf_cfg.dbg(3, "Finished deproxy manager")
 
 class DeproxyManager(stateful.Stateful):
     """ Class for running and managing
@@ -33,6 +37,7 @@ class DeproxyManager(stateful.Stateful):
     Tests don't need to manually use this class."""
 
     def __init__(self):
+        self.thread_expts = Queue.Queue()
         self.servers = []
         self.clients = []
         self.exit_event = threading.Event()
@@ -55,8 +60,14 @@ class DeproxyManager(stateful.Stateful):
         self.exit_event.clear()
         self.proc = threading.Thread(target = run_deproxy_server,
                                     args=(self, self.exit_event,
-                                          self.polling_lock))
+                                          self.polling_lock, self.thread_expts))
         self.proc.start()
+
+    def thread_exception(self):
+        try:
+            return self.thread_expts.get()
+        except Queue.Empty:
+            return None
 
     def __stop(self):
         tf_cfg.dbg(3, "Stopping deproxy")
