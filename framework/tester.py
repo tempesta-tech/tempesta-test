@@ -5,11 +5,31 @@ from helpers import tempesta, control, stateful, tf_cfg
 
 from . import wrk_client, nginx_server
 from . import deproxy_client, deproxy_server, deproxy_manager
+from . import deproxy_client_v2
 from templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
+def create_client_deproxy(client):
+    addr = fill_template(client['addr'])
+    port = int(fill_template(client['port']))
+    clt = deproxy_client.DeproxyClient(addr=addr, port=port)
+    return clt
+
+def create_client_wrk(client):
+    addr = client['addr']
+    wrk = wrk_client.Wrk(server_addr=addr)
+    wrk.set_script(client['id']+"_script", content="")
+    return wrk
+
+def create_client_deproxy_v2(client):
+    addr = fill_template(client['addr'])
+    port = int(fill_template(client['port']))
+    cmd_port = int(fill_template(client['command_port']))
+    clt = deproxy_client_v2.DeproxyClient(addr=addr, port=port, listen=cmd_port)
+    return clt
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -21,6 +41,12 @@ class TempestaTest(unittest.TestCase):
 
     Verbose documentation is placed in README.md
     """
+
+    __factories = {
+        'deproxy' : create_client_deproxy,
+        'wrk' : create_client_wrk,
+        'deproxy_v2' : create_client_deproxy_v2,
+    }
 
     backends = []
 
@@ -37,24 +63,10 @@ class TempestaTest(unittest.TestCase):
     __tempesta = None
     __deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client):
-        addr = fill_template(client['addr'])
-        port = int(fill_template(client['port']))
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
-        return clt
-
-    def __create_client_wrk(self, client):
-        addr = client['addr']
-        wrk = wrk_client.Wrk(server_addr=addr)
-        wrk.set_script(client['id']+"_script", content="")
-        return wrk
-
     def __create_client(self, client):
         cid = client['id']
-        if client['type'] == 'deproxy':
-            self.__clients[cid] = self.__create_client_deproxy(client)
-        elif client['type'] == 'wrk':
-            self.__clients[cid] = self.__create_client_wrk(client)
+        factory = self.__factories[client['type']]
+        self.__clients[cid] = factory(client)
 
     def __create_srv_nginx(self, server, name):
         if not 'config' in server.keys():

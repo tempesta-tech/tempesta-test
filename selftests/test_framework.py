@@ -110,7 +110,14 @@ vhost default {
             'type' : 'deproxy',
             'addr' : "${server_ip}",
             'port' : '8000'
-        }
+        },
+        {
+            'id' : 'deproxy2',
+            'type' : 'deproxy_v2',
+            'addr' : "${server_ip}",
+            'port' : '8000',
+            'command_port' : '7000'
+        },
     ]
 
     def test(self):
@@ -209,3 +216,13 @@ vhost default {
         send = deproxy.Response(dsrv.response)
         send.set_expected()
         self.assertEqual(cl.last_response, send)
+
+    def test_deproxy_v2_client_direct(self):
+        """ Simple test with deproxy client """
+        nginx = self.get_server('nginx')
+        nginx.start()
+        deproxy = self.get_client('deproxy2')
+        deproxy.start()
+        deproxy.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        deproxy.wait_for_response(timeout=5)
+        tf_cfg.dbg(3, "nginx response:\n%s" % str(deproxy.response))

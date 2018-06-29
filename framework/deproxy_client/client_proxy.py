@@ -120,6 +120,7 @@ except Exception as e:
     sys.exit(2)
 
 pidfile = 'proxy-%i.pid' % listen
+logfile = 'proxy-%i.log' % listen
 
 def fork():
     try:
@@ -136,7 +137,6 @@ def delpid():
 def daemonize():
     fork()
 
-    os.chdir("/")
     os.setsid()
     os.umask(0)
 
@@ -145,9 +145,21 @@ def daemonize():
     sys.stdout.flush()
     sys.stderr.flush()
 
+    stdin = open('/dev/null', 'r')
+    os.dup2(stdin.fileno(), sys.stdin.fileno())
+
+    stdout = open(logfile, 'a+')
+    os.dup2(stdout.fileno(), sys.stdout.fileno())
+
+    stderr = open(logfile, 'a+')
+    os.dup2(stderr.fileno(), sys.stderr.fileno())
+
     atexit.register(delpid)
     pid = str(os.getpid())
-    open(pidfile,'w+').write("%s\n" % pid)
+
+    pidf = open(pidfile,'w+')
+    pidf.write("%s\n" % pid)
+    pidf.close()
 
 daemonize()
 
