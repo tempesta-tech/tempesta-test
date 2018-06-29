@@ -3,6 +3,8 @@
 import getopt
 import sys
 import io
+import os
+import atexit
 
 import socket
 import http.server
@@ -117,7 +119,39 @@ except Exception as e:
     print(e)
     sys.exit(2)
 
+pidfile = 'proxy-%i.pid' % listen
 
+def fork():
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError as e:
+        sys.stderr.write("Fork failed: %d (%s)\n" % (e.errno, e.strerror))
+        sys.exit(1)
+
+def delpid():
+    os.remove(pidfile)
+
+def daemonize():
+    fork()
+
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
+
+    fork()
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    atexit.register(delpid)
+    pid = str(os.getpid())
+    open(pidfile,'w+').write("%s\n" % pid)
+
+daemonize()
+
+print("Daemonized")
 server_address = ('', listen)
 httpd = http.server.HTTPServer(server_address, DeproxyHandler)
 httpd.serve_forever()
