@@ -52,9 +52,8 @@ class DeproxyClient(stateful.Stateful):
         self.conn.request("POST", "/", "", hdrs)
         resp = self.conn.getresponse()
         result = resp.getheader('Result')
-        tf_cfg.dbg(5, "- Msg -\n%s\n-------\n" % resp.msg)
         if result != 'ok':
-            raise Exception('Problem connecting to proxy client: %s' % result)
+            raise Exception('Problem connecting to proxy client: %s' % resp.msg)
 
     def __send_request(self, content):
         cl = len(content)
@@ -65,9 +64,8 @@ class DeproxyClient(stateful.Stateful):
         self.conn.request("POST", "/", body=content, headers=hdrs)
         resp = self.conn.getresponse()
         result = resp.getheader('Result')
-        tf_cfg.dbg(5, "- Msg -\n%s\n-------\n" % resp.msg)
         if result != 'ok':
-            raise Exception('Problem connecting to proxy client: %s' % result)
+            raise Exception('Problem connecting to proxy client: %s' % resp.msg)
 
     def __send_read(self, maxlen):
         hdrs = {'Command' : 'read',
@@ -77,9 +75,8 @@ class DeproxyClient(stateful.Stateful):
         self.conn.request("POST", "/", "", hdrs)
         resp = self.conn.getresponse()
         result = resp.getheader('Result')
-        tf_cfg.dbg(5, "- Msg -\n%s\n-------\n" % resp.msg)
         if result != 'ok':
-            raise Exception('Problem connecting to proxy client: %s' % result)
+            raise Exception('Problem connecting to proxy client: %s' % resp.msg)
         cl = resp.getheader('Content-Length')
         try:
             return int(cl), resp.read()
@@ -93,7 +90,7 @@ class DeproxyClient(stateful.Stateful):
         resp = self.conn.getresponse()
         result = resp.getheader('Result')
         if result != 'ok':
-            raise Exception('Problem connecting to proxy client: %s' % result)
+            raise Exception('Problem connecting to proxy client: %s' % resp.msg)
 
     def make_request(self, content):
         self.request = deproxy.Request(content)
@@ -106,12 +103,13 @@ class DeproxyClient(stateful.Stateful):
         t1 = time.time()
         wait = True
         while wait:
+            t2 = time.time()
+            if t2 - t1 > timeout:
+                tf_cfg.dbg(3, "\tTimeout")
+                return False
             l, body = self.__send_read(4096)
             total_len += l
             response_buffer += body
-            t2 = time.time()
-            if t2 - t1 > timeout:
-                return False
             try:
                 self.response = deproxy.Response(response_buffer,
                                     method=self.request.method)
@@ -124,8 +122,10 @@ class DeproxyClient(stateful.Stateful):
                            '<<<<<\n%s>>>>>'
                            % response_buffer))
                 return False
+
         if len(response_buffer) > 0:
             # TODO: take care about pipelined case
             err = 'Garbage after response end:\n```\n%s\n```\n'
-            raise deproxy.ParseError(err % response_buffer)
-        return False
+            tf_cfg.dbg(3, deproxy.ParseError(err % response_buffer))
+            return False
+        return True

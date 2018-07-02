@@ -216,6 +216,8 @@ class HttpMessage(object):
         self.version = "HTTP/0.9" # default version.
         if message_text:
             self.parse_text(message_text, body_parsing)
+        else:
+            raise IncompliteMessage()
 
     def parse_text(self, message_text, body_parsing=True):
         self.body_parsing = body_parsing
