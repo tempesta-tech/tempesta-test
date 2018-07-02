@@ -1,5 +1,6 @@
 import unittest
 import time
+import abc
 
 from helpers import tempesta, control, stateful, tf_cfg
 
@@ -12,24 +13,47 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-def create_client_deproxy(client):
-    addr = fill_template(client['addr'])
-    port = int(fill_template(client['port']))
-    clt = deproxy_client.DeproxyClient(addr=addr, port=port)
-    return clt
+class ClientFactory(object):
 
-def create_client_wrk(client):
-    addr = client['addr']
-    wrk = wrk_client.Wrk(server_addr=addr)
-    wrk.set_script(client['id']+"_script", content="")
-    return wrk
+    def setup(self, **args):
+        pass
+    
+    @abc.abstractmethod
+    def create_client(self, client):
+        return None
 
-def create_client_deproxy_v2(client):
-    addr = fill_template(client['addr'])
-    port = int(fill_template(client['port']))
-    cmd_port = int(fill_template(client['command_port']))
-    clt = deproxy_client_v2.DeproxyClient(addr=addr, port=port, listen=cmd_port)
-    return clt
+class DeproxyClientFactory(ClientFactory):
+
+    def create_client(self, client):
+        addr = fill_template(client['addr'])
+        port = int(fill_template(client['port']))
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
+        return clt
+
+class WrkClientFactory(ClientFactory):
+
+    def create_client(self, client):
+        addr = client['addr']
+        wrk = wrk_client.Wrk(server_addr=addr)
+        wrk.set_script(client['id']+"_script", content="")
+        return wrk
+
+class Deproxy2ClientFactory(ClientFactory):
+
+    command_port = 7000
+
+    def setup(self, **args):
+        self.command_port = args['command_port']
+
+    def create_client(self, client):
+        addr = fill_template(client['addr'])
+        port = int(fill_template(client['port']))
+        cmd_port = self.command_port
+        self.command_port += 1
+        clt = deproxy_client_v2.DeproxyClient(addr=addr,
+                                              port=port,
+                                              listen=cmd_port)
+        return clt
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -42,10 +66,12 @@ class TempestaTest(unittest.TestCase):
     Verbose documentation is placed in README.md
     """
 
+    base_cmd_port = 7000
+
     __factories = {
-        'deproxy' : create_client_deproxy,
-        'wrk' : create_client_wrk,
-        'deproxy_v2' : create_client_deproxy_v2,
+        'deproxy' : DeproxyClientFactory(),
+        'wrk' : WrkClientFactory(),
+        'deproxy_v2' : Deproxy2ClientFactory(),
     }
 
     backends = []
@@ -66,7 +92,7 @@ class TempestaTest(unittest.TestCase):
     def __create_client(self, client):
         cid = client['id']
         factory = self.__factories[client['type']]
-        self.__clients[cid] = factory(client)
+        self.__clients[cid] = factory.create_client(client)
 
     def __create_srv_nginx(self, server, name):
         if not 'config' in server.keys():
@@ -174,6 +200,7 @@ class TempestaTest(unittest.TestCase):
         self.__create_tempesta()
         self.__create_clients()
         self.__deproxy_manager.start()
+        self.__factories['deproxy_v2'].setup(command_port=self.base_cmd_port)
         # preventing race between manager start and servers start
         time.sleep(0.2)
 

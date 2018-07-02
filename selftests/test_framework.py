@@ -116,7 +116,6 @@ vhost default {
             'type' : 'deproxy_v2',
             'addr' : "${server_ip}",
             'port' : '8000',
-            'command_port' : '7000'
         },
     ]
 
