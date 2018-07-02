@@ -69,9 +69,8 @@ class TempestaTest(unittest.TestCase):
     base_cmd_port = 7000
 
     __factories = {
-        'deproxy' : DeproxyClientFactory(),
         'wrk' : WrkClientFactory(),
-        'deproxy_v2' : Deproxy2ClientFactory(),
+        'deproxy' : Deproxy2ClientFactory(),
     }
 
     backends = []
@@ -200,7 +199,7 @@ class TempestaTest(unittest.TestCase):
         self.__create_tempesta()
         self.__create_clients()
         self.__deproxy_manager.start()
-        self.__factories['deproxy_v2'].setup(command_port=self.base_cmd_port)
+        self.__factories['deproxy'].setup(command_port=self.base_cmd_port)
         # preventing race between manager start and servers start
         time.sleep(0.2)
 
