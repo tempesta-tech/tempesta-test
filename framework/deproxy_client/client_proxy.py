@@ -4,8 +4,9 @@ import getopt
 import sys
 import io
 import os
-import atexit
+import time
 
+import signal
 import socket
 import http.server
 
@@ -124,19 +125,33 @@ except Exception as e:
 pidfile = 'proxy-%i.pid' % listen
 logfile = 'proxy-%i.log' % listen
 
+def wait_for_pidfile(timeout=2):
+    t0 = time.time()
+    while not os.path.exists(pidfile):
+        t = time.time()
+        if t - t0 > timeout:
+            return
+
 def fork():
     try:
         pid = os.fork()
         if pid > 0:
+            wait_for_pidfile(1)
             sys.exit(0)
     except OSError as e:
         sys.stderr.write("Fork failed: %d (%s)\n" % (e.errno, e.strerror))
         sys.exit(1)
 
-def delpid():
+def exit_handler(signal, frame):
     print("Exiting\n")
     sys.stdout.flush()
     os.remove(pidfile)
+    sys.exit(0)
+
+def test_pid_file(name):
+    if os.path.exists(name):
+        print("Pid file %s already exists\n" % name)
+        sys.exit(3)
 
 def daemonize():
     fork()
@@ -156,12 +171,16 @@ def daemonize():
     os.dup2(stdout.fileno(), sys.stdout.fileno())
     os.dup2(stdout.fileno(), sys.stderr.fileno())
 
-    atexit.register(delpid)
+    test_pid_file(pidfile)
+
     pid = str(os.getpid())
 
     pidf = open(pidfile,'w+')
     pidf.write("%s\n" % pid)
     pidf.close()
+
+    signal.signal(signal.SIGINT, exit_handler)
+    signal.signal(signal.SIGTERM, exit_handler)
 
 daemonize()
 
