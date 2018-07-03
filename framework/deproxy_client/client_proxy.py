@@ -101,6 +101,8 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(bytes("Error: %s\n" % str(e), "utf-8"))
             return
+        sys.stdout.flush()
+        sys.stderr.flush()
 
 listen = 7000
 
@@ -133,6 +135,7 @@ def fork():
 
 def delpid():
     print("Exiting\n")
+    sys.stdout.flush()
     os.remove(pidfile)
 
 def daemonize():
@@ -163,6 +166,8 @@ def daemonize():
 daemonize()
 
 print("Daemonized\n")
+sys.stdout.flush()
+
 try:
     server_address = ('', listen)
     httpd = http.server.HTTPServer(server_address, DeproxyHandler)

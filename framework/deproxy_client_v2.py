@@ -15,6 +15,7 @@ class DeproxyClient(stateful.Stateful):
         self.addr = addr
         self.port = port
         self.workdir = tf_cfg.cfg.get('Client', 'workdir')
+        self.clientip = tf_cfg.cfg.get('Client', 'ip')
         self.remotepath = os.path.normpath(self.workdir + '/client_proxy.py')
         self.pidfile = '%s/proxy-%i.pid' % (self.workdir, self.listen)
         self.stop_procedures = [self.__stop]
@@ -27,7 +28,7 @@ class DeproxyClient(stateful.Stateful):
         cmd = "cd %s && %s -l %i" % (self.workdir, self.remotepath, self.listen)
         remote.client.run_cmd(cmd, ignore_stderr=True)
         tf_cfg.dbg(3, "\tDaemon started")
-        self.conn = httplib.HTTPConnection("127.0.0.1", port=self.listen)
+        self.conn = httplib.HTTPConnection(self.clientip, port=self.listen)
         self.conn.connect()
         self.__send_connect(self.addr, self.port)
         tf_cfg.dbg(3, "\tClient started")
