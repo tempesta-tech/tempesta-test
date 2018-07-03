@@ -132,6 +132,7 @@ def fork():
         sys.exit(1)
 
 def delpid():
+    print("Exiting\n")
     os.remove(pidfile)
 
 def daemonize():
@@ -148,11 +149,9 @@ def daemonize():
     stdin = open('/dev/null', 'r')
     os.dup2(stdin.fileno(), sys.stdin.fileno())
 
-    stdout = open(logfile, 'a+')
+    stdout = open(logfile, 'w')
     os.dup2(stdout.fileno(), sys.stdout.fileno())
-
-    stderr = open(logfile, 'a+')
-    os.dup2(stderr.fileno(), sys.stderr.fileno())
+    os.dup2(stdout.fileno(), sys.stderr.fileno())
 
     atexit.register(delpid)
     pid = str(os.getpid())
@@ -163,7 +162,11 @@ def daemonize():
 
 daemonize()
 
-print("Daemonized")
-server_address = ('', listen)
-httpd = http.server.HTTPServer(server_address, DeproxyHandler)
-httpd.serve_forever()
+print("Daemonized\n")
+try:
+    server_address = ('', listen)
+    httpd = http.server.HTTPServer(server_address, DeproxyHandler)
+    httpd.serve_forever()
+except Exception as e:
+    print("Error: %s\n" % e)
+    sys.exit(3)

@@ -3,7 +3,7 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (via sereral HTTP chains). Mark rules and match rules are also tested here
 (in separate tests).
 """
-from helpers import chains, remote, tf_cfg
+from helpers import chains, remote
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -160,6 +160,42 @@ class HttpTablesTest(tester.TempestaTest):
             'addr' : "${tempesta_ip}",
             'port' : '80'
         },
+        {
+            'id' : 1,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+        {
+            'id' : 2,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+        {
+            'id' : 3,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+        {
+            'id' : 4,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+        {
+            'id' : 5,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+        {
+            'id' : 6,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        }
     ]
 
     requests_opt = [
@@ -259,101 +295,20 @@ class HttpTablesTest(tester.TempestaTest):
         if chain.fwd_request:
             self.assertTrue(client.wait_for_response())
         else:
-            # expect timeout
             self.assertFalse(client.wait_for_response())
 
-    def test_static(self):
+    def test_chains(self):
         """Test for matching rules in HTTP chains: according to
         test configuration of HTTP tables, requests must be
         forwarded to the right vhosts according to it's
         headers content.
         """
         self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #0\n")
-        self.process(self.get_client(0),
-                     self.get_server(0),
-                     self.chains[0])
-
-    def test_script(self):
-        """Test for matching rules in HTTP chains: according to
-        test configuration of HTTP tables, requests must be
-        forwarded to the right vhosts according to it's
-        headers content.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #1\n")
-        self.process(self.get_client(0),
-                     self.get_server(1),
-                     self.chains[1])
-
-    def test_host(self):
-        """Test for matching rules in HTTP chains: according to
-        test configuration of HTTP tables, requests must be
-        forwarded to the right vhosts according to it's
-        headers content.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #2\n")
-        self.process(self.get_client(0),
-                     self.get_server(2),
-                     self.chains[2])
-
-    def test_useragent(self):
-        """Test for matching rules in HTTP chains: according to
-        test configuration of HTTP tables, requests must be
-        forwarded to the right vhosts according to it's
-        headers content.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #3\n")
-        self.process(self.get_client(0),
-                     self.get_server(3),
-                     self.chains[3])
-
-    def test_host_bar(self):
-        """Test for matching rules in HTTP chains: according to
-        test configuration of HTTP tables, requests must be
-        forwarded to the right vhosts according to it's
-        headers content.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #4\n")
-        self.process(self.get_client(0),
-                     self.get_server(4),
-                     self.chains[4])
-
-    def test_hacked(self):
-        """Test for matching rules in HTTP chains: according to
-        test configuration of HTTP tables, requests must be
-        forwarded to the right vhosts according to it's
-        headers content.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #5\n")
-        self.process(self.get_client(0),
-                     self.get_server(5),
-                     self.chains[5])
-
-    def test_bad(self):
-        """Test for matching rules in HTTP chains: according to
-        test configuration of HTTP tables, requests must be
-        forwarded to the right vhosts according to it's
-        headers content.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "\tProcessing chain #6\n")
-        self.process(self.get_client(0),
-                     self.get_server(6),
-                     self.chains[6])
-
-
+        count = len(self.chains)
+        for i in range(count):
+            self.process(self.get_client(i),
+                         self.get_server(i),
+                         self.chains[i])
 
 class HttpTablesTestMarkRules(HttpTablesTest):
 
