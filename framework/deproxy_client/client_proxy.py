@@ -132,11 +132,12 @@ def wait_for_pidfile(timeout=2):
         if t - t0 > timeout:
             return
 
-def fork():
+def fork(wait=True):
     try:
         pid = os.fork()
         if pid > 0:
-            wait_for_pidfile(1)
+            if wait:
+                wait_for_pidfile(1)
             sys.exit(0)
     except OSError as e:
         sys.stderr.write("Fork failed: %d (%s)\n" % (e.errno, e.strerror))
@@ -154,12 +155,12 @@ def test_pid_file(name):
         sys.exit(3)
 
 def daemonize():
-    fork()
+    fork(True)
 
     os.setsid()
     os.umask(0)
 
-    fork()
+    fork(False)
 
     sys.stdout.flush()
     sys.stderr.flush()

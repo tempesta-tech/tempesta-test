@@ -136,6 +136,7 @@ class TempestaTest(unittest.TestCase):
         self.__servers[sid] = srv
 
     def __create_servers(self):
+        self.__servers.clear()
         for server in self.backends:
             self.__create_backend(server)
 
@@ -150,6 +151,7 @@ class TempestaTest(unittest.TestCase):
         return self.__servers.keys()
 
     def __create_clients(self):
+        self.__clients.clear()
         for client in self.clients:
             self.__create_client(client)
 
