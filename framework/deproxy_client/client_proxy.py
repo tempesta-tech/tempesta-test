@@ -138,6 +138,8 @@ def fork(wait=True):
         if pid > 0:
             if wait:
                 wait_for_pidfile(1)
+            # wait while listen() starts
+            time.sleep(0.5)
             sys.exit(0)
     except OSError as e:
         sys.stderr.write("Fork failed: %d (%s)\n" % (e.errno, e.strerror))
@@ -150,9 +152,19 @@ def exit_handler(signal, frame):
     sys.exit(0)
 
 def test_pid_file(name):
-    if os.path.exists(name):
-        print("Pid file %s already exists\n" % name)
-        sys.exit(3)
+    if not os.path.exists(name):
+        return
+    pidf = open(name, 'r')
+    p = pidf.read()
+    pidf.close()
+    pid = None
+    try:
+        pid = int(p)
+        os.kill(pid, 0)
+    except:
+        return
+    print("Process %s,%s already exists\n" % (name, pid))
+    sys.exit(3)
 
 def daemonize():
     fork(True)
@@ -172,8 +184,6 @@ def daemonize():
     os.dup2(stdout.fileno(), sys.stdout.fileno())
     os.dup2(stdout.fileno(), sys.stderr.fileno())
 
-    test_pid_file(pidfile)
-
     pid = str(os.getpid())
 
     pidf = open(pidfile,'w+')
@@ -182,6 +192,8 @@ def daemonize():
 
     signal.signal(signal.SIGINT, exit_handler)
     signal.signal(signal.SIGTERM, exit_handler)
+
+test_pid_file(pidfile)
 
 daemonize()
 
