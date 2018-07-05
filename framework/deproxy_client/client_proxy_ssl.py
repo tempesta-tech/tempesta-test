@@ -14,11 +14,19 @@ import http.server
 context = ssl.create_default_context()
 sock = None
 sslsock = None
-rootCAs = []
+rootCA = None
 
-def append_ca(ca):
-    global rootCAs
-    rootCAs.append(ca)
+listen = 7000
+cafile = None
+
+def set_ca(ca):
+    global rootCA
+    rootCA = ca
+    context.verify_mode = ssl.CERT_REQUIRED
+    caf = open(cafile, 'w')
+    caf.write(ca.decode("utf-8"))
+    caf.close()
+    context.load_verify_locations(cafile)
 
 def connect(addr, port, server_hostname):
     global sock
@@ -74,13 +82,13 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"No command specified\n")
                 return
-            if command == 'append_ca':
+            if command == 'set_ca':
                 cl = self.headers.get('content-length')
                 if cl is None:
                     raise Exception("No content-length header is specified")
                 content_len = int(cl)
                 ca = self.rfile.read(content_len)
-                append_ca(ca)
+                set_ca(ca)
                 self.send_response(200)
                 self.send_header('Result', 'ok')
                 self.end_headers()
@@ -137,7 +145,6 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
         sys.stdout.flush()
         sys.stderr.flush()
 
-listen = 7000
 
 try:
     options, remainder = getopt.getopt(sys.argv[1:], 'l:',
@@ -156,6 +163,7 @@ except Exception as e:
 
 pidfile = 'proxy-%i.pid' % listen
 logfile = 'proxy-%i.log' % listen
+cafile  = 'rootCA-%i.crt' % listen
 
 def wait_for_pidfile(timeout=2):
     t0 = time.time()
@@ -181,6 +189,8 @@ def clean():
     print("Exiting\n")
     sys.stdout.flush()
     os.remove(pidfile)
+    if os.path.exists(cafile):
+        os.remove(cafile)
 
 def exit_handler(signal, frame):
     clean()
