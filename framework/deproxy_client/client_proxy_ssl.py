@@ -11,7 +11,6 @@ import signal
 import socket
 import http.server
 
-context = ssl.create_default_context()
 sock = None
 sslsock = None
 rootCA = None
@@ -22,11 +21,10 @@ cafile = None
 def set_ca(ca):
     global rootCA
     rootCA = ca
-    context.verify_mode = ssl.CERT_REQUIRED
     caf = open(cafile, 'w')
     caf.write(ca.decode("utf-8"))
     caf.close()
-    context.load_verify_locations(cafile)
+    print("Certificate loaded\n")
 
 def connect(addr, port, server_hostname):
     global sock
@@ -36,7 +34,10 @@ def connect(addr, port, server_hostname):
     sock = socket.socket()
     sock.connect((addr, int(port)), )
     try:
-        sslsock = context.wrap_socket(sock, server_hostname=addr)
+        if cafile != None:
+            sslsock = ssl.wrap_socket(sock, ca_certs=cafile, cert_reqs=ssl.CERT_REQUIRED)
+        else:
+            sslsock = ssl.wrap_socket(sock)
         sslsock.setblocking(False)
     except Exception as e:
         sock.close()
@@ -145,14 +146,17 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
         sys.stdout.flush()
         sys.stderr.flush()
 
+daemon = True
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'l:',
-                                       ['listen='])
+    options, remainder = getopt.getopt(sys.argv[1:], 'l:d',
+                                       ['listen=', 'no-daemonize'])
 
     for opt, arg in options:
         if opt in ('-l', '--listen'):
             listen = int(arg)
+        if opt in ('-d', '--no-daemonize'):
+            daemon = False
 
 except getopt.GetoptError as e:
     print(e)
@@ -195,6 +199,7 @@ def clean():
 def exit_handler(signal, frame):
     clean()
     sys.exit(0)
+
 
 def test_pid_file(name):
     if not os.path.exists(name):
@@ -240,10 +245,10 @@ def daemonize():
 
 test_pid_file(pidfile)
 
-daemonize()
-
-print("Daemonized\n")
-sys.stdout.flush()
+if daemon:
+    daemonize()
+    print("Daemonized\n")
+    sys.stdout.flush()
 
 try:
     server_address = ('', listen)
