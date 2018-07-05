@@ -11,46 +11,56 @@ import signal
 import socket
 import http.server
 
+context = ssl.create_default_context()
 sock = None
+sslsock = None
 rootCAs = []
 
 def append_ca(ca):
     global rootCAs
     rootCAs.append(ca)
 
-def connect(addr, port):
+def connect(addr, port, server_hostname):
     global sock
-    global rootCAs
+    global sslsock
     if sock != None:
         raise Exception("already connected")
-    if len(rootCAs) > 0:
-        sock = ssl.SSLSocket(ca_certs=rootCAs, cert_reqs=ssl.CERT_REQUIRED)
-    else:
-        sock = ssl.SSLSocket(cert_reqs=ssl.CERT_NONE)
-    sock.connect((addr, int(port)))
-    sock.setblocking(False)
+    sock = socket.socket()
+    sock.connect((addr, int(port)), )
+    try:
+        sslsock = context.wrap_socket(sock, server_hostname=addr)
+        sslsock.setblocking(False)
+    except Exception as e:
+        sock.close()
+        sock = None
+        sslsock = None
+        raise e
 
 def request(content):
-    global sock
-    if sock is None:
+    global sslsock
+    if sslsock is None:
         raise Exception("socket is closed")
-    sock.send(content)
+    sslsock.send(content)
 
 def read_response(maxlen):
-    global sock
-    if sock is None:
+    global sslsock
+    if sslsock is None:
         raise Exception("socket is closed")
     try:
-        ans = sock.recv(int(maxlen))
+        ans = sslsock.recv(int(maxlen))
     except io.BlockingIOError:
+        return b""
+    except ssl.SSLWantReadError:
         return b""
     return ans
 
 def finish():
     global sock
+    global sslsock
     if sock is None:
         raise Exception("socket is closed")
-    sock.close()
+    sslsock.close()
+    sslsock = None
     sock = None
 
 class DeproxyHandler(http.server.BaseHTTPRequestHandler):
@@ -77,11 +87,14 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
             elif command == 'connect':
                 addr = self.headers.get('addr')
                 port = self.headers.get('port')
+                host = self.headers.get('server_hostname')
                 if addr is None:
                     raise Exception("No addr header is specified")
                 if port is None:
                     raise Exception("No port header is specified")
-                connect(addr, port)
+                if host is None:
+                    host = addr
+                connect(addr, port, host)
                 self.send_response(200)
                 self.send_header('Result', 'ok')
                 self.end_headers()
