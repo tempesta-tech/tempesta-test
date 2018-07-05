@@ -20,6 +20,7 @@ def append_ca(ca):
 
 def connect(addr, port):
     global sock
+    global rootCAs
     if sock != None:
         raise Exception("already connected")
     if len(rootCAs) > 0:
