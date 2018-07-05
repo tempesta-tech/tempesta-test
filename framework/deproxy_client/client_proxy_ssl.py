@@ -5,23 +5,27 @@ import sys
 import io
 import os
 import time
+import ssl
 
 import signal
 import socket
 import http.server
 
 sock = None
-rootCa = None
+rootCAs = []
 
-def set_ca(ca):
-    global rootCa
-    rootCa = ca
+def append_ca(ca):
+    global rootCAs
+    rootCAs.append(ca)
 
 def connect(addr, port):
     global sock
     if sock != None:
         raise Exception("already connected")
-    sock = socket.socket()
+    if len(rootCAs) > 0:
+        sock = ssl.SSLSocket(ca_certs=rootCAs, cert_reqs=ssl.CERT_REQUIRED)
+    else:
+        sock = ssl.SSLSocket(cert_reqs=ssl.CERT_NONE)
     sock.connect((addr, int(port)))
     sock.setblocking(False)
 
@@ -59,13 +63,13 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"No command specified\n")
                 return
-            if command == 'ca':
+            if command == 'append_ca':
                 cl = self.headers.get('content-length')
                 if cl is None:
                     raise Exception("No content-length header is specified")
                 content_len = int(cl)
                 ca = self.rfile.read(content_len)
-                set_ca(ca)
+                append_ca(ca)
                 self.send_response(200)
                 self.send_header('Result', 'ok')
                 self.end_headers()
