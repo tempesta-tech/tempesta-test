@@ -11,6 +11,11 @@ import socket
 import http.server
 
 sock = None
+rootCa = None
+
+def set_ca(ca):
+    global rootCa
+    rootCa = ca
 
 def connect(addr, port):
     global sock
@@ -54,8 +59,17 @@ class DeproxyHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"No command specified\n")
                 return
-
-            if command == 'connect':
+            if command == 'ca':
+                cl = self.headers.get('content-length')
+                if cl is None:
+                    raise Exception("No content-length header is specified")
+                content_len = int(cl)
+                ca = self.rfile.read(content_len)
+                set_ca(ca)
+                self.send_response(200)
+                self.send_header('Result', 'ok')
+                self.end_headers()
+            elif command == 'connect':
                 addr = self.headers.get('addr')
                 port = self.headers.get('port')
                 if addr is None:
