@@ -130,3 +130,35 @@ class DeproxyClient(stateful.Stateful):
             tf_cfg.dbg(3, deproxy.ParseError(err % response_buffer))
             return False
         return True
+
+class SSLDeproxyClient(DeproxyClient):
+    def __init__(self, listen, addr, port, ca=None):
+        DeproxyClient.__init__(listen, addr, port)
+        curpath = os.path.dirname(__file__)
+        client = curpath + '/deproxy_client/client_proxy_ssl.py'
+        self.client = os.path.normpath(client)
+        self.ca = ca
+
+    def __send_ca(self, ca):
+        hdrs = {'Command' : 'set_ca',
+                'Content-Length' : len(ca)
+                }
+        tf_cfg.dbg(4, "\tsending set_ca")
+        self.conn.request("POST", "/", "", hdrs)
+        resp = self.conn.getresponse()
+        result = resp.getheader('Result')
+        if result != 'ok':
+            raise Exception('Problem connecting to proxy client: %s' % resp.msg)
+
+    def run_start(self):
+        tf_cfg.dbg(3, "\tStarting deproxy client ssl v2")
+        remote.client.copy_file_to_node(self.client, self.workdir)
+        cmd = "cd %s && %s -l %i" % (self.workdir, self.remotepath, self.listen)
+        remote.client.run_cmd(cmd, ignore_stderr=True)
+        tf_cfg.dbg(3, "\tDaemon started")
+        self.conn = httplib.HTTPConnection(self.clientip, port=self.listen)
+        self.conn.connect()
+        if self.ca != None:
+            self.__send_ca(self.ca)
+        self.__send_connect(self.addr, self.port)
+        tf_cfg.dbg(3, "\tClient started")
