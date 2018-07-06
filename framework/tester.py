@@ -55,6 +55,25 @@ class Deproxy2ClientFactory(ClientFactory):
                                               listen=cmd_port)
         return clt
 
+class SSLDeproxy2ClientFactory(ClientFactory):
+
+    command_port = 7500
+
+    def setup(self, **args):
+        self.command_port = args['command_port']
+
+    def create_client(self, client):
+        addr = fill_template(client['addr'])
+        port = int(fill_template(client['port']))
+        ca = fill_template(client['ca'])
+        cmd_port = self.command_port
+        self.command_port += 1
+        clt = deproxy_client_v2.SSLDeproxyClient(addr=addr,
+                                                 port=port,
+                                                 listen=cmd_port,
+                                                 ca=ca)
+        return clt
+
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
     Tempesta tests should have:
@@ -71,6 +90,7 @@ class TempestaTest(unittest.TestCase):
     __factories = {
         'wrk' : WrkClientFactory(),
         'deproxy' : Deproxy2ClientFactory(),
+        'deproxy_ssl' : SSLDeproxy2ClientFactory(),
     }
 
     backends = []
