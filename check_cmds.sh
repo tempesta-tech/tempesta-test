@@ -10,7 +10,7 @@ check_cmd_present() {
 	return 0
 }
 
-commands=(wrk curl nginx python2 python3 netstat iptables)
+commands=(wrk curl nginx python2 python3 netstat iptables tcpdump)
 all_ok=true
 
 for cmd in ${commands[*]}
