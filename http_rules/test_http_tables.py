@@ -136,12 +136,12 @@ class HttpTablesTest(tester.TempestaTest):
         -> block;
         }
         http_chain {
-        hdr_host == "test.app.com" -> chain2;
-        hdr_uagent == "Mozilla*" -> chain2;
-        hdr_ref == "*.com" -> chain1;
-        hdr_ref == "http://example.*" -> chain3;
-        hdr_host == "bad.host.com" -> block;
-        hdr_host == "bar*" -> vh5;
+        hdr Host == "test.app.com" -> chain2;
+        hdr User-Agent == "Mozilla*" -> chain2;
+        hdr Referer == "*.com" -> chain1;
+        hdr referer == "http://example.*" -> chain3;
+        hdr host == "bad.host.com" -> block;
+        hdr host == "bar*" -> vh5;
         mark == 1 -> vh7;
         mark == 2 -> vh6;
         mark == 3 -> vh5;
