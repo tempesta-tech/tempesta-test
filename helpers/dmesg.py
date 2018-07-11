@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 import re
-from . import remote
+from . import remote, tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'

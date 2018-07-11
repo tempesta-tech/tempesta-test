@@ -6,7 +6,7 @@ import re
 import os
 import asyncore
 import multiprocessing.dummy as multiprocessing
-from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful
+from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful, dmesg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -315,6 +315,7 @@ class Tempesta(stateful.Stateful):
         self.host = tf_cfg.cfg.get('Tempesta', 'hostname')
         self.err_msg = ' '.join(["Can't %s TempestaFW on", self.host])
         self.stop_procedures = [self.stop_tempesta, self.remove_config]
+        self.oops = dmesg.DmesgFinder()
 
     def run_start(self):
         tf_cfg.dbg(3, '\tStarting TempestaFW on %s' % self.host)
@@ -329,6 +330,9 @@ class Tempesta(stateful.Stateful):
         tf_cfg.dbg(3, '\tStoping TempestaFW on %s' % self.host)
         cmd = '%s/scripts/tempesta.sh --stop' % self.srcdir
         self.node.run_cmd(cmd, timeout=30, err_msg=(self.err_msg % 'stop'))
+        self.oops.update()
+        if self.oops.warn_count("Oops") > 0:
+            raise Exception("Oopses happened during on Tempesta")
 
     def remove_config(self):
         self.node.remove_file(self.config_name)
