@@ -4,7 +4,8 @@ import unittest
 import os
 import errno
 import json
-from helpers import tf_cfg
+
+from helpers import tf_cfg, remote
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
@@ -167,11 +168,14 @@ class TestResume(object):
 
         def startTest(self, test):
             self.matcher.advance(test.id())
+            tf_cfg.dbg_dmesg(1, remote.tempesta, "Start test: %s" % test.id())
             return unittest.TextTestResult.startTest(self, test)
 
         def stopTest(self, test):
             self.matcher.advance(test.id(), after=True)
-            return unittest.TextTestResult.stopTest(self, test)
+            res = unittest.TextTestResult.stopTest(self, test)
+            tf_cfg.dbg_dmesg(1, remote.tempesta, "End test:   %s" % test.id())
+            return res
 
     def __init__(self, state_reader):
         self.from_file = False
