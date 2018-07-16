@@ -13,7 +13,7 @@ all_ok = True
 
 cmds = {
     remote.client : ["python3", tf_cfg.cfg.get("Client", "wrk")],
-    remote.tempesta : ["netstat", "iptables", "tcpdump", "bc", "systemtap"],
+    remote.tempesta : ["netstat", "iptables", "tcpdump", "bc", "systemtap", "ethtool"],
     remote.server : [tf_cfg.cfg.get("Server", "nginx"), "netstat"],
 }
 
