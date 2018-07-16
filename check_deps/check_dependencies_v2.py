@@ -5,6 +5,7 @@ import imp
 
 modules = ['unittest',
            'subprocess',
+           'subprocess32',
            'resource',
            'getopt',
            'httplib',
@@ -15,6 +16,8 @@ modules = ['unittest',
            'configparser',
            ]
 
+print("Checking python2 modules")
+
 all_present = True
 
 absent = []
@@ -22,8 +25,9 @@ absent = []
 for module in modules:
     try:
         imp.find_module(module)
+        print("\tModule '%s' is installed" % module)
     except ImportError:
-        print("Module '%s' does not installed" % module)
+        print("\tModule '%s' does not installed" % module)
         absent.append(module)
         all_present = False
 

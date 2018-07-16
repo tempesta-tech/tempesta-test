@@ -2,16 +2,16 @@
 
 check_cmd_present() {
 	cmd=$1
-	pr=`whereis $cmd | wc -l`
-	if [[ "$pr" == "0" ]]
+	pr=`whereis -b $cmd`
+	if [ "$pr" == "$cmd:" ]
 	then
 		return 1
 	fi
 	return 0
 }
 
-commands=(netstat iptables tcpdump)
-all_ok=true
+commands=$@
+all_ok="true"
 
 for cmd in ${commands[*]}
 do
@@ -19,14 +19,14 @@ do
 	present=$?
 	if [[ $present -eq 0 ]]
 	then
-		echo "$cmd is installed"
+		echo -e "\tCommand '$cmd' is installed"
 	else
-		echo "$cmd doesn't installed"
-		all_ok=false
+		echo -e "\tCommand '$cmd' doesn't installed"
+		all_ok="false"
 	fi
 done
 
-if [[ $all_ok -eq false ]]
+if [[ $all_ok == "false" ]]
 then
 	exit 1
 fi
