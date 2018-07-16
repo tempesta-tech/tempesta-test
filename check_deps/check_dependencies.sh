@@ -18,7 +18,17 @@ NODES=$?
 
 if [ "$NODES" != "0" ]
 then
-    echo "Nodes don't have required dependencies. Exiting."
+    echo "Node(s) don't have required dependencies. Exiting."
+    exit 1
+fi
+
+echo "Check files on nodes"
+./check_files_nodes.py
+NODES=$?
+
+if [ "$NODES" != "0" ]
+then
+    echo "Node(s) don't have required files. Exiting."
     exit 1
 fi
 
