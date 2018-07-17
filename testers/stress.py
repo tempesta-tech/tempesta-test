@@ -1,6 +1,6 @@
 from __future__ import print_function
 import unittest
-from helpers import tf_cfg, control, tempesta, stateful
+from helpers import tf_cfg, control, tempesta, stateful, dmesg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
@@ -58,6 +58,8 @@ class StressTest(unittest.TestCase):
 
     def setUp(self):
         # Init members used in tearDown function.
+        self.oops = dmesg.DmesgStatefulFinder()
+        self.oops.start()
         self.tempesta = None
         self.servers = []
         tf_cfg.dbg(3) # Step to the next line after name of test case.
@@ -91,6 +93,10 @@ class StressTest(unittest.TestCase):
         for server in self.servers:
             if server.state == stateful.STATE_ERROR:
                 raise Exception("Error during stopping servers")
+
+        self.oops.update()
+        if self.oops.warn_count("Oops") > 0:
+            raise Exception("Oopses happened during on Tempesta")
 
     def show_performance(self):
         if tf_cfg.v_level() < 2:
