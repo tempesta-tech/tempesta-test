@@ -58,12 +58,15 @@ Pure functional tests check internal logic. Here combined HTTP client-server
 server is used. It sends HTTP messages to TempestaFW, analyses how they are
 forwarded to server, and vice versa, which server connections are used.
 
-User configured tests allow user to write thei own tests with using high level
+User configured tests allow user to write their own tests with using high level
 primitives, such as different types of clients and servers. Each test contains
 2 parts: declaration of clients and servers and code of test, where this items
 are started, stopped, requests performed, etc. Declarative description of tests
 allows modify items without changing tests, because constructors are called by
-framework instead of test.
+framework instead of test. Both, workload and functional tests, can be rewritten
+with user configured tests. Functional test should use deproxy client and
+deproxy server, and workload tests should use wrk client and nginx server.
+
 
 ## Requirements
 
@@ -262,3 +265,43 @@ Example tests can be found in `selftests/test_framework.py`
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).
 
+## Internal structure and motivation of user configured tests
+
+User configured tests have very flexible structure. They allow arbitrary
+clients and server start, stop, making requests. This leads to several
+points in internal structure.
+
+### Using separate thread for polling cycle
+
+Now, deproxy client and deproxy server, all of them use the single polling
+cycle, as it was in functional tests. But we have differencies.
+
+We have 3 cases of using deproxy clients and server:
+
+1) both deproxy client and server are used
+
+2) only deproxy client is used
+
+3) only deproxy server is used
+
+First case corresponds to functional tests. The second and third have no
+corresponding case in old testing framework.
+
+And case 3 leads to instant running of polling cycle in separate thread.
+Indeed, let's consider case of wrk client and deproxy server without instant
+running of this cycle. We start deproxy server, then we start wrk client
+and after this we start polling cycle. The time before starting cycle,
+wrk will get an errors. Ok, let's start polling cycle before wrk. But now it's
+impossible to start wrk, because we are in polling cycle. This problem appeares,
+because with running polling cycle in the same thread, as the main procedure,
+deproxy server can recieve requests only after polling cycle starts.
+
+The solution is to make possible handling requests exactly when server starts.
+In this case test procedure becames simple and straightforward: start deproxy
+server, the start wrk. And this became possible with polling cycle, running in
+separate thread.
+
+But using separate thread leads to requirements of using locks. It's appeared
+that creating new connection while polling function is running in it's thread,
+can lead to error. So we should be sure, that it won't happen. That's why locks
+are used.
