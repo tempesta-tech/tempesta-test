@@ -40,23 +40,30 @@ a lot of resources.
     ┌───────────────────┐
     │ Testing Framework ├────┐
     └──────┬────────────┘    │ Management over SSH
-           │                 ├────────────────────┐
-           │          ┌──────┴─────┐        ┌─────┴──────┐
-           │          │ TempestaFW │        │ Web Server │
-           │          └──────┬─────┘        └─────┬──────┘
-           └─────────────────┴────────────────────┘
+           │                 ├────────────────────┐──────────────────┐
+           │          ┌──────┴─────┐        ┌─────┴──────┐     ┌─────┴──────┐
+           │          │ TempestaFW │        │ Web Server │     |   Client   |
+           │          └──────┬─────┘        └─────┬──────┘     └─────┬──────┘
+           └─────────────────┴────────────────────┴──────────────────┘
               Separated network for test traffic
 ```
 
-There is two different models of tests: workload tests and pure functional
-tests. Workload tests uses fully functional HTTP benchmark programs (ab,
-wrk) and HTTP servers (Apache, nginx) to check TempestaFW behaviour. This type
+There is three different models of tests: workload tests (deprecated),
+pure functional tests (deprecated) and user configured tests.
+Workload tests uses fully functional HTTP benchmark programs (ab, wrk) and
+HTTP servers (Apache, nginx) to check TempestaFW behaviour. This type
 of tests is used for schedulers, stress and performance testing.
 
 Pure functional tests check internal logic. Here combined HTTP client-server
 server is used. It sends HTTP messages to TempestaFW, analyses how they are
 forwarded to server, and vice versa, which server connections are used.
 
+User configured tests allow user to write thei own tests with using high level
+primitives, such as different types of clients and servers. Each test contains
+2 parts: declaration of clients and servers and code of test, where this items
+are started, stopped, requests performed, etc. Declarative description of tests
+allows modify items without changing tests, because constructors are called by
+framework instead of test.
 
 ## Requirements
 
@@ -64,7 +71,7 @@ forwarded to server, and vice versa, which server connections are used.
 `python-configparser`, `python-subprocess32`, `wrk`, `ab`, `python-scapy`
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
-`systemtap`, `tcpdump`
+`systemtap`, `tcpdump`, `bc`
 - Host for running server: `nginx`, web content directory accessible by nginx
 
 `wrk` is an HTTP benchmarking tool, available from [Github](https://github.com/wg/wrk).
@@ -246,6 +253,9 @@ All options are mandatory
 nginx config, deproxy response, addr and port can use templates
 in format `${part_variable}` where `part` is one of 'server',
 'tempesta', 'client' or 'backend'
+
+Warning: deproxy backend now is running on the Framework host, so
+framework ip should be specified in tempesta config.
 
 Example tests can be found in `selftests/test_framework.py`
 
