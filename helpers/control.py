@@ -315,9 +315,10 @@ class Tempesta(stateful.Stateful):
         self.host = tf_cfg.cfg.get('Tempesta', 'hostname')
         self.err_msg = ' '.join(["Can't %s TempestaFW on", self.host])
         self.stop_procedures = [self.stop_tempesta, self.remove_config]
-        self.oops = dmesg.DmesgFinder()
+        self.oops = dmesg.DmesgStatefulFinder()
 
     def run_start(self):
+        self.oops.start()
         tf_cfg.dbg(3, '\tStarting TempestaFW on %s' % self.host)
         self.stats.clear()
         self.node.copy_file(self.config_name, self.config.get_config())

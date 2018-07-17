@@ -33,6 +33,22 @@ class DmesgFinder(object):
         match = re.findall(warn_str, self.log)
         return len(match)
 
+class DmesgStatefulFinder(object):
+
+    def __init__(self):
+        self.node = remote.tempesta
+
+    def start(self):
+        log,_ = self.node.run_cmd("dmesg")
+        self.skip = len(log.splitlines())
+
+    def update(self):
+        self.log, _ = self.node.run_cmd("dmesg | tail -n %i" % self.skip)
+
+    def warn_count(self, msg):
+        match = re.findall(msg, self.log)
+        return len(match)
+
 WARN_GENERIC = 'Warning: '
 WARN_SPLIT_ATTACK = 'Warning: Paired request missing, HTTP Response Splitting attack?'
 
