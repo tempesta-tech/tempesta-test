@@ -12,6 +12,8 @@ __license__ = 'GPL2'
 
 class CloseOnShutdown(stress.StressTest):
 
+    timeout = 180
+
     config = (
         'cache 0;\n'
         '\n')
@@ -45,7 +47,8 @@ class CloseOnShutdown(stress.StressTest):
 
     def start_all(self):
         tf_cfg.dbg(3, 'Start servers and TempestaFW')
-        self.tempesta.config.set_defconfig(self.config)
+        ka_timeout = 'keepalive_timeout %s;\n' % self.timeout
+        self.tempesta.config.set_defconfig(ka_timeout + self.config)
         self.configure_tempesta()
         control.servers_start(self.servers)
         self.tempesta.start()
@@ -108,7 +111,8 @@ class CloseOnShutdown(stress.StressTest):
         tf_cfg.dbg(3, 'Wait until connections would be reestablished, '
                       'send some requests and wait for kernel timers.')
         node = self.clients[0].node
-        node.run_cmd('curl -m 180 %s || true' % self.clients[0].uri)
+        curl_cmd = 'curl -m %s %s || true' % (self.timeout, self.clients[0].uri)
+        node.run_cmd(curl_cmd)
 
     def test_reachable_then_closed(self):
         """First servers are reachable, but after that the will be placed behind
@@ -146,7 +150,7 @@ class CloseOnShutdown(stress.StressTest):
         self.check_after_stop()
 
     def test_sometimes_available(self):
-        """Start when server behind firewall, swich firewall off and on again.
+        """Start when server behind firewall, switch firewall off and on again.
         """
         # Start when server behind firewall
         self.init_filter()
