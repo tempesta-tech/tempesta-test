@@ -31,6 +31,8 @@ class HttpRules(functional.FunctionalTest):
         '  hdr Referer ==  "example.com" -> hdr_r_e;\n'
         '  hdr Referer ==  "*.com" -> hdr_r_s;\n'
         '  hdr referer ==  "http://example.com*" -> hdr_r_p;\n'
+        '  hdr From ==  "testuser@example.com" -> hdr_raw_e;\n'
+        '  hdr Warning ==  "172 *" -> hdr_raw_p;\n'
         '  -> default;\n'
         '}\n'
         '\n')
@@ -67,6 +69,8 @@ class HttpRules(functional.FunctionalTest):
             (('hdr_r_s'), ('/'), ('referer'), ('http://example.com')),
             (('hdr_r_p'), ('/'), ('referer'),
              ('http://example.com/cgi-bin/show.pl')),
+            (('hdr_raw_e'), ('/'), ('from'), ('testuser@example.com')),
+            (('hdr_raw_p'), ('/'), ('warning'), ('172 misc warning')),
             (('default'), ('/'), None, None)]
 
         for group, uri, header, value in server_options:
