@@ -305,3 +305,34 @@ But using separate thread leads to requirements of using locks. It's appeared
 that creating new connection while polling function is running in it's thread,
 can lead to error. So we should be sure, that it won't happen. That's why locks
 are used.
+
+### Classes used
+
+Code of configurable tests located in `framework/` directory. It contains
+basic class for configurable test and classes for items. Also it contains
+class for deproxy managment and polling cycle.
+
+#### TempestaTest
+
+Basic class for user configured tests. Contains parsing of used items
+declaration (clients, backends, tempesta), startup and teardown functions.
+User configured tests should inherit it.
+
+#### DeproxyManager
+
+This class is a stateful wrap for the `run_deproxy_server()` function.
+This function contains a polling cycle. DeproxyManager creates new thread for
+this function, and stops it, when received `stop()`. DeproxyManager starts
+in test `setUp()` and stops in `tearDown()`. So, polling cycle run all the
+test time.
+
+#### FreePortsChecker
+
+When we start backend, it can appear, that specified port is already used
+by smth. So server startup will fail. We can make all servers to write about
+this, but it simpler to check free ports before start server.
+
+#### Classes for servers and clients
+
+deproxyclient, deproxyserver, nginx, wrk - this classes used for creating
+and handling corresponding types of items.
