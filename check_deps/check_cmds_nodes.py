@@ -12,9 +12,48 @@ remote.connect()
 all_ok = True
 
 cmds = {
-    remote.client : ["python3", tf_cfg.cfg.get("Client", "wrk")],
-    remote.tempesta : ["netstat", "iptables", "tcpdump", "bc", "systemtap", "ethtool"],
-    remote.server : [tf_cfg.cfg.get("Server", "nginx"), "netstat"],
+    remote.client : [
+                        {
+                            "cmd" : tf_cfg.cfg.get("Client", "wrk"),
+                            "install" : "wrk"
+                        }
+                    ],
+    remote.tempesta : [
+                        {
+                            "cmd" : "netstat",
+                            "install" : "net-tools"
+                        },
+                        {
+                            "cmd" : "iptables",
+                            "install" : "iptables"
+                        },
+                        {
+                            "cmd" : "tcpdump",
+                            "install" : "tcpdump"
+                        },
+                        {
+                            "cmd" : "bc",
+                            "install" : "bc"
+                        },
+                        {
+                            "cmd" : "systemtap",
+                            "install" : "systemtap"
+                        },
+                        {
+                            "cmd" : "ethtool",
+                            "install" : "ethtool"
+                        }
+                    ],
+    remote.server : [
+                        {
+                            "cmd" : tf_cfg.cfg.get("Server", "nginx"),
+                            "install" : "nginx"
+                        },
+                        {
+                            "cmd" : "netstat",
+                            "install" : "net-tools"
+                        }
+                    ],
 }
 
 for node in cmds:
@@ -27,16 +66,23 @@ for node in cmds:
         continue
     print("\t\tCommand `whereis` installed")
 
+    install = []
+
     for cmd in cmds[node]:
-        command = "whereis -b %s" % cmd
+        command = "whereis -b %s" % cmd["cmd"]
         res,_ = node.run_cmd(command)
-        patt = "%s: " % cmd
+        patt = "%s: " % cmd["cmd"]
         result = res[len(patt):]
         if len(result) == 0:
-            print("\t\tCommand `%s` doesn't installed" % cmd)
+            print("\t\tCommand `%s` doesn't installed" % cmd["cmd"])
+            install.append(cmd["install"])
             all_ok = False
         else:
-            print("\t\tCommand `%s` is installed" % cmd)
+            print("\t\tCommand `%s` is installed" % cmd["cmd"])
+
+    if len(install) > 0:
+        cmds = " ".join(install)
+        print("\n\t\tPlease run apt-get install %s\n" % cmds)
 
 if all_ok:
     sys.exit(0)
