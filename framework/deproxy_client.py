@@ -9,6 +9,42 @@ __license__ = 'GPL2'
 
 class BaseDeproxyClient(deproxy.Client):
 
+    def __init__(self, *args, **kwargs):
+        deproxy.Client.__init__(self, *args, **kwargs)
+        self.polling_lock = None
+        self.stop_procedures = [self.__stop_client]
+
+    def set_events(self, polling_lock):
+        self.polling_lock = polling_lock
+
+    def __stop_client(self):
+        tf_cfg.dbg(4, '\tStop deproxy client')
+        if self.polling_lock != None:
+            self.polling_lock.acquire()
+        try:
+            self.close()
+            self.addr = self.orig_addr
+        except Exception as e:
+            tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+            if self.polling_lock != None:
+                self.polling_lock.release()
+            raise e
+        if self.polling_lock != None:
+            self.polling_lock.release()
+
+    def run_start(self):
+        if self.polling_lock != None:
+            self.polling_lock.acquire()
+        try:
+            deproxy.Client.run_start(self)
+        except Exception as e:
+            tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+            if self.polling_lock != None:
+                self.polling_lock.release()
+            raise e
+        if self.polling_lock != None:
+            self.polling_lock.release()
+
     def handle_read(self):
         self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
