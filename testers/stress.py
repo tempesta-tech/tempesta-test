@@ -58,8 +58,7 @@ class StressTest(unittest.TestCase):
 
     def setUp(self):
         # Init members used in tearDown function.
-        self.oops = dmesg.DmesgStatefulFinder()
-        self.oops.start()
+        self.oops = dmesg.DmesgOopsFinder()
         self.tempesta = None
         self.servers = []
         tf_cfg.dbg(3) # Step to the next line after name of test case.

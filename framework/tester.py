@@ -158,8 +158,7 @@ class TempestaTest(unittest.TestCase):
 
     def setUp(self):
         tf_cfg.dbg(3, '\tInit test case...')
-        self.oops = dmesg.DmesgStatefulFinder()
-        self.oops.start()
+        self.oops = dmesg.DmesgOopsFinder()
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()

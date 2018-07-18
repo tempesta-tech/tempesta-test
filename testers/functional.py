@@ -51,8 +51,7 @@ class FunctionalTest(unittest.TestCase):
         self.tester = deproxy.Deproxy(self.client, self.servers)
 
     def setUp(self):
-        self.oops = dmesg.DmesgStatefulFinder()
-        self.oops.start()
+        self.oops = dmesg.DmesgOopsFinder()
         self.client = None
         self.client_state = None
         self.tempesta = None

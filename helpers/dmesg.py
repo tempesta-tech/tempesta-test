@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 import re
-from . import remote, tf_cfg
+from . import remote
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -33,22 +33,16 @@ class DmesgFinder(object):
         match = re.findall(warn_str, self.log)
         return len(match)
 
-class DmesgStatefulFinder(object):
+class DmesgOopsFinder(object):
 
     def __init__(self):
         self.node = remote.tempesta
 
-    def start(self):
-        try:
-            l,_ = self.node.run_cmd("dmesg|wc -l")
-            self.skip = int(l)
-            tf_cfg.dbg(3, "Dmesg detector skip %i lines" % self.skip)
-        except Exception as e:
-            tf_cfg.dbg(2, "Error while dmesg tracker init: %s" % str(e))
-            raise e
-
     def update(self):
-        self.log, _ = self.node.run_cmd("dmesg | tail -n +%i" % (self.skip + 1))
+        dml, _ = self.node.run_cmd("dmesg | wc -l")
+        l = int(dml)
+        cmd = 'dmesg | tac | grep -m 1 "Start test" -B %i | tac' % l
+        self.log, _ = self.node.run_cmd(cmd)
 
     def warn_count(self, msg):
         match = re.findall(msg, self.log)
