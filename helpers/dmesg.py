@@ -43,6 +43,9 @@ class DmesgOopsFinder(object):
         l = int(dml)
         cmd = 'dmesg | tac | grep -m 1 "Start test" -B %i | tac' % l
         self.log, _ = self.node.run_cmd(cmd)
+        if len(self.log) == 0:
+            cmd = 'dmesg'
+            self.log, _ = self.node.run_cmd(cmd)
 
     def warn_count(self, msg):
         match = re.findall(msg, self.log)
