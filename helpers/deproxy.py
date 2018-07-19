@@ -214,7 +214,11 @@ class HttpMessage(object):
         self.trailer = HeaderCollection()
         self.body = ''
         self.version = "HTTP/0.9" # default version.
-        if message_text:
+        if message_text is None:
+            return
+        elif message_text == '':
+            raise IncompliteMessage()
+        else:
             self.parse_text(message_text, body_parsing)
 
     def parse_text(self, message_text, body_parsing=True):

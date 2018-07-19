@@ -1,15 +1,78 @@
 import unittest
 import time
+import abc
 
 from helpers import tempesta, control, stateful, tf_cfg
 
 from . import wrk_client, nginx_server
 from . import deproxy_client, deproxy_server, deproxy_manager
+from . import deproxy_client_v2
 from templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
+class ClientFactory(object):
+
+    def setup(self, **args):
+        pass
+    
+    @abc.abstractmethod
+    def create_client(self, client):
+        return None
+
+class DeproxyClientFactory(ClientFactory):
+
+    def create_client(self, client):
+        addr = fill_template(client['addr'])
+        port = int(fill_template(client['port']))
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
+        return clt
+
+class WrkClientFactory(ClientFactory):
+
+    def create_client(self, client):
+        addr = client['addr']
+        wrk = wrk_client.Wrk(server_addr=addr)
+        wrk.set_script(client['id']+"_script", content="")
+        return wrk
+
+class Deproxy2ClientFactory(ClientFactory):
+
+    command_port = 7000
+
+    def setup(self, **args):
+        self.command_port = args['command_port']
+
+    def create_client(self, client):
+        addr = fill_template(client['addr'])
+        port = int(fill_template(client['port']))
+        cmd_port = self.command_port
+        self.command_port += 1
+        clt = deproxy_client_v2.DeproxyClient(addr=addr,
+                                              port=port,
+                                              listen=cmd_port)
+        return clt
+
+class SSLDeproxy2ClientFactory(ClientFactory):
+
+    command_port = 7500
+
+    def setup(self, **args):
+        self.command_port = args['command_port']
+
+    def create_client(self, client):
+        addr = fill_template(client['addr'])
+        port = int(fill_template(client['port']))
+        ca = fill_template(client['ca'])
+        cmd_port = self.command_port
+        self.command_port += 1
+        clt = deproxy_client_v2.SSLDeproxyClient(addr=addr,
+                                                 port=port,
+                                                 listen=cmd_port,
+                                                 ca=ca)
+        return clt
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -21,6 +84,14 @@ class TempestaTest(unittest.TestCase):
 
     Verbose documentation is placed in README.md
     """
+
+    base_cmd_port = 7000
+
+    __factories = {
+        'wrk' : WrkClientFactory(),
+        'deproxy' : Deproxy2ClientFactory(),
+        'deproxy_ssl' : SSLDeproxy2ClientFactory(),
+    }
 
     backends = []
 
@@ -37,24 +108,10 @@ class TempestaTest(unittest.TestCase):
     __tempesta = None
     __deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client):
-        addr = fill_template(client['addr'])
-        port = int(fill_template(client['port']))
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
-        return clt
-
-    def __create_client_wrk(self, client):
-        addr = client['addr']
-        wrk = wrk_client.Wrk(server_addr=addr)
-        wrk.set_script(client['id']+"_script", content="")
-        return wrk
-
     def __create_client(self, client):
         cid = client['id']
-        if client['type'] == 'deproxy':
-            self.__clients[cid] = self.__create_client_deproxy(client)
-        elif client['type'] == 'wrk':
-            self.__clients[cid] = self.__create_client_wrk(client)
+        factory = self.__factories[client['type']]
+        self.__clients[cid] = factory.create_client(client)
 
     def __create_srv_nginx(self, server, name):
         if not 'config' in server.keys():
@@ -99,6 +156,7 @@ class TempestaTest(unittest.TestCase):
         self.__servers[sid] = srv
 
     def __create_servers(self):
+        self.__servers.clear()
         for server in self.backends:
             self.__create_backend(server)
 
@@ -113,6 +171,7 @@ class TempestaTest(unittest.TestCase):
         return self.__servers.keys()
 
     def __create_clients(self):
+        self.__clients.clear()
         for client in self.clients:
             self.__create_client(client)
 
@@ -162,6 +221,7 @@ class TempestaTest(unittest.TestCase):
         self.__create_tempesta()
         self.__create_clients()
         self.__deproxy_manager.start()
+        self.__factories['deproxy'].setup(command_port=self.base_cmd_port)
         # preventing race between manager start and servers start
         time.sleep(0.2)
 
