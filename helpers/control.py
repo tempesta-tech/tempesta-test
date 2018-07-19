@@ -6,7 +6,7 @@ import re
 import os
 import asyncore
 import multiprocessing.dummy as multiprocessing
-from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful
+from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful, dmesg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'

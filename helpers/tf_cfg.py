@@ -136,6 +136,10 @@ def dbg(level, *args, **kwargs):
     if int(cfg.get('General', 'Verbose')) >= level:
         print(file=sys.stderr, *args, **kwargs)
 
+def dbg_dmesg(level, node, msg):
+    if int(cfg.get('General', 'Verbose')) >= level:
+        node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
+
 cfg = TestFrameworkCfg()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

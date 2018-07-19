@@ -2,7 +2,7 @@ from __future__ import print_function
 import unittest
 import copy
 import asyncore
-from helpers import tf_cfg, control, tempesta, deproxy, stateful
+from helpers import dmesg, tf_cfg, control, tempesta, deproxy, stateful
 from helpers.deproxy import ParseError
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -51,6 +51,7 @@ class FunctionalTest(unittest.TestCase):
         self.tester = deproxy.Deproxy(self.client, self.servers)
 
     def setUp(self):
+        self.oops = dmesg.DmesgOopsFinder()
         self.client = None
         self.client_state = None
         self.tempesta = None
@@ -109,6 +110,12 @@ class FunctionalTest(unittest.TestCase):
         for server in self.servers:
             if server.state == stateful.STATE_ERROR:
                 raise Exception("Error during stopping server")
+
+        self.oops.update()
+        if self.oops.warn_count("Oops") > 0:
+            raise Exception("Oopses happened during test on Tempesta")
+        if self.oops.warn_count("WARNING") > 0:
+            raise Exception("Warnings happened during test on Tempesta")
 
     @classmethod
     def tearDownClass(cls):

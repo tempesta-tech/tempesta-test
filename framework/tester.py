@@ -1,7 +1,7 @@
 import unittest
 import time
 
-from helpers import tempesta, control, stateful, tf_cfg
+from helpers import tempesta, control, stateful, tf_cfg, dmesg
 
 from . import wrk_client, nginx_server
 from . import deproxy_client, deproxy_server, deproxy_manager
@@ -158,6 +158,7 @@ class TempestaTest(unittest.TestCase):
 
     def setUp(self):
         tf_cfg.dbg(3, '\tInit test case...')
+        self.oops = dmesg.DmesgOopsFinder()
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
@@ -179,6 +180,12 @@ class TempestaTest(unittest.TestCase):
             deproxy_manager.finish_all_deproxy()
         except:
             print ('Unknown exception in stopping deproxy')
+
+        self.oops.update()
+        if self.oops.warn_count("Oops") > 0:
+            raise Exception("Oopses happened during test on Tempesta")
+        if self.oops.warn_count("WARNING") > 0:
+            raise Exception("Warnings happened during test on Tempesta")
 
     def wait_while_busy(self, *items):
         if items is None:
