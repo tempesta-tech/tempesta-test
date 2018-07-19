@@ -306,6 +306,41 @@ that creating new connection while polling function is running in it's thread,
 can lead to error. So we should be sure, that it won't happen. That's why locks
 are used.
 
+          Main thread                  Thread with poll loop
+
+            |                                   |
+            | ------------------------------- Lock()
+            |                                   |
+            |                                 Poll()
+            |                                   |
+            | ------------------------------ Unlock()
+            |                                   |
+            .                                   .
+            .                                   .
+            .                                   .
+            |                                   |
+            |                                 Lock()
+    client or server                            |
+         start()                               Poll()
+            \                                   |
+             \                               Unlock()
+            Lock() ---------------------------- |
+              |                                 |
+        create socket                           |
+              |                                 |
+        connect or listen                       |
+              |                                 |
+          Unlock() ---------------------------- |
+              |                               Lock()
+            return                              |
+             /                                Poll()
+            |                                   |
+            |                                Unlock()
+            |                                   |
+            .                                   .
+            .                                   .
+            .                                   .
+
 ### Classes used
 
 Code of configurable tests located in `framework/` directory. It contains
