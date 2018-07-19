@@ -183,7 +183,9 @@ class TempestaTest(unittest.TestCase):
 
         self.oops.update()
         if self.oops.warn_count("Oops") > 0:
-            raise Exception("Oopses happened during on Tempesta")
+            raise Exception("Oopses happened during test on Tempesta")
+        if self.oops.warn_count("WARNING") > 0:
+            raise Exception("Warnings happened during test on Tempesta")
 
     def wait_while_busy(self, *items):
         if items is None:
