@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Copyright (C) 2018 Tempesta Technologies, Inc.
+# License: GPL2
+
 echo "Checking Framework"
 ./check_framework.sh
 FW=$?
@@ -10,7 +13,7 @@ then
     exit 1
 fi
 
-echo "Framework ok. Proceeding check of dependencies."
+echo "Framework ok. Proceeding to nodes dependencies check."
 
 echo "Check commands on nodes"
 ./check_cmds_nodes.py

@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 import sys
 import re
 
@@ -12,6 +16,16 @@ remote.connect()
 all_ok = True
 
 cmds = {
+    remote.host : [
+                        {
+                            "cmd" : "curl",
+                            "install" : "curl"
+                        },
+                        {
+                            "cmd" : "iptables",
+                            "install" : "iptables"
+                        },
+                    ],
     remote.client : [
                         {
                             "cmd" : tf_cfg.cfg.get("Client", "wrk"),

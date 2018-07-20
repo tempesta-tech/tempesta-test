@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 import sys
 import imp
 
@@ -19,7 +23,7 @@ modules_apt = [
             'configparser',
             ]
 
-print("Checking python2 modules")
+print("\tChecking python2 modules")
 
 all_present = True
 
@@ -28,9 +32,9 @@ absent = []
 for module in modules:
     try:
         imp.find_module(module)
-        print("\tModule '%s' is installed" % module)
+        print("\t\tModule '%s' is installed" % module)
     except ImportError:
-        print("\tModule '%s' does not installed" % module)
+        print("\t\tModule '%s' does not installed" % module)
         absent.append(module)
         all_present = False
 
@@ -39,9 +43,9 @@ install = []
 for module in modules_apt:
     try:
         imp.find_module(module)
-        print("\tModule '%s' is installed" % module)
+        print("\t\tModule '%s' is installed" % module)
     except ImportError:
-        print("\tModule '%s' does not installed" % module)
+        print("\t\tModule '%s' does not installed" % module)
         absent.append(module)
         install.append("python-%s" % module)
         all_present = False
@@ -49,10 +53,10 @@ for module in modules_apt:
 if all_present == False:
     print("Need to install modules:")
     for module in absent:
-        print("\t%s" % module)
+        print("\t\t%s" % module)
     if len(install) > 0:
         ims = " ".join(install)
-        print("\n\tRun apt-get install %s\n" % ims)
+        print("\n\t\tRun apt-get install %s\n" % ims)
     sys.exit(1)
 
 print("All required modules installed")

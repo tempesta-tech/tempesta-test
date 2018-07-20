@@ -1,14 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 
-./check_cmds_framework.sh
-PF=$?
+# Copyright (C) 2018 Tempesta Technologies, Inc.
+# License: GPL2
 
-if [ "$PF" != "0" ]
+pr=`whereis -b python2`
+
+if [ "$pr" == "python2:" ]
 then
-    echo "Don't have required commands on framework node, exiting"
-    exit 1
+	echo -e "\tpython2 isn't installed. Run apt-get install python2"
+	exit 1
+else
+	echo -e "\tpython2 is installed"
 fi
 
-./check_dependencies_v2.py
+./check_python_dependencies.py
 P2=$?
 exit $P2
