@@ -40,22 +40,32 @@ a lot of resources.
     ┌───────────────────┐
     │ Testing Framework ├────┐
     └──────┬────────────┘    │ Management over SSH
-           │                 ├────────────────────┐
-           │          ┌──────┴─────┐        ┌─────┴──────┐
-           │          │ TempestaFW │        │ Web Server │
-           │          └──────┬─────┘        └─────┬──────┘
-           └─────────────────┴────────────────────┘
+           │                 ├────────────────────┐──────────────────┐
+           │          ┌──────┴─────┐        ┌─────┴──────┐     ┌─────┴──────┐
+           │          │ TempestaFW │        │ Web Server │     |   Client   |
+           │          └──────┬─────┘        └─────┬──────┘     └─────┬──────┘
+           └─────────────────┴────────────────────┴──────────────────┘
               Separated network for test traffic
 ```
 
-There is two different models of tests: workload tests and pure functional
-tests. Workload tests uses fully functional HTTP benchmark programs (ab,
-wrk) and HTTP servers (Apache, nginx) to check TempestaFW behaviour. This type
+There is three different models of tests: workload tests (deprecated),
+pure functional tests (deprecated) and user configured tests.
+Workload tests uses fully functional HTTP benchmark programs (ab, wrk) and
+HTTP servers (Apache, nginx) to check TempestaFW behaviour. This type
 of tests is used for schedulers, stress and performance testing.
 
 Pure functional tests check internal logic. Here combined HTTP client-server
 server is used. It sends HTTP messages to TempestaFW, analyses how they are
 forwarded to server, and vice versa, which server connections are used.
+
+User configured tests allow user to write their own tests with using high level
+primitives, such as different types of clients and servers. Each test contains
+2 parts: declaration of clients and servers and code of test, where this items
+are started, stopped, requests performed, etc. Declarative description of tests
+allows modify items without changing tests, because constructors are called by
+framework instead of test. Both, workload and functional tests, can be rewritten
+with user configured tests. Functional test should use deproxy client and
+deproxy server, and workload tests should use wrk client and nginx server.
 
 
 ## Requirements
@@ -64,7 +74,7 @@ forwarded to server, and vice versa, which server connections are used.
 `python-configparser`, `python-subprocess32`, `wrk`, `ab`, `python-scapy`
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
-`systemtap`, `tcpdump`
+`systemtap`, `tcpdump`, `bc`
 - Host for running server: `nginx`, web content directory accessible by nginx
 
 `wrk` is an HTTP benchmarking tool, available from [Github](https://github.com/wg/wrk).
@@ -247,8 +257,117 @@ nginx config, deproxy response, addr and port can use templates
 in format `${part_variable}` where `part` is one of 'server',
 'tempesta', 'client' or 'backend'
 
+Warning: deproxy backend now is running on the Framework host, so
+framework ip should be specified in tempesta config.
+
 Example tests can be found in `selftests/test_framework.py`
 
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).
 
+## Internal structure and motivation of user configured tests
+
+User configured tests have very flexible structure. They allow arbitrary
+clients and server start, stop, making requests. This leads to several
+points in internal structure.
+
+### Using separate thread for polling cycle
+
+Now, deproxy client and deproxy server, all of them use the single polling
+cycle, as it was in functional tests. But we have differencies.
+
+We have 3 cases of using deproxy clients and server:
+
+1) both deproxy client and server are used
+
+2) only deproxy client is used
+
+3) only deproxy server is used
+
+First case corresponds to functional tests. The second and third have no
+corresponding case in old testing framework.
+
+And case 3 leads to instant running of polling cycle in separate thread.
+Indeed, let's consider case of wrk client and deproxy server without instant
+running of this cycle. We start deproxy server, then we start wrk client
+and after this we start polling cycle. The time before starting cycle,
+wrk will get an errors. Ok, let's start polling cycle before wrk. But now it's
+impossible to start wrk, because we are in polling cycle. This problem appeares,
+because with running polling cycle in the same thread, as the main procedure,
+deproxy server can recieve requests only after polling cycle starts.
+
+The solution is to make possible handling requests exactly when server starts.
+In this case test procedure becames simple and straightforward: start deproxy
+server, the start wrk. And this became possible with polling cycle, running in
+separate thread.
+
+But using separate thread leads to requirements of using locks. It's appeared
+that creating new connection while polling function is running in it's thread,
+can lead to error. So we should be sure, that it won't happen. That's why locks
+are used.
+
+          Main thread                  Thread with poll loop
+
+            |                                   |
+            | ------------------------------- Lock()
+            |                                   |
+            |                                 Poll()
+            |                                   |
+            | ------------------------------ Unlock()
+            |                                   |
+            .                                   .
+            .                                   .
+            .                                   .
+            |                                   |
+            |                                 Lock()
+    client or server                            |
+         start()                               Poll()
+            \                                   |
+             \                               Unlock()
+            Lock() ---------------------------- |
+              |                                 |
+        create socket                           |
+              |                                 |
+        connect or listen                       |
+              |                                 |
+          Unlock() ---------------------------- |
+              |                               Lock()
+            return                              |
+             /                                Poll()
+            |                                   |
+            |                                Unlock()
+            |                                   |
+            .                                   .
+            .                                   .
+            .                                   .
+
+### Classes used
+
+Code of configurable tests located in `framework/` directory. It contains
+basic class for configurable test and classes for items. Also it contains
+class for deproxy managment and polling cycle.
+
+#### TempestaTest
+
+Basic class for user configured tests. Contains parsing of used items
+declaration (clients, backends, tempesta), startup and teardown functions.
+User configured tests should inherit it.
+
+#### DeproxyManager
+
+This class is a stateful wrap for the `run_deproxy_server()` function.
+This function contains a polling cycle. DeproxyManager creates new thread for
+this function, and stops it, when received `stop()`. DeproxyManager starts
+in test `setUp()` and stops in `tearDown()`. So, polling cycle run all the
+test time.
+
+#### FreePortsChecker
+
+When we start backend, it can appear, that specified port is already used
+by smth. So server startup will fail. We can make all servers to write about
+this, but it simpler to check free ports before start server.
+
+#### Classes for servers and clients
+
+deproxyclient, deproxyserver, nginx, wrk - this classes used for creating
+and handling corresponding types of items.
