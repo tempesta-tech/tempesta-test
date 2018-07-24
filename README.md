@@ -89,6 +89,8 @@ Testing framework manages other hosts via SSH protocol, so the host running
 testing framework must be able to be authenticated on other hosts by the key.
 That can be done using `ssh-copy-id`.
 
+Requirements can be checked with `check_deps/check_dependencies.sh`. It should
+be runned from `check_deps` directory.
 
 ## Run tests
 
@@ -168,7 +170,6 @@ available in PATH.
 
 `resources` — absolute path to a sample web site root. Must be reachable by
 nginx.
-
 
 ### Run tests
 

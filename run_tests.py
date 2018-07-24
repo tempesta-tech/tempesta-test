@@ -7,8 +7,6 @@ import os
 import resource
 import subprocess
 
-import xmlrunner
-
 from helpers import tf_cfg, remote, shell, control, prepare
 
 __author__ = 'Tempesta Technologies, Inc.'
