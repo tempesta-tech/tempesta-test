@@ -211,10 +211,7 @@ class Config(object):
                         ['vhost %s {' % sg.name] +
                         ['proxy_pass %s;' % sg.name] +
                         ['}']))
-                else:
-                    vhosts.append('\n'.join(
-                        ['vhost %s {' % sg.name] +
-                        ['}']))
+
         return vhosts
 
     def get_config(self):
