@@ -116,6 +116,9 @@ workdir = /tmp/tempesta
 #
 config = tempesta.conf
 
+# Timeout to wait if node is unavaliable
+# ex.: unavaliable_timeout = 60 (default 60)
+unavaliable_timeout = 60
 
 [Server]
 # Configuration for the host running HTTP servers. They may be configured to run
