@@ -218,6 +218,7 @@ class RemoteNode(Node):
     def wait_available(self, timeout):
         t0 = time.time()
         while True:
+            tf_cfg.dbg(3, "\tAttempt to access node")
             t = time.time()
             if t - t0 > timeout:
                 tf_cfg.dbg(2, "Node %s is not available" % self.type)

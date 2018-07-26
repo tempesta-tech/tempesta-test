@@ -45,6 +45,7 @@ class TestFrameworkCfg(object):
     def defaults(self):
         self.config = configparser.ConfigParser()
         self.config.read_dict({'General': {'verbose': '0',
+                                           'workdir': '/tmp/host',
                                            'duration': '10',
                                            'concurrent_connections': '10',
                                            'log_file': 'tests_log.log'},
