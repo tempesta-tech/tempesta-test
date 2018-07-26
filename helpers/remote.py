@@ -226,6 +226,7 @@ class RemoteNode(Node):
                 return False
             try:
                 res,_ = self.run_cmd("echo -n check")
+                tf_cfg.dbg(4, "Result = [%s]" % res)
                 if res == "check":
                     tf_cfg.dbg(2, "Node %s is available" % self.type)
                     return True
