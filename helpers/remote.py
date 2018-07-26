@@ -231,7 +231,11 @@ class RemoteNode(Node):
                     tf_cfg.dbg(2, "Node %s is available" % self.type)
                     return True
             except Exception:
-                pass
+                try:
+                    self.connect()
+                except:
+                    pass
+
             time.sleep(1)
 
 def create_host_node():
