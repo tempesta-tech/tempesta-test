@@ -61,7 +61,7 @@ class FunctionalTest(unittest.TestCase):
         tf_cfg.dbg(3, '\tInit test case...')
         tf_cfg.dbg(3, '\tWaiting for Tempesta node')
         timeout = tf_cfg.cfg.get('Tempesta', 'unavaliable_timeout')
-        if not remote.tempesta.wait_available(timeout):
+        if not remote.tempesta.wait_available(float(timeout)):
             raise Exception("Tempesta node is unavaliable")
         self.create_servers()
         self.create_tempesta()
