@@ -98,6 +98,8 @@ class StressTest(unittest.TestCase):
             raise Exception("Oopses happened during test on Tempesta")
         if self.oops.warn_count("WARNING") > 0:
             raise Exception("Warnings happened during test on Tempesta")
+        if self.oops.warn_count("ERROR") > 0:
+            raise Exception("Errors happened during test on Tempesta")
 
     def show_performance(self):
         if tf_cfg.v_level() < 2:

@@ -206,11 +206,13 @@ class Config(object):
         vhosts = []
         if self.vhost_auto_mode:
             for sg in self.server_groups:
-                vhosts.append('\n'.join(
-                    ['vhost %s {' % sg.name] +
-                    ['proxy_pass %s;' % sg.name] +
-                    ['}']))
-        return vhosts;
+                if len(sg.servers) > 0:
+                    vhosts.append('\n'.join(
+                        ['vhost %s {' % sg.name] +
+                        ['proxy_pass %s;' % sg.name] +
+                        ['}']))
+
+        return vhosts
 
     def get_config(self):
         cfg = '\n'.join([sg.get_config() for sg in self.server_groups] +
