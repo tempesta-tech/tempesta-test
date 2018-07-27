@@ -53,7 +53,8 @@ class TestFrameworkCfg(object):
                                           'hostname': 'localhost',
                                           'ab': 'ab',
                                           'wrk': 'wrk',
-                                          'workdir': '/tmp/client'},
+                                          'workdir': '/tmp/client',
+                                          'unavaliable_timeout': '300'},
                                'Tempesta': {'ip': '127.0.0.1',
                                             'hostname': 'localhost',
                                             'user': 'root',
@@ -61,7 +62,7 @@ class TestFrameworkCfg(object):
                                             'srcdir': '/root/tempesta',
                                             'workdir' : '/tmp/tempesta',
                                             'config': 'tempesta.conf',
-                                            'unavaliable_timeout': '60'},
+                                            'unavaliable_timeout': '300'},
                                'Server': {'ip': '127.0.0.1',
                                           'hostname': 'localhost',
                                           'user': 'root',
@@ -74,6 +75,7 @@ class TestFrameworkCfg(object):
                                           'max_workers': '16',
                                           'keepalive_timeout' : '60',
                                           'keepalive_requests' : '100',
+                                          'unavaliable_timeout': '300',
                                           }
                               })
 
