@@ -296,8 +296,7 @@ def wait_available():
     global server
     global tempesta
 
-    client.wait_available()
-    server.wait_available()
-    tempesta.wait_available()
+    for node in [client, server, tempesta]:
+        node.wait_available()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
