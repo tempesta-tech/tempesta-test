@@ -1,7 +1,7 @@
 import unittest
 import time
 
-from helpers import tempesta, control, stateful, tf_cfg, dmesg
+from helpers import tempesta, control, stateful, tf_cfg, dmesg, remote
 
 from . import wrk_client, nginx_server
 from . import deproxy_client, deproxy_server, deproxy_manager
@@ -158,6 +158,8 @@ class TempestaTest(unittest.TestCase):
 
     def setUp(self):
         tf_cfg.dbg(3, '\tInit test case...')
+        if not remote.wait_available():
+            raise Exception("Tempesta node is unavaliable")
         self.oops = dmesg.DmesgOopsFinder()
         self.__create_servers()
         self.__create_tempesta()

@@ -45,6 +45,7 @@ class TestFrameworkCfg(object):
     def defaults(self):
         self.config = configparser.ConfigParser()
         self.config.read_dict({'General': {'verbose': '0',
+                                           'workdir': '/tmp/host',
                                            'duration': '10',
                                            'concurrent_connections': '10',
                                            'log_file': 'tests_log.log'},
@@ -52,14 +53,16 @@ class TestFrameworkCfg(object):
                                           'hostname': 'localhost',
                                           'ab': 'ab',
                                           'wrk': 'wrk',
-                                          'workdir': '/tmp/client'},
+                                          'workdir': '/tmp/client',
+                                          'unavaliable_timeout': '300'},
                                'Tempesta': {'ip': '127.0.0.1',
                                             'hostname': 'localhost',
                                             'user': 'root',
                                             'port': '22',
                                             'srcdir': '/root/tempesta',
                                             'workdir' : '/tmp/tempesta',
-                                            'config': 'tempesta.conf'},
+                                            'config': 'tempesta.conf',
+                                            'unavaliable_timeout': '300'},
                                'Server': {'ip': '127.0.0.1',
                                           'hostname': 'localhost',
                                           'user': 'root',
@@ -72,6 +75,7 @@ class TestFrameworkCfg(object):
                                           'max_workers': '16',
                                           'keepalive_timeout' : '60',
                                           'keepalive_requests' : '100',
+                                          'unavaliable_timeout': '300',
                                           }
                               })
 
@@ -137,8 +141,11 @@ def dbg(level, *args, **kwargs):
         print(file=sys.stderr, *args, **kwargs)
 
 def dbg_dmesg(level, node, msg):
-    if int(cfg.get('General', 'Verbose')) >= level:
-        node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
+    try:
+        if int(cfg.get('General', 'Verbose')) >= level:
+            node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
+    except Exception as e:
+        dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
 
 cfg = TestFrameworkCfg()
 

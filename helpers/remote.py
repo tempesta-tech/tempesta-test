@@ -7,6 +7,7 @@ import abc
 import paramiko
 import errno
 import shutil
+import time
 import subprocess32 as subprocess
 from . import tf_cfg, error
 
@@ -51,6 +52,9 @@ class Node(object):
     def remove_file(self, filename):
         pass
 
+    @abc.abstractmethod
+    def wait_available(self):
+        pass
 
 class LocalNode(Node):
     def __init__(self, type, hostname, workdir):
@@ -107,6 +111,9 @@ class LocalNode(Node):
             return
         if os.path.isfile(filename):
             os.remove(filename)
+
+    def wait_available(self):
+        return True
 
 
 class RemoteNode(Node):
@@ -208,6 +215,31 @@ class RemoteNode(Node):
             error.bug(("Error removing file %s on %s" %
                        (filename, self.host)))
 
+    def wait_available(self):
+        tf_cfg.dbg(3, '\tWaiting for %s node' % self.type)
+        timeout = float(tf_cfg.cfg.get(self.type, 'unavaliable_timeout'))        
+        t0 = time.time()
+        while True:
+            t = time.time()
+            dt = t - t0
+            tf_cfg.dbg(3, "\tAttempt to access node")
+            if dt > timeout:
+                tf_cfg.dbg(2, "Node %s is not available" % self.type)
+                return False
+            try:
+                res,_ = self.run_cmd("echo -n check", timeout=1)
+                tf_cfg.dbg(4, "Result = [%s]" % res)
+                if res == "check":
+                    tf_cfg.dbg(2, "Node %s is available" % self.type)
+                    return True
+            except Exception:
+                try:
+                    self.connect()
+                except:
+                    pass
+
+            time.sleep(1)
+
 def create_host_node():
     workdir = tf_cfg.cfg.get('General', 'workdir')
     return LocalNode('General', 'localhost', workdir)
@@ -258,5 +290,13 @@ def connect():
 
     for node in [client, server, tempesta, host]:
         node.mkdir(node.workdir)
+
+def wait_available():
+    global client
+    global server
+    global tempesta
+
+    for node in [client, server, tempesta]:
+        node.wait_available()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

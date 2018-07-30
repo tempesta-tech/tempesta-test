@@ -2,7 +2,7 @@ from __future__ import print_function
 import unittest
 import copy
 import asyncore
-from helpers import dmesg, tf_cfg, control, tempesta, deproxy, stateful
+from helpers import dmesg, tf_cfg, control, tempesta, deproxy, stateful, remote
 from helpers.deproxy import ParseError
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -59,6 +59,8 @@ class FunctionalTest(unittest.TestCase):
         self.tester = None
         tf_cfg.dbg(3) # Step to the next line after name of test case.
         tf_cfg.dbg(3, '\tInit test case...')
+        if not remote.wait_available():
+            raise Exception("Tempesta node is unavaliable")
         self.create_servers()
         self.create_tempesta()
         self.create_client()
