@@ -308,7 +308,7 @@ if not tests or (test_resume.state.last_id == tests[-1].id()
     state_reader.drop()
 
 if len(result.errors) > 0:
-    sys.exit(-1)
+    sys.exit(1)
 
 if len(result.failures) > 0:
     sys.exit(1)
