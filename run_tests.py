@@ -307,8 +307,11 @@ if not tests or (test_resume.state.last_id == tests[-1].id()
                  and test_resume.state.last_completed):
     state_reader.drop()
 
+tf_cfg.dbg(1, "Errors: %i" % len(result.errors))
+tf_cfg.dbg(1, "Failures: %i" % len(result.failures))
+
 if len(result.errors) > 0:
-    sys.exit(-1)
+    sys.exit(1)
 
 if len(result.failures) > 0:
     sys.exit(1)
