@@ -52,8 +52,12 @@ class BaseDeproxyClient(deproxy.Client):
         tf_cfg.dbg(4, '\tDeproxy: Client: Receive response.')
         tf_cfg.dbg(5, self.response_buffer)
         try:
+            if self.request != None:
+                method = self.request.method
+            else:
+                method = 'INVALID'
             response = deproxy.Response(self.response_buffer,
-                                method=self.request.method)
+                                method=method)
             self.response_buffer = self.response_buffer[len(response.msg):]
         except deproxy.IncompliteMessage:
             return
@@ -74,7 +78,11 @@ class BaseDeproxyClient(deproxy.Client):
         return len(self.request_buffer) > 0
 
     def make_request(self, request):
-        self.request = deproxy.Request(request)
+        try:
+            self.request = deproxy.Request(request)
+        except:
+            tf_cfg.dbg(2, "Can't parse request")
+            self.request = None
         self.request_buffer = request
 
     @abc.abstractmethod
