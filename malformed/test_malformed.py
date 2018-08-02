@@ -45,11 +45,7 @@ vhost default {
         },
     ]
 
-    def test_content_length(self):
-        request = 'POST / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Content-Length: invalid\r\n' \
-                  '\r\n\r\n'
+    def common_check(self, request):
         deproxy = self.get_server('deproxy')
         deproxy.start()
         self.start_tempesta()
@@ -61,3 +57,209 @@ vhost default {
         self.assertTrue(resp, "Response not received")
         status = deproxy.last_response.status
         self.assertEqual(int(status), 400, "Wrong status: %s" % status)
+
+    def test_accept(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Accept: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_accept_charset(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Accept-Charset: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_accept_encoding(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Accept-Encoding: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_accept_language(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Accept-Language: 123456789\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_authorization(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Authorization: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_cache_control(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Cache-Control: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    # not test for 'Connection' header.
+
+    def test_content_encoding(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-Encoding: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_content_language(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-Language: 123456789\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_content_length(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-Length: not a number\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_content_location(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-Location: not a uri\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_content_md5(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-MD5: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_content_range(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-Range: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_content_type(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Content-Type: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_date(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Date: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_expect(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Expect: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_from(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'From: not a email\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_host(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: \r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    # If-Match
+    # If-Modified-Since
+    # If-None-Match
+    # If-Range
+    # If-Unmodified-Since
+    
+    def test_last_modified(self):
+        request = 'POST / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Last-Modified: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_max_forwards(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Max-Forwards: not a number' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_pragma(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Pragma: invalid' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    # Proxy-Authorization
+
+    def test_range(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Range: invalid' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_referer(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Referer: not a uri' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    # TE
+
+    def test_trailer1(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Trailer: Trailer' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_trailer2(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Trailer: Content-Length' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_trailer3(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Trailer: Transfer-Encoding' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_transfer_encoding(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Transfer-Encoding: invalid' \
+                  '\r\n\r\n'
+        self.common_check(request)
+    
+    # Upgrade
+
+    # User-Agent
+
+    # Via
