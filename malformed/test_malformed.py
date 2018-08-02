@@ -88,12 +88,7 @@ vhost default {
 
     # Authorization
 
-    def test_cache_control(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Cache-Control: invalid\r\n' \
-                  '\r\n\r\n'
-        self.common_check(request)
+    # Cache-Control
 
     # not test for 'Connection' header.
 
@@ -128,14 +123,6 @@ vhost default {
                   '\r\n\r\n'
         self.common_check(request)
 
-    def test_content_md5(self):
-        request = 'POST / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Content-MD5: invalid\r\n' \
-                  'Content-Length: 0\r\n' \
-                  '\r\n\r\n'
-        self.common_check(request)
-
     def test_content_range(self):
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
@@ -159,10 +146,17 @@ vhost default {
                   '\r\n\r\n'
         self.common_check(request)
 
-    def test_expect(self):
+    def test_expect1(self):
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Expect: invalid\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_expect2(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'Expect: 100-continue\r\n' \
                   '\r\n\r\n'
         self.common_check(request)
 
@@ -175,7 +169,7 @@ vhost default {
 
     def test_host(self):
         request = 'GET / HTTP/1.1\r\n' \
-                  'Host: \r\n' \
+                  'Host: http://\r\n' \
                   '\r\n\r\n'
         self.common_check(request)
 
@@ -231,16 +225,11 @@ vhost default {
     def test_max_forwards(self):
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
-                  'Max-Forwards: not a number' \
+                  'Max-Forwards: not a number\r\n' \
                   '\r\n\r\n'
         self.common_check(request)
 
-    def test_pragma(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Pragma: invalid' \
-                  '\r\n\r\n'
-        self.common_check(request)
+    # Pragma
 
     # Proxy-Authorization
 
@@ -260,26 +249,7 @@ vhost default {
 
     # TE
 
-    def test_trailer1(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Trailer: Trailer' \
-                  '\r\n\r\n'
-        self.common_check(request)
-
-    def test_trailer2(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Trailer: Content-Length' \
-                  '\r\n\r\n'
-        self.common_check(request)
-
-    def test_trailer3(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Trailer: Transfer-Encoding' \
-                  '\r\n\r\n'
-        self.common_check(request)
+    # Trailer
 
     def test_transfer_encoding(self):
         request = 'GET / HTTP/1.1\r\n' \
