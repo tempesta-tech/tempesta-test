@@ -86,12 +86,7 @@ vhost default {
                   '\r\n\r\n'
         self.common_check(request)
 
-    def test_authorization(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  'Authorization: invalid\r\n' \
-                  '\r\n\r\n'
-        self.common_check(request)
+    # Authorization
 
     def test_cache_control(self):
         request = 'GET / HTTP/1.1\r\n' \
