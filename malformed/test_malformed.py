@@ -184,11 +184,46 @@ vhost default {
                   '\r\n\r\n'
         self.common_check(request)
 
-    # If-Match
-    # If-Modified-Since
-    # If-None-Match
-    # If-Range
-    # If-Unmodified-Since
+    def test_if_match(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'If-Match: not in quotes\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_if_modified_since(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'If-Modified-Since: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_if_none_match(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'If-None-Match: not in quotes\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+    
+    def test_if_range(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'If-Range: not in quotes\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
+    def test_if_unmodified_since(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'If-Unmodified-Since: invalid\r\n' \
+                  'Content-Length: 0\r\n' \
+                  '\r\n\r\n'
+        self.common_check(request)
+
     
     def test_last_modified(self):
         request = 'POST / HTTP/1.1\r\n' \
