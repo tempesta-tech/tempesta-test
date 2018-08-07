@@ -24,12 +24,12 @@ class ServerConnection(asyncore.dispatcher_with_send):
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
 
     def send_response(self, response):
-        if response.msg:
+        if response:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response.')
-            tf_cfg.dbg(5, response.msg)
-            self.send(response.msg)
+            tf_cfg.dbg(5, response)
+            self.send(response)
         else:
-            tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Sending invalid response.')
+            tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Don\'t have response')
         if self.keep_alive:
             self.responses_done += 1
             if self.responses_done == self.keep_alive:
@@ -152,4 +152,4 @@ class StaticDeproxyServer(BaseDeproxyServer):
 
     def recieve_request(self, request, connection):
         self.last_request = request
-        return deproxy.Response(self.response)
+        return self.response
