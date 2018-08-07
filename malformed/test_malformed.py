@@ -263,3 +263,63 @@ vhost default {
     # User-Agent
 
     # Via
+
+class MalformedResponsesTest(tester.TempestaTest):
+    backends = [
+        {
+            'id' : 'content-length',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+"""HTTP/1.1 200 OK
+Content-Length: not a number
+Connection: close
+
+"""
+        },
+    ]
+
+    tempesta = {
+        'config' : """
+cache 0;
+listen 80;
+
+srv_group default {
+    server ${general_ip}:8000;
+}
+
+vhost default {
+    proxy_pass default;
+}
+""",
+    }
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+    ]
+
+    def common_check(self, backend, request):
+        deproxy = self.get_server(backend)
+        deproxy.start()
+        self.start_tempesta()
+        self.assertTrue(deproxy.wait_for_connections(timeout=1))
+        deproxy = self.get_client('deproxy')
+        deproxy.start()
+        deproxy.make_request(request)
+        resp = deproxy.wait_for_response(timeout=5)
+        self.assertTrue(resp, "Response not received")
+        status = deproxy.last_response.status
+        self.assertEqual(int(status), 502, "Wrong status: %s" % status)
+
+    def test_content_length(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n\r\n'
+        self.common_check('content-length', request)
+
