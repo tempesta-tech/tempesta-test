@@ -59,6 +59,7 @@ vhost default {
         self.assertEqual(int(status), 400, "Wrong status: %s" % status)
 
     def test_accept(self):
+        # https://tools.ietf.org/html/rfc7231#section-5.3.2
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Accept: invalid\r\n' \
@@ -66,6 +67,8 @@ vhost default {
         self.common_check(request)
 
     def test_accept_charset(self):
+        # https://tools.ietf.org/html/rfc7231#section-5.3.3
+        # https://tools.ietf.org/html/rfc6365#section-2
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Accept-Charset: invalid\r\n' \
@@ -73,6 +76,7 @@ vhost default {
         self.common_check(request)
 
     def test_accept_encoding(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.2.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Accept-Encoding: invalid\r\n' \
@@ -80,6 +84,7 @@ vhost default {
         self.common_check(request)
 
     def test_accept_language(self):
+        # https://tools.ietf.org/html/rfc4647#section-2.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Accept-Language: 123456789\r\n' \
@@ -93,6 +98,8 @@ vhost default {
     # not test for 'Connection' header.
 
     def test_content_encoding(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.2.1
+        # https://tools.ietf.org/html/rfc7231#section-8.4
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Encoding: invalid\r\n' \
@@ -101,6 +108,7 @@ vhost default {
         self.common_check(request)
 
     def test_content_language(self):
+        # https://tools.ietf.org/html/rfc4647#section-2.1
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Language: 123456789\r\n' \
@@ -109,6 +117,7 @@ vhost default {
         self.common_check(request)
 
     def test_content_length(self):
+        # https://tools.ietf.org/html/rfc7230#section-3.3.2        
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Length: not a number\r\n' \
@@ -116,6 +125,7 @@ vhost default {
         self.common_check(request)
 
     def test_content_location(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.4.2
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Location: not a uri\r\n' \
@@ -124,6 +134,7 @@ vhost default {
         self.common_check(request)
 
     def test_content_range(self):
+        # https://tools.ietf.org/html/rfc7233#section-4.2
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Range: invalid\r\n' \
@@ -132,6 +143,7 @@ vhost default {
         self.common_check(request)
 
     def test_content_type(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.1.1
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Type: invalid\r\n' \
@@ -140,6 +152,7 @@ vhost default {
         self.common_check(request)
 
     def test_date(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Date: invalid\r\n' \
@@ -147,6 +160,7 @@ vhost default {
         self.common_check(request)
 
     def test_expect1(self):
+        # https://tools.ietf.org/html/rfc7231#section-5.1.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Expect: invalid\r\n' \
@@ -154,6 +168,7 @@ vhost default {
         self.common_check(request)
 
     def test_expect2(self):
+        # https://tools.ietf.org/html/rfc7231#section-5.1.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Expect: 100-continue\r\n' \
@@ -161,6 +176,8 @@ vhost default {
         self.common_check(request)
 
     def test_from(self):
+        # https://tools.ietf.org/html/rfc5322#section-3.4
+        # https://tools.ietf.org/html/rfc5322#section-3.4.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'From: not a email\r\n' \
@@ -168,12 +185,15 @@ vhost default {
         self.common_check(request)
 
     def test_host(self):
+        # https://tools.ietf.org/html/rfc7230#section-5.4
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: http://\r\n' \
                   '\r\n\r\n'
         self.common_check(request)
 
     def test_if_match(self):
+        # https://tools.ietf.org/html/rfc7232#section-2.3
+        # https://tools.ietf.org/html/rfc7232#section-3.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'If-Match: not in quotes\r\n' \
@@ -182,6 +202,7 @@ vhost default {
         self.common_check(request)
 
     def test_if_modified_since(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'If-Modified-Since: invalid\r\n' \
@@ -190,6 +211,8 @@ vhost default {
         self.common_check(request)
 
     def test_if_none_match(self):
+        # https://tools.ietf.org/html/rfc7232#section-2.3
+        # https://tools.ietf.org/html/rfc7232#section-3.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'If-None-Match: not in quotes\r\n' \
@@ -198,6 +221,8 @@ vhost default {
         self.common_check(request)
     
     def test_if_range(self):
+        # https://tools.ietf.org/html/rfc7232#section-2.3
+        # https://tools.ietf.org/html/rfc7232#section-3.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'If-Range: not in quotes\r\n' \
@@ -206,6 +231,7 @@ vhost default {
         self.common_check(request)
 
     def test_if_unmodified_since(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'If-Unmodified-Since: invalid\r\n' \
@@ -215,6 +241,7 @@ vhost default {
 
     
     def test_last_modified(self):
+        # https://tools.ietf.org/html/rfc7232#section-2.2
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Last-Modified: invalid\r\n' \
@@ -223,6 +250,7 @@ vhost default {
         self.common_check(request)
 
     def test_max_forwards(self):
+        # https://tools.ietf.org/html/rfc7231#section-5.1.2
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Max-Forwards: not a number\r\n' \
@@ -234,6 +262,7 @@ vhost default {
     # Proxy-Authorization
 
     def test_range(self):
+        # https://tools.ietf.org/html/rfc7233#section-3.1
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Range: invalid' \
@@ -241,6 +270,7 @@ vhost default {
         self.common_check(request)
 
     def test_referer(self):
+        # https://tools.ietf.org/html/rfc7231#section-5.5.2
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Referer: not a uri' \
@@ -252,6 +282,8 @@ vhost default {
     # Trailer
 
     def test_transfer_encoding(self):
+        # https://tools.ietf.org/html/rfc7230#section-4
+        # https://tools.ietf.org/html/rfc7230#section-8.4
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Transfer-Encoding: invalid' \
@@ -323,6 +355,7 @@ vhost default {
         self.assertEqual(int(status), 502, "Wrong status: %s" % status)
 
     def test_accept_ranges(self):
+        # https://tools.ietf.org/html/rfc7233#section-2.3
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Accept-Ranges: invalid\r\n' \
                    'Connection: close\r\n' \
@@ -330,6 +363,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_age(self):
+        # https://tools.ietf.org/html/rfc7234#section-5.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Age: not a number\r\n' \
                    'Connection: close\r\n' \
@@ -337,6 +371,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_allow(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.4.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Allow: invalid\r\n' \
                    'Connection: close\r\n' \
@@ -346,6 +381,8 @@ vhost default {
     # Alternates
 
     def test_content_encoding(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.2.1
+        # https://tools.ietf.org/html/rfc7231#section-8.4
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Encoding: invalid\r\n' \
@@ -354,6 +391,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_content_language(self):
+        # https://tools.ietf.org/html/rfc4647#section-2.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Language: 123456789\r\n' \
@@ -362,6 +400,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_content_length(self):
+        # https://tools.ietf.org/html/rfc7230#section-3.3.2        
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: not a number\r\n' \
                    'Connection: close\r\n' \
@@ -369,6 +408,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_content_location(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.4.2
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Location: not a uri\r\n' \
@@ -377,6 +417,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_content_range(self):
+        # https://tools.ietf.org/html/rfc7233#section-4.2
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Range: invalid\r\n' \
@@ -385,6 +426,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_content_type(self):
+        # https://tools.ietf.org/html/rfc7231#section-3.1.1.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Type: invalid\r\n' \
@@ -393,6 +435,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_date(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Date: not a date\r\n' \
@@ -401,6 +444,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_etag(self):
+        # https://tools.ietf.org/html/rfc7232#section-2.3
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Etag: not in quotes\r\n' \
@@ -409,6 +453,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_expires(self):
+        # https://tools.ietf.org/html/rfc7234#section-5.3
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Expires: not a date\r\n' \
@@ -417,6 +462,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_last_modified(self):
+        # https://tools.ietf.org/html/rfc7232#section-2.2
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Last-Modified: not a date\r\n' \
@@ -425,6 +471,7 @@ vhost default {
         self.common_check(response, self.request)
 
     def test_location(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.1.2
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Location: not a uri\r\n' \
                    'Connection: close\r\n' \
@@ -434,6 +481,7 @@ vhost default {
     # Proxy-Authenticate
     
     def test_retry_after(self):
+        # https://tools.ietf.org/html/rfc7231#section-7.1.3
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Retry-After: not a date' \
                    'Connection: close\r\n' \
