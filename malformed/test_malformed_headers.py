@@ -358,6 +358,7 @@ vhost default {
         # https://tools.ietf.org/html/rfc7233#section-2.3
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Accept-Ranges: invalid\r\n' \
+                   'Content-Length: 0\r\n' \
                    'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
@@ -366,6 +367,7 @@ vhost default {
         # https://tools.ietf.org/html/rfc7234#section-5.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Age: not a number\r\n' \
+                   'Content-Length: 0\r\n' \
                    'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
@@ -376,6 +378,7 @@ vhost default {
         # https://tools.ietf.org/html/rfc7231#section-7.4.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Allow: invalid\r\n' \
+                   'Content-Length: 0\r\n' \
                    'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request, 200)
@@ -388,7 +391,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Encoding: invalid\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -397,7 +399,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Language: 123456789\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -405,7 +406,6 @@ vhost default {
         # https://tools.ietf.org/html/rfc7230#section-3.3.2        
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: not a number\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -414,7 +414,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Location: not a uri\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -423,7 +422,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Range: invalid\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -432,7 +430,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Content-Type: invalid\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -441,7 +438,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Date: not a date\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -450,7 +446,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Etag: not in quotes\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -459,7 +454,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Expires: not a date\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -468,7 +462,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Content-Length: 0\r\n' \
                    'Last-Modified: not a date\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -476,7 +469,7 @@ vhost default {
         # https://tools.ietf.org/html/rfc7231#section-7.1.2
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Location: not a uri\r\n' \
-                   'Connection: close\r\n' \
+                   'Content-Length: 0\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -486,7 +479,7 @@ vhost default {
         # https://tools.ietf.org/html/rfc7231#section-7.1.3
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Retry-After: not a date' \
-                   'Connection: close\r\n' \
+                   'Content-Length: 0\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
