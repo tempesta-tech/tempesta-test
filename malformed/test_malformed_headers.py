@@ -359,7 +359,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Accept-Ranges: invalid\r\n' \
                    'Content-Length: 0\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -368,7 +367,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Age: not a number\r\n' \
                    'Content-Length: 0\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
 
@@ -379,7 +377,6 @@ vhost default {
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Allow: invalid\r\n' \
                    'Content-Length: 0\r\n' \
-                   'Connection: close\r\n' \
                    '\r\n'
         self.common_check(response, self.request, 200)
 
@@ -474,7 +471,7 @@ vhost default {
         self.common_check(response, self.request)
 
     # Proxy-Authenticate
-    
+
     def test_retry_after(self):
         # https://tools.ietf.org/html/rfc7231#section-7.1.3
         response = 'HTTP/1.1 200 OK\r\n' \
