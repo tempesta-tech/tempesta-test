@@ -267,13 +267,13 @@ vhost default {
 class MalformedResponsesTest(tester.TempestaTest):
     backends = [
         {
-            'id' : 'content-length',
+            'id' : 'deproxy',
             'type' : 'deproxy',
             'port' : '8000',
             'response' : 'static',
             'response_content' :
 """HTTP/1.1 200 OK
-Content-Length: not a number
+Content-Length: 0
 Connection: close
 
 """
@@ -304,8 +304,13 @@ vhost default {
         },
     ]
 
-    def common_check(self, backend, request):
-        deproxy = self.get_server(backend)
+    request = 'GET / HTTP/1.1\r\n' \
+              'Host: localhost\r\n' \
+              '\r\n'
+
+    def common_check(self, response, request):
+        deproxy = self.get_server('deproxy')
+        deproxy.set_response(response)
         deproxy.start()
         self.start_tempesta()
         self.assertTrue(deproxy.wait_for_connections(timeout=1))
@@ -317,9 +322,126 @@ vhost default {
         status = deproxy.last_response.status
         self.assertEqual(int(status), 502, "Wrong status: %s" % status)
 
-    def test_content_length(self):
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  '\r\n\r\n'
-        self.common_check('content-length', request)
+    def test_accept_ranges(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Accept-Ranges: invalid\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
 
+    def test_age(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Age: not a number\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_allow(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Allow: invalid\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    # Alternates
+
+    def test_content_encoding(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Content-Encoding: invalid\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_content_language(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Content-Language: 123456789\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_content_length(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: not a number\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_content_location(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Content-Location: not a uri\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_content_range(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Content-Range: invalid\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_content_type(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Content-Type: invalid\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_date(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Date: not a date\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_etag(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Etag: not in quotes\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_expires(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Expires: not a date\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_last_modified(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Content-Length: 0\r\n' \
+                   'Last-Modified: not a date\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    def test_location(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Location: not a uri\r\n' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    # Proxy-Authenticate
+    
+    def test_retry_after(self):
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   'Retry-After: not a date' \
+                   'Connection: close\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
+
+    # Server
+
+    # Vary
+
+    # WWW-Authenticate

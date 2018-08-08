@@ -150,6 +150,9 @@ class StaticDeproxyServer(BaseDeproxyServer):
         BaseDeproxyServer.__init__(self, *args, **kwargs)
         self.last_request = None
 
+    def set_response(self, response):
+        self.response = response
+
     def recieve_request(self, request, connection):
         self.last_request = request
         return self.response
