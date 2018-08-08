@@ -478,7 +478,7 @@ vhost default {
     def test_retry_after(self):
         # https://tools.ietf.org/html/rfc7231#section-7.1.3
         response = 'HTTP/1.1 200 OK\r\n' \
-                   'Retry-After: not a date' \
+                   'Retry-After: not a date\r\n' \
                    'Content-Length: 0\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
