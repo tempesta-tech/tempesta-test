@@ -340,7 +340,7 @@ vhost default {
               'Host: localhost\r\n' \
               '\r\n'
 
-    def common_check(self, response, request):
+    def common_check(self, response, request, expect=502):
         deproxy = self.get_server('deproxy')
         deproxy.set_response(response)
         deproxy.start()
@@ -352,7 +352,7 @@ vhost default {
         resp = deproxy.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         status = deproxy.last_response.status
-        self.assertEqual(int(status), 502, "Wrong status: %s" % status)
+        self.assertEqual(int(status), expect, "Wrong status: %s" % status)
 
     def test_accept_ranges(self):
         # https://tools.ietf.org/html/rfc7233#section-2.3
@@ -370,13 +370,15 @@ vhost default {
                    '\r\n'
         self.common_check(response, self.request)
 
+    # Allow
+
     def test_allow(self):
         # https://tools.ietf.org/html/rfc7231#section-7.4.1
         response = 'HTTP/1.1 200 OK\r\n' \
                    'Allow: invalid\r\n' \
                    'Connection: close\r\n' \
                    '\r\n'
-        self.common_check(response, self.request)
+        self.common_check(response, self.request, 200)
 
     # Alternates
 
