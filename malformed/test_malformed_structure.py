@@ -95,3 +95,18 @@ vhost default {
         self.assertTrue(status == 200 or status == 400)
         if status == 200:
             self.assertEqual(deproxy_srv.last_request, expect)
+
+    def test_crSPlf(self):
+        # \r actually don't belong to the line, where it placed.
+        # it belongs to the next line
+        #
+        #  https://tools.ietf.org/html/rfc7230#section-3.5
+        #
+        # Although the line terminator for the start-line and header fields is
+        # the sequence CRLF, a recipient MAY recognize a single LF as a line
+        # terminator and ignore any preceding CR.
+        # So we have '\rHost' header name
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r \n' \
+                  '\r\n'
+        self.common_check(request, 400)
