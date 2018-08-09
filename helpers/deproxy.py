@@ -118,9 +118,11 @@ class HeaderCollection(object):
         return default
 
     @staticmethod
-    def from_stream(rfile, no_crlf=False):
+    def from_stream(rfile, message, no_crlf=False):
+        length = 0
         headers = HeaderCollection()
         line = rfile.readline()
+        length += len(line)
         while not (line == '\r\n' or line == '\n'):
             if no_crlf and not line:
                 break
@@ -134,11 +136,14 @@ class HeaderCollection(object):
             name = name.strip()
             value = value.strip()
             line = rfile.readline()
+            length += len(line)
             while line.startswith(' ') or line.startswith('\t'):
                 # Continuation lines - see RFC 2616, section 4.2
                 value += ' ' + line.strip()
                 line = rfile.readline()
             headers.add(name, value)
+
+        message.original_length += length
         return headers
 
     def _as_dict_lower(self):
@@ -208,6 +213,7 @@ class HttpMessage(object):
 
     def __init__(self, message_text=None, body_parsing=True, method="GET"):
         self.msg = ''
+        self.original_length = 0
         self.method = method
         self.body_parsing = True
         self.headers = HeaderCollection()
@@ -244,7 +250,7 @@ class HttpMessage(object):
         return ''
 
     def parse_headers(self, stream):
-        self.headers = HeaderCollection.from_stream(stream)
+        self.headers = HeaderCollection.from_stream(stream, self)
 
     def read_encoded_body(self, stream):
         """ RFC 7230. 3.3.3 #3 """
@@ -286,14 +292,16 @@ class HttpMessage(object):
 
         self.body = stream.read(size)
         if len(self.body) > size:
+            self.original_length += len(self.body)
             raise ParseError(("Wrong body size: expect %d but got %d!"
                               % (size, len(self.body))))
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplite message recieved")
             raise IncompliteMessage()
+        self.original_length += len(self.body)
 
     def parse_trailer(self, stream):
-        self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
+        self.trailer = HeaderCollection.from_stream(stream, self, no_crlf=True)
 
     @abc.abstractmethod
     def __eq__(self, other):
@@ -367,6 +375,7 @@ class Request(HttpMessage):
 
     def parse_firstline(self, stream):
         requestline = stream.readline()
+        self.original_length += len(requestline)
         if requestline[-1] != '\n':
             raise IncompliteMessage('Incomplete request line!')
 
@@ -424,6 +433,7 @@ class Response(HttpMessage):
 
     def parse_firstline(self, stream):
         statusline = stream.readline()
+        self.original_length += len(statusline)
         if statusline[-1] != '\n':
             raise IncompliteMessage('Incomplete Status line!')
 
