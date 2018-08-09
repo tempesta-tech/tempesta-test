@@ -92,6 +92,7 @@ class BaseDeproxyClient(deproxy.Client):
                 req = None
 
             if req == None:
+                self.requests.append("INVALID")
                 request = ''
                 break
             request = request[req.original_length:]

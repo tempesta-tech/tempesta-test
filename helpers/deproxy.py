@@ -118,7 +118,7 @@ class HeaderCollection(object):
         return default
 
     @staticmethod
-    def from_stream(rfile, message, no_crlf=False):
+    def from_stream(rfile, message=None, no_crlf=False):
         length = 0
         headers = HeaderCollection()
         line = rfile.readline()
@@ -142,8 +142,8 @@ class HeaderCollection(object):
                 value += ' ' + line.strip()
                 line = rfile.readline()
             headers.add(name, value)
-
-        message.original_length += length
+        if message != None:
+            message.original_length += length
         return headers
 
     def _as_dict_lower(self):
