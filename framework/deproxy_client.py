@@ -36,6 +36,8 @@ class BaseDeproxyClient(deproxy.Client):
             self.polling_lock.release()
 
     def run_start(self):
+        self.nrresp = 0
+        self.nrreq = 0
         if self.polling_lock != None:
             self.polling_lock.acquire()
         try:
@@ -119,6 +121,7 @@ class DeproxyClient(BaseDeproxyClient):
 
     def make_request(self, request):
         self.nr = len(self.responses)
+        self.responses = []
         BaseDeproxyClient.make_request(self, request)
 
     def wait_for_response(self, timeout=5):
