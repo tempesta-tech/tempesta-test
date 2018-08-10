@@ -149,10 +149,16 @@ class StaticDeproxyServer(BaseDeproxyServer):
         kwargs.pop('response', None)
         BaseDeproxyServer.__init__(self, *args, **kwargs)
         self.last_request = None
+        self.requests = []
+
+    def run_start(self):
+        BaseDeproxyServer.run_start(self)
+        self.requests = []
 
     def set_response(self, response):
         self.response = response
 
     def recieve_request(self, request, connection):
+        self.requests.append(request)
         self.last_request = request
         return self.response

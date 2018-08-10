@@ -115,6 +115,10 @@ class DeproxyClient(BaseDeproxyClient):
     responses = []
     nr = 0
 
+    def run_start(self):
+        BaseDeproxyClient.run_start(self)
+        self.responses = []
+
     def recieve_response(self, response):
         tf_cfg.dbg(4, "Recieved response: %s" % str(response.msg))
         self.responses.append(response)
@@ -122,7 +126,6 @@ class DeproxyClient(BaseDeproxyClient):
 
     def make_request(self, request):
         self.nr = len(self.responses)
-        self.responses = []
         BaseDeproxyClient.make_request(self, request)
 
     def wait_for_response(self, timeout=5):
