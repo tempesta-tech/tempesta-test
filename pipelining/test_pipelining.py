@@ -1,21 +1,51 @@
-from framework import tester
-from helpers import tf_cfg, deproxy
+from framework import tester, deproxy_server
+from helpers import tf_cfg, deproxy, tempesta
+from framework.templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-resp_keep_alive = """HTTP/1.1 200 OK
-Content-Length: 0
-Connection: keep-alive
+class DeproxyKeepaliveServer(deproxy_server.StaticDeproxyServer):
+    def __init__(self, *args, **kwargs):
+        self.keep_alive = int(kwargs['keep_alive'])
+        kwargs.pop('keep_alive', None)
+        self.nka = 0
+        deproxy_server.StaticDeproxyServer.__init__(self, *args, **kwargs)
+        
+    def run_start(self):
+        deproxy_server.StaticDeproxyServer.run_start(self)
+        self.nka = 0
 
-"""
+    def recieve_request(self, request, connection):
+        self.requests.append(request)
+        self.last_request = request
+        self.nka += 1
+        if self.nka < self.keep_alive:
+            return self.response
+        resp = deproxy.Response(self.response)
+        resp.headers['Connection'] = "close"
+        resp.build_message()
+        self.nka = 0
+        return resp.msg
 
-resp_close = """HTTP/1.1 200 OK
-Content-Length: 0
-Connection: close
+def build_deproxy_keepalive(server_description):
+    port = server_description['port']
+    if port == 'default':
+        port = tempesta.upstream_port_start_from()
+    else:
+        port = int(port)
+    srv = None
+    rtype = server_description['response']
+    if rtype == 'static':
+        content = fill_template(server_description['response_content'])
+        srv = DeproxyKeepaliveServer(port=port,
+                                     response=content)
+    else:
+        raise Exception("Invalid response type: %s" % str(rtype))
+    return srv
 
-"""
+tester.register_backend('deproxy_ka', build_deproxy_keepalive)
 
 class PipeliningTest(tester.TempestaTest):
 
@@ -25,7 +55,23 @@ class PipeliningTest(tester.TempestaTest):
             'type' : 'deproxy',
             'port' : '8000',
             'response' : 'static',
-            'response_content' : resp_keep_alive
+            'response_content' : """HTTP/1.1 200 OK
+Content-Length: 0
+Connection: keep-alive
+
+"""
+        },
+        {
+            'id' : 'deproxy_ka',
+            'type' : 'deproxy_ka',
+            'keep_alive' : 4,
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : """HTTP/1.1 200 OK
+Content-Length: 0
+Connection: keep-alive
+
+"""
         },
     ]
 
@@ -133,7 +179,22 @@ vhost default {
         request = "GET / HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
-                  "GET /path HTTP/1.1\r\n" \
+                  "GET /path1 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /path2 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /path3 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /path4 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /path5 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /path6 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n"
         deproxy_srv = self.get_server('deproxy')
@@ -146,7 +207,12 @@ vhost default {
         deproxy_cl.make_request(request)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
-        self.assertEqual(2, len(deproxy_cl.responses))
-        self.assertEqual(2, len(deproxy_srv.requests))
+        self.assertEqual(7, len(deproxy_cl.responses))
+        self.assertEqual(7, len(deproxy_srv.requests))
         self.assertEqual(deproxy_srv.requests[0].uri, "/")
-        self.assertEqual(deproxy_srv.requests[1].uri, "/path")
+        self.assertEqual(deproxy_srv.requests[1].uri, "/path1")
+        self.assertEqual(deproxy_srv.requests[2].uri, "/path2")
+        self.assertEqual(deproxy_srv.requests[3].uri, "/path3")
+        self.assertEqual(deproxy_srv.requests[4].uri, "/path4")
+        self.assertEqual(deproxy_srv.requests[5].uri, "/path5")
+        self.assertEqual(deproxy_srv.requests[6].uri, "/path6")

@@ -5,7 +5,9 @@ import threading
 import socket
 import time
 
-from helpers import deproxy, tf_cfg, error, stateful, remote
+from helpers import deproxy, tf_cfg, error, stateful, remote, tempesta
+from framework import tester
+from framework.templates import fill_template
 
 import port_checks
 
@@ -162,3 +164,22 @@ class StaticDeproxyServer(BaseDeproxyServer):
         self.requests.append(request)
         self.last_request = request
         return self.response
+
+def deproxy_srv_factory(server, name, tester):
+    port = server['port']
+    if port == 'default':
+        port = tempesta.upstream_port_start_from()
+    else:
+        port = int(port)
+    srv = None
+    rtype = server['response']
+    if rtype == 'static':
+        content = fill_template(server['response_content'])
+        srv = StaticDeproxyServer(port=port, response=content)
+    else:
+        raise Exception("Invalid response type: %s" % str(rtype))
+
+    tester.deproxy_manager.add_server(srv)
+    return srv
+
+tester.register_backend('deproxy', deproxy_srv_factory)
