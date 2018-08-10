@@ -4,8 +4,8 @@ import time
 
 from helpers import tf_cfg, remote, tempesta, stateful
 from templates import fill_template
-import tester
 import port_checks
+import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'

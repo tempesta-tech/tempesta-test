@@ -3,19 +3,21 @@ import time
 
 from helpers import tempesta, control, stateful, tf_cfg, dmesg, remote
 
-from . import wrk_client, nginx_server
-from . import deproxy_client, deproxy_server, deproxy_manager
+import wrk_client
+import deproxy_client, deproxy_manager
 from templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-backeds = {}
+backend_defs = {}
 
 def register_backend(type_name, factory):
+    global backend_defs
     """ Register backend type """
-    backeds[type_name] = factory
+    tf_cfg.dbg(3, "Registering backend %s" % type_name)
+    backend_defs[type_name] = factory
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -72,7 +74,13 @@ class TempestaTest(unittest.TestCase):
                 port = fill_template(check['port'])
                 checks.append((ip, port))
 
-        factory = backeds[server['type']]
+        stype = server['type']
+        try:
+            factory = backend_defs[stype]
+        except Exception as e:
+            tf_cfg.dbg(1, "Unsupported backend %s" % stype)
+            tf_cfg.dbg(1, "Supported backends: %s" % backend_defs)
+            raise e
         srv = factory(server, sid, self)
         srv.port_checks = checks
         self.__servers[sid] = srv

@@ -6,9 +6,9 @@ import socket
 import time
 
 from helpers import deproxy, tf_cfg, error, stateful, remote, tempesta
-from framework import tester
-from framework.templates import fill_template
+from templates import fill_template
 
+import tester
 import port_checks
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -65,11 +65,13 @@ class ServerConnection(asyncore.dispatcher_with_send):
             return
         tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Recieve request.')
         tf_cfg.dbg(5, self.request_buffer)
-        response = self.server.recieve_request(request, self)
+        response, need_close = self.server.recieve_request(request, self)
         self.request_buffer = ''
         if not response:
             return
         self.send_response(response)
+        if need_close:
+            self.close()
 
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
@@ -154,8 +156,8 @@ class StaticDeproxyServer(BaseDeproxyServer):
         self.requests = []
 
     def run_start(self):
-        BaseDeproxyServer.run_start(self)
         self.requests = []
+        BaseDeproxyServer.run_start(self)
 
     def set_response(self, response):
         self.response = response
@@ -163,7 +165,7 @@ class StaticDeproxyServer(BaseDeproxyServer):
     def recieve_request(self, request, connection):
         self.requests.append(request)
         self.last_request = request
-        return self.response
+        return self.response, False
 
 def deproxy_srv_factory(server, name, tester):
     port = server['port']

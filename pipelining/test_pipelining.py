@@ -7,42 +7,49 @@ __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class DeproxyKeepaliveServer(deproxy_server.StaticDeproxyServer):
+
     def __init__(self, *args, **kwargs):
-        self.keep_alive = int(kwargs['keep_alive'])
+        self.ka = int(kwargs['keep_alive'])
         kwargs.pop('keep_alive', None)
         self.nka = 0
+        tf_cfg.dbg(3, "\tDeproxy keepalive: keepalive requests = %i" % self.ka)
         deproxy_server.StaticDeproxyServer.__init__(self, *args, **kwargs)
-        
+
     def run_start(self):
-        deproxy_server.StaticDeproxyServer.run_start(self)
         self.nka = 0
+        deproxy_server.StaticDeproxyServer.run_start(self)
 
     def recieve_request(self, request, connection):
         self.requests.append(request)
         self.last_request = request
         self.nka += 1
-        if self.nka < self.keep_alive:
-            return self.response
+        tf_cfg.dbg(5, "\trequests = %i of %i" % (self.nka, self.ka))
+        if self.nka < self.ka:
+            return self.response, False
         resp = deproxy.Response(self.response)
         resp.headers['Connection'] = "close"
         resp.build_message()
+        tf_cfg.dbg(3, "\tDeproxy: keepalive closing")
         self.nka = 0
-        return resp.msg
+        return resp.msg, True
 
-def build_deproxy_keepalive(server_description):
-    port = server_description['port']
+def build_deproxy_keepalive(server, name, tester):
+    port = server['port']
     if port == 'default':
         port = tempesta.upstream_port_start_from()
     else:
         port = int(port)
     srv = None
-    rtype = server_description['response']
+    rtype = server['response']
+    ka = server['keep_alive']
     if rtype == 'static':
-        content = fill_template(server_description['response_content'])
+        content = fill_template(server['response_content'])
         srv = DeproxyKeepaliveServer(port=port,
-                                     response=content)
+                                     response=content,
+                                     keep_alive=ka)
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
+    tester.deproxy_manager.add_server(srv)
     return srv
 
 tester.register_backend('deproxy_ka', build_deproxy_keepalive)
@@ -197,7 +204,7 @@ vhost default {
                   "GET /path6 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n"
-        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv = self.get_server('deproxy_ka')
         deproxy_srv.start()
         self.assertEqual(0, len(deproxy_srv.requests))
         self.start_tempesta()
@@ -209,6 +216,8 @@ vhost default {
         self.assertTrue(resp, "Response not received")
         self.assertEqual(7, len(deproxy_cl.responses))
         self.assertEqual(7, len(deproxy_srv.requests))
+        for i in range(len(deproxy_srv.requests)):
+            tf_cfg.dbg(3, "Req %i: %s" % (i, deproxy_srv.requests[i].msg))
         self.assertEqual(deproxy_srv.requests[0].uri, "/")
         self.assertEqual(deproxy_srv.requests[1].uri, "/path1")
         self.assertEqual(deproxy_srv.requests[2].uri, "/path2")
