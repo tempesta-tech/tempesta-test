@@ -86,6 +86,7 @@ Connection: keep-alive
         'config' : """
 cache 0;
 listen 80;
+nonidempotent GET prefix "/";
 
 srv_group default {
     server ${general_ip}:8000;
