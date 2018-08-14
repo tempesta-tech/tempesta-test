@@ -492,43 +492,32 @@ def __servers_pool_size(n_servers):
     return min(n_servers, MAX_THREADS)
 
 def servers_start(servers):
-    try:
-        threads = __servers_pool_size(len(servers))
-        pool = multiprocessing.Pool(threads)
-        pool.map(Nginx.start, servers)
-    except Exception as e:
-        tf_cfg.dbg(1, 'Start servers. Exception type is: %s, %s' % \
-                    (e.__class__.__name__, e))
-        raise e
+    for server in servers:
+        try:
+            server.start()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem starting server: %s" % e)
 
 def servers_force_stop(servers):
-    try:
-        threads = __servers_pool_size(len(servers))
-        pool = multiprocessing.Pool(threads)
-        pool.map(Nginx.force_stop, servers)
-    except Exception as e:
-        tf_cfg.dbg(1, 'Force stop servers. Exception type is: %s, %s' % \
-                    (e.__class__.__name__, e))
-        raise e
+    for server in servers:
+        try:
+            server.force_stop()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
 
 def servers_stop(servers):
-    try:
-        threads = __servers_pool_size(len(servers))
-        pool = multiprocessing.Pool(threads)
-        pool.map(Nginx.stop, servers)
-    except Exception as e:
-        tf_cfg.dbg(1, 'Stop servers. Exception type is: %s, %s' % \
-                    (e.__class__.__name__, e))
-        raise e
+    for server in servers:
+        try:
+            server.stop()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
 
 def servers_get_stats(servers):
-    try:
-        threads = __servers_pool_size(len(servers))
-        pool = multiprocessing.Pool(threads)
-        pool.map(Nginx.get_stats, servers)
-    except Exception as e:
-        tf_cfg.dbg(1, 'Servers get stats. Exception type is: %s, %s' % \
-                    (e.__class__.__name__, e))
-        raise e
+    for server in servers:
+        try:
+            server.get_stats()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem getting stats from server: %s" % e)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
