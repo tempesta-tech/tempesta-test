@@ -492,23 +492,39 @@ def __servers_pool_size(n_servers):
     return min(n_servers, MAX_THREADS)
 
 def servers_start(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.start, servers)
+    try:
+        threads = __servers_pool_size(len(servers))
+        pool = multiprocessing.Pool(threads)
+        pool.map(Nginx.start, servers)
+    except Exception as e:
+        print('Exception type is: %s' % e.__class__.__name__)
+        raise e
 
 def servers_force_stop(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.force_stop, servers)
+    try:
+        threads = __servers_pool_size(len(servers))
+        pool = multiprocessing.Pool(threads)
+        pool.map(Nginx.force_stop, servers)
+    except Exception as e:
+        print('Exception type is: %s' % e.__class__.__name__)
+        raise e
 
 def servers_stop(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.stop, servers)
+    try:
+        threads = __servers_pool_size(len(servers))
+        pool = multiprocessing.Pool(threads)
+        pool.map(Nginx.stop, servers)
+    except Exception as e:
+        print('Exception type is: %s' % e.__class__.__name__)
+        raise e
 
 def servers_get_stats(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.get_stats, servers)
+    try:
+        threads = __servers_pool_size(len(servers))
+        pool = multiprocessing.Pool(threads)
+        pool.map(Nginx.get_stats, servers)
+    except Exception as e:
+        print('Exception type is: %s' % e.__class__.__name__)
+        raise e
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
