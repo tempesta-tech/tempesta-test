@@ -485,18 +485,13 @@ class Nginx(stateful.Stateful):
 
 MAX_THREADS = 32
 
-def __servers_pool_size(n_servers):
-    if remote.server.is_remote():
-        # By default MaxSessions in sshd config is 10. Do not overflow it.
-        return 4
-    return min(n_servers, MAX_THREADS)
-
 def servers_start(servers):
     for server in servers:
         try:
             server.start()
         except Exception as e:
             tf_cfg.dbg(1, "Problem starting server: %s" % e)
+            raise e
 
 def servers_force_stop(servers):
     for server in servers:
@@ -518,6 +513,7 @@ def servers_get_stats(servers):
             server.get_stats()
         except Exception as e:
             tf_cfg.dbg(1, "Problem getting stats from server: %s" % e)
+            raise e
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
