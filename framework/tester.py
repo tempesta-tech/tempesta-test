@@ -12,12 +12,24 @@ __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 backend_defs = {}
+tempesta_defs = {}
 
 def register_backend(type_name, factory):
     global backend_defs
     """ Register backend type """
     tf_cfg.dbg(3, "Registering backend %s" % type_name)
     backend_defs[type_name] = factory
+
+def register_tempesta(type_name, factory):
+    global tempesta_defs
+    """ Register tempesta type """
+    tf_cfg.dbg(3, "Registering tempesta %s" % type_name)
+    tempesta_defs[type_name] = factory
+
+def default_tempesta_factory(tempesta):
+    return control.Tempesta()
+
+register_tempesta("tempesta", default_tempesta_factory)
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -121,7 +133,11 @@ class TempestaTest(unittest.TestCase):
         config = ""
         if self.tempesta.has_key('config'):
             config = self.tempesta['config']
-        self.__tempesta = control.Tempesta()
+        if self.tempesta.has_key('type'):
+            factory = tempesta_defs[self.tempesta['type']]
+            self.__tempesta = factory(self.tempesta)
+        else:
+            self.__tempesta = default_tempesta_factory(self.tempesta)
         self.__tempesta.config.set_defconfig(fill_template(config))
 
     def start_all_servers(self):
