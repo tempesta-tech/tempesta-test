@@ -483,8 +483,6 @@ class Nginx(stateful.Stateful):
 # Server helpers
 #-------------------------------------------------------------------------------
 
-MAX_THREADS = 32
-
 def servers_start(servers):
     for server in servers:
         try:
