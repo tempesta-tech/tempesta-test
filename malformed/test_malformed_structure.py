@@ -15,7 +15,7 @@ class MalformedStructureTest(tester.TempestaTest):
             'response_content' :
 """HTTP/1.1 200 OK
 Content-Length: 0
-Connection: close
+Connection: keep-alive
 
 """
         },
@@ -67,7 +67,8 @@ vhost default {
         # Although the line terminator for the start-line and header fields is
         # the sequence CRLF, a recipient MAY recognize a single LF as a line
         # terminator and ignore any preceding CR.
-        # So we have '\rHost' header name
+        #
+        # So we have '\rHost: localhost\n' next line
         request = 'GET / HTTP/1.1\n\r' \
                   'Host: localhost\n\r' \
                   '\n\r'
@@ -75,6 +76,13 @@ vhost default {
 
     def test_space(self):
         # https://tools.ietf.org/html/rfc7230#section-3.2.4
+        # No whitespace is allowed between the header field-name and colon.  In
+        # the past, differences in the handling of such whitespace have led to
+        # security vulnerabilities in request routing and response handling.  A
+        # server MUST reject any received request message that contains
+        # whitespace between a header field-name and colon with a response code
+        # of 400 (Bad Request).  A proxy MUST remove any such whitespace from a
+        # response message before forwarding the message downstream.
         request = 'GET / HTTP/1.1\r\n' \
                   'Host : localhost\r\n' \
                   '\r\n'
@@ -97,15 +105,29 @@ vhost default {
             self.assertEqual(deproxy_srv.last_request, expect)
 
     def test_crSPlf(self):
-        # \r actually don't belong to the line, where it placed.
-        # it belongs to the next line
+        # https://tools.ietf.org/html/rfc7230#section-3
         #
-        #  https://tools.ietf.org/html/rfc7230#section-3.5
+        # HTTP-message   = start-line
+        #                  *( header-field CRLF )
+        #                  CRLF
+        #                  [ message-body ]
+        #
+        # https://tools.ietf.org/html/rfc7230#section-3.5
         #
         # Although the line terminator for the start-line and header fields is
         # the sequence CRLF, a recipient MAY recognize a single LF as a line
         # terminator and ignore any preceding CR.
-        # So we have '\rHost' header name
+        #
+        # https://tools.ietf.org/html/rfc7230#section-3.2
+        #
+        # header-field   = field-name ":" OWS field-value OWS
+        #
+        # field-name     = token
+        # field-value    = *( field-content / obs-fold )
+        # field-content  = field-vchar [ 1*( SP / HTAB ) field-vchar ]
+        #
+        # We have content = 'localhost\r', which is invalid, because
+        # \r is neither a VCHAR nor obs-text
         request = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r \n' \
                   '\r\n'
