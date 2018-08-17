@@ -1,5 +1,7 @@
+import os
+
 from framework import tester, deproxy_server
-from helpers import tf_cfg, deproxy, tempesta
+from helpers import tf_cfg, deproxy, tempesta, control
 from framework.templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -81,6 +83,12 @@ def build_deproxy_keepalive(server, name, tester):
 
 tester.register_backend('deproxy_echo', build_deproxy_echo)
 tester.register_backend('deproxy_ka', build_deproxy_keepalive)
+
+
+def build_tempesta_fault(tempesta):
+    return control.TempestaFI("resp_alloc_err", True)
+
+tester.register_tempesta('tempesta_fi', build_tempesta_fault)
 
 class PipeliningTest(tester.TempestaTest):
 
@@ -257,5 +265,133 @@ vhost default {
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
-        for i in range(len(deproxy_srv.requests)):
-            tf_cfg.dbg(3, "Req %i: %s" % (i, deproxy_srv.requests[i].msg))
+
+class PipeliningTestFI(tester.TempestaTest):
+
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy_echo',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : """HTTP/1.1 200 OK
+Content-Length: 0
+Connection: keep-alive
+
+"""
+        },
+        {
+            'id' : 'deproxy_ka',
+            'type' : 'deproxy_ka',
+            'keep_alive' : 4,
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : """HTTP/1.1 200 OK
+Content-Length: 0
+Connection: keep-alive
+
+"""
+        },
+    ]
+
+    tempesta = {
+        'type' : "tempesta_fi",
+        'config' : """
+cache 0;
+listen 80;
+nonidempotent GET prefix "/";
+
+srv_group default {
+    server ${general_ip}:8000;
+}
+
+vhost default {
+    proxy_pass default;
+}
+""",
+    }
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+    ]
+
+    def test_pipelined(self):
+        # Mark all requests as non-idempotent. Send pipelined non-idempotent
+        # requests. Client SHOULD NOT pipeline non-idempotent requests,
+        # but not MUST NOT. Check, that all requests goes in correct order
+
+        request = "GET /0 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /1 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /2 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /3 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n"
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv.start()
+        self.assertEqual(0, len(deproxy_srv.requests))
+        self.start_tempesta()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(request)
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertTrue(resp, "Response not received")
+        self.assertEqual(4, len(deproxy_cl.responses))
+        self.assertEqual(4, len(deproxy_srv.requests))
+        for i in range(len(deproxy_cl.responses)):
+            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
+
+        for i in range(len(deproxy_cl.responses)):
+            self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
+
+
+    def test_failovering(self):
+        request = "GET /0 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /1 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /2 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /3 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /4 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /5 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n" \
+                  "GET /6 HTTP/1.1\r\n" \
+                  "Host: localhost\r\n" \
+                  "\r\n"
+        deproxy_srv = self.get_server('deproxy_ka')
+        deproxy_srv.start()
+        self.assertEqual(0, len(deproxy_srv.requests))
+        self.start_tempesta()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.start()
+        deproxy_cl.make_request(request)
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertTrue(resp, "Response not received")
+        self.assertEqual(7, len(deproxy_cl.responses))
+        self.assertEqual(7, len(deproxy_srv.requests))
+        for i in range(len(deproxy_cl.responses)):
+            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
+
+        for i in range(len(deproxy_cl.responses)):
+            self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
