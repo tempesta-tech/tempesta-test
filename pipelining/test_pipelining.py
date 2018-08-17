@@ -108,6 +108,10 @@ vhost default {
     ]
 
     def test_pipelined(self):
+        # Mark all requests as non-idempotent. Send pipelined non-idempotent
+        # requests. Client SHOULD NOT pipeline non-idempotent requests,
+        # but not MUST NOT. Check, that all requests goes in correct order
+
         request = "GET / HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
@@ -141,6 +145,10 @@ vhost default {
         self.assertEqual(deproxy_srv.requests[3].uri, "/app")
 
     def test_2_pipelined(self):
+        # Mark all requests as non-idempotent. Send pipelined non-idempotent
+        # requests 2 times. Client SHOULD NOT pipeline non-idempotent requests,
+        # but not MUST NOT. Check, that all requests goes in correct order.
+
         request = "GET / HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
@@ -184,6 +192,12 @@ vhost default {
         self.assertEqual(deproxy_srv.requests[5].uri, "/last")
 
     def test_failovering(self):
+        # Mark all requests as non-idempotent. Send pipelined non-idempotent
+        # requests. Client SHOULD NOT pipeline non-idempotent requests,
+        # but not MUST NOT. Check, that all requests goes in correct order.
+        # This test differs from previous ones in server: it closes connections
+        # every 4 requests
+
         request = "GET / HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
