@@ -143,9 +143,7 @@ vhost default {
     ]
 
     def test_pipelined(self):
-        # Mark all requests as non-idempotent. Send pipelined non-idempotent
-        # requests. Client SHOULD NOT pipeline non-idempotent requests,
-        # but not MUST NOT. Check, that all requests goes in correct order
+        # Check that responses goes in the same order as requests
 
         request = "GET /0 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
@@ -178,10 +176,7 @@ vhost default {
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
 
     def test_2_pipelined(self):
-        # Mark all requests as non-idempotent. Send pipelined non-idempotent
-        # requests 2 times. Client SHOULD NOT pipeline non-idempotent requests,
-        # but not MUST NOT. Check, that all requests goes in correct order.
-
+        # Check that responses goes in the same order as requests
         request = "GET /0 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
@@ -221,12 +216,9 @@ vhost default {
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
 
     def test_failovering(self):
-        # Mark all requests as non-idempotent. Send pipelined non-idempotent
-        # requests. Client SHOULD NOT pipeline non-idempotent requests,
-        # but not MUST NOT. Check, that all requests goes in correct order.
+        # Check that responses goes in the same order as requests
         # This test differs from previous ones in server: it closes connections
         # every 4 requests
-
         request = "GET /0 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
@@ -321,10 +313,7 @@ vhost default {
     ]
 
     def test_pipelined(self):
-        # Mark all requests as non-idempotent. Send pipelined non-idempotent
-        # requests. Client SHOULD NOT pipeline non-idempotent requests,
-        # but not MUST NOT. Check, that all requests goes in correct order
-
+        # Check that responses goes in the same order as requests
         request = "GET /0 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
@@ -357,6 +346,9 @@ vhost default {
 
 
     def test_failovering(self):
+        # Check that responses goes in the same order as requests
+        # This test differs from previous one in server: it closes connections
+        # every 4 requests
         request = "GET /0 HTTP/1.1\r\n" \
                   "Host: localhost\r\n" \
                   "\r\n" \
