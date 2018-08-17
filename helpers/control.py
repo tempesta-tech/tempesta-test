@@ -483,32 +483,35 @@ class Nginx(stateful.Stateful):
 # Server helpers
 #-------------------------------------------------------------------------------
 
-MAX_THREADS = 32
-
-def __servers_pool_size(n_servers):
-    if remote.server.is_remote():
-        # By default MaxSessions in sshd config is 10. Do not overflow it.
-        return 4
-    return min(n_servers, MAX_THREADS)
-
 def servers_start(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.start, servers)
+    for server in servers:
+        try:
+            server.start()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem starting server: %s" % e)
+            raise e
 
 def servers_force_stop(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.force_stop, servers)
+    for server in servers:
+        try:
+            server.force_stop()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
 
 def servers_stop(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.stop, servers)
+    for server in servers:
+        try:
+            server.stop()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
 
 def servers_get_stats(servers):
-    threads = __servers_pool_size(len(servers))
-    pool = multiprocessing.Pool(threads)
-    pool.map(Nginx.get_stats, servers)
+    for server in servers:
+        try:
+            server.get_stats()
+        except Exception as e:
+            tf_cfg.dbg(1, "Problem getting stats from server: %s" % e)
+            raise e
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
