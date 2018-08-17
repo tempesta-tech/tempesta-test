@@ -15,7 +15,7 @@ class MalformedRequestsTest(tester.TempestaTest):
             'response_content' :
 """HTTP/1.1 200 OK
 Content-Length: 0
-Connection: close
+Connection: keep-alive
 
 """
         },
