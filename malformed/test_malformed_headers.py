@@ -155,7 +155,7 @@ vhost default {
         request = 'POST / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   'Content-Length: not a number\r\n' \
-                  '\r\n\r'
+                  '\r\n'
         self.common_check(request)
 
     def test_content_location(self):
