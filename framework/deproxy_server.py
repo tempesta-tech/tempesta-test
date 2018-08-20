@@ -5,8 +5,10 @@ import threading
 import socket
 import time
 
-from helpers import deproxy, tf_cfg, error, stateful, remote
+from helpers import deproxy, tf_cfg, error, stateful, remote, tempesta
+from templates import fill_template
 
+import tester
 import port_checks
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -24,12 +26,12 @@ class ServerConnection(asyncore.dispatcher_with_send):
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
 
     def send_response(self, response):
-        if response.msg:
+        if response:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response.')
-            tf_cfg.dbg(5, response.msg)
-            self.send(response.msg)
+            tf_cfg.dbg(5, response)
+            self.send(response)
         else:
-            tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Sending invalid response.')
+            tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Don\'t have response')
         if self.keep_alive:
             self.responses_done += 1
             if self.responses_done == self.keep_alive:
@@ -63,11 +65,13 @@ class ServerConnection(asyncore.dispatcher_with_send):
             return
         tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Recieve request.')
         tf_cfg.dbg(5, self.request_buffer)
-        response = self.server.recieve_request(request, self)
+        response, need_close = self.server.recieve_request(request, self)
         self.request_buffer = ''
         if not response:
             return
         self.send_response(response)
+        if need_close:
+            self.close()
 
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
@@ -149,7 +153,35 @@ class StaticDeproxyServer(BaseDeproxyServer):
         kwargs.pop('response', None)
         BaseDeproxyServer.__init__(self, *args, **kwargs)
         self.last_request = None
+        self.requests = []
+
+    def run_start(self):
+        self.requests = []
+        BaseDeproxyServer.run_start(self)
+
+    def set_response(self, response):
+        self.response = response
 
     def recieve_request(self, request, connection):
+        self.requests.append(request)
         self.last_request = request
-        return deproxy.Response(self.response)
+        return self.response, False
+
+def deproxy_srv_factory(server, name, tester):
+    port = server['port']
+    if port == 'default':
+        port = tempesta.upstream_port_start_from()
+    else:
+        port = int(port)
+    srv = None
+    rtype = server['response']
+    if rtype == 'static':
+        content = fill_template(server['response_content'])
+        srv = StaticDeproxyServer(port=port, response=content)
+    else:
+        raise Exception("Invalid response type: %s" % str(rtype))
+
+    tester.deproxy_manager.add_server(srv)
+    return srv
+
+tester.register_backend('deproxy', deproxy_srv_factory)

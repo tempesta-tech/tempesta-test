@@ -363,6 +363,7 @@ class TempestaFI(Tempesta):
 
         self.stap_local = \
                 os.path.dirname(__file__) + "/../systemtap/" + self.stap
+        self.stap_local = os.path.normpath(self.stap_local)
 
         self.module_stap = mod
         self.module_name = mod_name
@@ -379,7 +380,10 @@ class TempestaFI(Tempesta):
             self.node.run_cmd('mkdir %s' % self.modules_dir)
             cmd = 'find %s/ -name "*.ko" | xargs cp -t %s'
             self.node.run_cmd(cmd % (self.srcdir, self.modules_dir))
-            self.node.copy_file_to_node(self.stap_local, self.workdir)
+            local = open(self.stap_local, 'r')
+            content = local.read()
+            local.close()
+            self.node.copy_file(self.stap, content)
 
     def inject(self):
         cmd = 'stap -g -m %s -F %s/%s' % \

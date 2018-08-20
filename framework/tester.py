@@ -3,13 +3,33 @@ import time
 
 from helpers import tempesta, control, stateful, tf_cfg, dmesg, remote
 
-from . import wrk_client, nginx_server
-from . import deproxy_client, deproxy_server, deproxy_manager
+import wrk_client
+import deproxy_client, deproxy_manager
 from templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
+backend_defs = {}
+tempesta_defs = {}
+
+def register_backend(type_name, factory):
+    global backend_defs
+    """ Register backend type """
+    tf_cfg.dbg(3, "Registering backend %s" % type_name)
+    backend_defs[type_name] = factory
+
+def register_tempesta(type_name, factory):
+    global tempesta_defs
+    """ Register tempesta type """
+    tf_cfg.dbg(3, "Registering tempesta %s" % type_name)
+    tempesta_defs[type_name] = factory
+
+def default_tempesta_factory(tempesta):
+    return control.Tempesta()
+
+register_tempesta("tempesta", default_tempesta_factory)
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -35,7 +55,7 @@ class TempestaTest(unittest.TestCase):
     __servers = {}
     __clients = {}
     __tempesta = None
-    __deproxy_manager = deproxy_manager.DeproxyManager()
+    deproxy_manager = deproxy_manager.DeproxyManager()
 
     def __create_client_deproxy(self, client):
         addr = fill_template(client['addr'])
@@ -56,30 +76,6 @@ class TempestaTest(unittest.TestCase):
         elif client['type'] == 'wrk':
             self.__clients[cid] = self.__create_client_wrk(client)
 
-    def __create_srv_nginx(self, server, name):
-        if not 'config' in server.keys():
-            return None
-        srv = nginx_server.Nginx(server['config'], name, server['status_uri'])
-        return srv
-
-    def __create_srv_deproxy(self, server):
-        port = server['port']
-        if port == 'default':
-            port = tempesta.upstream_port_start_from()
-        else:
-            port = int(port)
-        srv = None
-        rtype = server['response']
-        if rtype == 'static':
-            content = fill_template(server['response_content'])
-            srv = deproxy_server.StaticDeproxyServer(port=port,
-                                                     response=content)
-        else:
-            raise Exception("Invalid response type: %s" % str(rtype))
-
-        self.__deproxy_manager.add_server(srv)
-        return srv
-
     def __create_backend(self, server):
         srv = None
         checks = []
@@ -90,11 +86,14 @@ class TempestaTest(unittest.TestCase):
                 port = fill_template(check['port'])
                 checks.append((ip, port))
 
-        if server['type'] == 'nginx':
-            srv = self.__create_srv_nginx(server, sid)
-        elif server['type'] == 'deproxy':
-            srv = self.__create_srv_deproxy(server)
-
+        stype = server['type']
+        try:
+            factory = backend_defs[stype]
+        except Exception as e:
+            tf_cfg.dbg(1, "Unsupported backend %s" % stype)
+            tf_cfg.dbg(1, "Supported backends: %s" % backend_defs)
+            raise e
+        srv = factory(server, sid, self)
         srv.port_checks = checks
         self.__servers[sid] = srv
 
@@ -134,7 +133,11 @@ class TempestaTest(unittest.TestCase):
         config = ""
         if self.tempesta.has_key('config'):
             config = self.tempesta['config']
-        self.__tempesta = control.Tempesta()
+        if self.tempesta.has_key('type'):
+            factory = tempesta_defs[self.tempesta['type']]
+            self.__tempesta = factory(self.tempesta)
+        else:
+            self.__tempesta = default_tempesta_factory(self.tempesta)
         self.__tempesta.config.set_defconfig(fill_template(config))
 
     def start_all_servers(self):
@@ -164,7 +167,7 @@ class TempestaTest(unittest.TestCase):
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
-        self.__deproxy_manager.start()
+        self.deproxy_manager.start()
         # preventing race between manager start and servers start
         time.sleep(0.2)
 
@@ -177,7 +180,7 @@ class TempestaTest(unittest.TestCase):
         for id in self.__servers:
             server = self.__servers[id]
             server.stop()
-        self.__deproxy_manager.stop()
+        self.deproxy_manager.stop()
         try:
             deproxy_manager.finish_all_deproxy()
         except:
@@ -198,3 +201,4 @@ class TempestaTest(unittest.TestCase):
         for item in items:
             if item.is_running():
                 item.wait_for_finish()
+

@@ -4,8 +4,8 @@ import time
 
 from helpers import tf_cfg, remote, tempesta, stateful
 from templates import fill_template
-
 import port_checks
+import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -110,3 +110,11 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
         tf_cfg.dbg(3, '\tRemoving Nginx config for %s' % self.get_name())
         config_file = os.path.join(self.workdir, self.config.config_name)
         self.node.remove_file(config_file)
+
+def nginx_srv_factory(server, name, tester):
+    if not 'config' in server.keys():
+        return None
+    srv = Nginx(server['config'], name, server['status_uri'])
+    return srv
+
+tester.register_backend('nginx', nginx_srv_factory)
