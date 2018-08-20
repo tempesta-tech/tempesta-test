@@ -53,8 +53,8 @@ vhost default {
         deproxy = self.get_client('deproxy')
         deproxy.start()
         deproxy.make_request(request)
-        resp = deproxy.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        has_resp = deproxy.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received")
         status = deproxy.last_response.status
         self.assertEqual(int(status), 400, "Wrong status: %s" % status)
 
@@ -97,8 +97,8 @@ vhost default {
         deproxy_cl = self.get_client('deproxy')
         deproxy_cl.start()
         deproxy_cl.make_request(request)
-        resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        has_resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
         self.assertTrue(status == 200 or status == 400)
         if status == 200:

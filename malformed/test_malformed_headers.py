@@ -53,8 +53,8 @@ vhost default {
         deproxy = self.get_client('deproxy')
         deproxy.start()
         deproxy.make_request(request)
-        resp = deproxy.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        has_resp = deproxy.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received")
         status = deproxy.last_response.status
         self.assertEqual(int(status), 400, "Wrong status: %s" % status)
 
@@ -529,7 +529,6 @@ class MalformedResponsesTest(tester.TempestaTest):
             'response_content' :
 """HTTP/1.1 200 OK
 Content-Length: 0
-Connection: close
 
 """
         },
@@ -572,8 +571,8 @@ vhost default {
         deproxy = self.get_client('deproxy')
         deproxy.start()
         deproxy.make_request(request)
-        resp = deproxy.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        has_resp = deproxy.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received")
         status = deproxy.last_response.status
         self.assertEqual(int(status), expect, "Wrong status: %s" % status)
 
