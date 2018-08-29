@@ -48,4 +48,33 @@ class TestEnforcedCookiesSupport(TestNoEnforcedCookiesSupport):
         self.tester = \
             cookies.TesterUseEnforcedCookies(self.client, self.servers)
 
+
+class TestNoEnforcedExtCookiesSupport(TestNoCookiesSupport):
+
+    config = (
+        'cache 0;\n'
+        'sticky enforce max_misses=50;\n'
+        'sticky_secret "f00)9eR59*_/22";\n'
+        '\n')
+
+    def create_tester(self):
+        self.tester = \
+            cookies.TesterIgnoreEnforcedExtCookies(self.client, self.servers)
+
+
+class TestNoEnforcedExtRmarkCookiesSupport(TestNoEnforcedExtCookiesSupport):
+
+    def create_tester(self):
+        self.tester = \
+            cookies.TesterIgnoreEnforcedExtCookiesRmark(self.client,
+                                                        self.servers)
+
+
+class TestInvEnforcedExtRmarkCookiesSupport(TestNoEnforcedExtCookiesSupport):
+
+    def create_tester(self):
+        self.tester = \
+            cookies.TesterInvalidEnforcedExtCookiesRmark(self.client,
+                                                         self.servers)
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
