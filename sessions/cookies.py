@@ -29,7 +29,7 @@ def make_502():
 
 class TesterCookies(deproxy.Deproxy):
 
-    def verify_header(self, response, name, rexp):
+    def verify_adjust_header(self, response, name, rexp):
         gen_rexp = ''.join([r'^(.*)', rexp, r'([a-f0-9]+)(.*)$'])
         m = re.search(gen_rexp, response.headers[name])
         assert m, '%s header not found!' % (name)
@@ -53,7 +53,7 @@ class TesterIgnoreCookies(TesterCookies):
         self.cookies = []
 
     def recieved_response(self, response):
-        _, cookie, _ = self.verify_header(response, 'Set-Cookie', r'__tfw=')
+        _, cookie, _ = self.verify_adjust_header(response, 'Set-Cookie', r'__tfw=')
 
         # Client doesn't support cookies: Tempesta will generate new cookie for
         # each request.
@@ -93,7 +93,7 @@ class TesterUseCookies(TesterCookies):
 
     def recieved_response(self, response):
         if not self.cookie_parsed:
-            _, cookie, _ = self.verify_header(response, 'Set-Cookie', r'__tfw=')
+            _, cookie, _ = self.verify_adjust_header(response, 'Set-Cookie', r'__tfw=')
 
             # All following requests must contain Cookie header
             for req in [self.message_chains[1].request,
@@ -130,7 +130,7 @@ class TesterIgnoreEnforcedExtCookies(TesterIgnoreEnforcedCookies):
     """
 
     def recieved_response(self, response):
-        self.verify_header(response, 'Location', r'/__tfw=')
+        self.verify_adjust_header(response, 'Location', r'/__tfw=')
         TesterIgnoreEnforcedCookies.recieved_response(self, response)
 
 
@@ -140,7 +140,7 @@ class TesterIgnoreEnforcedExtCookiesRmark(TesterIgnoreEnforcedCookies):
     """
 
     def recieved_response(self, response):
-        auth, rmark, uri = self.verify_header(response, 'Location', r'/__tfw=')
+        auth, rmark, uri = self.verify_adjust_header(response, 'Location', r'/__tfw=')
 
         # Every request must contain received mark before URI path
         req = self.message_chains[0].request
