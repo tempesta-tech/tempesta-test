@@ -27,36 +27,46 @@ def make_502():
         '\r\n')
     return response
 
-class TesterIgnoreCookies(deproxy.Deproxy):
+class TesterCookies(deproxy.Deproxy):
+
+    def verify_adjust_header(self, response, name, rexp):
+        gen_rexp = ''.join([r'^(.*)', rexp, r'([a-f0-9]+)(.*)$'])
+        m = re.search(gen_rexp, response.headers[name])
+        assert m, '%s header not found!' % (name)
+        head = m.group(1)
+        val = m.group(2)
+        tail = m.group(3)
+
+        exp_resp = self.current_chain.response
+        exp_resp.headers.delete_all(name)
+        exp_resp.headers.add(name, response.headers[name])
+        exp_resp.update()
+
+        return head, val, tail
+
+class TesterIgnoreCookies(TesterCookies):
     """Tester helper. Emulate client that does not support cookies."""
 
     def __init__(self, *args, **kwargs):
-        deproxy.Deproxy.__init__(self, *args, **kwargs)
+        TesterCookies.__init__(self, *args, **kwargs)
         self.message_chains = chains.base_repeated(CHAIN_LENGTH)
         self.cookies = []
 
     def recieved_response(self, response):
-        m = re.search(r'__tfw=([a-f0-9]+)', response.headers['Set-Cookie'])
-        assert m, 'Set-Cookie header not found!'
-        cookie = m.group(1)
-
-        # Tempesta sent us a Cookie, and we were waiting for it.
-        exp_resp = self.current_chain.response
-        exp_resp.headers.delete_all('Set-Cookie')
-        exp_resp.headers.add('Set-Cookie', response.headers['Set-Cookie'])
-        exp_resp.update()
+        _, cookie, _ = self.verify_adjust_header(response, 'Set-Cookie', r'__tfw=')
 
         # Client doesn't support cookies: Tempesta will generate new cookie for
         # each request.
         assert cookie not in self.cookies, \
             'Received non-unique cookie!'
 
+        exp_resp = self.current_chain.response
         if exp_resp.status != '200':
             exp_resp.headers.delete_all('Date')
             exp_resp.headers.add('Date', response.headers['Date'])
             exp_resp.update()
 
-        deproxy.Deproxy.recieved_response(self, response)
+        TesterCookies.recieved_response(self, response)
 
 
 class TesterIgnoreEnforcedCookies(TesterIgnoreCookies):
@@ -72,26 +82,18 @@ class TesterIgnoreEnforcedCookies(TesterIgnoreCookies):
         self.message_chains[0].fwd_request = deproxy.Request()
 
 
-class TesterUseCookies(deproxy.Deproxy):
+class TesterUseCookies(TesterCookies):
     """Tester helper. Emulate client that support cookies."""
 
     def __init__(self, *args, **kwargs):
-        deproxy.Deproxy.__init__(self, *args, **kwargs)
+        TesterCookies.__init__(self, *args, **kwargs)
         # The first message chain is unique.
         self.message_chains = [chains.base()] + chains.base_repeated(CHAIN_LENGTH)
         self.cookie_parsed = False
 
     def recieved_response(self, response):
         if not self.cookie_parsed:
-            m = re.search(r'__tfw=([a-f0-9]+)', response.headers['Set-Cookie'])
-            assert m, 'Set-Cookie header not found!'
-            cookie = m.group(1)
-
-            # Tempesta sent us a Cookie, and we was waiting for it.
-            exp_resp = self.current_chain.response
-            exp_resp.headers.delete_all('Set-Cookie')
-            exp_resp.headers.add('Set-Cookie', response.headers['Set-Cookie'])
-            exp_resp.update()
+            _, cookie, _ = self.verify_adjust_header(response, 'Set-Cookie', r'__tfw=')
 
             # All following requests must contain Cookie header
             for req in [self.message_chains[1].request,
@@ -107,7 +109,7 @@ class TesterUseCookies(deproxy.Deproxy):
             exp_resp.headers.add('Date', response.headers['Date'])
             exp_resp.update()
 
-        deproxy.Deproxy.recieved_response(self, response)
+        TesterCookies.recieved_response(self, response)
 
 
 class TesterUseEnforcedCookies(TesterUseCookies):
@@ -119,5 +121,52 @@ class TesterUseEnforcedCookies(TesterUseCookies):
             self.message_chains[0].request)
         self.message_chains[0].server_response = deproxy.Response()
         self.message_chains[0].fwd_request = deproxy.Request()
+
+
+class TesterIgnoreEnforcedExtCookies(TesterIgnoreEnforcedCookies):
+    """Tester helper. Client that does not support cookies and does not
+    follow redirection mark, but Tempesta enforces cookies in extended
+    mode.
+    """
+
+    def recieved_response(self, response):
+        self.verify_adjust_header(response, 'Location', r'/__tfw=')
+        TesterIgnoreEnforcedCookies.recieved_response(self, response)
+
+
+class TesterIgnoreEnforcedExtCookiesRmark(TesterIgnoreEnforcedCookies):
+    """Tester helper. Client does not support cookies, but follows
+    redirection mark. Tempesta enforces cookies in extended mode.
+    """
+
+    def recieved_response(self, response):
+        auth, rmark, uri = self.verify_adjust_header(response, 'Location', r'/__tfw=')
+
+        # Every request must contain received mark before URI path
+        req = self.message_chains[0].request
+        req.uri = ''.join([auth, '/__tfw=', rmark, uri])
+        req.update()
+
+        TesterIgnoreEnforcedCookies.recieved_response(self, response)
+
+
+class TesterInvalidEnforcedExtCookiesRmark(TesterIgnoreEnforcedExtCookiesRmark):
+    """Tester helper. Client follows redirection mark, but insert invalid
+    cookies into requests. Tempesta enforces cookies in extended mode.
+    """
+
+    def recieved_response(self, response):
+        # Insert into requests invalid cookie with arbitrary timestamp
+        # and HMAC generated for zero timestamp (in order to violate
+        # cookie verification)
+        tstamp = '0000000123456789'
+        hmac = 'c40fa58c59f09c8ea81223e627c9de12cfa53679'
+        req =  self.message_chains[0].request
+        req.headers.delete_all('Cookie')
+        req.headers.add('Cookie', ''.join(['__tfw=', tstamp, hmac]))
+        req.update()
+
+        TesterIgnoreEnforcedExtCookiesRmark.recieved_response(self, response)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
