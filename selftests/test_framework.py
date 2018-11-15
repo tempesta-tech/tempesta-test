@@ -73,13 +73,7 @@ http {
 cache 0;
 listen 80;
 
-srv_group default {
-    server ${server_ip}:8000;
-}
-
-vhost default {
-    proxy_pass default;
-}
+server ${server_ip}:8000;
 """,
     }
 

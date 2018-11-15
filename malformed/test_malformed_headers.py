@@ -26,13 +26,8 @@ Connection: keep-alive
 cache 0;
 listen 80;
 
-srv_group default {
-    server ${general_ip}:8000;
-}
+server ${general_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-}
 """,
     }
 
@@ -115,9 +110,9 @@ vhost default {
 
     # Authorization
     # https://tools.ietf.org/html/rfc7235#section-4.2
-    # 
+    #
     # Authorization = credentials
-    # 
+    #
     # No format for credentials is defined
 
     def test_content_encoding(self):
@@ -149,7 +144,7 @@ vhost default {
         self.common_check(request)
 
     def test_content_length(self):
-        # https://tools.ietf.org/html/rfc7230#section-3.3.2   
+        # https://tools.ietf.org/html/rfc7230#section-3.3.2
         #
         # Content-Length = 1*DIGIT
         request = 'POST / HTTP/1.1\r\n' \
@@ -314,7 +309,7 @@ vhost default {
                   'Content-Length: 0\r\n' \
                   '\r\n'
         self.common_check(request)
-    
+
     def test_if_range(self):
         # https://tools.ietf.org/html/rfc7232#section-2.3
         # https://tools.ietf.org/html/rfc7232#section-3.5
@@ -537,15 +532,8 @@ Content-Length: 0
     tempesta = {
         'config' : """
 cache 0;
-listen 80;
+server ${general_ip}:8000;
 
-srv_group default {
-    server ${general_ip}:8000;
-}
-
-vhost default {
-    proxy_pass default;
-}
 """,
     }
 
@@ -665,7 +653,7 @@ vhost default {
                    'Content-Length: 0\r\n' \
                    '\r\n'
         self.common_check(response, self.request)
-    
+
     def test_connection(self):
         # https://tools.ietf.org/html/rfc7230#section-6.1
         # https://tools.ietf.org/html/rfc7230#section-3.2.6
