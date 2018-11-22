@@ -17,22 +17,22 @@ class TestCacheDisabled(functional.FunctionalTest):
     # Disable caching
     cache_mode = 0
 
-    def chain(self, uri='/', cache_alowed=True):
+    def chain(self, uri='/', cache_allowed=True):
         if self.cache_mode == 0:
-            cache_alowed = False
-        if cache_alowed:
+            cache_allowed = False
+        if cache_allowed:
             return chains.cache_repeated(self.messages, uri=uri)
         return chains.proxy_repeated(self.messages, uri=uri)
 
     def test_cache_fulfill_all(self):
         config = ('cache %d;\n'
                   'cache_fulfill * *;\n' % self.cache_mode)
-        self.generic_test_routine(config, self.chain(cache_alowed=True))
+        self.generic_test_routine(config, self.chain(cache_allowed=True))
 
     def test_cache_bypass_all(self):
         config = ('cache %d;\n'
                   'cache_bypass * *;\n' % self.cache_mode)
-        self.generic_test_routine(config, self.chain(cache_alowed=False))
+        self.generic_test_routine(config, self.chain(cache_allowed=False))
 
     def mixed_config(self):
         return ('cache %d;\n'
@@ -45,28 +45,28 @@ class TestCacheDisabled(functional.FunctionalTest):
     def test_cache_fulfill_suffix(self):
         self.generic_test_routine(
             self.mixed_config(),
-            self.chain(cache_alowed=True, uri='/picts/bear.jpg'))
+            self.chain(cache_allowed=True, uri='/picts/bear.jpg'))
 
     def test_cache_fulfill_suffix_2(self):
         self.generic_test_routine(
             self.mixed_config(),
-            self.chain(cache_alowed=True, uri='/jsnfsjk/jnd.png'))
+            self.chain(cache_allowed=True, uri='/jsnfsjk/jnd.png'))
 
     def test_cache_bypass_suffix(self):
         self.generic_test_routine(
             self.mixed_config(),
-            self.chain(cache_alowed=False, uri='/howto/film.avi'))
+            self.chain(cache_allowed=False, uri='/howto/film.avi'))
 
     def test_cache_bypass_prefix(self):
         self.generic_test_routine(
             self.mixed_config(),
-            self.chain(cache_alowed=False,
+            self.chain(cache_allowed=False,
                        uri='/static/dynamic_zone/content.html'))
 
     def test_cache_fulfill_prefix(self):
         self.generic_test_routine(
             self.mixed_config(),
-            self.chain(cache_alowed=True, uri='/static/content.html'))
+            self.chain(cache_allowed=True, uri='/static/content.html'))
 
 
 class TestCacheSharding(TestCacheDisabled):

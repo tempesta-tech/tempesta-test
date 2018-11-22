@@ -23,17 +23,17 @@ class TestCacheMethods(functional.FunctionalTest):
                          'MOVE', 'OPTIONS', 'PATCH', 'POST', 'PROPFIND',
                          'PROPPATCH', 'PUT', 'TRACE', 'UNLOCK']
 
-    def chain(self, method, uri='/page.html', cache_alowed=True):
+    def chain(self, method, uri='/page.html', cache_allowed=True):
         if self.cache_mode == 0:
-            cache_alowed = False
-        if cache_alowed:
+            cache_allowed = False
+        if cache_allowed:
             return chains.cache_repeated(self.messages, method=method, uri=uri)
         return chains.proxy_repeated(self.messages, method=method, uri=uri)
 
     def try_method(self, method):
         tf_cfg.dbg(3, '\tTest method %s.' % method)
         chain = self.chain(method=method,
-                           cache_alowed=(method in self.cacheable_methods))
+                           cache_allowed=(method in self.cacheable_methods))
         if self.allow_method_caching:
             cache_method = method
         else:
