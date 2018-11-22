@@ -10,7 +10,7 @@ framework on a separated host.
 Recommended test-beds:
 
 - Local testing. All parts of the testing framework are running on the same
-host. The simpliest configuration to check that current revision of TempestaFW
+host. The simplest configuration to check that current revision of TempestaFW
 passes all the functional tests. It is default configuration.
 ```
     ┌─────────────────────────────────────────────┐
@@ -90,7 +90,7 @@ testing framework must be able to be authenticated on other hosts by the key.
 That can be done using `ssh-copy-id`.
 
 Requirements can be checked with `check_deps/check_dependencies.sh`. It should
-be runned from `check_deps` directory.
+be ran from `check_deps` directory.
 
 ## Run tests
 
@@ -141,7 +141,7 @@ the host running TempestaFW.
 `workdir` — absolute path to a R/W directory on the host to place temporary
 files in.
 
-`ab`, `wrk` — pathes to the corresponding binaries, either absolute pathes or
+`ab`, `wrk` — paths to the corresponding binaries, either absolute paths or
 names available in PATH.
 
 #### Tempesta Section
@@ -346,7 +346,7 @@ are used.
 
 Code of configurable tests located in `framework/` directory. It contains
 basic class for configurable test and classes for items. Also it contains
-class for deproxy managment and polling cycle.
+class for deproxy management and polling cycle.
 
 #### TempestaTest
 

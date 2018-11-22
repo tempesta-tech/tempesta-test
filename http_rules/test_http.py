@@ -74,7 +74,7 @@ class HttpRules(functional.FunctionalTest):
             (('default'), ('/'), None, None)]
 
         for group, uri, header, value in server_options:
-            # Dont need too many connections here.
+            # Don't need too many connections here.
             server = deproxy.Server(port=port, conns_n=1)
             port += 1
             server.group = group
@@ -255,7 +255,7 @@ class HttpSchedTester(deproxy.Deproxy):
         self.client.set_request(self.current_chain)
 
     def received_response(self, response):
-        # A lot of clients running, dont raise asyncore.ExitNow directly
+        # A lot of clients running, don't raise asyncore.ExitNow directly
         # instead call the
         self.received_chain.response = response
         self.response_cb()

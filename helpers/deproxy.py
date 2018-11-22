@@ -736,11 +736,11 @@ class MessageChain(object):
                  server_response=None):
         # Request to be sent from Client.
         self.request = request
-        # Response received on client.
+        # Response received on the client.
         self.response = expected_response
-        # Expexted request forwarded to server by Tempesta to server.
+        # Expected request forwarded by Tempesta to the server.
         self.fwd_request = forwarded_request if forwarded_request else Request()
-        # Server response in reply to forwarded request.
+        # Server response in reply to the forwarded request.
         self.server_response = server_response if server_response else Response()
 
     @staticmethod

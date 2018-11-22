@@ -95,7 +95,7 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
                           err_msg=(self.err_msg % ('start', self.get_name())))
 
     def stop_nginx(self):
-        tf_cfg.dbg(3, '\tStoping Nginx on %s' % self.get_name())
+        tf_cfg.dbg(3, '\tStopping Nginx on %s' % self.get_name())
         pid_file = os.path.join(self.workdir, self.config.pidfile_name)
         cmd = ' && '.join([
             '[ -e \'%s\' ]' % pid_file,

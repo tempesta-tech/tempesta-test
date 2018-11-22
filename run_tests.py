@@ -27,7 +27,7 @@ key, not password. `ssh-copy-id` can be used for that.
 
 -h, --help                        - Print this help and exit.
 -v, --verbose                     - Enable verbose output.
--d, --defaults                    - Save defaut configuration to config file
+-d, --defaults                    - Save default configuration to config file
                                     and exit.
 -t, --duration <seconds>          - Duration of every single test.
 -f, --failfast                    - Stop tests after first error.

@@ -46,7 +46,7 @@ class SchedStickyGraceRatioSched(reconf_stress.LiveReconfStress):
     def test_ratio_del_srvs(self):
         '''All servers are removed from configuration, but a relatively long
         grace shutdown period is set, since no new sessions are established
-        test client should receive just aa bit of errors.'''
+        test client should receive just a bit of errors.'''
         self.stress_reconfig_generic(self.configure_srvs_start,
                                      self.configure_srvs_del)
 

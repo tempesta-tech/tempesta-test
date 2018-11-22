@@ -113,7 +113,7 @@ class TestFrameworkCfg(object):
                     self.cfg_err[1]))
             raise ConfigError(msg), None, self.cfg_err[2]
 
-        # normalize pathes
+        # normalize paths
         normalize = [
                 ('Client', 'workdir'),
                 ('Tempesta', 'workdir'),
