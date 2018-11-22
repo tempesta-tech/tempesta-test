@@ -295,7 +295,7 @@ and after this we start polling cycle. The time before starting cycle,
 wrk will get an errors. Ok, let's start polling cycle before wrk. But now it's
 impossible to start wrk, because we are in polling cycle. This problem appeares,
 because with running polling cycle in the same thread, as the main procedure,
-deproxy server can recieve requests only after polling cycle starts.
+deproxy server can receive requests only after polling cycle starts.
 
 The solution is to make possible handling requests exactly when server starts.
 In this case test procedure becames simple and straightforward: start deproxy

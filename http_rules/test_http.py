@@ -94,13 +94,13 @@ class HttpRules(functional.FunctionalTest):
         self.testers = []
         for server in self.servers:
             tester = HttpSchedTester(server.client, [server])
-            tester.response_cb = self.response_recieved
+            tester.response_cb = self.response_received
             tester.message_chains = server.chains
             self.testers.append(tester)
 
     def routine(self):
         for i in range(self.requests_n):
-            self.responses_recieved = 0
+            self.responses_received = 0
             for tester in self.testers:
                 tester.configure(i)
             # Run asyncore loop with default timeout
@@ -129,9 +129,9 @@ class HttpRules(functional.FunctionalTest):
         self.tempesta.get_stats()
         self.assert_tempesta()
 
-    def response_recieved(self):
-        self.responses_recieved += 1
-        if self.responses_recieved == len(self.servers):
+    def response_received(self):
+        self.responses_received += 1
+        if self.responses_received == len(self.servers):
             raise asyncore.ExitNow
 
     def setUp(self):
@@ -195,7 +195,7 @@ class HttpRulesBackupServers(HttpRules):
 
     def test_scheduler(self):
         self.init()
-        # Main server is online, backup server must not recieve traffic.
+        # Main server is online, backup server must not receive traffic.
         self.main_server.tester.message_chains = (
             self.make_chains(empty=False))
         self.backup_server.tester.message_chains = (
@@ -217,7 +217,7 @@ class HttpRulesBackupServers(HttpRules):
         self.main_server = self.create_server_helper(
             group=self.main_server.group, port=self.main_server.port)
         tester = HttpSchedTester(deproxy.Client(), [self.main_server])
-        tester.response_cb = self.response_recieved
+        tester.response_cb = self.response_received
         self.testers.append(tester)
 
         self.main_server.tester.message_chains = (
@@ -233,9 +233,9 @@ class HttpRulesBackupServers(HttpRules):
         self.tempesta.get_stats()
         self.assert_tempesta()
 
-    def response_recieved(self):
-        self.responses_recieved += 1
-        if self.responses_recieved == 1:
+    def response_received(self):
+        self.responses_received += 1
+        if self.responses_received == 1:
             raise asyncore.ExitNow
 
 
@@ -250,14 +250,14 @@ class HttpSchedTester(deproxy.Deproxy):
         else:
             self.current_chain = deproxy.MessageChain.empty()
 
-        self.recieved_chain = deproxy.MessageChain.empty()
+        self.received_chain = deproxy.MessageChain.empty()
         self.client.clear()
         self.client.set_request(self.current_chain)
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         # A lot of clients running, dont raise asyncore.ExitNow directly
         # instead call the
-        self.recieved_chain.response = response
+        self.received_chain.response = response
         self.response_cb()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

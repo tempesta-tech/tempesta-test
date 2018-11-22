@@ -97,7 +97,7 @@ class ShutdownTester(deproxy.Deproxy):
             server.set_tester(self)
 
     def run(self):
-        self.recieved_chain = deproxy.MessageChain.empty()
+        self.received_chain = deproxy.MessageChain.empty()
         for client in self.clients:
             client.clear()
             client.set_request(self.current_chain)

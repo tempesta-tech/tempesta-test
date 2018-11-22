@@ -62,7 +62,7 @@ class DeadtimeClient(stateful.Stateful):
         except asyncore.ExitNow:
             pass
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         self.wait = False
 
     def is_srvs_ready(self):
@@ -70,7 +70,7 @@ class DeadtimeClient(stateful.Stateful):
 
     def request(self, timeout):
         for self.current_chain in self.message_chains:
-            self.recieved_chain = deproxy.MessageChain.empty()
+            self.received_chain = deproxy.MessageChain.empty()
             self.client.clear()
             self.client.set_request(self.current_chain)
             self.loop(timeout)
@@ -113,9 +113,9 @@ class DeadtimeClient(stateful.Stateful):
         tf_cfg.dbg(3, "max request time: %f" % max_delay)
         tf_cfg.dbg(3, "min request time: %f" % min_delay)
         if finish_event.is_set():
-            tf_cfg.dbg(3, "Finish event recieved")
+            tf_cfg.dbg(3, "Finish event received")
         else:
-            tf_cfg.dbg(3, "No finish event recieved")
+            tf_cfg.dbg(3, "No finish event received")
         self.client.stop()
         sys.exit(long_times)
 

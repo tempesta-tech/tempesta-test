@@ -13,9 +13,9 @@ __license__ = 'GPL2'
 
 class TesterInvalidResponse(deproxy.Deproxy):
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         """Client received response for its request."""
-        self.recieved_chain.response = response
+        self.received_chain.response = response
 
 class TestInvalidResponse(functional.FunctionalTest):
 

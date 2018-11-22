@@ -72,9 +72,9 @@ class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
         base = generate_chain_200(method='GET')
         return (base, len(base.response.body))
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         """Client received response for its request."""
-        self.recieved_chain.response = response
+        self.received_chain.response = response
 
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)

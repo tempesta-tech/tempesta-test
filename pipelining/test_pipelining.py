@@ -10,9 +10,9 @@ __license__ = 'GPL2'
 
 class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
 
-    def recieve_request(self, request, connection):
+    def receive_request(self, request, connection):
         id = request.uri
-        r, close = deproxy_server.StaticDeproxyServer.recieve_request(self,
+        r, close = deproxy_server.StaticDeproxyServer.receive_request(self,
                                                         request, connection)
         resp = deproxy.Response(r)
         resp.body = id
@@ -33,10 +33,10 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
         self.nka = 0
         DeproxyEchoServer.run_start(self)
 
-    def recieve_request(self, request, connection):
+    def receive_request(self, request, connection):
         self.nka += 1
         tf_cfg.dbg(5, "\trequests = %i of %i" % (self.nka, self.ka))
-        r, close = DeproxyEchoServer.recieve_request(self, request, connection)
+        r, close = DeproxyEchoServer.receive_request(self, request, connection)
         if self.nka < self.ka and not close:
             return r, False
         resp = deproxy.Response(r)

@@ -67,12 +67,12 @@ class HashTester(deproxy.Deproxy):
             self.used_connection = connection
         deproxy.Deproxy.register_srv_connection(self, connection)
 
-    def recieved_forwarded_request(self, request, connection):
+    def received_forwarded_request(self, request, connection):
         if not self.used_connection:
             self.used_connection = connection
         else:
             assert self.used_connection is connection
-        return deproxy.Deproxy.recieved_forwarded_request(self, request,
+        return deproxy.Deproxy.received_forwarded_request(self, request,
                                                           connection)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

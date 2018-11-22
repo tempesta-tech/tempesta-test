@@ -27,7 +27,7 @@ class Stage(object):
 
     def prepare(self):
         self.tester.current_chain = copy.copy(self.chain)
-        self.tester.recieved_chain = deproxy.MessageChain.empty()
+        self.tester.received_chain = deproxy.MessageChain.empty()
         self.client.clear()
         self.client.set_request(self.tester.current_chain)
 
@@ -54,7 +54,7 @@ class Stage(object):
         result = None
         for message in ['response', 'fwd_request']:
             expected = getattr(self.tester.current_chain, message)
-            received = getattr(self.tester.recieved_chain, message)
+            received = getattr(self.tester.received_chain, message)
             if message == 'fwd_request' and not self.state:
                 continue
             expected.set_expected(expected_time_delta=CHAIN_TIMEOUT)

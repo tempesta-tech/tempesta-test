@@ -63,9 +63,9 @@ class ServerConnection(asyncore.dispatcher_with_send):
         # Handler will be called even if buffer is empty.
         if not self.request_buffer:
             return
-        tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Recieve request.')
+        tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Receive request.')
         tf_cfg.dbg(5, self.request_buffer)
-        response, need_close = self.server.recieve_request(request, self)
+        response, need_close = self.server.receive_request(request, self)
         self.request_buffer = ''
         if not response:
             return
@@ -143,8 +143,8 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         return True
 
     @abc.abstractmethod
-    def recieve_request(self, request, connection):
-        raise NotImplementedError("Not implemented 'recieve_request()'")
+    def receive_request(self, request, connection):
+        raise NotImplementedError("Not implemented 'receive_request()'")
 
 class StaticDeproxyServer(BaseDeproxyServer):
 
@@ -162,7 +162,7 @@ class StaticDeproxyServer(BaseDeproxyServer):
     def set_response(self, response):
         self.response = response
 
-    def recieve_request(self, request, connection):
+    def receive_request(self, request, connection):
         self.requests.append(request)
         self.last_request = request
         return self.response, False

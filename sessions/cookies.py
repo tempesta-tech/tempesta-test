@@ -52,7 +52,7 @@ class TesterIgnoreCookies(TesterCookies):
         self.message_chains = chains.base_repeated(CHAIN_LENGTH)
         self.cookies = []
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         _, cookie, _ = self.verify_adjust_header(response, 'Set-Cookie', r'__tfw=')
 
         # Client doesn't support cookies: Tempesta will generate new cookie for
@@ -66,7 +66,7 @@ class TesterIgnoreCookies(TesterCookies):
             exp_resp.headers.add('Date', response.headers['Date'])
             exp_resp.update()
 
-        TesterCookies.recieved_response(self, response)
+        TesterCookies.received_response(self, response)
 
 
 class TesterIgnoreEnforcedCookies(TesterIgnoreCookies):
@@ -91,7 +91,7 @@ class TesterUseCookies(TesterCookies):
         self.message_chains = [chains.base()] + chains.base_repeated(CHAIN_LENGTH)
         self.cookie_parsed = False
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         if not self.cookie_parsed:
             _, cookie, _ = self.verify_adjust_header(response, 'Set-Cookie', r'__tfw=')
 
@@ -109,7 +109,7 @@ class TesterUseCookies(TesterCookies):
             exp_resp.headers.add('Date', response.headers['Date'])
             exp_resp.update()
 
-        TesterCookies.recieved_response(self, response)
+        TesterCookies.received_response(self, response)
 
 
 class TesterUseEnforcedCookies(TesterUseCookies):
@@ -129,9 +129,9 @@ class TesterIgnoreEnforcedExtCookies(TesterIgnoreEnforcedCookies):
     mode.
     """
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         self.verify_adjust_header(response, 'Location', r'/__tfw=')
-        TesterIgnoreEnforcedCookies.recieved_response(self, response)
+        TesterIgnoreEnforcedCookies.received_response(self, response)
 
 
 class TesterIgnoreEnforcedExtCookiesRmark(TesterIgnoreEnforcedCookies):
@@ -139,7 +139,7 @@ class TesterIgnoreEnforcedExtCookiesRmark(TesterIgnoreEnforcedCookies):
     redirection mark. Tempesta enforces cookies in extended mode.
     """
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         auth, rmark, uri = self.verify_adjust_header(response, 'Location', r'/__tfw=')
 
         # Every request must contain received mark before URI path
@@ -147,7 +147,7 @@ class TesterIgnoreEnforcedExtCookiesRmark(TesterIgnoreEnforcedCookies):
         req.uri = ''.join([auth, '/__tfw=', rmark, uri])
         req.update()
 
-        TesterIgnoreEnforcedCookies.recieved_response(self, response)
+        TesterIgnoreEnforcedCookies.received_response(self, response)
 
 
 class TesterInvalidEnforcedExtCookiesRmark(TesterIgnoreEnforcedExtCookiesRmark):
@@ -155,7 +155,7 @@ class TesterInvalidEnforcedExtCookiesRmark(TesterIgnoreEnforcedExtCookiesRmark):
     cookies into requests. Tempesta enforces cookies in extended mode.
     """
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         # Insert into requests invalid cookie with arbitrary timestamp
         # and HMAC generated for zero timestamp (in order to violate
         # cookie verification)
@@ -166,7 +166,7 @@ class TesterInvalidEnforcedExtCookiesRmark(TesterIgnoreEnforcedExtCookiesRmark):
         req.headers.add('Cookie', ''.join(['__tfw=', tstamp, hmac]))
         req.update()
 
-        TesterIgnoreEnforcedExtCookiesRmark.recieved_response(self, response)
+        TesterIgnoreEnforcedExtCookiesRmark.received_response(self, response)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
