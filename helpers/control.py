@@ -101,7 +101,7 @@ class Client(object):
         return self.requests, self.errors, self.rate, self.statuses
 
     def add_option_file(self, option, filename, content):
-        """ Helper for using files as client options: normaly file must be
+        """ Helper for using files as client options: normally file must be
         copied to remote node, present in command line as parameter and
         removed after client finish.
         """
@@ -326,7 +326,7 @@ class Tempesta(stateful.Stateful):
                           err_msg=(self.err_msg % 'start'))
 
     def stop_tempesta(self):
-        tf_cfg.dbg(3, '\tStoping TempestaFW on %s' % self.host)
+        tf_cfg.dbg(3, '\tStopping TempestaFW on %s' % self.host)
         cmd = '%s/scripts/tempesta.sh --stop' % self.srcdir
         self.node.run_cmd(cmd, timeout=30, err_msg=(self.err_msg % 'stop'))
 
@@ -442,7 +442,7 @@ class Nginx(stateful.Stateful):
                           err_msg=(self.err_msg % ('start', self.get_name())))
 
     def stop_nginx(self):
-        tf_cfg.dbg(3, '\tStoping Nginx on %s' % self.get_name())
+        tf_cfg.dbg(3, '\tStopping Nginx on %s' % self.get_name())
         pid_file = os.path.join(self.workdir, self.config.pidfile_name)
         cmd = ' && '.join([
             '[ -e \'%s\' ]' % pid_file,

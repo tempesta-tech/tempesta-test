@@ -70,7 +70,7 @@ class BaseDeproxyClient(deproxy.Client):
                                '<<<<<\n%s>>>>>'
                             % self.response_buffer))
                 raise
-            self.recieve_response(response)
+            self.receive_response(response)
             self.nrresp += 1
 
         if self.nrreq == self.nrresp and len(self.response_buffer) > 0:
@@ -111,8 +111,8 @@ class BaseDeproxyClient(deproxy.Client):
         self.make_requests(request)
 
     @abc.abstractmethod
-    def recieve_response(self, response):
-        raise NotImplementedError("Not implemented 'recieve_response()'")
+    def receive_response(self, response):
+        raise NotImplementedError("Not implemented 'receive_response()'")
 
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
@@ -123,8 +123,8 @@ class DeproxyClient(BaseDeproxyClient):
         BaseDeproxyClient.run_start(self)
         self.responses = []
 
-    def recieve_response(self, response):
-        tf_cfg.dbg(4, "Recieved response: %s" % str(response.msg))
+    def receive_response(self, response):
+        tf_cfg.dbg(4, "Received response: %s" % str(response.msg))
         self.responses.append(response)
         self.last_response = response
 

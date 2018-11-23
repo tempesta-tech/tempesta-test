@@ -146,7 +146,7 @@ def base(uri='/', method='GET', forward=True, date=None):
     ]
 
     #
-    # Adjust requst and response based on actual method
+    # Adjust request and response based on actual method
     #
 
     if method == "PURGE":

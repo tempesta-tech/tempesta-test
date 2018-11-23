@@ -34,7 +34,7 @@ class ClientMultipleResponses(deproxy.Client):
                                % self.response_buffer))
                 raise
             if self.tester:
-                self.tester.recieved_response(response)
+                self.tester.received_response(response)
 
         self.response_buffer = ''
         raise asyncore.ExitNow
@@ -55,17 +55,17 @@ class BadLengthMessageChain(deproxy.MessageChain):
 
 class BadLengthDeproxy(deproxy.Deproxy):
     """ Support of invalid length """
-    def __compare_messages(self, expected, recieved, message):
+    def __compare_messages(self, expected, received, message):
         expected.set_expected(expected_time_delta=self.timeout)
-        assert expected == recieved, \
+        assert expected == received, \
                 ("Received message (%s) does not suit expected one!\n\n"
                  "\tReceieved:\n<<<<<|\n%s|>>>>>\n"
                  "\tExpected:\n<<<<<|\n%s|>>>>>\n"
-                 % (message, recieved.msg, expected.msg))
+                 % (message, received.msg, expected.msg))
 
     def run(self):
         for self.current_chain in self.message_chains:
-            self.recieved_chain = BadLengthMessageChain.empty()
+            self.received_chain = BadLengthMessageChain.empty()
             self.client.clear()
             self.client.set_request(self.current_chain)
             self.loop()
@@ -73,16 +73,16 @@ class BadLengthDeproxy(deproxy.Deproxy):
 
     def check_expectations(self):
         self.__compare_messages(self.current_chain.fwd_request,
-                                self.recieved_chain.fwd_request, 'fwd_request')
+                                self.received_chain.fwd_request, 'fwd_request')
         nexpected = len(self.current_chain.responses)
-        nrecieved = len(self.recieved_chain.responses)
-        assert nexpected == nrecieved, \
-            ("Expected %i responses, but recieved %i" % (nexpected, nrecieved))
+        nreceived = len(self.received_chain.responses)
+        assert nexpected == nreceived, \
+            ("Expected %i responses, but received %i" % (nexpected, nreceived))
         for i in range(nexpected):
             expected = self.current_chain.responses[i]
-            recieved = self.recieved_chain.responses[i]
-            self.__compare_messages(expected, recieved, "response[%i]" % i)
+            received = self.received_chain.responses[i]
+            self.__compare_messages(expected, received, "response[%i]" % i)
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         """Client received response for its request."""
-        self.recieved_chain.responses.append(response)
+        self.received_chain.responses.append(response)

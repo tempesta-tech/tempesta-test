@@ -92,13 +92,13 @@ class CloseOnShutdown(stress.StressTest):
                                   self.servers[-1].config.port + 1)
 
     def test_reachable(self):
-        """All servvers are reachable by TempestaFW, all connections will be
-        successfuly established.
+        """All servers are reachable by TempestaFW, all connections will be
+        successfully established.
         """
         self.check_sockets()
 
     def test_filtered(self):
-        """All servvers are behind firewall. All connection attempts will be
+        """All servers are behind firewall. All connection attempts will be
         silently dropped.
         """
         if not self.servers:

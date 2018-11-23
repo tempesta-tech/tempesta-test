@@ -139,7 +139,7 @@ class Client(stateful.Stateful):
         return self.requests, self.errors, self.rate, self.statuses
 
     def add_option_file(self, option, filename, content):
-        """ Helper for using files as client options: normaly file must be
+        """ Helper for using files as client options: normally file must be
         copied to remote node, present in command line as parameter and
         removed after client finish.
         """

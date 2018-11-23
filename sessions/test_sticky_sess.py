@@ -120,11 +120,11 @@ class TesterSticky(cookies.TesterUseCookies):
         self.pinned_srv = None
         self.used_srv = None
 
-    def recieved_forwarded_request(self, request, connection):
+    def received_forwarded_request(self, request, connection):
         if not self.pinned_srv:
             self.pinned_srv = connection.server
         self.used_srv = connection.server
-        return cookies.TesterUseCookies.recieved_forwarded_request(
+        return cookies.TesterUseCookies.received_forwarded_request(
             self, request, connection)
 
     def check_expectations(self):
@@ -140,11 +140,11 @@ class TesterStickyEnforcedCookies(cookies.TesterUseEnforcedCookies):
         self.pinned_srv = None
         self.used_srv = None
 
-    def recieved_forwarded_request(self, request, connection):
+    def received_forwarded_request(self, request, connection):
         if not self.pinned_srv:
             self.pinned_srv = connection.server
         self.used_srv = connection.server
-        return cookies.TesterUseEnforcedCookies.recieved_forwarded_request(
+        return cookies.TesterUseEnforcedCookies.received_forwarded_request(
             self, request, connection)
 
     def check_expectations(self):

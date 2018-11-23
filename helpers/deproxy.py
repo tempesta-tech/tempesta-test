@@ -296,7 +296,7 @@ class HttpMessage(object):
             raise ParseError(("Wrong body size: expect %d but got %d!"
                               % (size, len(self.body))))
         elif len(self.body) < size:
-            tf_cfg.dbg(5, "Incomplite message recieved")
+            tf_cfg.dbg(5, "Incomplete message received")
             raise IncompliteMessage()
         self.original_length += len(self.body)
 
@@ -572,7 +572,7 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             raise ParseError('Garbage after response end:\n```\n%s\n```\n' % \
                              self.response_buffer)
         if self.tester:
-            self.tester.recieved_response(response)
+            self.tester.received_response(response)
         self.response_buffer = ''
 
     def writable(self):
@@ -620,11 +620,11 @@ class ServerConnection(asyncore.dispatcher_with_send):
         # Handler will be called even if buffer is empty.
         if not self.request_buffer:
             return
-        tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Recieve request from Tempesta.')
+        tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Receive request from Tempesta.')
         tf_cfg.dbg(5, self.request_buffer)
         if not self.tester:
             return
-        response = self.tester.recieved_forwarded_request(request, self)
+        response = self.tester.received_forwarded_request(request, self)
         self.request_buffer = ''
         if not response:
             return
@@ -736,11 +736,11 @@ class MessageChain(object):
                  server_response=None):
         # Request to be sent from Client.
         self.request = request
-        # Response recieved on client.
+        # Response received on the client.
         self.response = expected_response
-        # Expexted request forwarded to server by Tempesta to server.
+        # Expected request forwarded by Tempesta to the server.
         self.fwd_request = forwarded_request if forwarded_request else Request()
-        # Server response in reply to forwarded request.
+        # Server response in reply to the forwarded request.
         self.server_response = server_response if server_response else Response()
 
     @staticmethod
@@ -756,8 +756,8 @@ class Deproxy(stateful.Stateful):
         self.servers = servers
         # Current chain of expected messages.
         self.current_chain = None
-        # Current chain of recieved messages.
-        self.recieved_chain = None
+        # Current chain of received messages.
+        self.received_chain = None
         # Default per-message-chain loop timeout.
         self.timeout = TEST_CHAIN_TIMEOUT
         # Registered connections.
@@ -802,7 +802,7 @@ class Deproxy(stateful.Stateful):
         if self.message_chains is None:
             return
         for self.current_chain in self.message_chains:
-            self.recieved_chain = MessageChain.empty()
+            self.received_chain = MessageChain.empty()
             self.client.clear()
             self.client.set_request(self.current_chain)
             self.loop()
@@ -811,21 +811,21 @@ class Deproxy(stateful.Stateful):
     def check_expectations(self):
         for message in ['response', 'fwd_request']:
             expected = getattr(self.current_chain, message)
-            recieved = getattr(self.recieved_chain, message)
+            received = getattr(self.received_chain, message)
             expected.set_expected(expected_time_delta=self.timeout)
-            assert expected == recieved, \
+            assert expected == received, \
                 ("Received message (%s) does not suit expected one!\n\n"
                  "\tReceieved:\n<<<<<|\n%s|>>>>>\n"
                  "\tExpected:\n<<<<<|\n%s|>>>>>\n"
-                 % (message, recieved.msg, expected.msg))
+                 % (message, received.msg, expected.msg))
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         """Client received response for its request."""
-        self.recieved_chain.response = response
+        self.received_chain.response = response
         raise asyncore.ExitNow
 
-    def recieved_forwarded_request(self, request, connection=None):
-        self.recieved_chain.fwd_request = request
+    def received_forwarded_request(self, request, connection=None):
+        self.received_chain.fwd_request = request
         return self.current_chain.server_response
 
     def register_srv_connection(self, connection):

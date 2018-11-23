@@ -10,7 +10,7 @@ framework on a separated host.
 Recommended test-beds:
 
 - Local testing. All parts of the testing framework are running on the same
-host. The simpliest configuration to check that current revision of TempestaFW
+host. The simplest configuration to check that current revision of TempestaFW
 passes all the functional tests. It is default configuration.
 ```
     ┌─────────────────────────────────────────────┐
@@ -90,7 +90,7 @@ testing framework must be able to be authenticated on other hosts by the key.
 That can be done using `ssh-copy-id`.
 
 Requirements can be checked with `check_deps/check_dependencies.sh`. It should
-be runned from `check_deps` directory.
+be ran from `check_deps` directory.
 
 ## Run tests
 
@@ -141,7 +141,7 @@ the host running TempestaFW.
 `workdir` — absolute path to a R/W directory on the host to place temporary
 files in.
 
-`ab`, `wrk` — pathes to the corresponding binaries, either absolute pathes or
+`ab`, `wrk` — paths to the corresponding binaries, either absolute paths or
 names available in PATH.
 
 #### Tempesta Section
@@ -295,7 +295,7 @@ and after this we start polling cycle. The time before starting cycle,
 wrk will get an errors. Ok, let's start polling cycle before wrk. But now it's
 impossible to start wrk, because we are in polling cycle. This problem appeares,
 because with running polling cycle in the same thread, as the main procedure,
-deproxy server can recieve requests only after polling cycle starts.
+deproxy server can receive requests only after polling cycle starts.
 
 The solution is to make possible handling requests exactly when server starts.
 In this case test procedure becames simple and straightforward: start deproxy
@@ -346,7 +346,7 @@ are used.
 
 Code of configurable tests located in `framework/` directory. It contains
 basic class for configurable test and classes for items. Also it contains
-class for deproxy managment and polling cycle.
+class for deproxy management and polling cycle.
 
 #### TempestaTest
 

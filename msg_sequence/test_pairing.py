@@ -79,11 +79,11 @@ class PairingTester(deproxy.Deproxy):
             else:
                 break
 
-    def recieved_response(self, response):
+    def received_response(self, response):
         self.message_chains_recv[self.last_resp].response = response
         self.last_resp += 1
 
-    def recieved_forwarded_request(self, request, connection=None):
+    def received_forwarded_request(self, request, connection=None):
         self.message_chains_recv[self.last_req].fwd_request = request
         self.last_req += 1
         if self.pause_srv:
