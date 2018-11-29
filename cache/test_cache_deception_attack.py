@@ -25,7 +25,7 @@ class TempestaCacheSharding(tester.TempestaTest):
 
     tempesta = {
         'config' : """
-server ${tempesta_ip}:8000;
+server ${general_ip}:8000;
 
 cache 1;
 cache_fulfill suffix ".jpg";
@@ -36,7 +36,7 @@ class TestCacheReplicated(tester.TempestaTest):
 
     tempesta = {
         'config' : """
-server ${tempesta_ip}:8000;
+server ${general_ip}:8000;
 
 cache 2;
 cache_fulfill suffix ".jpg";
