@@ -64,22 +64,6 @@
         {
             "name" : "cache.test_purge.TestPurge.test_purge",
             "reason" : ""
-        },
-        {
-            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest11",
-            "reason" : "Issue #1116. Process the `Pragma` header field"
-        },
-        {
-            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest12",
-            "reason" : "Issue #1116. Process the `Pragma` header field"
-        },
-        {
-            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest13",
-            "reason" : "Issue #1116. Process the `Pragma` header field"
-        },
-        {
-            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest14",
-            "reason" : "Issue #1116. Process the `Pragma` header field"
         }
     ]
 }
