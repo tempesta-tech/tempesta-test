@@ -121,15 +121,8 @@ Connection: keep-alive
     tempesta = {
         'config' : """
 cache 0;
-listen 80;
+server ${general_ip}:8000;
 
-srv_group default {
-    server ${general_ip}:8000;
-}
-
-vhost default {
-    proxy_pass default;
-}
 """,
     }
 
@@ -290,16 +283,10 @@ Connection: keep-alive
         'type' : "tempesta_fi",
         'config' : """
 cache 0;
-listen 80;
 nonidempotent GET prefix "/";
 
-srv_group default {
-    server ${general_ip}:8000;
-}
+server ${general_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-}
 """,
     }
 

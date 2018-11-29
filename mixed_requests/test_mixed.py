@@ -277,15 +277,8 @@ http {
     tempesta = {
         'config' : """
 cache 0;
-listen 80;
+server ${server_ip}:8600;
 
-srv_group default {
-    server ${server_ip}:8600;
-}
-
-vhost default {
-    proxy_pass default;
-}
 """,
     }
 
