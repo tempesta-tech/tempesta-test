@@ -176,7 +176,7 @@ def deproxy_srv_factory(server, name, tester):
     srv = None
     rtype = server['response']
     if rtype == 'static':
-        content = fill_template(server['response_content'])
+        content = fill_template(server['response_content'], server)
         srv = StaticDeproxyServer(port=port, response=content)
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
