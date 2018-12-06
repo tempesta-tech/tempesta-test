@@ -2,7 +2,6 @@ import Queue
 import threading
 import asyncore
 import select
-import time
 
 from helpers import stateful, tf_cfg
 
