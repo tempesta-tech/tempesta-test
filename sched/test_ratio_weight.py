@@ -1,12 +1,34 @@
 """
-Ratio scheduler is fast and fair scheduler based on weighted round-robin
-principle. Functional test for Ratio scheduler requires intensive loads to
-evaluate how fair the load distribution is.
+Test for ratio static scheduler. Each server has random weight.
+Difference from test_ratio_static.py: each server has random weight.
+
+Load between servers must be distributed according to theirs weight. The
+bigger weight server has, the more requests it should receive. Manually
+calculate resulting weight for every server, according to number of received
+requests. Resulted weigh must be almost equal the weight defined in
+the configuration file.
+
+The calculated weight may be slightly different from the defined one, allowed
+error is:
+- 10% if server weight is (30, 100],
+- 20% if server weight is (10, 30],
+- 40% if server weight is (0, 10].
+
+Number of server connections doesn't affect load distribution, so test both:
+- the same number of connections between all servers.
+- random number of connections for each server.
+
+Backend is configured to never close connections (keepalive_requests),
+since it unpredictably affects load distribution.
 """
 
 from framework import tester
 from helpers.control import servers_get_stats
 from helpers import tf_cfg
+
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -64,6 +86,7 @@ server ${server_ip}:8009 weight=10;
 
 """
 
+# Random number of connections for each server.
 TEMPESTA_CONFIG_VAR_CONNS = """
 cache 0;
 server ${server_ip}:8000;
@@ -84,8 +107,7 @@ def sched_ratio_static_def_weight():
 
 
 class Ratio(tester.TempestaTest):
-    """Use 'ratio static' scheduler with default weights. Load must be
-    distributed equally across all servers.
+    """Ratio static scheduler with random weight of every server.
     """
 
     # 10 backend servers, only difference between them - listen port.
@@ -187,12 +209,21 @@ class Ratio(tester.TempestaTest):
     # Base precision to check the fairness.
     precision = 0.1
 
-    def check_fair_load(self):
+    def test_load_distribution(self):
         """ Manually calculate resulted weight of every server and compare with
         definded in configuration.
         """
+        wrk = self.get_client('wrk')
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+
+        self.wait_while_busy(wrk)
+
         tempesta = self.get_tempesta()
         servers = self.get_servers()
+
         tempesta.get_stats()
         servers_get_stats(servers)
 
@@ -230,22 +261,10 @@ class Ratio(tester.TempestaTest):
                     )
                 )
 
-    def test_load_distribution(self):
-        wrk = self.get_client('wrk')
-
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-
-        self.wait_while_busy(wrk)
-        self.check_fair_load()
-
 
 class RatioVariableConns(Ratio):
-    """ 'ratio static' scheduler with default weights. Each server has random
-    connection number. Load distributed between servers according to theirs
-    weights, not number of connections, thus different connection count doesn't
-    affect load distribution.
+    """ Same as base test, but now every server has the random number of
+    connections.
     """
 
     tempesta = {

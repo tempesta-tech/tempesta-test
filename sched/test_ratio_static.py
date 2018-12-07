@@ -1,13 +1,25 @@
 """
-Ratio scheduler is fast and fair scheduler based on weighted round-robin
-principle. Functional test for Ratio scheduler requires intensive loads to
-evaluate how fair the load distribution is.
+Test for ratio static scheduler. All servers has the same (default) weight.
+
+Load must be distributed uniformly across all servers in the group.
+All servers must receive almost the same number of requests, less than 0.5%
+error is allowed. Enforce allowed error to 10 requests for short term tests.
+
+Number of server connections doesn't affect load distribution, so test both:
+- the same number of connections between all servers.
+- random number of connections for each server.
+
+Backend is configured to never close connections (keepalive_requests),
+since it unpredictably affects load distribution.
 """
 
 from framework import tester
 from helpers.control import servers_get_stats
 from helpers import tf_cfg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -65,6 +77,7 @@ server ${server_ip}:8009;
 
 """
 
+# Random number of connections for each server.
 TEMPESTA_CONFIG_VAR_CONNS = """
 cache 0;
 server ${server_ip}:8000;
@@ -176,11 +189,20 @@ class Ratio(tester.TempestaTest):
     }
 
     # Base precision to check the fairness.
-    precision = 0.1
+    precision = 0.005
+    # Minimum request count delta used for short term tests.
+    min_delta = 10
 
-    def check_fair_load(self):
-        """ All servers has the same weight, so must be loaded equally.
+    def test_load_distribution(self):
+        """ All servers must receive almost the same number of requests.
         """
+        wrk = self.get_client('wrk')
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.wait_while_busy(wrk)
+
         tempesta = self.get_tempesta()
         servers = self.get_servers()
         tempesta.get_stats()
@@ -189,7 +211,7 @@ class Ratio(tester.TempestaTest):
         cl_reqs = tempesta.stats.cl_msg_forwarded
         s_reqs_expected = cl_reqs / len(servers)
         # On short running tests too small delta leads to false negatives.
-        delta = max(self.precision * s_reqs_expected, 10)
+        delta = max(self.precision * s_reqs_expected, self.min_delta)
 
         for srv in servers:
             tf_cfg.dbg(3,
@@ -208,22 +230,10 @@ class Ratio(tester.TempestaTest):
                     )
                 )
 
-    def test_load_distribution(self):
-        wrk = self.get_client('wrk')
-
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-
-        self.wait_while_busy(wrk)
-        self.check_fair_load()
-
 
 class RatioVariableConns(Ratio):
-    """ 'ratio static' scheduler with default weights. Each server has random
-    connection number. Load distributed between servers according to theirs
-    weights, not number of connections, thus different connection count doesn't
-    affect load distribution.
+    """ Same as base test, but now every server has the random number of
+    connections.
     """
 
     tempesta = {

@@ -1,12 +1,33 @@
 """
-Ratio scheduler is fast and fair scheduler based on weighted round-robin
-principle. Functional test for Ratio scheduler requires intensive loads to
-evaluate how fair the load distribution is.
+Test for ratio dynamic scheduler.
+Difference from test_ratio_static.py: weights of servers are estimated
+dynamically.
+
+The faster the server is the more load it should get. Use echo_nginx_module
+to add programmable delay before response is sent. Every next server has a
+bigger delay, so resulting weights of servers should have the reverse order.
+
+In heavy concurrent environment, where all servers are started on the
+same hardware (which is always true in our tests), some servers may get
+unpredictable delays. Such delays may significantly affect dynamic load
+distribution. After a lot of testing it turned out that:
+- a few slowest  server are more likely to be affected by the issue;
+- unlucky fast server may not get enough of cpu time to keep expected latency,
+and has no chances to get more cpu time, since is doesn't get enough job
+(requests).
+To fight with this tricky situation, ignore servers which got weight less than
+30, when compare resulting weights. All servers can't have weight lower than
+30 in the same time, so at least some checks are performed.
+
 """
 
 from framework import tester
 from helpers.control import servers_get_stats
 from helpers import tf_cfg
+
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -73,9 +94,6 @@ server ${server_ip}:8009;
 
 """
 
-def sched_ratio_static_def_weight():
-    return 50
-
 
 class Ratio(tester.TempestaTest):
     """Use 'ratio dynamic' scheduler with default The faster server is the
@@ -98,7 +116,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8001',
             'type' : 'nginx',
             'port' : '8001',
-            'delay' : '0.05',
+            'delay' : '0.005',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -106,7 +124,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8002',
             'type' : 'nginx',
             'port' : '8002',
-            'delay' : '0.1',
+            'delay' : '0.01',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -114,7 +132,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8003',
             'type' : 'nginx',
             'port' : '8003',
-            'delay' : '0.15',
+            'delay' : '0.015',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -122,7 +140,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8004',
             'type' : 'nginx',
             'port' : '8004',
-            'delay' : '0.2',
+            'delay' : '0.02',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -130,7 +148,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8005',
             'type' : 'nginx',
             'port' : '8005',
-            'delay' : '0.25',
+            'delay' : '0.025',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -138,7 +156,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8006',
             'type' : 'nginx',
             'port' : '8006',
-            'delay' : '0.3',
+            'delay' : '0.03',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -146,7 +164,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8007',
             'type' : 'nginx',
             'port' : '8007',
-            'delay' : '0.35',
+            'delay' : '0.035',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -154,7 +172,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8008',
             'type' : 'nginx',
             'port' : '8008',
-            'delay' : '0.4',
+            'delay' : '0.04',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -162,7 +180,7 @@ class Ratio(tester.TempestaTest):
             'id' : 'nginx_8009',
             'type' : 'nginx',
             'port' : '8009',
-            'delay' : '0.5',
+            'delay' : '0.1',
             'status_uri' : 'http://${server_ip}:${port}/nginx_status',
             'config' : NGINX_CONFIG,
         },
@@ -181,13 +199,17 @@ class Ratio(tester.TempestaTest):
         'config' : TEMPESTA_CONFIG,
     }
 
+    min_server_weight = 30
+
     def check_weight(self, sid_fast, sid_slow):
+        """ The server which is configured to be faster, should get higher
+        weight. Request rate in this test is low, ignore servers which doesn't
+        get enough requests to configure the balancer properly.
+        """
         slow_srv = self.get_server(sid_slow)
         fast_srv = self.get_server(sid_fast)
 
-        # Request rate in this test is low, ignore servers which doesn't
-        # get enough requests to configure the balancer effectively.
-        if min(slow_srv.weight, fast_srv.weight) < 30:
+        if min(slow_srv.weight, fast_srv.weight) < self.min_server_weight:
             return
         self.assertLessEqual(
             slow_srv.weight, fast_srv.weight,
@@ -195,14 +217,25 @@ class Ratio(tester.TempestaTest):
                  % (sid_fast, sid_slow))
         )
 
-    def check_load(self):
+    def test_load_distribution(self):
+        """ Configure slow and fast servers. The faster server is the more
+        weight it should get.
+        """
+        wrk = self.get_client('wrk')
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+
+        self.wait_while_busy(wrk)
+
         tempesta = self.get_tempesta()
         servers = self.get_servers()
         tempesta.get_stats()
         servers_get_stats(servers)
 
         cl_reqs = tempesta.stats.cl_msg_forwarded
-        tot_weight = len(servers) * 50  # for weight normalisation
+        tot_weight = len(servers) * 50  # for weight normalisation.
 
         for srv in servers:
             calc_weight = 1.0 * srv.requests / cl_reqs * tot_weight
@@ -221,16 +254,6 @@ class Ratio(tester.TempestaTest):
         self.check_weight('nginx_8002', 'nginx_8003')
         self.check_weight('nginx_8001', 'nginx_8002')
         self.check_weight('nginx_8000', 'nginx_8001')
-
-    def test_load_distribution(self):
-        wrk = self.get_client('wrk')
-
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-
-        self.wait_while_busy(wrk)
-        self.check_load()
 
 
 class RatioMin(Ratio):

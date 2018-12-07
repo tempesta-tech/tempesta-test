@@ -8,6 +8,10 @@ from framework import tester
 from helpers.control import servers_get_stats
 from helpers import tf_cfg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
 
