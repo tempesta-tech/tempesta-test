@@ -20,7 +20,8 @@ class TestPurge(functional.FunctionalTest):
               'cache_purge_acl %s;\n'
               % tf_cfg.cfg.get('Client', 'ip'))
 
-    def chains(self):
+    @staticmethod
+    def chains():
         uri = '/page.html'
         result = [
             # All cacheable method to the resource must be cached

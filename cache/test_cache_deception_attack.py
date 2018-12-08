@@ -11,11 +11,7 @@
 #
 # https://omergil.blogspot.com/2017/02/web-cache-deception-attack.html
 
-import os
-
-from framework import tester, deproxy_server
-from helpers import tf_cfg, deproxy, tempesta, control
-from framework.templates import fill_template
+from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'

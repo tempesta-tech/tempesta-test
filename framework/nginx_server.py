@@ -61,27 +61,26 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
         cmd = 'curl %s' % self.status_uri
         out, _ = remote.client.run_cmd(
             cmd, err_msg=(self.err_msg % ('get stats of', self.get_name())))
-        m = re.search(r'Active connections: (\d+) \n'
-                      r'server accepts handled requests\n \d+ \d+ (\d+)',
-                      out)
-        if m:
+        match = re.search(r'Active connections: (\d+) \n'
+                          r'server accepts handled requests\n \d+ \d+ (\d+)',
+                          out)
+        if match:
             # Current request increments active connections for nginx.
-            self.active_conns = int(m.group(1)) - 1
+            self.active_conns = int(match.group(1)) - 1
             # Get rid of stats requests influence to statistics.
-            self.requests = int(m.group(2)) - self.stats_ask_times
+            self.requests = int(match.group(2)) - self.stats_ask_times
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        t = time.time()
-        while t - t0 <= timeout:
+        curr_time = start_time = time.time()
+        while curr_time - start_time <= timeout:
             self.get_stats()
             if self.active_conns >= self.conns_n:
                 return True
             time.sleep(0.001)  # to prevent redundant CPU usage
-            t = time.time()
+            curr_time = time.time()
         return False
 
     def run_start(self):

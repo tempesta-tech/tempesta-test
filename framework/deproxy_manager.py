@@ -24,10 +24,10 @@ def run_deproxy_server(deproxy, exit_event, polling_lock, q):
             polling_lock.acquire()
             poll_fun()
             polling_lock.release()
-    except Exception as e:
-        tf_cfg.dbg(2, "Error while polling: %s" % str(e))
+    except Exception as exc:
+        tf_cfg.dbg(2, "Error while polling: %s" % str(exc))
         polling_lock.release()
-        q.put(e)
+        q.put(exc)
     tf_cfg.dbg(3, "Finished deproxy manager")
 
 class DeproxyManager(stateful.Stateful):
@@ -58,9 +58,10 @@ class DeproxyManager(stateful.Stateful):
     def run_start(self):
         tf_cfg.dbg(3, "Running deproxy")
         self.exit_event.clear()
-        self.proc = threading.Thread(target = run_deproxy_server,
-                                    args=(self, self.exit_event,
-                                          self.polling_lock, self.thread_expts))
+        self.proc = threading.Thread(target=run_deproxy_server,
+                                     args=(self, self.exit_event,
+                                           self.polling_lock, self.thread_expts)
+                                    )
         self.proc.start()
 
     def thread_exception(self):

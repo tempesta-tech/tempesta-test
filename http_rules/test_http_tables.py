@@ -1,6 +1,6 @@
 """
 Set of tests to verify correctness of requests redirection in HTTP table
-(via sereral HTTP chains). Mark rules and match rules are also tested here
+(via several HTTP chains). Mark rules and match rules are also tested here
 (in separate tests).
 """
 from helpers import chains, remote
@@ -247,21 +247,21 @@ class HttpTablesTest(tester.TempestaTest):
     match_rules_test = True
 
     def init_chain(self, (uri, header, value, block)):
-        ch = chains.base(uri=uri)
+        chain = chains.base(uri=uri)
         if block and self.match_rules_test:
-            ch.request.headers.delete_all(header)
-            ch.request.headers.add(header, value)
-            ch.request.update()
-            ch.fwd_request = None
+            chain.request.headers.delete_all(header)
+            chain.request.headers.add(header, value)
+            chain.request.update()
+            chain.fwd_request = None
         else:
-            for request in [ch.request, ch.fwd_request]:
+            for request in [chain.request, chain.fwd_request]:
                 request.headers.delete_all(header)
                 request.headers.add(header, value)
                 request.update()
-        self.chains.append(ch)
+        self.chains.append(chain)
 
     def setUp(self):
-        del(self.chains[:])
+        del self.chains[:]
         count = len(self.requests_opt)
         for i in range(count):
             self.init_chain(self.requests_opt[i])
@@ -269,8 +269,8 @@ class HttpTablesTest(tester.TempestaTest):
 
     def wait_all_connections(self, tmt=1):
         sids = self.get_servers_id()
-        for id in sids:
-            srv = self.get_server(id)
+        for sid in sids:
+            srv = self.get_server(sid)
             if not srv.wait_for_connections(timeout=tmt):
                 return False
         return True

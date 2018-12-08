@@ -4,10 +4,9 @@ Set of tests to verify HTTP rules processing correctness (in one HTTP chain).
 
 from __future__ import print_function
 import asyncore
-from helpers import tempesta, deproxy, tf_cfg, chains, control
+from helpers import tempesta, deproxy, chains, control
 from testers import functional
 
-import unittest
 
 class HttpRules(functional.FunctionalTest):
     """All requests must be forwarded to the right vhosts and
@@ -85,9 +84,9 @@ class HttpRules(functional.FunctionalTest):
     def configure_tempesta(self):
         """ Add every server to it's own server group with default scheduler.
         """
-        for s in self.servers:
-            sg = tempesta.ServerGroup(s.group)
-            sg.add_server(s.ip, s.port, s.conns_n)
+        for srv in self.servers:
+            sg = tempesta.ServerGroup(srv.group)
+            sg.add_server(srv.ip, srv.port, srv.conns_n)
             self.tempesta.config.add_sg(sg)
 
     def create_tester(self):
@@ -135,6 +134,7 @@ class HttpRules(functional.FunctionalTest):
             raise asyncore.ExitNow
 
     def setUp(self):
+        self.responses_received = 0
         self.testers = []
         functional.FunctionalTest.setUp(self)
 
@@ -173,12 +173,6 @@ class HttpRulesBackupServers(HttpRules):
         else:
             chain = chains.base()
         return [chain for _ in range(self.requests_n)]
-
-    def create_tempesta(self):
-        """ Disable vhosts auto configuration mode.
-        """
-        functional.FunctionalTest.create_tempesta(self)
-        self.tempesta.config.vhost_auto_mode = False
 
     def create_server_helper(self, group, port):
         server = deproxy.Server(port=port, conns_n=1)
@@ -240,6 +234,8 @@ class HttpRulesBackupServers(HttpRules):
 
 
 class HttpSchedTester(deproxy.Deproxy):
+
+    response_cb = None
 
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)

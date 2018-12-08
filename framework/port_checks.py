@@ -4,8 +4,6 @@ __license__ = 'GPL2'
 
 from helpers import tf_cfg, remote
 
-import re
-
 class FreePortsChecker(object):
 
     node = remote.server

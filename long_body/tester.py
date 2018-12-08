@@ -23,7 +23,7 @@ class ClientMultipleResponses(deproxy.Client):
         tf_cfg.dbg(5, self.response_buffer)
 
         method = self.method
-        while len(self.response_buffer) > 0:
+        while self.response_buffer:
             try:
                 response = deproxy.Response(self.response_buffer, method=method)
                 self.response_buffer = self.response_buffer[len(response.msg):]
@@ -45,7 +45,7 @@ class BadLengthMessageChain(deproxy.MessageChain):
         deproxy.MessageChain.__init__(self, request=request,
                                       forwarded_request=forwarded_request,
                                       server_response=server_response,
-                                      expected_response = None)
+                                      expected_response=None)
         self.responses = expected_responses
         self.method = request.method
 

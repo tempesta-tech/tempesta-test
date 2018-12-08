@@ -1,5 +1,5 @@
-from helpers import tf_cfg
 from string import Template
+from helpers import tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'

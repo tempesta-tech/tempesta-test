@@ -27,11 +27,11 @@ class BaseDeproxyClient(deproxy.Client):
         try:
             self.close()
             self.addr = self.orig_addr
-        except Exception as e:
-            tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+        except Exception as exc:
+            tf_cfg.dbg(2, "Exception while start: %s" % str(exc))
             if self.polling_lock != None:
                 self.polling_lock.release()
-            raise e
+            raise exc
         if self.polling_lock != None:
             self.polling_lock.release()
 
@@ -42,11 +42,11 @@ class BaseDeproxyClient(deproxy.Client):
             self.polling_lock.acquire()
         try:
             deproxy.Client.run_start(self)
-        except Exception as e:
-            tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+        except Exception as exc:
+            tf_cfg.dbg(2, "Exception while start: %s" % str(exc))
             if self.polling_lock != None:
                 self.polling_lock.release()
-            raise e
+            raise exc
         if self.polling_lock != None:
             self.polling_lock.release()
 
@@ -56,11 +56,11 @@ class BaseDeproxyClient(deproxy.Client):
             return
         tf_cfg.dbg(4, '\tDeproxy: Client: Receive response.')
         tf_cfg.dbg(5, self.response_buffer)
-        while len(self.response_buffer) > 0 and self.nrreq > self.nrresp:
+        while self.response_buffer and self.nrreq > self.nrresp:
             try:
                 method = self.methods[self.nrresp]
                 response = deproxy.Response(self.response_buffer,
-                                    method=method)
+                                            method=method)
                 self.response_buffer = \
                             self.response_buffer[response.original_length:]
             except deproxy.IncompliteMessage:
@@ -68,12 +68,12 @@ class BaseDeproxyClient(deproxy.Client):
             except deproxy.ParseError:
                 tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
                                '<<<<<\n%s>>>>>'
-                            % self.response_buffer))
+                               % self.response_buffer))
                 raise
             self.receive_response(response)
             self.nrresp += 1
 
-        if self.nrreq == self.nrresp and len(self.response_buffer) > 0:
+        if self.nrreq == self.nrresp and self.response_buffer:
             raise deproxy.ParseError('Garbage after response'
                                      ' end:\n```\n%s\n```\n' % \
                                      self.response_buffer)
@@ -84,21 +84,21 @@ class BaseDeproxyClient(deproxy.Client):
     def make_requests(self, requests):
         tmp = requests
         self.methods = []
-        while len(requests) > 0:
+        while requests:
             try:
                 req = deproxy.Request(requests)
             except:
                 tf_cfg.dbg(2, "Can't parse request")
                 req = None
 
-            if req == None:
+            if req is None:
                 self.methods.append("INVALID")
                 requests = ''
                 break
             requests = requests[req.original_length:]
             self.methods.append(req.method)
-        
-        if len(requests) > 0:
+
+        if requests:
             self.methods.append("INVALID")
 
         self.nrresp = 0
@@ -136,10 +136,10 @@ class DeproxyClient(BaseDeproxyClient):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
+        start_time = time.time()
         while len(self.responses) == self.nr:
-            t = time.time()
-            if t - t0 > timeout:
+            curr_time = time.time()
+            if curr_time - start_time > timeout:
                 return False
             time.sleep(0.01)
         return True

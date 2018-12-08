@@ -13,20 +13,20 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-backend_defs = {}
-tempesta_defs = {}
+_backend_defs = {}
+_tempesta_defs = {}
 
 def register_backend(type_name, factory):
-    global backend_defs
     """ Register backend type """
+    global _backend_defs
     tf_cfg.dbg(3, "Registering backend %s" % type_name)
-    backend_defs[type_name] = factory
+    _backend_defs[type_name] = factory
 
 def register_tempesta(type_name, factory):
     """ Register tempesta type """
-    global tempesta_defs
+    global _tempesta_defs
     tf_cfg.dbg(3, "Registering tempesta %s" % type_name)
-    tempesta_defs[type_name] = factory
+    _tempesta_defs[type_name] = factory
 
 def default_tempesta_factory(tempesta):
     return control.Tempesta()
@@ -59,13 +59,15 @@ class TempestaTest(unittest.TestCase):
     __tempesta = None
     deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client):
+    @staticmethod
+    def __create_client_deproxy(client):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
         clt = deproxy_client.DeproxyClient(addr=addr, port=port)
         return clt
 
-    def __create_client_wrk(self, client):
+    @staticmethod
+    def __create_client_wrk(client):
         addr = fill_template(client['addr'], client)
         wrk = wrk_client.Wrk(server_addr=addr)
         wrk.set_script(client['id']+"_script", content="")
@@ -92,11 +94,11 @@ class TempestaTest(unittest.TestCase):
 
         stype = server['type']
         try:
-            factory = backend_defs[stype]
-        except Exception as e:
+            factory = _backend_defs[stype]
+        except Exception as exc:
             tf_cfg.dbg(1, "Unsupported backend %s" % stype)
-            tf_cfg.dbg(1, "Supported backends: %s" % backend_defs)
-            raise e
+            tf_cfg.dbg(1, "Supported backends: %s" % _backend_defs)
+            raise exc
         srv = factory(server, sid, self)
         srv.port_checks = checks
         self.__servers[sid] = srv
@@ -145,7 +147,7 @@ class TempestaTest(unittest.TestCase):
         if 'config' in desc:
             config = desc['config']
         if 'type' in desc:
-            factory = tempesta_defs[desc['type']]
+            factory = _tempesta_defs[desc['type']]
             self.__tempesta = factory(desc)
         else:
             self.__tempesta = default_tempesta_factory(desc)

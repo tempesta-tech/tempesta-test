@@ -6,10 +6,10 @@ import socket
 import time
 
 from helpers import deproxy, tf_cfg, error, stateful, remote, tempesta
-from templates import fill_template
+from framework.templates import fill_template
 
-import tester
-import port_checks
+import framework.tester as tester
+import framework.port_checks as port_checks
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -38,8 +38,8 @@ class ServerConnection(asyncore.dispatcher_with_send):
                 self.handle_close()
 
     def handle_error(self):
-        _, v, _ = sys.exc_info()
-        error.bug('\tDeproxy: SrvConnection: %s' % v)
+        _, value, _ = sys.exc_info()
+        error.bug('\tDeproxy: SrvConnection: %s' % value)
 
     def handle_close(self):
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: Close connection.')
@@ -106,10 +106,10 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
             self.set_reuse_addr()
             self.bind((self.ip, self.port))
             self.listen(socket.SOMAXCONN)
-        except Exception as e:
-            tf_cfg.dbg(2, "Error while creating socket: %s" % str(e))
+        except Exception as exc:
+            tf_cfg.dbg(2, "Error while creating socket: %s" % str(exc))
             self.polling_lock.release()
-            raise e
+            raise exc
 
         self.polling_lock.release()
 
@@ -134,10 +134,10 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
+        start_time = time.time()
         while len(self.connections) < self.conns_n:
-            t = time.time()
-            if t - t0 > timeout:
+            curr_time = time.time()
+            if curr_time - start_time > timeout:
                 return False
             time.sleep(0.001) # to prevent redundant CPU usage
         return True

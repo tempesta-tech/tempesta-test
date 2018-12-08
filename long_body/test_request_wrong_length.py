@@ -4,14 +4,10 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-import unittest
-import body_generator
-import os
+from testers import functional
+from helpers import deproxy, chains
 
 from . import tester
-
-from testers import functional
-from helpers import tf_cfg, control, tempesta, remote, deproxy, chains
 
 def req_body_length(base, length):
     """ Generate chain with missing or specified body length """
@@ -37,7 +33,9 @@ def generate_chain(method='GET', expect_400=False, connection=None):
 
 class TesterCorrectBodyLength(tester.BadLengthDeproxy):
     """ Tester """
-    def create_base(self):
+
+    @staticmethod
+    def create_base():
         base = generate_chain(method='PUT')
         return (base, len(base.request.body))
 
@@ -49,13 +47,17 @@ class TesterCorrectBodyLength(tester.BadLengthDeproxy):
 
 class TesterMissingBodyLength(TesterCorrectBodyLength):
     """ Tester """
-    def create_base(self):
+
+    @staticmethod
+    def create_base():
         base = generate_chain(method='PUT', expect_400=True)
         return (base, None)
 
 class TesterSmallBodyLength(TesterCorrectBodyLength):
     """ Tester """
-    def create_base(self):
+
+    @staticmethod
+    def create_base():
         base = generate_chain(method='PUT', expect_400=True)
         return (base, len(base.request.body) - 15)
 
@@ -63,9 +65,9 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = chains.base(method='PUT')
-        cl = base.request.headers['Content-Length']
+        cl_hdr = base.request.headers['Content-Length']
 
-        base.request.headers.add('Content-Length', cl)
+        base.request.headers.add('Content-Length', cl_hdr)
         base.request.build_message()
 
         base.fwd_request = deproxy.Request()
@@ -87,19 +89,22 @@ class TesterInvalidBodyLength(deproxy.Deproxy):
         self.cookies = []
 
 class TesterSecondBodyLength(TesterDuplicateBodyLength):
-    def second_length(self, content_length):
-        len = int(content_length)
-        return "%i" % (len - 1)
 
-    def expected_response(self):
+    @staticmethod
+    def second_length(content_length):
+        payload_len = int(content_length)
+        return "%i" % (payload_len - 1)
+
+    @staticmethod
+    def expected_response():
         return chains.response_400(connection='keep-alive')
 
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = chains.base(method='PUT')
-        cl = base.request.headers['Content-Length']
+        cl_hdr = base.request.headers['Content-Length']
 
-        duplicate = self.second_length(cl)
+        duplicate = self.second_length(cl_hdr)
         base.request.headers.add('Content-Length', duplicate)
         base.request.build_message()
 

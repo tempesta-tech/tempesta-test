@@ -3,7 +3,6 @@ Tests for health monitoring functionality.
 """
 
 from __future__ import print_function
-import re
 import copy
 import binascii
 from testers import functional
@@ -58,7 +57,7 @@ class Stage(object):
             if message == 'fwd_request' and not self.state:
                 continue
             expected.set_expected(expected_time_delta=CHAIN_TIMEOUT)
-            if (expected != received):
+            if expected != received:
                 result = (message, received, expected)
                 break
         if not result:
@@ -66,7 +65,8 @@ class Stage(object):
         self.assert_msg(result[0] == 'response', result)
         return self.tester.next_stage(result)
 
-    def assert_msg(self, cond, (message, received, expected), trans=False):
+    @staticmethod
+    def assert_msg(cond, (message, received, expected), trans=False):
         trans_str = ' during transition' if trans else ''
         assert cond, \
             ("Received message (%s) does not suit expected one%s!\n\n"
@@ -205,13 +205,13 @@ class TestHealthMonitor(functional.FunctionalTest):
         ])
 
     def create_servers(self):
-        p = tempesta.upstream_port_start_from()
-        self.servers = [deproxy.Server(port=p, conns_n=3)]
+        port = tempesta.upstream_port_start_from()
+        self.servers = [deproxy.Server(port=port, conns_n=3)]
 
     def configure_tempesta(self):
         sg = tempesta.ServerGroup(self.srv_group, hm='h_monitor1')
-        for s in self.servers:
-            sg.add_server(s.ip, s.port, s.conns_n)
+        for srv in self.servers:
+            sg.add_server(srv.ip, srv.port, srv.conns_n)
         self.tempesta.config.add_sg(sg)
 
     def assert_tempesta(self):

@@ -18,6 +18,7 @@ class CloseOnShutdown(stress.StressTest):
         'cache 0;\n'
         '\n')
 
+
     def check_estab_conns(self, expect_estab=True, expext_failed=False):
         for server in self.servers:
             expected_conns = server.conns_n if expect_estab else 0
@@ -73,11 +74,13 @@ class CloseOnShutdown(stress.StressTest):
     def setUp(self):
         stress.StressTest.setUp(self)
         self.filter = None
+        self.filter_ports = []
+        self.dummy_servers = False
 
     def tearDown(self):
         if self.filter:
             self.filter.clean_up()
-        if hasattr(self, 'dummy_servers'):
+        if self.dummy_servers:
             # No need to stop servers.
             if self.tempesta:
                 self.tempesta.stop()

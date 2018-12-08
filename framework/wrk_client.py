@@ -1,9 +1,7 @@
-import multiprocessing
 import os
 import re
 
-from helpers import control, stateful, tf_cfg, remote
-from templates import fill_template
+from helpers import tf_cfg, remote
 
 from . import client
 
@@ -16,13 +14,13 @@ class Wrk(client.Client):
     """ The set of wrappers to manage Wrk, such as to start,
     stop, get statistics etc., from other Python classes."""
 
-    FAIL_ON_SOCK_ERR=False
+    FAIL_ON_SOCK_ERR = False
 
     def __init__(self, threads=-1, timeout=60, **kwargs):
         client.Client.__init__(self, "wrk", **kwargs)
         self.local_scriptdir = ''.join([
-                            os.path.dirname(os.path.realpath(__file__)),
-                            '/../wrk/'])
+            os.path.dirname(os.path.realpath(__file__)),
+            '/../wrk/'])
         self.rs_content = self.read_local_script("results.lua")
         self.timeout = timeout
         self.threads = threads
@@ -33,15 +31,15 @@ class Wrk(client.Client):
         local_script_path = os.path.abspath(local_path)
         assert os.path.isfile(local_script_path), \
                'No script found: %s !' % local_script_path
-        f = open(local_script_path, 'r')
-        content = f.read()
-        f.close()
+        script_file = open(local_script_path, 'r')
+        content = script_file.read()
+        script_file.close()
         return content
 
     def set_script(self, script, content=None):
         self.script = script + ".lua"
 
-        if content == None:
+        if content is None:
             content = self.read_local_script(self.script)
         self.node.copy_file(self.script, ''.join([content, self.rs_content]))
 
@@ -50,7 +48,7 @@ class Wrk(client.Client):
             return
         script_path = self.workdir + "/" + self.script
         self.options.append('-s %s' % script_path)
-    
+
     def form_command(self):
         self.options.append('-d %d' % self.duration)
         # At this moment threads equals user defined value or maximum theads
@@ -67,15 +65,15 @@ class Wrk(client.Client):
         return client.Client.form_command(self)
 
     def parse_out(self, stdout, stderr):
-        m = re.search(r'(\d+) requests in ', stdout)
-        if m:
-            self.requests = int(m.group(1))
-        m = re.search(r'Non-2xx or 3xx responses: (\d+)', stdout)
-        if m:
-            self.errors = int(m.group(1))
-        m = re.search(r'Requests\/sec:\s+(\d+)', stdout)
-        if m:
-            self.rate = int(m.group(1))
+        match = re.search(r'(\d+) requests in ', stdout)
+        if match:
+            self.requests = int(match.group(1))
+        match = re.search(r'Non-2xx or 3xx responses: (\d+)', stdout)
+        if match:
+            self.errors = int(match.group(1))
+        match = re.search(r'Requests\/sec:\s+(\d+)', stdout)
+        if match:
+            self.rate = int(match.group(1))
         matches = re.findall(r'Status (\d{3}) : (\d+) times', stdout)
         for match in matches:
             status = match[0]
@@ -85,13 +83,13 @@ class Wrk(client.Client):
             self.statuses[status] = amount
 
         sock_err_msg = "Socket errors on wrk. Too many concurrent connections?"
-        m = re.search(r'(Socket errors:.+)', stdout)
+        match = re.search(r'(Socket errors:.+)', stdout)
         if self.FAIL_ON_SOCK_ERR:
-            assert not m, sock_err_msg
-        if m:
+            assert not match, sock_err_msg
+        if match:
             tf_cfg.dbg(1, "WARNING! %s" % sock_err_msg)
             err_m = re.search(r'\w+ (\d+), \w+ (\d+), \w+ (\d+), \w+ (\d+)',
-                              m.group(1))
+                              match.group(1))
             self.errors += (int(err_m.group(1)) + int(err_m.group(2))
                             + int(err_m.group(3)) + int(err_m.group(4)))
             # this is wrk-dependent results

@@ -3,7 +3,6 @@ import os
 import multiprocessing
 
 from helpers import remote, tf_cfg, stateful
-from templates import fill_template
 
 def _run_client(client, exit_event, resq):
     res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
@@ -72,8 +71,8 @@ class Client(stateful.Stateful):
         self.errors = 0
 
     def cleanup(self):
-        for f in self.cleanup_files:
-            self.node.remove_file(f)
+        for f_name in self.cleanup_files:
+            self.node.remove_file(f_name)
 
     def copy_files(self):
         for (name, content) in self.files:
@@ -88,7 +87,7 @@ class Client(stateful.Stateful):
         return busy
 
     def __on_finish(self):
-        if self.proc == None:
+        if self.proc is None:
             return
         tf_cfg.dbg(3, "Stopping client")
         self.proc.terminate()
@@ -97,10 +96,10 @@ class Client(stateful.Stateful):
         self.proc_results = self.resq.get()
         self.proc = None
 
-        if self.proc_results != None:
+        if self.proc_results is not None:
             tf_cfg.dbg(3, '\tclient stdout:\n%s' % self.proc_results[0])
 
-            if len(self.proc_results[1]) > 0:
+            if self.proc_results[1]:
                 tf_cfg.dbg(2, '\tclient stderr:\n%s' % self.proc_results[1])
 
             self.parse_out(self.proc_results[0], self.proc_results[1])
@@ -112,8 +111,8 @@ class Client(stateful.Stateful):
         tf_cfg.dbg(3, "Running client")
         self.exit_event.clear()
         self.prepare()
-        self.proc = multiprocessing.Process(target = _run_client,
-                                    args=(self, self.exit_event, self.resq))
+        self.proc = multiprocessing.Process(
+            target=_run_client, args=(self, self.exit_event, self.resq))
         self.proc.start()
 
     @abc.abstractmethod
@@ -134,7 +133,7 @@ class Client(stateful.Stateful):
         return True
 
     def results(self):
-        if (self.rate == -1):
+        if self.rate == -1:
             self.rate = self.requests / self.duration
         return self.requests, self.errors, self.rate, self.statuses
 
@@ -148,8 +147,8 @@ class Client(stateful.Stateful):
         self.options.append('%s %s' % (option, full_name))
         self.cleanup_files.append(full_name)
 
-    def set_user_agent(self, ua):
-        self.options.append('-H \'User-Agent: %s\'' % ua)
+    def set_user_agent(self, agent):
+        self.options.append('-H \'User-Agent: %s\'' % agent)
 
     def wait_for_finish(self):
         self.proc.join()

@@ -108,15 +108,17 @@ class TestMultipleMethods(functional.FunctionalTest):
               'cache_fulfill * *;\n'
               'cache_methods GET HEAD;\n')
 
-    def chains(self):
+    @staticmethod
+    def chains():
         uri = '/page.html'
-        result = [# Populate Cache
-                  chains.proxy(method='GET', uri=uri),
-                  chains.proxy(method='HEAD', uri=uri),
-                  # Serve from cache
-                  chains.cache(method='GET', uri=uri),
-                  chains.cache(method='HEAD', uri=uri),
-                  ]
+        result = [
+            # Populate Cache
+            chains.proxy(method='GET', uri=uri),
+            chains.proxy(method='HEAD', uri=uri),
+            # Serve from cache
+            chains.cache(method='GET', uri=uri),
+            chains.cache(method='HEAD', uri=uri),
+            ]
         return result
 
     def test_purge(self):

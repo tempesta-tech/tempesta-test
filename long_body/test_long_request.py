@@ -4,11 +4,10 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-import unittest
-import body_generator
+import long_body.body_generator as body_generator
 
 from testers import stress
-from helpers import tf_cfg, control, tempesta, remote, wrk
+from helpers import control, wrk
 
 class RequestTestBase(stress.StressTest):
     """ Test long request """

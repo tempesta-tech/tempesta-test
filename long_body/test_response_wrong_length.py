@@ -5,13 +5,9 @@ __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 import unittest
-import body_generator
-import os
-
-from . import tester
 
 from testers import functional
-from helpers import tf_cfg, control, tempesta, remote, deproxy, chains
+from helpers import tempesta, deproxy, chains
 
 def resp_body_length(base, length):
     """ Generate chain with missing or specified body length """
@@ -68,7 +64,9 @@ class InvalidResponseServer(deproxy.Server):
 
 class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
     """ Tester """
-    def create_base(self):
+
+    @staticmethod
+    def create_base():
         base = generate_chain_200(method='GET')
         return (base, len(base.response.body))
 
@@ -84,7 +82,9 @@ class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
 
 class TesterCorrectBodyLength(deproxy.Deproxy):
     """ Tester """
-    def create_base(self):
+
+    @staticmethod
+    def create_base():
         base = generate_chain_200(method='GET', response_body="abcd")
         return (base, len(base.response.body))
 
@@ -130,13 +130,16 @@ class TesterForbiddenZeroBodyLength(deproxy.Deproxy):
         self.message_chains = [base[0]]
         self.cookies = []
 
-    def create_base(self):
+    @staticmethod
+    def create_base():
         base = generate_chain_204(method='GET')
         return (base, 0)
 
 class TesterForbiddenPositiveBodyLength(TesterForbiddenZeroBodyLength):
     """ Tester """
-    def create_base(self):
+
+    @staticmethod
+    def create_base():
         base = generate_chain_204(method='GET')
         return (base, 1)
 
@@ -145,8 +148,8 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = self.create_base()
-        cl = base[0].server_response.headers['Content-Length']
-        base[0].server_response.headers.add('Content-Length', cl)
+        cl_hdr = base[0].server_response.headers['Content-Length']
+        base[0].server_response.headers.add('Content-Length', cl_hdr)
         base[0].server_response.build_message()
 
         base[0].response = chains.make_502_expected()
@@ -154,7 +157,8 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
         self.message_chains = [base[0]]
         self.cookies = []
 
-    def create_base(self):
+    @staticmethod
+    def create_base():
         base = generate_chain_204(method='GET')
         return (base, 0)
 
@@ -163,8 +167,8 @@ class TesterSecondBodyLength(deproxy.Deproxy):
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = self.create_base()
-        cl = base[0].server_response.headers['Content-Length']
-        length = int(cl)
+        cl_hdr = base[0].server_response.headers['Content-Length']
+        length = int(cl_hdr)
         base[0].server_response.headers.add('Content-Length',
                                             "%i" % (length - 1))
         base[0].server_response.build_message()
@@ -174,7 +178,8 @@ class TesterSecondBodyLength(deproxy.Deproxy):
         self.message_chains = [base[0]]
         self.cookies = []
 
-    def create_base(self):
+    @staticmethod
+    def create_base():
         base = generate_chain_204(method='GET')
         return (base, 0)
 
@@ -191,7 +196,8 @@ class TesterInvalidBodyLength(deproxy.Deproxy):
         self.message_chains = [base[0]]
         self.cookies = []
 
-    def create_base(self):
+    @staticmethod
+    def create_base():
         base = generate_chain_204(method='GET')
         return (base, 0)
 

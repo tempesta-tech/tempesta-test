@@ -10,9 +10,7 @@ import unittest
 import re
 from time import sleep
 
-from testers import stress
-from helpers import tf_cfg, control, tempesta, remote
-
+from helpers import tf_cfg, remote
 from framework import tester
 
 def drop_caches():
@@ -23,7 +21,7 @@ def drop_caches():
 def file_exists(remote_file):
     """ Check existance of file on Tempesta host """
     check_cmd = "if [ -e %s ]; then echo -n yes; fi" % remote_file
-    [stdout, stderr] = remote.tempesta.run_cmd(check_cmd)
+    [stdout, _] = remote.tempesta.run_cmd(check_cmd)
     if stdout != "yes":
         return False
     return True
@@ -43,14 +41,14 @@ def read_kmemleaks():
         tf_cfg.dbg(1, "kmemleak file does not exists")
         return -1
     cmd = "cat %s | grep \"unreferenced object\" | wc -l" % kmemleakfile
-    [stdout, stderr] = remote.tempesta.run_cmd(cmd)
+    [stdout, _] = remote.tempesta.run_cmd(cmd)
     return int(stdout)
 
 def get_memory_line(name):
     """ Get value from /proc/meminfo """
     if not has_meminfo():
         return -1
-    [stdout, stderr] = remote.tempesta.run_cmd("cat /proc/meminfo")
+    [stdout, _] = remote.tempesta.run_cmd("cat /proc/meminfo")
     line = re.search("%s:[ ]+([0-9]+)" % name, stdout)
     if line:
         return int(line.group(1))
@@ -154,7 +152,7 @@ server ${server_ip}:8000;
     def test_kmemleak(self):
         """ Detecting leaks with kmemleak """
         if not has_kmemleak():
-            return unittest.TestCase.skipTest(self, "No kmemleak")
+            raise unittest.TestCase.skipTest(self, "No kmemleak")
 
         nginx = self.get_server('nginx')
         wrk = self.get_client('wrk')
@@ -168,7 +166,7 @@ server ${server_ip}:8000;
     def test_slab_memory(self):
         """ Detecting leaks with slab memory measure """
         if not has_meminfo():
-            return unittest.TestCase.skipTest(self, "No meminfo")
+            raise unittest.TestCase.skipTest(self, "No meminfo")
 
         nginx = self.get_server('nginx')
         wrk = self.get_client('wrk')
@@ -184,7 +182,7 @@ server ${server_ip}:8000;
     def test_used_memory(self):
         """ Detecting leaks with total used memory measure """
         if not has_meminfo():
-            return unittest.TestCase.skipTest(self, "No meminfo")
+            raise unittest.TestCase.skipTest(self, "No meminfo")
 
         nginx = self.get_server('nginx')
         wrk = self.get_client('wrk')
