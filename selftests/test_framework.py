@@ -1,7 +1,5 @@
-import time
-
 from helpers import tf_cfg, deproxy
-from framework import tester, nginx_server, deproxy_server
+from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'

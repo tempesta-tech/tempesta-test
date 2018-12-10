@@ -1,6 +1,5 @@
 from __future__ import print_function
 import unittest
-import copy
 import asyncore
 from helpers import dmesg, tf_cfg, control, tempesta, deproxy, stateful, remote
 from helpers.deproxy import ParseError

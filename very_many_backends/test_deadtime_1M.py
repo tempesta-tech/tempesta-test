@@ -2,17 +2,16 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-from helpers import control, tempesta, nginx, tf_cfg
-from helpers import deproxy, chains, remote, stateful
-from testers import stress
-from . import multi_backend
-
 import sys
-import os
 import time
 import select
 import asyncore
 import multiprocessing
+
+from helpers import tempesta, tf_cfg
+from helpers import deproxy, chains, stateful
+from testers import stress
+from . import multi_backend
 
 class DeadtimeClient(stateful.Stateful):
     """ Client for deadtime measuring """
@@ -107,7 +106,7 @@ class DeadtimeClient(stateful.Stateful):
         if delay > self.max_deadtime:
             long_times += 1
         if delay > max_delay:
-                max_delay = delay
+            max_delay = delay
         tf_cfg.dbg(3, "number of requests shorter than  1 s: %i" % short_times)
         tf_cfg.dbg(3, "number of requests longer than 1 s: %i" % long_times)
         tf_cfg.dbg(3, "max request time: %f" % max_delay)
@@ -137,8 +136,8 @@ class DontModifyBackend(stress.StressTest):
         tf_cfg.dbg(2, "Creating interfaces")
         self.interface = tf_cfg.cfg.get('Server', 'aliases_interface')
         self.base_ip = tf_cfg.cfg.get('Server',   'aliases_base_ip')
-        self.ips = multi_backend.create_interfaces(self.interface,
-                           self.base_ip, self.num_extra_interfaces + 1)
+        self.ips = multi_backend.create_interfaces(
+            self.interface, self.base_ip, self.num_extra_interfaces + 1)
         stress.StressTest.setUp(self)
 
     def tearDown(self):
@@ -170,8 +169,8 @@ class DontModifyBackend(stress.StressTest):
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
 
-    def append_server_group(self, id):
-        sg = tempesta.ServerGroup('new-%i' % id)
+    def append_server_group(self, sgid):
+        sg = tempesta.ServerGroup('new-%i' % sgid)
         server = self.servers[1]
         for listener in server.config.listeners:
             sg.add_server(server.ip, listener.port, server.conns_n)
@@ -196,7 +195,7 @@ class DontModifyBackend(stress.StressTest):
         config.set_worker_connections(32768)
         config.set_workers(4096)
         config.set_worker_rlimit_nofile(16384)
-        config.set_ka(timeout = 180)
+        config.set_ka(timeout=180)
         for listener in config.listeners:
             listener.backlog = 9000
         config.build_config()
@@ -211,16 +210,16 @@ class DontModifyBackend(stress.StressTest):
         self.servers.append(server)
 
         server = multi_backend.NginxMP(listen_port=self.base_port,
-                               ports_n=self.num_attempts,
-                               listen_ip=self.ips[0])
+                                       ports_n=self.num_attempts,
+                                       listen_ip=self.ips[0])
         self.setup_nginx_config(server.config)
         self.servers.append(server)
 
         self.extra_servers_base = len(self.servers)
         for ifc in range(self.num_extra_interfaces):
             server = multi_backend.NginxMP(listen_port=self.base_port,
-                                   ports_n=self.num_extra_ports,
-                                   listen_ip=self.ips[ifc + 1])
+                                           ports_n=self.num_extra_ports,
+                                           listen_ip=self.ips[ifc + 1])
             self.setup_nginx_config(server.config)
             self.servers.append(server)
 
@@ -317,12 +316,11 @@ class ChangingSG(DontModifyBackend):
         for i in range(self.num_attempts):
             tf_cfg.dbg(2, "Adding new server to default group")
             server = self.servers[1]
-            self.def_sg.add_server(server.ip,
-                server.config.listeners[i].port, server.conns_n)
+            self.def_sg.add_server(server.ip, server.config.listeners[i].port,
+                                   server.conns_n)
             t1 = time.time()
             self.tempesta.reload()
             t2 = time.time()
             tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2-t1))
             time.sleep(self.max_deadtime)
         self.post_test()
-

@@ -5,7 +5,7 @@ __license__ = 'GPL2'
 
 import very_many_backends.multi_backend
 
-from helpers import tf_cfg, tempesta
+from helpers import tempesta
 
 class ManyBackends1InGroup(very_many_backends.multi_backend.MultipleBackends):
     """ 1 backend in server group """

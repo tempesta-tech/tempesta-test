@@ -1,7 +1,6 @@
 """Regression tests for invalid requests and responses."""
 
 from __future__ import print_function
-import unittest
 from testers import functional
 from helpers import chains, deproxy, tempesta
 from long_body import test_response_wrong_length

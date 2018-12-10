@@ -3,9 +3,13 @@ Instruments for network traffic analysis
 """
 from __future__ import print_function
 import os
+import re
+import sys
 from threading import Thread
-from scapy.all import *
-from . import remote, tf_cfg, error
+from scapy.layers.inet import IP, TCP
+from scapy.sendrecv import sniff
+
+from . import tf_cfg, error
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -69,7 +73,7 @@ class Sniffer(object):
 
     def check_results(self):
         """Analyzing captured packets. Should be called after start-stop cycle.
-        Should be redefined in sublasses.
+        Should be redefined in subclasses.
         """
         return True
 
@@ -78,12 +82,11 @@ class AnalyzerCloseRegular(Sniffer):
     def portcmp(self, packet, invert=False):
         if self.node_side_close and invert:
             return packet[TCP].dport == self.port
-        elif self.node_side_close and not invert:
+        if self.node_side_close and not invert:
             return packet[TCP].sport == self.port
-        elif not self.node_side_close and invert:
+        if not self.node_side_close and invert:
             return packet[TCP].sport == self.port
-        else:
-            return packet[TCP].dport == self.port
+        return packet[TCP].dport == self.port
 
     def check_results(self):
         """Four-way (FIN-ACK-FIN-ACK) and

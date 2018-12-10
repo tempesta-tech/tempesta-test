@@ -1,5 +1,4 @@
 import re
-import os
 from . import error, remote, tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -125,10 +124,10 @@ class Stats(object):
 
     @staticmethod
     def parse_option(stats, name):
-        s = r'%s\s+: (\d+)' % name
-        m = re.search(s.encode('ascii'), stats)
-        if m:
-            return int(m.group(1))
+        search = r'%s\s+: (\d+)' % name
+        matches = re.search(search.encode('ascii'), stats)
+        if matches:
+            return int(matches.group(1))
         return -1
 
 class ServerStats(object):
@@ -208,7 +207,7 @@ class Config(object):
         vhosts = []
         if self.vhost_auto_mode:
             for sg in self.server_groups:
-                if len(sg.servers) > 0:
+                if sg.servers:
                     vhosts.append('\n'.join(
                         ['vhost %s {' % sg.name] +
                         ['proxy_pass %s;' % sg.name] +

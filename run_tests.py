@@ -7,7 +7,7 @@ import os
 import resource
 import subprocess
 
-from helpers import tf_cfg, remote, shell, control, prepare
+from helpers import tf_cfg, remote, shell, prepare
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
@@ -151,7 +151,7 @@ root_required = False
 (s_limit, _) = resource.getrlimit(resource.RLIMIT_NOFILE)
 # '4' multiplier is enough to start everything on one host.
 min_limit = int(tf_cfg.cfg.get('General', 'concurrent_connections')) * 4
-if (s_limit < min_limit):
+if s_limit < min_limit:
     root_required = True
     print("Root privileges are required: too many concurrent connections.")
 
@@ -211,7 +211,7 @@ exclusions = []
 if not run_disabled:
     # remove empty arguments
     for name in remainder:
-        if len(name) > 0:
+        if name:
             use_tests.append(name)
 
     for name in use_tests:
@@ -236,7 +236,7 @@ else:
         reason = disabled['reason']
         tf_cfg.dbg(1, "Run disabled test \"%s\" : %s" % (name, reason))
         inclusions.append(name)
-    if len(inclusions) == 0:
+    if inclusions:
         tf_cfg.dbg(1, "No disabled tests, exiting")
         sys.exit()
 
@@ -260,11 +260,12 @@ if state_reader.has_file and not test_resume.from_file:
 
 # filter testcases
 resume_filter = test_resume.filter()
-tests = [ t
-          for t in tests
-          if resume_filter(t)
-          and (not inclusions or shell.testcase_in(t, inclusions))
-          and not shell.testcase_in(t, exclusions) ]
+tests = [t
+         for t in tests
+         if resume_filter(t)
+         and (not inclusions or shell.testcase_in(t, inclusions))
+         and not shell.testcase_in(t, exclusions)
+         ]
 
 #
 # List tests and exit, if requested
@@ -307,10 +308,10 @@ if not tests or (test_resume.state.last_id == tests[-1].id()
                  and test_resume.state.last_completed):
     state_reader.drop()
 
-if len(result.errors) > 0:
+if result.errors:
     sys.exit(-1)
 
-if len(result.failures) > 0:
+if result.failures:
     sys.exit(1)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

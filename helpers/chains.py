@@ -127,7 +127,7 @@ def base(uri='/', method='GET', forward=True, date=None):
     common_resp_date = date
     # response body
     common_resp_body = ''
-    # common part of response headers 
+    # common part of response headers
     common_resp_headers = [
         'Connection: keep-alive',
     ]
@@ -150,7 +150,7 @@ def base(uri='/', method='GET', forward=True, date=None):
     #
 
     if method == "PURGE":
-        assert(forward == False)
+        assert forward is False
         common_resp_headers += [
             'Content-Length: 0'
         ]
@@ -242,7 +242,7 @@ def base_chunked(uri='/'):
     """Same as chains.base(), but returns a copy of message chain with
     chunked body.
     """
-    rule = base()
+    rule = base(uri=uri)
     body = ("4\r\n"
             "1234\r\n"
             "0\r\n"

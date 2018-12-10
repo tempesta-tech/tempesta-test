@@ -2,7 +2,6 @@
 Live reconfiguration stress test for hash scheduler.
 """
 
-from helpers import tempesta
 from . import reconf_stress
 
 __author__ = 'Tempesta Technologies, Inc.'

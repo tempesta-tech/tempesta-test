@@ -3,9 +3,9 @@ Tests for TCP connection closing.
 """
 
 from __future__ import print_function
+import asyncore
 from testers import functional
 from helpers import analyzer, deproxy, chains
-import asyncore
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -67,8 +67,8 @@ class CloseClientConnectiononInvalidReq(CloseConnection):
         # as a new request. 400 response will be sent and client connection
         # will be closed.
         chain_400 = deproxy.MessageChain(
-            request = deproxy.Request(),
-            expected_response = chains.response_400())
+            request=deproxy.Request(),
+            expected_response=chains.response_400())
         return [chain_200, chain_400]
 
     def create_sniffer(self):

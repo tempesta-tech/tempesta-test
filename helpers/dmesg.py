@@ -37,13 +37,14 @@ class DmesgOopsFinder(object):
 
     def __init__(self):
         self.node = remote.tempesta
+        self.log = ''
 
     def update(self):
         dml, _ = self.node.run_cmd("dmesg | wc -l")
-        l = int(dml)
-        cmd = 'dmesg | tac | grep -m 1 "Start test" -B %i | tac' % l
+        lines = int(dml)
+        cmd = 'dmesg | tac | grep -m 1 "Start test" -B %i | tac' % lines
         self.log, _ = self.node.run_cmd(cmd)
-        if len(self.log) == 0:
+        if self.log:
             cmd = 'dmesg'
             self.log, _ = self.node.run_cmd(cmd)
 

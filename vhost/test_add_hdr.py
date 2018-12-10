@@ -109,7 +109,7 @@ class TestRespSetHeader(TestReqSetHeader):
             self.msg_chain.server_response.headers[name] = val
             self.msg_chain.response.headers[name] = val
         for (name, val) in hdrs:
-                self.msg_chain.response.headers[name] = val
+            self.msg_chain.response.headers[name] = val
         self.msg_chain.server_response.update()
         self.msg_chain.response.update()
 
@@ -121,7 +121,7 @@ class TestReqDelHeader(TestReqAddHeader):
     def config_append_directive(self, hdrs, location=None):
         if location is not None:
             self.config = self.config + ('location prefix "%s" {\n' % location)
-        for (name, val) in hdrs:
+        for (name, _) in hdrs:
             self.config = self.config + ('%s %s;\n' % (self.directive, name))
         if location is not None:
             self.config = self.config + '}\n'

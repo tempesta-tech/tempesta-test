@@ -3,7 +3,7 @@ Test for 'Paired request missing, HTTP Response Splitting attack?' error
 """
 
 from __future__ import print_function
-from helpers import deproxy, tempesta, chains, tf_cfg, dmesg
+from helpers import deproxy, tempesta, chains, dmesg
 from testers import functional
 
 __author__ = 'Tempesta Technologies, Inc.'

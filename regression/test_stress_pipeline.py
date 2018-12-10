@@ -2,7 +2,6 @@
 Pipeline stress testing.
 """
 
-import sys
 import unittest
 from helpers import control, tempesta
 from testers import stress

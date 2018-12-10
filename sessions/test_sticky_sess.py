@@ -1,5 +1,4 @@
 from __future__ import print_function
-import copy
 from helpers import tempesta, deproxy
 from testers import functional
 from . import cookies
@@ -41,8 +40,8 @@ class TestSticky(functional.FunctionalTest):
 
     def chain_failover_forbidden(self):
         chain = deproxy.MessageChain(
-            request = self.tester.message_chains[1].request,
-            expected_response = cookies.make_502()
+            request=self.tester.message_chains[1].request,
+            expected_response=cookies.make_502()
         )
         return [chain for _ in range(cookies.CHAIN_LENGTH)]
 

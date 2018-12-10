@@ -36,11 +36,11 @@ class TestFrameworkCfg(object):
             self.cfg_err = sys.exc_info()
 
     def __fill_kvs(self):
-        for section in ['General','Client', 'Tempesta', 'Server']:
-            cfg = self.config[section]
-            for key in cfg.keys():
-                id = '_'.join([section.lower(), key])
-                self.kvs[id] = cfg[key]
+        for section in ['General', 'Client', 'Tempesta', 'Server']:
+            sec_cfg = self.config[section]
+            for key in sec_cfg.keys():
+                flat_key = '_'.join([section.lower(), key])
+                self.kvs[flat_key] = sec_cfg[key]
 
     def defaults(self):
         self.config = configparser.ConfigParser()
@@ -76,7 +76,7 @@ class TestFrameworkCfg(object):
                                           'keepalive_timeout': '60',
                                           'keepalive_requests': '100',
                                           'unavaliable_timeout': '300',
-                                          }
+                                         }
                               })
 
     def inc_verbose(self):
@@ -115,10 +115,10 @@ class TestFrameworkCfg(object):
 
         # normalize paths
         normalize = [
-                ('Client', 'workdir'),
-                ('Tempesta', 'workdir'),
-                ('Tempesta', 'srcdir'),
-                ('Server', 'workdir'),
+            ('Client', 'workdir'),
+            ('Tempesta', 'workdir'),
+            ('Tempesta', 'srcdir'),
+            ('Server', 'workdir'),
         ]
         for item in normalize:
             self.config[item[0]][item[1]] = os.path.normpath(self.config[item[0]][item[1]])
@@ -148,8 +148,8 @@ def dbg_dmesg(level, node, msg):
     try:
         if int(cfg.get('General', 'Verbose')) >= level:
             node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
-    except Exception as e:
-        dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
+    except Exception as exc:
+        dbg(2, "Can not access node %s: %s" % (node.type, str(exc)))
 
 
 cfg = TestFrameworkCfg()

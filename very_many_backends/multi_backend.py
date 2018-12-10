@@ -11,7 +11,7 @@ import re
 import uuid
 
 from testers import stress
-from helpers import tf_cfg, control, tempesta, remote, stateful, nginx, error
+from helpers import tf_cfg, control, tempesta, remote, error
 
 
 def ip_str_to_number(ip_addr):
@@ -51,7 +51,7 @@ def remove_interface(interface_name, iface_ip):
     except:
         tf_cfg.dbg(3, "Interface alias already removed")
 
-def create_interfaces(base_interface_name,  base_interface_ip, number_of_ip):
+def create_interfaces(base_interface_name, base_interface_ip, number_of_ip):
     """ Create specified amount of interface aliases """
     ips = []
     for i in range(number_of_ip):
@@ -164,8 +164,8 @@ events {
     def build_config(self):
         """ Building config file """
         pidfile = os.path.join(self.workdir, self.pidfile_name)
-        cfg_main = self.main_template % (pidfile,
-                     self.worker_processes, self.worker_rlimit_nofile)
+        cfg_main = self.main_template % (
+            pidfile, self.worker_processes, self.worker_rlimit_nofile)
         cfg_events = self.events_template % \
              (self.multi_accept, self.worker_connections)
 
@@ -182,7 +182,7 @@ events {
 
     def add_server(self, ip_listen, port):
         """ Add new server listener """
-        if len(self.listeners) == 0:
+        if self.listeners:
             listener = Listener(ip_listen, port, self.location, has_status=True)
         else:
             listener = Listener(ip_listen, port, self.location)
@@ -305,13 +305,13 @@ class MultipleBackends(stress.StressTest):
 
     def create_servers(self):
         self.interface = tf_cfg.cfg.get('Server', 'aliases_interface')
-        self.base_ip = tf_cfg.cfg.get('Server',   'aliases_base_ip')
+        self.base_ip = tf_cfg.cfg.get('Server', 'aliases_base_ip')
         self.ips = create_interfaces(self.interface, self.base_ip,
                                      self.num_interfaces)
         for ip in self.ips:
             server = NginxMP(listen_port=self.base_port,
-                           ports_n=self.num_listeners_per_interface,
-                           listen_ip=ip)
+                             ports_n=self.num_listeners_per_interface,
+                             listen_ip=ip)
             self.servers.append(server)
 
     def configure_tempesta(self):

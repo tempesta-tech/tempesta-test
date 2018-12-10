@@ -1,7 +1,6 @@
 from __future__ import print_function
 import re
 from helpers import deproxy, tf_cfg, chains
-from testers import functional
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -161,7 +160,7 @@ class TesterInvalidEnforcedExtCookiesRmark(TesterIgnoreEnforcedExtCookiesRmark):
         # cookie verification)
         tstamp = '0000000123456789'
         hmac = 'c40fa58c59f09c8ea81223e627c9de12cfa53679'
-        req =  self.message_chains[0].request
+        req = self.message_chains[0].request
         req.headers.delete_all('Cookie')
         req.headers.add('Cookie', ''.join(['__tfw=', tstamp, hmac]))
         req.update()

@@ -27,11 +27,11 @@ class DisabledListLoader(object):
         try:
             self.disabled = []
             with open(self.disabled_list_file, 'r') as dis_file:
-                f = self.__parse_file(dis_file)
-                self.disable = f['disable']
-                if self.disable == False:
+                json_doc = self.__parse_file(dis_file)
+                self.disable = json_doc['disable']
+                if not self.disable:
                     return True
-                self.disabled = f['disabled']
+                self.disabled = json_doc['disabled']
                 return True
         except IOError as err:
             if err.errno != errno.ENOENT:

@@ -1,5 +1,4 @@
 from framework import tester
-from helpers import tf_cfg, deproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'

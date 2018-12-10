@@ -59,4 +59,4 @@ class Stateful(object):
         self.force_stop()
 
     def is_running(self):
-        return (self.state == STATE_STARTED)
+        return self.state == STATE_STARTED

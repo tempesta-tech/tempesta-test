@@ -1,8 +1,6 @@
-import os
-
 from framework import tester, deproxy_server
-from helpers import tf_cfg, deproxy, tempesta, control
 from framework.templates import fill_template
+from helpers import tf_cfg, deproxy, tempesta, control
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -12,8 +10,8 @@ class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
 
     def receive_request(self, request, connection):
         id = request.uri
-        r, close = deproxy_server.StaticDeproxyServer.receive_request(self,
-                                                        request, connection)
+        r, close = deproxy_server.StaticDeproxyServer.receive_request(
+            self, request, connection)
         resp = deproxy.Response(r)
         resp.body = id
         resp.headers['Content-Length'] = len(resp.body)

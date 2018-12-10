@@ -4,9 +4,8 @@ from __future__ import print_function
 import abc
 import re
 import os
-import asyncore
 import multiprocessing.dummy as multiprocessing
-from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful, dmesg
+from . import tf_cfg, remote, error, nginx, tempesta, stateful
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -71,8 +70,8 @@ class Client(object):
         self.errors = 0
 
     def cleanup(self):
-        for f in self.cleanup_files:
-            self.node.remove_file(f)
+        for f_name in self.cleanup_files:
+            self.node.remove_file(f_name)
 
     def copy_files(self):
         for (name, content) in self.files:
@@ -96,7 +95,7 @@ class Client(object):
         return True
 
     def results(self):
-        if (self.rate == -1):
+        if self.rate == -1:
             self.rate = self.requests / self.duration
         return self.requests, self.errors, self.rate, self.statuses
 
@@ -110,8 +109,8 @@ class Client(object):
         self.options.append('%s %s' % (option, full_name))
         self.cleanup_files.append(full_name)
 
-    def set_user_agent(self, ua):
-        self.options.append('-H \'User-Agent: %s\'' % ua)
+    def set_user_agent(self, agent):
+        self.options.append('-H \'User-Agent: %s\'' % agent)
 
 
 class Wrk(Client):
@@ -122,7 +121,7 @@ class Wrk(Client):
     If FAIL_ON_SOCK_ERR is set assert that none of such errors happened during
     test, otherwise print warning and count the errors as usual errors.
     """
-    FAIL_ON_SOCK_ERR=False
+    FAIL_ON_SOCK_ERR = False
 
     def __init__(self, threads=-1, uri='/', ssl=False, timeout=60):
         Client.__init__(self, binary='wrk', uri=uri, ssl=ssl)
@@ -130,8 +129,8 @@ class Wrk(Client):
         self.script = ''
         self.timeout = timeout
         self.local_scriptdir = ''.join([
-                            os.path.dirname(os.path.realpath(__file__)),
-                            '/../wrk/'])
+            os.path.dirname(os.path.realpath(__file__)),
+            '/../wrk/'])
         self.rs_content = self.read_local_script("results.lua")
 
     def read_local_script(self, filename):
@@ -139,15 +138,15 @@ class Wrk(Client):
         local_script_path = os.path.abspath(local_path)
         assert os.path.isfile(local_script_path), \
                'No script found: %s !' % local_script_path
-        f = open(local_script_path, 'r')
-        content = f.read()
-        f.close()
+        script_file = open(local_script_path, 'r')
+        content = script_file.read()
+        script_file.close()
         return content
 
     def set_script(self, script, content=None):
         self.script = script + ".lua"
 
-        if content == None:
+        if content is None:
             content = self.read_local_script(self.script)
         self.node.copy_file(self.script, ''.join([content, self.rs_content]))
 
@@ -166,8 +165,9 @@ class Wrk(Client):
         if self.threads > self.connections:
             self.threads = self.connections
         if self.connections % self.threads != 0:
-            nc = (self.connections // self.threads) * self.threads
-            tf_cfg.dbg(2, "Warning: only %i connections will be created" % nc)
+            conns_n = (self.connections // self.threads) * self.threads
+            tf_cfg.dbg(2,
+                       "Warning: only %i connections will be created" % conns_n)
         threads = self.threads if self.connections > 1 else 1
         self.options.append('-t %d' % threads)
         self.options.append('-c %d' % self.connections)
@@ -176,15 +176,15 @@ class Wrk(Client):
         return Client.form_command(self)
 
     def parse_out(self, stdout, stderr):
-        m = re.search(r'(\d+) requests in ', stdout)
-        if m:
-            self.requests = int(m.group(1))
-        m = re.search(r'Non-2xx or 3xx responses: (\d+)', stdout)
-        if m:
-            self.errors = int(m.group(1))
-        m = re.search(r'Requests\/sec:\s+(\d+)', stdout)
-        if m:
-            self.rate = int(m.group(1))
+        matches = re.search(r'(\d+) requests in ', stdout)
+        if matches:
+            self.requests = int(matches.group(1))
+        matches = re.search(r'Non-2xx or 3xx responses: (\d+)', stdout)
+        if matches:
+            self.errors = int(matches.group(1))
+        matches = re.search(r'Requests\/sec:\s+(\d+)', stdout)
+        if matches:
+            self.rate = int(matches.group(1))
         matches = re.findall(r'Status (\d{3}) : (\d+) times', stdout)
         for match in matches:
             status = match[0]
@@ -194,13 +194,13 @@ class Wrk(Client):
             self.statuses[status] = amount
 
         sock_err_msg = "Socket errors on wrk. Too many concurrent connections?"
-        m = re.search(r'(Socket errors:.+)', stdout)
+        matches = re.search(r'(Socket errors:.+)', stdout)
         if self.FAIL_ON_SOCK_ERR:
-            assert not m, sock_err_msg
-        if m:
+            assert not matches, sock_err_msg
+        if matches:
             tf_cfg.dbg(1, "WARNING! %s" % sock_err_msg)
             err_m = re.search(r'\w+ (\d+), \w+ (\d+), \w+ (\d+), \w+ (\d+)',
-                              m.group(1))
+                              matches.group(1))
             self.errors += (int(err_m.group(1)) + int(err_m.group(2))
                             + int(err_m.group(3)) + int(err_m.group(4)))
             # this is wrk-dependent results
@@ -225,15 +225,15 @@ class Ab(Client):
         return Client.form_command(self)
 
     def parse_out(self, stdout, stderr):
-        m = re.search(r'Complete requests:\s+(\d+)', stdout)
-        if m:
-            self.requests = int(m.group(1))
-        m = re.search(r'Non-2xx responses:\s+(\d+)', stdout)
-        if m:
-            self.errors = int(m.group(1))
-        m = re.search(r'Failed requests:\s+(\d+)', stdout)
-        if m:
-            self.errors += int(m.group(1))
+        matches = re.search(r'Complete requests:\s+(\d+)', stdout)
+        if matches:
+            self.requests = int(matches.group(1))
+        matches = re.search(r'Non-2xx responses:\s+(\d+)', stdout)
+        if matches:
+            self.errors = int(matches.group(1))
+        matches = re.search(r'Failed requests:\s+(\d+)', stdout)
+        if matches:
+            self.errors += int(matches.group(1))
         return True
 
 
@@ -321,7 +321,7 @@ class Tempesta(stateful.Stateful):
         self.stats.clear()
         self.node.copy_file(self.config_name, self.config.get_config())
         cmd = '%s/scripts/tempesta.sh --start' % self.srcdir
-        env = { 'TFW_CFG_PATH': self.config_name }
+        env = {'TFW_CFG_PATH': self.config_name}
         self.node.run_cmd(cmd, timeout=30, env=env,
                           err_msg=(self.err_msg % 'start'))
 
@@ -338,7 +338,7 @@ class Tempesta(stateful.Stateful):
         tf_cfg.dbg(3, '\tReconfiguring TempestaFW on %s' % self.host)
         self.node.copy_file(self.config_name, self.config.get_config())
         cmd = '%s/scripts/tempesta.sh --reload' % self.srcdir
-        env = { 'TFW_CFG_PATH': self.config_name }
+        env = {'TFW_CFG_PATH': self.config_name}
         self.node.run_cmd(cmd, timeout=30, env=env,
                           err_msg=(self.err_msg % 'reload'))
 
@@ -390,8 +390,8 @@ class TempestaFI(Tempesta):
                         (self.module_name, self.workdir, self.stap)
 
         tf_cfg.dbg(3, "\tstap cmd: %s" % cmd)
-        self.node.run_cmd(cmd, timeout=30, err_msg=(self.stap_msg %
-                                               ('inject', 'into')))
+        self.node.run_cmd(cmd, timeout=30,
+                          err_msg=(self.stap_msg % ('inject', 'into')))
 
     def letout(self):
         cmd = 'rmmod %s' % self.module_name
@@ -469,14 +469,14 @@ class Nginx(stateful.Stateful):
         cmd = 'curl %s' % uri
         out, _ = remote.client.run_cmd(
             cmd, err_msg=(self.err_msg % ('get stats of', self.get_name())))
-        m = re.search(r'Active connections: (\d+) \n'
-                      r'server accepts handled requests\n \d+ \d+ (\d+)',
-                      out)
-        if m:
+        matches = re.search(r'Active connections: (\d+) \n'
+                            r'server accepts handled requests\n \d+ \d+ (\d+)',
+                            out)
+        if matches:
             # Current request increments active connections for nginx.
-            self.active_conns = int(m.group(1)) - 1
+            self.active_conns = int(matches.group(1)) - 1
             # Get rid of stats requests influence to statistics.
-            self.requests = int(m.group(2)) - self.stats_ask_times
+            self.requests = int(matches.group(2)) - self.stats_ask_times
 
     def clear_stats(self):
         self.active_conns = 0
@@ -491,31 +491,31 @@ def servers_start(servers):
     for server in servers:
         try:
             server.start()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem starting server: %s" % e)
-            raise e
+        except Exception as exc:
+            tf_cfg.dbg(1, "Problem starting server: %s" % exc)
+            raise exc
 
 def servers_force_stop(servers):
     for server in servers:
         try:
             server.force_stop()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
+        except Exception as exc:
+            tf_cfg.dbg(1, "Problem stopping server: %s" % exc)
 
 def servers_stop(servers):
     for server in servers:
         try:
             server.stop()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
+        except Exception as exc:
+            tf_cfg.dbg(1, "Problem stopping server: %s" % exc)
 
 def servers_get_stats(servers):
     for server in servers:
         try:
             server.get_stats()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem getting stats from server: %s" % e)
-            raise e
+        except Exception as exc:
+            tf_cfg.dbg(1, "Problem getting stats from server: %s" % exc)
+            raise exc
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
