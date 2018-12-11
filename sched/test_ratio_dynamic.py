@@ -1,5 +1,6 @@
 """
-Test for ratio dynamic scheduler.
+Test for ratio dynamic scheduler. Check automatic weight calculation
+for servers that have different (mostly constant) latency.
 Difference from test_ratio_static.py: weights of servers are estimated
 dynamically.
 
@@ -18,6 +19,10 @@ and has no chances to get more cpu time, since is doesn't get enough job
 To fight with this tricky situation, ignore servers which got weight less than
 30, when compare resulting weights. All servers can't have weight lower than
 30 in the same time, so at least some checks are performed.
+
+In dynamic or predic mode load balancing between servers is only predictable,
+if they have the same number of connections. This behaviour is different
+from the ratio static mode.
 
 """
 
@@ -95,11 +100,9 @@ server ${server_ip}:8009;
 """
 
 
-class Ratio(tester.TempestaTest):
-    """Use 'ratio dynamic' scheduler with default The faster server is the
-    more load it get. In dynamic or prediction mode load balancing between
-    servers only predictable, if they have the same number of connections.
-    This behaviour is different from ratio static mode.
+class RatioDynamic(tester.TempestaTest):
+    """Use 'ratio dynamic' scheduler. The faster server is the
+    more load it get.
     """
 
     # 10 backend servers, each has unique delay before send response.
@@ -201,24 +204,8 @@ class Ratio(tester.TempestaTest):
 
     min_server_weight = 30
 
-    def check_weight(self, sid_fast, sid_slow):
-        """ The server which is configured to be faster, should get higher
-        weight. Request rate in this test is low, ignore servers which doesn't
-        get enough requests to configure the balancer properly.
-        """
-        slow_srv = self.get_server(sid_slow)
-        fast_srv = self.get_server(sid_fast)
-
-        if min(slow_srv.weight, fast_srv.weight) < self.min_server_weight:
-            return
-        self.assertLessEqual(
-            slow_srv.weight, fast_srv.weight,
-            msg=("Faster server %s got less weight than slower %s"
-                 % (sid_fast, sid_slow))
-        )
-
     def test_load_distribution(self):
-        """ Configure slow and fast servers. The faster server is the more
+        """ Configure slow and fast servers. The faster server, the more
         weight it should get.
         """
         wrk = self.get_client('wrk')
@@ -236,27 +223,25 @@ class Ratio(tester.TempestaTest):
 
         cl_reqs = tempesta.stats.cl_msg_forwarded
         tot_weight = len(servers) * 50  # for weight normalisation.
+        weights = [(srv.get_name(), 1.0 * srv.requests / cl_reqs * tot_weight)
+                   for srv in servers]
+        weights.sort()
+        tf_cfg.dbg(3, "Calculated server weights: %s" % weights)
 
-        for srv in servers:
-            calc_weight = 1.0 * srv.requests / cl_reqs * tot_weight
-            srv.weight = calc_weight
-            tf_cfg.dbg(3,
-                       "Server %s received %d responses, got weight %d"
-                       % (srv.get_name(), srv.requests, calc_weight)
-                      )
-
-        self.check_weight('nginx_8008', 'nginx_8009')
-        self.check_weight('nginx_8007', 'nginx_8008')
-        self.check_weight('nginx_8006', 'nginx_8007')
-        self.check_weight('nginx_8005', 'nginx_8006')
-        self.check_weight('nginx_8004', 'nginx_8005')
-        self.check_weight('nginx_8003', 'nginx_8004')
-        self.check_weight('nginx_8002', 'nginx_8003')
-        self.check_weight('nginx_8001', 'nginx_8002')
-        self.check_weight('nginx_8000', 'nginx_8001')
+        prev_name, prev_weight = weights[0]
+        for name, weight in weights:
+            self.assertLessEqual(
+                weight, prev_weight,
+                msg=("Faster server %s got less weight than slower %s"
+                     % (prev_name, name))
+                )
+            if weight <= self.min_server_weight:
+                break
+            prev_weight = weight
+            prev_name = name
 
 
-class RatioMin(Ratio):
+class RatioDynamicMin(RatioDynamic):
 
     tempesta = {
         'sched_opts' : "ratio dynamic minimum",
@@ -264,7 +249,7 @@ class RatioMin(Ratio):
     }
 
 
-class RatioMax(Ratio):
+class RatioDynamicMax(RatioDynamic):
 
     tempesta = {
         'sched_opts' : "ratio dynamic maximum",
@@ -272,7 +257,7 @@ class RatioMax(Ratio):
     }
 
 
-class RatioAv(Ratio):
+class RatioDynamicAv(RatioDynamic):
 
     tempesta = {
         'sched_opts' : "ratio dynamic average",
@@ -280,7 +265,7 @@ class RatioAv(Ratio):
     }
 
 
-class RatioPerc(Ratio):
+class RatioDynamicPerc(RatioDynamic):
 
     tempesta = {
         'sched_opts' : "ratio dynamic percentile",
