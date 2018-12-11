@@ -64,6 +64,22 @@
         {
             "name" : "cache.test_purge.TestPurge.test_purge",
             "reason" : ""
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioDynamicMax",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioPredictMax",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamicMax",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioPredictMax",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         }
     ]
 }
