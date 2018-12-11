@@ -5,7 +5,6 @@ Difference from test_ratio_dynamic.py: server latency changes in time,
 so  it should get higher or lower weight.
 """
 
-import unittest
 from framework import tester
 from helpers.control import servers_get_stats
 from helpers import tf_cfg
@@ -261,5 +260,54 @@ class RatioDynamicPerc(RatioDynamic):
 
     tempesta = {
         'sched_opts' : "ratio dynamic percentile",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredict(RatioDynamic):
+    """Use 'ratio predict' scheduler.
+
+    When a server performance is changing in time, ratio predict performs
+    dynamic weight recalculations. Same as 'ratio dynamic', but 'predict'
+    scheduler smooths load spikes better.
+    """
+
+    # Prediction timeouts are 30/15 by default. Enforce minimum test duration
+    # to bigger value to use predicts.
+    min_duration = 60
+
+    tempesta = {
+        'sched_opts' : "ratio predict",
+        'config' : TEMPESTA_CONFIG
+    }
+
+class RatioPredictMin(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict minimum",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredictMax(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict maximum",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredictAv(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict average",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredictPerc(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict percentile",
         'config' : TEMPESTA_CONFIG
     }

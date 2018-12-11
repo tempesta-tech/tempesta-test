@@ -271,3 +271,51 @@ class RatioDynamicPerc(RatioDynamic):
         'sched_opts' : "ratio dynamic percentile",
         'config' : TEMPESTA_CONFIG
     }
+
+
+class RatioPredict(RatioDynamic):
+    """Use 'ratio predict' scheduler.
+
+    When a server performance is pretty constant in time, ratio predict performs
+    close to ratio dynamic. But predict scheduler better smooths load spikes.
+    """
+
+    # Prediction timeouts are 30/15 by default. Enforce minimum test duration
+    # to bigger value to use predicts.
+    min_duration = 60
+
+    tempesta = {
+        'sched_opts' : "ratio predict",
+        'config' : TEMPESTA_CONFIG
+    }
+
+class RatioPredictMin(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict minimum",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredictMax(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict maximum",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredictAv(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict average",
+        'config' : TEMPESTA_CONFIG
+    }
+
+
+class RatioPredictPerc(RatioPredict):
+
+    tempesta = {
+        'sched_opts' : "ratio predict percentile",
+        'config' : TEMPESTA_CONFIG
+    }
