@@ -54,10 +54,12 @@ class TempestaTest(unittest.TestCase):
         'backends' : [],
     }
 
-    __servers = {}
-    __clients = {}
-    __tempesta = None
-    deproxy_manager = deproxy_manager.DeproxyManager()
+    def __init__(self, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        self.__servers = {}
+        self.__clients = {}
+        self.__tempesta = None
+        self.deproxy_manager = deproxy_manager.DeproxyManager()
 
     def __create_client_deproxy(self, client):
         addr = fill_template(client['addr'], client)
