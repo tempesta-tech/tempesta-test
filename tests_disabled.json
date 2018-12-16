@@ -6,16 +6,8 @@
             "reason" : "Problems with stap"
         },
         {
-            "name" : "sched.test_ratio.FairLoadRandConns.test_ratio",
-            "reason" : "9.0 not less than 2.37"
-        },
-        {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
             "reason" : ""
-        },
-        {
-            "name" : "sched.test_hash_stress.BindToServer",
-            "reason" : "18596 != 7700"
         },
         {
             "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",

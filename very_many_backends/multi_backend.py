@@ -240,6 +240,9 @@ events {
         self.location = location
         self.build_config()
 
+    def update_config(self):
+        pass
+
 
 class NginxMP(control.Nginx):
     first_port = 0
