@@ -5,9 +5,10 @@ Difference from test_ratio_dynamic.py: server latency changes in time,
 so  it should get higher or lower weight.
 """
 
+import unittest
 from framework import tester
 from helpers.control import servers_get_stats
-from helpers import tf_cfg
+import helpers.tf_cfg as tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -189,10 +190,15 @@ class RatioDynamic(tester.TempestaTest):
         """ Configure slow and fast servers. The faster server is the more
         weight it should get.
         """
-        # duration = int(tf_cfg.cfg.get('General', 'Duration'))
-        # if duration < self.min_duration:
-        #     raise unittest.TestCase.skipTest(
-        #         self, "Test is not stable on short periods")
+        duration = int(tf_cfg.cfg.get('General', 'Duration'))
+        if duration < self.min_duration:
+            raise unittest.TestCase.skipTest(
+                self, "Test is not stable on short periods")
+        if (tf_cfg.cfg.get('Tempesta', 'hostname') ==
+                tf_cfg.cfg.get('Server', 'hostname')):
+            raise unittest.TestCase.skipTest(
+                self, "Test is not stable if Tempesta and Servers" \
+                "are started on the same node.")
 
         srv_const = self.get_server('nginx_constant')
         srv_dyn = self.get_server('nginx_dynamic')
