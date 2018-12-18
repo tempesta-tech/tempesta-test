@@ -1,8 +1,18 @@
 """
 Test for Hash scheduler under heavy load. Uri should be pinned to a single
-server connection. Primary server connection should get the full load.
-When the connection is down, other connection is to be loaded. One primary
-connection is back online it should again get all the load.
+server connection. Server owning that connection connection should get all the
+requests. But when the connection is down, the load will be distributed to
+another connection. Once primary connection is back online it should again
+get all the load.
+
+It's not possible to get per-connection request statistics from the backend,
+so all the assertions in the tests below can be done only at server level.
+Not a big problem since there is test_hash_func.py tests, which works at
+per-connection level. Tests in this file extend test_hash_func by the
+following checks:
+- Hash scheduler performs as expected under significant load;
+- Load distribution works as expected if backend connections are closed time to
+time.
 """
 
 import sys
@@ -15,16 +25,15 @@ __license__ = 'GPL2'
 
 
 class BindToServer(stress.StressTest):
-    """ Send requests with the same URI only one connection should be loaded,
-    but a few other connections can get a little bit of the load.
+    """ Send requests with the same URI, only one connection (server) should be
+    loaded, but a few other connections (servers) can get a little bit of the
+    load while primary one is in failovering state.
     """
 
     ka_requests = sys.maxsize
 
     def create_servers(self):
         self.create_servers_helper(tempesta.servers_in_group())
-        # Hash scheduler can't use the same server for the same requests if
-        # it can go offline.
         for s in self.servers:
             s.config.set_ka(self.ka_requests)
 
@@ -36,9 +45,13 @@ class BindToServer(stress.StressTest):
             sg.sched = 'hash'
 
     def assert_servers(self):
+        """Assert load distribution between servers. Only one server must pull
+        mostly all the load. Other servers may also receive some requests while
+        primary connection is not live.
+        """
         reqs_exp = self.tempesta.stats.cl_msg_received
         self.servers_get_stats()
-        # Only one server must pull all the load.
+
         loaded_servers = []
         for srv in self.servers:
             if srv.requests:
@@ -56,7 +69,7 @@ class BindToServer(stress.StressTest):
 
 class BindToServerFailovering(BindToServer):
     """Server closes connections time to time, but not very frequently. So
-    it will sill get most of the load. Frequent connection closing will make
+    it will still get most of the load. Frequent connection closing will make
     hash scheduler to spread the load between multiple connections. Such
     situation can't be asserted automatically.
 

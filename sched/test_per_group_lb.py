@@ -233,7 +233,7 @@ class AllDefaults(tester.TempestaTest):
 
         for srv in servers:
             tf_cfg.dbg(3,
-                       "Server %s received %d responses"
+                       "Server %s received %d requests"
                        % (srv.get_name(), srv.requests)
                       )
             if not exp_reqs:
@@ -242,7 +242,7 @@ class AllDefaults(tester.TempestaTest):
                 continue
             self.assertAlmostEqual(
                 srv.requests, exp_reqs, delta=delta,
-                msg=("Server %s received %d responses, but [%d, %d] "
+                msg=("Server %s received %d requests, but [%d, %d] "
                      "was expected"
                      % (srv.get_name(), srv.requests,
                         exp_reqs - delta, exp_reqs + delta)
@@ -374,7 +374,7 @@ class RedefineAllScheds(AllDefaults):
 class LateRedefineGlobalSched(AllDefaults):
     """
     Global scheduler configuration is set to 'ratio dynamic', default group
-    must use is. But group 'custom' is defined before global scheduler settings
+    must use it. But group 'custom' is defined before global scheduler settings
     was overridden. Thus server group 'custom' must use previous global
     scheduler configuration, which is 'ratio static'.
     """

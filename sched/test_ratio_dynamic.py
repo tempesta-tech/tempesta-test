@@ -14,13 +14,13 @@ unpredictable delays. Such delays may significantly affect dynamic load
 distribution. After a lot of testing it turned out that:
 - a few slowest  server are more likely to be affected by the issue;
 - unlucky fast server may not get enough of cpu time to keep expected latency,
-and has no chances to get more cpu time, since is doesn't get enough job
+and has no chances to get more cpu time, since it doesn't get enough job
 (requests).
 To fight with this tricky situation, ignore servers which got weight less than
 30, when compare resulting weights. All servers can't have weight lower than
 30 in the same time, so at least some checks are performed.
 
-In dynamic or predic mode load balancing between servers is only predictable,
+In dynamic or predict mode load balancing between servers is only predictable,
 if they have the same number of connections. This behaviour is different
 from the ratio static mode.
 

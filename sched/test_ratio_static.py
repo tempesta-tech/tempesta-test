@@ -93,9 +93,6 @@ server ${server_ip}:8009 conns_n=12;
 
 """
 
-def sched_ratio_static_def_weight():
-    return 50
-
 
 class Ratio(tester.TempestaTest):
     """Use 'ratio static' scheduler with default weights. Load must be
@@ -215,14 +212,14 @@ class Ratio(tester.TempestaTest):
 
         for srv in servers:
             tf_cfg.dbg(3,
-                       "Server %s received %d responses, [%d, %d] was expected"
+                       "Server %s received %d requests, [%d, %d] was expected"
                        % (srv.get_name(), srv.requests,
                           s_reqs_expected - delta,
                           s_reqs_expected + delta)
                        )
             self.assertAlmostEqual(
                 srv.requests, s_reqs_expected, delta=delta,
-                msg=("Server %s received %d responses, but [%d, %d] "
+                msg=("Server %s received %d requests, but [%d, %d] "
                      "was expected"
                      % (srv.get_name(), srv.requests,
                         s_reqs_expected - delta,

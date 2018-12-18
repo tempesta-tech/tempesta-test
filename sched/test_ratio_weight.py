@@ -247,7 +247,7 @@ class Ratio(tester.TempestaTest):
             delta = prec * s_reqs_expected
 
             tf_cfg.dbg(3,
-                       "Server %s with weight %d received %d responses; "
+                       "Server %s with weight %d received %d requests; "
                        "calculated weight is %f, [%d, %d] requests was expected"
                        % (srv.get_name(), exp_weight, srv.requests,
                           calc_weight,

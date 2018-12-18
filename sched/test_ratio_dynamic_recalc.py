@@ -197,7 +197,7 @@ class RatioDynamic(tester.TempestaTest):
         if (tf_cfg.cfg.get('Tempesta', 'hostname') ==
                 tf_cfg.cfg.get('Server', 'hostname')):
             raise unittest.TestCase.skipTest(
-                self, "Test is not stable if Tempesta and Servers" \
+                self, "Test is not stable if Tempesta and Servers " \
                 "are started on the same node.")
 
         srv_const = self.get_server('nginx_constant')
