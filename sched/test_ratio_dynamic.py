@@ -26,6 +26,7 @@ from the ratio static mode.
 
 """
 
+import unittest
 from framework import tester
 from helpers.control import servers_get_stats
 from helpers import tf_cfg
@@ -203,11 +204,22 @@ class RatioDynamic(tester.TempestaTest):
     }
 
     min_server_weight = 30
+    min_duration = 30
 
     def test_load_distribution(self):
         """ Configure slow and fast servers. The faster server, the more
         weight it should get.
         """
+        duration = int(tf_cfg.cfg.get('General', 'Duration'))
+        if duration < self.min_duration:
+            raise unittest.TestCase.skipTest(
+                self, "Test is not stable on short periods")
+        if (tf_cfg.cfg.get('Tempesta', 'hostname') ==
+                tf_cfg.cfg.get('Server', 'hostname')):
+            raise unittest.TestCase.skipTest(
+                self, "Test is not stable if Tempesta and Servers " \
+                "are started on the same node.")
+
         wrk = self.get_client('wrk')
 
         self.start_all_servers()
