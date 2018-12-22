@@ -32,7 +32,7 @@ class Client(stateful.Stateful):
         self.duration = int(tf_cfg.cfg.get('General', 'Duration'))
         self.workdir = tf_cfg.cfg.get('Client', 'workdir')
         self.ssl = ssl
-        self.server_addr = fill_template(server_addr)
+        self.server_addr = server_addr
         self.set_uri(uri)
         self.bin = tf_cfg.cfg.get_binary('Client', binary)
         self.cmd = ''

@@ -55,7 +55,7 @@ def build_deproxy_echo(server, name, tester):
     srv = None
     rtype = server['response']
     if rtype == 'static':
-        content = fill_template(server['response_content'])
+        content = fill_template(server['response_content'], server)
         srv = DeproxyEchoServer(port=port, response=content)
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
@@ -72,7 +72,7 @@ def build_deproxy_keepalive(server, name, tester):
     rtype = server['response']
     ka = server['keep_alive']
     if rtype == 'static':
-        content = fill_template(server['response_content'])
+        content = fill_template(server['response_content'], server)
         srv = DeproxyKeepaliveServer(port=port,
                                      response=content,
                                      keep_alive=ka)

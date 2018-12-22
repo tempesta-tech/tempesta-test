@@ -54,8 +54,7 @@ http {
     }
 }
         """
-        location = "root /srv/http"
-        self.config = self.config_template % location
+        self.location = ""
         self.set_port(port)
         self.set_workdir(workdir)
         self.set_workers(workers)
@@ -91,11 +90,14 @@ http {
     def set_resourse_location(self, location=''):
         if not location:
             location = tf_cfg.cfg.get('Server', 'resources')
-        location = "root %s" % location
-        self.config = self.config_template % location
+        self.location = "root %s" % location
+        self.update_config()
 
     def set_return_code(self, code=200):
-        location = "return %i" % code
-        self.config = self.config_template % location
+        self.location = "return %i" % code
+        self.update_config()
+
+    def update_config(self):
+        self.config = self.config_template % self.location
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

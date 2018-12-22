@@ -60,7 +60,7 @@ class TestFrameworkCfg(object):
                                             'user': 'root',
                                             'port': '22',
                                             'srcdir': '/root/tempesta',
-                                            'workdir' : '/tmp/tempesta',
+                                            'workdir': '/tmp/tempesta',
                                             'config': 'tempesta.conf',
                                             'unavaliable_timeout': '300'},
                                'Server': {'ip': '127.0.0.1',
@@ -73,8 +73,8 @@ class TestFrameworkCfg(object):
                                           'aliases_interface': 'eth0',
                                           'aliases_base_ip': '192.168.10.1',
                                           'max_workers': '16',
-                                          'keepalive_timeout' : '60',
-                                          'keepalive_requests' : '100',
+                                          'keepalive_timeout': '60',
+                                          'keepalive_requests': '100',
                                           'unavaliable_timeout': '300',
                                           }
                               })
@@ -123,22 +123,26 @@ class TestFrameworkCfg(object):
         for item in normalize:
             self.config[item[0]][item[1]] = os.path.normpath(self.config[item[0]][item[1]])
 
-        #TODO: check configuration options
+        # TODO: check configuration options
         client_hostname = self.config['Client']['hostname']
         if client_hostname != 'localhost':
             msg = ('running clients on a remote host "%s" is not supported' %
                    client_hostname)
             raise ConfigError(msg)
 
+
 def debug():
     return int(cfg.get('General', 'Verbose')) >= 3
+
 
 def v_level():
     return int(cfg.get('General', 'Verbose'))
 
+
 def dbg(level, *args, **kwargs):
     if int(cfg.get('General', 'Verbose')) >= level:
         print(file=sys.stderr, *args, **kwargs)
+
 
 def dbg_dmesg(level, node, msg):
     try:
@@ -146,6 +150,7 @@ def dbg_dmesg(level, node, msg):
             node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
     except Exception as e:
         dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
+
 
 cfg = TestFrameworkCfg()
 

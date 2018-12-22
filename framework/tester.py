@@ -1,11 +1,13 @@
+from __future__ import print_function
 import unittest
 import time
 
-from helpers import tempesta, control, stateful, tf_cfg, dmesg, remote
+from helpers import control, tf_cfg, dmesg, remote
 
-import wrk_client
-import deproxy_client, deproxy_manager
-from templates import fill_template
+import framework.wrk_client as wrk_client
+import framework.deproxy_client as deproxy_client
+import framework.deproxy_manager as deproxy_manager
+from framework.templates import fill_template, populate_properties
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -21,8 +23,8 @@ def register_backend(type_name, factory):
     backend_defs[type_name] = factory
 
 def register_tempesta(type_name, factory):
-    global tempesta_defs
     """ Register tempesta type """
+    global tempesta_defs
     tf_cfg.dbg(3, "Registering tempesta %s" % type_name)
     tempesta_defs[type_name] = factory
 
@@ -52,24 +54,27 @@ class TempestaTest(unittest.TestCase):
         'backends' : [],
     }
 
-    __servers = {}
-    __clients = {}
-    __tempesta = None
-    deproxy_manager = deproxy_manager.DeproxyManager()
+    def __init__(self, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        self.__servers = {}
+        self.__clients = {}
+        self.__tempesta = None
+        self.deproxy_manager = deproxy_manager.DeproxyManager()
 
     def __create_client_deproxy(self, client):
-        addr = fill_template(client['addr'])
-        port = int(fill_template(client['port']))
+        addr = fill_template(client['addr'], client)
+        port = int(fill_template(client['port'], client))
         clt = deproxy_client.DeproxyClient(addr=addr, port=port)
         return clt
 
     def __create_client_wrk(self, client):
-        addr = client['addr']
+        addr = fill_template(client['addr'], client)
         wrk = wrk_client.Wrk(server_addr=addr)
         wrk.set_script(client['id']+"_script", content="")
         return wrk
 
     def __create_client(self, client):
+        populate_properties(client)
         cid = client['id']
         if client['type'] == 'deproxy':
             self.__clients[cid] = self.__create_client_deproxy(client)
@@ -80,10 +85,11 @@ class TempestaTest(unittest.TestCase):
         srv = None
         checks = []
         sid = server['id']
+        populate_properties(server)
         if server.has_key('check_ports'):
             for check in server['check_ports']:
-                ip = fill_template(check['ip'])
-                port = fill_template(check['port'])
+                ip = fill_template(check['ip'], server)
+                port = fill_template(check['port'], server)
                 checks.append((ip, port))
 
         stype = server['type']
@@ -99,7 +105,8 @@ class TempestaTest(unittest.TestCase):
 
     def __create_servers(self):
         for server in self.backends:
-            self.__create_backend(server)
+            # Copy description to keep it clean between several tests.
+            self.__create_backend(server.copy())
 
     def get_server(self, sid):
         """ Return client with specified id """
@@ -107,13 +114,17 @@ class TempestaTest(unittest.TestCase):
             return None
         return self.__servers[sid]
 
+    def get_servers(self):
+        return self.__servers.values()
+
     def get_servers_id(self):
         """ Return list of registered servers id """
         return self.__servers.keys()
 
     def __create_clients(self):
         for client in self.clients:
-            self.__create_client(client)
+            # Copy description to keep it clean between several tests.
+            self.__create_client(client.copy())
 
     def get_client(self, cid):
         """ Return client with specified id """
@@ -130,22 +141,24 @@ class TempestaTest(unittest.TestCase):
         return self.__tempesta
 
     def __create_tempesta(self):
+        desc = self.tempesta.copy()
+        populate_properties(desc)
         config = ""
-        if self.tempesta.has_key('config'):
-            config = self.tempesta['config']
-        if self.tempesta.has_key('type'):
-            factory = tempesta_defs[self.tempesta['type']]
-            self.__tempesta = factory(self.tempesta)
+        if 'config' in desc:
+            config = desc['config']
+        if 'type' in desc:
+            factory = tempesta_defs[desc['type']]
+            self.__tempesta = factory(desc)
         else:
-            self.__tempesta = default_tempesta_factory(self.tempesta)
-        self.__tempesta.config.set_defconfig(fill_template(config))
+            self.__tempesta = default_tempesta_factory(desc)
+        self.__tempesta.config.set_defconfig(fill_template(config, desc))
 
     def start_all_servers(self):
-        for id in self.__servers:
-            srv = self.__servers[id]
+        for sid in self.__servers:
+            srv = self.__servers[sid]
             srv.start()
             if not srv.is_running():
-                raise Exception("Can not start server %s" % id)
+                raise Exception("Can not start server %s" % sid)
 
     def start_tempesta(self):
         self.__tempesta.start()
@@ -153,11 +166,11 @@ class TempestaTest(unittest.TestCase):
             raise Exception("Can not start Tempesta")
 
     def start_all_clients(self):
-        for id in self.__clients:
-            client = self.__clients[id]
+        for cid in self.__clients:
+            client = self.__clients[cid]
             client.start()
             if not client.is_running():
-                raise Exception("Can not start client %s" % id)
+                raise Exception("Can not start client %s" % cid)
 
     def setUp(self):
         tf_cfg.dbg(3, '\tInit test case...')
@@ -173,12 +186,12 @@ class TempestaTest(unittest.TestCase):
 
     def tearDown(self):
         tf_cfg.dbg(3, "\tTeardown")
-        for id in self.__clients:
-            client = self.__clients[id]
+        for cid in self.__clients:
+            client = self.__clients[cid]
             client.stop()
         self.__tempesta.stop()
-        for id in self.__servers:
-            server = self.__servers[id]
+        for sid in self.__servers:
+            server = self.__servers[sid]
             server.stop()
         self.deproxy_manager.stop()
         try:
@@ -201,4 +214,3 @@ class TempestaTest(unittest.TestCase):
         for item in items:
             if item.is_running():
                 item.wait_for_finish()
-

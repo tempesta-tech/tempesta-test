@@ -83,7 +83,7 @@ class LeakTest(tester.TempestaTest):
             'type' : 'nginx',
             'status_uri' : 'http://${server_ip}:8000/nginx_status',
             'config' : """
-pid ${backend_pid};
+pid ${pid};
 worker_processes  auto;
 
 events {

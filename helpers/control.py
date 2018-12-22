@@ -433,6 +433,7 @@ class Nginx(stateful.Stateful):
         tf_cfg.dbg(3, '\tStarting Nginx on %s' % self.get_name())
         self.clear_stats()
         # Copy nginx config to working directory on 'server' host.
+        self.config.update_config()
         self.node.copy_file(self.config.config_name, self.config.config)
         # Nginx forks on start, no background threads needed,
         # but it holds stderr open after demonisation.

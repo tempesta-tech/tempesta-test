@@ -16,7 +16,9 @@ def server_conns_default():
     return 32
 
 def server_conns_max():
-    """ Maximum connections to single upstream server. """
+    """ Maximum connections to single upstream server used in the tests.
+    Tempesta has no maximum limit for the value.
+    """
     return 32
 
 def upstream_port_start_from():

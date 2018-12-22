@@ -23,7 +23,7 @@ class FreePortsChecker(object):
                 continue
             if portline[5] != 'LISTEN':
                 continue
-            tf_cfg.dbg(3, "\tListen %s" % str(portline))
+            tf_cfg.dbg(5, "\tListen %s" % str(portline))
             listen.append(portline)
 
         for addrport in self.port_checks:
@@ -33,9 +33,9 @@ class FreePortsChecker(object):
             match_exact = "%s:%s" % (ip, port)
             match_common = "0.0.0.0:%s" % port
 
-            tf_cfg.dbg(3, "\tChecking %s:%s" % (ip, port))
+            tf_cfg.dbg(5, "\tChecking %s:%s" % (ip, port))
             for portline in listen:
                 if portline[3] == match_common or portline[3] == match_exact:
-                    tf_cfg.dbg(2, "Error: port aleady used %s" % str(portline))
+                    tf_cfg.dbg(2, "Error: port already used %s" % str(portline))
                     msg = "Trying to use already used port: %s" % portline
                     raise Exception(msg)

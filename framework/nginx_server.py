@@ -3,13 +3,14 @@ import re
 import time
 
 from helpers import tf_cfg, remote, tempesta, stateful
-from templates import fill_template
-import port_checks
-import tester
+from framework.templates import fill_template
+import framework.port_checks as port_checks
+import framework.tester
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
 
 class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
     """ The set of wrappers to manage Nginx, such as to start,
@@ -17,17 +18,18 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
 
     class Config(object):
 
-        def __init__(self, template, name):
-            self.workdir = tf_cfg.cfg.kvs['server_workdir']
+        def __init__(self, name, props):
+            self.workdir = props['server_workdir']
             pidname = self.workdir + "/nginx_" + name + ".pid"
-            self.config = fill_template(template, {'backend_pid' : pidname})
+            props.update({'pid': pidname})
+            self.config = fill_template(props['config'], props)
             self.config_name = 'nginx_%s.cfg' % name
             self.pidfile_name = pidname
 
-    def __init__(self, config, name, status_uri):
+    def __init__(self, name, props):
         self.node = remote.server
         self.workdir = tf_cfg.cfg.get('Server', 'workdir')
-        self.config = self.Config(config, name)
+        self.config = self.Config(name, props)
 
         # Configure number of connections used by TempestaFW.
         self.conns_n = tempesta.server_conns_default()
@@ -35,8 +37,9 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
         self.active_conns = 0
         self.requests = 0
         self.name = name
-        self.status_uri = fill_template(status_uri)
+        self.status_uri = fill_template(props['status_uri'], props)
         self.stop_procedures = [self.stop_nginx, self.remove_config]
+        self.weight = int(props['weight']) if 'weight' in props else None
 
         self.clear_stats()
 
@@ -77,7 +80,7 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
             self.get_stats()
             if self.active_conns >= self.conns_n:
                 return True
-            time.sleep(0.001) # to prevent redundant CPU usage
+            time.sleep(0.001)  # to prevent redundant CPU usage
             t = time.time()
         return False
 
@@ -111,10 +114,11 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
         config_file = os.path.join(self.workdir, self.config.config_name)
         self.node.remove_file(config_file)
 
-def nginx_srv_factory(server, name, tester):
-    if not 'config' in server.keys():
-        return None
-    srv = Nginx(server['config'], name, server['status_uri'])
-    return srv
 
-tester.register_backend('nginx', nginx_srv_factory)
+def nginx_srv_factory(server, name, tester):
+    if 'config' not in server.keys():
+        return None
+    return Nginx(name, server)
+
+
+framework.tester.register_backend('nginx', nginx_srv_factory)
