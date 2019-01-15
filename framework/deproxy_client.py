@@ -97,14 +97,13 @@ class BaseDeproxyClient(deproxy.Client):
                 break
             requests = requests[req.original_length:]
             self.methods.append(req.method)
-        
+
         if len(requests) > 0:
             self.methods.append("INVALID")
 
         self.nrresp = 0
         self.nrreq = len(self.methods)
         self.request_buffer = tmp
-        tf_cfg.dbg(5, "\tMethods: %s" % self.methods)
 
     # need for compatibility
     def make_request(self, request):
@@ -124,7 +123,6 @@ class DeproxyClient(BaseDeproxyClient):
         self.responses = []
 
     def receive_response(self, response):
-        tf_cfg.dbg(4, "Received response: %s" % str(response.msg))
         self.responses.append(response)
         self.last_response = response
 
