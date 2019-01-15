@@ -72,6 +72,10 @@
         {
             "name" : "sched.test_ratio_dynamic_recalc.RatioPredictMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "tls.test_tls_stress.StressTls",
+            "reason" : "Crash happens, see tempesta-tech/tempesta#1146"
         }
     ]
 }
