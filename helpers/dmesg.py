@@ -37,15 +37,12 @@ class DmesgOopsFinder(object):
 
     def __init__(self):
         self.node = remote.tempesta
+        res, _ = self.node.run_cmd("date +%s.%N")
+        self.start_time = float(res)
 
     def update(self):
-        dml, _ = self.node.run_cmd("dmesg | wc -l")
-        l = int(dml)
-        cmd = 'dmesg | tac | grep -m 1 "Start test" -B %i | tac' % l
+        cmd = "journalctl -k --since=@{:.6f}".format(self.start_time)
         self.log, _ = self.node.run_cmd(cmd)
-        if len(self.log) == 0:
-            cmd = 'dmesg'
-            self.log, _ = self.node.run_cmd(cmd)
 
     def warn_count(self, msg):
         match = re.findall(msg, self.log)
