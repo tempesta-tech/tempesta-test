@@ -168,13 +168,13 @@ class TestResume(object):
 
         def startTest(self, test):
             self.matcher.advance(test.id())
-            tf_cfg.dbg_dmesg(1, remote.tempesta, "Start test: %s" % test.id())
+            tf_cfg.log_dmesg(remote.tempesta, "Start test: %s" % test.id())
             return unittest.TextTestResult.startTest(self, test)
 
         def stopTest(self, test):
             self.matcher.advance(test.id(), after=True)
             res = unittest.TextTestResult.stopTest(self, test)
-            tf_cfg.dbg_dmesg(1, remote.tempesta, "End test:   %s" % test.id())
+            tf_cfg.log_dmesg(remote.tempesta, "End test:   %s" % test.id())
             return res
 
     def __init__(self, state_reader):

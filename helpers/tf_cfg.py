@@ -144,10 +144,10 @@ def dbg(level, *args, **kwargs):
         print(file=sys.stderr, *args, **kwargs)
 
 
-def dbg_dmesg(level, node, msg):
+def log_dmesg(node, msg):
+    """Forward a message to kernel log at given node."""
     try:
-        if int(cfg.get('General', 'Verbose')) >= level:
-            node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
+        node.run_cmd("echo \"%s\" > /dev/kmsg" % msg)
     except Exception as e:
         dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
 
