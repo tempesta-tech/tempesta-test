@@ -3,7 +3,7 @@
     "disabled" : [
         {
             "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
-            "reason" : "Problems with stap"
+            "reason" : "Problems with stap, see tempesta-testa#45"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
@@ -11,7 +11,7 @@
         },
         {
             "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
-            "reason" : "Garbage after response end"
+            "reason" : "Invalid request is parsed as two requests. The second response is not supported by current deproxy architecture."
         },
         {
             "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
@@ -76,6 +76,14 @@
         {
             "name" : "tls.test_tls_stress.StressTls",
             "reason" : "Crash happens, see tempesta-tech/tempesta#1146"
+        },
+        {
+            "name": "reconf.test_stress_grace",
+            "reason": "See tempesta-tech/tempesta#1043 and tempesta-tech/tempesta#1044"
+        },
+        {
+            "name": "malformed.test_malformed_headers",
+            "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
         }
     ]
 }
