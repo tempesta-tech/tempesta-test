@@ -25,14 +25,14 @@ def req_body_length(base, length):
     base.request.build_message()
     return base
 
-def generate_chain(method='GET', expect_400=False, connection=None):
+def generate_chain(method='GET', expect_400=False):
     base = chains.base(method=method)
     chain = tester.BadLengthMessageChain(request=base.request,
                                          expected_responses=[base.response],
                                          forwarded_request=base.fwd_request,
                                          server_response=base.server_response)
     if expect_400:
-        chain.responses.append(chains.response_400(connection=connection))
+        chain.responses.append(chains.response_400(connection='close'))
     return chain
 
 class TesterCorrectBodyLength(tester.BadLengthDeproxy):
@@ -70,7 +70,7 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
 
         base.fwd_request = deproxy.Request()
 
-        base.response = chains.response_400(connection='keep-alive')
+        base.response = chains.response_400(connection='close')
 
         self.message_chains = [base]
         self.cookies = []
@@ -81,7 +81,7 @@ class TesterInvalidBodyLength(deproxy.Deproxy):
         base = chains.base(method='PUT')
         base.request.headers['Content-Length'] = 'invalid'
         base.request.build_message()
-        base.response = chains.response_400(connection='keep-alive')
+        base.response = chains.response_400(connection='close')
         base.fwd_request = deproxy.Request()
         self.message_chains = [base]
         self.cookies = []
@@ -92,7 +92,7 @@ class TesterSecondBodyLength(TesterDuplicateBodyLength):
         return "%i" % (len - 1)
 
     def expected_response(self):
-        return chains.response_400(connection='keep-alive')
+        return chains.response_400(connection='close')
 
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
