@@ -74,10 +74,6 @@
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "tls.test_tls_stress.StressTls",
-            "reason" : "Crash happens, see tempesta-tech/tempesta#1146"
-        },
-        {
             "name": "reconf.test_stress_grace",
             "reason": "See tempesta-tech/tempesta#1043 and tempesta-tech/tempesta#1044"
         },
