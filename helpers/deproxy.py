@@ -595,10 +595,10 @@ class Client(asyncore.dispatcher, stateful.Stateful):
 
 
 
-class ServerConnection(asyncore.dispatcher_with_send):
+class ServerConnection(asyncore.dispatcher):
 
     def __init__(self, tester, server, sock=None, keep_alive=None):
-        asyncore.dispatcher_with_send.__init__(self, sock)
+        asyncore.dispatcher.__init__(self, sock)
         self.tester = tester
         self.server = server
         self.keep_alive = keep_alive
