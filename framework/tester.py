@@ -9,6 +9,9 @@ import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 from framework.templates import fill_template, populate_properties
 
+import socket
+import struct
+
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
@@ -32,6 +35,74 @@ def default_tempesta_factory(tempesta):
     return control.Tempesta()
 
 register_tempesta("tempesta", default_tempesta_factory)
+
+def ip_str_to_number(ip_addr):
+    """ Convert ip to number """
+    packed = socket.inet_aton(ip_addr)
+    return struct.unpack("!L", packed)[0]
+
+def ip_number_to_str(ip_addr):
+    """ Convert ip in numeric form to string """
+    packed = struct.pack("!L", ip_addr)
+    return socket.inet_ntoa(packed)
+
+def create_interface(iface_id, base_iface_name, base_ip):
+    """ Create interface alias  """
+    base_ip_addr = ip_str_to_number(base_ip)
+    iface_ip_addr = base_ip_addr + iface_id
+    iface_ip = ip_number_to_str(iface_ip_addr)
+
+    iface = "%s:%i" % (base_iface_name, iface_id)
+
+    command = "LANG=C ip address add %s dev %s label %s" % \
+        (iface_ip, base_iface_name, iface)
+    try:
+        tf_cfg.dbg(3, "Adding ip %s" % iface_ip)
+        remote.client.run_cmd(command)
+    except:
+        tf_cfg.dbg(3, "Interface alias already added")
+
+    return (iface, iface_ip)
+
+def remove_interface(interface_name, iface_ip):
+    """ Remove interface """
+    template = "LANG=C ip address del %s dev %s"
+    try:
+        tf_cfg.dbg(3, "Removing ip %s" % iface_ip)
+        remote.client.run_cmd(template % (iface_ip, interface_name))
+    except:
+        tf_cfg.dbg(3, "Interface alias already removed")
+
+def remove_interfaces(base_interface_name, ips):
+    """ Remove previously created interfaces """
+    for ip in ips:
+        remove_interface(base_interface_name, ip)
+
+def create_route(base_iface_name, ip, gateway_ip):
+    """ Create route """
+    command = "LANG=C ip route add %s via %s dev %s" % \
+        (ip, gateway_ip, base_iface_name)
+    try:
+        tf_cfg.dbg(3, "Adding route for %s" % ip)
+        remote.tempesta.run_cmd(command)
+    except:
+        tf_cfg.dbg(3, "Route already added")
+
+    return
+
+def remove_route(interface_name, ip):
+    """ Remove route """
+    template = "LANG=C ip route del %s dev %s"
+    try:
+        tf_cfg.dbg(3, "Removing route for %s" % ip)
+        remote.tempesta.run_cmd(template % (ip, interface_name))
+    except:
+        tf_cfg.dbg(3, "Route already removed")
+
+def remove_routes(base_interface_name, ips):
+    """ Remove previously created routes """
+    for ip in ips:
+        remove_route(base_interface_name, ip)
 
 class TempestaTest(unittest.TestCase):
     """ Basic tempesta test class.
@@ -58,13 +129,14 @@ class TempestaTest(unittest.TestCase):
         unittest.TestCase.__init__(self, *args, **kwargs)
         self.__servers = {}
         self.__clients = {}
+        self.__ips = []
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client, ssl):
+    def __create_client_deproxy(self, client, ssl, bind_addr):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl)
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl, bind_addr=bind_addr)
         if ssl and client.has_key('ssl_hostname'):
             # Don't set SNI by default, do this only if it was specified in
             # the client configuration.
@@ -83,7 +155,16 @@ class TempestaTest(unittest.TestCase):
         ssl = client.setdefault('ssl', False)
         cid = client['id']
         if client['type'] == 'deproxy':
-            self.__clients[cid] = self.__create_client_deproxy(client, ssl)
+            ip = None
+            if client.get('interface', False):
+                interface = tf_cfg.cfg.get('Server', 'aliases_interface')
+                base_ip = tf_cfg.cfg.get('Server',   'aliases_base_ip')
+                client_ip = tf_cfg.cfg.get('Client',   'ip')
+                (_, ip) = create_interface(len(self.__ips), interface, base_ip)
+                create_route(interface, ip, client_ip)
+                self.__ips.append(ip)
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip)
+            self.__clients[cid].set_rps(client.get('rps', 0))
         elif client['type'] == 'wrk':
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
 
@@ -128,6 +209,8 @@ class TempestaTest(unittest.TestCase):
         return self.__servers.keys()
 
     def __create_clients(self):
+        if not remote.wait_available():
+            raise Exception("Client node is unavaliable")
         for client in self.clients:
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
@@ -210,6 +293,12 @@ class TempestaTest(unittest.TestCase):
             deproxy_manager.finish_all_deproxy()
         except:
             print('Unknown exception in stopping deproxy')
+
+        tf_cfg.dbg(2, "Removing interfaces")
+        interface = tf_cfg.cfg.get('Server', 'aliases_interface')
+        remove_routes(interface, self.__ips)
+        remove_interfaces(interface, self.__ips)
+        self.__ips = []
 
         self.oops.update()
         if self.oops._warn_count("Oops") > 0:
