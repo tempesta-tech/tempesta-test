@@ -127,7 +127,7 @@ class HeaderCollection(object):
             if no_crlf and not line:
                 break
             if not line or (line[-1] != '\n'):
-                raise IncompliteMessage('Incomplite headers')
+                raise IncompliteMessage('Incomplete headers')
             line = line.rstrip('\r\n')
             try:
                 name, value = line.split(':', 1)
@@ -276,10 +276,15 @@ class HttpMessage(object):
                 chunk = stream.readline()
                 self.body += chunk
 
-                assert len(chunk.rstrip('\r\n')) == size
+                chunk_size = len(chunk.rstrip('\r\n'))
+                if chunk_size < size:
+                    raise IncompliteMessage('Incomplete chunked body')
+                assert chunk_size == size
                 assert chunk[-1] == '\n'
                 if size == 0:
                     break
+            except IncompliteMessage:
+                raise
             except:
                 raise ParseError('Error in chunked body')
 
