@@ -31,6 +31,10 @@ class TestTransformPayload(functional.FunctionalTest):
         self.servers = [deproxy.Server(port=port, keep_alive=1)]
 
     @staticmethod
+    def make_body(body_len=0):
+        return ''.join([chr(i % 26 + ord('a')) for i in range(body_len)])
+
+    @staticmethod
     def make_chain(body):
         chain = chains.base()
         chunked_body = '\r\n'.join([str(len(body)), body, '0', '', ''])
@@ -50,25 +54,10 @@ class TestTransformPayload(functional.FunctionalTest):
 
     def test_small_body_to_chunked(self):
         """ Server sends relatively small body"""
-        msg_chains = self.make_chain('1234')
+        msg_chains = self.make_chain(self.make_body(4))
         self.generic_test_routine(self.config, msg_chains)
 
     def test_big_body_to_chunked(self):
-        """ Server sends relatively small body"""
-        body = ('abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789'
-                'abcdefghijklmnopqrstuvwxyz0123456789')
-        msg_chains = self.make_chain(body)
+        """ Server sends huge body, that can't fit single skb"""
+        msg_chains = self.make_chain(self.make_body(32*4096))
         self.generic_test_routine(self.config, msg_chains)
