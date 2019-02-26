@@ -49,6 +49,7 @@ def generate_chain_204(method='GET'):
     base.server_response.body = ""
     return base
 
+
 class InvalidResponseServer(deproxy.Server):
 
     def __stop_server(self):
@@ -66,6 +67,7 @@ class InvalidResponseServer(deproxy.Server):
                                                keep_alive=self.keep_alive)
             self.connections.append(handler)
 
+
 class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
     """ Tester """
     def create_base(self):
@@ -82,6 +84,7 @@ class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
         self.message_chains = [resp_body_length(base[0], base[1])]
         self.cookies = []
 
+
 class TesterCorrectBodyLength(deproxy.Deproxy):
     """ Tester """
     def create_base(self):
@@ -93,6 +96,7 @@ class TesterCorrectBodyLength(deproxy.Deproxy):
         base = self.create_base()
         self.message_chains = [resp_body_length(base[0], base[1])]
         self.cookies = []
+
 
 class TesterMissingEmptyBodyLength(deproxy.Deproxy):
     """ Tester """
@@ -106,15 +110,18 @@ class TesterMissingEmptyBodyLength(deproxy.Deproxy):
         self.message_chains = [chain]
         self.cookies = []
 
+
 class TesterMissingBodyLength(TesterMissingEmptyBodyLength):
     """ Tester """
     reply_body = "abcdefgh"
+
 
 class TesterSmallBodyLength(TesterCorrectBodyLength):
     """ Tester """
     def create_base(self):
         base = generate_chain_200(method='GET', response_body="abcdefgh")
         return (base, len(base.response.body) - 1)
+
 
 class TesterForbiddenZeroBodyLength(deproxy.Deproxy):
     """ Tester """
@@ -134,11 +141,13 @@ class TesterForbiddenZeroBodyLength(deproxy.Deproxy):
         base = generate_chain_204(method='GET')
         return (base, 0)
 
+
 class TesterForbiddenPositiveBodyLength(TesterForbiddenZeroBodyLength):
     """ Tester """
     def create_base(self):
         base = generate_chain_204(method='GET')
         return (base, 1)
+
 
 class TesterDuplicateBodyLength(deproxy.Deproxy):
     """ Tester """
@@ -157,6 +166,7 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
     def create_base(self):
         base = generate_chain_204(method='GET')
         return (base, 0)
+
 
 class TesterSecondBodyLength(deproxy.Deproxy):
     """ Tester """
@@ -178,6 +188,7 @@ class TesterSecondBodyLength(deproxy.Deproxy):
         base = generate_chain_204(method='GET')
         return (base, 0)
 
+
 class TesterInvalidBodyLength(deproxy.Deproxy):
     """ Tester """
     def __init__(self, *args, **kwargs):
@@ -194,6 +205,7 @@ class TesterInvalidBodyLength(deproxy.Deproxy):
     def create_base(self):
         base = generate_chain_204(method='GET')
         return (base, 0)
+
 
 class ResponseCorrectEmptyBodyLength(functional.FunctionalTest):
     """ Correct body length """
@@ -213,11 +225,13 @@ class ResponseCorrectEmptyBodyLength(functional.FunctionalTest):
         """ Test """
         self.generic_test_routine(self.config, [])
 
+
 class ResponseCorrectBodyLength(ResponseCorrectEmptyBodyLength):
     """ Correct body length """
 
     def create_tester(self):
         self.tester = TesterCorrectBodyLength(self.client, self.servers)
+
 
 class ResponseMissingEmptyBodyLength(ResponseCorrectEmptyBodyLength):
     """ Missing body length """
@@ -229,11 +243,6 @@ class ResponseMissingEmptyBodyLength(ResponseCorrectEmptyBodyLength):
     def create_tester(self):
         self.tester = TesterMissingEmptyBodyLength(self.client, self.servers)
 
-class ResponseMissingBodyLength(ResponseMissingEmptyBodyLength):
-    """ Missing body length """
-
-    def create_tester(self):
-        self.tester = TesterMissingBodyLength(self.client, self.servers)
 
 class ResponseSmallBodyLength(ResponseCorrectEmptyBodyLength):
     """ Small body length """
@@ -256,6 +265,7 @@ class ResponseSmallBodyLength(ResponseCorrectEmptyBodyLength):
     @unittest.expectedFailure
     def test(self):
         ResponseCorrectEmptyBodyLength.test(self)
+
 
 class ResponseForbiddenZeroBodyLength(ResponseCorrectEmptyBodyLength):
     """ Forbidden body length """
@@ -282,6 +292,7 @@ class ResponseForbiddenPositiveBodyLength(ResponseForbiddenZeroBodyLength):
         self.tester = TesterForbiddenPositiveBodyLength(self.client,
                                                         self.servers)
 
+
 class ResponseDuplicateBodyLength(ResponseCorrectEmptyBodyLength):
     def create_tester(self):
         self.tester = TesterDuplicateBodyLength(self.client, self.servers)
@@ -297,9 +308,11 @@ class ResponseDuplicateBodyLength(ResponseCorrectEmptyBodyLength):
         self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
                          msg=(msg % 'responses'))
 
+
 class ResponseSecondBodyLength(ResponseDuplicateBodyLength):
     def create_tester(self):
         self.tester = TesterSecondBodyLength(self.client, self.servers)
+
 
 class ResponseInvalidBodyLength(ResponseDuplicateBodyLength):
     def create_tester(self):

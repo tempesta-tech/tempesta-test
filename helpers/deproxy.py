@@ -127,7 +127,7 @@ class HeaderCollection(object):
             if no_crlf and not line:
                 break
             if not line or (line[-1] != '\n'):
-                raise IncompliteMessage('Incomplite headers')
+                raise IncompliteMessage('Incomplete headers')
             line = line.rstrip('\r\n')
             try:
                 name, value = line.split(':', 1)
@@ -276,10 +276,15 @@ class HttpMessage(object):
                 chunk = stream.readline()
                 self.body += chunk
 
-                assert len(chunk.rstrip('\r\n')) == size
+                chunk_size = len(chunk.rstrip('\r\n'))
+                if chunk_size < size:
+                    raise IncompliteMessage('Incomplete chunked body')
+                assert chunk_size == size
                 assert chunk[-1] == '\n'
                 if size == 0:
                     break
+            except IncompliteMessage:
+                raise
             except:
                 raise ParseError('Error in chunked body')
 
@@ -595,10 +600,10 @@ class Client(asyncore.dispatcher, stateful.Stateful):
 
 
 
-class ServerConnection(asyncore.dispatcher_with_send):
+class ServerConnection(asyncore.dispatcher):
 
     def __init__(self, tester, server, sock=None, keep_alive=None):
-        asyncore.dispatcher_with_send.__init__(self, sock)
+        asyncore.dispatcher.__init__(self, sock)
         self.tester = tester
         self.server = server
         self.keep_alive = keep_alive
