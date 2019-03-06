@@ -26,7 +26,6 @@ class BaseDeproxyClient(deproxy.Client):
             self.polling_lock.acquire()
         try:
             self.close()
-            self.addr = self.orig_addr
         except Exception as e:
             tf_cfg.dbg(2, "Exception while start: %s" % str(e))
             if self.polling_lock != None:
