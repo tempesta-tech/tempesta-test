@@ -4,7 +4,7 @@ import time
 from helpers import deproxy, tf_cfg, stateful
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class BaseDeproxyClient(deproxy.Client):
@@ -15,10 +15,22 @@ class BaseDeproxyClient(deproxy.Client):
         self.stop_procedures = [self.__stop_client]
         self.nrresp = 0
         self.nrreq = 0
+        self.request_buffers = []
         self.methods = []
+        self.start_time = 0
+        self.rps = 0
+        self.valid_req_num = 0
+        self.cur_req_num = 0
+
+    def handle_connect(self):
+        deproxy.Client.handle_connect(self)
+        self.start_time = time.time()
 
     def set_events(self, polling_lock):
         self.polling_lock = polling_lock
+
+    def set_rps(self, rps):
+        self.rps = rps
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
@@ -37,6 +49,11 @@ class BaseDeproxyClient(deproxy.Client):
     def run_start(self):
         self.nrresp = 0
         self.nrreq = 0
+        self.request_buffers = []
+        self.methods = []
+        self.start_time = 0
+        self.valid_req_num = 0
+        self.cur_req_num = 0
         if self.polling_lock != None:
             self.polling_lock.acquire()
         try:
@@ -78,11 +95,32 @@ class BaseDeproxyClient(deproxy.Client):
                                      self.response_buffer)
 
     def writable(self):
-        return len(self.request_buffer) > 0
+        if self.cur_req_num >= self.nrreq:
+            return False
+        if time.time() < self.next_request_time():
+            return False
+        return True
+
+    def next_request_time(self):
+        if self.rps == 0:
+            return self.start_time
+        return self.start_time + float(self.cur_req_num) / self.rps
+
+    def handle_write(self):
+        reqs = self.request_buffers
+        tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
+        tf_cfg.dbg(5, reqs[self.cur_req_num])
+        sent = self.send(reqs[self.cur_req_num])
+        if sent < 0:
+            return
+        reqs[self.cur_req_num] = reqs[self.cur_req_num][sent:]
+        if len(reqs[self.cur_req_num]) == 0:
+            self.cur_req_num += 1
 
     def make_requests(self, requests):
-        tmp = requests
-        self.methods = []
+        request_buffers = []
+        methods = []
+        valid_req_num = 0
         while len(requests) > 0:
             try:
                 req = deproxy.Request(requests)
@@ -91,18 +129,28 @@ class BaseDeproxyClient(deproxy.Client):
                 req = None
 
             if req == None:
-                self.methods.append("INVALID")
-                requests = ''
                 break
+            request_buffers.append(requests[:req.original_length])
+            methods.append(req.method)
+            valid_req_num += 1
             requests = requests[req.original_length:]
-            self.methods.append(req.method)
 
         if len(requests) > 0:
-            self.methods.append("INVALID")
+            request_buffers.append(requests)
+            methods.append("INVALID")
 
-        self.nrresp = 0
-        self.nrreq = len(self.methods)
-        self.request_buffer = tmp
+        if self.cur_req_num >= self.nrreq:
+            self.nrresp = 0
+            self.nrreq = 0
+            self.request_buffers = []
+            self.methods = []
+            self.start_time = time.time()
+            self.cur_req_num = 0
+
+        self.request_buffers.extend(request_buffers)
+        self.methods.extend(methods)
+        self.valid_req_num += valid_req_num
+        self.nrreq += len(self.methods)
 
     # need for compatibility
     def make_request(self, request):
