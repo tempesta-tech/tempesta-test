@@ -624,7 +624,7 @@ class TlsClient(asyncore.dispatcher):
 
 class Client(TlsClient, stateful.Stateful):
 
-    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False):
+    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False, bind_addr=None):
         TlsClient.__init__(self, ssl)
         self.request = None
         self.request_buffer = ''
@@ -636,6 +636,7 @@ class Client(TlsClient, stateful.Stateful):
         self.port = port
         self.stop_procedures = [self.__stop_client]
         self.conn_is_closed = True
+        self.bind_addr = bind_addr
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
@@ -647,6 +648,8 @@ class Client(TlsClient, stateful.Stateful):
         tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.'
                 % (self.conn_addr, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        if self.bind_addr:
+            self.bind((self.bind_addr, 0))
         self.connect((self.conn_addr, self.port))
 
     def clear(self):
