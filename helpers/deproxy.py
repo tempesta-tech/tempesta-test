@@ -635,6 +635,7 @@ class Client(TlsClient, stateful.Stateful):
         self.conn_addr = addr
         self.port = port
         self.stop_procedures = [self.__stop_client]
+        self.conn_is_closed = True
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
@@ -659,8 +660,16 @@ class Client(TlsClient, stateful.Stateful):
     def set_tester(self, tester):
         self.tester = tester
 
+    def connection_is_closed(self):
+        return self.conn_is_closed
+
+    def handle_connect(self):
+        TlsClient.handle_connect(self)
+        self.conn_is_closed = False
+
     def handle_close(self):
         self.close()
+        self.conn_is_closed = True
 
     def handle_read(self):
         while True: # TLS aware - read as many records as we can
