@@ -164,7 +164,6 @@ class BaseDeproxyClient(deproxy.Client):
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
     responses = []
-    nr = 0
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
@@ -174,16 +173,12 @@ class DeproxyClient(BaseDeproxyClient):
         self.responses.append(response)
         self.last_response = response
 
-    def make_requests(self, requests):
-        self.nr = len(self.responses)
-        BaseDeproxyClient.make_requests(self, requests)
-
     def wait_for_response(self, timeout=5):
         if self.state != stateful.STATE_STARTED:
             return False
 
         t0 = time.time()
-        while len(self.responses) == self.nr:
+        while len(self.responses) < self.valid_req_num:
             t = time.time()
             if t - t0 > timeout:
                 return False
