@@ -271,7 +271,7 @@ class HttpMessage(object):
             line = stream.readline()
             self.body += line
             try:
-                size = int(line.rstrip('\r\n'))
+                size = int(line.rstrip('\r\n'), 16)
                 assert size >= 0
                 chunk = stream.readline()
                 self.body += chunk
