@@ -37,7 +37,11 @@ class TestTransformPayload(functional.FunctionalTest):
     @staticmethod
     def make_chain(body):
         chain = chains.base()
-        chunked_body = '\r\n'.join([str(len(body)), body, '0', '', ''])
+        if body:
+            chunked_body = '\r\n'.join(["%X" %len(body), body, '0', '', ''])
+        else:
+            body = ''
+            chunked_body = '\r\n'.join(['0', '', ''])
 
         # Server doesn't provide message framing information
         chain.server_response.headers.delete_all('Content-Length')
@@ -52,12 +56,33 @@ class TestTransformPayload(functional.FunctionalTest):
 
         return [chain]
 
+    @staticmethod
+    def make_empty_body_chain():
+        chain = chains.base()
+
+        # Server doesn't provide message framing information
+        chain.server_response.headers.delete_all('Content-Length')
+        chain.server_response.body = ''
+        chain.server_response.build_message()
+        # Client receives response with the message framing information
+        chain.response.headers.delete_all('Content-Length')
+        chain.response.headers.add('Content-Length', '0')
+        chain.response.body = ''
+        chain.response.update()
+
+        return [chain]
+
     def test_small_body_to_chunked(self):
         """ Server sends relatively small body"""
-        msg_chains = self.make_chain(self.make_body(4))
+        msg_chains = self.make_chain(self.make_body(40))
         self.generic_test_routine(self.config, msg_chains)
 
     def test_big_body_to_chunked(self):
         """ Server sends huge body, that can't fit single skb"""
         msg_chains = self.make_chain(self.make_body(32*4096))
+        self.generic_test_routine(self.config, msg_chains)
+
+    def test_zero_body_to_chunked(self):
+        """ Server sends relatively small body"""
+        msg_chains = self.make_empty_body_chain()
         self.generic_test_routine(self.config, msg_chains)
