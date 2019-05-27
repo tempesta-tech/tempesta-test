@@ -600,10 +600,10 @@ class Client(asyncore.dispatcher, stateful.Stateful):
 
 
 
-class ServerConnection(asyncore.dispatcher):
+class ServerConnection(asyncore.dispatcher_with_send):
 
     def __init__(self, tester, server, sock=None, keep_alive=None):
-        asyncore.dispatcher.__init__(self, sock)
+        asyncore.dispatcher_with_send.__init__(self, sock)
         self.tester = tester
         self.server = server
         self.keep_alive = keep_alive
@@ -635,6 +635,11 @@ class ServerConnection(asyncore.dispatcher):
             return
         self.send_response(response)
 
+    def send_pending_and_close(self):
+        while len(self.out_buffer):
+            self.initiate_send()
+        self.handle_close()
+
     def send_response(self, response):
         if response.msg:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response to Tempesta.')
@@ -645,7 +650,7 @@ class ServerConnection(asyncore.dispatcher):
         if self.keep_alive:
             self.responses_done += 1
             if self.responses_done == self.keep_alive:
-                self.handle_close()
+                self.send_pending_and_close()
 
     def handle_error(self):
         _, v, _ = sys.exc_info()

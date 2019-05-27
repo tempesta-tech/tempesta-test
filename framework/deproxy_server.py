@@ -25,6 +25,11 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer = ''
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
 
+    def send_pending_and_close(self):
+        while len(self.out_buffer):
+            self.initiate_send()
+        self.handle_close()
+
     def send_response(self, response):
         if response:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response.')
@@ -35,7 +40,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         if self.keep_alive:
             self.responses_done += 1
             if self.responses_done == self.keep_alive:
-                self.handle_close()
+                self.send_pending_and_close()
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
