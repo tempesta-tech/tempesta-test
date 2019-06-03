@@ -80,7 +80,7 @@ for node in cmds:
         continue
     print("\t\tCommand `whereis` installed")
 
-    install = []
+    package_list = []
 
     for cmd in cmds[node]:
         command = "whereis -b %s" % cmd["cmd"]
@@ -89,14 +89,13 @@ for node in cmds:
         result = res[len(patt):]
         if len(result) == 0:
             print("\t\tCommand `%s` doesn't installed" % cmd["cmd"])
-            install.append(cmd["install"])
+            package_list.append(cmd["install"])
             all_ok = False
         else:
             print("\t\tCommand `%s` is installed" % cmd["cmd"])
 
-    if len(install) > 0:
-        cmds = " ".join(install)
-        print("\n\t\tPlease run apt-get install %s\n" % cmds)
+    if len(package_list) > 0:
+        print("\n\t\tPlease run apt-get install %s\n" % " ".join(package_list))
 
 if all_ok:
     sys.exit(0)
