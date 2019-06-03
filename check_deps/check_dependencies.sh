@@ -3,40 +3,36 @@
 # Copyright (C) 2018 Tempesta Technologies, Inc.
 # License: GPL2
 
-echo "Checking Framework"
+echo "Testing framework dependencies:"
 ./check_framework.sh
 FW=$?
 
 if [ "$FW" != "0" ]
 then
-    echo "Framework doesn't have required dependencies. Exiting."
+    echo "Status: some of required dependencies are missing."
     exit 1
 fi
 
-echo "Framework ok. Proceeding to nodes dependencies check."
-
-echo "Check commands on nodes"
+echo "Packages on test nodes:"
 ./check_cmds_nodes.py
 NODES=$?
 
 if [ "$NODES" != "0" ]
 then
-    echo "Node(s) don't have required dependencies. Exiting."
+    echo "Status: some nodes have missing packages."
     exit 1
 fi
 
-echo "Check files on nodes"
+echo "Required files on test nodes:"
 ./check_files_nodes.py
 NODES=$?
 
 if [ "$NODES" != "0" ]
 then
-    echo "Node(s) don't have required files. Exiting."
+    echo "Status: some nodes have missing files."
     exit 1
 fi
 
-echo "Nodes ok."
-
-echo "Check successed."
+echo "Status: OK."
 
 exit 0
