@@ -14,28 +14,31 @@ from helpers import remote, tf_cfg
 
 remote.connect()
 
-all_ok = True
-
 cmds = {
     remote.server : [
         os.path.normpath(tf_cfg.cfg.get("Server", "resources") + "/index.html")
     ],
 }
 
+
+def make_report_line(name):
+    filler_len = max(3, 20 - len(name))
+    return '{} {}'.format(name, '.' * filler_len)
+
+
 all_ok = True
 
 for node in cmds:
-    print("\tChecking files on %s" % node.type)
+    print('\tChecking files on "{}" node:'.format(node.type))
     for file in cmds[node]:
         cmd = "if [ -e \"%s\" ]; then echo -n true; else echo -n false; fi"
         res,_ = node.run_cmd(cmd % file)
         if res == "true":
-            print("\t\tFile '%s' exists" % file)
+            print("\t\t{} found".format(make_report_line(file)))
         else:
-            print("\t\tFile '%s' doesn't exist" % file)
+            print("\t\t{} not found".format(make_report_line(file)))
             all_ok = False
 
-if all_ok == False:
-    sys.exit(1)
+print("")
 
-sys.exit(0)
+sys.exit(0 if all_ok else 1)

@@ -23,7 +23,13 @@ modules_apt = [
             'configparser',
             ]
 
-print("\tChecking python2 modules")
+
+def make_report_line(name):
+    filler_len = max(3, 20 - len(name))
+    return '{} {}'.format(name, '.' * filler_len)
+
+
+print("\tChecking for required python2 modules:")
 
 all_present = True
 
@@ -32,32 +38,31 @@ absent = []
 for module in modules:
     try:
         imp.find_module(module)
-        print("\t\tModule '%s' is installed" % module)
+        print("\t\t{} found".format(make_report_line(module)))
     except ImportError:
-        print("\t\tModule '%s' does not installed" % module)
+        print("\t\t{} not found".format(make_report_line(module)))
         absent.append(module)
         all_present = False
 
-install = []
+package_list = []
 
 for module in modules_apt:
     try:
         imp.find_module(module)
-        print("\t\tModule '%s' is installed" % module)
+        print("\t\t{} found".format(make_report_line(module)))
     except ImportError:
-        print("\t\tModule '%s' does not installed" % module)
+        print("\t\t{} not found".format(make_report_line(module)))
         absent.append(module)
-        install.append("python-%s" % module)
+        package_list.append("python-%s" % module)
         all_present = False
 
-if all_present == False:
-    print("Need to install modules:")
+if not all_present:
+    print("\n\tMissing modules:")
     for module in absent:
         print("\t\t%s" % module)
-    if len(install) > 0:
-        ims = " ".join(install)
-        print("\n\t\tRun apt-get install %s\n" % ims)
+    if len(package_list) > 0:
+        print('\n\t\tRun "apt-get install %s"\n' % ' '.join(package_list))
     sys.exit(1)
 
-print("All required modules installed")
+print("\n\tFound all required python modules.\n")
 sys.exit(0)

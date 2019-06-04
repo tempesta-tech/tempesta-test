@@ -70,17 +70,21 @@ cmds = {
                     ],
 }
 
+def make_report_line(name):
+    filler_len = max(3, 20 - len(name))
+    return '{} {}'.format(name, '.' * filler_len)
+
+
 for node in cmds:
-    print("\tChecking commands on %s" % node.type)
+    print('\tChecking prerequisites on "%s" node:' % node.type)
     try:
         node.run_cmd("whereis sh")
     except Exception as e:
-        print("\t\tCan not use `whereis` on %s: %s" % (node.type, str(e)))
+        print("\t\t{} not found\n".format(make_report_line('whereis')))
         all_ok = False
         continue
-    print("\t\tCommand `whereis` installed")
 
-    install = []
+    package_list = []
 
     for cmd in cmds[node]:
         command = "whereis -b %s" % cmd["cmd"]
@@ -88,17 +92,16 @@ for node in cmds:
         patt = "%s: " % cmd["cmd"]
         result = res[len(patt):]
         if len(result) == 0:
-            print("\t\tCommand `%s` doesn't installed" % cmd["cmd"])
-            install.append(cmd["install"])
+            print("\t\t{} not found".format(make_report_line(cmd["cmd"])))
+            package_list.append(cmd["install"])
             all_ok = False
         else:
-            print("\t\tCommand `%s` is installed" % cmd["cmd"])
+            print("\t\t{} found".format(make_report_line(cmd["cmd"])))
 
-    if len(install) > 0:
-        cmds = " ".join(install)
-        print("\n\t\tPlease run apt-get install %s\n" % cmds)
+    print("")
 
-if all_ok:
-    sys.exit(0)
-else:
-    sys.exit(1)
+    if len(package_list) > 0:
+        print('\t\tRun "apt-get install {}" on "{}" node\n'.format(
+              " ".join(package_list), node.type))
+
+sys.exit(0 if all_ok else 1)

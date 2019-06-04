@@ -7,10 +7,10 @@ pr=`whereis -b python2`
 
 if [ "$pr" == "python2:" ]
 then
-	echo -e "\tpython2 isn't installed. Run apt-get install python2"
+	echo -e "\t\"python2\" required, but not found.\n\tRun \"apt-get install python2\""
 	exit 1
 else
-	echo -e "\tpython2 is installed"
+	echo -e "\tFound python2"
 fi
 
 ./check_python_dependencies.py
