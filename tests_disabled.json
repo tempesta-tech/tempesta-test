@@ -3,7 +3,7 @@
     "disabled" : [
         {
             "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
-            "reason" : "Problems with stap, see tempesta-testa#45"
+            "reason" : "Problems with stap, see tempesta-test#45"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
