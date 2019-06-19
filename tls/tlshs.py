@@ -17,6 +17,8 @@ def main():
     op.add_option("-p", "--tfw_port", dest="port", metavar="PORT",
                   default=443, help="Tempesta FW listening TLS port"
                                     " (default: %default)")
+    op.add_option("-t", "--rto", dest="rto", default=0.5,
+                  help="receive timeout in seconds (default: %default)")
     op.add_option("-v", "--verbose", dest="verbose", action="store_true",
                   help="verbose mode")
     (cfg, _) = op.parse_args()

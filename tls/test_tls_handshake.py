@@ -1,5 +1,4 @@
 import os
-import ssl # TODO uses OpenSSL for full session tests
 
 from framework import tester
 from handshake import tls12_hs
@@ -43,6 +42,7 @@ class Tls12(tester.TempestaTest):
         r = tls12_hs({
             'addr':     '127.0.0.1',
             'port':     443,
+            'rto':      0.5,
             'verbose':  False # use True for verbose handshake exchange
         })
         self.assertEqual(r, True, "Wrong handshake result: %s" % r)

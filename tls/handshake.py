@@ -22,26 +22,26 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-def conn_estab(addr, port):
+def conn_estab(addr, port, rto):
     sd = TLSSocket(socket.socket(), client = True)
     # Set large enough send and receive timeouts which will be used by default.
-    sd.settimeout(3)
+    sd.settimeout(rto)
     sd.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                  struct.pack('ll', 2, 3000))
+                  struct.pack('ll', 2, rto * 1000))
     sd.connect((addr, port))
     return sd
 
 
-def send_recv(sd, pkt):
+def send_recv(sd, pkt, rto):
     """
-    Mainly a copy&paste from tls_do_round_trip(), but uses larger timeout to
-    let debugging Tempesta to write all the data to a file linked with the
-    serial console.
+    Mainly a copy&paste from tls_do_round_trip(), but uses custom timeout to
+    be able to fully read all data from Tempesta in verbose debugging mode
+    (serial console verbose logging may be extremely slow).
     """
     resp = TLS()
     try:
         sd.sendall(pkt)
-        resp = sd.recvall(timeout=5)
+        resp = sd.recvall(timeout=rto)
         if resp.haslayer(TLSAlert):
             alert = resp[TLSAlert]
             if alert.level != TLSAlertLevel.WARNING:
@@ -70,9 +70,10 @@ def tls12_hs(cfg):
     the core handshake functionality.
     """
     verbose = cfg['verbose']
+    rto = cfg['rto']
 
     try:
-        sd = conn_estab(cfg['addr'], cfg['port'])
+        sd = conn_estab(cfg['addr'], cfg['port'], rto)
     except socket.error:
         print("Cannot connect to " + cfg['addr'] + ":" + str(cfg['port'])
               + ": " + str(socket.error))
@@ -99,7 +100,7 @@ def tls12_hs(cfg):
 
     # Send ClientHello and read ServerHello, ServerCertificate,
     # ServerKeyExchange, ServerHelloDone.
-    s_h = send_recv(sd, p)
+    s_h = send_recv(sd, p, rto)
     if verbose:
         s_h.show()
 
@@ -126,7 +127,7 @@ def tls12_hs(cfg):
     if verbose:
         c_f.show()
 
-    s_f = send_recv(sd, c_f)
+    s_f = send_recv(sd, c_f, rto)
     if verbose:
         s_f.show()
         print(sd.tls_ctx)
@@ -134,7 +135,7 @@ def tls12_hs(cfg):
     # Send an HTTP request and get a response.
     req = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
     ok = "HTTP/1.1 200 OK"
-    resp = send_recv(sd, TLSPlaintext(data=req))
+    resp = send_recv(sd, TLSPlaintext(data=req), rto)
     r = resp.haslayer(TLSRecord) and resp[TLSRecord].data.startswith(ok)
     if verbose:
         print("==> Got response from server")
