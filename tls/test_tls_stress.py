@@ -30,11 +30,11 @@ class StressTls(stress.StressTest):
 
     def test_tls(self):
         path = os.path.dirname(self.tempesta.config_name)
-        dir = os.path.dirname(__file__)
+        dir_path = os.path.dirname(__file__)
         cert = "%s/tfw-root.crt"
         key = "%s/tfw-root.key"
-        self.tempesta.node.copy_file_to_node(cert % dir, cert % path)
-        self.tempesta.node.copy_file_to_node(key % dir, key % path)
+        self.tempesta.node.copy_file_to_node(cert % dir_path, cert % path)
+        self.tempesta.node.copy_file_to_node(key % dir_path, key % path)
         config = self.defconfig % (path, path)
         self.generic_test_routine(config)
 

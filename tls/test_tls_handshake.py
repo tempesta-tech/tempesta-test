@@ -23,7 +23,7 @@ class Tls12(tester.TempestaTest):
     ]
 
     def setUp(self):
-        dir = os.path.dirname(os.path.abspath(__file__))
+        dir_path = os.path.dirname(os.path.abspath(__file__))
         self.tempesta = {
             'config' : """
                 cache 0;
@@ -31,7 +31,7 @@ class Tls12(tester.TempestaTest):
                 tls_certificate %s/tfw-root.crt;
                 tls_certificate_key %s/tfw-root.key;
                 server ${server_ip}:8000;
-            """ % (dir, dir),
+            """ % (dir_path, dir_path),
         }
         tester.TempestaTest.setUp(self)
 
@@ -39,11 +39,10 @@ class Tls12(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
 
-        r = tls12_hs({
+        res = tls12_hs({
             'addr':     '127.0.0.1',
             'port':     443,
             'rto':      0.5,
             'verbose':  False # use True for verbose handshake exchange
         })
-        self.assertEqual(r, True, "Wrong handshake result: %s" % r)
-
+        self.assertEqual(res, True, "Wrong handshake result: %s" % res)
