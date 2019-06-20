@@ -16,12 +16,21 @@
 from __future__ import print_function
 import random
 import socket
+import ssl # OpenSSL based API
 import struct
 import scapy_ssl_tls.ssl_tls as tls
+
+from helpers import dmesg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
+
+REQUEST = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+GOOD_RESP = "HTTP/1.1 200"
+TLS_HS_WARN = "Warning: Unrecognized TLS receive return code"
+
 
 def conn_estab(addr, port, rto):
     sock = tls.TLSSocket(socket.socket(), client=True)
@@ -133,10 +142,9 @@ def tls12_hs(cfg):
         print(sock.tls_ctx)
 
     # Send an HTTP request and get a response.
-    req = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-    resp = send_recv(sock, tls.TLSPlaintext(data=req), rto)
+    resp = send_recv(sock, tls.TLSPlaintext(data=REQUEST), rto)
     res = resp.haslayer(tls.TLSRecord) \
-            and resp[tls.TLSRecord].data.startswith("HTTP/1.1 200 OK")
+            and resp[tls.TLSRecord].data.startswith(GOOD_RESP)
     if verbose:
         print("==> Got response from server")
         resp.show()
@@ -147,3 +155,52 @@ def tls12_hs(cfg):
 
     sock.close()
     return res
+
+
+def try_tls_vers(version, addr, port, rto, verbose):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(rto)
+
+    # Collect warnings before TCP connection - we should have exactly
+    # one warning for the whole test.
+    warns = dmesg.count_warnings(TLS_HS_WARN)
+
+    sock.connect((addr, port))
+    try:
+        tls_sock = ssl.wrap_socket(sock, ssl_version=version)
+    except IOError:
+        # Exception on client side TLS with established TCP connection -
+        # we're good with connection rejection.
+        sock.close()
+        if dmesg.count_warnings(TLS_HS_WARN) == warns + 1:
+            return True
+        if verbose:
+            print("TLS handshake failed w/o warning")
+        return False
+
+    tls_sock.send(REQUEST)
+    resp = tls_sock.recv(100)
+    tls_sock.close()
+    if resp.startswith(GOOD_RESP):
+        return False
+
+
+def tls_old_hs(cfg):
+    """
+    Test TLS 1.0 and TLS 1.1 handshakes.
+    Modern OpenSSL versions don't support SSLv{1,2,3}.0, so use TLSv1.{0,1}
+    just to test that we correctly drop wrong TLS connections. We do not
+    support SSL as well and any SSL record is treated as a broken TLS record,
+    so fuzzing of normal TLS fields should be used to test TLS fields
+    processing.
+    """
+    verbose = cfg['verbose']
+    rto = cfg['rto']
+    addr = cfg['addr']
+    port = cfg['port']
+
+    for version in (ssl.PROTOCOL_TLSv1, ssl.PROTOCOL_TLSv1_1):
+        if not try_tls_vers(version, addr, port, rto, verbose):
+            return False
+
+    return True

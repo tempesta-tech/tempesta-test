@@ -1,14 +1,14 @@
 import os
 
 from framework import tester
-from handshake import tls12_hs
+from handshake import tls12_hs, tls_old_hs
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
-class Tls12(tester.TempestaTest):
+class TlsHandshake(tester.TempestaTest):
     backends = [
         {
             'id' : '0',
@@ -35,7 +35,7 @@ class Tls12(tester.TempestaTest):
         }
         tester.TempestaTest.setUp(self)
 
-    def test_synthetic(self):
+    def test_tls12_synthetic(self):
         self.start_all_servers()
         self.start_tempesta()
 
@@ -46,3 +46,15 @@ class Tls12(tester.TempestaTest):
             'verbose':  False # use True for verbose handshake exchange
         })
         self.assertEqual(res, True, "Wrong handshake result: %s" % res)
+
+    def test_old_handshakes(self):
+        self.start_all_servers()
+        self.start_tempesta()
+
+        res = tls_old_hs({
+            'addr':     '127.0.0.1',
+            'port':     443,
+            'rto':      0.5,
+            'verbose':  False # use True for verbose handshake exchange
+        })
+        self.assertEqual(res, True, "Wrong old handshake result: %s" % res)
