@@ -21,6 +21,11 @@ class StressTest(unittest.TestCase):
     errors_write = 0
     errors_timeout = 0
 
+    def __new__(cls, *args, **kwargs):
+        tf_cfg.dbg(5, "%s must be used instead of deprecated %s"
+                   % ("tester.TempestaTest", cls.__name__))
+        return super(StressTest, cls).__new__(cls, *args, **kwargs)
+
     def create_clients(self):
         """ Override to set desired list of benchmarks and their options. """
         self.wrk = control.Wrk()
@@ -162,6 +167,7 @@ class StressTest(unittest.TestCase):
         tf_cfg.dbg(2, "errors read: %i" % e_read)
         tf_cfg.dbg(2, "errors write: %i" % e_write)
         tf_cfg.dbg(2, "errors timeout: %i" % e_timeout)
+        self.assertGreater(req, 0, msg="No work was done by the client")
         self.assertEqual(err, e_500 + e_502 + e_504 + e_connect, msg=msg)
 
     def assert_clients(self):
@@ -189,7 +195,9 @@ class StressTest(unittest.TestCase):
         exp_max = cl_req_cnt + cl_conn_cnt
         self.assertTrue(
             self.tempesta.stats.cl_msg_received >= exp_min and
-            self.tempesta.stats.cl_msg_received <= exp_max
+            self.tempesta.stats.cl_msg_received <= exp_max,
+            msg="Tempesta received bad number %d of messages, expected [%d:%d]"
+                % (self.tempesta.stats.cl_msg_received, exp_min, exp_max)
         )
 
     def assert_tempesta(self):

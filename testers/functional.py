@@ -13,6 +13,11 @@ class FunctionalTest(unittest.TestCase):
 
     tfw_clnt_msg_otherr = False
 
+    def __new__(cls, *args, **kwargs):
+        tf_cfg.dbg(5, "%s must be used instead of deprecated %s"
+                   % ("tester.TempestaTest", cls.__name__))
+        return super(FunctionalTest, cls).__new__(cls, *args, **kwargs)
+
     def create_client(self):
         """ Override to set desired list of benchmarks and their options. """
         self.client = deproxy.Client()
