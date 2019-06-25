@@ -7,6 +7,7 @@ import os
 import asyncore
 import multiprocessing.dummy as multiprocessing
 from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful, dmesg
+from . import util
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -114,6 +115,7 @@ class Client(object):
         self.options.append('-H \'User-Agent: %s\'' % ua)
 
 
+@util.deprecated("framework.Wrk")
 class Wrk(Client):
     """ wrk - HTTP benchmark utility.
 
@@ -123,11 +125,6 @@ class Wrk(Client):
     test, otherwise print warning and count the errors as usual errors.
     """
     FAIL_ON_SOCK_ERR=False
-
-    def __new__(cls, *args, **kwargs):
-        tf_cfg.dbg(5, "%s must be used instead of deprecated %s"
-                   % ("framework.Wrk", cls.__name__))
-        return super(Wrk, cls).__new__(cls, *args, **kwargs)
 
     def __init__(self, threads=-1, uri='/', ssl=False, timeout=60):
         Client.__init__(self, binary='wrk', uri=uri, ssl=ssl)

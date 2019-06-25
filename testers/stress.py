@@ -1,11 +1,13 @@
 from __future__ import print_function
 import unittest
 from helpers import tf_cfg, control, tempesta, stateful, dmesg, remote
+from helpers import util
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+@util.deprecated("tester.TempestaTest")
 class StressTest(unittest.TestCase):
     """ Test Suite to use HTTP benchmarks as a clients. Can be used for
     functional testing of schedulers and stress testing for other components.
@@ -20,11 +22,6 @@ class StressTest(unittest.TestCase):
     errors_read = 0
     errors_write = 0
     errors_timeout = 0
-
-    def __new__(cls, *args, **kwargs):
-        tf_cfg.dbg(5, "%s must be used instead of deprecated %s"
-                   % ("tester.TempestaTest", cls.__name__))
-        return super(StressTest, cls).__new__(cls, *args, **kwargs)
 
     def create_clients(self):
         """ Override to set desired list of benchmarks and their options. """
