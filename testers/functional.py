@@ -3,12 +3,14 @@ import unittest
 import copy
 import asyncore
 from helpers import dmesg, tf_cfg, control, tempesta, deproxy, stateful, remote
+from helpers import util
 from helpers.deproxy import ParseError
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+@util.deprecated("tester.TempestaTest")
 class FunctionalTest(unittest.TestCase):
 
     tfw_clnt_msg_otherr = False

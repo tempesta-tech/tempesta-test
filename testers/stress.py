@@ -1,11 +1,13 @@
 from __future__ import print_function
 import unittest
 from helpers import tf_cfg, control, tempesta, stateful, dmesg, remote
+from helpers import util
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+@util.deprecated("tester.TempestaTest")
 class StressTest(unittest.TestCase):
     """ Test Suite to use HTTP benchmarks as a clients. Can be used for
     functional testing of schedulers and stress testing for other components.
@@ -162,6 +164,7 @@ class StressTest(unittest.TestCase):
         tf_cfg.dbg(2, "errors read: %i" % e_read)
         tf_cfg.dbg(2, "errors write: %i" % e_write)
         tf_cfg.dbg(2, "errors timeout: %i" % e_timeout)
+        self.assertGreater(req, 0, msg="No work was done by the client")
         self.assertEqual(err, e_500 + e_502 + e_504 + e_connect, msg=msg)
 
     def assert_clients(self):
@@ -189,7 +192,9 @@ class StressTest(unittest.TestCase):
         exp_max = cl_req_cnt + cl_conn_cnt
         self.assertTrue(
             self.tempesta.stats.cl_msg_received >= exp_min and
-            self.tempesta.stats.cl_msg_received <= exp_max
+            self.tempesta.stats.cl_msg_received <= exp_max,
+            msg="Tempesta received bad number %d of messages, expected [%d:%d]"
+                % (self.tempesta.stats.cl_msg_received, exp_min, exp_max)
         )
 
     def assert_tempesta(self):

@@ -7,6 +7,7 @@ import os
 import asyncore
 import multiprocessing.dummy as multiprocessing
 from . import tf_cfg, remote, error, nginx, tempesta, deproxy, stateful, dmesg
+from . import util
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -114,6 +115,7 @@ class Client(object):
         self.options.append('-H \'User-Agent: %s\'' % ua)
 
 
+@util.deprecated("framework.Wrk")
 class Wrk(Client):
     """ wrk - HTTP benchmark utility.
 
