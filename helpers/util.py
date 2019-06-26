@@ -10,7 +10,7 @@ __license__ = 'GPL2'
 
 def deprecated(alt_impl_name):
     """
-    Decorator to declare a class and its inheritants as deprecated.
+    Decorator to declare a class and its descendants as deprecated.
     Example ('Foo' is a new alternative implementation which should be used
     instead):
 
