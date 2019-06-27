@@ -113,6 +113,7 @@ class BaseDeproxyClient(deproxy.Client):
     def receive_response(self, response):
         raise NotImplementedError("Not implemented 'receive_response()'")
 
+
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
     responses = []

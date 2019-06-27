@@ -1,3 +1,5 @@
+# Tests for valid and invalid TLS handhshakes, various violations in
+# handshake messages.
 import os
 
 from framework import tester

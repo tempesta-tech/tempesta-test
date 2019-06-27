@@ -1,9 +1,26 @@
+"""
+Main utils and API for deproxy.
+
+Deproxy combines HTTP client and server, so that it can check data consistency
+on both the parts, e.g. easily verify requests/response pairing in HTTP
+pipeline scenario. It's intended to check HTTP functionality in various aspects.
+
+Use implemented in C clients (e.g. wrk) and servers (e.g. nginx) if you need
+a test with heavy load condition.
+
+TODO Why do we implement HttpMessage, Request, and Response on our own instead
+of using HTTPMessage, HTTPRequest, and HTTPResponse correspondingly fro httplib?
+Rewrite the code to use httplib or other standard (present in CentOS and
+Debian distros) package or write a reasining comment why can't we use standard
+tools.
+"""
 from __future__ import print_function
 import abc
 from StringIO import StringIO
 import asyncore
 import select
 import socket
+import ssl
 import sys
 import time
 import calendar # for calendar.timegm()
@@ -12,7 +29,7 @@ from . import error, tf_cfg, tempesta, stateful
 
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 #-------------------------------------------------------------------------------
@@ -43,7 +60,7 @@ class HeaderCollection(object):
             for k, v in kwargs.iteritems():
                 self.add(k, v)
 
-    def set_expected(self, expected_time_delta = 0):
+    def set_expected(self, expected_time_delta=0):
         self.is_expected = True
         self.expected_time_delta = expected_time_delta
 
@@ -158,9 +175,9 @@ class HeaderCollection(object):
     _disable_report_wrong_is_expected = False
 
     def _report_wrong_is_expected(self, other):
-            if not HeaderCollection._disable_report_wrong_is_expected:
-                error.bug("HeaderCollection: comparing is_expected=(%s, %s)\n" %
-                          (self.is_expected, other.is_expected))
+        if not HeaderCollection._disable_report_wrong_is_expected:
+            error.bug("HeaderCollection: comparing is_expected=(%s, %s)\n" %
+                      (self.is_expected, other.is_expected))
 
     def __eq__(self, other):
         h_self = self._as_dict_lower()
@@ -513,7 +530,7 @@ MAX_MESSAGE_SIZE = 65536
 
 class Client(asyncore.dispatcher, stateful.Stateful):
 
-    def __init__(self, addr=None, host='Tempesta', port=80):
+    def __init__(self, addr=None, host='Tempesta', port=80, conn_type=None):
         asyncore.dispatcher.__init__(self)
         self.request = None
         self.request_buffer = ''
@@ -525,6 +542,11 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.port = port
         self.stop_procedures = [self.__stop_client]
         self.orig_addr = ''
+        if conn_type != 'tls' and conn_type is not None:
+            raise Exception("Bad deproxy type:", type)
+        self.type = conn_type
+        self.want_read = False
+        self.want_write = True # TLS CLientHello is the first one
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
@@ -534,7 +556,8 @@ class Client(asyncore.dispatcher, stateful.Stateful):
     def run_start(self):
         self.orig_addr = self.addr
         tf_cfg.dbg(3, '\tStarting deproxy client')
-        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.' % (self.addr, self.port))
+        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.'
+                % (self.addr, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((self.addr, self.port))
 
@@ -550,12 +573,62 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.tester = tester
 
     def handle_connect(self):
-        pass
+        if self.type == 'tls':
+            # The TCP connection has been established and now we can
+            # run TLS handshake on the socket.
+            # Use default/mainstream TLS version - we have dedicated tests for
+            # unusual TLS versions.
+            self.handle_read = self.handle_write = self.tls_handshake
+            self.writable = self.tls_writable
+            self.readable = self.tls_readable
+            try:
+                self.socket = ssl.wrap_socket(self.socket,
+                                              do_handshake_on_connect=False)
+            except IOError as tls_e:
+                tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
+                raise tls_e
+        else:
+            self.handle_read = self.__handle_read
+            self.handle_write = self.__handle_write
+            self.writable = self.__writable
+            self.readable = None # No one should call this
+
+    def tls_readable(self):
+        #tf_cfg.dbg(2, "Deproxy: call readable,", self.want_read)
+        return self.want_read
+
+    def tls_writable(self):
+        #tf_cfg.dbg(2, "Deproxy: call writable,", self.want_write)
+        return self.want_write
+
+    def tls_handshake(self):
+        try:
+            tf_cfg.dbg(2, "Deproxy: TLS handshake...")
+            self.socket.do_handshake()
+        except ssl.SSLError, tls_e:
+            tf_cfg.dbg(2, "Deproxy: TLS handshake error,", tls_e)
+            tf_cfg.dbg(2, "TLS error:", tls_e.args[0], ssl.SSL_ERROR_WANT_READ,
+                    ssl.SSL_ERROR_WANT_WRITE)
+            #import pdb; pdb.set_trace()
+            self.want_read = self.want_write = False
+            if tls_e.args[0] == ssl.SSL_ERROR_WANT_READ:
+                self.want_read = True
+            elif tls_e.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                self.want_write = True
+            else:
+                raise
+        else:
+            tf_cfg.dbg(4, "Deproxy: finished TLS handshake")
+            # Handshake is done, set processing callbacks
+            self.handle_read = self.__handle_read
+            self.handle_write = self.__handle_write
+            self.writable = self.__writable
+            self.readable = None # No one should call this
 
     def handle_close(self):
         self.close()
 
-    def handle_read(self):
+    def __handle_read(self):
         self.response_buffer += self.recv(MAX_MESSAGE_SIZE)
         if not self.response_buffer:
             return
@@ -580,12 +653,12 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             self.tester.received_response(response)
         self.response_buffer = ''
 
-    def writable(self):
+    def __writable(self):
         if not self.tester:
             return False
         return self.tester.is_srvs_ready() and (len(self.request_buffer) > 0)
 
-    def handle_write(self):
+    def __handle_write(self):
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, self.request_buffer)
         sent = self.send(self.request_buffer)
@@ -597,7 +670,6 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             raise v
         else:
             error.bug('\tDeproxy: Client: %s' % v)
-
 
 
 class ServerConnection(asyncore.dispatcher_with_send):
@@ -728,7 +800,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         if type(v) == AssertionError:
             raise v
         else:
-            raise  Exception('\tDeproxy: Server %s:%d: %s' % \
+            raise Exception('\tDeproxy: Server %s:%d: %s' % \
              (self.ip, self.port, str(v)))
 
     def handle_close(self):

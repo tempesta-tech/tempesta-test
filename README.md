@@ -372,3 +372,11 @@ this, but it simpler to check free ports before start server.
 
 deproxyclient, deproxyserver, nginx, wrk - this classes used for creating
 and handling corresponding types of items.
+
+
+## Resources
+
+There are not so much good references about best practices in development of
+testing framework.
+
+* [Why Good Developers Write Bad Tests](https://www.youtube.com/watch?v=oO-FMAdjY68)

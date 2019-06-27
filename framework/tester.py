@@ -10,7 +10,7 @@ import framework.deproxy_manager as deproxy_manager
 from framework.templates import fill_template, populate_properties
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 backend_defs = {}
@@ -64,7 +64,8 @@ class TempestaTest(unittest.TestCase):
     def __create_client_deproxy(self, client):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
+        type = (client['type'].split('_', 1) + [None])[1]
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port, conn_type=type)
         return clt
 
     def __create_client_wrk(self, client):
@@ -74,9 +75,13 @@ class TempestaTest(unittest.TestCase):
         return wrk
 
     def __create_client(self, client):
+        """ Create a client for the specified template. Following types are
+        supported and new deproxy types can be added, e.g. 'deproxy_h2':
+        wrk, deproxy, deproxy_tls.
+        """
         populate_properties(client)
         cid = client['id']
-        if client['type'] == 'deproxy':
+        if client['type'].startswith('deproxy'):
             self.__clients[cid] = self.__create_client_deproxy(client)
         elif client['type'] == 'wrk':
             self.__clients[cid] = self.__create_client_wrk(client)
