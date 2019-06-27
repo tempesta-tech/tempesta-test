@@ -530,7 +530,7 @@ MAX_MESSAGE_SIZE = 65536
 
 class Client(asyncore.dispatcher, stateful.Stateful):
 
-    def __init__(self, addr=None, host='Tempesta', port=80, conn_type=None):
+    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False):
         asyncore.dispatcher.__init__(self)
         self.request = None
         self.request_buffer = ''
@@ -542,9 +542,7 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.port = port
         self.stop_procedures = [self.__stop_client]
         self.orig_addr = ''
-        if conn_type != 'tls' and conn_type is not None:
-            raise Exception("Bad deproxy type:", type)
-        self.type = conn_type
+        self.ssl = ssl
         self.want_read = False
         self.want_write = True # TLS CLientHello is the first one
 
@@ -573,7 +571,7 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.tester = tester
 
     def handle_connect(self):
-        if self.type == 'tls':
+        if self.ssl:
             # The TCP connection has been established and now we can
             # run TLS handshake on the socket.
             # Use default/mainstream TLS version - we have dedicated tests for

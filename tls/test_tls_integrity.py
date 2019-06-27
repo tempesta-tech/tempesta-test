@@ -15,9 +15,10 @@ class SimpleIO(tester.TempestaTest):
     clients = [
         {
             'id' : 0,
-            'type' : 'deproxy_tls',
+            'type' : 'deproxy',
             'addr' : "${tempesta_ip}",
-            'port' : '443'
+            'port' : '443',
+            'ssl' : True,
         },
     ]
 

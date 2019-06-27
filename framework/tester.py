@@ -61,16 +61,16 @@ class TempestaTest(unittest.TestCase):
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client):
+    def __create_client_deproxy(self, client, ssl):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
         type = (client['type'].split('_', 1) + [None])[1]
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port, conn_type=type)
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl)
         return clt
 
-    def __create_client_wrk(self, client):
+    def __create_client_wrk(self, client, ssl):
         addr = fill_template(client['addr'], client)
-        wrk = wrk_client.Wrk(server_addr=addr)
+        wrk = wrk_client.Wrk(server_addr=addr, ssl=ssl)
         wrk.set_script(client['id']+"_script", content="")
         return wrk
 
@@ -80,11 +80,12 @@ class TempestaTest(unittest.TestCase):
         wrk, deproxy, deproxy_tls.
         """
         populate_properties(client)
+        ssl = client.setdefault('ssl', False)
         cid = client['id']
         if client['type'].startswith('deproxy'):
-            self.__clients[cid] = self.__create_client_deproxy(client)
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl)
         elif client['type'] == 'wrk':
-            self.__clients[cid] = self.__create_client_wrk(client)
+            self.__clients[cid] = self.__create_client_wrk(client, ssl)
 
     def __create_backend(self, server):
         srv = None
