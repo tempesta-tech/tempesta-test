@@ -39,7 +39,7 @@ __license__ = 'GPL2'
 class ParseError(Exception):
     pass
 
-class IncompliteMessage(ParseError):
+class IncompleteMessage(ParseError):
     pass
 
 class HeaderCollection(object):
@@ -144,7 +144,7 @@ class HeaderCollection(object):
             if no_crlf and not line:
                 break
             if not line or (line[-1] != '\n'):
-                raise IncompliteMessage('Incomplete headers')
+                raise IncompleteMessage('Incomplete headers')
             line = line.rstrip('\r\n')
             try:
                 name, value = line.split(':', 1)
@@ -295,12 +295,12 @@ class HttpMessage(object):
 
                 chunk_size = len(chunk.rstrip('\r\n'))
                 if chunk_size < size:
-                    raise IncompliteMessage('Incomplete chunked body')
+                    raise IncompleteMessage('Incomplete chunked body')
                 assert chunk_size == size
                 assert chunk[-1] == '\n'
                 if size == 0:
                     break
-            except IncompliteMessage:
+            except IncompleteMessage:
                 raise
             except:
                 raise ParseError('Error in chunked body')
@@ -319,7 +319,7 @@ class HttpMessage(object):
                               % (size, len(self.body))))
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
-            raise IncompliteMessage()
+            raise IncompleteMessage()
         self.original_length += len(self.body)
 
     def parse_trailer(self, stream):
@@ -399,7 +399,7 @@ class Request(HttpMessage):
         requestline = stream.readline()
         self.original_length += len(requestline)
         if requestline[-1] != '\n':
-            raise IncompliteMessage('Incomplete request line!')
+            raise IncompleteMessage('Incomplete request line!')
 
         words = requestline.rstrip('\r\n').split()
         if len(words) == 3:
@@ -457,7 +457,7 @@ class Response(HttpMessage):
         statusline = stream.readline()
         self.original_length += len(statusline)
         if statusline[-1] != '\n':
-            raise IncompliteMessage('Incomplete Status line!')
+            raise IncompleteMessage('Incomplete Status line!')
 
         words = statusline.rstrip('\r\n').split()
         if len(words) >= 3:
@@ -528,10 +528,98 @@ class Response(HttpMessage):
 #-------------------------------------------------------------------------------
 MAX_MESSAGE_SIZE = 65536
 
-class Client(asyncore.dispatcher, stateful.Stateful):
+class TlsClient(asyncore.dispatcher):
+    """
+    A thin shim between async IO and an application logic class to establish
+    TLS connection on handle_connect() and restore all the handlers necessary
+    for application logic, such that the whole deproxy logic must not be aware
+    about TLS and only need to set ssl constructor argument to employ TLS.
+    """
+
+    def __init__(self, ssl=False):
+        asyncore.dispatcher.__init__(self)
+        self.ssl = ssl
+        self.want_read = False
+        self.want_write = True # TLS CLientHello is the first one
+
+    def save_handlers(self):
+        """
+        We need to store the handlers defined at any descendant layer to
+        restore then when TLS handshake is done and we can do application
+        logic.
+        """
+        assert hasattr(self, 'handle_read'), "TLS: save null handlers"
+        assert not hasattr(self, '__handle_read'), "TLS: double handlers save"
+        self.__handle_read = self.handle_read
+        self.__handle_write = self.handle_write
+        self.__readable = self.readable
+        self.__writable = self.writable
+
+    def restore_handlers(self):
+        """
+        Since TLS operates with it's own records:
+        -- if a read event happened it doesn't imply that we have enough data
+           for complete TLS record and can return something to the application
+           layer;
+        -- SSLSocket.recv() seems return a single TLS record payload, so if we
+           received 2 or more records at once, there is no sense to report the
+           socket readable() after the first record read.
+        Generally speaking, handle_read() just must be aware about non-blocking
+        IO, which SSL actually is. However, we should first try to read from the
+        socket before go to polling, i.e. the only requirement to handle_read()
+        is to call recv() multiple time until it doesn't return empty string.
+        """
+        self.readable = self.__readable
+        self.handle_read = self.__handle_read
+        self.writable = self.__writable
+        self.handle_write = self.__handle_write
+
+    def handle_connect(self):
+        if not self.ssl:
+            return
+        # The TCP connection has been established and now we can
+        # run TLS handshake on the socket.
+        # Use default/mainstream TLS version - we have dedicated tests for
+        # unusual TLS versions.
+        self.save_handlers()
+        self.handle_read = self.handle_write = self.tls_handshake
+        self.writable = self.tls_handshake_writable
+        self.readable = self.tls_handshake_readable
+        try:
+            self.socket = ssl.wrap_socket(self.socket,
+                                          do_handshake_on_connect=False)
+        except IOError as tls_e:
+            tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
+            raise tls_e
+
+    def tls_handshake_readable(self):
+        return self.want_read
+
+    def tls_handshake_writable(self):
+        return self.want_write
+
+    def tls_handshake(self):
+        try:
+            self.socket.do_handshake()
+        except ssl.SSLError, tls_e:
+            self.want_read = self.want_write = False
+            if tls_e.args[0] == ssl.SSL_ERROR_WANT_READ:
+                self.want_read = True
+            elif tls_e.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                self.want_write = True
+            else:
+                tf_cfg.dbg(2, "Deproxy: TLS handshake error,", tls_e)
+                raise
+        else:
+            tf_cfg.dbg(4, "\tDeproxy: finished TLS handshake")
+            # Handshake is done, set processing callbacks
+            self.restore_handlers()
+
+
+class Client(TlsClient, stateful.Stateful):
 
     def __init__(self, addr=None, host='Tempesta', port=80, ssl=False):
-        asyncore.dispatcher.__init__(self)
+        TlsClient.__init__(self, ssl)
         self.request = None
         self.request_buffer = ''
         self.response_buffer = ''
@@ -542,9 +630,6 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         self.port = port
         self.stop_procedures = [self.__stop_client]
         self.orig_addr = ''
-        self.ssl = ssl
-        self.want_read = False
-        self.want_write = True # TLS CLientHello is the first one
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
@@ -570,64 +655,15 @@ class Client(asyncore.dispatcher, stateful.Stateful):
     def set_tester(self, tester):
         self.tester = tester
 
-    def handle_connect(self):
-        if self.ssl:
-            # The TCP connection has been established and now we can
-            # run TLS handshake on the socket.
-            # Use default/mainstream TLS version - we have dedicated tests for
-            # unusual TLS versions.
-            self.handle_read = self.handle_write = self.tls_handshake
-            self.writable = self.tls_writable
-            self.readable = self.tls_readable
-            try:
-                self.socket = ssl.wrap_socket(self.socket,
-                                              do_handshake_on_connect=False)
-            except IOError as tls_e:
-                tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
-                raise tls_e
-        else:
-            self.handle_read = self.__handle_read
-            self.handle_write = self.__handle_write
-            self.writable = self.__writable
-            self.readable = None # No one should call this
-
-    def tls_readable(self):
-        #tf_cfg.dbg(2, "Deproxy: call readable,", self.want_read)
-        return self.want_read
-
-    def tls_writable(self):
-        #tf_cfg.dbg(2, "Deproxy: call writable,", self.want_write)
-        return self.want_write
-
-    def tls_handshake(self):
-        try:
-            tf_cfg.dbg(2, "Deproxy: TLS handshake...")
-            self.socket.do_handshake()
-        except ssl.SSLError, tls_e:
-            tf_cfg.dbg(2, "Deproxy: TLS handshake error,", tls_e)
-            tf_cfg.dbg(2, "TLS error:", tls_e.args[0], ssl.SSL_ERROR_WANT_READ,
-                    ssl.SSL_ERROR_WANT_WRITE)
-            #import pdb; pdb.set_trace()
-            self.want_read = self.want_write = False
-            if tls_e.args[0] == ssl.SSL_ERROR_WANT_READ:
-                self.want_read = True
-            elif tls_e.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                self.want_write = True
-            else:
-                raise
-        else:
-            tf_cfg.dbg(4, "Deproxy: finished TLS handshake")
-            # Handshake is done, set processing callbacks
-            self.handle_read = self.__handle_read
-            self.handle_write = self.__handle_write
-            self.writable = self.__writable
-            self.readable = None # No one should call this
-
     def handle_close(self):
         self.close()
 
-    def __handle_read(self):
-        self.response_buffer += self.recv(MAX_MESSAGE_SIZE)
+    def handle_read(self):
+        while True: # TLS aware - read as many records as we can
+            buf += self.recv(MAX_MESSAGE_SIZE)
+            if not buf:
+                break
+            self.response_buffer += buf
         if not self.response_buffer:
             return
         tf_cfg.dbg(4, '\tDeproxy: Client: Receive response from Tempesta.')
@@ -636,7 +672,7 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             response = Response(self.response_buffer,
                                 method=self.request.method)
             self.response_buffer = self.response_buffer[len(response.msg):]
-        except IncompliteMessage:
+        except IncompleteMessage:
             return
         except ParseError:
             tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
@@ -651,12 +687,12 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             self.tester.received_response(response)
         self.response_buffer = ''
 
-    def __writable(self):
+    def writable(self):
         if not self.tester:
             return False
         return self.tester.is_srvs_ready() and (len(self.request_buffer) > 0)
 
-    def __handle_write(self):
+    def handle_write(self):
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, self.request_buffer)
         sent = self.send(self.request_buffer)
@@ -686,7 +722,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer += self.recv(MAX_MESSAGE_SIZE)
         try:
             request = Request(self.request_buffer)
-        except IncompliteMessage:
+        except IncompleteMessage:
             return
         except ParseError:
             tf_cfg.dbg(4, ('Deproxy: SrvConnection: Can\'t parse message\n'

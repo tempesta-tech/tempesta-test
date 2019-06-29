@@ -59,7 +59,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
         try:
             request = deproxy.Request(self.request_buffer)
-        except deproxy.IncompliteMessage:
+        except deproxy.IncompleteMessage:
             return
         except deproxy.ParseError:
             tf_cfg.dbg(4, ('Deproxy: SrvConnection: Can\'t parse message\n'

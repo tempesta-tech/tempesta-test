@@ -64,7 +64,6 @@ class TempestaTest(unittest.TestCase):
     def __create_client_deproxy(self, client, ssl):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
-        type = (client['type'].split('_', 1) + [None])[1]
         clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl)
         return clt
 
@@ -75,14 +74,10 @@ class TempestaTest(unittest.TestCase):
         return wrk
 
     def __create_client(self, client):
-        """ Create a client for the specified template. Following types are
-        supported and new deproxy types can be added, e.g. 'deproxy_h2':
-        wrk, deproxy, deproxy_tls.
-        """
         populate_properties(client)
         ssl = client.setdefault('ssl', False)
         cid = client['id']
-        if client['type'].startswith('deproxy'):
+        if client['type'] == 'deproxy':
             self.__clients[cid] = self.__create_client_deproxy(client, ssl)
         elif client['type'] == 'wrk':
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
