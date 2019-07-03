@@ -1,9 +1,10 @@
 import re
 import os
 from . import error, remote, tf_cfg
+from framework.x509 import CertGenerator
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 # Tempesta capabilities:
@@ -222,7 +223,28 @@ class Config(object):
                         [self.defconfig])
         return cfg
 
-    def set_defconfig(self, config):
+    def __handle_tls(self, custom_cert):
+        """
+        Parse the config string and generate x509 certificates if there are
+        appropriate options in the config.
+        """
+        cfg = {}
+        for l in self.defconfig.splitlines():
+            l = l.strip(' \t;')
+            if not l or l.startswith('#'):
+                continue
+            k, v = l.split(' ', 1)
+            cfg[k] = v
+        if not cfg['listen'].find('https'):
+            return
+        cert_path, key_path = cfg['tls_certificate'], cfg['tls_certificate_key']
+        if not custom_cert:
+            cgen = CertGenerator(cert_path, key_path, True)
+            remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
+            remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+
+    def set_defconfig(self, config, custom_cert=False):
         self.defconfig = config
+        self.__handle_tls(custom_cert)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

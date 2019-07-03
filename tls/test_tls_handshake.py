@@ -1,7 +1,7 @@
-# Tests for valid and invalid TLS handhshakes, various violations in
-# handshake messages.
-import os
-
+"""
+Tests for valid and invalid TLS handhshakes, various violations in
+handshake messages.
+"""
 from framework import tester
 from handshake import tls12_hs, tls_old_hs
 
@@ -24,18 +24,15 @@ class TlsHandshake(tester.TempestaTest):
         }
     ]
 
-    def setUp(self):
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.tempesta = {
-            'config' : """
-                cache 0;
-                listen 443 proto=https;
-                tls_certificate %s/tfw-root.crt;
-                tls_certificate_key %s/tfw-root.key;
-                server ${server_ip}:8000;
-            """ % (dir_path, dir_path),
-        }
-        tester.TempestaTest.setUp(self)
+    tempesta = {
+        'config' : """
+            cache 0;
+            listen 443 proto=https;
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
 
     def test_tls12_synthetic(self):
         self.start_all_servers()
@@ -47,7 +44,7 @@ class TlsHandshake(tester.TempestaTest):
             'rto':      0.5,
             'verbose':  False # use True for verbose handshake exchange
         })
-        self.assertEqual(res, True, "Wrong handshake result: %s" % res)
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_old_handshakes(self):
         self.start_all_servers()
@@ -59,4 +56,4 @@ class TlsHandshake(tester.TempestaTest):
             'rto':      0.5,
             'verbose':  False # use True for verbose handshake exchange
         })
-        self.assertEqual(res, True, "Wrong old handshake result: %s" % res)
+        self.assertTrue(res, "Wrong old handshake result: %s" % res)

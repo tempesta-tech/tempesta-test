@@ -1,9 +1,7 @@
 """
 TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
-import os
-
-from helpers import control, tf_cfg
+from helpers import tf_cfg
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -66,17 +64,14 @@ class StressTls(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.tempesta = {
-            'config' : """
-                listen 443 proto=https;
-                tls_certificate %s/tfw-root.crt;
-                tls_certificate_key %s/tfw-root.key;
-                server ${server_ip}:8000;
-            """ % (dir_path, dir_path),
-        }
-        tester.TempestaTest.setUp(self)
+    tempesta = {
+        'config' : """
+            listen 443 proto=https;
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
 
     def test(self):
         self.start_all_servers()

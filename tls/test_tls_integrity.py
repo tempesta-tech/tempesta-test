@@ -1,6 +1,7 @@
-# Tests for data integrity transfered via Tempesta TLS.
+"""
+Tests for data integrity transfered via Tempesta TLS.
+"""
 import hashlib
-import os
 
 from helpers import tf_cfg
 from framework import tester
@@ -73,18 +74,15 @@ class TlsIntegrityTester(tester.TempestaTest):
 
 class Proxy(TlsIntegrityTester):
 
-    def setUp(self):
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.tempesta = {
-            'config' : """
-                cache 0;
-                listen 443 proto=https;
-                tls_certificate %s/tfw-root.crt;
-                tls_certificate_key %s/tfw-root.key;
-                server ${server_ip}:8000;
-            """ % (dir_path, dir_path),
-        }
-        tester.TempestaTest.setUp(self)
+    tempesta = {
+        'config' : """
+            cache 0;
+            listen 443 proto=https;
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
 
     def test_various_req_resp_sizes(self):
         self.start_all()
@@ -131,20 +129,17 @@ class Cache(TlsIntegrityTester):
         },
     ]
 
-    def setUp(self):
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.tempesta = {
-            'config' : """
-                cache 1;
-                cache_fulfill * *;
-                cache_methods POST;
-                listen 443 proto=https;
-                tls_certificate %s/tfw-root.crt;
-                tls_certificate_key %s/tfw-root.key;
-                server ${server_ip}:8000;
-            """ % (dir_path, dir_path),
-        }
-        tester.TempestaTest.setUp(self)
+    tempesta = {
+        'config' : """
+            cache 1;
+            cache_fulfill * *;
+            cache_methods POST;
+            listen 443 proto=https;
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
 
     def test_various_req_resp_sizes(self):
         self.start_all()

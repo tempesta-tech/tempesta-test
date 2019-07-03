@@ -144,6 +144,9 @@ class TempestaTest(unittest.TestCase):
     def __create_tempesta(self):
         desc = self.tempesta.copy()
         populate_properties(desc)
+        custom_cert = False
+        if 'custom_cert' in desc:
+            custom_cert = self.tempesta['custom_cert']
         config = ""
         if 'config' in desc:
             config = desc['config']
@@ -152,7 +155,8 @@ class TempestaTest(unittest.TestCase):
             self.__tempesta = factory(desc)
         else:
             self.__tempesta = default_tempesta_factory(desc)
-        self.__tempesta.config.set_defconfig(fill_template(config, desc))
+        self.__tempesta.config.set_defconfig(fill_template(config, desc),
+                                             custom_cert)
 
     def start_all_servers(self):
         for sid in self.__servers:

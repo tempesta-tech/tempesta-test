@@ -7,7 +7,7 @@ import sys
 import configparser
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class ConfigError(Exception):
