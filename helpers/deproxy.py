@@ -595,6 +595,9 @@ class Client(asyncore.dispatcher, stateful.Stateful):
         _, v, _ = sys.exc_info()
         if type(v) == ParseError or type(v) == AssertionError:
             raise v
+        elif type(v) == ssl.SSLWantReadError:
+            # Need to receive more data before decryption can start.
+            pass
         else:
             error.bug('\tDeproxy: Client: %s' % v)
 
