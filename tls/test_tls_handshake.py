@@ -55,6 +55,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         deproxy_srv = self.get_server('0')
         deproxy_srv.start()
         self.start_tempesta()
+        self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
 
@@ -279,6 +280,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.gen_cert("vhost2")
         self.start_all_servers()
         self.start_tempesta()
+        self.deproxy_manager.start()
 
     def test_vhost_sni(self):
         self.init()
@@ -373,6 +375,7 @@ class TlsCertReconfig(tester.TempestaTest):
         deproxy_srv = self.get_server('0')
         deproxy_srv.start()
         self.start_tempesta()
+        self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
 

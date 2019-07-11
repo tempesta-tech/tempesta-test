@@ -48,9 +48,10 @@ class TlsBasic(tester.TempestaTest):
         deproxy_srv = self.get_server('deproxy')
         deproxy_srv.start()
         self.start_tempesta()
+        self.start_all_clients()
+        self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "No connection from Tempesta to backends")
-        self.start_all_clients()
 
     def test_bad_request(self):
         self.start_all()

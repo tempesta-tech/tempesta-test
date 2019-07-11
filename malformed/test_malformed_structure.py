@@ -39,12 +39,13 @@ server ${general_ip}:8000;
     ]
 
     def common_check(self, request, expect=400):
-        deproxy = self.get_server('deproxy')
-        deproxy.start()
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv.start()
         self.start_tempesta()
-        self.assertTrue(deproxy.wait_for_connections(timeout=1))
         deproxy = self.get_client('deproxy')
         deproxy.start()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
         deproxy.make_request(request)
         has_resp = deproxy.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
@@ -86,9 +87,10 @@ server ${general_ip}:8000;
         deproxy_srv = self.get_server('deproxy')
         deproxy_srv.start()
         self.start_tempesta()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
         deproxy_cl = self.get_client('deproxy')
         deproxy_cl.start()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
         deproxy_cl.make_request(request)
         has_resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")

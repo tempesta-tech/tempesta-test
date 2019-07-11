@@ -41,10 +41,11 @@ class ContentTypeTestBase(tester.TempestaTest):
         self.assertEqual(0, len(self.deproxy_srv.requests))
 
         self.start_tempesta()
-        self.assertTrue(self.deproxy_srv.wait_for_connections(timeout=3))
 
         self.deproxy_cl = self.get_client('deproxy')
         self.deproxy_cl.start()
+        self.deproxy_manager.start()
+        self.assertTrue(self.deproxy_srv.wait_for_connections(timeout=3))
 
     def do_test_replacement(self, content_type, expected_content_type):
         """Perform a parametrized test of Content-Type string.

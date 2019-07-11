@@ -275,9 +275,6 @@ class TempestaTest(unittest.TestCase):
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
-        self.deproxy_manager.start()
-        # preventing race between manager start and servers start
-        time.sleep(0.2)
 
     def tearDown(self):
         tf_cfg.dbg(3, "\tTeardown")

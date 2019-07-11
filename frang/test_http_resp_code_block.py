@@ -125,13 +125,15 @@ frang_limits {
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
 
         deproxy_cl = self.get_client('deproxy')
         deproxy_cl.start()
 
         deproxy_cl2 = self.get_client('deproxy2')
         deproxy_cl2.start()
+
+        self.deproxy_manager.start()
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
 
         deproxy_cl.make_requests(requests)
         deproxy_cl2.make_requests(requests2)
