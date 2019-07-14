@@ -6,7 +6,7 @@ ECDSA-SHA256-SECP256R1 is the default certificate, so do not test it.
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from helpers import dmesg, remote
+from helpers import dmesg, remote, tf_cfg
 from framework import tester
 from framework.x509 import CertGenerator
 
@@ -301,3 +301,103 @@ class StaleCert(X509):
 
     def test(self):
         self.check_good_cert()
+
+
+class TlsDuplicateCerts(tester.TempestaTest):
+    clients = [
+        {
+            'id' : '0',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl' : True,
+        },
+    ]
+
+    backends = [
+        {
+            'id' : '0',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n'
+                'Connection: keep-alive\r\n\r\n'
+        },
+    ]
+
+    tempesta = {
+        'config' : """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group be1 { server ${server_ip}:8000; }
+
+            vhost tempesta-tech.com {
+                proxy_pass be1;
+                tls_certificate ${general_workdir}/tempesta.crt;
+                tls_certificate_key ${general_workdir}/tempesta.key;
+                tls_certificate ${general_workdir}/tempesta_dup.crt;
+                tls_certificate_key ${general_workdir}/tempesta_dup.key;
+            }
+
+            http_chain {
+                host == "tempesta-tech.com" -> tempesta-tech.com;
+                -> block;
+            }
+        """,
+        'custom_cert': True
+    }
+
+    @staticmethod
+    def gen_cert(host_name, alg=None):
+        workdir = tf_cfg.cfg.get('General', 'workdir')
+        cert_path = "%s/%s.crt" % (workdir, host_name)
+        key_path = "%s/%s.key" % (workdir, host_name)
+        cgen = CertGenerator(cert_path, key_path)
+        if alg == 'rsa':
+             cgen.key = {
+                'alg': 'rsa',
+                'len': 2048
+            }
+        cgen.generate()
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+
+    def test_duplicate(self):
+        self.gen_cert("tempesta")
+        self.gen_cert("tempesta2")
+
+        deproxy_srv = self.get_server('0')
+        deproxy_srv.start()
+        self.start_tempesta()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "Cannot start Tempesta")
+
+        warns = dmesg.count_warnings(msg)
+        self.start_all_clients()
+        client = self.get_client('0')
+        client.make_request('GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n')
+        res = client.wait_for_response(timeout=1)
+        self.assertFalse(res, "Erroneously established connection")
+        self.assertEqual(dmesg.count_warnings(msg), warns + 1,
+                         "No warning about duplicate certificates")
+
+    def test_2_diff_certs(self):
+        self.gen_cert("tempesta")
+        self.gen_cert("tempesta2", 'rsa')
+
+        deproxy_srv = self.get_server('0')
+        deproxy_srv.start()
+        self.start_tempesta()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "Cannot start Tempesta")
+
+        self.start_all_clients()
+        client = self.get_client('0')
+        client.make_request('GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n')
+        res = client.wait_for_response(timeout=1)
+        self.assertTrue(res, "Cannot process request")
+        status = client.last_response.status
+        self.assertEqual(status, '200', "Bad response status: %s" % status)

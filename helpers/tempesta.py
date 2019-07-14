@@ -226,22 +226,29 @@ class Config(object):
     def __handle_tls(self, custom_cert):
         """
         Parse the config string and generate x509 certificates if there are
-        appropriate options in the config.
+        appropriate options in the config. The default cert generator creates
+        only one certificate for the simplest Tempesta configuration - if you
+        need per vhost certificates, multiple cerificates and/or custom
+        certificate options, generate the certs on your own.
         """
+        if custom_cert:
+            return # nothing to do for us, a caller takes care about certs
         cfg = {}
         for l in self.defconfig.splitlines():
             l = l.strip(' \t;')
-            if not l or l.startswith('#'):
+            if not l or l.startswith('#') or l.startswith('}'):
                 continue
             k, v = l.split(' ', 1)
+            assert not k.startswith('tls_certificate') or not cfg.has_key(k), \
+                "Two or more certificates configured, please use custom_cert" \
+                " option in Tempesta configuration"
             cfg[k] = v
         if not cfg['listen'].find('https'):
             return
         cert_path, key_path = cfg['tls_certificate'], cfg['tls_certificate_key']
-        if not custom_cert:
-            cgen = CertGenerator(cert_path, key_path, True)
-            remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-            remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+        cgen = CertGenerator(cert_path, key_path, True)
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
 
     def set_defconfig(self, config, custom_cert=False):
         self.defconfig = config

@@ -137,6 +137,3 @@ class CertGenerator:
 
     def get_file_paths(self):
         return (self.f_cert, self.f_key)
-
-
-#print CertGenerator("/tmp/tfw.crt", "/tmp/tfw.key", True)
