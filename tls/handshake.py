@@ -41,10 +41,7 @@ def x509_check_cn(cert, cn):
     """
     for f in cert.fields['subject']:
         if f.oid.val == '2.5.4.3':
-            if str(f.value).endswith(cn):
-                return True
-            else:
-                return False
+            return str(f.value).endswith(cn)
     raise Exception("Certificate has no CommonName")
 
 
@@ -54,14 +51,11 @@ def x509_check_issuer(cert, issuer):
     """
     for f in cert.fields['issuer']:
         if f.oid.val == '2.5.4.10':
-            if str(f.value).endswith(issuer):
-                return True
-            else:
-                return False
+            return str(f.value).endswith(issuer)
     raise Exception("Certificate has no Issuer OrganizationName")
 
 
-class TlsHandshake(object):
+class TlsHandshake:
     """
     Class for custom TLS handshakes - mainly ScaPy-TLS wrapper.
     Update the fields defined in __init__() to customize a handshake.
@@ -77,7 +71,8 @@ class TlsHandshake(object):
         # Service members.
         self.sock = None
         # Additional handshake options.
-        self.sni = [] # vhost string names
+        self.sni = [] # vhost string names.
+        self.exts = [] # Extra extensions
         # HTTP server response (headers and body), if any.
         self.http_resp = None
         # Server certificate.
@@ -123,21 +118,49 @@ class TlsHandshake(object):
         return (begin + end) / 2
 
     def extra_extensions(self):
-        exts = []
         # Add ServerNameIdentification (SNI) extensiosn by specified vhosts.
         if self.sni:
             sns = [tls.TLSServerName(data=sname) for sname in self.sni]
-            exts = exts + [tls.TLSExtension() /
-                           tls.TLSExtServerNameIndication(server_names=sns)]
-        return exts
+            self.exts = self.exts + [tls.TLSExtension() /
+                                     tls.TLSExtServerNameIndication(
+                                         server_names=sns)]
+        # We're must be good with standard, but unsupported options.
+        self.exts = self.exts + [
+            tls.TLSExtension(type=0x3), # TrustedCA, RFC 6066 6.
+            tls.TLSExtension(type=0x5), # StatusRequest, RFC 6066 8.
+            tls.TLSExtension(type=0xf0), # Bad extension, just skipped
+
+            tls.TLSExtension() /
+            tls.TLSExtALPN(protocol_name_list=[
+                tls.TLSALPNProtocol(data="http/1.1"),
+                tls.TLSALPNProtocol(data="http/2.0")]),
+
+            tls.TLSExtension() /
+            tls.TLSExtMaxFragmentLength(fragment_length=0x01), # 512 bytes
+
+            tls.TLSExtension() /
+            tls.TLSExtCertificateURL(certificate_urls=[
+                tls.TLSURLAndOptionalHash(url="http://www.example.com/")]),
+
+            tls.TLSExtension() /
+            tls.TLSExtHeartbeat(
+                mode=tls.TLSHeartbeatMode.PEER_NOT_ALLOWED_TO_SEND),
+
+            tls.TLSExtension() /
+            tls.TLSExtSessionTicketTLS(data="myticket"),
+
+            tls.TLSExtension() /
+            tls.TLSExtRenegotiationInfo(data="myreneginfo")
+        ]
+        return self.exts
 
     def do_12(self):
         """
-        Test TLS 1.2 handshake: establish a new TCP connection and send predefined
-        TLS handshake records. This test is suitable for debug build of Tempesta FW,
-        which replaces random and time functions with deterministic data. The test
-        doesn't actually verify any functionality, but rather just helps to debug
-        the core handshake functionality.
+        Test TLS 1.2 handshake: establish a new TCP connection and send
+        predefined TLS handshake records. This test is suitable for debug build
+        of Tempesta FW, which replaces random and time functions with
+        deterministic data. The test doesn't actually verify any functionality,
+        but rather just helps to debug the core handshake functionality.
         """
         try:
             self.conn_estab()
@@ -149,7 +172,8 @@ class TlsHandshake(object):
         c_h = tls.TLSClientHello(
             gmt_unix_time=0x22222222,
             random_bytes='\x11' * 28,
-            cipher_suites=[tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
+            cipher_suites=[
+                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
             compression_methods=[tls.TLSCompressionMethod.NULL],
             # EtM isn't supported - just try to negate an unsupported extension.
             extensions=[
@@ -167,6 +191,9 @@ class TlsHandshake(object):
         # Send ClientHello and read ServerHello, ServerCertificate,
         # ServerKeyExchange, ServerHelloDone.
         resp = self.send_recv(msg1)
+        if not resp.haslayer(tls.TLSCertificate):
+            self.sock.close()
+            return False
         self.cert = resp[tls.TLSCertificate].data
         assert self.cert, "No cerfificate received"
         if self.verbose:
@@ -222,7 +249,7 @@ class TlsHandshake(object):
         return res
 
 
-class TlsHandshakeStandard(object):
+class TlsHandshakeStandard:
     """
     This class uses OpenSSL backend, so all its routines less customizable,
     but are good to test TempestaTLS behavior with standard tools and libs.

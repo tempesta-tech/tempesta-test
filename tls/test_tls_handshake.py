@@ -13,6 +13,9 @@ __license__ = 'GPL2'
 
 
 class TlsHandshakeTest(tester.TempestaTest):
+
+    WARN = "Warning: Unrecognized TLS receive return code"
+
     backends = [
         {
             'id' : '0',
@@ -47,15 +50,31 @@ class TlsHandshakeTest(tester.TempestaTest):
         """
     }
 
-    def test_tls12_synthetic(self):
-        self.start_all_servers()
+    def start_all(self):
+        deproxy_srv = self.get_server('0')
+        deproxy_srv.start()
         self.start_tempesta()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "Cannot start Tempesta")
+
+    def test_tls12_synthetic(self):
+        self.start_all()
         res = TlsHandshake(addr='127.0.0.1', port=443).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
+    def test_long_ext(self):
+        """ Also tests receiving of TLS alert. """
+        self.start_all()
+        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12.sni = ["a" * 100 for i in xrange(10)]
+        warns = dmesg.count_warnings(self.WARN)
+        with self.assertRaises(tls.TLSProtocolError):
+            hs12.do_12()
+        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+                         "No warning about bad ClientHello")
+
     def test_bad_sni(self):
-        self.start_all_servers()
-        self.start_tempesta()
+        self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["bad.server.name"]
         res = hs12.do_12()
@@ -63,8 +82,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertFalse(res, "Bad SNI isn't rejected")
 
     def test_old_handshakes(self):
-        self.start_all_servers()
-        self.start_tempesta()
+        self.start_all()
         res = TlsHandshakeStandard(addr='127.0.0.1', port=443).do_old()
         self.assertTrue(res, "Wrong old handshake result: %s" % res)
 
@@ -171,7 +189,7 @@ class TlsCertReconfig(tester.TempestaTest):
     """
     backends = [
         {
-            'id' : 'be',
+            'id' : '0',
             'type' : 'deproxy',
             'port' : '8000',
             'response' : 'static',
@@ -215,8 +233,11 @@ class TlsCertReconfig(tester.TempestaTest):
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
 
     def test(self):
-        self.start_all_servers()
+        deproxy_srv = self.get_server('0')
+        deproxy_srv.start()
         self.start_tempesta()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "Cannot start Tempesta")
 
         vhs = TlsHandshake(addr='127.0.0.1', port=443)
         res = vhs.do_12()

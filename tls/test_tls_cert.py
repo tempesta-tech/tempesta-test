@@ -374,7 +374,7 @@ class TlsDuplicateCerts(tester.TempestaTest):
         self.start_tempesta()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
-
+        msg = "Warning: Unrecognized TLS receive return code"
         warns = dmesg.count_warnings(msg)
         self.start_all_clients()
         client = self.get_client('0')
