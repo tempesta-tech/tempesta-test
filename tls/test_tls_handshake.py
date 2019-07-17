@@ -36,6 +36,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
+            tls_fallback_default allow_fallback;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
@@ -59,11 +60,14 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_tls12_synthetic(self):
         self.start_all()
-        res = TlsHandshake(addr='127.0.0.1', port=443).do_12()
+        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12.sni = ['tempesta-tech.com']
+        res = hs12.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_long_ext(self):
         """ Also tests receiving of TLS alert. """
+        # TODO other extensions known for Tempesta must be tested as well.
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["a" * 100 for i in xrange(10)]
@@ -207,6 +211,7 @@ class TlsCertReconfig(tester.TempestaTest):
 
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
+            tls_fallback_default allow_fallback;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
