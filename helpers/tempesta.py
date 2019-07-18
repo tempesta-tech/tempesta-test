@@ -234,7 +234,6 @@ class Config(object):
         if custom_cert:
             return # nothing to do for us, a caller takes care about certs
         cfg = {}
-        print("CFG = [%s]" % (self.defconfig))
         for l in self.defconfig.splitlines():
             l = l.strip(' \t;')
             if not l or l.startswith('#'):

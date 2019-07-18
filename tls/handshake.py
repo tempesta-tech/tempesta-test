@@ -74,6 +74,8 @@ class TlsHandshake:
         self.exts = [] # Extra extensions
         self.sign_algs = []
         self.elliptic_curves = []
+        self.ciphers = []
+        self.compressions = []
         # HTTP server response (headers and body), if any.
         self.http_resp = None
         # Host reques header value, taken from SNI by default.
@@ -183,8 +185,10 @@ class TlsHandshake:
             gmt_unix_time=0x22222222,
             random_bytes='\x11' * 28,
             cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
-            compression_methods=[tls.TLSCompressionMethod.NULL],
+                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
+                self.ciphers,
+            compression_methods=[tls.TLSCompressionMethod.NULL] +
+                self.compressions,
             # EtM isn't supported - just try to negate an unsupported extension.
             extensions=[
                 tls.TLSExtension(type=0x16), # Encrypt-then-MAC
