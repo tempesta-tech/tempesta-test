@@ -234,16 +234,20 @@ class Config(object):
         if custom_cert:
             return # nothing to do for us, a caller takes care about certs
         cfg = {}
+        print("CFG = [%s]" % (self.defconfig))
         for l in self.defconfig.splitlines():
             l = l.strip(' \t;')
-            if not l or l.startswith('#') or l.startswith('}'):
+            if not l or l.startswith('#'):
                 continue
-            k, v = l.split(' ', 1)
+            try:
+                k, v = l.split(' ', 1)
+            except ValueError:
+                continue # just ignore lines like '}' or '"'
             assert not k.startswith('tls_certificate') or not cfg.has_key(k), \
                 "Two or more certificates configured, please use custom_cert" \
                 " option in Tempesta configuration"
             cfg[k] = v
-        if not cfg['listen'].find('https'):
+        if not cfg.has_key('listen') or not cfg['listen'].find('https'):
             return
         cert_path, key_path = cfg['tls_certificate'], cfg['tls_certificate_key']
         cgen = CertGenerator(cert_path, key_path, True)

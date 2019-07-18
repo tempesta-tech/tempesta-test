@@ -36,7 +36,6 @@ class TlsHandshakeTest(tester.TempestaTest):
 
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
-            tls_fallback_default allow_fallback;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
@@ -60,14 +59,11 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_tls12_synthetic(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
-        hs12.sni = ['tempesta-tech.com']
-        res = hs12.do_12()
+        res = TlsHandshake(addr='127.0.0.1', port=443).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
-    def test_long_ext(self):
+    def test_long_sni(self):
         """ Also tests receiving of TLS alert. """
-        # TODO other extensions known for Tempesta must be tested as well.
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["a" * 100 for i in xrange(10)]
@@ -77,13 +73,51 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
                          "No warning about bad ClientHello")
 
+    def test_empty_sni_default(self):
+        self.start_all()
+        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12.sni = []
+        self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
+
     def test_bad_sni(self):
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["bad.server.name"]
+        hs12.host = "tempesta-tech.com"
         res = hs12.do_12()
-        # TODO better error handling
-        self.assertFalse(res, "Bad SNI isn't rejected")
+        warns = dmesg.count_warnings(self.WARN)
+        with self.assertRaises(tls.TLSProtocolError):
+            hs12.do_12()
+        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+                         "Bad SNI isn't rejected")
+
+    def test_bad_sign_algs(self):
+        self.start_all()
+        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        # Generate bad extension mismatching length and actual data.
+        hs12.sign_algs = [tls.TLSExtension() /
+                          tls.TLSExtSignatureAlgorithms(
+                              algs=[0x0201, 0x0401, 0x0501, 0x0601, 0x0403],
+                              length=11)]
+        warns = dmesg.count_warnings(self.WARN)
+        with self.assertRaises(tls.TLSProtocolError):
+            hs12.do_12()
+        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+                         "No warning about bad ClientHello")
+
+    def test_bad_elliptic_curves(self):
+        self.start_all()
+        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        # Generate bit longer data than Tempesta accepts (TTLS_ECP_DP_MAX = 12).
+        hs12.elliptic_curves = [tls.TLSExtension() /
+                                tls.TLSExtEllipticCurves(
+                                    named_group_list=[i for i in xrange(13)],
+                                    length=26)]
+        warns = dmesg.count_warnings(self.WARN)
+        with self.assertRaises(tls.TLSProtocolError):
+            hs12.do_12()
+        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+                         "No warning about bad ClientHello")
 
     def test_old_handshakes(self):
         self.start_all()

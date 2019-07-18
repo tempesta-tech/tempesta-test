@@ -660,7 +660,7 @@ class Client(TlsClient, stateful.Stateful):
 
     def handle_read(self):
         while True: # TLS aware - read as many records as we can
-            buf += self.recv(MAX_MESSAGE_SIZE)
+            buf = self.recv(MAX_MESSAGE_SIZE)
             if not buf:
                 break
             self.response_buffer += buf

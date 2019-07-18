@@ -27,7 +27,6 @@ __copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
-REQUEST = "GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"
 GOOD_RESP = "HTTP/1.1 200"
 TLS_HS_WARN = "Warning: Unrecognized TLS receive return code"
 
@@ -71,10 +70,14 @@ class TlsHandshake:
         # Service members.
         self.sock = None
         # Additional handshake options.
-        self.sni = [] # vhost string names.
+        self.sni = ['tempesta-tech.com'] # vhost string names.
         self.exts = [] # Extra extensions
+        self.sign_algs = []
+        self.elliptic_curves = []
         # HTTP server response (headers and body), if any.
         self.http_resp = None
+        # Host reques header value, taken from SNI by default.
+        self.host = None
         # Server certificate.
         self.cert = None
 
@@ -121,11 +124,18 @@ class TlsHandshake:
         # Add ServerNameIdentification (SNI) extensiosn by specified vhosts.
         if self.sni:
             sns = [tls.TLSServerName(data=sname) for sname in self.sni]
-            self.exts = self.exts + [tls.TLSExtension() /
-                                     tls.TLSExtServerNameIndication(
-                                         server_names=sns)]
+            self.exts += [tls.TLSExtension() /
+                          tls.TLSExtServerNameIndication(server_names=sns)]
+        if self.sign_algs:
+            self.exts += self.sign_algs
+        else:
+            self.exts += [tls.TLSExtension() / tls.TLSExtSignatureAlgorithms()]
+        if self.elliptic_curves:
+            self.exts += self.elliptic_curves
+        else:
+            self.exts += [tls.TLSExtension() / tls.TLSExtSupportedGroups()]
         # We're must be good with standard, but unsupported options.
-        self.exts = self.exts + [
+        self.exts += [
             tls.TLSExtension(type=0x3), # TrustedCA, RFC 6066 6.
             tls.TLSExtension(type=0x5), # StatusRequest, RFC 6066 8.
             tls.TLSExtension(type=0xf0), # Bad extension, just skipped
@@ -178,9 +188,7 @@ class TlsHandshake:
             # EtM isn't supported - just try to negate an unsupported extension.
             extensions=[
                 tls.TLSExtension(type=0x16), # Encrypt-then-MAC
-                tls.TLSExtension() / tls.TLSExtECPointsFormat(),
-                tls.TLSExtension() / tls.TLSExtSupportedGroups(),
-                tls.TLSExtension() / tls.TLSExtSignatureAlgorithms()]
+                tls.TLSExtension() / tls.TLSExtECPointsFormat()]
             + self.extra_extensions()
         )
         msg1 = tls.TLSRecord(version='TLS_1_2') / \
@@ -231,7 +239,9 @@ class TlsHandshake:
             print(self.sock.tls_ctx)
 
         # Send an HTTP request and get a response.
-        resp = self.send_recv(tls.TLSPlaintext(data=REQUEST))
+        req = "GET / HTTP/1.1\r\nHost: %s\r\n\r\n" \
+              % (self.host if self.host else self.sni[0])
+        resp = self.send_recv(tls.TLSPlaintext(data=req))
         if resp.haslayer(tls.TLSRecord):
             self.http_resp = resp[tls.TLSRecord].data
             res = self.http_resp.startswith(GOOD_RESP)
@@ -281,7 +291,7 @@ class TlsHandshakeStandard:
                 print("TLS handshake failed w/o warning")
             return False
 
-        tls_sock.send(REQUEST)
+        tls_sock.send("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
         resp = tls_sock.recv(100)
         tls_sock.close()
         if resp.startswith(GOOD_RESP):
