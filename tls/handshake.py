@@ -152,7 +152,7 @@ class TlsHandshake:
 
             tls.TLSExtension() /
             tls.TLSExtCertificateURL(certificate_urls=[
-                tls.TLSURLAndOptionalHash(url="http://www.example.com/")]),
+                tls.TLSURLAndOptionalHash(url="http://www.tempesta-tech.com")]),
 
             tls.TLSExtension() /
             tls.TLSExtHeartbeat(
