@@ -37,7 +37,8 @@ class TlsIntegrityTester(tester.TempestaTest):
         deproxy_srv = self.get_server('deproxy')
         deproxy_srv.start()
         self.start_tempesta()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "No connection from Tempesta to backends")
         self.start_all_clients()
 
     @staticmethod
