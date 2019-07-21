@@ -130,6 +130,18 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
                          "No warning about bad ClientHello")
 
+    def test_bad_renegotiation_info(self):
+        self.start_all()
+        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        # Generate bit longer data than Tempesta accepts (TTLS_ECP_DP_MAX = 12).
+        hs12.renegotiation_info = [tls.TLSExtension() /
+                                   tls.TLSExtRenegotiationInfo(data="foo")]
+        warns = dmesg.count_warnings(self.WARN)
+        with self.assertRaises(tls.TLSProtocolError):
+            hs12.do_12()
+        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+                         "No warning about non-empty RenegotiationInfo")
+
     def test_old_handshakes(self):
         self.start_all()
         res = TlsHandshakeStandard(addr='127.0.0.1', port=443).do_old()

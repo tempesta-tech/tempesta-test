@@ -76,6 +76,7 @@ class TlsHandshake:
         self.elliptic_curves = []
         self.ciphers = []
         self.compressions = []
+        self.renegotiation_info = []
         # HTTP server response (headers and body), if any.
         self.http_resp = None
         # Host reques header value, taken from SNI by default.
@@ -136,6 +137,11 @@ class TlsHandshake:
             self.exts += self.elliptic_curves
         else:
             self.exts += [tls.TLSExtension() / tls.TLSExtSupportedGroups()]
+        if self.renegotiation_info:
+            self.exts += self.renegotiation_info
+        else:
+            self.exts += [tls.TLSExtension() /
+                          tls.TLSExtRenegotiationInfo(data="")]
         # We're must be good with standard, but unsupported options.
         self.exts += [
             tls.TLSExtension(type=0x3), # TrustedCA, RFC 6066 6.
@@ -159,10 +165,7 @@ class TlsHandshake:
                 mode=tls.TLSHeartbeatMode.PEER_NOT_ALLOWED_TO_SEND),
 
             tls.TLSExtension() /
-            tls.TLSExtSessionTicketTLS(data="myticket"),
-
-            tls.TLSExtension() /
-            tls.TLSExtRenegotiationInfo(data="myreneginfo")
+            tls.TLSExtSessionTicketTLS(data="myticket")
         ]
         return self.exts
 
