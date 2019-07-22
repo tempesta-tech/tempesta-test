@@ -14,6 +14,7 @@
 #   - https://wiki.osdev.org/TLS_Encryption
 
 from __future__ import print_function
+from contextlib import contextmanager
 import random
 import socket
 import ssl # OpenSSL based API
@@ -77,12 +78,20 @@ class TlsHandshake:
         self.ciphers = []
         self.compressions = []
         self.renegotiation_info = []
+        self.inject = None
         # HTTP server response (headers and body), if any.
         self.http_resp = None
-        # Host reques header value, taken from SNI by default.
+        # Host request header value, taken from SNI by default.
         self.host = None
         # Server certificate.
         self.cert = None
+
+    @contextmanager
+    def socket_ctx(self):
+        try:
+            yield
+        finally:
+            self.sock.close()
 
     def conn_estab(self):
         assert not self.sock, "Connection has already been established"
@@ -122,6 +131,17 @@ class TlsHandshake:
     def static_rnd(begin, end):
         """ A replacement for random.randint() to return constant results. """
         return (begin + end) / 2
+
+    def inject_bad(self, fuzzer):
+        """
+        Inject a bad record after @self.inject normal records.
+        """
+        if self.inject is None or not fuzzer:
+            return
+        if self.inject > 0:
+            self.inject -= 1
+            return
+        self.sock.send(next(fuzzer))
 
     def extra_extensions(self):
         # Add ServerNameIdentification (SNI) extensiosn by specified vhosts.
@@ -169,7 +189,11 @@ class TlsHandshake:
         ]
         return self.exts
 
-    def do_12(self):
+    def send_12_alert(self, level, desc):
+        self.sock.sendall(tls.TLSRecord(version='TLS_1_2') /
+                          tls.TLSAlert(level=level, description=desc))
+
+    def _do_12_hs(self, fuzzer=None):
         """
         Test TLS 1.2 handshake: establish a new TCP connection and send
         predefined TLS handshake records. This test is suitable for debug build
@@ -180,9 +204,7 @@ class TlsHandshake:
         try:
             self.conn_estab()
         except socket.error:
-            print("Cannot connect to %s:%d: %s"
-                  % (self.addr, self.port, str(socket.error)))
-            return 2
+            return False
 
         c_h = tls.TLSClientHello(
             gmt_unix_time=0x22222222,
@@ -205,14 +227,18 @@ class TlsHandshake:
 
         # Send ClientHello and read ServerHello, ServerCertificate,
         # ServerKeyExchange, ServerHelloDone.
+        self.inject_bad(fuzzer)
         resp = self.send_recv(msg1)
         if not resp.haslayer(tls.TLSCertificate):
-            self.sock.close()
             return False
         self.cert = resp[tls.TLSCertificate].data
         assert self.cert, "No cerfificate received"
         if self.verbose:
             resp.show()
+
+        # Check that before encryoptin non-critical alerts are just ignored.
+        self.send_12_alert(tls.TLSAlertLevel.WARNING,
+                           tls.TLSAlertDescription.RECORD_OVERFLOW)
 
         # Send ClientKeyExchange, ChangeCipherSpec.
         # get_client_kex_data() -> get_client_ecdh_pubkey() -> make_keypair()
@@ -229,6 +255,7 @@ class TlsHandshake:
             msg1.show()
             msg2.show()
 
+        self.inject_bad(fuzzer)
         self.sock.sendall(tls.TLS.from_records([msg1, msg2]))
         # Now we can calculate the final session checksum, send ClientFinished,
         # and receive ServerFinished.
@@ -240,12 +267,16 @@ class TlsHandshake:
         if self.verbose:
             msg1.show()
 
+        self.inject_bad(fuzzer)
         resp = self.send_recv(msg1)
         if self.verbose:
             resp.show()
             print(self.sock.tls_ctx)
+        return False
 
-        # Send an HTTP request and get a response.
+    def _do_12_req(self, fuzzer=None):
+        """ Send an HTTP request and get a response. """
+        self.inject_bad(fuzzer)
         req = "GET / HTTP/1.1\r\nHost: %s\r\n\r\n" \
               % (self.host if self.host else self.sni[0])
         resp = self.send_recv(tls.TLSPlaintext(data=req))
@@ -261,9 +292,13 @@ class TlsHandshake:
                 print("\n=== PASSED ===\n")
             else:
                 print("\n=== FAILED ===\n")
-
-        self.sock.close()
         return res
+
+    def do_12(self, fuzzer=None):
+        with self.socket_ctx():
+            if not self._do_12_hs(fuzzer):
+                return False
+            return self._do_12_req(fuzzer)
 
 
 class TlsHandshakeStandard:

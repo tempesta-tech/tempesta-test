@@ -6,6 +6,7 @@ from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg
 from handshake import *
+from fuzzer import tls_record_fuzzer
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
@@ -34,13 +35,16 @@ class TlsHandshakeTest(tester.TempestaTest):
             cache 0;
             listen 443 proto=https;
 
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
             }
             vhost tempesta-tech.com {
                 proxy_pass srv_grp1;
-                tls_certificate ${general_workdir}/tempesta.crt;
-                tls_certificate_key ${general_workdir}/tempesta.key;
+                # TODO tls_certificate ${general_workdir}/tempesta.crt;
+                # TODO tls_certificate_key ${general_workdir}/tempesta.key;
             }
             http_chain {
                 host == "tempesta-tech.com" -> tempesta-tech.com;
@@ -141,6 +145,43 @@ class TlsHandshakeTest(tester.TempestaTest):
             hs12.do_12()
         self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
                          "No warning about non-empty RenegotiationInfo")
+
+    def test_alert(self):
+        self.start_all()
+        tls_conn = TlsHandshake(addr='127.0.0.1', port=443)
+        with tls_conn.socket_ctx():
+            self.assertTrue(tls_conn._do_12_hs(), "Can not connect to Tempesta")
+            tls_conn.send_12_alert(tls.TLSAlertLevel.WARNING,
+                                   tls.TLSAlertDescription.UNEXPECTED_MESSAGE)
+            res = tls_conn._do_12_req()
+            self.assertTrue(res, "Wrong request 1 result: %s" % res)
+            # Unknown alerts are just ignored.
+            tls_conn.send_12_alert(22, 77)
+            res = tls_conn._do_12_req()
+            self.assertTrue(res, "Wrong request 2 result: %s" % res)
+            tls_conn.send_12_alert(tls.TLSAlertLevel.FATAL,
+                                   tls.TLSAlertDescription.UNEXPECTED_MESSAGE)
+            res = tls_conn._do_12_req()
+            self.assertFalse(res, "Request processed on closed socket")
+
+    def test_fuzzing(self):
+        """
+        Inject bad (fuzzed) TLS records at different places on TLS handshake.
+        Also try different message variants for each place.
+        """
+        self.start_all()
+        fuzzer = tls_record_fuzzer()
+        for _ in xrange(10):
+            # Only 4 places to inject a pakcet in simple handshake and
+            # request test.
+            for inject_rec in xrange(4):
+                tls_conn = TlsHandshake(addr='127.0.0.1', port=443)
+                tls_conn.inject = inject_rec
+                try:
+                    res = tls_conn.do_12(fuzzer)
+                    self.assertFalse(res, "Got request on fuzzed connection")
+                except socket.error:
+                    pass # broken pipe is expected
 
     def test_old_handshakes(self):
         self.start_all()
