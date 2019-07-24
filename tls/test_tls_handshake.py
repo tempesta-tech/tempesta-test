@@ -65,6 +65,21 @@ class TlsHandshakeTest(tester.TempestaTest):
         res = TlsHandshake(addr='127.0.0.1', port=443).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
+    def test_1byte_transfer(self):
+        self.start_all()
+        res = TlsHandshake(addr='127.0.0.1', port=443, chunk=1).do_12()
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
+
+    def test_9byte_transfer(self):
+        self.start_all()
+        res = TlsHandshake(addr='127.0.0.1', port=443, chunk=9).do_12()
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
+
+    def test_10byte_transfer(self):
+        self.start_all()
+        res = TlsHandshake(addr='127.0.0.1', port=443, chunk=10).do_12()
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
+
     def test_many_ciphers(self):
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)

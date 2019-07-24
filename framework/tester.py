@@ -202,7 +202,7 @@ class TempestaTest(unittest.TestCase):
         try:
             deproxy_manager.finish_all_deproxy()
         except:
-            print ('Unknown exception in stopping deproxy')
+            print('Unknown exception in stopping deproxy')
 
         self.oops.update()
         if self.oops.warn_count("Oops") > 0:

@@ -601,7 +601,7 @@ class TlsClient(asyncore.dispatcher):
     def tls_handshake(self):
         try:
             self.socket.do_handshake()
-        except ssl.SSLError, tls_e:
+        except ssl.SSLError as tls_e:
             self.want_read = self.want_write = False
             if tls_e.args[0] == ssl.SSL_ERROR_WANT_READ:
                 self.want_read = True

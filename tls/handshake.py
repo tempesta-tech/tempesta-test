@@ -20,6 +20,7 @@ import socket
 import ssl # OpenSSL based API
 import struct
 import scapy_ssl_tls.ssl_tls as tls
+from time import sleep
 
 from helpers import dmesg
 
@@ -63,10 +64,17 @@ class TlsHandshake:
     Use higher @rto values to debug/test Tempesta in debug mode.
     Use True for @verbose to see debug output for the handshake.
     """
-    def __init__(self, addr='127.0.0.1', port=443, rto=0.5, verbose=False):
+    def __init__(self, addr='127.0.0.1', port=443, rto=0.5, chunk=None,
+                 verbose=False):
         self.addr = addr
         self.port = port
         self.rto = rto
+        self.chunk = chunk
+        # We should be able to send at least 10KB with 1ms chunk delay for RTO.
+        if self.chunk and self.chunk < 10000:
+            rto = 10000 / self.chunk * 0.001
+            if self.rto < rto:
+                self.rto = rto
         self.verbose = verbose
         # Service members.
         self.sock = None
@@ -101,6 +109,9 @@ class TlsHandshake:
         self.sock.settimeout(self.rto)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
                              struct.pack('ll', 2, self.rto * 1000))
+        if self.chunk:
+            # Send data immediately w/o coalescing.
+            self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.sock.connect((self.addr, self.port))
 
     def send_recv(self, pkt):
@@ -112,7 +123,43 @@ class TlsHandshake:
         assert self.sock, "Try to read and write on invalid socket"
         resp = tls.TLS()
         try:
-            self.sock.sendall(pkt)
+            if self.chunk:
+                prev_timeout = self.sock._s.gettimeout()
+                self.sock._s.settimeout(self.rto)
+                if self.sock.ctx.must_encrypt:
+                    __s = str(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
+                                             self.sock.compress_hook,
+                                             self.sock.pre_encrypt_hook,
+                                             self.sock.encrypt_hook))
+                else:
+                    __s = str(pkt)
+                n = self.chunk
+                for chunk in [__s[i:i + n] for i in xrange(0, len(__s), n)]:
+                    """
+                    This is a simple and ugly way to send many TCP segments,
+                    but it's the most applicable with other ways - some of
+                    them however gives desired effect, but in too complex way:
+                    1. SO_MAX_PACING_RATE and fair queue (TC) policing cares
+                       about total rate - it sends full TCP segments and
+                       introduces huge delays to satisfy the policy.
+                    2. TCP_MAXSEG socket option as well as reducing TCP read
+                       and write memory like
+                         sysctl -w net.ipv4.tcp_wmem='16 16 32'
+                         sysctl -w net.ipv4.tcp_rmem='16 16 32'
+                       negatively affect the whole system settings (pet socket
+                       setting also influenced by the global sysctls) and do
+                       not work with GSO & GRO - a peer still recives large
+                       frags.
+                    3. iptables --set-mss allows to change SYN packets only.
+                    4. Setting interface MTU also doesn't work properly against
+                       segmentation offloads.
+                    """
+                    self.sock._s.sendall(chunk)
+                    sleep(0.001)
+                self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
+                self.sock._s.settimeout(prev_timeout)
+            else:
+                self.sock.sendall(pkt, timeout=self.rto)
             resp = self.sock.recvall(timeout=self.rto)
             if resp.haslayer(tls.TLSAlert):
                 alert = resp[tls.TLSAlert]
@@ -272,7 +319,7 @@ class TlsHandshake:
         if self.verbose:
             resp.show()
             print(self.sock.tls_ctx)
-        return False
+        return True
 
     def _do_12_req(self, fuzzer=None):
         """ Send an HTTP request and get a response. """
