@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from helpers import dmesg, remote, tf_cfg
+from helpers.error import Error
 from framework import tester
 from framework.x509 import CertGenerator
 
@@ -278,7 +279,7 @@ class InvalidHash(X509):
         # We do care only about Oopses, not about warnings or errors.
         self.oops.update()
         if self.oops.warn_count("Oops") > 0:
-            raise Exception("Oopses happened during test on Tempesta")
+            raise Error("Oopses happened during test on Tempesta")
 
 
 class StaleCert(X509):

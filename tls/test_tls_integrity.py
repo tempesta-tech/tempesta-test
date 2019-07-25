@@ -6,6 +6,7 @@ import hashlib
 from time import sleep
 
 from helpers import tf_cfg, analyzer, remote, sysnet
+from helpers.error import Error
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -101,7 +102,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             # both the client and server connections.
             dev = sysnet.route_dst_ip(remote.client, client.addr[0])
             prev_mtu = sysnet.change_mtu(remote.client, dev, 1500)
-        except Exception as err:
+        except Error as err:
             self.fail(err)
 
         with self.mtu_ctx(remote.client, dev, prev_mtu):

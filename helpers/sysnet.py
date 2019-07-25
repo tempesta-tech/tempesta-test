@@ -5,6 +5,7 @@ import socket
 import struct
 
 from helpers import remote
+from helpers.error import Error
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
@@ -73,9 +74,9 @@ def route_dst_ip(node, ip):
     try:
         res, _ = node.run_cmd(command)
         return res.split()[1]
-    except Exception as err:
-        raise Exception("Can not determine outgoing device for %s: %s"
-                        % (ip, err))
+    except Error as err:
+        raise Error("Can not determine outgoing device for %s: %s"
+                    % (ip, err))
 
 
 def get_mtu(node, dev):
@@ -83,8 +84,8 @@ def get_mtu(node, dev):
     try:
         res, _ = node.run_cmd(command)
         return int(res.split()[1])
-    except Exception as err:
-        raise Exception("Can not determine MTU for device %s: %s" % (ip, err))
+    except Error as err:
+        raise Error("Can not determine MTU for device %s: %s" % (ip, err))
 
 
 def change_mtu(node, dev, mtu):
@@ -93,10 +94,10 @@ def change_mtu(node, dev, mtu):
     command = "LANG=C ip link set %s mtu %d" % (dev, mtu)
     try:
         node.run_cmd(command)
-    except Exception as err:
-        raise Exception("Can not determine outgoing device for %s: %s"
-                        % (ip, err))
+    except Error as err:
+        raise Error("Can not determine outgoing device for %s: %s"
+                    % (ip, err))
     if mtu != get_mtu(node, dev):
-        raise Exception("Cannot set MTU %d for device %s" % (mtu, dev))
+        raise Error("Cannot set MTU %d for device %s" % (mtu, dev))
     return prev_mtu
 

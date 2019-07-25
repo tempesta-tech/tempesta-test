@@ -23,6 +23,7 @@ import scapy_ssl_tls.ssl_tls as tls
 from time import sleep
 
 from helpers import dmesg
+from helpers.error import Error
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
@@ -43,7 +44,7 @@ def x509_check_cn(cert, cn):
     for f in cert.fields['subject']:
         if f.oid.val == '2.5.4.3':
             return str(f.value).endswith(cn)
-    raise Exception("Certificate has no CommonName")
+    raise Error("Certificate has no CommonName")
 
 
 def x509_check_issuer(cert, issuer):
@@ -53,7 +54,7 @@ def x509_check_issuer(cert, issuer):
     for f in cert.fields['issuer']:
         if f.oid.val == '2.5.4.10':
             return str(f.value).endswith(issuer)
-    raise Exception("Certificate has no Issuer OrganizationName")
+    raise Error("Certificate has no Issuer OrganizationName")
 
 
 class TlsHandshake:
