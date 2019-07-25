@@ -18,6 +18,7 @@ from __future__ import print_function
 import abc
 from StringIO import StringIO
 import asyncore
+import errno
 import select
 import socket
 import ssl
@@ -660,7 +661,11 @@ class Client(TlsClient, stateful.Stateful):
 
     def handle_read(self):
         while True: # TLS aware - read as many records as we can
-            buf = self.recv(MAX_MESSAGE_SIZE)
+            try:
+                buf = self.recv(MAX_MESSAGE_SIZE)
+            except IOError as err:
+                if err.errno == errno.EWOULDBLOCK:
+                    break
             if not buf:
                 break
             self.response_buffer += buf

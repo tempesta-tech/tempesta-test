@@ -1,9 +1,11 @@
 """
 Tests for data integrity transfered via Tempesta TLS.
 """
+from contextlib import contextmanager
 import hashlib
+from time import sleep
 
-from helpers import tf_cfg
+from helpers import tf_cfg, analyzer, remote, sysnet
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -50,7 +52,7 @@ class TlsIntegrityTester(tester.TempestaTest):
     @staticmethod
     def make_req(req_len):
         return  'POST /' + str(req_len) + ' HTTP/1.1\r\n' \
-                'Host: localhost\r\n' \
+                'Host: tempesta-tech.com\r\n' \
                 'Content-Length: ' + str(req_len) + '\r\n' \
                 '\r\n' + ('x' * req_len)
 
@@ -68,9 +70,46 @@ class TlsIntegrityTester(tester.TempestaTest):
                                  " (len=%d)" % (req_len, resp_len))
             resp = client.responses.pop().body
             tf_cfg.dbg(4, '\tDeproxy response (len=%d): %s...'
-                    % (len(resp), resp[:100]))
+                       % (len(resp), resp[:100]))
             hash2 = hashlib.md5(resp).digest()
             self.assertTrue(hash1 == hash2, "Bad response checksum")
+
+    @contextmanager
+    def mtu_ctx(self, node, dev, mtu):
+        try:
+            yield
+        finally:
+            sysnet.change_mtu(node, dev, mtu)
+
+    def tcp_flow_check(self, resp_len):
+        """ Check how Tempesta generates TCP segments for TLS records. """
+        # Run the sniffer first to let it start in separate thread.
+        sniffer = analyzer.AnalyzerTCPSegmentation(remote.tempesta, 'Tempesta',
+                                                   timeout=3, ports=(443, 8000))
+        sniffer.start()
+        sleep(0.001) # Just schedule to another thread.
+
+        resp_body = 'x' * resp_len
+        self.get_server('deproxy').set_response(self.make_resp(resp_body))
+
+        client = self.get_client(self.clients[0]['id'])
+
+        try:
+            # Deproxy client and server run on the same node and network
+            # interface, so, regardless where the Tempesta node resides, we can
+            # change MTU on the local interface only to get the same MTU for
+            # both the client and server connections.
+            dev = sysnet.route_dst_ip(remote.client, client.addr[0])
+            prev_mtu = sysnet.change_mtu(remote.client, dev, 1500)
+        except Exception as err:
+            self.fail(err)
+
+        with self.mtu_ctx(remote.client, dev, prev_mtu):
+            client.make_request(self.make_req(1))
+            res = client.wait_for_response(timeout=1)
+            self.assertTrue(res, "Cannot process response (len=%d)" % resp_len)
+            sniffer.stop()
+            self.assertTrue(sniffer.check_results(), "Not optimal TCP flow")
 
 
 class Proxy(TlsIntegrityTester):
@@ -96,6 +135,10 @@ class Proxy(TlsIntegrityTester):
         self.common_check(16380, 16380)
         self.common_check(65536, 65536)
         self.common_check(1000000, 1000000)
+
+    def test_tcp_segs(self):
+        self.start_all()
+        self.tcp_flow_check(8192)
 
 
 class Cache(TlsIntegrityTester):

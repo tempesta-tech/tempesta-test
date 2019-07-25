@@ -25,6 +25,14 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer = ''
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
 
+    def initiate_send(self):
+        """ Override dispatcher_with_send.initiate_send() which transfers
+        data with too small chunks of 512 bytes.
+        """
+        num_sent = 0
+        num_sent = asyncore.dispatcher.send(self, self.out_buffer[:4096])
+        self.out_buffer = self.out_buffer[num_sent:]
+
     def send_pending_and_close(self):
         while len(self.out_buffer):
             self.initiate_send()

@@ -1,18 +1,18 @@
-# Basic TLS 1.2 handshake test.
-#
-# Also usable as a TLS traffic generator to debug early TLS server
-# implementation. This tool emphasises flexibility in generation of TLS traffic,
-# not performance.
-#
-# ScaPy is still not fully compatible with Python3, but I still use __future__
-# module for easier migration to Python3.
-# https://github.com/tintinweb/scapy-ssl_tls/issues/39
-#
-# TLS 1.2 is specified in RFC 5246. See also these useful references:
-#   - https://wiki.osdev.org/SSL/TLS
-#   - https://wiki.osdev.org/TLS_Handshake
-#   - https://wiki.osdev.org/TLS_Encryption
+""" Basic TLS 1.2 handshake test.
 
+Also usable as a TLS traffic generator to debug early TLS server
+implementation. This tool emphasises flexibility in generation of TLS traffic,
+not performance.
+
+ScaPy is still not fully compatible with Python3, but I still use __future__
+module for easier migration to Python3.
+https://github.com/tintinweb/scapy-ssl_tls/issues/39
+
+TLS 1.2 is specified in RFC 5246. See also these useful references:
+ - https://wiki.osdev.org/SSL/TLS
+ - https://wiki.osdev.org/TLS_Handshake
+ - https://wiki.osdev.org/TLS_Encryption
+"""
 from __future__ import print_function
 from contextlib import contextmanager
 import random

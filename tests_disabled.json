@@ -84,6 +84,10 @@
         {
             "name": "malformed.test_malformed_headers",
             "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
+        },
+        {
+            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
+            "reason" : "#1325: the test fails before the issue is fixed. Probably there is a reason for the behavior and the test should be reworked."
         }
     ]
 }
