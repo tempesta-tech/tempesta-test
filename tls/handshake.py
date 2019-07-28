@@ -322,11 +322,17 @@ class TlsHandshake:
             print(self.sock.tls_ctx)
         return True
 
+    def __get_host(self):
+        if self.host:
+            return self.host
+        if self.sni:
+            return self.sni[0]
+        return "tempesta-tech.com"
+
     def _do_12_req(self, fuzzer=None):
         """ Send an HTTP request and get a response. """
         self.inject_bad(fuzzer)
-        req = "GET / HTTP/1.1\r\nHost: %s\r\n\r\n" \
-              % (self.host if self.host else self.sni[0])
+        req = "GET / HTTP/1.1\r\nHost: %s\r\n\r\n" % self.__get_host()
         resp = self.send_recv(tls.TLSPlaintext(data=req))
         if resp.haslayer(tls.TLSRecord):
             self.http_resp = resp[tls.TLSRecord].data

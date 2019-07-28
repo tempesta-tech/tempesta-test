@@ -40,7 +40,6 @@ class TlsBasic(tester.TempestaTest):
             listen 443 proto=https;
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
-            # TODO tls_fallback_default allow_any;
             server ${server_ip}:8000;
         """
     }

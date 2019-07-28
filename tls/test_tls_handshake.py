@@ -13,9 +13,9 @@ __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
-class TlsHandshakeTest(tester.TempestaTest):
+WARN = "Warning: Unrecognized TLS receive return code"
 
-    WARN = "Warning: Unrecognized TLS receive return code"
+class TlsHandshakeTest(tester.TempestaTest):
 
     backends = [
         {
@@ -43,8 +43,8 @@ class TlsHandshakeTest(tester.TempestaTest):
             }
             vhost tempesta-tech.com {
                 proxy_pass srv_grp1;
-                # TODO tls_certificate ${general_workdir}/tempesta.crt;
-                # TODO tls_certificate_key ${general_workdir}/tempesta.key;
+# TODO                tls_certificate ${general_workdir}/tempesta.crt;
+# TODO               tls_certificate_key ${general_workdir}/tempesta.key;
             }
             http_chain {
                 host == "tempesta-tech.com" -> tempesta-tech.com;
@@ -93,32 +93,30 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["a" * 100 for i in xrange(10)]
-        warns = dmesg.count_warnings(self.WARN)
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
                          "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
-        """
-        We must process requests from SNI anaware clients in default
-        configuration without tls_fallback_default.
-        """
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = []
         self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
 
     def test_bad_sni(self):
+        # FIXME Two or more certificates configured, please use custom_cert option in Tempesta configuration
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["bad.server.name"]
         hs12.host = "tempesta-tech.com"
-        res = hs12.do_12()
-        warns = dmesg.count_warnings(self.WARN)
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
                          "Bad SNI isn't rejected")
 
     def test_bad_sign_algs(self):
@@ -129,10 +127,11 @@ class TlsHandshakeTest(tester.TempestaTest):
                           tls.TLSExtSignatureAlgorithms(
                               algs=[0x0201, 0x0401, 0x0501, 0x0601, 0x0403],
                               length=11)]
-        warns = dmesg.count_warnings(self.WARN)
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
                          "No warning about bad ClientHello")
 
     def test_bad_elliptic_curves(self):
@@ -143,10 +142,11 @@ class TlsHandshakeTest(tester.TempestaTest):
                                 tls.TLSExtEllipticCurves(
                                     named_group_list=[i for i in xrange(13)],
                                     length=26)]
-        warns = dmesg.count_warnings(self.WARN)
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
                          "No warning about bad ClientHello")
 
     def test_bad_renegotiation_info(self):
@@ -155,10 +155,11 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Generate bit longer data than Tempesta accepts (TTLS_ECP_DP_MAX = 12).
         hs12.renegotiation_info = [tls.TLSExtension() /
                                    tls.TLSExtRenegotiationInfo(data="foo")]
-        warns = dmesg.count_warnings(self.WARN)
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
                          "No warning about non-empty RenegotiationInfo")
 
     def test_alert(self):
@@ -240,8 +241,6 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
             srv_group be1 { server ${server_ip}:8000; }
             srv_group be2 { server ${server_ip}:8001; }
 
-            tls_fallback_default off;
-
             vhost vhost1.net {
                 proxy_pass be1;
                 tls_certificate ${general_workdir}/vhost1.crt;
@@ -300,20 +299,17 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
                         "Wrong certificate received for vhost2")
 
     def test_empty_sni_default(self):
-        """
-        We must process requests from SNI anaware clients in default
-        configuration without tls_fallback_default.
-        """
         self.gen_cert("vhost1")
         self.gen_cert("vhost2")
         self.start_all_servers()
         self.start_tempesta()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = []
-        warns = dmesg.count_warnings(self.WARN)
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(dmesg.count_warnings(self.WARN), warns + 1,
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
                          "No warning about bad SNI")
 
 
@@ -343,7 +339,6 @@ class TlsCertReconfig(tester.TempestaTest):
 
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
-            tls_fallback_default allow_fallback;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;

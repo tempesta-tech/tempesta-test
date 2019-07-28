@@ -49,7 +49,6 @@ class X509(tester.TempestaTest):
         listen 443 proto=https;
         tls_certificate %s;
         tls_certificate_key %s;
-        tls_fallback_default allow_any;
         server ${server_ip}:8000;
     """
 
