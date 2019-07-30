@@ -1,5 +1,5 @@
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 from . import remote
@@ -27,7 +27,15 @@ def configure_tcp():
         remote.host.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
 
 
+def configure_dmesg():
+    """ Suppress net ratelimiter to have all the messages in dmesg.
+    This setting is crucial for all the tests relying on dmesg output.
+    """
+    remote.tempesta.run_cmd("sysctl -w net.core.message_cost=0")
+
+
 def configure():
     """ Prepare nodes before running tests """
 
     configure_tcp()
+    configure_dmesg()

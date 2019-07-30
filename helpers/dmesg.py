@@ -4,7 +4,7 @@ from __future__ import print_function
 from contextlib import contextmanager
 import re
 import time
-from . import error, remote
+from . import error, remote, tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
@@ -115,5 +115,14 @@ def wait_for_msg(msg, timeout, permissive):
         elif res == 1:
             ratelimited = True
         time.sleep(0.01)
-    if not permissive or not ratelimited:
+    if not permissive:
         raise error.Error("dmesg wait for message timeout")
+    if not ratelimited:
+        # Ratelimiting messages appear only on next logging operation if
+        # previous records were suppressed. This means that if some operation
+        # produces a lot of logging and last log records are dropped, then we
+        # learn it only with next log record, i.e. next operation.
+        # The only good way to fix this is to properly setup system logger,
+        # otherwise we either spend too much time on timeouts or observe
+        # spurious exceptions.
+        tf_cfg.dbg(2, 'No "%s" log record and no ratelimiting' % msg)
