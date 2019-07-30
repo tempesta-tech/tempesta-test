@@ -169,9 +169,11 @@ class TempestaTest(unittest.TestCase):
                 raise Exception("Can not start server %s" % sid)
 
     def start_tempesta(self):
-        self.__tempesta.start()
-        if not self.__tempesta.is_running():
-            raise Exception("Can not start Tempesta")
+        """ Start Tempesta and wait until the initialization process finish. """
+        with dmesg.wait_for_msg('[tempesta fw] modules are started', 1, True):
+            self.__tempesta.start()
+            if not self.__tempesta.is_running():
+                raise Exception("Can not start Tempesta")
 
     def start_all_clients(self):
         for cid in self.__clients:
