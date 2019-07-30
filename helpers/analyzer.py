@@ -35,11 +35,7 @@ class Sniffer(object):
         self.captured = 0
         self.packets = []
         self.dump_file = '/tmp/tmp_packet_dump'
-        str_ports = ""
-        for port in ports:
-            if str_ports:
-                str_ports += " or "
-            str_ports += 'tcp port %s' % port
+        str_ports = ' or '.join(('tcp port %s' % p) for p in ports)
         cmd = 'timeout %s tcpdump -i any %s -w - %s || true'
         count_flag = ('-c %s' % count) if count else ''
         self.cmd = cmd % (timeout, count_flag, str_ports)

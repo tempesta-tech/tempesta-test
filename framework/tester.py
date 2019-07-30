@@ -65,6 +65,9 @@ class TempestaTest(unittest.TestCase):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
         clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl)
+        if ssl:
+            server_hostname = fill_template(client['ssl_hostname'], client)
+            clt.set_server_hostname(server_hostname)
         return clt
 
     def __create_client_wrk(self, client, ssl):

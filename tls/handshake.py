@@ -391,6 +391,8 @@ class TlsHandshakeStandard:
         resp = tls_sock.recv(100)
         tls_sock.close()
         if resp.startswith(GOOD_RESP):
+            if self.verbose:
+                print("bad response:\n%s\n" % resp)
             return False
         return True
 

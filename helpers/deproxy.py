@@ -9,10 +9,10 @@ Use implemented in C clients (e.g. wrk) and servers (e.g. nginx) if you need
 a test with heavy load condition.
 
 TODO Why do we implement HttpMessage, Request, and Response on our own instead
-of using HTTPMessage, HTTPRequest, and HTTPResponse correspondingly fro httplib?
-Rewrite the code to use httplib or other standard (present in CentOS and
-Debian distros) package or write a reasining comment why can't we use standard
-tools.
+of using HTTPMessage, HTTPRequest, and HTTPResponse correspondingly from
+httplib? Rewrite the code to use httplib or other standard (available in CentOS
+and Debian distros) package or write a reasoning comment why can't we use
+standard tools.
 """
 from __future__ import print_function
 import abc
@@ -542,6 +542,10 @@ class TlsClient(asyncore.dispatcher):
         self.ssl = ssl
         self.want_read = False
         self.want_write = True # TLS CLientHello is the first one
+        self.server_hostname = None
+
+    def set_server_hostname(self, server_hostname):
+        self.server_hostname = server_hostname
 
     def save_handlers(self):
         """
@@ -587,8 +591,9 @@ class TlsClient(asyncore.dispatcher):
         self.writable = self.tls_handshake_writable
         self.readable = self.tls_handshake_readable
         try:
-            self.socket = ssl.wrap_socket(self.socket,
-                                          do_handshake_on_connect=False)
+            self.socket = ssl.SSLSocket(self.socket,
+                                        do_handshake_on_connect=False,
+                                        server_hostname=self.server_hostname)
         except IOError as tls_e:
             tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
             raise tls_e

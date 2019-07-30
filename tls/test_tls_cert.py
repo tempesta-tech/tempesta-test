@@ -312,6 +312,7 @@ class TlsDuplicateCerts(tester.TempestaTest):
             'addr' : "${tempesta_ip}",
             'port' : '443',
             'ssl' : True,
+            'ssl_hostname' : 'tempesta-tech.com'
         },
     ]
 
@@ -368,7 +369,7 @@ class TlsDuplicateCerts(tester.TempestaTest):
 
     def test_duplicate(self):
         self.gen_cert("tempesta")
-        self.gen_cert("tempesta2")
+        self.gen_cert("tempesta_dup")
 
         deproxy_srv = self.get_server('0')
         deproxy_srv.start()
@@ -387,7 +388,7 @@ class TlsDuplicateCerts(tester.TempestaTest):
 
     def test_2_diff_certs(self):
         self.gen_cert("tempesta")
-        self.gen_cert("tempesta2", 'rsa')
+        self.gen_cert("tempesta_dup", 'rsa')
 
         deproxy_srv = self.get_server('0')
         deproxy_srv.start()

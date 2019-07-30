@@ -43,8 +43,6 @@ class TlsHandshakeTest(tester.TempestaTest):
             }
             vhost tempesta-tech.com {
                 proxy_pass srv_grp1;
-# TODO                tls_certificate ${general_workdir}/tempesta.crt;
-# TODO               tls_certificate_key ${general_workdir}/tempesta.key;
             }
             http_chain {
                 host == "tempesta-tech.com" -> tempesta-tech.com;
@@ -86,7 +84,13 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12.ciphers = [i for i in xrange(2000)] # TTLS_HS_CS_MAX_SZ = 984
         # Test compressions as well - they're just ignored anyway.
         hs12.compressions = [i for i in xrange(15)]
-        self.assertTrue(hs12.do_12(), "Extra ciphers aren't ignored")
+        warns = dmesg.count_warnings(WARN)
+        # Tempesta must send a TLS alert raising TLSProtocolError exception.
+        # Nginx/OpenSSL sends DECODE_ERROR FATAL alert for the ClientHello.
+        with self.assertRaises(tls.TLSProtocolError):
+            hs12.do_12()
+        self.assertEqual(dmesg.count_warnings(WARN), warns + 1,
+                         "No warning about bad ClientHello")
 
     def test_long_sni(self):
         """ Also tests receiving of TLS alert. """
@@ -107,7 +111,6 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
 
     def test_bad_sni(self):
-        # FIXME Two or more certificates configured, please use custom_cert option in Tempesta configuration
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["bad.server.name"]
@@ -196,12 +199,14 @@ class TlsHandshakeTest(tester.TempestaTest):
                 try:
                     res = tls_conn.do_12(fuzzer)
                     self.assertFalse(res, "Got request on fuzzed connection")
-                except socket.error:
-                    pass # broken pipe is expected
+                except:
+                    # Broken pipe socket error and TLS fatal alerts are
+                    # expected in the test.
+                    pass
 
     def test_old_handshakes(self):
         self.start_all()
-        res = TlsHandshakeStandard(addr='127.0.0.1', port=443).do_old()
+        res = TlsHandshakeStandard(addr='127.0.0.1', port=443, verbose=True).do_old()
         self.assertTrue(res, "Wrong old handshake result: %s" % res)
 
 
@@ -241,10 +246,12 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
             srv_group be1 { server ${server_ip}:8000; }
             srv_group be2 { server ${server_ip}:8001; }
 
+            # Ensure that vhost1 only is using the global certificate.
+            tls_certificate ${general_workdir}/vhost1.crt;
+            tls_certificate_key ${general_workdir}/vhost1.key;
+
             vhost vhost1.net {
                 proxy_pass be1;
-                tls_certificate ${general_workdir}/vhost1.crt;
-                tls_certificate_key ${general_workdir}/vhost1.key;
             }
 
             vhost vhost2.net {
