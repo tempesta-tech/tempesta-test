@@ -63,20 +63,20 @@ class TlsHandshake:
     Class for custom TLS handshakes - mainly ScaPy-TLS wrapper.
     Update the fields defined in __init__() to customize a handshake.
 
-    Use higher @rto values to debug/test Tempesta in debug mode.
+    Use higher @io_to values to debug/test Tempesta in debug mode.
     Use True for @verbose to see debug output for the handshake.
     """
-    def __init__(self, addr='127.0.0.1', port=443, rto=0.5, chunk=None,
+    def __init__(self, addr='127.0.0.1', port=443, io_to=0.5, chunk=None,
                  verbose=False):
         self.addr = addr
         self.port = port
-        self.rto = rto # seconds, maybe not so small fraction of a second.
+        self.io_to = io_to # seconds, maybe not so small fraction of a second.
         self.chunk = chunk
         # We should be able to send at least 10KB with 1ms chunk delay for RTO.
         if self.chunk and self.chunk < 10000:
-            rto = 10000 / self.chunk * 0.001
-            if self.rto < rto:
-                self.rto = rto
+            io_to = 10000 / self.chunk * 0.001
+            if self.io_to < io_to:
+                self.io_to = io_to
         self.verbose = verbose
         # Service members.
         self.sock = None
@@ -108,9 +108,9 @@ class TlsHandshake:
         self.sock = tls.TLSSocket(socket.socket(), client=True)
         # Set large enough send and receive timeouts which will be used by
         # default.
-        self.sock.settimeout(self.rto)
+        self.sock.settimeout(self.io_to)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                             struct.pack('ll', self.rto * 1000, 0))
+                             struct.pack('ll', self.io_to * 1000, 0))
         if self.chunk:
             # Send data immediately w/o coalescing.
             self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -127,7 +127,7 @@ class TlsHandshake:
         try:
             if self.chunk:
                 prev_timeout = self.sock.gettimeout()
-                self.sock.settimeout(self.rto)
+                self.sock.settimeout(self.io_to)
                 if self.sock.ctx.must_encrypt:
                     __s = str(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
                                              self.sock.compress_hook,
@@ -161,8 +161,8 @@ class TlsHandshake:
                 self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
                 self.sock.settimeout(prev_timeout)
             else:
-                self.sock.sendall(pkt, timeout=self.rto)
-            resp = self.sock.recvall(timeout=self.rto)
+                self.sock.sendall(pkt, timeout=self.io_to)
+            resp = self.sock.recvall(timeout=self.io_to)
             if resp.haslayer(tls.TLSAlert):
                 alert = resp[tls.TLSAlert]
                 if alert.level != tls.TLSAlertLevel.WARNING:
@@ -350,16 +350,16 @@ class TlsHandshakeStandard:
     This class uses OpenSSL backend, so all its routines less customizable,
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
-    def __init__(self, addr='127.0.0.1', port=443, rto=0.5, verbose=False):
+    def __init__(self, addr='127.0.0.1', port=443, io_to=0.5, verbose=False):
         self.addr = addr
         self.port = port
-        self.rto = rto
+        self.io_to = io_to
         self.verbose = verbose
 
     def try_tls_vers(self, version):
         klog = dmesg.DmesgFinder()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(self.rto)
+        sock.settimeout(self.io_to)
         sock.connect((self.addr, self.port))
         try:
             tls_sock = ssl.wrap_socket(sock, ssl_version=version)
