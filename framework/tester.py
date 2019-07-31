@@ -65,7 +65,9 @@ class TempestaTest(unittest.TestCase):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
         clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl)
-        if ssl:
+        if ssl and client.has_key('ssl_hostname'):
+            # Don't set SNI by default, do this only if it was specified in
+            # the client configuration.
             server_hostname = fill_template(client['ssl_hostname'], client)
             clt.set_server_hostname(server_hostname)
         return clt
@@ -186,7 +188,7 @@ class TempestaTest(unittest.TestCase):
         tf_cfg.dbg(3, '\tInit test case...')
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
-        self.oops = dmesg.DmesgOopsFinder()
+        self.oops = dmesg.DmesgFinder()
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
@@ -210,11 +212,11 @@ class TempestaTest(unittest.TestCase):
             print('Unknown exception in stopping deproxy')
 
         self.oops.update()
-        if self.oops.warn_count("Oops") > 0:
+        if self.oops._warn_count("Oops") > 0:
             raise Exception("Oopses happened during test on Tempesta")
-        if self.oops.warn_count("WARNING") > 0:
+        if self.oops._warn_count("WARNING") > 0:
             raise Exception("Warnings happened during test on Tempesta")
-        if self.oops.warn_count("ERROR") > 0:
+        if self.oops._warn_count("ERROR") > 0:
             raise Exception("Errors happened during test on Tempesta")
 
     def wait_while_busy(self, *items):

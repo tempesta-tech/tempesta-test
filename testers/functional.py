@@ -51,7 +51,7 @@ class FunctionalTest(unittest.TestCase):
         self.tester = deproxy.Deproxy(self.client, self.servers)
 
     def setUp(self):
-        self.oops = dmesg.DmesgOopsFinder()
+        self.oops = dmesg.DmesgFinder()
         self.client = None
         self.client_state = None
         self.tempesta = None
@@ -114,11 +114,11 @@ class FunctionalTest(unittest.TestCase):
                 raise Exception("Error during stopping server")
 
         self.oops.update()
-        if self.oops.warn_count("Oops") > 0:
+        if self.oops._warn_count("Oops") > 0:
             raise Exception("Oopses happened during test on Tempesta")
-        if self.oops.warn_count("WARNING") > 0:
+        if self.oops._warn_count("WARNING") > 0:
             raise Exception("Warnings happened during test on Tempesta")
-        if self.oops.warn_count("ERROR") > 0:
+        if self.oops._warn_count("ERROR") > 0:
             raise Exception("Errors happened during test on Tempesta")
 
     @classmethod

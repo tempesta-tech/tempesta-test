@@ -130,8 +130,13 @@
             "reason" : "Bug #1318: crash on ttls_recv()."
         },
         {
-            "name" : "tls.test_tls_integrity",
+            "name" : "tls.test_tls_integrity.Proxy.test_various_req_resp_sizes",
+            "reason" : "Bug #1283: all messages longer than 4096 aren't processed."
+        },
+        {
+            "name" : "tls.test_tls_integrity.Cache.test_various_req_resp_sizes",
             "reason" : "Bug #1283: all messages longer than 4096 aren't processed."
         }
+
     ]
 }

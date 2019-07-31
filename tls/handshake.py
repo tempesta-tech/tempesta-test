@@ -31,6 +31,7 @@ __license__ = 'GPL2'
 
 
 GOOD_RESP = "HTTP/1.1 200"
+# FIXME https://github.com/tempesta-tech/tempesta/issues/1294
 TLS_HS_WARN = "Warning: Unrecognized TLS receive return code"
 
 
@@ -69,7 +70,7 @@ class TlsHandshake:
                  verbose=False):
         self.addr = addr
         self.port = port
-        self.rto = rto
+        self.rto = rto # seconds, maybe not so small fraction of a second.
         self.chunk = chunk
         # We should be able to send at least 10KB with 1ms chunk delay for RTO.
         if self.chunk and self.chunk < 10000:
@@ -109,7 +110,7 @@ class TlsHandshake:
         # default.
         self.sock.settimeout(self.rto)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                             struct.pack('ll', 2, self.rto * 1000))
+                             struct.pack('ll', self.rto * 1000, 0))
         if self.chunk:
             # Send data immediately w/o coalescing.
             self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -125,8 +126,8 @@ class TlsHandshake:
         resp = tls.TLS()
         try:
             if self.chunk:
-                prev_timeout = self.sock._s.gettimeout()
-                self.sock._s.settimeout(self.rto)
+                prev_timeout = self.sock.gettimeout()
+                self.sock.settimeout(self.rto)
                 if self.sock.ctx.must_encrypt:
                     __s = str(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
                                              self.sock.compress_hook,
@@ -147,7 +148,7 @@ class TlsHandshake:
                        and write memory like
                          sysctl -w net.ipv4.tcp_wmem='16 16 32'
                          sysctl -w net.ipv4.tcp_rmem='16 16 32'
-                       negatively affect the whole system settings (pet socket
+                       negatively affect the whole system settings (per socket
                        setting also influenced by the global sysctls) and do
                        not work with GSO & GRO - a peer still recives large
                        frags.
@@ -155,10 +156,10 @@ class TlsHandshake:
                     4. Setting interface MTU also doesn't work properly against
                        segmentation offloads.
                     """
-                    self.sock._s.sendall(chunk)
+                    self.sock.sendall(chunk)
                     sleep(0.001)
                 self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
-                self.sock._s.settimeout(prev_timeout)
+                self.sock.settimeout(prev_timeout)
             else:
                 self.sock.sendall(pkt, timeout=self.rto)
             resp = self.sock.recvall(timeout=self.rto)
@@ -175,11 +176,6 @@ class TlsHandshake:
             raise tls.TLSProtocolError(sock_except, pkt, resp)
         return resp
 
-    @staticmethod
-    def static_rnd(begin, end):
-        """ A replacement for random.randint() to return constant results. """
-        return (begin + end) / 2
-
     def inject_bad(self, fuzzer):
         """
         Inject a bad record after @self.inject normal records.
@@ -192,7 +188,7 @@ class TlsHandshake:
         self.sock.send(next(fuzzer))
 
     def extra_extensions(self):
-        # Add ServerNameIdentification (SNI) extensiosn by specified vhosts.
+        # Add ServerNameIndication (SNI) extension by specified vhosts.
         if self.sni:
             sns = [tls.TLSServerName(data=sname) for sname in self.sni]
             self.exts += [tls.TLSExtension() /
@@ -284,19 +280,13 @@ class TlsHandshake:
         if self.verbose:
             resp.show()
 
-        # Check that before encryoptin non-critical alerts are just ignored.
+        # Check that before encryption non-critical alerts are just ignored.
         self.send_12_alert(tls.TLSAlertLevel.WARNING,
                            tls.TLSAlertDescription.RECORD_OVERFLOW)
 
-        # Send ClientKeyExchange, ChangeCipherSpec.
-        # get_client_kex_data() -> get_client_ecdh_pubkey() -> make_keypair()
-        # use random, so replace it with our mock.
-        randint_save = random.randint
-        random.randint = self.static_rnd
         cke_h = tls.TLSHandshakes(
             handshakes=[tls.TLSHandshake() /
-                        self.sock.tls_ctx.get_client_kex_data()])
-        random.randint = randint_save
+                        self.sock.tls_ctx.get_client_kex_data(val=0xdeadbabe)])
         msg1 = tls.TLSRecord(version='TLS_1_2') / cke_h
         msg2 = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
         if self.verbose:
@@ -367,34 +357,22 @@ class TlsHandshakeStandard:
         self.verbose = verbose
 
     def try_tls_vers(self, version):
+        klog = dmesg.DmesgFinder()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.rto)
-
-        # Collect warnings before TCP connection - we should have exactly
-        # one warning for the whole test.
-        warns = dmesg.count_warnings(TLS_HS_WARN)
-
         sock.connect((self.addr, self.port))
         try:
             tls_sock = ssl.wrap_socket(sock, ssl_version=version)
         except IOError:
             # Exception on client side TLS with established TCP connection -
-            # we're good with connection rejection.
+            # we're good with connection rejection, this means that Tempesta
+            # correctly doesn't establish bad TLS handshake.
             sock.close()
-            if dmesg.count_warnings(TLS_HS_WARN) == warns + 1:
+            if klog.warn_count(TLS_HS_WARN) == 1:
                 return True
             if self.verbose:
                 print("TLS handshake failed w/o warning")
-            return False
-
-        tls_sock.send("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
-        resp = tls_sock.recv(100)
-        tls_sock.close()
-        if resp.startswith(GOOD_RESP):
-            if self.verbose:
-                print("bad response:\n%s\n" % resp)
-            return False
-        return True
+        return False
 
     def do_old(self):
         """

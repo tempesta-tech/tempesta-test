@@ -69,6 +69,10 @@ class StressTls(tester.TempestaTest):
             listen 443 proto=https;
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
+
+            # wrk sends IP address in SNI, so we test the option here.
+            tls_match_any_server_name;
+
             server ${server_ip}:8000;
         """
     }

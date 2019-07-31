@@ -58,7 +58,7 @@ class StressTest(unittest.TestCase):
 
     def setUp(self):
         # Init members used in tearDown function.
-        self.oops = dmesg.DmesgOopsFinder()
+        self.oops = dmesg.DmesgFinder()
         self.tempesta = None
         self.servers = []
         tf_cfg.dbg(3) # Step to the next line after name of test case.
@@ -96,11 +96,11 @@ class StressTest(unittest.TestCase):
                 raise Exception("Error during stopping servers")
 
         self.oops.update()
-        if self.oops.warn_count("Oops") > 0:
+        if self.oops._warn_count("Oops") > 0:
             raise Exception("Oopses happened during test on Tempesta")
-        if self.oops.warn_count("WARNING") > 0:
+        if self.oops._warn_count("WARNING") > 0:
             raise Exception("Warnings happened during test on Tempesta")
-        if self.oops.warn_count("ERROR") > 0:
+        if self.oops._warn_count("ERROR") > 0:
             raise Exception("Errors happened during test on Tempesta")
 
     def show_performance(self):

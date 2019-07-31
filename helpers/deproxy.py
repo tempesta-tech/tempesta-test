@@ -541,7 +541,7 @@ class TlsClient(asyncore.dispatcher):
         asyncore.dispatcher.__init__(self)
         self.ssl = ssl
         self.want_read = False
-        self.want_write = True # TLS CLientHello is the first one
+        self.want_write = True # TLS ClientHello is the first one
         self.server_hostname = None
 
     def set_server_hostname(self, server_hostname):
@@ -550,7 +550,7 @@ class TlsClient(asyncore.dispatcher):
     def save_handlers(self):
         """
         We need to store the handlers defined at any descendant layer to
-        restore then when TLS handshake is done and we can do application
+        restore them when TLS handshake is done and we can do application
         logic.
         """
         assert hasattr(self, 'handle_read'), "TLS: save null handlers"
@@ -562,13 +562,13 @@ class TlsClient(asyncore.dispatcher):
 
     def restore_handlers(self):
         """
-        Since TLS operates with it's own records:
+        Since TLS operates with its own records:
         -- if a read event happened it doesn't imply that we have enough data
-           for complete TLS record and can return something to the application
+           for a complete TLS record and can return something to the application
            layer;
-        -- SSLSocket.recv() seems return a single TLS record payload, so if we
-           received 2 or more records at once, there is no sense to report the
-           socket readable() after the first record read.
+        -- SSLSocket.recv() seems to return a single TLS record payload, so if
+           we received 2 or more records at once, there is no sense to report
+           the socket readable() after the first record read.
         Generally speaking, handle_read() just must be aware about non-blocking
         IO, which SSL actually is. However, we should first try to read from the
         socket before go to polling, i.e. the only requirement to handle_read()
