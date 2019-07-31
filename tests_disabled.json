@@ -3,7 +3,7 @@
     "disabled" : [
         {
             "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
-            "reason" : "Problems with stap, see tempesta-testa#45"
+            "reason" : "Problems with stap, see tempesta-test#45"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
@@ -80,6 +80,63 @@
         {
             "name": "malformed.test_malformed_headers",
             "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
+        },
+        {
+            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
+            "reason" : "#1325: the test fails before the issue is fixed. Probably there is a reason for the behavior and the test should be reworked."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_1byte_transfer",
+            "reason" : "Bug #1324."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_9byte_transfer",
+            "reason" : "Bug #1324."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_10byte_transfer",
+            "reason" : "Bug #1324."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_long_sni",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sni",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sign_algs",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_elliptic_curves",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_renegotiation_info",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_empty_sni_default",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_many_ciphers",
+            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_fuzzing",
+            "reason" : "Bug #1318: crash on ttls_recv()."
+        },
+        {
+            "name" : "tls.test_tls_integrity.Proxy.test_various_req_resp_sizes",
+            "reason" : "Bug #1283: all messages longer than 4096 aren't processed."
+        },
+        {
+            "name" : "tls.test_tls_integrity.Cache.test_various_req_resp_sizes",
+            "reason" : "Bug #1283: all messages longer than 4096 aren't processed."
         }
+
     ]
 }

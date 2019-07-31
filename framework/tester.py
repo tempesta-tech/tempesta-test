@@ -10,7 +10,7 @@ import framework.deproxy_manager as deproxy_manager
 from framework.templates import fill_template, populate_properties
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 backend_defs = {}
@@ -61,25 +61,31 @@ class TempestaTest(unittest.TestCase):
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client):
+    def __create_client_deproxy(self, client, ssl):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port)
+        clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl)
+        if ssl and client.has_key('ssl_hostname'):
+            # Don't set SNI by default, do this only if it was specified in
+            # the client configuration.
+            server_hostname = fill_template(client['ssl_hostname'], client)
+            clt.set_server_hostname(server_hostname)
         return clt
 
-    def __create_client_wrk(self, client):
+    def __create_client_wrk(self, client, ssl):
         addr = fill_template(client['addr'], client)
-        wrk = wrk_client.Wrk(server_addr=addr)
+        wrk = wrk_client.Wrk(server_addr=addr, ssl=ssl)
         wrk.set_script(client['id']+"_script", content="")
         return wrk
 
     def __create_client(self, client):
         populate_properties(client)
+        ssl = client.setdefault('ssl', False)
         cid = client['id']
         if client['type'] == 'deproxy':
-            self.__clients[cid] = self.__create_client_deproxy(client)
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl)
         elif client['type'] == 'wrk':
-            self.__clients[cid] = self.__create_client_wrk(client)
+            self.__clients[cid] = self.__create_client_wrk(client, ssl)
 
     def __create_backend(self, server):
         srv = None
@@ -143,6 +149,9 @@ class TempestaTest(unittest.TestCase):
     def __create_tempesta(self):
         desc = self.tempesta.copy()
         populate_properties(desc)
+        custom_cert = False
+        if 'custom_cert' in desc:
+            custom_cert = self.tempesta['custom_cert']
         config = ""
         if 'config' in desc:
             config = desc['config']
@@ -151,7 +160,8 @@ class TempestaTest(unittest.TestCase):
             self.__tempesta = factory(desc)
         else:
             self.__tempesta = default_tempesta_factory(desc)
-        self.__tempesta.config.set_defconfig(fill_template(config, desc))
+        self.__tempesta.config.set_defconfig(fill_template(config, desc),
+                                             custom_cert)
 
     def start_all_servers(self):
         for sid in self.__servers:
@@ -161,9 +171,11 @@ class TempestaTest(unittest.TestCase):
                 raise Exception("Can not start server %s" % sid)
 
     def start_tempesta(self):
-        self.__tempesta.start()
-        if not self.__tempesta.is_running():
-            raise Exception("Can not start Tempesta")
+        """ Start Tempesta and wait until the initialization process finish. """
+        with dmesg.wait_for_msg('[tempesta fw] modules are started', 1, True):
+            self.__tempesta.start()
+            if not self.__tempesta.is_running():
+                raise Exception("Can not start Tempesta")
 
     def start_all_clients(self):
         for cid in self.__clients:
@@ -176,7 +188,7 @@ class TempestaTest(unittest.TestCase):
         tf_cfg.dbg(3, '\tInit test case...')
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
-        self.oops = dmesg.DmesgOopsFinder()
+        self.oops = dmesg.DmesgFinder()
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
@@ -197,14 +209,14 @@ class TempestaTest(unittest.TestCase):
         try:
             deproxy_manager.finish_all_deproxy()
         except:
-            print ('Unknown exception in stopping deproxy')
+            print('Unknown exception in stopping deproxy')
 
         self.oops.update()
-        if self.oops.warn_count("Oops") > 0:
+        if self.oops._warn_count("Oops") > 0:
             raise Exception("Oopses happened during test on Tempesta")
-        if self.oops.warn_count("WARNING") > 0:
+        if self.oops._warn_count("WARNING") > 0:
             raise Exception("Warnings happened during test on Tempesta")
-        if self.oops.warn_count("ERROR") > 0:
+        if self.oops._warn_count("ERROR") > 0:
             raise Exception("Errors happened during test on Tempesta")
 
     def wait_while_busy(self, *items):

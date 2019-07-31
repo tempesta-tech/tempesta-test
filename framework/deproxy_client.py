@@ -63,7 +63,7 @@ class BaseDeproxyClient(deproxy.Client):
                                     method=method)
                 self.response_buffer = \
                             self.response_buffer[response.original_length:]
-            except deproxy.IncompliteMessage:
+            except deproxy.IncompleteMessage:
                 return
             except deproxy.ParseError:
                 tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
@@ -112,6 +112,7 @@ class BaseDeproxyClient(deproxy.Client):
     @abc.abstractmethod
     def receive_response(self, response):
         raise NotImplementedError("Not implemented 'receive_response()'")
+
 
 class DeproxyClient(BaseDeproxyClient):
     last_response = None

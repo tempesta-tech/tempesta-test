@@ -41,12 +41,13 @@ class PairingTest(functional.FunctionalTest):
         disconnects before Tempesta received responses from backend. Responses
         must be evicted, no 'Paired request missing' messages are allowed.
         """
+        klog = dmesg.DmesgFinder()
         self.prepare()
         self.tester.loop(0.5) # Let handle connects
         self.tester.send_reqs(self.send_to_close)
         self.tester.disconnect_clnt()
         self.tester.send_resps()
-        self.assertEqual(dmesg.count_warnings(dmesg.WARN_SPLIT_ATTACK), 0,
+        self.assertEqual(klog.warn_count(dmesg.WARN_SPLIT_ATTACK), 0,
                          msg=("Got '%s'" % dmesg.WARN_SPLIT_ATTACK))
 
 

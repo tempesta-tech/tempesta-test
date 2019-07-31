@@ -1,5 +1,5 @@
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 from . import remote
@@ -29,5 +29,4 @@ def configure_tcp():
 
 def configure():
     """ Prepare nodes before running tests """
-
     configure_tcp()

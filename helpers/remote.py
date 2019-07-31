@@ -1,5 +1,9 @@
-""" Controls node over SSH if remote, or via OS if local one. """
-
+"""
+Controls node over SSH if remote, or via OS if local one.
+The API is required to transparently handle both the cases - Tempesta and the
+framework on the same node (developer tests case) or on separate machines (CI
+case).
+"""
 from __future__ import print_function
 import re
 import os

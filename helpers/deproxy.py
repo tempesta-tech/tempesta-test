@@ -1,9 +1,27 @@
+"""
+Main utils and API for deproxy.
+
+Deproxy combines HTTP client and server, so that it can check data consistency
+on both the parts, e.g. easily verify requests/response pairing in HTTP
+pipeline scenario. It's intended to check HTTP functionality in various aspects.
+
+Use implemented in C clients (e.g. wrk) and servers (e.g. nginx) if you need
+a test with heavy load condition.
+
+TODO Why do we implement HttpMessage, Request, and Response on our own instead
+of using HTTPMessage, HTTPRequest, and HTTPResponse correspondingly from
+httplib? Rewrite the code to use httplib or other standard (available in CentOS
+and Debian distros) package or write a reasoning comment why can't we use
+standard tools.
+"""
 from __future__ import print_function
 import abc
 from StringIO import StringIO
 import asyncore
+import errno
 import select
 import socket
+import ssl
 import sys
 import time
 import calendar # for calendar.timegm()
@@ -12,7 +30,7 @@ from . import error, tf_cfg, tempesta, stateful
 
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 #-------------------------------------------------------------------------------
@@ -22,7 +40,7 @@ __license__ = 'GPL2'
 class ParseError(Exception):
     pass
 
-class IncompliteMessage(ParseError):
+class IncompleteMessage(ParseError):
     pass
 
 class HeaderCollection(object):
@@ -43,7 +61,7 @@ class HeaderCollection(object):
             for k, v in kwargs.iteritems():
                 self.add(k, v)
 
-    def set_expected(self, expected_time_delta = 0):
+    def set_expected(self, expected_time_delta=0):
         self.is_expected = True
         self.expected_time_delta = expected_time_delta
 
@@ -127,7 +145,7 @@ class HeaderCollection(object):
             if no_crlf and not line:
                 break
             if not line or (line[-1] != '\n'):
-                raise IncompliteMessage('Incomplete headers')
+                raise IncompleteMessage('Incomplete headers')
             line = line.rstrip('\r\n')
             try:
                 name, value = line.split(':', 1)
@@ -158,9 +176,9 @@ class HeaderCollection(object):
     _disable_report_wrong_is_expected = False
 
     def _report_wrong_is_expected(self, other):
-            if not HeaderCollection._disable_report_wrong_is_expected:
-                error.bug("HeaderCollection: comparing is_expected=(%s, %s)\n" %
-                          (self.is_expected, other.is_expected))
+        if not HeaderCollection._disable_report_wrong_is_expected:
+            error.bug("HeaderCollection: comparing is_expected=(%s, %s)\n" %
+                      (self.is_expected, other.is_expected))
 
     def __eq__(self, other):
         h_self = self._as_dict_lower()
@@ -278,12 +296,12 @@ class HttpMessage(object):
 
                 chunk_size = len(chunk.rstrip('\r\n'))
                 if chunk_size < size:
-                    raise IncompliteMessage('Incomplete chunked body')
+                    raise IncompleteMessage('Incomplete chunked body')
                 assert chunk_size == size
                 assert chunk[-1] == '\n'
                 if size == 0:
                     break
-            except IncompliteMessage:
+            except IncompleteMessage:
                 raise
             except:
                 raise ParseError('Error in chunked body')
@@ -302,7 +320,7 @@ class HttpMessage(object):
                               % (size, len(self.body))))
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
-            raise IncompliteMessage()
+            raise IncompleteMessage()
         self.original_length += len(self.body)
 
     def parse_trailer(self, stream):
@@ -382,7 +400,7 @@ class Request(HttpMessage):
         requestline = stream.readline()
         self.original_length += len(requestline)
         if requestline[-1] != '\n':
-            raise IncompliteMessage('Incomplete request line!')
+            raise IncompleteMessage('Incomplete request line!')
 
         words = requestline.rstrip('\r\n').split()
         if len(words) == 3:
@@ -440,7 +458,7 @@ class Response(HttpMessage):
         statusline = stream.readline()
         self.original_length += len(statusline)
         if statusline[-1] != '\n':
-            raise IncompliteMessage('Incomplete Status line!')
+            raise IncompleteMessage('Incomplete Status line!')
 
         words = statusline.rstrip('\r\n').split()
         if len(words) >= 3:
@@ -511,10 +529,103 @@ class Response(HttpMessage):
 #-------------------------------------------------------------------------------
 MAX_MESSAGE_SIZE = 65536
 
-class Client(asyncore.dispatcher, stateful.Stateful):
+class TlsClient(asyncore.dispatcher):
+    """
+    A thin shim between async IO and an application logic class to establish
+    TLS connection on handle_connect() and restore all the handlers necessary
+    for application logic, such that the whole deproxy logic must not be aware
+    about TLS and only need to set ssl constructor argument to employ TLS.
+    """
 
-    def __init__(self, addr=None, host='Tempesta', port=80):
+    def __init__(self, ssl=False):
         asyncore.dispatcher.__init__(self)
+        self.ssl = ssl
+        self.want_read = False
+        self.want_write = True # TLS ClientHello is the first one
+        self.server_hostname = None
+
+    def set_server_hostname(self, server_hostname):
+        self.server_hostname = server_hostname
+
+    def save_handlers(self):
+        """
+        We need to store the handlers defined at any descendant layer to
+        restore them when TLS handshake is done and we can do application
+        logic.
+        """
+        assert hasattr(self, 'handle_read'), "TLS: save null handlers"
+        assert not hasattr(self, '__handle_read'), "TLS: double handlers save"
+        self.__handle_read = self.handle_read
+        self.__handle_write = self.handle_write
+        self.__readable = self.readable
+        self.__writable = self.writable
+
+    def restore_handlers(self):
+        """
+        Since TLS operates with its own records:
+        -- if a read event happened it doesn't imply that we have enough data
+           for a complete TLS record and can return something to the application
+           layer;
+        -- SSLSocket.recv() seems to return a single TLS record payload, so if
+           we received 2 or more records at once, there is no sense to report
+           the socket readable() after the first record read.
+        Generally speaking, handle_read() just must be aware about non-blocking
+        IO, which SSL actually is. However, we should first try to read from the
+        socket before go to polling, i.e. the only requirement to handle_read()
+        is to call recv() multiple time until it doesn't return empty string.
+        """
+        self.readable = self.__readable
+        self.handle_read = self.__handle_read
+        self.writable = self.__writable
+        self.handle_write = self.__handle_write
+
+    def handle_connect(self):
+        if not self.ssl:
+            return
+        # The TCP connection has been established and now we can
+        # run TLS handshake on the socket.
+        # Use default/mainstream TLS version - we have dedicated tests for
+        # unusual TLS versions.
+        self.save_handlers()
+        self.handle_read = self.handle_write = self.tls_handshake
+        self.writable = self.tls_handshake_writable
+        self.readable = self.tls_handshake_readable
+        try:
+            self.socket = ssl.SSLSocket(self.socket,
+                                        do_handshake_on_connect=False,
+                                        server_hostname=self.server_hostname)
+        except IOError as tls_e:
+            tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
+            raise tls_e
+
+    def tls_handshake_readable(self):
+        return self.want_read
+
+    def tls_handshake_writable(self):
+        return self.want_write
+
+    def tls_handshake(self):
+        try:
+            self.socket.do_handshake()
+        except ssl.SSLError as tls_e:
+            self.want_read = self.want_write = False
+            if tls_e.args[0] == ssl.SSL_ERROR_WANT_READ:
+                self.want_read = True
+            elif tls_e.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                self.want_write = True
+            else:
+                tf_cfg.dbg(2, "Deproxy: TLS handshake error,", tls_e)
+                raise
+        else:
+            tf_cfg.dbg(4, "\tDeproxy: finished TLS handshake")
+            # Handshake is done, set processing callbacks
+            self.restore_handlers()
+
+
+class Client(TlsClient, stateful.Stateful):
+
+    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False):
+        TlsClient.__init__(self, ssl)
         self.request = None
         self.request_buffer = ''
         self.response_buffer = ''
@@ -534,7 +645,8 @@ class Client(asyncore.dispatcher, stateful.Stateful):
     def run_start(self):
         self.orig_addr = self.addr
         tf_cfg.dbg(3, '\tStarting deproxy client')
-        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.' % (self.addr, self.port))
+        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.'
+                % (self.addr, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((self.addr, self.port))
 
@@ -549,14 +661,19 @@ class Client(asyncore.dispatcher, stateful.Stateful):
     def set_tester(self, tester):
         self.tester = tester
 
-    def handle_connect(self):
-        pass
-
     def handle_close(self):
         self.close()
 
     def handle_read(self):
-        self.response_buffer += self.recv(MAX_MESSAGE_SIZE)
+        while True: # TLS aware - read as many records as we can
+            try:
+                buf = self.recv(MAX_MESSAGE_SIZE)
+            except IOError as err:
+                if err.errno == errno.EWOULDBLOCK:
+                    break
+            if not buf:
+                break
+            self.response_buffer += buf
         if not self.response_buffer:
             return
         tf_cfg.dbg(4, '\tDeproxy: Client: Receive response from Tempesta.')
@@ -565,7 +682,7 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             response = Response(self.response_buffer,
                                 method=self.request.method)
             self.response_buffer = self.response_buffer[len(response.msg):]
-        except IncompliteMessage:
+        except IncompleteMessage:
             return
         except ParseError:
             tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
@@ -602,7 +719,6 @@ class Client(asyncore.dispatcher, stateful.Stateful):
             error.bug('\tDeproxy: Client: %s' % v)
 
 
-
 class ServerConnection(asyncore.dispatcher_with_send):
 
     def __init__(self, tester, server, sock=None, keep_alive=None):
@@ -619,7 +735,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer += self.recv(MAX_MESSAGE_SIZE)
         try:
             request = Request(self.request_buffer)
-        except IncompliteMessage:
+        except IncompleteMessage:
             return
         except ParseError:
             tf_cfg.dbg(4, ('Deproxy: SrvConnection: Can\'t parse message\n'
@@ -731,7 +847,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         if type(v) == AssertionError:
             raise v
         else:
-            raise  Exception('\tDeproxy: Server %s:%d: %s' % \
+            raise Exception('\tDeproxy: Server %s:%d: %s' % \
              (self.ip, self.port, str(v)))
 
     def handle_close(self):
