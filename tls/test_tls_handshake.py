@@ -4,7 +4,7 @@ handshake messages.
 """
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import remote, tf_cfg
+from helpers import remote, tf_cfg, util
 from handshake import *
 from fuzzer import tls_record_fuzzer
 
@@ -181,6 +181,7 @@ class TlsHandshakeTest(tester.TempestaTest):
             res = tls_conn._do_12_req()
             self.assertFalse(res, "Request processed on closed socket")
 
+    @util.profiled
     def test_fuzzing(self):
         """
         Inject bad (fuzzed) TLS records at different places on TLS handshake.
