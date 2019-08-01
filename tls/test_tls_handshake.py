@@ -84,12 +84,11 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12.ciphers = range(2000) # TTLS_HS_CS_MAX_SZ = 984
         # Test compressions as well - they're just ignored anyway.
         hs12.compressions = range(15)
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alert raising TLSProtocolError exception.
         # Nginx/OpenSSL sends DECODE_ERROR FATAL alert for the ClientHello.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1,
+        self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
     def test_long_sni(self):
@@ -97,11 +96,10 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["a" * 100 for i in xrange(10)]
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1,
+        self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
@@ -115,11 +113,11 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = ["bad.server.name"]
         hs12.host = "tempesta-tech.com"
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1, "Bad SNI isn't rejected")
+        self.assertEqual(self.oops.warn_count(WARN), 1,
+                         "Bad SNI isn't rejected")
 
     def test_bad_sign_algs(self):
         self.start_all()
@@ -129,11 +127,10 @@ class TlsHandshakeTest(tester.TempestaTest):
                           tls.TLSExtSignatureAlgorithms(
                               algs=[0x0201, 0x0401, 0x0501, 0x0601, 0x0403],
                               length=11)]
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1,
+        self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
     def test_bad_elliptic_curves(self):
@@ -144,11 +141,10 @@ class TlsHandshakeTest(tester.TempestaTest):
                                 tls.TLSExtEllipticCurves(
                                     named_group_list=range(13),
                                     length=26)]
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1,
+        self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
     def test_bad_renegotiation_info(self):
@@ -156,11 +152,10 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.renegotiation_info = [tls.TLSExtension() /
                                    tls.TLSExtRenegotiationInfo(data="foo")]
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1,
+        self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about non-empty RenegotiationInfo")
 
     def test_alert(self):
@@ -309,11 +304,11 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.init()
         hs12 = TlsHandshake(addr='127.0.0.1', port=443)
         hs12.sni = []
-        klog = dmesg.DmesgFinder()
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(klog.warn_count(WARN), 1, "No warning about bad SNI")
+        self.assertEqual(self.oops.warn_count(WARN), 1,
+                         "No warning about bad SNI")
 
     def test_bad_host(self):
         self.init()

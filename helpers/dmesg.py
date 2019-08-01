@@ -14,19 +14,29 @@ __license__ = 'GPL2'
 class DmesgFinder(object):
     """dmesg helper class. """
 
-    def __init__(self):
+    def __init__(self, ratelimited=True):
+        """
+        Be careful using ratelimited=False - you must be sure that GC frees the
+        logger instance or delete the logger instance explicitly with `del`.
+        Python GC can not to call destructor of the object at all on assertion
+        or exception.
+        """
         self.node = remote.tempesta
         self.log = ''
         self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
         # Suppress net ratelimiter to have all the messages in dmesg.
-        self.msg_cost = self.node.run_cmd("sysctl net.core.message_cost")[0]
-        self.node.run_cmd("sysctl -w net.core.message_cost=0")
+        if ratelimited:
+            self.msg_cost = None
+        else:
+            self.msg_cost = self.node.run_cmd("sysctl net.core.message_cost")[0]
+            self.node.run_cmd("sysctl -w net.core.message_cost=0")
 
     def __del__(self):
         """ Restore net.core.message_cost to not to flood the log on
         performance tests.
         """
-        self.node.run_cmd("sysctl -w " + self.msg_cost.replace(' ', ''))
+        if self.msg_cost:
+            self.node.run_cmd("sysctl -w " + self.msg_cost.replace(' ', ''))
 
     def update(self):
         """Get log from the last run."""
@@ -74,7 +84,12 @@ def wait_for_msg(msg, timeout, permissive):
     log. Permissive mode assumes that if msg wasn't found and the log was
     rate limited, then the message was one of the skipped records.
     """
-    dmesg = DmesgFinder()
+    dmesg = DmesgFinder(ratelimited=False)
+
+    # If the code called under context of the function raises an exception or
+    # fails assertion, __exit__() routine of the context manager is still called
+    # and we call DmesgFinder.__del__() in the local context. Return, failed
+    # assertion, or unhandled exception at the below code frees dmesg instance.
 
     yield
 
