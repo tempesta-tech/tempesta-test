@@ -92,13 +92,12 @@ class X509(tester.TempestaTest):
                         "Cannot start Tempesta")
 
         # Collect warnings before start w/ a bad certificate.
-        klog = dmesg.DmesgFinder()
         self.start_all_clients()
         client = self.get_client('deproxy')
         client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
         res = client.wait_for_response(timeout=X509.TIMEOUT)
         self.assertFalse(res, "Erroneously established connection")
-        self.assertEqual(klog.warn_count(msg), 1,
+        self.assertEqual(self.oops.warn_count(msg), 1,
                          "Tempesta doesn't throw a warning on bad certificate")
 
     def check_cannot_start(self, msg):
@@ -110,9 +109,8 @@ class X509(tester.TempestaTest):
         cert_path, key_path = self.cgen.get_file_paths()
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
         remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
-        klog = dmesg.DmesgFinder()
         self.start_tempesta()
-        self.assertGreater(klog.warn_count(msg), 0,
+        self.assertGreater(self.oops.warn_count(msg), 0,
                            "Tempesta doesn't report error")
 
 

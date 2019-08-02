@@ -357,7 +357,7 @@ class TlsHandshakeStandard:
         self.verbose = verbose
 
     def try_tls_vers(self, version):
-        klog = dmesg.DmesgFinder()
+        klog = dmesg.DmesgFinder(ratelimited=False)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.io_to)
         sock.connect((self.addr, self.port))
