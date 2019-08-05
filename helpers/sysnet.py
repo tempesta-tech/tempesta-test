@@ -4,7 +4,7 @@ System utils for network administration.
 import socket
 import struct
 
-from helpers import remote
+from helpers import remote, tf_cfg
 from helpers.error import Error
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -85,7 +85,7 @@ def get_mtu(node, dev):
         res, _ = node.run_cmd(command)
         return int(res.split()[1])
     except Error as err:
-        raise Error("Can not determine MTU for device %s: %s" % (ip, err))
+        raise Error("Can not determine MTU for device %s: %s" % (dev, err))
 
 
 def change_mtu(node, dev, mtu):
@@ -95,8 +95,7 @@ def change_mtu(node, dev, mtu):
     try:
         node.run_cmd(command)
     except Error as err:
-        raise Error("Can not determine outgoing device for %s: %s"
-                    % (ip, err))
+        raise Error("Can't set MTU %d for device %s" % (mtu, dev))
     if mtu != get_mtu(node, dev):
         raise Error("Cannot set MTU %d for device %s" % (mtu, dev))
     return prev_mtu
