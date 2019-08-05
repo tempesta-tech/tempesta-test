@@ -1,5 +1,4 @@
 import re
-import os
 from . import error, remote, tf_cfg
 from framework.x509 import CertGenerator
 
@@ -246,7 +245,7 @@ class Config(object):
                 "Two or more certificates configured, please use custom_cert" \
                 " option in Tempesta configuration"
             cfg[k] = v
-        if not cfg.has_key('listen') or not cfg['listen'].find('https'):
+        if not cfg.has_key('listen') or not 'https' in cfg['listen']:
             return
         cert_path, key_path = cfg['tls_certificate'], cfg['tls_certificate_key']
         cgen = CertGenerator(cert_path, key_path, True)
