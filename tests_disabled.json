@@ -128,6 +128,14 @@
         {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_fuzzing",
             "reason" : "Bug #1318: crash on ttls_recv()."
+        },
+        {
+            "name" : "tls.test_tls_integrity.Proxy.test_request_response_with_various_mtus",
+            "reason" : "Bug #1283: crashes on CI"
+        },
+        {
+            "name" : "tls.test_tls_integrity.Cache.test_request_response_with_various_mtus",
+            "reason" : "Bug #1283: crashes on CI"
         }
     ]
 }

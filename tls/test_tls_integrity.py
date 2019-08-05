@@ -112,6 +112,17 @@ class TlsIntegrityTester(tester.TempestaTest):
             sniffer.stop()
             self.assertTrue(sniffer.check_results(), "Not optimal TCP flow")
 
+    def run_with_various_mtus(self, mtu_list, runner):
+        client = self.get_client(self.clients[0]['id'])
+        dev = sysnet.route_dst_ip(remote.client, client.addr[0])
+        prev_mtu = sysnet.change_mtu(remote.client, dev, 1500)
+
+        with self.mtu_ctx(remote.client, dev, prev_mtu):
+            for mtu in mtu_list:
+                tf_cfg.dbg(1, 'trying mtu {}'.format(mtu))
+                sysnet.change_mtu(remote.client, dev, mtu)
+                runner()
+
 
 class Proxy(TlsIntegrityTester):
 
@@ -139,6 +150,11 @@ class Proxy(TlsIntegrityTester):
     def test_tcp_segs(self):
         self.start_all()
         self.tcp_flow_check(8192)
+
+    def test_request_response_with_various_mtus(self):
+        self.start_all()
+        self.run_with_various_mtus(mtu_list=range(300, 500 + 1),
+            runner=lambda: [self.common_check(k, k) for k in (4096, 8192)])
 
 
 class Cache(TlsIntegrityTester):
@@ -197,3 +213,7 @@ class Cache(TlsIntegrityTester):
         self.common_check(65536, 65536)
         self.common_check(1000000, 1000000)
 
+    def test_request_response_with_various_mtus(self):
+        self.start_all()
+        self.run_with_various_mtus(mtu_list=range(300, 500 + 1),
+            runner=lambda: [self.common_check(k, k) for k in (4096, 8192)])
