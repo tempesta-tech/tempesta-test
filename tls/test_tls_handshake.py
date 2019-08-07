@@ -177,6 +177,22 @@ class TlsHandshakeTest(tester.TempestaTest):
             res = tls_conn._do_12_req()
             self.assertFalse(res, "Request processed on closed socket")
 
+    def test_close_notify(self):
+        self.start_all()
+        tls_conn = TlsHandshake()
+        with tls_conn.socket_ctx():
+            self.assertTrue(tls_conn._do_12_hs(), "Can not connect to Tempesta")
+            res = tls_conn._do_12_req()
+            self.assertTrue(res, "Wrong request result: %s" % res)
+            tls_conn.send_12_alert(tls.TLSAlertLevel.WARNING,
+                                   tls.TLSAlertDescription.CLOSE_NOTIFY)
+            resp = tls_conn.sock.recvall(timeout=tls_conn.io_to)
+            self.assertTrue(resp.haslayer(tls.TLSAlert))
+            if resp.haslayer(tls.TLSAlert):
+                 alert = resp[tls.TLSAlert]
+                 self.assertEqual(alert.level, 20)
+                 self.assertEqual(alert.description, 3)
+
     @util.profiled
     def test_fuzzing(self):
         """
