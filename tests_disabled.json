@@ -98,32 +98,8 @@
             "reason" : "Bug #1324."
         },
         {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_long_sni",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sni",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sign_algs",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_elliptic_curves",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_bad_renegotiation_info",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
-        },
-        {
             "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_empty_sni_default",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_many_ciphers",
-            "reason" : "Bug #1308: Tempesta doesn't send TLS alerts."
+            "reason" : "Bug #1347: Tempesta doesn't send TLS alerts on empty sni default."
         },
         {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_fuzzing",
