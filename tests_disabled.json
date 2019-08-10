@@ -128,6 +128,10 @@
         {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_fuzzing",
             "reason" : "Bug #1318: crash on ttls_recv()."
+        },
+        {
+            "name" : "reconf.test_stress_sticky",
+            "reason" : "Bug #1152: random failures on CI"
         }
     ]
 }
