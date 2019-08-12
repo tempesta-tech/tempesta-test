@@ -278,8 +278,9 @@ class HttpTablesTest(tester.TempestaTest):
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
-        self.assertTrue(self.wait_all_connections())
         self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections())
 
     def process(self, client, server, chain):
         client.make_request(chain.request.msg)

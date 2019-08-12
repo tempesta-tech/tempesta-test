@@ -65,10 +65,11 @@ class X509(tester.TempestaTest):
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
         remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
         self.start_tempesta()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=self.TIMEOUT),
-                        "Cannot start Tempesta")
 
         self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=self.TIMEOUT),
+                        "Cannot start Tempesta")
         client = self.get_client('deproxy')
         client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
         res = client.wait_for_response(timeout=X509.TIMEOUT)
@@ -88,11 +89,12 @@ class X509(tester.TempestaTest):
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
         remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
         self.start_tempesta()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT),
-                        "Cannot start Tempesta")
 
         # Collect warnings before start w/ a bad certificate.
         self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT),
+                        "Cannot start Tempesta")
         client = self.get_client('deproxy')
         client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
         res = client.wait_for_response(timeout=X509.TIMEOUT)
@@ -403,6 +405,7 @@ class TlsCertSelect(tester.TempestaTest):
         deproxy_srv = self.get_server('0')
         deproxy_srv.start()
         self.start_tempesta()
+        self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
         # TlsHandshake proposes EC only cipher suite and it must successfully

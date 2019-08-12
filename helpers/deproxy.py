@@ -624,7 +624,7 @@ class TlsClient(asyncore.dispatcher):
 
 class Client(TlsClient, stateful.Stateful):
 
-    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False):
+    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False, bind_addr=None):
         TlsClient.__init__(self, ssl)
         self.request = None
         self.request_buffer = ''
@@ -632,23 +632,25 @@ class Client(TlsClient, stateful.Stateful):
         self.tester = None
         if addr is None:
             addr = tf_cfg.cfg.get(host, 'ip')
-        self.addr = addr
+        self.conn_addr = addr
         self.port = port
         self.stop_procedures = [self.__stop_client]
-        self.orig_addr = ''
+        self.conn_is_closed = True
+        self.bind_addr = bind_addr
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
         self.close()
-        self.addr = self.orig_addr
 
     def run_start(self):
-        self.orig_addr = self.addr
         tf_cfg.dbg(3, '\tStarting deproxy client')
+
         tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.'
-                % (self.addr, self.port))
+                % (self.conn_addr, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((self.addr, self.port))
+        if self.bind_addr:
+            self.bind((self.bind_addr, 0))
+        self.connect((self.conn_addr, self.port))
 
     def clear(self):
         self.request_buffer = ''
@@ -661,8 +663,16 @@ class Client(TlsClient, stateful.Stateful):
     def set_tester(self, tester):
         self.tester = tester
 
+    def connection_is_closed(self):
+        return self.conn_is_closed
+
+    def handle_connect(self):
+        TlsClient.handle_connect(self)
+        self.conn_is_closed = False
+
     def handle_close(self):
         self.close()
+        self.conn_is_closed = True
 
     def handle_read(self):
         while True: # TLS aware - read as many records as we can
