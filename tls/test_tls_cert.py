@@ -410,5 +410,5 @@ class TlsCertSelect(tester.TempestaTest):
                         "Cannot start Tempesta")
         # TlsHandshake proposes EC only cipher suite and it must successfully
         # request Tempesta.
-        res = TlsHandshake(addr='127.0.0.1', port=443).do_12()
+        res = TlsHandshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
