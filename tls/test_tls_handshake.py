@@ -60,27 +60,27 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_tls12_synthetic(self):
         self.start_all()
-        res = TlsHandshake(addr='127.0.0.1', port=443).do_12()
+        res = TlsHandshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_1byte_transfer(self):
         self.start_all()
-        res = TlsHandshake(addr='127.0.0.1', port=443, chunk=1).do_12()
+        res = TlsHandshake(chunk=1).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_9byte_transfer(self):
         self.start_all()
-        res = TlsHandshake(addr='127.0.0.1', port=443, chunk=9).do_12()
+        res = TlsHandshake(chunk=9).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_10byte_transfer(self):
         self.start_all()
-        res = TlsHandshake(addr='127.0.0.1', port=443, chunk=10).do_12()
+        res = TlsHandshake(chunk=10).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_many_ciphers(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.ciphers = range(2000) # TTLS_HS_CS_MAX_SZ = 984
         # Test compressions as well - they're just ignored anyway.
         hs12.compressions = range(15)
@@ -94,7 +94,7 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_long_sni(self):
         """ Also tests receiving of TLS alert. """
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.sni = ["a" * 100 for i in xrange(10)]
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
@@ -104,13 +104,13 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_empty_sni_default(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.sni = []
         self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
 
     def test_bad_sni(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.sni = ["bad.server.name"]
         hs12.host = "tempesta-tech.com"
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
@@ -121,7 +121,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_bad_sign_algs(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         # Generate bad extension mismatching length and actual data.
         hs12.sign_algs = [tls.TLSExtension() /
                           tls.TLSExtSignatureAlgorithms(
@@ -135,7 +135,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_bad_elliptic_curves(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         # Generate bit longer data than Tempesta accepts (TTLS_ECP_DP_MAX = 12).
         hs12.elliptic_curves = [tls.TLSExtension() /
                                 tls.TLSExtEllipticCurves(
@@ -149,7 +149,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_bad_renegotiation_info(self):
         self.start_all()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.renegotiation_info = [tls.TLSExtension() /
                                    tls.TLSExtRenegotiationInfo(data="foo")]
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
@@ -160,7 +160,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_alert(self):
         self.start_all()
-        tls_conn = TlsHandshake(addr='127.0.0.1', port=443)
+        tls_conn = TlsHandshake()
         with tls_conn.socket_ctx():
             self.assertTrue(tls_conn._do_12_hs(), "Can not connect to Tempesta")
             tls_conn.send_12_alert(tls.TLSAlertLevel.WARNING,
@@ -188,7 +188,7 @@ class TlsHandshakeTest(tester.TempestaTest):
             # Only 4 places to inject a pakcet in simple handshake and
             # request test.
             for inject_rec in xrange(4):
-                tls_conn = TlsHandshake(addr='127.0.0.1', port=443)
+                tls_conn = TlsHandshake()
                 tls_conn.inject = inject_rec
                 try:
                     res = tls_conn.do_12(fuzzer)
@@ -200,7 +200,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_old_handshakes(self):
         self.start_all()
-        res = TlsHandshakeStandard(addr='127.0.0.1', port=443).do_old()
+        res = TlsHandshakeStandard().do_old()
         self.assertTrue(res, "Wrong old handshake result: %s" % res)
 
 
@@ -282,7 +282,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     def test_vhost_sni(self):
         self.init()
-        vhs = TlsHandshake(addr='127.0.0.1', port=443)
+        vhs = TlsHandshake()
         vhs.sni = ["vhost1.net"]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost1: %s" % res)
@@ -291,7 +291,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
                         "Wrong certificate received for vhost1")
 
-        vhs = TlsHandshake(addr='127.0.0.1', port=443)
+        vhs = TlsHandshake()
         vhs.sni = ["vhost2.net"]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost2: %s" % res)
@@ -302,7 +302,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     def test_empty_sni_default(self):
         self.init()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.sni = []
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
@@ -312,7 +312,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     def test_bad_host(self):
         self.init()
-        hs12 = TlsHandshake(addr='127.0.0.1', port=443)
+        hs12 = TlsHandshake()
         hs12.sni = ["vhost1.net", "vhost2.net"]
         hs12.host = "bad.host.com"
         self.assertFalse(hs12.do_12(), "Bad Host successfully processed")
@@ -376,7 +376,7 @@ class TlsCertReconfig(tester.TempestaTest):
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
 
-        vhs = TlsHandshake(addr='127.0.0.1', port=443)
+        vhs = TlsHandshake()
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
         res = x509_check_issuer(vhs.cert, "Tempesta Technologies Inc.")
@@ -386,7 +386,7 @@ class TlsCertReconfig(tester.TempestaTest):
         self.gen_cert()
         self.get_tempesta().reload()
 
-        vhs = TlsHandshake(addr='127.0.0.1', port=443)
+        vhs = TlsHandshake()
         res = vhs.do_12()
         self.assertTrue(res, "Bad second handshake: %s" % res)
         res = x509_check_issuer(vhs.cert, "New Issuer")

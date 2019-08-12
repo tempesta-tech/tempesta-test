@@ -22,7 +22,7 @@ import struct
 import scapy_ssl_tls.ssl_tls as tls
 from time import sleep
 
-from helpers import dmesg
+from helpers import dmesg, tf_cfg
 from helpers.error import Error
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -66,9 +66,12 @@ class TlsHandshake:
     Use higher @io_to values to debug/test Tempesta in debug mode.
     Use True for @verbose to see debug output for the handshake.
     """
-    def __init__(self, addr='127.0.0.1', port=443, io_to=0.5, chunk=None,
+    def __init__(self, addr=None, port=443, io_to=0.5, chunk=None,
                  verbose=False):
-        self.addr = addr
+        if addr:
+            self.addr = addr
+        else:
+            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
         self.port = port
         self.io_to = io_to # seconds, maybe not so small fraction of a second.
         self.chunk = chunk
@@ -350,8 +353,11 @@ class TlsHandshakeStandard:
     This class uses OpenSSL backend, so all its routines less customizable,
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
-    def __init__(self, addr='127.0.0.1', port=443, io_to=0.5, verbose=False):
-        self.addr = addr
+    def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
+        if addr:
+            self.addr = addr
+        else:
+            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
         self.port = port
         self.io_to = io_to
         self.verbose = verbose
