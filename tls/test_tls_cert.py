@@ -133,7 +133,7 @@ class RSA4096_SHA512(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_good_cert()
+        self.check_bad_alg("Warning: None of the common ciphersuites is usable")
 
 
 class RSA2048_SHA512(X509):
@@ -153,7 +153,7 @@ class RSA2048_SHA512(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_good_cert()
+        self.check_bad_alg("Warning: None of the common ciphersuites is usable")
 
 
 class RSA1024_SHA384(X509):
