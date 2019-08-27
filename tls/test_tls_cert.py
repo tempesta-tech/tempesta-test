@@ -243,7 +243,7 @@ class ECDSA_SHA512_SECP384(X509):
         self.cgen = CertGenerator()
         self.cgen.key = {
             'alg': 'ecdsa',
-            'curve': ec.SECP384R1() # Unsupported curve
+            'curve': ec.SECP384R1()
         }
         self.cgen.sign_alg = 'sha512'
         self.cgen.generate()
@@ -254,7 +254,7 @@ class ECDSA_SHA512_SECP384(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_bad_alg("Warning: None of the common ciphersuites is usable")
+        self.check_good_cert()
 
 
 class ECDSA_SHA384_SECP521(X509):
@@ -263,7 +263,7 @@ class ECDSA_SHA384_SECP521(X509):
         self.cgen = CertGenerator()
         self.cgen.key = {
             'alg': 'ecdsa',
-            'curve': ec.SECP521R1() # Unsupported curve
+            'curve': ec.SECP521R1()
         }
         self.cgen.sign_alg = 'sha384'
         self.cgen.generate()
@@ -274,7 +274,7 @@ class ECDSA_SHA384_SECP521(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_bad_alg("Warning: None of the common ciphersuites is usable")
+        self.check_good_cert()
 
 
 class InvalidHash(X509):
