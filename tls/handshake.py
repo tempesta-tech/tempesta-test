@@ -159,7 +159,7 @@ class TlsHandshake:
                     4. Setting interface MTU also doesn't work properly against
                        segmentation offloads.
                     """
-                    self.sock.sendall(chunk)
+                    self.sock._s.sendall(chunk)
                     sleep(0.001)
                 self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
                 self.sock.settimeout(prev_timeout)
