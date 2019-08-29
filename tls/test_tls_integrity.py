@@ -70,7 +70,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             res = client.wait_for_response(timeout=5)
             self.assertTrue(res, "Cannot process request (len=%d) or response" \
                                  " (len=%d)" % (req_len, resp_len))
-            resp = client.responses.pop().body
+            resp = client.responses[-1].body
             tf_cfg.dbg(4, '\tDeproxy response (len=%d): %s...'
                        % (len(resp), resp[:100]))
             hash2 = hashlib.md5(resp).digest()
