@@ -98,10 +98,6 @@
             "reason" : "Bug #1324."
         },
         {
-            "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_empty_sni_default",
-            "reason" : "Bug #1347: Tempesta doesn't send TLS alerts on empty sni default."
-        },
-        {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_fuzzing",
             "reason" : "Bug #1318: crash on ttls_recv()."
         }

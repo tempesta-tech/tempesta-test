@@ -319,14 +319,30 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
                         "Wrong certificate received for vhost2")
 
     def test_empty_sni_default(self):
+        """When a client doesn't send a SNI identifier, the global certificates
+        will be used. The request is processed well, if it follows the
+        http_chain rules by the host header.
+        """
         self.init()
-        hs12 = TlsHandshake()
-        hs12.sni = []
-        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
-        with self.assertRaises(tls.TLSProtocolError):
-            hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
-                         "No warning about bad SNI")
+        vhs = TlsHandshake()
+        vhs.sni = []
+        vhs.host = "vhost1.net"
+        res = vhs.do_12()
+        self.assertTrue(res, "Bad handshake: %s" % res)
+        self.assertTrue(vhs.http_resp.endswith("be1"),
+                        "Bad response from vhost1: [%s]" % vhs.http_resp)
+        self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
+                        "Wrong certificate received for vhost1")
+
+        vhs = TlsHandshake()
+        vhs.sni = []
+        vhs.host = "vhost2.net"
+        res = vhs.do_12()
+        self.assertTrue(res, "Bad handshake: %s" % res)
+        self.assertTrue(vhs.http_resp.endswith("be2"),
+                        "Bad response from vhost2: [%s]" % vhs.http_resp)
+        self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
+                        "Wrong certificate received for vhost1")
 
     def test_bad_host(self):
         self.init()
