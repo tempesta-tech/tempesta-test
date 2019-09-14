@@ -77,6 +77,7 @@ class X509(tester.TempestaTest):
         status = client.last_response.status
         self.assertEqual(status, '200', "Bad response status: %s" % status)
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def check_bad_alg(self, msg):
         """
         Tempesta normally loads a certificate, but fails on TLS handshake.
@@ -102,6 +103,7 @@ class X509(tester.TempestaTest):
         self.assertEqual(self.oops.warn_count(msg), 1,
                          "Tempesta doesn't throw a warning on bad certificate")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start(self, msg):
         """
         The test must implement tearDown() to avoid the framework complaints

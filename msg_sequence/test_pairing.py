@@ -36,6 +36,7 @@ class PairingTest(functional.FunctionalTest):
         self.client.start()
         self.tester.start()
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_disconnect_client(self):
         """Tempesta forwards requests from client to backend, but client
         disconnects before Tempesta received responses from backend. Responses

@@ -4,7 +4,7 @@ handshake messages.
 """
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import remote, tf_cfg, util
+from helpers import remote, tf_cfg, util, dmesg
 from handshake import *
 from fuzzer import tls_record_fuzzer
 
@@ -79,6 +79,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         res = TlsHandshake(chunk=10).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_many_ciphers(self):
         self.start_all()
         hs12 = TlsHandshake()
@@ -92,6 +93,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_long_sni(self):
         """ Also tests receiving of TLS alert. """
         self.start_all()
@@ -109,6 +111,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12.sni = []
         self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sni(self):
         self.start_all()
         hs12 = TlsHandshake()
@@ -120,6 +123,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(self.oops.warn_count(WARN), 1,
                          "Bad SNI isn't rejected")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sign_algs(self):
         self.start_all()
         hs12 = TlsHandshake()
@@ -134,6 +138,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_elliptic_curves(self):
         self.start_all()
         hs12 = TlsHandshake()
@@ -148,6 +153,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(self.oops.warn_count(WARN), 1,
                          "No warning about bad ClientHello")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_renegotiation_info(self):
         self.start_all()
         hs12 = TlsHandshake()
@@ -318,6 +324,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.assertTrue(x509_check_cn(vhs.cert, "vhost2.net"),
                         "Wrong certificate received for vhost2")
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_empty_sni_default(self):
         self.init()
         hs12 = TlsHandshake()
