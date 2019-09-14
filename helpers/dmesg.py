@@ -114,3 +114,22 @@ def wait_for_msg(msg, timeout, permissive):
         # otherwise we either spend too much time on timeouts or observe
         # spurious exceptions.
         tf_cfg.dbg(2, 'No "%s" log record and no ratelimiting' % msg)
+
+
+def unlimited_rate_on_tempesta_node(func):
+    """
+    The decorator turns off dmesg messages rate limiting to ensure important
+    messages are caught.
+    """
+    def func_wrapper(*args, **kwargs):
+        node = remote.tempesta
+        get_msg_cost_cmd = 'cat /proc/sys/net/core/message_cost'
+        msg_cost = node.run_cmd(get_msg_cost_cmd)[0].strip()
+        try:
+            node.run_cmd('echo 0 > /proc/sys/net/core/message_cost')
+            return func(*args, **kwargs)
+        finally:
+            cmd = 'echo {} > /proc/sys/net/core/message_cost'.format(msg_cost)
+            node.run_cmd(cmd)
+
+    return func_wrapper
