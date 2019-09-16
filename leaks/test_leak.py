@@ -46,29 +46,32 @@ def read_kmemleaks():
     [stdout, stderr] = remote.tempesta.run_cmd(cmd)
     return int(stdout)
 
-def get_memory_line(name):
-    """ Get value from /proc/meminfo """
+def get_memory_lines(*names):
+    """ Get values from /proc/meminfo """
     if not has_meminfo():
         return -1
     [stdout, stderr] = remote.tempesta.run_cmd("cat /proc/meminfo")
-    line = re.search("%s:[ ]+([0-9]+)" % name, stdout)
-    if line:
-        return int(line.group(1))
-    return -1
+    lines = []
+    for name in names:
+        line = re.search("%s:[ ]+([0-9]+)" % name, stdout)
+        if line:
+            lines.append(int(line.group(1)))
+        else:
+            lines.append(-1)
+    return lines
 
 def slab_memory():
     """ Get amount of slab used memory """
     drop_caches()
-    slabmem = get_memory_line("Slab")
+    slabmem, = get_memory_lines("Slab")
     return slabmem
 
 def used_memory():
     """ Measure total memory usage """
     drop_caches()
-    totalmem = get_memory_line("MemTotal")
+    totalmem, freemem = get_memory_lines("MemTotal", "MemFree")
     if totalmem == -1:
         return -1
-    freemem = get_memory_line("MemFree")
     if freemem == -1:
         return -1
     return totalmem - freemem
