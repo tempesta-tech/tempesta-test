@@ -49,7 +49,7 @@ def read_kmemleaks():
 def get_memory_lines(*names):
     """ Get values from /proc/meminfo """
     if not has_meminfo():
-        return -1
+        raise Exception("/proc/meminfo does not exist")
     [stdout, stderr] = remote.tempesta.run_cmd("cat /proc/meminfo")
     lines = []
     for name in names:
@@ -57,7 +57,7 @@ def get_memory_lines(*names):
         if line:
             lines.append(int(line.group(1)))
         else:
-            lines.append(-1)
+            raise Exception("Can not get %s from /proc/meminfo" % name)
     return lines
 
 def slab_memory():
@@ -70,8 +70,6 @@ def free_memory():
     """ Measure free memory usage """
     drop_caches()
     freemem, = get_memory_lines("MemFree")
-    if freemem == -1:
-        return -1
     return freemem
 
 class LeakTest(tester.TempestaTest):
