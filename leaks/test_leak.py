@@ -66,11 +66,11 @@ def slab_memory():
     slabmem, = get_memory_lines("Slab")
     return slabmem
 
-def free_memory():
+def free_and_cached_memory():
     """ Measure free memory usage """
     drop_caches()
-    freemem, = get_memory_lines("MemFree")
-    return freemem
+    freemem, cached = get_memory_lines("MemFree", "Cached")
+    return freemem + cached
 
 class LeakTest(tester.TempestaTest):
     """ Leaks testing """
@@ -188,10 +188,11 @@ server ${server_ip}:8000;
         nginx = self.get_server('nginx')
         wrk = self.get_client('wrk')
 
-        free1 = free_memory()
+        free_and_cached1 = free_and_cached_memory()
         self.run_routine(nginx, wrk)
-        free2 = free_memory()
+        free_and_cached2 = free_and_cached_memory()
 
+        used = free_and_cached1 - free_and_cached2
         tf_cfg.dbg(2, "used %i kib of memory = %s kib - %s kib" % \
-                    (free1 - free2, free1, free2))
-        self.assertLess(free1 - free2, self.memory_leak_thresold)
+                    (used, free_and_cached1, free_and_cached2))
+        self.assertLess(used, self.memory_leak_thresold)
