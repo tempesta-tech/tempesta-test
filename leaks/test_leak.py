@@ -46,32 +46,31 @@ def read_kmemleaks():
     [stdout, stderr] = remote.tempesta.run_cmd(cmd)
     return int(stdout)
 
-def get_memory_line(name):
-    """ Get value from /proc/meminfo """
+def get_memory_lines(*names):
+    """ Get values from /proc/meminfo """
     if not has_meminfo():
-        return -1
+        raise Exception("/proc/meminfo does not exist")
     [stdout, stderr] = remote.tempesta.run_cmd("cat /proc/meminfo")
-    line = re.search("%s:[ ]+([0-9]+)" % name, stdout)
-    if line:
-        return int(line.group(1))
-    return -1
+    lines = []
+    for name in names:
+        line = re.search("%s:[ ]+([0-9]+)" % name, stdout)
+        if line:
+            lines.append(int(line.group(1)))
+        else:
+            raise Exception("Can not get %s from /proc/meminfo" % name)
+    return lines
 
 def slab_memory():
     """ Get amount of slab used memory """
     drop_caches()
-    slabmem = get_memory_line("Slab")
+    slabmem, = get_memory_lines("Slab")
     return slabmem
 
-def used_memory():
-    """ Measure total memory usage """
+def free_and_cached_memory():
+    """ Measure free memory usage """
     drop_caches()
-    totalmem = get_memory_line("MemTotal")
-    if totalmem == -1:
-        return -1
-    freemem = get_memory_line("MemFree")
-    if freemem == -1:
-        return -1
-    return totalmem - freemem
+    freemem, cached = get_memory_lines("MemFree", "Cached")
+    return freemem + cached
 
 class LeakTest(tester.TempestaTest):
     """ Leaks testing """
@@ -189,10 +188,11 @@ server ${server_ip}:8000;
         nginx = self.get_server('nginx')
         wrk = self.get_client('wrk')
 
-        used1 = used_memory()
+        free_and_cached1 = free_and_cached_memory()
         self.run_routine(nginx, wrk)
-        used2 = used_memory()
+        free_and_cached2 = free_and_cached_memory()
 
+        used = free_and_cached1 - free_and_cached2
         tf_cfg.dbg(2, "used %i kib of memory = %s kib - %s kib" % \
-                    (used2 - used1, used2, used1))
-        self.assertLess(used2 - used1, self.memory_leak_thresold)
+                    (used, free_and_cached1, free_and_cached2))
+        self.assertLess(used, self.memory_leak_thresold)
