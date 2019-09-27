@@ -1,5 +1,5 @@
 """
-Tests for data integrity transfered via Tempesta TLS.
+Tests for data integrity transferred via Tempesta TLS.
 """
 from contextlib import contextmanager
 import hashlib

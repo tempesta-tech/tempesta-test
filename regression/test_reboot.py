@@ -16,7 +16,7 @@ class RebootUnderLoadTest(stress.StressTest):
     """Reboot under constant load"""
 
     restart_cycles = 10
-    # Override test duration. Mostly there is no sence to load TempestaFW for a
+    # Override test duration. Mostly there is no sense to load TempestaFW for a
     # long time before rebooting it.
     restart_timeout = 10
     # Timeout before first reboot.

@@ -208,7 +208,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         fuzzer = tls_record_fuzzer()
         for _ in xrange(10):
-            # Only 4 places to inject a pakcet in simple handshake and
+            # Only 4 places to inject a packet in simple handshake and
             # request test.
             for inject_rec in xrange(4):
                 tls_conn = TlsHandshake()
