@@ -59,7 +59,7 @@ class DmesgFinder(object):
         return self._warn_count(warn_str)
 
     def msg_ratelimited(self, msg):
-        """ Like previos, but returns binary found/not-found status and takes
+        """ Like previous, but returns binary found/not-found status and takes
         care about ratelimited messages. Returns 0 on success, -1 if msg wasn't
         found and 1 if there are no msg and the log is ratelimited.
         """

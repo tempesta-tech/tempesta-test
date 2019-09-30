@@ -153,7 +153,7 @@ class TlsHandshake:
                          sysctl -w net.ipv4.tcp_rmem='16 16 32'
                        negatively affect the whole system settings (per socket
                        setting also influenced by the global sysctls) and do
-                       not work with GSO & GRO - a peer still recives large
+                       not work with GSO & GRO - a peer still receives large
                        frags.
                     3. iptables --set-mss allows to change SYN packets only.
                     4. Setting interface MTU also doesn't work properly against

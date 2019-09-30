@@ -21,7 +21,7 @@ def drop_caches():
     sleep(1)
 
 def file_exists(remote_file):
-    """ Check existance of file on Tempesta host """
+    """ Check existence of file on Tempesta host """
     check_cmd = "if [ -e %s ]; then echo -n yes; fi" % remote_file
     [stdout, stderr] = remote.tempesta.run_cmd(check_cmd)
     if stdout != "yes":
