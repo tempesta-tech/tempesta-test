@@ -204,7 +204,7 @@ class ECDSA_SHA256_SECP192(X509):
         self.cgen = CertGenerator()
         self.cgen.key = {
             'alg': 'ecdsa',
-            'curve': ec.SECP192R1() # Unsupported curve
+            'curve': ec.SECP192R1() # Deprecated curve, RFC 8422 5.1.1
         }
         self.cgen.sign_alg = 'sha256'
         self.cgen.generate()
@@ -215,7 +215,8 @@ class ECDSA_SHA256_SECP192(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_bad_alg("Warning: None of the common ciphersuites is usable")
+        self.check_cannot_start("ERROR: tls_certificate: "
+                                + "Invalid certificate specified")
 
 
 class ECDSA_SHA256_SECP256(X509):
