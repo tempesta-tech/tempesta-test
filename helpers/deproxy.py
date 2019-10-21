@@ -270,7 +270,7 @@ class HttpMessage(object):
     def parse_headers(self, stream):
         self.headers = HeaderCollection.from_stream(stream, self)
 
-    def read_encoded_body(self, stream):
+    def read_encoded_body(self, stream, is_req):
         """ RFC 7230. 3.3.3 #3 """
         enc = self.headers['Transfer-Encoding']
         option = enc.split(',')[-1] # take the last option
@@ -278,11 +278,14 @@ class HttpMessage(object):
         if option.strip().lower() == 'chunked':
             self.read_chunked_body(stream)
         else:
-            error.bug('Not implemented!')
+            if is_req:
+                raise ParseError('Unlimited body not allowed for requests')
+            self.read_rest_body(stream)
 
     def read_rest_body(self, stream):
         """ RFC 7230. 3.3.3 #7 """
         self.body = stream.read()
+        self.original_length += len(self.body)
 
     def read_chunked_body(self, stream):
         while True:
@@ -305,6 +308,7 @@ class HttpMessage(object):
                 raise
             except:
                 raise ParseError('Error in chunked body')
+        self.original_length += len(self.body)
 
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
@@ -419,7 +423,7 @@ class Request(HttpMessage):
         """ RFC 7230 3.3.3 """
         # 3.3.3 3
         if 'Transfer-Encoding' in self.headers:
-            self.read_encoded_body(stream)
+            self.read_encoded_body(stream, True)
             return
         # 3.3.3 5
         if 'Content-Length' in self.headers:
@@ -489,7 +493,7 @@ class Response(HttpMessage):
             return
         # 3.3.3 3
         if 'Transfer-Encoding' in self.headers:
-            self.read_encoded_body(stream)
+            self.read_encoded_body(stream, False)
             return
         # TODO: check 3.3.3 4
         # 3.3.3 5
