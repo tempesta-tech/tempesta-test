@@ -221,6 +221,36 @@ class TlsHandshakeTest(tester.TempestaTest):
                     # expected in the test.
                     pass
 
+    def test_regression_1(self):
+        """Application data records before ClientFinished."""
+        self.start_all()
+        conn = TlsHandshake()
+        conn.conn_estab()
+        c_h = tls.TLSClientHello(
+            gmt_unix_time=0x22222222,
+            random_bytes='\x11' * 28,
+            cipher_suites=[
+                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
+            compression_methods=[tls.TLSCompressionMethod.NULL],
+            extensions=[
+                tls.TLSExtension() / tls.TLSExtECPointsFormat()]
+            + conn.extra_extensions()
+        )
+        msg1 = tls.TLSRecord(version='TLS_1_2') / \
+               tls.TLSHandshakes(handshakes=[tls.TLSHandshake() / c_h])
+        resp = conn.send_recv(msg1)
+        self.assertTrue(resp.haslayer(tls.TLSCertificate))
+
+        cke_h = tls.TLSHandshakes(
+            handshakes=[tls.TLSHandshake() /
+                        conn.sock.tls_ctx.get_client_kex_data(val=0xdeadbabe)])
+        msg2 = tls.TLSRecord(version='TLS_1_2') / cke_h
+        msg3 = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
+
+        conn.sock.sendall(tls.TLS.from_records([msg2, msg3]))
+        # An application data record before Client Finished message.
+        conn.send_recv(tls.TLSPlaintext(data='x'*1000))
+
     def test_old_handshakes(self):
         self.start_all()
         res = TlsHandshakeStandard().do_old()
