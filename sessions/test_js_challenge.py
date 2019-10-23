@@ -17,7 +17,7 @@ class JSChallenge(tester.TempestaTest):
     and only that server will respond to all its requests.
 
     There is no need to check different cookie names or per-vhost configuration,
-    since basic cookie tests already proves that the cookie configuration is
+    since basic cookie tests already prove that the cookie configuration is
     per-vhost.
     """
 
@@ -137,6 +137,11 @@ class JSChallenge(tester.TempestaTest):
         self.assertTrue(self.wait_all_connections(1))
 
     def test_get_challenge(self):
+        """Not all requests are challengeable. Tempesta sends the challenge
+        only if the client can accept it, i.e. request should has GET method and
+        'Accept: text/html OR */*'. In other cases normal browsers don't eval
+        JS code and TempestaFW is not trying to send the challenge to bots.
+        """
         self.start_all()
         client = self.get_client('client-1')
 
@@ -150,11 +155,9 @@ class JSChallenge(tester.TempestaTest):
                          "Unexpected response status code")
         self.assertIsNotNone(resp.headers.get('Set-Cookie', None),
                              "Set-Cookie header is missing in the response")
-        self.assertIsNotNone(resp.headers.get('Set-Cookie', None),
-                             "Set-Cookie header is missing in the response")
         match = re.search(r'(location\.reload)', resp.body)
         self.assertIsNotNone(match,
-                             "Cant extract value from Set-Cookie header")
+                             "Can't extract redirect target from response body")
 
         req = ("GET / HTTP/1.1\r\n"
                "Host: vh1.com\r\n"
@@ -165,11 +168,9 @@ class JSChallenge(tester.TempestaTest):
                          "Unexpected response status code")
         self.assertIsNotNone(resp.headers.get('Set-Cookie', None),
                              "Set-Cookie header is missing in the response")
-        self.assertIsNotNone(resp.headers.get('Set-Cookie', None),
-                             "Set-Cookie header is missing in the response")
         match = re.search(r'(location\.reload)', resp.body)
         self.assertIsNotNone(match,
-                             "Cant extract value from Set-Cookie header")
+                             "Can't extract redirect target from response body")
 
         # Resource is not challengable, request will be blocked and the
         # connection will be reset.
@@ -200,12 +201,11 @@ class JSChallenge(tester.TempestaTest):
                              "Cant extract value from Set-Cookie header")
         cookie = (match.group(1), match.group(2))
 
-        # Check that all the variables are passes correctly into JS challenge
+        # Check that all the variables are passed correctly into JS challenge
         # code:
         js_vars = ['var c_name = "%s";' % cookie[0],
                    'var delay_min = %d;' % delay_min,
                    'var delay_range = %d;' % delay_range]
-        match = re.search(r'(location\.reload)', resp.body)
         for js_var in js_vars:
             self.assertIn(js_var, resp.body,
                           "Can't find JS Challenge parameter in response body")
