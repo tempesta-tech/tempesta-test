@@ -17,7 +17,7 @@ class StickySessions(tester.TempestaTest):
     and only that server will respond to all its requests.
 
     There is no need to check different cookie names or per-vhost configuration,
-    since basic cookie tests already proves that the cookie configuration is
+    since basic cookie tests already prove that the cookie configuration is
     per-vhost.
     """
 
