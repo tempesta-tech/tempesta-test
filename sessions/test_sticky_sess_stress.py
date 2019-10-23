@@ -15,19 +15,19 @@ class OneClient(stress.StressTest):
 
     config = (
         'cache 0;\n'
-        'sticky enforce;\n'
-        'sticky_secret "f00)9eR59*_/22";\n'
-        '\n')
-
-    def configure_tempesta(self):
-        stress.StressTest.configure_tempesta(self)
-        for sg in self.tempesta.config.server_groups:
-            sg.options = 'sticky_sessions;'
+        'sticky {\n'
+        '   cookie enforce;\n'
+        '   secret "f00)9eR59*_/22";\n'
+        '   sticky_sessions;\n'
+        '}\n\n')
 
     def create_clients(self):
         self.wrk = control.Wrk(threads = 1)
         self.wrk.set_script("cookie-one-client")
         self.clients = [self.wrk]
+
+    def create_tempesta(self):
+        self.tempesta = control.Tempesta(vhost_auto=False)
 
     def create_servers(self):
         self.create_servers_helper(tempesta.servers_in_group())

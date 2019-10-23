@@ -84,6 +84,10 @@
         {
             "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
             "reason" : "#1325: the test fails before the issue is fixed. Probably there is a reason for the behavior and the test should be reworked."
+        },
+        {
+            "name" : "sessions.test_redir_mark.RedirectMark.test_rmark_without_cookie",
+            "reason" : "Client is blocked by ip address, and the framework loses ssh connection to Tempesta"
         }
     ]
 }

@@ -16,6 +16,7 @@ class LiveReconfStress(stress.StressTest):
 
     defconfig = ''
     sg_name = 'default'
+    auto_vhosts = True
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
@@ -52,7 +53,7 @@ class LiveReconfStress(stress.StressTest):
 
     def make_config(self, sg_name, servers, defconfig=None):
         """Create new configuration for TempestaFW."""
-        config = tempesta.Config()
+        config = tempesta.Config(vhost_auto=self.auto_vhosts)
         if defconfig is None:
             defconfig = self.defconfig
         config.set_defconfig(defconfig)
