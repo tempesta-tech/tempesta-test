@@ -291,7 +291,7 @@ class TempestaTest(unittest.TestCase):
         except:
             print('Unknown exception in stopping deproxy')
 
-        tf_cfg.dbg(2, "Removing interfaces")
+        tf_cfg.dbg(3, "Removing interfaces")
         interface = tf_cfg.cfg.get('Server', 'aliases_interface')
         remove_routes(interface, self.__ips)
         remove_interfaces(interface, self.__ips)

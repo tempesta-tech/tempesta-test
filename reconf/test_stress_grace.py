@@ -15,12 +15,16 @@ class SchedStickyGraceRatioSched(reconf_stress.LiveReconfStress):
     sched = 'ratio static'
     defconfig = (
         'cache 0;\n'
-        'sticky enforce;\n'
-        'sticky_secret "f00)9eR59*_/22";\n'
+        'sticky {\n'
+        '   cookie enforce;\n'
+        '   secret "f00)9eR59*_/22";\n'
+        '   sticky_sessions;\n'
+        '}\n'
         'grace_shutdown_time %d;\n'
         '\n' % int(tf_cfg.cfg.get('General', 'Duration')))
     clients_num = min(int(tf_cfg.cfg.get('General', 'concurrent_connections')),
                       1000)
+    auto_vhosts = False
 
     def create_clients(self):
         # See test_sticky_sess_stress
@@ -29,19 +33,12 @@ class SchedStickyGraceRatioSched(reconf_stress.LiveReconfStress):
         self.wrk.set_script("cookie-many-clients")
         self.clients = [self.wrk]
 
-    def set_ratio_sched(self):
-        for sg in self.tempesta.config.server_groups:
-            sg.sched = self.sched
-            sg.options = 'sticky_sessions;'
-
     def configure_srvs_start(self):
         reconf_stress.LiveReconfStress.configure_srvs_start(self)
-        self.set_ratio_sched()
 
     def configure_srvs_del(self):
         config = self.make_config(self.sg_name, [])
         self.tempesta.config = config
-        self.set_ratio_sched()
 
     def test_ratio_del_srvs(self):
         '''All servers are removed from configuration, but a relatively long

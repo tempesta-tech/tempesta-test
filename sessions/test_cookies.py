@@ -1,80 +1,386 @@
-from __future__ import print_function
-from testers import functional
-from . import cookies
+"""
+Basic tests for Tempesta cookies.
+"""
+
+import re, time
+from helpers import tf_cfg
+from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+DFLT_COOKIE_NAME = '__tfw'
 
-class TestNoCookiesSupport(functional.FunctionalTest):
-    """ Functional test for using cookies cookie. """
+class CookiesNotEnabled(tester.TempestaTest):
+    """
+    Sticky cookies are not enabled on Tempesta, so all clients may access the
+    requested resources. No cookie challenge is used to check clients behaviour.
+    """
 
-    config = (
-        'cache 0;\n'
-        'sticky;\n'
-        'sticky_secret "f00)9eR59*_/22";\n'
-        '\n')
+    backends = [
+        {
+            'id' : 'server-1',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Server-id: server-1\r\n'
+            'Content-Length: 0\r\n\r\n'
+        },
+        {
+            'id' : 'server-2',
+            'type' : 'deproxy',
+            'port' : '8001',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Server-id: server-2\r\n'
+            'Content-Length: 0\r\n\r\n'
+        },
+        {
+            'id' : 'server-3',
+            'type' : 'deproxy',
+            'port' : '8002',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Server-id: server-3\r\n'
+            'Content-Length: 0\r\n\r\n'
+        },
+    ]
 
-    def create_tester(self):
-        self.tester = cookies.TesterIgnoreCookies(self.client, self.servers)
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
+        server ${server_ip}:8002;
 
-    def test(self):
-        self.generic_test_routine(self.config, [])
+        """
+    }
+
+    clients = [
+        {
+            'id' : 'client-no-cookies',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80',
+            'support_cookies' : False
+        },
+        {
+            'id' : 'client-with-cookies',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80',
+            'support_cookies' : True
+        },
+    ]
+
+    def wait_all_connections(self, tmt=1):
+        sids = self.get_servers_id()
+        for sid in sids:
+            srv = self.get_server(sid)
+            if not srv.wait_for_connections(timeout=tmt):
+                return False
+        return True
+
+    def client_supports_cookies(self, client_name):
+        for client in self.clients:
+            if client['id'] == client_name:
+                return client.get('support_cookies', False)
+        return False
+
+    def client_send_req(self, client, req):
+        curr_responses = len(client.responses)
+        client.make_requests(req)
+        client.wait_for_response(timeout=1)
+        self.assertEqual(curr_responses + 1, len(client.responses))
+
+        return client.responses[-1]
+
+    def extract_cookie(self, response, cookie_name=None):
+        if not cookie_name:
+            cookie_name = DFLT_COOKIE_NAME
+        # Redirect with sticky cookie, read cookie and make a new request with a cookie
+        c_header = response.headers.get('Set-Cookie', None)
+        self.assertIsNotNone(c_header,
+                             "Set-Cookie header is missing in the response")
+        match = re.search(r'%s=([^;\s]+)' % cookie_name, c_header)
+        if not match:
+            return None
+        return (cookie_name, match.group(1))
+
+    def client_get(self, client_name, vhost,
+                        cookie_name=None):
+        """Make a request and process sticky cookie challenge if required.
+        """
+        client = self.get_client(client_name)
+
+        req = ("GET / HTTP/1.1\r\n"
+               "Host: %s\r\n"
+               "\r\n" % vhost)
+        response = self.client_send_req(client, req)
+        if response.status == '200':
+            return True
+
+        if response.status != '302':
+            tf_cfg.dbg(3, "Unexpected response code %s" % response.status)
+            return False
+        if not self.client_supports_cookies(client_name):
+            tf_cfg.dbg(3, "Redirect was sent but client don't support cookies")
+            return False
+
+        cookie = self.extract_cookie(response, cookie_name)
+        if not cookie:
+            return False
+        req = ("GET / HTTP/1.1\r\n"
+               "Host: %s\r\n"
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (vhost, cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        if response.status == '200':
+            return True
+
+        return False
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
+
+    def test_cookie(self):
+        self.start_all()
+        vhost = 'localhost'
+
+        tf_cfg.dbg(3, "Send request from client without cookie support...")
+        self.assertTrue(self.client_get('client-no-cookies', vhost),
+                        "Client couldn't access resource")
+
+        tf_cfg.dbg(3, "Send request from client with cookie support...")
+        self.assertTrue(self.client_get('client-with-cookies', vhost),
+                        "Client couldn't access resource")
 
 
-class TestCookiesSupport(TestNoCookiesSupport):
+class CookiesEnabled(CookiesNotEnabled):
+    """Implicit 'default' vhost with sticky cookies enabled. Enforce mode of
+    cookies is not enabled, so clients can access the resource without cookie
+    challenge.
+    """
 
-    def create_tester(self):
-        self.tester = cookies.TesterUseCookies(self.client, self.servers)
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
+        server ${server_ip}:8002;
 
+        sticky {
+            cookie;
+        }
 
-class TestNoEnforcedCookiesSupport(TestNoCookiesSupport):
-
-    config = (
-        'cache 0;\n'
-        'sticky enforce;\n'
-        'sticky_secret "f00)9eR59*_/22";\n'
-        '\n')
-
-    def create_tester(self):
-        self.tester = \
-            cookies.TesterIgnoreEnforcedCookies(self.client, self.servers)
-
-
-class TestEnforcedCookiesSupport(TestNoEnforcedCookiesSupport):
-
-    def create_tester(self):
-        self.tester = \
-            cookies.TesterUseEnforcedCookies(self.client, self.servers)
+        """
+    }
 
 
-class TestNoEnforcedExtCookiesSupport(TestNoCookiesSupport):
+class CookiesEnforced(CookiesNotEnabled):
+    """Implicit 'default' vhost with sticky cookies enabled. Enforce mode of
+    cookies is enabled, so clients can access the resource only after passing
+    challenge.
+    """
 
-    config = (
-        'cache 0;\n'
-        'sticky enforce max_misses=50;\n'
-        'sticky_secret "f00)9eR59*_/22";\n'
-        '\n')
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
+        server ${server_ip}:8002;
 
-    def create_tester(self):
-        self.tester = \
-            cookies.TesterIgnoreEnforcedExtCookies(self.client, self.servers)
+        sticky {
+            cookie enforce;
+        }
+
+        """
+    }
+
+    def test_cookie(self):
+        self.start_all()
+        vhost = 'localhost'
+
+        tf_cfg.dbg(3, "Send request from client without cookie support...")
+        self.assertFalse(self.client_get('client-no-cookies', vhost),
+                         "Client accessed resource without cookie challenge")
+
+        tf_cfg.dbg(3, "Send request from client with cookie support...")
+        self.assertTrue(self.client_get('client-with-cookies', vhost),
+                        "Client couldn't access resource")
 
 
-class TestNoEnforcedExtRmarkCookiesSupport(TestNoEnforcedExtCookiesSupport):
+class VhostCookies(CookiesNotEnabled):
+    """Cookies are configured per-vhost, and clients may get the requested
+    resources only if valid cookie name and value is set.
+    """
 
-    def create_tester(self):
-        self.tester = \
-            cookies.TesterIgnoreEnforcedExtCookiesRmark(self.client,
-                                                        self.servers)
+    tempesta = {
+        'config' :
+        """
+        srv_group vh_1_srvs {
+            server ${server_ip}:8000;
+        }
+        srv_group vh_2_srvs {
+            server ${server_ip}:8001;
+        }
+        srv_group vh_3_srvs {
+            server ${server_ip}:8002;
+        }
+
+        vhost vh_1 {
+            proxy_pass vh_1_srvs;
+
+            sticky {
+                cookie name=c_vh1 enforce;
+            }
+        }
+
+        vhost vh_2 {
+            proxy_pass vh_2_srvs;
+
+            sticky {
+                cookie name=c_vh2 enforce;
+            }
+        }
+
+        vhost vh_3 {
+            proxy_pass vh_3_srvs;
+
+            sticky {
+                cookie name=c_vh3;
+            }
+        }
+
+        http_chain {
+            host == "vh1.com" -> vh_1;
+            host == "vh2.com" -> vh_2;
+            host == "vh3.com" -> vh_3;
+            -> block;
+        }
+
+        """
+    }
+
+    def test_cookie(self):
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send requests to vhost_1...")
+        # Default cookie name is used, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh1.com'),
+                         "Client accessed resource without cookie challenge")
+        self.assertFalse(self.client_get('client-with-cookies', 'vh1.com'),
+                         "Client accessed resource without cookie challenge")
+        # Cookie name from vhost_1, client can pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh1.com',
+                                              cookie_name='c_vh1'),
+                         "Client accessed resource without cookie challenge")
+        self.assertTrue(self.client_get('client-with-cookies', 'vh1.com',
+                                             cookie_name='c_vh1'),
+                        "Client couldn't access resource")
+        # Cookie name from vhost_2, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh1.com',
+                                              cookie_name='c_vh2'),
+                         "Client accessed resource without cookie challenge")
+        self.assertFalse(self.client_get('client-with-cookies', 'vh1.com',
+                                              cookie_name='c_vh2'),
+                         "Client accessed resource without cookie challenge")
+        # Cookie name from vhost_3, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh1.com',
+                                              cookie_name='c_vh3'),
+                         "Client accessed resource without cookie challenge")
+        self.assertFalse(self.client_get('client-with-cookies', 'vh1.com',
+                                              cookie_name='c_vh3'),
+                         "Client accessed resource without cookie challenge")
+
+        tf_cfg.dbg(3, "Send requests to vhost_2...")
+        # Default cookie name is used, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh2.com'),
+                         "Client accessed resource without cookie challenge")
+        self.assertFalse(self.client_get('client-with-cookies', 'vh2.com'),
+                         "Client accessed resource without cookie challenge")
+        # Cookie name from vhost_1, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh2.com',
+                                              cookie_name='c_vh1'),
+                         "Client accessed resource without cookie challenge")
+        self.assertFalse(self.client_get('client-with-cookies', 'vh2.com',
+                                              cookie_name='c_vh1'),
+                         "Client accessed resource without cookie challenge")
+        # Cookie name from vhost_2, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh2.com',
+                                              cookie_name='c_vh2'),
+                         "Client accessed resource without cookie challenge")
+        self.assertTrue(self.client_get('client-with-cookies', 'vh2.com',
+                                             cookie_name='c_vh2'),
+                        "Client couldn't access resource")
+        # Cookie name from vhost_3, client can't pass cookie challenge.
+        self.assertFalse(self.client_get('client-no-cookies', 'vh2.com',
+                                              cookie_name='c_vh3'),
+                         "Client accessed resource without cookie challenge")
+        self.assertFalse(self.client_get('client-with-cookies', 'vh2.com',
+                                              cookie_name='c_vh3'),
+                         "Client accessed resource without cookie challenge")
+
+        tf_cfg.dbg(3, "Send requests to vhost_3...")
+        # Enforce mode is disabled for vhost_3, cookie challenge is not required
+        self.assertTrue(self.client_get('client-no-cookies', 'vh3.com'),
+                        "Client couldn't access resource")
+        self.assertTrue(self.client_get('client-with-cookies', 'vh3.com',
+                                             cookie_name='c_vh3'),
+                        "Client couldn't access resource")
 
 
-class TestInvEnforcedExtRmarkCookiesSupport(TestNoEnforcedExtCookiesSupport):
+class CookieLifetime(CookiesNotEnabled):
 
-    def create_tester(self):
-        self.tester = \
-            cookies.TesterInvalidEnforcedExtCookiesRmark(self.client,
-                                                         self.servers)
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
+        server ${server_ip}:8002;
 
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+        sticky {
+            cookie enforce;
+            sess_lifetime 2;
+        }
+
+        """
+    }
+
+    def test_cookie(self):
+        self.start_all()
+        client = self.get_client('client-with-cookies')
+
+        req = ("GET / HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "\r\n")
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status, '302',
+                         "Unexpected redirect status code")
+        cookie = self.extract_cookie(response)
+        self.assertIsNotNone(cookie, "Can't find cookie in response")
+        req = ("GET / HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status, '200',
+                         "Unexpected response status code")
+        tf_cfg.dbg(3, "Sleep until session get expired...")
+        time.sleep(5)
+        req = ("GET / HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status, '302',
+                         "Unexpected redirect status code")
