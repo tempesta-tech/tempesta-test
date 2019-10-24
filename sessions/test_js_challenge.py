@@ -119,14 +119,18 @@ class JSChallenge(tester.TempestaTest):
         self.assertTrue(client.connection_is_closed())
 
     def prepare_js_templates(self):
+        """
+        Templates for JS challenge are modified by start script, create a copy
+        of default template for each vhost.
+        """
         srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
         workdir = tf_cfg.cfg.get('Tempesta', 'workdir')
         template = "%s/etc/js_challenge.tpl" % srcdir
         js_code = "%s/etc/js_challenge.js.tpl" % srcdir
-        remote.tempesta.copy_file_to_node(js_code, workdir)
-        remote.tempesta.copy_file_to_node(template, "%s/js1.tpl" % workdir)
-        remote.tempesta.copy_file_to_node(template, "%s/js2.tpl" % workdir)
-        remote.tempesta.copy_file_to_node(template, "%s/js3.tpl" % workdir)
+        remote.tempesta.run_cmd("cp %s %s"  % (js_code, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js1.tpl" % (template, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js2.tpl" % (template, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js3.tpl" % (template, workdir))
 
     def start_all(self):
         self.prepare_js_templates()
