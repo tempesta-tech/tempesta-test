@@ -244,14 +244,14 @@ class JSChallenge(tester.TempestaTest):
         self.process_js_challenge(client, 'vh1.com',
                                   delay_min=1000, delay_range=1500,
                                   status_code=503, expect_pass=True,
-                                  req_delay=2)
+                                  req_delay=2.5)
 
         tf_cfg.dbg(3, "Send request to vhost 2 with timeout 4s...")
         client = self.get_client('client-2')
         self.process_js_challenge(client, 'vh2.com',
                                   delay_min=2000, delay_range=1200,
                                   status_code=302, expect_pass=True,
-                                  req_delay=4)
+                                  req_delay=3.5)
         # Vhost 3 has very strict window to receive the request, skip it in
         # this test.
 
