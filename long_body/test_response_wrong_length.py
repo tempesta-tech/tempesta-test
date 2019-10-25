@@ -107,14 +107,13 @@ class TesterMissingEmptyBodyLength(deproxy.Deproxy):
         chain = generate_chain_200(method='GET', response_body=self.reply_body)
         chain.server_response.headers.delete_all('Content-Length')
         chain.server_response.update()
+        chain.response.headers.delete_all('Content-Length')
+        chain.response.headers['Transfer-Encoding'] = 'chunked'
+        chain.response.body = '0\r\n\r\n'
+        chain.response.update()
+
         self.message_chains = [chain]
         self.cookies = []
-
-
-class TesterMissingBodyLength(TesterMissingEmptyBodyLength):
-    """ Tester """
-    reply_body = "abcdefgh"
-
 
 class TesterSmallBodyLength(TesterCorrectBodyLength):
     """ Tester """
