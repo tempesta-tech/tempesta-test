@@ -218,6 +218,14 @@ class ECDSA_SHA256_SECP192(X509):
         self.check_cannot_start("ERROR: tls_certificate: "
                                 + "Invalid certificate specified")
 
+    def tearDown(self):
+        self.deproxy_manager.stop()
+        # Tempesta can't start and print `ERROR` message to log, ignore any
+        # error and warnings messages and catch only oopses.
+        self.oops.update()
+        if self.oops._warn_count("Oops") > 0:
+            raise Error("Oopses happened during test on Tempesta")
+
 
 class ECDSA_SHA256_SECP256(X509):
     """ ECDSA-SHA256-SECP256R1 is the default certificate. """
