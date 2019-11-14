@@ -272,6 +272,7 @@ class TempestaTest(unittest.TestCase):
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
         self.oops = dmesg.DmesgFinder()
+        self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
@@ -298,12 +299,15 @@ class TempestaTest(unittest.TestCase):
         self.__ips = []
 
         self.oops.update()
-        if self.oops._warn_count("Oops") > 0:
-            raise Exception("Oopses happened during test on Tempesta")
-        if self.oops._warn_count("WARNING") > 0:
-            raise Exception("Warnings happened during test on Tempesta")
-        if self.oops._warn_count("ERROR") > 0:
-            raise Exception("Errors happened during test on Tempesta")
+        for err in ["Oops", "WARNING", "ERROR"]:
+            if err in self.oops_ignore:
+                continue
+            if self.oops._warn_count(err) > 0:
+                self.oops_ignore = []
+                raise Exception("%s happened during test on Tempesta" % err)
+        # Drop the list of ignored errors to allow set different errors masks
+        # for different tests.
+        self.oops_ignore = []
 
     def wait_while_busy(self, *items):
         if items is None:
