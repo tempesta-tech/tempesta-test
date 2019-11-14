@@ -105,10 +105,9 @@ class X509(tester.TempestaTest):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start(self, msg):
-        """
-        The test must implement tearDown() to avoid the framework complaints
-        about error messages.
-        """
+        # Don't fail the test if errors and warnings are detected, It's an
+        # expected behaviour.
+        self.oops_ignore = ["WARNING", "ERROR"]
         # We have to copy the certificate and key on our own.
         cert_path, key_path = self.cgen.get_file_paths()
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
@@ -298,13 +297,6 @@ class InvalidHash(X509):
         # certificate file at all, instead of correctly report about
         # not supported SHA1.
         self.check_cannot_start("ERROR: configuration parsing error")
-
-    def tearDown(self):
-        self.deproxy_manager.stop()
-        # We do care only about Oopses, not about warnings or errors.
-        self.oops.update()
-        if self.oops._warn_count("Oops") > 0:
-            raise Error("Oopses happened during test on Tempesta")
 
 
 class StaleCert(X509):
