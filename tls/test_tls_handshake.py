@@ -83,15 +83,17 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_many_ciphers(self):
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.ciphers = range(2000) # TTLS_HS_CS_MAX_SZ = 984
-        # Test compressions as well - they're just ignored anyway.
+        # Tempesta handles about 758 bytes worth of cipher list, and throws
+        # away the remainder. As clients usually tend to send preferred ciphers
+        # first, and there are no such number of distinct ciphers to fill those
+        # 758 bytes, it's safe to ignore the remainder. Just making sure
+        # Tempesta doesn't crash and doesn't generate an error message.
+        hs12.ciphers = range(2000)
+        # Add some compressions as well. `0` is NULL-compression, so we are
+        # good.
         hs12.compressions = range(15)
-        # Tempesta must send a TLS alert raising TLSProtocolError exception.
-        # Nginx/OpenSSL sends DECODE_ERROR FATAL alert for the ClientHello.
-        with self.assertRaises(tls.TLSProtocolError):
-            hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
-                         "No warning about bad ClientHello")
+        res = hs12.do_12()
+        self.assertTrue(res)
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_long_sni(self):
