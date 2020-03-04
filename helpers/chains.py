@@ -100,6 +100,8 @@ def base(uri='/', method='GET', forward=True, date=None):
         'Content-type: text/html'
     ]
 
+    proto = '1.1'
+
     #
     # Prepare request and response contents (common variant for a GET request)
     #
@@ -127,19 +129,22 @@ def base(uri='/', method='GET', forward=True, date=None):
     common_resp_date = date
     # response body
     common_resp_body = ''
-    # common part of response headers 
+    # common part of response headers
     common_resp_headers = [
         'Connection: keep-alive',
     ]
     # response headers added in tempesta->client
     tempesta_resp_headers_addn = [
         'Server: Tempesta FW/%s' % tempesta.version(),
-        'Via: 1.1 tempesta_fw (Tempesta FW %s)' % tempesta.version()
     ]
     if not forward:
+        proto = '2.0'
         tempesta_resp_headers_addn += [
             'Age: 0'
         ]
+    tempesta_resp_headers_addn += [
+        'Via: %s tempesta_fw (Tempesta FW %s)' % (proto, tempesta.version())
+    ]
     # response headers added in backend->tempesta
     backend_resp_headers_addn = [
         'Server: Deproxy Server'
