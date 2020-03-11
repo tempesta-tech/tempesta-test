@@ -245,7 +245,8 @@ class Config(object):
                 "Two or more certificates configured, please use custom_cert" \
                 " option in Tempesta configuration"
             cfg[k] = v
-        if not cfg.has_key('listen') or not 'https' in cfg['listen']:
+        if not cfg.has_key('listen') or not \
+            any(proto in cfg['listen'] for proto in ['https', 'h2']):
             return
         cert_path, key_path = cfg['tls_certificate'], cfg['tls_certificate_key']
         cgen = CertGenerator(cert_path, key_path, True)

@@ -63,6 +63,9 @@ class Client(stateful.Stateful):
         They use file with list of uris instead. Don't force clients to use
         uri field.
         """
+        if not uri:
+            self.uri = ''
+            return
         proto = 'https://' if self.ssl else 'http://'
         self.uri = ''.join([proto, self.server_addr, uri])
 

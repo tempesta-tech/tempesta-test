@@ -7,6 +7,8 @@ from helpers import control, tf_cfg, dmesg, remote
 import framework.wrk_client as wrk_client
 import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
+import framework.external_client as external_client
+
 from framework.templates import fill_template, populate_properties
 
 import socket
@@ -150,6 +152,14 @@ class TempestaTest(unittest.TestCase):
         wrk.set_script(client['id']+"_script", content="")
         return wrk
 
+    def __create_client_external(self, client_descr):
+        cmd_args = fill_template(client_descr['cmd_args'], client_descr)
+        ext_client = external_client.ExternalTester(binary=client_descr['binary'],
+                                                    cmd_args=cmd_args,
+                                                    server_addr=None,
+                                                    uri=None)
+        return ext_client
+
     def __create_client(self, client):
         populate_properties(client)
         ssl = client.setdefault('ssl', False)
@@ -167,6 +177,8 @@ class TempestaTest(unittest.TestCase):
             self.__clients[cid].set_rps(client.get('rps', 0))
         elif client['type'] == 'wrk':
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
+        elif client['type'] == 'external':
+            self.__clients[cid] = self.__create_client_external(client)
 
     def __create_backend(self, server):
         srv = None
