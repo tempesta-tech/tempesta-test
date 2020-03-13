@@ -94,7 +94,7 @@ class H2Spec(tester.TempestaTest):
 
     def test_h2_specs(self):
         h2spec = self.get_client('h2spec')
-        # TODO: for now run only simple test to check http2 connectivity
+        # TODO #88: for now run only simple test to check http2 connectivity
         # After all h2-related issues will be fixed, remove the line
         h2spec.options.append('generic/4')
 

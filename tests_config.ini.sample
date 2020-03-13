@@ -78,6 +78,12 @@ ab = ab
 #
 wrk = wrk
 
+# h2spec conformance testing tool for HTTP/2 implementation.
+#
+# ex.: h2spec = /home/user/bin/h2spec
+#
+h2spec = h2spec
+
 
 [Tempesta]
 # Configuration for the host running TempestaFW. It may be configured to run

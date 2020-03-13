@@ -72,7 +72,7 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 - Host for testing framework: `Python2`, `python2-paramiko`,
 `python-configparser`, `python-subprocess32`, `wrk`, `ab`, `python-scapy`,
-`python-cryptography`, `scapy-ssl_tls` (installed with `pip`)
+`python-cryptography`, `scapy-ssl_tls` (installed with `pip`), `h2spec`
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
 `systemtap`, `tcpdump`, `bc`
@@ -82,6 +82,9 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 `ab` is Apache benchmark tool, that can be found in `apache2-utils` package in
 Debian or `httpd-tools` in CentOS.
+
+`h2spec` is HTTP/2 conformance test suite. Can't be installed from package
+manager and must be retrieved from [GitHub](https://github.com/summerwind/h2spec/releases/latest).
 
 Unfortunately, CentOS does not have `python-subprocess32` package, but it can be
 downloaded from [CentOS CBS](https://cbs.centos.org/koji/buildinfo?buildID=10904)
@@ -151,7 +154,7 @@ names available in PATH.
 #### Tempesta Section
 
 `ip` — IPv4/IPv6 address of the TempestaFW host in test network, as reachable
-from the client and server hosts. 
+from the client and server hosts.
 
 `hostname`, `port`, `user` — address and credentials used to reach the host via
 SSH. If hostname is `localhost`, TempestaFW will be ran locally.
