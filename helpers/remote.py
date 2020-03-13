@@ -79,7 +79,8 @@ class LocalNode(Node):
                               stderr=stderr_pipe, env=env_full) as p:
             try:
                 stdout, stderr = p.communicate(timeout)
-                assert p.returncode == 0, "Return code is not 0."
+                assert p.returncode == 0, \
+                    "Cmd: '%s' return code is not 0 (%d)." % (cmd, p.returncode)
             except Exception as e:
                 if not err_msg:
                     err_msg = ("Error running command '%s' on %s" %
@@ -221,7 +222,7 @@ class RemoteNode(Node):
 
     def wait_available(self):
         tf_cfg.dbg(3, '\tWaiting for %s node' % self.type)
-        timeout = float(tf_cfg.cfg.get(self.type, 'unavaliable_timeout'))        
+        timeout = float(tf_cfg.cfg.get(self.type, 'unavaliable_timeout'))
         t0 = time.time()
         while True:
             t = time.time()
