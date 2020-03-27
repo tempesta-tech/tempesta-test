@@ -167,14 +167,7 @@ class JSChallenge(tester.TempestaTest):
                "Host: vh1.com\r\n"
                "Accept: */*\r\n"
                "\r\n")
-        resp = self.client_send_req(client, req)
-        self.assertEqual(resp.status, '503',
-                         "Unexpected response status code")
-        self.assertIsNotNone(resp.headers.get('Set-Cookie', None),
-                             "Set-Cookie header is missing in the response")
-        match = re.search(r'(location\.reload)', resp.body)
-        self.assertIsNotNone(match,
-                             "Can't extract redirect target from response body")
+        self.client_expect_block(client, req)
 
         # Resource is not challengable, request will be blocked and the
         # connection will be reset.
@@ -184,8 +177,23 @@ class JSChallenge(tester.TempestaTest):
                "\r\n")
         self.client_expect_block(client, req)
 
+    def expect_restart(self, client, req, status_code, last_cookie):
+        resp = self.client_send_req(client, req)
+        self.assertEqual(resp.status, '%d' % status_code,
+                         "unexpected response status code")
+        c_header = resp.headers.get('Set-Cookie', None)
+        self.assertIsNotNone(c_header,
+                             "Set-Cookie header is missing in the response")
+        match = re.search(r'([^;\s]+)=([^;\s]+)', c_header)
+        self.assertIsNotNone(match,
+                             "Can't extract value from Set-Cookie header")
+        new_cookie = (match.group(1), match.group(2))
+        self.assertNotEqual(last_cookie, new_cookie,
+                            "Challenge is not restarted")
+
     def process_js_challenge(self, client, host, delay_min, delay_range,
-                             status_code, expect_pass, req_delay):
+                             status_code, expect_pass, req_delay,
+                             restart_on_fail=False):
         """Our tests can't pass the JS challenge with propper configuration,
         enlarge delay limit to not recommended values to make it possible to
         hardcode the JS challenge.
@@ -227,7 +235,10 @@ class JSChallenge(tester.TempestaTest):
                "Cookie: %s=%s\r\n"
                "\r\n" % (host, cookie[0], cookie[1]))
         if not expect_pass:
-            self.client_expect_block(client, req)
+            if restart_on_fail:
+                self.expect_restart(client, req, status_code, cookie)
+            else:
+                self.client_expect_block(client, req)
             return
         resp = self.client_send_req(client, req)
         self.assertEqual(resp.status, '200',
@@ -283,8 +294,8 @@ class JSChallenge(tester.TempestaTest):
                                   req_delay=0)
 
     def test_fail_challenge_too_late(self):
-        """ Clients send the validating request too late, Tempesta closes the
-        connection.
+        """ Clients send the validating request too late, Tempesta restarts
+        cookie challenge.
         """
         self.start_all()
 
@@ -293,18 +304,18 @@ class JSChallenge(tester.TempestaTest):
         self.process_js_challenge(client, 'vh1.com',
                                   delay_min=1000, delay_range=1500,
                                   status_code=503, expect_pass=False,
-                                  req_delay=6)
+                                  req_delay=6, restart_on_fail=True)
 
         tf_cfg.dbg(3, "Send request to vhost 2 with timeout 6s...")
         client = self.get_client('client-2')
         self.process_js_challenge(client, 'vh2.com',
                                   delay_min=2000, delay_range=1200,
                                   status_code=302, expect_pass=False,
-                                  req_delay=6)
+                                  req_delay=6, restart_on_fail=True)
 
         tf_cfg.dbg(3, "Send request to vhost 3 with timeout 3s...")
         client = self.get_client('client-3')
         self.process_js_challenge(client, 'vh3.com',
                                   delay_min=1000, delay_range=1000,
                                   status_code=503, expect_pass=False,
-                                  req_delay=3)
+                                  req_delay=3, restart_on_fail=True)
