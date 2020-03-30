@@ -8,7 +8,7 @@ from helpers import tf_cfg, remote
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class JSChallenge(tester.TempestaTest):
@@ -178,6 +178,12 @@ class JSChallenge(tester.TempestaTest):
         self.client_expect_block(client, req)
 
     def expect_restart(self, client, req, status_code, last_cookie):
+      """We tried to pass JS challenge, but the cookie we have was generated
+      too long time ago. We can't pass JS challenge now, but Tempesta
+      doesn't block us, but gives second chance to pass the challenge.
+
+      Expect a new redirect response with new sticky cookie value.
+      """
         resp = self.client_send_req(client, req)
         self.assertEqual(resp.status, '%d' % status_code,
                          "unexpected response status code")
