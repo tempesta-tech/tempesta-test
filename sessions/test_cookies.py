@@ -131,6 +131,14 @@ class CookiesNotEnabled(tester.TempestaTest):
         if not self.client_supports_cookies(client_name):
             tf_cfg.dbg(3, "Redirect was sent but client don't support cookies")
             return False
+        # Tempesta constructs 'Location:' header using host header, current
+        # uri and redirect mark. In this test redirect mark is disabled,
+        # check that the redirect location is formed correctly.
+        location = response.headers['location']
+        location_exp = 'http://%s/' % vhost
+        self.assertEqual(location, location_exp,
+                         "Location header is misformed: expect '%s' got '%s'"
+                         % (location_exp, location))
 
         cookie = self.extract_cookie(response, cookie_name)
         if not cookie:
