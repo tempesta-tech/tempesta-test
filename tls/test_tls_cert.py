@@ -265,7 +265,7 @@ class ECDSA_SHA384_SECP521(X509):
         self.cgen = CertGenerator()
         self.cgen.key = {
             'alg': 'ecdsa',
-            'curve': ec.SECP521R1()
+            'curve': ec.SECP521R1() # Isn't supported any more.
         }
         self.cgen.sign_alg = 'sha384'
         self.cgen.generate()
@@ -276,7 +276,8 @@ class ECDSA_SHA384_SECP521(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_good_cert()
+        self.check_cannot_start("ERROR: tls_certificate: "
+                                + "Invalid certificate specified")
 
 
 class InvalidHash(X509):
