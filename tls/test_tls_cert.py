@@ -260,12 +260,16 @@ class ECDSA_SHA512_SECP384(X509):
 
 
 class ECDSA_SHA384_SECP521(X509):
+    """ The curve secp521r1 isn't recommended by IANA, so it isn't supported
+    by Tempesta FW.
+    https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-8
+    """
 
     def setUp(self):
         self.cgen = CertGenerator()
         self.cgen.key = {
             'alg': 'ecdsa',
-            'curve': ec.SECP521R1() # Isn't supported any more.
+            'curve': ec.SECP521R1()
         }
         self.cgen.sign_alg = 'sha384'
         self.cgen.generate()
