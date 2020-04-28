@@ -260,6 +260,10 @@ class ECDSA_SHA512_SECP384(X509):
 
 
 class ECDSA_SHA384_SECP521(X509):
+    """ The curve secp521r1 isn't recommended by IANA, so it isn't supported
+    by Tempesta FW.
+    https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-8
+    """
 
     def setUp(self):
         self.cgen = CertGenerator()
@@ -276,7 +280,8 @@ class ECDSA_SHA384_SECP521(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_good_cert()
+        self.check_cannot_start("ERROR: tls_certificate: "
+                                + "Invalid certificate specified")
 
 
 class InvalidHash(X509):
