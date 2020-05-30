@@ -1,5 +1,4 @@
 from framework import tester
-from helpers import tf_cfg, deproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
@@ -12,12 +11,10 @@ class MalformedRequestsTest(tester.TempestaTest):
             'type' : 'deproxy',
             'port' : '8000',
             'response' : 'static',
-            'response_content' :
-"""HTTP/1.1 200 OK
-Content-Length: 0
-Connection: keep-alive
-
-"""
+            'response_content' : ('HTTP/1.1 200 OK\r\n'
+                                  'Content-Length: 0\r\n'
+                                  'Connection: keep-alive\r\n'
+                                  '\r\n')
         },
     ]
 
@@ -41,17 +38,28 @@ server ${general_ip}:8000;
     ]
 
     def common_check(self, request):
-        deproxy = self.get_server('deproxy')
-        deproxy.start()
+        srv = self.get_server('deproxy')
+        srv.start()
         self.start_tempesta()
-        self.assertTrue(deproxy.wait_for_connections(timeout=1))
-        deproxy = self.get_client('deproxy')
-        deproxy.start()
-        deproxy.make_request(request)
-        has_resp = deproxy.wait_for_response(timeout=5)
+        self.deproxy_manager.start()
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+        clnt = self.get_client('deproxy')
+        clnt.start()
+        clnt.make_request(request)
+        has_resp = clnt.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
-        status = deproxy.last_response.status
+        status = clnt.last_response.status
         self.assertEqual(int(status), 400, "Wrong status: %s" % status)
+
+    def test_missing_name(self):
+        # Header name must contain at least one token character to be valid.
+        # Don't mix it up with http2 pseudo headers, starting with ':' since
+        # SP after ':' is required.
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  ': invalid header\r\n' \
+                  '\r\n'
+        self.common_check(request)
 
     def test_accept(self):
         # https://tools.ietf.org/html/rfc7231#section-5.3.2
@@ -222,16 +230,17 @@ server ${general_ip}:8000;
                   'Host: localhost\r\n' \
                   'Expect: invalid\r\n' \
                   '\r\n'
-        deproxy = self.get_server('deproxy')
-        deproxy.start()
+        srv = self.get_server('deproxy')
+        srv.start()
         self.start_tempesta()
-        self.assertTrue(deproxy.wait_for_connections(timeout=1))
-        deproxy = self.get_client('deproxy')
-        deproxy.start()
-        deproxy.make_request(request)
-        resp = deproxy.wait_for_response(timeout=5)
+        self.deproxy_manager.start()
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+        clnt = self.get_client('deproxy')
+        clnt.start()
+        clnt.make_request(request)
+        resp = clnt.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
-        status = int(deproxy.last_response.status)
+        status = int(clnt.last_response.status)
         self.assertTrue(status == 417 or status == 200,
                         "Wrong status: %s" % status)
 
@@ -521,11 +530,9 @@ class MalformedResponsesTest(tester.TempestaTest):
             'type' : 'deproxy',
             'port' : '8000',
             'response' : 'static',
-            'response_content' :
-"""HTTP/1.1 200 OK
-Content-Length: 0
-
-"""
+            'response_content' : ('HTTP/1.1 200 OK\r\n'
+                                  'Content-Length: 0\r\n'
+                                  '\r\n')
         },
     ]
 
@@ -551,18 +558,29 @@ server ${general_ip}:8000;
               '\r\n'
 
     def common_check(self, response, request, expect=502):
-        deproxy = self.get_server('deproxy')
-        deproxy.set_response(response)
-        deproxy.start()
+        srv = self.get_server('deproxy')
+        srv.set_response(response)
+        srv.start()
         self.start_tempesta()
-        self.assertTrue(deproxy.wait_for_connections(timeout=1))
-        deproxy = self.get_client('deproxy')
-        deproxy.start()
-        deproxy.make_request(request)
-        has_resp = deproxy.wait_for_response(timeout=5)
+        self.deproxy_manager.start()
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+        clnt = self.get_client('deproxy')
+        clnt.start()
+        clnt.make_request(request)
+        has_resp = clnt.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
-        status = deproxy.last_response.status
+        status = clnt.last_response.status
         self.assertEqual(int(status), expect, "Wrong status: %s" % status)
+
+    def test_missing_name(self):
+        # Header name must contain at least one token character to be valid.
+        # Don't mix it up with http2 pseudo headers, starting with ':' since
+        # SP after ':' is required.
+        response = 'HTTP/1.1 200 OK\r\n' \
+                   ': invalid header\r\n' \
+                   'Content-Length: 0\r\n' \
+                   '\r\n'
+        self.common_check(response, self.request)
 
     def test_accept_ranges(self):
         # https://tools.ietf.org/html/rfc7233#section-2.3
