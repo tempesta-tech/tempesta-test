@@ -1,4 +1,9 @@
-from helpers import tf_cfg
+"""
+Tests for correct parsing of some parts of http2 messages, such as headers.
+For now tests run curl as external program capable to generate h2 messages and
+analises its return code.
+"""
+
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -37,7 +42,7 @@ http {
         listen        ${server_ip}:8000;
 
         location / {
-            return 200;
+            root ${server_resources};
         }
         location /nginx_status {
             stub_status on;
@@ -58,23 +63,21 @@ vhost default {
 
     proxy_pass default;
 }
-
-cache 0;
-
 """
 
-class H2Spec(tester.TempestaTest):
-    '''Tests for h2 proto implementation. Run h2spec utility against Tempesta.
-    Simply check return code and warnings in system log for test errors.
+class HeadersParsing(tester.TempestaTest):
+    '''Ask curl to make an h2 request, test failed if return code is not 0.
     '''
 
     clients = [
         {
-            'id' : 'h2spec',
+            'id' : 'curl',
             'type' : 'external',
-            'binary' : 'h2spec',
-            'ssl' : True,
-            'cmd_args' : '-tkh ${tempesta_ip}'
+            'binary' : 'curl',
+            'cmd_args' : (
+                '-kf ' # Set non-null return code on 4xx-5xx responses.
+                'https://${tempesta_ip}/ '
+                )
         },
     ]
 
@@ -92,13 +95,14 @@ class H2Spec(tester.TempestaTest):
         'config' : TEMPESTA_CONFIG,
     }
 
-    def test_h2_specs(self):
-        h2spec = self.get_client('h2spec')
-        # TODO #88: for now run only simple test to check http2 connectivity
-        # After all h2-related issues will be fixed, remove the line
-        h2spec.options.append('generic/4')
+    def test_random_header(self):
+        curl = self.get_client('curl')
+        # In tempesta-tech/tempesta#1412 an arbitrary header not known by
+        # Tempesta and shorter than 4 characters caused request blocking,
+        # check everything is fine.
+        curl.options.append('-H "dnt: 1"')
 
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(h2spec)
+        self.wait_while_busy(curl)
