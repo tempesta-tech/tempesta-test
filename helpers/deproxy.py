@@ -294,6 +294,11 @@ class HttpMessage(object):
             try:
                 size = int(line.rstrip('\r\n'), 16)
                 assert size >= 0
+                if size == 0:
+                    n_char = stream.read(1)
+                    stream.seek(-1, 1)
+                    if n_char != '\r' and n_char != '\n':
+                        break
                 chunk = stream.readline()
                 self.body += chunk
 
@@ -304,6 +309,8 @@ class HttpMessage(object):
                 assert chunk[-1] == '\n'
                 if size == 0:
                     break
+            except IOError:
+                raise IncompleteMessage('Incomplete chunked body')
             except IncompleteMessage:
                 raise
             except:
