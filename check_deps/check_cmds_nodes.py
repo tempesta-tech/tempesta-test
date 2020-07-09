@@ -34,7 +34,11 @@ cmds = {
                         {
                             "cmd" : tf_cfg.cfg.get("Client", "h2load"),
                             "install" : "nghttp2-client"
-                         }
+                        },
+                        {
+                            "cmd" : tf_cfg.cfg.get("Client", "tls-perf"),
+                            "install" : ""
+                        }
                     ],
     remote.tempesta : [
                         {
