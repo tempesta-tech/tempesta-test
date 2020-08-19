@@ -68,7 +68,7 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
         base.request.headers.add('Content-Length', cl)
         base.request.build_message()
 
-        base.fwd_request = deproxy.Request()
+        base.fwd_request = None
 
         base.response = chains.response_400(connection='close')
 
@@ -82,7 +82,7 @@ class TesterInvalidBodyLength(deproxy.Deproxy):
         base.request.headers['Content-Length'] = 'invalid'
         base.request.build_message()
         base.response = chains.response_400(connection='close')
-        base.fwd_request = deproxy.Request()
+        base.fwd_request = None
         self.message_chains = [base]
         self.cookies = []
 
@@ -105,7 +105,7 @@ class TesterSecondBodyLength(TesterDuplicateBodyLength):
 
         base.response = self.expected_response()
 
-        base.fwd_request = deproxy.Request()
+        base.fwd_request = None
 
         self.message_chains = [base]
         self.cookies = []
