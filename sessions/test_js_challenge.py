@@ -5,7 +5,7 @@ Tests for JavaScript challenge.
 import abc
 import re
 import time
-from helpers import tf_cfg, remote
+from helpers import tempesta, tf_cfg, remote
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -331,3 +331,77 @@ class JSChallenge(BaseJSChallenge):
                                   delay_min=1000, delay_range=1000,
                                   status_code=503, expect_pass=False,
                                   req_delay=3, restart_on_fail=True)
+
+class JSChallengeAfterReload(BaseJSChallenge):
+    # Test on enable JS Challenge after reload
+
+    backends = [
+        {
+            'id' : 'server-1',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n\r\n'
+        },
+    ]
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce name=cname;
+        }
+        """
+    }
+
+    clients = [
+        {
+            'id' : 'client-1',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80',
+        },
+    ]
+
+    def prepare_js_templates(self):
+        """
+        Templates for JS challenge are modified by start script, create a copy
+        of default template for each vhost.
+        """
+        srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
+        workdir = tf_cfg.cfg.get('Tempesta', 'workdir')
+        template = "%s/etc/js_challenge.tpl" % srcdir
+        js_code = "%s/etc/js_challenge.js.tpl" % srcdir
+        remote.tempesta.run_cmd("cp %s %s"  % (js_code, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js1.tpl" % (template, workdir))
+
+    def test(self):
+        """ Clients sends the validating request after reload just in time and
+        passes the challenge.
+        """
+        self.start_all()
+
+        # Reloading Tempesta config with JS challenge enabled
+        config = tempesta.Config()
+        config.set_defconfig("""
+        server %s:8000;
+
+        sticky {
+            cookie enforce name=cname;
+            js_challenge resp_code=503 delay_min=1000 delay_range=1500
+                         delay_limit=3000 %s/js1.html;
+        }
+        """ % (tf_cfg.cfg.get('Server', 'ip'), tf_cfg.cfg.get('Tempesta', 'workdir')))
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+
+        tf_cfg.dbg(3, "Send request to vhost 1 with timeout 2s...")
+        client = self.get_client('client-1')
+        self.process_js_challenge(client, 'vh1.com',
+                                  delay_min=1000, delay_range=1500,
+                                  status_code=503, expect_pass=True,
+                                  req_delay=2.5)
