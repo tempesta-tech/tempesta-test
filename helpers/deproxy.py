@@ -662,7 +662,7 @@ class Client(TlsClient, stateful.Stateful):
     def set_request(self, message_chain):
         if message_chain:
             self.request = message_chain.request
-            self.request_buffer = message_chain.request.msg
+            self.request_buffer = message_chain.request.msg if message_chain.request else ''
 
     def set_tester(self, tester):
         self.tester = tester
@@ -882,13 +882,13 @@ class MessageChain(object):
         # Response received on the client.
         self.response = expected_response
         # Expected request forwarded by Tempesta to the server.
-        self.fwd_request = forwarded_request if forwarded_request else Request()
+        self.fwd_request = forwarded_request
         # Server response in reply to the forwarded request.
-        self.server_response = server_response if server_response else Response()
+        self.server_response = server_response
 
     @staticmethod
     def empty():
-        return MessageChain(Request(), Response())
+        return MessageChain(None, None)
 
 
 class Deproxy(stateful.Stateful):
@@ -955,12 +955,15 @@ class Deproxy(stateful.Stateful):
         for message in ['response', 'fwd_request']:
             expected = getattr(self.current_chain, message)
             received = getattr(self.received_chain, message)
-            expected.set_expected(expected_time_delta=self.timeout)
+            if expected:
+                expected.set_expected(expected_time_delta=self.timeout)
             assert expected == received, \
                 ("Received message (%s) does not suit expected one!\n\n"
                  "\tReceieved:\n<<<<<|\n%s|>>>>>\n"
                  "\tExpected:\n<<<<<|\n%s|>>>>>\n"
-                 % (message, received.msg, expected.msg))
+                 % (message,
+                    received.msg if received else "",
+                    expected.msg if expected else ""))
 
     def received_response(self, response):
         """Client received response for its request."""

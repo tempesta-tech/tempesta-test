@@ -17,12 +17,19 @@ class TestCacheDisabled(functional.FunctionalTest):
     # Disable caching
     cache_mode = 0
 
-    def chain(self, uri='/', cache_allowed=True):
+    def chain(self, uri='/', cache_allowed=True, wo_date=False):
         if self.cache_mode == 0:
             cache_allowed = False
         if cache_allowed:
-            return chains.cache_repeated(self.messages, uri=uri)
-        return chains.proxy_repeated(self.messages, uri=uri)
+            test_chains = chains.cache_repeated(self.messages, uri=uri)
+        else:
+            test_chains = chains.proxy_repeated(self.messages, uri=uri)
+        if wo_date:
+            for chain in test_chains:
+                if chain.server_response:
+                    del chain.server_response.headers['Date']
+                    chain.server_response.update()
+        return test_chains
 
     def test_cache_fulfill_all(self):
         config = ('cache %d;\n'
@@ -67,6 +74,14 @@ class TestCacheDisabled(functional.FunctionalTest):
         self.generic_test_routine(
             self.mixed_config(),
             self.chain(cache_allowed=True, uri='/static/content.html'))
+
+    # If origin response does not provide `date` header, then Tempesta adds it
+    # to both responses served from cache and forwarded from origin. Both
+    # headers `date` and `age` should be present and has a valid value.
+    def test_cache_wo_date(self):
+        self.generic_test_routine(
+            self.mixed_config(),
+            self.chain(cache_allowed=True, uri='/static/content.html', wo_date=True))
 
 
 class TestCacheSharding(TestCacheDisabled):
