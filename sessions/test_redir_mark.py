@@ -150,3 +150,20 @@ class RedirectMark(BaseRedirectMark):
                "Host: localhost\r\n"
                "\r\n" % uri)
         self.client_expect_block(client, req)
+
+    def test_rmark_invalid(self):
+        # Requests w/ incorrect rmark and w/o cookies, must be blocked
+        self.start_all()
+
+        client = self.get_client('deproxy')
+        uri = '/'
+        uri, _ = self.client_send_first_req(client, uri)
+        m = re.match(r"(.*=)([0-9a-f]*)(/)", uri)
+
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "\r\n" % (m.group(1) +
+                         ''.join(random.choice(string.hexdigits)
+                         for i in range(len(m.group(2)))) +
+                         m.group(3)))
+        self.client_expect_block(client, req)
