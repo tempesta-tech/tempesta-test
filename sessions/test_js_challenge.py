@@ -332,6 +332,60 @@ class JSChallenge(BaseJSChallenge):
                                   status_code=503, expect_pass=False,
                                   req_delay=3, restart_on_fail=True)
 
+    def client_send_custom_req(self, client, uri, cookie):
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "%s"
+               "\r\n" % (uri, ("Cookie: %s=%s\r\n" % cookie) if cookie else ""))
+        response = self.client_send_req(client, req)
+
+        self.assertEqual(response.status,'302',
+                         "unexpected response status code")
+        c_header = response.headers.get('Set-Cookie', None)
+        self.assertIsNotNone(c_header,
+                             "Set-Cookie header is missing in the response")
+        match = re.search(r'([^;\s]+)=([^;\s]+)', c_header)
+        self.assertIsNotNone(match,
+                             "Cant extract value from Set-Cookie header")
+        cookie = (match.group(1), match.group(2))
+
+        uri = response.headers.get('Location', None)
+        self.assertIsNotNone(uri,
+                             "Location header is missing in the response")
+        return (uri, cookie)
+
+    def client_send_first_req(self, client, uri):
+        return self.client_send_custom_req(client, uri, None)
+
+    def test_disable_challenge_on_reload(self):
+        """ Test on disable JS Challenge after reload
+        """
+        self.start_all()
+
+        # Reloading Tempesta config with JS challenge disable
+        config = tempesta.Config()
+        config.set_defconfig("""
+        server %s:8000;
+
+        sticky {
+            cookie enforce name=cname;
+        }
+        """ % (tf_cfg.cfg.get('Server', 'ip')))
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+
+        client = self.get_client('client-1')
+        uri = '/'
+        uri, cookie = self.client_send_first_req(client, uri)
+
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (uri, cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status,'200',
+                         "unexpected response status code")
+
 class JSChallengeAfterReload(BaseJSChallenge):
     # Test on enable JS Challenge after reload
 
