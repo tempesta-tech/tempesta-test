@@ -2,7 +2,9 @@
 Redirection marks tests.
 """
 
+import random
 import re
+import string
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -55,10 +57,11 @@ class BaseRedirectMark(tester.TempestaTest):
 
         return client.responses[-1]
 
-    def client_send_first_req(self, client, uri):
+    def client_send_custom_req(self, client, uri, cookie):
         req = ("GET %s HTTP/1.1\r\n"
                "Host: localhost\r\n"
-               "\r\n" % uri)
+               "%s"
+               "\r\n" % (uri, ("Cookie: %s=%s\r\n" % cookie) if cookie else ""))
         response = self.client_send_req(client, req)
 
         self.assertEqual(response.status,'302',
@@ -75,6 +78,9 @@ class BaseRedirectMark(tester.TempestaTest):
         self.assertIsNotNone(uri,
                              "Location header is missing in the response")
         return (uri, cookie)
+
+    def client_send_first_req(self, client, uri):
+        return self.client_send_custom_req(client, uri, None)
 
     def start_all(self):
         self.start_all_servers()
@@ -118,19 +124,26 @@ class RedirectMark(BaseRedirectMark):
         self.assertEqual(response.status,'200',
                          "unexpected response status code")
 
-    def test_rmark_without_cookie(self):
+    def test_rmark_wo_or_incorrect_cookie(self):
         """
-        Bot which can follow redirects, but cant set cookies, will be blocked
-        after few attempts.
+        A client sending more than 5 requests without cookies or incorrect
+        cookies is blocked. For example a bot which can follow redirects, but
+        can't set cookies, must be blocked after 5 attempts.
         """
         self.start_all()
 
         client = self.get_client('deproxy')
         uri = '/'
-        uri, _ = self.client_send_first_req(client, uri)
-        uri, _ = self.client_send_first_req(client, uri)
-        uri, _ = self.client_send_first_req(client, uri)
-        uri, _ = self.client_send_first_req(client, uri)
+        uri, cookie = self.client_send_first_req(client, uri)
+        cookie = (cookie[0],
+                  ''.join(random.choice(string.hexdigits)
+                          for i in range(len(cookie[1]))))
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        uri, cookie = self.client_send_first_req(client, uri)
+        cookie = (cookie[0],
+                  ''.join(random.choice(string.hexdigits)
+                          for i in range(len(cookie[1]))))
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
         uri, _ = self.client_send_first_req(client, uri)
 
         req = ("GET %s HTTP/1.1\r\n"
