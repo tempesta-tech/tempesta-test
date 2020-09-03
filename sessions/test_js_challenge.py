@@ -222,7 +222,7 @@ class JSChallenge(BaseJSChallenge):
     def test_get_challenge(self):
         """Not all requests are challengeable. Tempesta sends the challenge
         only if the client can accept it, i.e. request should has GET method and
-        'Accept: text/html OR */*'. In other cases normal browsers don't eval
+        'Accept: text/html'. In other cases normal browsers don't eval
         JS code and TempestaFW is not trying to send the challenge to bots.
         """
         self.start_all()
