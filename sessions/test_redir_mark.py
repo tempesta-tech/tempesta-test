@@ -3,8 +3,9 @@ Redirection marks tests.
 """
 
 import random
-import re
+import re, time
 import string
+from helpers import tf_cfg
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -167,3 +168,44 @@ class RedirectMark(BaseRedirectMark):
                          for i in range(len(m.group(2)))) +
                          m.group(3)))
         self.client_expect_block(client, req)
+
+class RedirectMarkTimeout(BaseRedirectMark):
+    """
+    Current count of redirected requests should be reset if time has
+    passed more than timeout cookie option.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce max_misses=5 timeout=2;
+        }
+        """
+    }
+
+    def test(self):
+        self.start_all()
+
+        client = self.get_client('deproxy')
+        uri = '/'
+        uri, _ = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_first_req(client, uri)
+
+        tf_cfg.dbg(3, "Sleep until cookie timeout get expired...")
+        time.sleep(3)
+
+        uri, cookie = self.client_send_first_req(client, uri)
+
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (uri, cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status,'200',
+                         "unexpected response status code")
