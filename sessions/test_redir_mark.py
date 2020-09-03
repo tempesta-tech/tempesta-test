@@ -11,11 +11,7 @@ __license__ = 'GPL2'
 
 DFLT_COOKIE_NAME = '__tfw'
 
-class RedirectMark(tester.TempestaTest):
-    """
-    Sticky cookies are not enabled on Tempesta, so all clients may access the
-    requested resources. No cookie challenge is used to check clients behaviour.
-    """
+class BaseRedirectMark(tester.TempestaTest):
 
     backends = [
         {
@@ -28,17 +24,6 @@ class RedirectMark(tester.TempestaTest):
             'Content-Length: 0\r\n\r\n'
         }
     ]
-
-    tempesta = {
-        'config' :
-        """
-        server ${server_ip}:8000;
-
-        sticky {
-            cookie enforce max_misses=5;
-        }
-        """
-    }
 
     clients = [
         {
@@ -97,6 +82,23 @@ class RedirectMark(tester.TempestaTest):
         self.start_all_clients()
         self.deproxy_manager.start()
         self.assertTrue(self.wait_all_connections(1))
+
+class RedirectMark(BaseRedirectMark):
+    """
+    Sticky cookies are not enabled on Tempesta, so all clients may access the
+    requested resources. No cookie challenge is used to check clients behaviour.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce max_misses=5;
+        }
+        """
+    }
 
     def test_good_rmark_value(self):
         """Client fully process the challenge: redirect is followed correctly,
