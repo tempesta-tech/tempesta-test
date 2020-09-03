@@ -75,6 +75,12 @@ class BaseRedirectMark(tester.TempestaTest):
                              "Cant extract value from Set-Cookie header")
         cookie = (match.group(1), match.group(2))
 
+        # Checking default path option of cookies
+        match = re.search(r'path=([^;\s]+)', c_header)
+        self.assertIsNotNone(match,
+                             "Cant extract path from Set-Cookie header")
+        self.assertEqual(match.group(1), "/")
+
         uri = response.headers.get('Location', None)
         self.assertIsNotNone(uri,
                              "Location header is missing in the response")
