@@ -238,7 +238,7 @@ class JSChallenge(BaseJSChallenge):
                          "Unexpected response status code")
         self.assertIsNotNone(resp.headers.get('Set-Cookie', None),
                              "Set-Cookie header is missing in the response")
-        match = re.search(r'(location\.reload)', resp.body)
+        match = re.search(r'(location\.replace)', resp.body)
         self.assertIsNotNone(match,
                              "Can't extract redirect target from response body")
 
