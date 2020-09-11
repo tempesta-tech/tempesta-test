@@ -147,3 +147,69 @@ frang_limits {
 
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
+
+class HttpRespCodeBlockWithReply(HttpRespCodeBlockBase):
+    """Tempesta must return appropriate error status if a protected web
+    application return more 5 error responses with codes 404 within 2 seconds.
+    This is 2,5 per second.
+    """
+    tempesta = {
+        'config' : """
+server ${server_ip}:8000;
+
+frang_limits {
+    http_resp_code_block 404 5 2;
+}
+
+block_action attack reply;
+""",
+    }
+
+    """Two clients. One client sends 12 requests by 6 per second during
+    2 seconds. Of these, 6 requests by 3 per second give 404 responses.
+    Should be get 11 responses (5 with code 200, 5 with code 404 and
+    1 with code 403).
+    The second client sends 20 requests by 5 per second during 4 seconds.
+    Of these, 10 requests by 2.5 per second give 404 responses. All requests
+    should be get responses.
+    """
+    def test(self):
+        requests = "GET /uri1 HTTP/1.1\r\n" \
+                   "Host: localhost\r\n" \
+                   "\r\n" \
+                   "GET /uri2 HTTP/1.1\r\n" \
+                   "Host: localhost\r\n" \
+                   "\r\n" * 6
+        requests2 = "GET /uri1 HTTP/1.1\r\n" \
+                    "Host: localhost\r\n" \
+                    "\r\n" \
+                    "GET /uri2 HTTP/1.1\r\n" \
+                    "Host: localhost\r\n" \
+                    "\r\n" * 10
+        nginx = self.get_server('nginx')
+        nginx.start()
+        self.start_tempesta()
+
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.start()
+
+        deproxy_cl2 = self.get_client('deproxy2')
+        deproxy_cl2.start()
+
+        self.deproxy_manager.start()
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
+
+        deproxy_cl.make_requests(requests)
+        deproxy_cl2.make_requests(requests2)
+
+        deproxy_cl.wait_for_response(timeout=2)
+        deproxy_cl2.wait_for_response(timeout=4)
+
+        self.assertEqual(11, len(deproxy_cl.responses))
+        self.assertEqual(20, len(deproxy_cl2.responses))
+
+        self.assertEqual('403', deproxy_cl.responses[-1].status,
+                         "Unexpected response status code")
+
+        self.assertTrue(deproxy_cl.connection_is_closed())
+        self.assertFalse(deproxy_cl2.connection_is_closed())
