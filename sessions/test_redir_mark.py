@@ -2,7 +2,10 @@
 Redirection marks tests.
 """
 
-import re
+import random
+import re, time
+import string
+from helpers import tf_cfg
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -11,11 +14,7 @@ __license__ = 'GPL2'
 
 DFLT_COOKIE_NAME = '__tfw'
 
-class RedirectMark(tester.TempestaTest):
-    """
-    Sticky cookies are not enabled on Tempesta, so all clients may access the
-    requested resources. No cookie challenge is used to check clients behaviour.
-    """
+class BaseRedirectMark(tester.TempestaTest):
 
     backends = [
         {
@@ -28,17 +27,6 @@ class RedirectMark(tester.TempestaTest):
             'Content-Length: 0\r\n\r\n'
         }
     ]
-
-    tempesta = {
-        'config' :
-        """
-        server ${server_ip}:8000;
-
-        sticky {
-            cookie enforce max_misses=5;
-        }
-        """
-    }
 
     clients = [
         {
@@ -70,10 +58,11 @@ class RedirectMark(tester.TempestaTest):
 
         return client.responses[-1]
 
-    def client_send_first_req(self, client, uri):
+    def client_send_custom_req(self, client, uri, cookie):
         req = ("GET %s HTTP/1.1\r\n"
                "Host: localhost\r\n"
-               "\r\n" % uri)
+               "%s"
+               "\r\n" % (uri, ("Cookie: %s=%s\r\n" % cookie) if cookie else ""))
         response = self.client_send_req(client, req)
 
         self.assertEqual(response.status,'302',
@@ -86,10 +75,19 @@ class RedirectMark(tester.TempestaTest):
                              "Cant extract value from Set-Cookie header")
         cookie = (match.group(1), match.group(2))
 
+        # Checking default path option of cookies
+        match = re.search(r'path=([^;\s]+)', c_header)
+        self.assertIsNotNone(match,
+                             "Cant extract path from Set-Cookie header")
+        self.assertEqual(match.group(1), "/")
+
         uri = response.headers.get('Location', None)
         self.assertIsNotNone(uri,
                              "Location header is missing in the response")
         return (uri, cookie)
+
+    def client_send_first_req(self, client, uri):
+        return self.client_send_custom_req(client, uri, None)
 
     def start_all(self):
         self.start_all_servers()
@@ -97,6 +95,23 @@ class RedirectMark(tester.TempestaTest):
         self.start_all_clients()
         self.deproxy_manager.start()
         self.assertTrue(self.wait_all_connections(1))
+
+class RedirectMark(BaseRedirectMark):
+    """
+    Sticky cookies are not enabled on Tempesta, so all clients may access the
+    requested resources. No cookie challenge is used to check clients behaviour.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce max_misses=5;
+        }
+        """
+    }
 
     def test_good_rmark_value(self):
         """Client fully process the challenge: redirect is followed correctly,
@@ -107,6 +122,9 @@ class RedirectMark(tester.TempestaTest):
         client = self.get_client('deproxy')
         uri = '/'
         uri, cookie = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        hostname = tf_cfg.cfg.get('Tempesta', 'hostname')
+        self.assertEqual(uri, 'http://%s/' % hostname)
 
         req = ("GET %s HTTP/1.1\r\n"
                "Host: localhost\r\n"
@@ -116,11 +134,68 @@ class RedirectMark(tester.TempestaTest):
         self.assertEqual(response.status,'200',
                          "unexpected response status code")
 
-    def test_rmark_without_cookie(self):
+    def test_rmark_wo_or_incorrect_cookie(self):
         """
-        Bot which can follow redirects, but cant set cookies, will be blocked
-        after few attempts.
+        A client sending more than 5 requests without cookies or incorrect
+        cookies is blocked. For example a bot which can follow redirects, but
+        can't set cookies, must be blocked after 5 attempts.
         """
+        self.start_all()
+
+        client = self.get_client('deproxy')
+        uri = '/'
+        uri, cookie = self.client_send_first_req(client, uri)
+        cookie = (cookie[0],
+                  ''.join(random.choice(string.hexdigits)
+                          for i in range(len(cookie[1]))))
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        uri, cookie = self.client_send_first_req(client, uri)
+        cookie = (cookie[0],
+                  ''.join(random.choice(string.hexdigits)
+                          for i in range(len(cookie[1]))))
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        uri, _ = self.client_send_first_req(client, uri)
+
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "\r\n" % uri)
+        self.client_expect_block(client, req)
+
+    def test_rmark_invalid(self):
+        # Requests w/ incorrect rmark and w/o cookies, must be blocked
+        self.start_all()
+
+        client = self.get_client('deproxy')
+        uri = '/'
+        uri, _ = self.client_send_first_req(client, uri)
+        m = re.match(r"(.*=)([0-9a-f]*)(/)", uri)
+
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: localhost\r\n"
+               "\r\n" % (m.group(1) +
+                         ''.join(random.choice(string.hexdigits)
+                         for i in range(len(m.group(2)))) +
+                         m.group(3)))
+        self.client_expect_block(client, req)
+
+class RedirectMarkTimeout(BaseRedirectMark):
+    """
+    Current count of redirected requests should be reset if time has
+    passed more than timeout cookie option.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce max_misses=5 timeout=2;
+        }
+        """
+    }
+
+    def test(self):
         self.start_all()
 
         client = self.get_client('deproxy')
@@ -131,7 +206,18 @@ class RedirectMark(tester.TempestaTest):
         uri, _ = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_first_req(client, uri)
 
+        tf_cfg.dbg(3, "Sleep until cookie timeout get expired...")
+        time.sleep(3)
+
+        uri, cookie = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        hostname = tf_cfg.cfg.get('Tempesta', 'hostname')
+        self.assertEqual(uri, 'http://%s/' % hostname)
+
         req = ("GET %s HTTP/1.1\r\n"
                "Host: localhost\r\n"
-               "\r\n" % uri)
-        self.client_expect_block(client, req)
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (uri, cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status,'200',
+                         "unexpected response status code")
