@@ -122,6 +122,9 @@ class RedirectMark(BaseRedirectMark):
         client = self.get_client('deproxy')
         uri = '/'
         uri, cookie = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        hostname = tf_cfg.cfg.get('Tempesta', 'hostname')
+        self.assertEqual(uri, 'http://%s/' % hostname)
 
         req = ("GET %s HTTP/1.1\r\n"
                "Host: localhost\r\n"
@@ -207,6 +210,9 @@ class RedirectMarkTimeout(BaseRedirectMark):
         time.sleep(3)
 
         uri, cookie = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        hostname = tf_cfg.cfg.get('Tempesta', 'hostname')
+        self.assertEqual(uri, 'http://%s/' % hostname)
 
         req = ("GET %s HTTP/1.1\r\n"
                "Host: localhost\r\n"
