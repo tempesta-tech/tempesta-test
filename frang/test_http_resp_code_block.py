@@ -17,8 +17,7 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-
-class HttpRespCodeBlock(tester.TempestaTest):
+class HttpRespCodeBlockBase(tester.TempestaTest):
     backends = [
         {
             'id' : 'nginx',
@@ -70,19 +69,6 @@ http {
         }
     ]
 
-    """Blocks an attacker's IP address if a protected web application return
-    5 error responses with codes 404 within 2 seconds. This is 2,5 per second.
-    """
-    tempesta = {
-        'config' : """
-server ${server_ip}:8000;
-
-frang_limits {
-    http_resp_code_block 404 5 2;
-}
-""",
-    }
-
     clients = [
         {
             'id' : 'deproxy',
@@ -101,6 +87,21 @@ frang_limits {
             'rps': 5
         },
     ]
+
+
+class HttpRespCodeBlock(HttpRespCodeBlockBase):
+    """Blocks an attacker's IP address if a protected web application return
+    5 error responses with codes 404 within 2 seconds. This is 2,5 per second.
+    """
+    tempesta = {
+        'config' : """
+server ${server_ip}:8000;
+
+frang_limits {
+    http_resp_code_block 404 5 2;
+}
+""",
+    }
 
     """Two clients. One client sends 12 requests by 6 per second during
     2 seconds. Of these, 6 requests by 3 per second give 404 responses and
