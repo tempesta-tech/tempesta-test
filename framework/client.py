@@ -156,3 +156,4 @@ class Client(stateful.Stateful):
 
     def wait_for_finish(self):
         self.proc.join()
+        self.returncode = self.proc.exitcode
