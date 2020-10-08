@@ -102,3 +102,40 @@ class H2Spec(tester.TempestaTest):
         self.start_tempesta()
         self.start_all_clients()
         self.wait_while_busy(h2spec)
+
+class H2Load(tester.TempestaTest):
+    '''Tests for h2 proto implementation. Run h2load utility against Tempesta.
+    Simply check return code and warnings in system log for test errors.
+    '''
+
+    clients = [
+        {
+            'id' : 'h2load',
+            'type' : 'external',
+            'binary' : 'h2load',
+            'ssl' : True,
+            'cmd_args' : ' https://${tempesta_ip} -D100'
+        },
+    ]
+
+    backends = [
+        {
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'port' : '8000',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : NGINX_CONFIG,
+        }
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG,
+    }
+
+    def test_h2_specs(self):
+        h2load = self.get_client('h2load')
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.wait_while_busy(h2load)
