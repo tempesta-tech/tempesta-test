@@ -97,7 +97,7 @@ class Client(stateful.Stateful):
         self.proc.terminate()
         self.proc.join()
         self.returncode = self.proc.exitcode
-        self.proc_results = self.resq.get()
+        self.proc_results = self.resq.get(True, 1)
         self.proc = None
 
         if self.proc_results != None:
@@ -156,3 +156,4 @@ class Client(stateful.Stateful):
 
     def wait_for_finish(self):
         self.proc.join()
+        self.returncode = self.proc.exitcode

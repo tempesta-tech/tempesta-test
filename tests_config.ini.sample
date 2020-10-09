@@ -84,6 +84,12 @@ wrk = wrk
 #
 h2spec = h2spec
 
+# h2load load testing tool (nghttp2).
+#
+# ex.: h2load = /home/user/bin/h2load
+#
+h2load = h2load
+
 
 [Tempesta]
 # Configuration for the host running TempestaFW. It may be configured to run
