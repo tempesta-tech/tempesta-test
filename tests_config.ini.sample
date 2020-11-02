@@ -90,6 +90,12 @@ h2spec = h2spec
 #
 h2load = h2load
 
+# TLS handshakes benchmarking tool.
+#
+# ex.: tls-perf = /home/user/bin/tls-perf
+#
+tls-perf = tls-perf
+
 
 [Tempesta]
 # Configuration for the host running TempestaFW. It may be configured to run
