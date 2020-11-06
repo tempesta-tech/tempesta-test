@@ -187,3 +187,36 @@ class LearnSessions(tester.TempestaTest):
             self.assertEqual(s_id, new_s_id,
                              "Sticky session was forwarded to not-pinned server")
 
+
+class LearnSessionsVhost(LearnSessions):
+    """Same as LearnSessions, but 'sticky' configuration is inherited from
+    updated defaults for a named vhost.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        srv_group vh_1_srvs {
+            server ${server_ip}:8000;
+            server ${server_ip}:8001;
+            server ${server_ip}:8002;
+        }
+
+        # Update defaults two times, only the last one must be applied.
+        sticky {
+            cookie name=c_vh2 enforce;
+        }
+        sticky {
+            learn name=client-id;
+        }
+
+        vhost vh_1 {
+            proxy_pass vh_1_srvs;
+        }
+
+        http_chain {
+            -> vh_1;
+        }
+
+        """
+    }

@@ -121,6 +121,7 @@ class BaseJSChallenge(tester.TempestaTest):
         self.assertEqual(resp.status, '200',
                          "unexpected response status code")
 
+
 class JSChallenge(BaseJSChallenge):
     """
     With sticky sessions enabled, client will be pinned to the same server,
@@ -153,7 +154,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce name=cname;
                 js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                             delay_limit=3000 ${tempesta_workdir}/js1.html;
+                            delay_limit=3000 ${tempesta_workdir}/js1.html;
             }
         }
 
@@ -162,7 +163,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce;
                 js_challenge resp_code=302 delay_min=2000 delay_range=1200
-                             delay_limit=2000 ${tempesta_workdir}/js2.html;
+                            delay_limit=2000 ${tempesta_workdir}/js2.html;
             }
         }
 
@@ -171,7 +172,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce;
                 js_challenge delay_min=1000 delay_range=1000
-                             ${tempesta_workdir}/js3.html;
+                            ${tempesta_workdir}/js3.html;
             }
         }
 
@@ -385,6 +386,55 @@ class JSChallenge(BaseJSChallenge):
         response = self.client_send_req(client, req)
         self.assertEqual(response.status,'200',
                          "unexpected response status code")
+
+
+class JSChallengeVhost(JSChallenge):
+    """Same as JSChallenge, but 'sticky' configuration is inherited from
+    updated defaults for the named vhosts.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce name=cname;
+            js_challenge resp_code=503 delay_min=1000 delay_range=1500
+                         delay_limit=3000 ${tempesta_workdir}/js1.html;
+        }
+        vhost vh1 {
+            proxy_pass default;
+        }
+
+        sticky {
+            cookie enforce;
+            js_challenge resp_code=302 delay_min=2000 delay_range=1200
+                         delay_limit=2000 ${tempesta_workdir}/js2.html;
+        }
+        vhost vh2 {
+            proxy_pass default;
+        }
+
+
+        sticky {
+            cookie enforce;
+            js_challenge delay_min=1000 delay_range=1000
+                           ${tempesta_workdir}/js3.html;
+        }
+        vhost vh3 {
+            proxy_pass default;
+        }
+
+        http_chain {
+            host == "vh1.com" -> vh1;
+            host == "vh2.com" -> vh2;
+            host == "vh3.com" -> vh3;
+            -> block;
+        }
+        """
+    }
+
 
 class JSChallengeAfterReload(BaseJSChallenge):
     # Test on enable JS Challenge after reload
