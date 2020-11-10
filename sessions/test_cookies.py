@@ -349,7 +349,7 @@ class VhostCookies(CookiesNotEnabled):
 
 class CookiesInherit(VhostCookies):
     """Cookies configuration can be inherited from global defaults. The test is
-    dentical to VhostCookies. But here 'sticky' directive is defined outside
+    identical to VhostCookies. But here 'sticky' directive is defined outside
     named vhosts, so updates default settings that must be inherited by
     named vhosts. If default settings are inherited multiple times, then only
     the last one is effective.

@@ -7,6 +7,7 @@ import re
 import time
 from helpers import tempesta, tf_cfg, remote
 from framework import tester
+from framework.templates import fill_template, populate_properties
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
@@ -333,11 +334,13 @@ class JSChallenge(BaseJSChallenge):
                                   status_code=503, expect_pass=False,
                                   req_delay=3, restart_on_fail=True)
 
-    def client_send_custom_req(self, client, uri, cookie):
+    def client_send_custom_req(self, client, uri, cookie, host=None):
+        if not host:
+            host = 'localhost'
         req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
+               "Host: %s\r\n"
                "%s"
-               "\r\n" % (uri, ("Cookie: %s=%s\r\n" % cookie) if cookie else ""))
+               "\r\n" % (uri, host, ("Cookie: %s=%s\r\n" % cookie) if cookie else ""))
         response = self.client_send_req(client, req)
 
         self.assertEqual(response.status,'302',
@@ -355,34 +358,38 @@ class JSChallenge(BaseJSChallenge):
                              "Location header is missing in the response")
         return (uri, cookie)
 
-    def client_send_first_req(self, client, uri):
-        return self.client_send_custom_req(client, uri, None)
+    def client_send_first_req(self, client, uri, host=None):
+        return self.client_send_custom_req(client, uri, None, host=host)
+
+    def get_config_without_js(self):
+        """Recreate config without js_challenge directive. """
+        desc = self.tempesta.copy()
+        populate_properties(desc)
+        new_cfg = fill_template(desc['config'], desc)
+        new_cfg = re.sub(r'js_challenge[\s\w\d_/=\.\n]+;','', new_cfg, re.M)
+        return new_cfg
 
     def test_disable_challenge_on_reload(self):
         """ Test on disable JS Challenge after reload
         """
         self.start_all()
 
-        # Reloading Tempesta config with JS challenge disable
+        # Reloading Tempesta config with JS challenge disabled.
         config = tempesta.Config()
-        config.set_defconfig("""
-        server %s:8000;
+        config.set_defconfig(self.get_config_without_js())
 
-        sticky {
-            cookie enforce name=cname;
-        }
-        """ % (tf_cfg.cfg.get('Server', 'ip')))
         self.get_tempesta().config = config
         self.get_tempesta().reload()
 
         client = self.get_client('client-1')
         uri = '/'
-        uri, cookie = self.client_send_first_req(client, uri)
+        vhost = 'vh1.com'
+        uri, cookie = self.client_send_first_req(client, uri, host=vhost)
 
         req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
+               "Host: %s\r\n"
                "Cookie: %s=%s\r\n"
-               "\r\n" % (uri, cookie[0], cookie[1]))
+               "\r\n" % (uri, vhost, cookie[0], cookie[1]))
         response = self.client_send_req(client, req)
         self.assertEqual(response.status,'200',
                          "unexpected response status code")
@@ -426,14 +433,121 @@ class JSChallengeVhost(JSChallenge):
             proxy_pass default;
         }
 
+        vhost vh4 {
+            proxy_pass default;
+
+            sticky {
+                cookie enforce;
+            }
+        }
+
         http_chain {
             host == "vh1.com" -> vh1;
             host == "vh2.com" -> vh2;
             host == "vh3.com" -> vh3;
+            host == "vh4.com" -> vh4;
             -> block;
         }
         """
     }
+
+    def test_js_overriden_together_with_cookie(self):
+        """ Vhost `vh4` overrides `sticky` directive using only `cookie`
+        directive. JS challenge is always derived with `cookie` directive, so
+        JS challenge will be disabled for this vhost.
+        """
+        self.start_all()
+
+        client = self.get_client('client-1')
+        uri = '/'
+        vhost = 'vh4.com'
+        uri, cookie = self.client_send_first_req(client, uri, host=vhost)
+
+        req = ("GET %s HTTP/1.1\r\n"
+               "Host: %s\r\n"
+               "Cookie: %s=%s\r\n"
+               "\r\n" % (uri, vhost, cookie[0], cookie[1]))
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status,'200',
+                         "unexpected response status code")
+
+
+class JSChallengeDefVhostInherit(BaseJSChallenge):
+    """
+    Implicit default vhost use other implementation of `sticky` inheritance.
+    Check that correct configuration is derived.
+    """
+
+    backends = [
+        {
+            'id' : 'server-1',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n\r\n'
+        },
+    ]
+
+    tempesta = {
+        'config' :
+        """
+        server ${server_ip}:8000;
+
+        sticky {
+            cookie enforce name=cname;
+            js_challenge resp_code=503 delay_min=1000 delay_range=1500
+                         delay_limit=3000 ${tempesta_workdir}/js1.html;
+        }
+        """
+    }
+
+    clients = [
+        {
+            'id' : 'client-1',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80',
+        },
+        {
+            'id' : 'client-2',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80',
+        },
+        {
+            'id' : 'client-3',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80',
+        }
+    ]
+
+    def prepare_js_templates(self):
+        """
+        Templates for JS challenge are modified by start script, create a copy
+        of default template for each vhost.
+        """
+        srcdir = tf_cfg.cfg.get('Tempesta', 'srcdir')
+        workdir = tf_cfg.cfg.get('Tempesta', 'workdir')
+        template = "%s/etc/js_challenge.tpl" % srcdir
+        js_code = "%s/etc/js_challenge.js.tpl" % srcdir
+        remote.tempesta.run_cmd("cp %s %s"  % (js_code, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js1.tpl" % (template, workdir))
+
+    def test_pass_challenge(self):
+        """ Clients send the validating request just in time and pass the
+        challenge.
+        """
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send request to default vhost with timeout 2s...")
+        client = self.get_client('client-1')
+        self.process_js_challenge(client, 'vh1.com',
+                                  delay_min=1000, delay_range=1500,
+                                  status_code=503, expect_pass=True,
+                                  req_delay=2.5)
 
 
 class JSChallengeAfterReload(BaseJSChallenge):
