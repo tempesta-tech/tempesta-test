@@ -178,6 +178,38 @@ class RedirectMark(BaseRedirectMark):
                          m.group(3)))
         self.client_expect_block(client, req)
 
+
+class RedirectMarkVhost(RedirectMark):
+    """ Same as RedirectMark, but , but 'sticky' configuration is inherited from
+    updated defaults for a named vhost.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        srv_group vh_1_srvs {
+            server ${server_ip}:8000;
+        }
+
+        # Update defaults two times, only the last one must be applied.
+        sticky {
+            cookie name=c_vh2 enforce;
+        }
+        sticky {
+            cookie enforce max_misses=5;
+        }
+
+        vhost vh_1 {
+            proxy_pass vh_1_srvs;
+        }
+
+        http_chain {
+            -> vh_1;
+        }
+        """
+    }
+
+
 class RedirectMarkTimeout(BaseRedirectMark):
     """
     Current count of redirected requests should be reset if time has
@@ -221,3 +253,34 @@ class RedirectMarkTimeout(BaseRedirectMark):
         response = self.client_send_req(client, req)
         self.assertEqual(response.status,'200',
                          "unexpected response status code")
+
+
+class RedirectMarkTimeoutVhost(RedirectMarkTimeout):
+    """ Same as RedirectMarkTimeout, but , but 'sticky' configuration is
+    inherited from updated defaults for a named vhost.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        srv_group vh_1_srvs {
+            server ${server_ip}:8000;
+        }
+
+        # Update defaults two times, only the last one must be applied.
+        sticky {
+            cookie name=c_vh2 enforce;
+        }
+        sticky {
+            cookie enforce max_misses=5 timeout=2;
+        }
+
+        vhost vh_1 {
+            proxy_pass vh_1_srvs;
+        }
+
+        http_chain {
+            -> vh_1;
+        }
+        """
+    }

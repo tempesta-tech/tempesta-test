@@ -347,6 +347,66 @@ class VhostCookies(CookiesNotEnabled):
                         "Client couldn't access resource")
 
 
+class CookiesInherit(VhostCookies):
+    """Cookies configuration can be inherited from global defaults. The test is
+    identical to VhostCookies. But here 'sticky' directive is defined outside
+    named vhosts, so updates default settings that must be inherited by
+    named vhosts. If default settings are inherited multiple times, then only
+    the last one is effective.
+    """
+
+    tempesta = {
+        'config' :
+        """
+        srv_group vh_1_srvs {
+            server ${server_ip}:8000;
+        }
+        srv_group vh_2_srvs {
+            server ${server_ip}:8001;
+        }
+        srv_group vh_3_srvs {
+            server ${server_ip}:8002;
+        }
+
+        sticky {
+            cookie name=c_vh1 enforce;
+        }
+
+        vhost vh_1 {
+            proxy_pass vh_1_srvs;
+        }
+
+        sticky {
+            cookie name=c_vh2 enforce;
+        }
+
+        vhost vh_2 {
+            proxy_pass vh_2_srvs;
+        }
+
+        sticky {
+            cookie name=not_used;
+        }
+
+        sticky {
+            cookie name=c_vh3;
+        }
+
+        vhost vh_3 {
+            proxy_pass vh_3_srvs;
+        }
+
+        http_chain {
+            host == "vh1.com" -> vh_1;
+            host == "vh2.com" -> vh_2;
+            host == "vh3.com" -> vh_3;
+            -> block;
+        }
+
+        """
+    }
+
+
 class CookieLifetime(CookiesNotEnabled):
 
     tempesta = {
@@ -373,7 +433,8 @@ class CookieLifetime(CookiesNotEnabled):
                "\r\n")
         response = self.client_send_req(client, req)
         self.assertEqual(response.status, '302',
-                         "Unexpected redirect status code")
+                         ("Unexpected redirect status code: %s, expected 302"
+                          % response.status))
         cookie = self.extract_cookie(response)
         self.assertIsNotNone(cookie, "Can't find cookie in response")
         req = ("GET / HTTP/1.1\r\n"
@@ -382,7 +443,12 @@ class CookieLifetime(CookiesNotEnabled):
                "\r\n" % (cookie[0], cookie[1]))
         response = self.client_send_req(client, req)
         self.assertEqual(response.status, '200',
-                         "Unexpected response status code")
+                         ("Unexpected redirect status code: %s, expected 200"
+                          % response.status))
+        # Cookies are enforced, only the first response (redirect) has
+        # Set-Cookie header, following responses has no such header.
+        self.assertIsNone(response.headers.get('Set-Cookie', None),
+                          "Set-Cookie header is mistakenly set in the response")
         tf_cfg.dbg(3, "Sleep until session get expired...")
         time.sleep(5)
         req = ("GET / HTTP/1.1\r\n"
