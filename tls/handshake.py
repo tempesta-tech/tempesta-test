@@ -22,6 +22,8 @@ import random
 import socket
 import ssl # OpenSSL based API
 import struct
+# TODO #56: replace the unmaintained Scapy-TLS library with standard Scapy
+# routines and our own implementation.
 import scapy_ssl_tls.ssl_tls as tls
 from time import sleep
 
@@ -29,7 +31,7 @@ from helpers import dmesg, tf_cfg
 from helpers.error import Error
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
@@ -235,7 +237,7 @@ class TlsHandshake:
         # We're must be good with standard, but unsupported options.
         self.exts += [
             tls.TLSExtension(type=0x3), # TrustedCA, RFC 6066 6.
-            tls.TLSExtension(type=0x5), # StatusRequest, RFC 6066 8.
+            tls.TLSExtension() / tls.TLSExtCertificateStatusRequest(),
             tls.TLSExtension(type=0xf0), # Bad extension, just skipped
 
             tls.TLSExtension() /
