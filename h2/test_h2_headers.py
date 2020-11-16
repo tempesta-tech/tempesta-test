@@ -283,3 +283,58 @@ return 200;
 
     def test(self):
         CurlTestBase.test(self, served_from_cache=True)
+
+class LowercaseAddBackendHeaders(CurlTestBase):
+    ''' Test on converting header names to lowercase when converting a forwarded
+    response to h2. If the conversion fails, curl will not return 0 and the test
+    will fail.
+    '''
+
+    backends = [
+        {
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'port' : '8000',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : NGINX_CONFIG % """
+add_header X-Extra-Data1 "q";
+add_header X-Extra-Data2 "q";
+add_header X-Extra-Data1 "q";
+
+return 200;
+""",
+        }
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % "",
+    }
+
+class LowercaseAddBackendHeadersCache(CurlTestBase):
+    ''' Test on converting header names to lowercase if response is served by
+    cache. If the conversion fails, curl will not return 0 and the test will
+    fail.
+    '''
+
+    backends = [
+        {
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'port' : '8000',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : NGINX_CONFIG % """
+add_header X-Extra-Data1 "q";
+add_header X-Extra-Data2 "q";
+add_header X-Extra-Data1 "q";
+
+return 200;
+""",
+        }
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % "cache_fulfill * *;",
+    }
+
+    def test(self):
+        CurlTestBase.test(self, served_from_cache=True)
