@@ -44,7 +44,8 @@ class TestFrameworkCfg(object):
 
     def defaults(self):
         self.config = configparser.ConfigParser()
-        self.config.read_dict({'General': {'verbose': '0',
+        self.config.read_dict({'General': {'ip': '127.0.0.1',
+                                           'verbose': '0',
                                            'workdir': '/tmp/host',
                                            'duration': '10',
                                            'concurrent_connections': '10',

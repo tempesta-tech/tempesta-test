@@ -1,6 +1,14 @@
 [General]
 # This section refer to testing framework itself.
 
+# IPv4/IPv6 address of the host that runs the testing framework.
+# This is the address deproxy's server will be listening at.
+# This value will be used internally, in command lines and configuration files.
+#
+# ex.: ip = 192.168.11.6 (default 127.0.0.1)
+#
+ip = 127.0.0.1
+
 # Verbose level:
 # 0 - quiet mode, result of each test is shown by symbols:
 #   `.` - passed,
