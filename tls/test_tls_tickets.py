@@ -89,8 +89,7 @@ class TlsTicketTest(tester.TempestaTest):
                              "Can't read master secret")
         if not ticket:
             return
-        self.assertNotEqual(len(ticket), 160,
-                            'Ticket length mismatch')
+        self.assertEqual(len(ticket.ticket), 168)
 
         # A new connection with the same ticket will receive abbreviated
         # handshake
@@ -264,7 +263,6 @@ class TlsVhostConfusion(tester.TempestaTest):
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
 
-
     tempesta = {
         'custom_cert': True,
         'config' : """
@@ -287,7 +285,7 @@ class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
                 tls_certificate_key ${tempesta_workdir}/tempesta-tech.com.key;
             }
             vhost default {
-            # Vhost name is used in SNI parsing. MAtch all unknown SNIs to
+            # Vhost name is used in SNI parsing. Match all unknown SNIs to
             # default vhost.
                 tls_match_any_server_name;
             }

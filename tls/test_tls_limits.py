@@ -163,7 +163,7 @@ class TLSLimits(tester.TempestaTest):
     def test_with_tlsperf(self):
         """
         Test with tls-perf which uses usual openssl configuration and works as
-        most usual ssl clients. tls-perf doesn't has fixed frame rate, but it
+        most usual ssl clients. tls-perf doesn't have fixed frame rate, but it
         works fast and we use small limits to ensure that all messages are
         received almost immediately.
         """
