@@ -223,7 +223,7 @@ class TlsHandshake:
                 tls.TLSALPNProtocol(data="http/2.0")]),
 
             tls.TLSExtension() /
-            tls.TLSExtMaxFragmentLength(fragment_length=0x01), # 512 bytes
+            tls.TLSExtMaxFragmentLength(fragment_length=0x04), # 4096 bytes
 
             tls.TLSExtension() /
             tls.TLSExtCertificateURL(certificate_urls=[
