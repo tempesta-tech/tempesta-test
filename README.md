@@ -114,6 +114,9 @@ There is 4 sections in configuration: `General`, `Client`, `Tempesta`, `Server`.
 
 `General` section describes the options related to testing framework itself.
 
+`ip` — IPv4/IPv6 address of the host running the testing framework, as reachable
+from the host running TempestaFW.
+
 `verbose`: verbose level of output:
 - `0` — quiet mode, result of each test is shown by symbols. `.` — passed, `F` -
 failed, `u` — unexpected success, `x` — expected failure. `s` — skipped;
