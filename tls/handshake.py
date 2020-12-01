@@ -4,9 +4,7 @@ Also usable as a TLS traffic generator to debug early TLS server
 implementation. This tool emphasises flexibility in generation of TLS traffic,
 not performance.
 
-ScaPy is still not fully compatible with Python3, but I still use __future__
-module for easier migration to Python3.
-https://github.com/tintinweb/scapy-ssl_tls/issues/39
+We use __future__ module for easier migration to Python3.
 
 TLS 1.2 is specified in RFC 5246. See also these useful references:
  - https://wiki.osdev.org/SSL/TLS
@@ -19,13 +17,11 @@ import random
 import socket
 import ssl # OpenSSL based API
 import struct
-# TODO #56: replace the unmaintained Scapy-TLS library with standard Scapy
-# routines and our own implementation.
-import scapy_ssl_tls.ssl_tls as tls
 from time import sleep
 
 from helpers import dmesg, tf_cfg
 from helpers.error import Error
+from scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
