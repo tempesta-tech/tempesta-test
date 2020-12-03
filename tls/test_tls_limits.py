@@ -427,3 +427,166 @@ class TLSLimitsUncomplete(tester.TempestaTest):
         self.assertEqual(11, not_connected)
         wc = self.klog.warn_count(self.TLS_WARN)
         self.assertEqual(wc, 1, "Frang limits warning is not shown")
+
+
+class TLSMatchHostSni(tester.TempestaTest):
+
+    clients = [
+        {
+            'id' : 'usual-client',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl'  : True,
+            'ssl_hostname' : 'tempesta-tech.com'
+        },
+        {
+            'id' : 'no-sni-client',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl'  : True,
+        },
+        {
+            'id' : 'over-444-port',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '444',
+            'ssl'  : True,
+            'ssl_hostname' : 'tempesta-tech.com'
+        }
+    ]
+
+    backends = [
+        {
+            'id' : '0',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n'
+                'Connection: keep-alive\r\n\r\n'
+        }
+    ]
+
+    tempesta = {
+        'config' : """
+            cache 0;
+            listen 443 proto=https;
+            listen 444 proto=https;
+
+            frang_limits {
+                http_host_required;
+            }
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+            srv_group srv_grp1 {
+                server ${server_ip}:8000;
+            }
+            vhost tempesta-tech.com {
+                proxy_pass srv_grp1;
+            }
+            # Any request can be served.
+            http_chain {
+                -> tempesta-tech.com;
+            }
+        """
+    }
+
+    TLS_WARN="Warning: frang: host header doesn't match SNI from TLS handshake"
+    TLS_WARN_PORT="Warning: frang: port from host header doesn't match real port"
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        srv = self.get_server('0')
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+
+    def test_host_sni_mismatch(self):
+        """ With the `http_host_required` limit, the host header and SNI name
+        must be identical. Otherwise request will be filtered. After client
+        send a request that doesnt match his SNI, t is blocked
+        """
+        self.start_all()
+        klog = dmesg.DmesgFinder(ratelimited=False)
+
+        requests = "GET / HTTP/1.1\r\n" \
+                   "Host: tempesta-tech.com\r\n" \
+                   "\r\n" \
+                   "GET / HTTP/1.1\r\n" \
+                   "Host:    tempesta-tech.com     \r\n" \
+                   "\r\n" \
+                   "GET / HTTP/1.1\r\n" \
+                   "Host: example.com\r\n" \
+                   "\r\n"
+        deproxy_cl = self.get_client('usual-client')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(requests)
+        deproxy_cl.wait_for_response()
+
+        self.assertEqual(2, len(deproxy_cl.responses))
+        self.assertTrue(deproxy_cl.connection_is_closed())
+        self.assertEqual(klog.warn_count(self.TLS_WARN), 1,
+                          "Frang limits warning is not shown")
+
+    def test_host_sni_bypass_check(self):
+        """ SNI is not set. Requests to any ports are allowed.
+        """
+        self.start_all()
+        klog = dmesg.DmesgFinder(ratelimited=False)
+
+        requests = "GET / HTTP/1.1\r\n" \
+                   "Host: example.com\r\n" \
+                   "\r\n"
+        deproxy_cl = self.get_client('no-sni-client')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(requests)
+        deproxy_cl.wait_for_response()
+
+        self.assertEqual(1, len(deproxy_cl.responses))
+        self.assertEqual(klog.warn_count(self.TLS_WARN), 0,
+                          "Frang limits warning was unexpectedly shown")
+
+    def test_port_mismatch(self):
+        """ After client send a request that has port mismatch in host header,
+        # it is blocked.
+        """
+        self.start_all()
+        klog = dmesg.DmesgFinder(ratelimited=False)
+
+        requests = "GET / HTTP/1.1\r\n" \
+                   "Host: tempesta-tech.com:80\r\n" \
+                   "\r\n"
+        deproxy_cl = self.get_client('usual-client')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(requests)
+        deproxy_cl.wait_for_response()
+
+        self.assertEqual(0, len(deproxy_cl.responses))
+        self.assertTrue(deproxy_cl.connection_is_closed())
+        self.assertEqual(klog.warn_count(self.TLS_WARN_PORT), 1,
+                          "Frang limits warning is not shown")
+
+    def test_auto_port_mismatch(self):
+        """ After client send a request that has port mismatch in host header,
+        # it is blocked. Port is defined from implicit values.
+        """
+        self.start_all()
+        klog = dmesg.DmesgFinder(ratelimited=False)
+
+        requests = "GET / HTTP/1.1\r\n" \
+                   "Host: tempesta-tech.com\r\n" \
+                   "\r\n"
+        deproxy_cl = self.get_client('over-444-port')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(requests)
+        deproxy_cl.wait_for_response()
+
+        self.assertEqual(0, len(deproxy_cl.responses))
+        self.assertTrue(deproxy_cl.connection_is_closed())
+        self.assertEqual(klog.warn_count(self.TLS_WARN_PORT), 1,
+                          "Frang limits warning is not shown")
