@@ -1078,6 +1078,7 @@ class EAEADCryptoContext(CryptoContext):
         # Create an empty Crypto container to retrieve AEAD data based on length of cleartext
         crypto_data = CryptoData.from_context(self.tls_ctx, self.ctx, "\x00" * len(ciphertext))
         crypto_data.content_type = content_type
+        crypto_data.sequence = struct.unpack("!Q", explicit_nonce)[0]
         crypto_container = EAEADCryptoContainer.from_context(self.tls_ctx, self.ctx, crypto_data)
         self.__init_ciphers(self.get_nonce(explicit_nonce))
         self.dec_cipher.update(crypto_container.aead)
