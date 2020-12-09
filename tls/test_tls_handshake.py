@@ -115,6 +115,13 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sni(self):
+        """
+        Try to open a connection with SNI that doesn't match any vhost name
+        in configuration, but send a request which targets correct vhost.
+        The connection will be rejected, due to SNI mismatch. Don't confuse it
+        for Vhost Confusion prevention, where the connection will be established,
+        but request - filtered.
+        """
         self.start_all()
         hs12 = TlsHandshake()
         hs12.sni = ["bad.server.name"]

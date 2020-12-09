@@ -100,6 +100,10 @@
         {
             "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
             "reason" : "#861: TCP: reset blocked connections"
+        },
+        {
+            "name" : "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket",
+            "reason" : "#1310: scapy_tls_ssl incorrectly calculates checksum for client finished message, sent on abbreviated handshake"
         }
     ]
 }

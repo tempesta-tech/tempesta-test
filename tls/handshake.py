@@ -12,6 +12,9 @@ TLS 1.2 is specified in RFC 5246. See also these useful references:
  - https://wiki.osdev.org/SSL/TLS
  - https://wiki.osdev.org/TLS_Handshake
  - https://wiki.osdev.org/TLS_Encryption
+
+Debugging can be simplified by enabling verbose in TlsHandshake instance. Or
+by running `tshark -i lo -f 'port 443' -Y ssl -O ssl`
 """
 from __future__ import print_function
 from contextlib import contextmanager
@@ -98,6 +101,26 @@ class TlsHandshake:
         self.host = None
         # Server certificate.
         self.cert = None
+        # Random session ticket by default.
+        self.set_ticket_data('ticket_data')
+        # Session id, must be filled for resume
+        self.session_id = ''
+
+    def set_ticket_data(self, data):
+        """ Set session ticket data. Following values are possible:
+        - 'None' - session ticket extension will be disabled;
+        - '' (empty string) - empty session ticket extension will be added;
+        - '<str>' - arbitrary string will be inserted as session ticket.
+        'data' can be represented either as string or as
+        scapy_ssl_tls.TLSSessionTicket.
+        """
+        if data is None:
+            self.ticket_data = None
+            return
+        if type(data) is tls.TLSSessionTicket:
+            self.ticket_data = data.ticket
+        else:
+            self.ticket_data = data
 
     @contextmanager
     def socket_ctx(self):
@@ -230,10 +253,12 @@ class TlsHandshake:
             tls.TLSExtension() /
             tls.TLSExtHeartbeat(
                 mode=tls.TLSHeartbeatMode.PEER_NOT_ALLOWED_TO_SEND),
-
-            tls.TLSExtension() /
-            tls.TLSExtSessionTicketTLS(data="myticket")
         ]
+        if self.ticket_data is not None:
+            self.exts += [
+                tls.TLSExtension() /
+                tls.TLSExtSessionTicketTLS(data=self.ticket_data)
+            ]
         return self.exts
 
     def send_12_alert(self, level, desc):
@@ -256,6 +281,8 @@ class TlsHandshake:
         c_h = tls.TLSClientHello(
             gmt_unix_time=0x22222222,
             random_bytes='\x11' * 28,
+            session_id=self.session_id,
+            session_id_length=len(self.session_id),
             cipher_suites=[
                 tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
                 self.ciphers,
@@ -279,7 +306,7 @@ class TlsHandshake:
         if not resp.haslayer(tls.TLSCertificate):
             return False
         self.cert = resp[tls.TLSCertificate].data
-        assert self.cert, "No cerfificate received"
+        assert self.cert, "No certificate received"
         if self.verbose:
             resp.show()
 
@@ -315,6 +342,66 @@ class TlsHandshake:
             print(self.sock.tls_ctx)
         return True
 
+    def _do_12_hs_resume(self, master_secret, ticket, fuzzer=None):
+        """
+        Test abbreviated TLS 1.2 handshake: establish a new TCP connection
+        and send predefined TLS handshake records.
+        """
+        try:
+            self.conn_estab()
+        except socket.error:
+            return False
+
+        self.sock.tls_ctx.resume_session(master_secret)
+        self.set_ticket_data(ticket)
+        # Session must be non-null for resumption.
+        self.session_id = '\x38' * 32
+
+        c_h = tls.TLSClientHello(
+            gmt_unix_time=0x22222222,
+            random_bytes='\x11' * 28,
+            session_id=self.session_id,
+            session_id_length=len(self.session_id),
+            cipher_suites=[
+                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
+                self.ciphers,
+                extensions=[
+                    tls.TLSExtension(type=0x16), # Encrypt-then-MAC
+                    tls.TLSExtension() / tls.TLSExtECPointsFormat()]
+                + self.extra_extensions()
+        )
+        msg = tls.TLSRecord(version='TLS_1_2') / \
+            tls.TLSHandshakes(
+                handshakes=[tls.TLSHandshake() / c_h]
+            )
+        if self.verbose:
+            msg.show()
+
+        # Send ClientHello and read ServerHello, ServerCertificate,
+        # ServerKeyExchange, ServerHelloDone.
+        self.inject_bad(fuzzer)
+        resp = self.send_recv(msg)
+        if not resp.haslayer(tls.TLSChangeCipherSpec):
+            return False
+        if self.verbose:
+            resp.show()
+
+        msg = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
+        if self.verbose:
+            msg.show()
+        self.inject_bad(fuzzer)
+        self.sock.sendall(tls.TLS.from_records([msg]))
+        # Now we can calculate the final session checksum, send ClientFinished.
+        cf_h = tls.TLSHandshakes(
+            handshakes=[tls.TLSHandshake() /
+                        tls.TLSFinished(
+                            data=self.sock.tls_ctx.get_verify_data())])
+        msg = tls.TLSRecord(version='TLS_1_2') / cf_h
+        if self.verbose:
+            msg.show()
+        self.send_recv(tls.TLS.from_records([msg]))
+        return True
+
     def __get_host(self):
         if self.host:
             return self.host
@@ -347,6 +434,11 @@ class TlsHandshake:
                 return False
             return self._do_12_req(fuzzer)
 
+    def do_12_resume(self, master_secret, ticket, fuzzer=None):
+        with self.socket_ctx():
+            if not self._do_12_hs_resume(master_secret, ticket, fuzzer):
+                return False
+            return self._do_12_req(fuzzer)
 
 class TlsHandshakeStandard:
     """
