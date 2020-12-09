@@ -197,9 +197,11 @@ class TlsHandshakeTest(tester.TempestaTest):
             resp = tls_conn.sock.recvall(timeout=tls_conn.io_to)
             self.assertTrue(resp.haslayer(tls.TLSAlert))
             if resp.haslayer(tls.TLSAlert):
-                 alert = resp[tls.TLSAlert]
-                 self.assertEqual(alert.level, 20)
-                 self.assertEqual(alert.description, 3)
+                alert = resp[tls.TLSAlert]
+                self.assertEqual(len(alert), 2)
+                self.assertEqual(alert.level, tls.TLSAlertLevel.WARNING)
+                self.assertEqual(alert.description,
+                                 tls.TLSAlertDescription.CLOSE_NOTIFY)
 
     @util.profiled
     def test_fuzzing(self):
