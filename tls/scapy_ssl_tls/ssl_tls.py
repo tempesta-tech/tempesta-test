@@ -1,14 +1,17 @@
-#! /usr/bin/env python
-# -*- coding: UTF-8 -*-
-# Author : <github.com/tintinweb/scapy-ssl_tls>
+# Original code is github.com/tintinweb/scapy-ssl_tls
+
+import os
 
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.fields import *
 from scapy.layers.inet import TCP, UDP
 from scapy.layers import x509
 
-
 import ssl_tls_registry as registry
+
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 
 class BLenField(LenField):
