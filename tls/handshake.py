@@ -367,15 +367,15 @@ class TlsHandshakeStandard:
         sock.connect((self.addr, self.port))
         try:
             tls_sock = ssl.wrap_socket(sock, ssl_version=version)
-        except IOError:
-            # Exception on client side TLS with established TCP connection -
-            # we're good with connection rejection, this means that Tempesta
-            # correctly doesn't establish bad TLS handshake.
-            sock.close()
-            if klog.warn_count(TLS_HS_WARN) == 1:
+        except ssl.SSLError as e:
+            # Correct connection termination with PROTOCOL_VERSION alert.
+            if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
                 return True
+        except IOError as e:
             if self.verbose:
                 print("TLS handshake failed w/o warning")
+        if self.verbose:
+            print("Connection of unsupported TLS 1.%d established" % version)
         return False
 
     def do_old(self):
