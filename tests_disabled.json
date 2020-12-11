@@ -82,10 +82,6 @@
             "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
         },
         {
-            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
-            "reason" : "#1325: the test fails before the issue is fixed. Probably there is a reason for the behavior and the test should be reworked."
-        },
-        {
             "name" : "sessions.test_redir_mark.RedirectMark.test_rmark_wo_or_incorrect_cookie",
             "reason" : "#861: TCP: reset blocked connections"
         },
@@ -100,10 +96,6 @@
         {
             "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
             "reason" : "#861: TCP: reset blocked connections"
-        },
-        {
-            "name" : "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket",
-            "reason" : "#1310: scapy_tls_ssl incorrectly calculates checksum for client finished message, sent on abbreviated handshake"
         }
     ]
 }
