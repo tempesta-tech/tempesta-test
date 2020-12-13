@@ -36,7 +36,9 @@ class Sniffer(object):
         self.packets = []
         self.dump_file = '/tmp/tmp_packet_dump'
         str_ports = ' or '.join(('tcp port %s' % p) for p in ports)
-        cmd = 'timeout %s tcpdump -i any %s -w - %s || true'
+        # TODO #120: it's bad to use timeout(1). Instead we should run
+        # the tcpdump process and kill it when the test is done.
+        cmd = 'timeout %s tcpdump -i any -n %s -w - %s || true'
         count_flag = ('-c %s' % count) if count else ''
         self.cmd = cmd % (timeout, count_flag, str_ports)
         self.err_msg = ' '.join(["Can't %s sniffer on", host])
