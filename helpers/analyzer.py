@@ -162,18 +162,22 @@ class AnalyzerTCPSegmentation(Sniffer):
                 self.srv_pkts += [int(plen)]
         (tfw_n, srv_n) = (len(self.tfw_pkts), len(self.srv_pkts))
         assert tfw_n and srv_n, "Traffic wasn't captured"
-        if tfw_n > srv_n:
+        assert tfw_n > 3, "Captured the number of packets less than" \
+                          " the TCP/TLS overhead"
+        if tfw_n > srv_n + 2:
             tf_cfg.dbg(4, "Tempesta TLS generates more packets (%d) than" \
-                          " original server (%d)" % (tfw_n, srv_n))
+                          " original server (%d) plus the TLS overhead (2 segs)"
+                          % (tfw_n, srv_n))
             res = False
         # We're good if Tempesta generates less number of packets than
-        # the server.
-        for i in xrange(tfw_n):
-            if i >= srv_n:
+        # the server. We skip the initial TCP SYN-ACK, and the TLS 1.2
+        # 2-RTT handshake overhead. This may fail for TLS 1.3.
+        for i in xrange(3, tfw_n):
+            if i - 2 >= srv_n:
                 tf_cfg.dbg(4, "Extra packet %d, size=%d"
                               % (i, self.tfw_pkts[i]))
                 res = False
-            elif self.tfw_pkts[i] < self.srv_pkts[i]:
+            elif self.tfw_pkts[i] < self.srv_pkts[i - 2]:
                 tf_cfg.dbg(4, "Tempesta packet %d less than server's" \
                                " (%d < %d)"
                                % (i, self.tfw_pkts[i], self.srv_pkts[i]))
