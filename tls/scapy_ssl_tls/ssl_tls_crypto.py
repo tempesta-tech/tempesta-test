@@ -318,6 +318,13 @@ TLS Session Context:
         # Update the server context with random, session_id
         self.server_ctx.handshake = server_hello
         self.negotiated.version = server_hello.version
+        # Both the TLS 1.2 and 1.3 use the same legacy version.
+        # Tempesta TLS works only with these two protocols, so we should always
+        # see TLS_1_2 version here.
+        # TODO handle __handle_tls13_server_hello() for TLS 1.3 or move to
+        # native Scapy TLS 1.3.
+        if self.negotiated.version != tls.TLSVersion.TLS_1_2:
+            raise RuntimeError("Bad TLS version in ServerHello: %d" % server_hello.version)
         self.negotiated.ciphersuite = server_hello.cipher_suite
         try:
             self.cipher_properties = TLSSecurityParameters.crypto_params[self.negotiated.ciphersuite]
@@ -328,11 +335,7 @@ TLS Session Context:
                                       self.cipher_properties["cipher"]["mode_name"])
         self.requires_iv = True if tls.TLSVersion.TLS_1_0 < self.negotiated.version < tls.TLSVersion.TLS_1_3 else False
 
-        if self.negotiated.version < tls.TLSVersion.TLS_1_3:
-            self.__handle_tls12_server_hello(server_hello)
-        # TlS 1.3 case. Extract KEX data from KeyShare extension
-        else:
-            self.__handle_tls13_server_hello(server_hello)
+        self.__handle_tls12_server_hello(server_hello)
 
     def __handle_cert_list(self, cert_list):
         if self.negotiated.key_exchange is not None and (
