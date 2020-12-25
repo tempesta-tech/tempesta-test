@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 import sys
@@ -17,7 +17,6 @@ modules = ['unittest',
            ]
 
 modules_apt = [
-            'scapy',
             'paramiko',
             'subprocess32',
             'configparser',

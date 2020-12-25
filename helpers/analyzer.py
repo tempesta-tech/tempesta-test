@@ -5,6 +5,7 @@ from __future__ import print_function
 import abc
 import os
 from threading import Thread
+from time import sleep
 from scapy.all import *
 from . import remote, tf_cfg, error
 
@@ -61,6 +62,11 @@ class Sniffer(object):
     def start(self):
         self.thread = Thread(target=self.sniff)
         self.thread.start()
+        # TODO #120: the sniffer thread may not start with lower timeout like
+        # 0.001, so we use longer timeout here. Instead we should check whether
+        # the tcpdump process is running and wait for it otherwise.
+        # See appropriate comments in remote.py and analyzer.py.
+        sleep(0.1)
 
     def stop(self):
         if self.thread:
