@@ -78,6 +78,13 @@ class LocalNode(Node):
         with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                               stderr=stderr_pipe, env=env_full) as p:
             try:
+                # TODO #120: we should provide kill() and pid() interfaces to
+                # let caller to determine if the command is executed and
+                # when it's terminated and/or teriminate if when necessary.
+                # Sometimes we also need to check whether a called program is
+                # runnng long enough, e.g. tls-perf or wrk started in a parallel
+                # thread didn't finish before all assumptions are checked in the
+                # main thread.
                 stdout, stderr = p.communicate(timeout)
                 assert p.returncode == 0, \
                     "Cmd: '%s' return code is not 0 (%d)." % (cmd, p.returncode)
@@ -162,6 +169,9 @@ class RemoteNode(Node):
             ])
             tf_cfg.dbg(4, "\tEffective command '%s' after injecting environment" % cmd)
         try:
+            # TODO #120: the same as for LocalNode - provide an interface to check
+            # whether the command is executed and when it's terminated and/or
+            # kill it when necessary.
             _, out_f, err_f = self.ssh.exec_command(cmd, timeout=timeout)
             stdout = out_f.read()
             if not ignore_stderr:

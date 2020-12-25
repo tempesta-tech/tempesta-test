@@ -3,7 +3,6 @@ Tests for data integrity transferred via Tempesta TLS.
 """
 from contextlib import contextmanager
 import hashlib
-from time import sleep
 
 from helpers import tf_cfg, analyzer, remote, sysnet
 from helpers.error import Error
@@ -89,7 +88,6 @@ class TlsIntegrityTester(tester.TempestaTest):
         sniffer = analyzer.AnalyzerTCPSegmentation(remote.tempesta, 'Tempesta',
                                                    timeout=3, ports=(443, 8000))
         sniffer.start()
-        sleep(0.001) # Just schedule to another thread.
 
         resp_body = 'x' * resp_len
         self.get_server('deproxy').set_response(self.make_resp(resp_body))

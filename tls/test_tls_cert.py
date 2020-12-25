@@ -194,7 +194,8 @@ class RSA512_SHA256(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_bad_alg("Warning: Unrecognized TLS receive return code")
+        self.check_cannot_start("Warning: Trying to load an RSA key smaller"
+                                + " than 1024 bits. Please use stronger keys.")
 
 
 class ECDSA_SHA256_SECP192(X509):

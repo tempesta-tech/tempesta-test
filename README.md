@@ -71,8 +71,10 @@ deproxy server, and workload tests should use wrk client and nginx server.
 ## Requirements
 
 - Host for testing framework: `Python2`, `python2-paramiko`,
-`python-configparser`, `python-subprocess32`, `wrk`, `ab`, `python-scapy`,
-`python-cryptography`, `scapy-ssl_tls` (installed with `pip`), `h2spec`
+`python-configparser`, `python-subprocess32`, `wrk`, `ab`, `scapy`
+(Debian 10 contains outdated 2.4.0 and we require 2.4.4, so install it with pip),
+`python-cryptography`, `h2spec`, `pycryptodomex`, and `tinyec` (the last
+two can be installed using `pip install pycryptodomex tinyec`)
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
 `systemtap`, `tcpdump`, `bc`

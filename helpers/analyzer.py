@@ -5,6 +5,7 @@ from __future__ import print_function
 import abc
 import os
 from threading import Thread
+from time import sleep
 from scapy.all import *
 from . import remote, tf_cfg, error
 
@@ -36,7 +37,9 @@ class Sniffer(object):
         self.packets = []
         self.dump_file = '/tmp/tmp_packet_dump'
         str_ports = ' or '.join(('tcp port %s' % p) for p in ports)
-        cmd = 'timeout %s tcpdump -i any %s -w - %s || true'
+        # TODO #120: it's bad to use timeout(1). Instead we should run
+        # the tcpdump process and kill it when the test is done.
+        cmd = 'timeout %s tcpdump -i any -n %s -w - %s || true'
         count_flag = ('-c %s' % count) if count else ''
         self.cmd = cmd % (timeout, count_flag, str_ports)
         self.err_msg = ' '.join(["Can't %s sniffer on", host])
@@ -59,6 +62,11 @@ class Sniffer(object):
     def start(self):
         self.thread = Thread(target=self.sniff)
         self.thread.start()
+        # TODO #120: the sniffer thread may not start with lower timeout like
+        # 0.001, so we use longer timeout here. Instead we should check whether
+        # the tcpdump process is running and wait for it otherwise.
+        # See appropriate comments in remote.py and analyzer.py.
+        sleep(0.1)
 
     def stop(self):
         if self.thread:
@@ -160,18 +168,22 @@ class AnalyzerTCPSegmentation(Sniffer):
                 self.srv_pkts += [int(plen)]
         (tfw_n, srv_n) = (len(self.tfw_pkts), len(self.srv_pkts))
         assert tfw_n and srv_n, "Traffic wasn't captured"
-        if tfw_n > srv_n:
+        assert tfw_n > 3, "Captured the number of packets less than" \
+                          " the TCP/TLS overhead"
+        if tfw_n > srv_n + 2:
             tf_cfg.dbg(4, "Tempesta TLS generates more packets (%d) than" \
-                          " original server (%d)" % (tfw_n, srv_n))
+                          " original server (%d) plus the TLS overhead (2 segs)"
+                          % (tfw_n, srv_n))
             res = False
         # We're good if Tempesta generates less number of packets than
-        # the server.
-        for i in xrange(tfw_n):
-            if i >= srv_n:
+        # the server. We skip the initial TCP SYN-ACK, and the TLS 1.2
+        # 2-RTT handshake overhead. This may fail for TLS 1.3.
+        for i in xrange(3, tfw_n):
+            if i - 2 >= srv_n:
                 tf_cfg.dbg(4, "Extra packet %d, size=%d"
                               % (i, self.tfw_pkts[i]))
                 res = False
-            elif self.tfw_pkts[i] < self.srv_pkts[i]:
+            elif self.tfw_pkts[i] < self.srv_pkts[i - 2]:
                 tf_cfg.dbg(4, "Tempesta packet %d less than server's" \
                                " (%d < %d)"
                                % (i, self.tfw_pkts[i], self.srv_pkts[i]))
