@@ -258,7 +258,7 @@ class TLSLimitsBurst(TLSLimits):
     BURST = True
 
 
-class TLSLimitsUncomplete(tester.TempestaTest):
+class TLSLimitsIncomplete(tester.TempestaTest):
     """Client is blocked if it recently tried to open a few TLS sessions, none
     of them was successfully established.
     """
@@ -383,12 +383,12 @@ class TLSLimitsUncomplete(tester.TempestaTest):
             }
 
             frang_limits {
-                tls_uncomplete_rate 10;
+                tls_incomplete_connection_rate 10;
             }
         """
     }
 
-    TLS_WARN="Warning: frang: uncomplete TLS connections rate exceeded"
+    TLS_WARN="Warning: frang: incomplete TLS connections rate exceeded"
 
     def test(self):
         """
