@@ -50,7 +50,7 @@ class HostHeader(tester.TempestaTest):
 
     WARN_OLD_PROTO = "Warning: frang: Host header field in protocol prior to HTTP/1.1"
     WARN_UNKNOWN = "Warning: frang: Request authority is unknown"
-    WARN_DIFFER = "Warning: frang: Request authority differs between headers"
+    WARN_DIFFER = "Warning: frang: Request authority in URI differs from host header"
     WARN_IP_ADDR = "Warning: frang: Host header field contains IP address"
 
     def start_all(self):
