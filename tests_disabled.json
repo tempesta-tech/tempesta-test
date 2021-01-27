@@ -96,6 +96,10 @@
         {
             "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
             "reason" : "#861: TCP: reset blocked connections"
+        },
+        {
+            "name" : "frang.test_host_required.AuthorityHeader.test_pass",
+            "reason" : "#1488: can't convert to H2 too short response"
         }
     ]
 }
