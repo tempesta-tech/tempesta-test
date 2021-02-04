@@ -112,7 +112,10 @@ class X509(tester.TempestaTest):
         cert_path, key_path = self.cgen.get_file_paths()
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
         remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
-        self.start_tempesta()
+        try:
+            self.start_tempesta()
+        except:
+            pass
         self.assertGreater(self.oops.warn_count(msg), 0,
                            "Tempesta doesn't report error")
 

@@ -1078,6 +1078,16 @@ class TLSHandshakes(TLSDecryptablePacket):
     name = "TLS Handshakes"
     fields_desc = [PacketListFieldContext("handshakes", None, TLSHandshake)]
 
+    def pre_dissect(self, raw_bytes):
+        # If Change Cipher Spec was received, following handshake messages
+        # and alerts will be encrypted. Grab the TLS context and correctly parse
+        # IV and mac, without attempts to use them as clear text data.
+        if self.tls_ctx is None and self.underlayer is not None and isinstance(self.underlayer, TLSRecord):
+            ctx = self.underlayer.tls_ctx
+            if ctx is not None and ctx.server_ctx.must_encrypt:
+                self.tls_ctx = ctx
+        return super(TLSHandshakes, self).pre_dissect(raw_bytes)
+
 
 class TLSFinished(PacketNoPayload):
     name = "TLS Handshake Finished"
