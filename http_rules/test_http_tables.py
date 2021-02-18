@@ -353,4 +353,196 @@ class HttpTablesTestMarkRules(HttpTablesTest):
                          self.chains[i])
             self.del_nf_mark(mark)
 
+TEMPESTA_CONFIG = """
+    %s
+
+    srv_group default {
+            server 127.0.0.1:8000;
+    }
+
+    vhost default {
+            proxy_pass default;
+    }
+
+    %s
+"""
+
+class HttpTablesTestBase(tester.TempestaTest):
+
+    clients = [
+        {
+            'id' : 'client',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        }
+    ]
+
+    backends = [
+        {
+            'id' : '0',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n\r\n'
+        }
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("", "")
+    }
+
+    resp_status = 200
+
+    requests = "GET / HTTP/1.1\r\n" \
+               "Host: tempesta-tech.com\r\n" \
+               "\r\n"
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        srv = self.get_server('0')
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+
+    def test(self):
+        self.start_all()
+
+        requests = "GET / HTTP/1.1\r\n" \
+                   "Host: tempesta-tech.com\r\n" \
+                   "\r\n"
+        deproxy_cl = self.get_client('client')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(self.requests)
+        if (self.resp_status):
+            self.assertTrue(deproxy_cl.wait_for_response())
+            self.assertEqual(int(deproxy_cl.last_response.status),
+                             self.resp_status)
+        else:
+            self.assertFalse(deproxy_cl.wait_for_response())
+
+class HttpTablesTestEmptyMainChainReply(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack reply;",
+                                      "http_chain {}")
+    }
+
+    resp_status = 403
+
+class HttpTablesTestEmptyMainChainDrop(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack drop;",
+                                      "http_chain {}")
+    }
+
+    resp_status = 0
+
+class HttpTablesTestEmptyMainChainDefault(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("", "http_chain {}")
+    }
+
+    resp_status = 0
+
+class HttpTablesTestEmptyChainReply(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack reply;", """
+http_chain chain1 {}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 403
+
+class HttpTablesTestEmptyChainDrop(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack drop;", """
+http_chain chain1 {}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 0
+
+class HttpTablesTestEmptyChainDefault(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("", """
+http_chain chain1 {}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 0
+
+class HttpTablesTestMixedChainReply(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack reply;", """
+http_chain chain1 {
+    uri == "/static*" -> default;
+}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 403
+
+class HttpTablesTestMixedChainDrop(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack drop;", """
+http_chain chain1 {
+    uri == "/static*" -> default;
+}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 0
+
+class HttpTablesTestMixedChainDefault(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("", """
+http_chain chain1 {
+    uri == "/static*" -> default;
+}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 0
+
+class HttpTablesTestMixedChainResp(HttpTablesTestBase):
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % ("block_action attack reply;", """
+http_chain chain1 {
+    uri == "/static*" -> default;
+}
+http_chain {
+    hdr Host == "tempesta-tech.com" -> chain1;
+}""")
+    }
+
+    resp_status = 200
+
+    requests = "GET /static HTTP/1.1\r\n" \
+               "Host: tempesta-tech.com\r\n" \
+               "\r\n"
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
