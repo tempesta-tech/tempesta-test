@@ -81,6 +81,7 @@ class HttpTablesTest(tester.TempestaTest):
     tempesta = {
         'config' :
         """
+        block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
         }
