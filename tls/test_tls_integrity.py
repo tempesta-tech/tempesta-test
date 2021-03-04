@@ -196,3 +196,104 @@ class Cache(TlsIntegrityTester):
         self.common_check(65536, 65536)
         self.common_check(1000000, 1000000)
 
+class CloseConnection(tester.TempestaTest):
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl' : True,
+        },
+    ]
+
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : 'dummy',
+        }
+    ]
+
+    tempesta = {
+        'config' : """
+            cache 0;
+            listen 443 proto=https;
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
+
+    def start_all(self):
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv.start()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "No connection from Tempesta to backends")
+
+    @staticmethod
+    def make_resp(body):
+        return  'HTTP/1.1 200 OK\r\n' \
+                'Content-Length: ' + str(len(body)) + '\r\n' \
+                'Connection: keep-alive\r\n\r\n' + body
+
+    @staticmethod
+    def make_req(req_len):
+        return  'GET /' + str(req_len) + ' HTTP/1.1\r\n' \
+                'Host: tempesta-tech.com\r\n' \
+                'Connection: close\r\n\r\n'
+
+    def common_check(self, req_len, resp_len):
+        resp_body = 'x' * resp_len
+        hash1 = hashlib.md5(resp_body).digest()
+
+        self.get_server('deproxy').set_response(self.make_resp(resp_body))
+
+        client = self.get_client(self.clients[0]['id'])
+        client.make_request(self.make_req(req_len))
+        res = client.wait_for_response(timeout=5)
+        self.assertTrue(res, "Cannot process request (len=%d) or response" \
+                             " (len=%d)" % (req_len, resp_len))
+        resp = client.responses[-1].body
+        tf_cfg.dbg(4, '\tDeproxy response (len=%d): %s...'
+                   % (len(resp), resp[:100]))
+        hash2 = hashlib.md5(resp).digest()
+        self.assertTrue(hash1 == hash2, "Bad response checksum")
+
+    def test1(self):
+        self.start_all()
+        self.common_check(1, 1)
+
+    def test2(self):
+        self.start_all()
+        self.common_check(19, 19)
+
+    def test3(self):
+        self.start_all()
+        self.common_check(567, 567)
+
+    def test4(self):
+        self.start_all()
+        self.common_check(1755, 1755)
+
+    def test5(self):
+        self.start_all()
+        self.common_check(4096, 4096)
+
+    def test6(self):
+        self.start_all()
+        self.common_check(16380, 16380)
+
+    def test7(self):
+        self.start_all()
+        self.common_check(65536, 65536)
+
+    def test8(self):
+        self.start_all()
+        self.common_check(1000000, 1000000)
