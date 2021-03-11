@@ -122,7 +122,7 @@ class CurlTestBase(tester.TempestaTest):
         },
     ]
 
-    def test(self, served_from_cache=False):
+    def run_test(self, served_from_cache=False):
         curl = self.get_client('curl')
 
         self.start_all_servers()
@@ -171,6 +171,9 @@ return 200;
         'config' : TEMPESTA_CONFIG % "",
     }
 
+    def test(self):
+        CurlTestBase.run_test(self)
+
 class AddBackendShortHeadersCache(CurlTestBase):
     ''' The test checks the correctness of serving short headers with duplicate
     (in mixed order: put header B between two headers A) from the cache
@@ -197,7 +200,7 @@ return 200;
     }
 
     def test(self):
-        CurlTestBase.test(self, served_from_cache=True)
+        CurlTestBase.run_test(self, served_from_cache=True)
 
 class AddBackendLongHeaders(CurlTestBase):
     ''' The test checks the correctness of forwarding long headers with
@@ -239,6 +242,9 @@ return 200;
     tempesta = {
         'config' : TEMPESTA_CONFIG % "",
     }
+
+    def test(self):
+        CurlTestBase.run_test(self)
 
 class AddBackendLongHeadersCache(CurlTestBase):
     ''' The test checks the correctness of serving long headers with duplicate
@@ -282,7 +288,7 @@ return 200;
     }
 
     def test(self):
-        CurlTestBase.test(self, served_from_cache=True)
+        CurlTestBase.run_test(self, served_from_cache=True)
 
 class LowercaseAddBackendHeaders(CurlTestBase):
     ''' Test on converting header names to lowercase when converting a forwarded
@@ -309,6 +315,9 @@ return 200;
     tempesta = {
         'config' : TEMPESTA_CONFIG % "",
     }
+
+    def test(self):
+        CurlTestBase.run_test(self)
 
 class LowercaseAddBackendHeadersCache(CurlTestBase):
     ''' Test on converting header names to lowercase if response is served by
@@ -337,4 +346,4 @@ return 200;
     }
 
     def test(self):
-        CurlTestBase.test(self, served_from_cache=True)
+        CurlTestBase.run_test(self, served_from_cache=True)
