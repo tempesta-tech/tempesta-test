@@ -78,7 +78,11 @@
             "reason": "See tempesta-tech/tempesta#1043 and tempesta-tech/tempesta#1044"
         },
         {
-            "name": "malformed.test_malformed_headers",
+            "name": "malformed.test_malformed_headers.MalformedRequestsTest",
+            "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
+        },
+        {
+            "name": "malformed.test_malformed_headers.MalformedResponsesTest",
             "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
         },
         {
