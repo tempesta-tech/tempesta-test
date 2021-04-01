@@ -872,3 +872,132 @@ server ${general_ip}:8000;
     # https://tools.ietf.org/html/rfc7235#section-4.1
     #
     # WWW-Authenticate = 1#challenge
+
+class EtagAlphabetTest(tester.TempestaTest):
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : 'dummy'
+        },
+    ]
+
+    tempesta = {
+        'config' : """
+cache 0;
+listen 80;
+
+server ${general_ip}:8000;
+
+""",
+    }
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
+        },
+    ]
+
+    def common_check(self, response, resp_status):
+        srv = self.get_server('deproxy')
+        srv.set_response(response)
+        srv.start()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+        clnt = self.get_client('deproxy')
+        clnt.start()
+        clnt.make_request('GET / HTTP/1.1\r\n' \
+                          'Host: localhost\r\n' \
+                          '\r\n')
+        has_resp = clnt.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received")
+        status = clnt.last_response.status
+        self.assertEqual(int(status), resp_status, "Wrong status: %s" % status)
+
+    def test_etag_with_x00(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x000123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 502)
+
+    def test_etag_with_x09(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x090123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 502)
+
+    def test_etag_with_x20(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x200123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 502)
+
+    def test_etag_with_x21(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x210123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 200)
+
+    def test_etag_with_x22(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x220123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 502)
+
+    def test_etag_with_x23(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x230123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 200)
+
+    def test_etag_with_x7f(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x7f0123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 502)
+
+    def test_etag_with_xf7(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\xf70123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 200)
+
+class EtagAlphabetBrangeTest(EtagAlphabetTest):
+
+    tempesta = {
+        'config' : """
+cache 0;
+listen 80;
+
+server ${general_ip}:8000;
+http_etag_brange 0x09 0x20-0x21 0x23-0x7e 0x80-0xff;
+""",
+    }
+
+    def test_etag_with_x09(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x090123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 200)
+
+    def test_etag_with_x20(self):
+        response = ('HTTP/1.1 200 OK\r\n'
+                    'Content-Length: 0\r\n'
+                    'Etag: W/\"\x200123456789\"\r\n'
+                    '\r\n')
+        self.common_check(response, 200)
