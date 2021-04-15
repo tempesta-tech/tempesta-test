@@ -70,7 +70,7 @@ class TLSPerf(tester.TempestaTest):
             'type' : 'external',
             'binary' : 'tls-perf',
             'cmd_args' : (
-                '-c ECDHE-ECDSA-AES128-GCM-SHA256 -l 1000 -t 2 -T %s ${server_ip} 443' % (tf_cfg.cfg.get('General', 'Duration'))
+                '-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1000 -t 2 -T %s ${server_ip} 443' % (tf_cfg.cfg.get('General', 'Duration'))
                 )
         },
     ]
