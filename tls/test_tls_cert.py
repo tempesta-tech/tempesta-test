@@ -10,6 +10,7 @@ from helpers.error import Error
 from framework import tester
 from framework.x509 import CertGenerator
 from handshake import TlsHandshake
+from scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
@@ -396,3 +397,8 @@ class TlsCertSelect(tester.TempestaTest):
         # request Tempesta.
         res = TlsHandshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
+        # Similarly it must fail on RSA-only vhost.
+        hs = TlsHandshake()
+        hs.sni = ['example.com']
+        with self.assertRaises(tls.TLSProtocolError):
+            hs.do_12()
