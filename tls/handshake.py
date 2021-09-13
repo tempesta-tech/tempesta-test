@@ -32,8 +32,6 @@ __license__ = 'GPL2'
 
 
 GOOD_RESP = "HTTP/1.1 200"
-# FIXME https://github.com/tempesta-tech/tempesta/issues/1294
-TLS_HS_WARN = "Warning: Unrecognized TLS receive return code"
 
 
 def x509_check_cn(cert, cn):

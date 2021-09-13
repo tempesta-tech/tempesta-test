@@ -13,8 +13,6 @@ __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
-WARN = "Warning: Unrecognized TLS receive return code"
-
 class TlsHandshakeTest(tester.TempestaTest):
 
     backends = [
@@ -104,7 +102,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "ClientHello: bad extension size"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
@@ -131,8 +130,6 @@ class TlsHandshakeTest(tester.TempestaTest):
             hs12.do_12()
         self.assertEqual(self.oops.warn_count("bad.server.name"), 1,
                          "Bad SNI isn't logged")
-        self.assertEqual(self.oops.warn_count(WARN), 1,
-                         "Bad SNI isn't rejected")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sign_algs(self):
@@ -146,7 +143,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "ClientHello: bad signature algorithm extension"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
@@ -161,7 +159,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "None of the common ciphersuites is usable"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
@@ -173,7 +172,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "ClientHello: bad renegotiation_info"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about non-empty RenegotiationInfo")
 
     def test_alert(self):
