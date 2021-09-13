@@ -219,8 +219,7 @@ class ECDSA_SHA256_SECP192(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_cannot_start("ERROR: tls_certificate: "
-                                + "Invalid certificate specified")
+        self.check_cannot_start("1.2.840.10045.3.1.1 is unsupported")
 
 
 class ECDSA_SHA256_SECP256(X509):
@@ -265,8 +264,7 @@ class ECDSA_SHA384_SECP521(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_cannot_start("ERROR: tls_certificate: "
-                                + "Invalid certificate specified")
+        self.check_cannot_start("1.3.132.0.35 is unsupported")
 
 
 class InvalidHash(X509):
@@ -282,11 +280,7 @@ class InvalidHash(X509):
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        # TODO #1294: Tempesta throws misleading ERROR report on invalid
-        # tls_certificate configuration, just the same as if there is no
-        # certificate file at all, instead of correctly report about
-        # not supported SHA1.
-        self.check_cannot_start("ERROR: configuration parsing error")
+        self.check_cannot_start("1.2.840.10045.4.1 is unsupported")
 
 
 class StaleCert(X509):
