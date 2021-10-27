@@ -38,7 +38,5 @@ class TestPurge(functional.FunctionalTest):
             ]
         return result
 
-    @unittest.expectedFailure
     def test_purge(self):
-        """"Issue #788 must be resolved to make the test pass"""
         self.generic_test_routine(self.config, self.chains())
