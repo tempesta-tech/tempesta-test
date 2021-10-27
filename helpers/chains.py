@@ -3,7 +3,7 @@ import copy
 from helpers import tf_cfg, deproxy, tempesta
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 def make_response(st_code, expected=True):
