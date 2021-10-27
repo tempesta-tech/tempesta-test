@@ -6,7 +6,7 @@ from helpers import tf_cfg, chains
 from testers import functional
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 # TODO: add tests for 'cache_purge_acl'
@@ -38,7 +38,5 @@ class TestPurge(functional.FunctionalTest):
             ]
         return result
 
-    @unittest.expectedFailure
     def test_purge(self):
-        """"Issue #788 must be resolved to make the test pass"""
         self.generic_test_routine(self.config, self.chains())

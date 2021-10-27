@@ -3,7 +3,7 @@ import copy
 from helpers import tf_cfg, deproxy, tempesta
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 def make_response(st_code, expected=True):
@@ -155,6 +155,7 @@ def base(uri='/', method='GET', forward=True, date=None):
             'Content-Length: 0'
         ]
         tempesta_resp_headers_addn = [
+            'Server: Tempesta FW/%s' % tempesta.version(),
         ]
 
     elif method == "HEAD" or method == "GET":
