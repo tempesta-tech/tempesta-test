@@ -93,8 +93,8 @@ class TestPurge(functional.FunctionalTest):
         self.generic_test_routine(self.config, ch)
 
     def test_useless_x_tempesta_cache(self):
-        # Send "X-Tempesta-Cache" with a GET request, and make sure it doesn't
-        # affect anything.
+        # Send an ordinary GET request with an "X-Tempesta-Cache" header, and
+        # make sure it doesn't affect anything.
         uri = '/page.html'
         ch = [
             chains.proxy(method='GET', uri=uri),
