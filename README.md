@@ -72,7 +72,8 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 **WARNING**: at the moment the framework requires Python 2, which is deprecated
 in Debian 11. Migration to Python 3 is the subject for
-https://github.com/tempesta-tech/tempesta-test/issues/56 .
+https://github.com/tempesta-tech/tempesta-test/issues/56 . If you have to install
+the framework with Python 2 on Debian 11 still, see Notes below.
 
 - Host for testing framework: `Python2`, `python2-paramiko`,
 `python-configparser`, `python-subprocess32`, `wrk`, `ab`, `scapy`
@@ -101,6 +102,30 @@ That can be done using `ssh-copy-id`.
 
 Requirements can be checked with `check_deps/check_dependencies.sh`. It should
 be ran from `check_deps` directory.
+
+### Notes on installation on Debian 11 with Pythod 2
+Python 2 is present in Debian 11 but is not enable by default. Also some required packages
+had gone and should be installed with `pip`.
+
+To install Python2 and neccessary packages one have to execute the following commands:
+
+To install Python2:
+```sh
+sudo apt install python2
+```
+    
+To install pip (pip2):
+```sh
+wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
+sudo python2 get-pip.py
+```
+    
+To install modules which no longer exist as packages:
+```sh
+sudo pip2 install paramiko
+sudo pip2 install subprocess32
+sudo pip2 install configparser
+```
 
 ## Run tests
 

@@ -54,6 +54,8 @@ class TestFrameworkCfg(object):
                                           'hostname': 'localhost',
                                           'ab': 'ab',
                                           'wrk': 'wrk',
+                                          'h2load': 'h2load',
+                                          'tls-perf': 'tls-perf',
                                           'workdir': '/tmp/client',
                                           'unavaliable_timeout': '300'},
                                'Tempesta': {'ip': '127.0.0.1',
