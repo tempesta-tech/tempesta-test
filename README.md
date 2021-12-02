@@ -70,10 +70,14 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 ## Requirements
 
+**WARNING**: at the moment the framework requires Python 2, which is deprecated
+in Debian 11. Migration to Python 3 is the subject for
+https://github.com/tempesta-tech/tempesta-test/issues/56 .
+
 - Host for testing framework: `Python2`, `python2-paramiko`,
 `python-configparser`, `python-subprocess32`, `wrk`, `ab`, `scapy`
 (Debian 10 contains outdated 2.4.0 and we require 2.4.4, so install it with pip),
-`python-cryptography`, `h2spec`, `pycryptodomex`, and `tinyec` (the last
+`python-cryptography`, `nghttp2`, `pycryptodomex`, and `tinyec` (the last
 two can be installed using `pip install pycryptodomex tinyec`)
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
