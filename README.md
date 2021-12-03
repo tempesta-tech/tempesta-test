@@ -104,7 +104,7 @@ Requirements can be checked with `check_deps/check_dependencies.sh`. It should
 be ran from `check_deps` directory.
 
 ### Notes on installation on Debian 11 with Pythod 2
-Python 2 is present in Debian 11 but is not enable by default. Also some required packages
+Python 2 is present in Debian 11 but is not enabled by default. Also some required packages
 had gone and should be installed with `pip`.
 
 To install Python2 and neccessary packages one have to execute the following commands:
