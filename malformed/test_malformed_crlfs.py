@@ -15,7 +15,7 @@ class MalformedCrlfTest(tester.TempestaTest):
     #   | the sequence CRLF, a recipient MAY recognize a single LF as a line
     #   | terminator and ignore any preceding CR.
     #
-    # Tempesta honours the requirement. 
+    # Tempesta honours the requirement.
     # But messages containing more preceding CRLFs (or LFs) must be blocked and
     # must not be forewrded to backend.
     #
@@ -80,8 +80,22 @@ server ${general_ip}:8000;
         if expect is None:
             self.assertTrue(deproxy_srv.last_request is None, "Request was unexpectedly sent to backend")
         else:
+            #print('-----')
+            #print(deproxy_srv.last_request.raw)
+            #print('-----')
+            #print(expect)
+            #print('-----')
             if expect:
-                self.assertEqual(deproxy_srv.last_request, expect, "Request sent to backend differs from expected one")
+                self.assertTrue(self.compare_head(deproxy_srv.last_request.raw, expect), "Request sent to backend differs from expected one")
+
+    def extract_head(self, a):
+        p = a.find("Host:")
+        a = a[0:p]
+
+    def compare_head(self, a, b):
+        a = self.extract_head(a)
+        b = self.extract_head(b)
+        return a == b
 
     def test_no_crlf(self):
     	# Test normal request
@@ -91,8 +105,19 @@ server ${general_ip}:8000;
                   '\r\n'
         expect = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
-                  '\r\n'                
-        self.common_check(self, request, 200, expect)
+                  '\r\n'
+        self.common_check(request, 200, expect)
+
+    def test_no_crlf(self):
+    	# Test normal request
+    	#
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect)
 
     def test_no_crlf_pipeline(self):
     	# Test 2 normal requests in pipeline
@@ -106,7 +131,7 @@ server ${general_ip}:8000;
         expect = 'GET /bbb HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 200, expect)
+        self.common_check(request, 200, expect)
 
     def test_single_crlf(self):
     	# Test single CRLF before request
@@ -121,7 +146,7 @@ server ${general_ip}:8000;
         expect = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 200, expect)
+        self.common_check(request, 200, expect)
 
     def test_single_crlf_pipeline(self):
     	# Test single CRLF before 2nd request in a pipeline
@@ -139,7 +164,7 @@ server ${general_ip}:8000;
         expect = 'GET /bbb HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 200, expect)
+        self.common_check(request, 200, expect)
 
     def test_single_lf(self):
     	# Test single LF before request
@@ -154,7 +179,7 @@ server ${general_ip}:8000;
         expect = 'GET / HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 200, expect)
+        self.common_check(request, 200, expect)
 
     def test_single_lf_pipeline(self):
     	# Test single LF before 2nd request in a pipeline
@@ -172,7 +197,7 @@ server ${general_ip}:8000;
         expect = 'GET /bbb HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 200, expect)
+        self.common_check(request, 200, expect)
 
     def test_double_crlf(self):
     	# Test double CRLF before request
@@ -185,7 +210,7 @@ server ${general_ip}:8000;
                   'Host: localhost\r\n' \
                   '\r\n'
         expect = None
-        self.common_check(self, request, 400, expect)
+        self.common_check(request, 400, expect)
 
     def test_double_crlf_pipeline(self):
     	# Test double CRLF before 2nd request in a pipeline
@@ -204,7 +229,7 @@ server ${general_ip}:8000;
         expect = 'GET /aaa HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 400, expect)
+        self.common_check(request, 400, expect)
 
     def test_double_lf(self):
     	# Test double LF before request
@@ -217,7 +242,7 @@ server ${general_ip}:8000;
                   'Host: localhost\r\n' \
                   '\r\n'
         expect = None
-        self.common_check(self, request, 400, expect)
+        self.common_check(request, 400, expect)
 
     def test_double_lf_pipeline(self):
     	# Test double LF before 2nd request in a pipeline
@@ -236,6 +261,6 @@ server ${general_ip}:8000;
         expect = 'GET /aaa HTTP/1.1\r\n' \
                   'Host: localhost\r\n' \
                   '\r\n'
-        self.common_check(self, request, 400, expect)
+        self.common_check(request, 400, expect)
 
 

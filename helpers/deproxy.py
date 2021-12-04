@@ -26,7 +26,8 @@ import sys
 import time
 import calendar # for calendar.timegm()
 from  BaseHTTPServer import BaseHTTPRequestHandler
-from . import error, tf_cfg, tempesta, stateful, tistream
+from . import error, tf_cfg, tempesta, stateful
+from . import tistream as tistream
 
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -237,15 +238,23 @@ class HttpMessage(object):
         self.headers = HeaderCollection()
         self.trailer = HeaderCollection()
         self.body = ''
+        self.is_request = False
+        self.raw = ''
         self.version = "HTTP/0.9" # default version.
         if message_text:
             self.parse_text(message_text, body_parsing)
 
     def parse_text(self, message_text, body_parsing=True):
         self.body_parsing = body_parsing
-        stream = StringIO(message_text)
+        if self.is_request:
+            copi = StringIO()
+            stream = tistream.TiedStream(message_text, copi)
+        else:
+            stream = StringIO(message_text)
         self.__parse(stream)
         self.build_message()
+        if self.is_request:
+            self.raw = copi.getvalue()
 
     def __parse(self, stream):
         self.parse_firstline(stream)
@@ -380,7 +389,6 @@ class HttpMessage(object):
             end = ['', body]
         return '\r\n'.join([first_line] + headers + end)
 
-
 class Request(HttpMessage):
 
     # All methods registered in IANA.
@@ -398,16 +406,12 @@ class Request(HttpMessage):
     def __init__(self, *args, **kwargs):
         self.method = None
         self.uri = None
+        self.is_request = True
         HttpMessage.__init__(self, *args, **kwargs)
 
     def parse_text(self, message_text, body_parsing=True):
-        self.body_parsing = body_parsing
-        #stream = StringIO(message_text)
-        tied = StringIO()
-        stream = TiedStream(message_text, tied)
-        self.__parse(stream)
-        self.build_message()
-        self.raw = tied.getvalue()
+        self.is_request = True
+        HttpMessage.parse_text(self, message_text,  body_parsing);
 
     def parse_firstline(self, stream):
         requestline = stream.readline()
