@@ -26,7 +26,7 @@ import sys
 import time
 import calendar # for calendar.timegm()
 from  BaseHTTPServer import BaseHTTPRequestHandler
-from . import error, tf_cfg, tempesta, stateful
+from . import error, tf_cfg, tempesta, stateful, tistream
 
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -399,6 +399,15 @@ class Request(HttpMessage):
         self.method = None
         self.uri = None
         HttpMessage.__init__(self, *args, **kwargs)
+
+    def parse_text(self, message_text, body_parsing=True):
+        self.body_parsing = body_parsing
+        #stream = StringIO(message_text)
+        tied = StringIO()
+        stream = TiedStream(message_text, tied)
+        self.__parse(stream)
+        self.build_message()
+        self.raw = tied.getvalue()
 
     def parse_firstline(self, stream):
         requestline = stream.readline()
