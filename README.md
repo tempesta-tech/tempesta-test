@@ -289,7 +289,7 @@ Now such backends are supported:
                 the original response will be kept in Response.original_data field
                 as it has arrived by the wire,
                 otherwise (say, the parameter is not defined at all)
-                response.original_data will be left blank
+                Response.original_data will be left blank
 
 and such clients:
 1) type == wrk
