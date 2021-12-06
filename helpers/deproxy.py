@@ -231,7 +231,7 @@ class HeaderCollection(object):
 class HttpMessage(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, message_text=None, body_parsing=True, method="GET"):
+    def __init__(self, message_text=None, body_parsing=True, method="GET", keep_original_data=None):
         self.msg = ''
         self.original_length = 0
         self.method = method
@@ -239,23 +239,23 @@ class HttpMessage(object):
         self.headers = HeaderCollection()
         self.trailer = HeaderCollection()
         self.body = ''
-        self.is_request = False
-        self.raw = ''
+        self.keep_original_data = keep_original_data
+        self.original_data = ''
         self.version = "HTTP/0.9" # default version.
         if message_text:
             self.parse_text(message_text, body_parsing)
 
     def parse_text(self, message_text, body_parsing=True):
         self.body_parsing = body_parsing
-        if self.is_request:
+        if self.keep_original_data:
             copi = StringIO()
             stream = tistream.TiedStream(message_text, copi)
         else:
             stream = StringIO(message_text)
         self.__parse(stream)
         self.build_message()
-        if self.is_request:
-            self.raw = copi.getvalue()
+        if self.keep_original_data:
+            self.original_data = copi.getvalue()
 
     def __parse(self, stream):
         self.parse_firstline(stream)
@@ -409,10 +409,6 @@ class Request(HttpMessage):
         self.uri = None
         self.is_request = True
         HttpMessage.__init__(self, *args, **kwargs)
-
-    def parse_text(self, message_text, body_parsing=True):
-        self.is_request = True
-        HttpMessage.parse_text(self, message_text,  body_parsing);
 
     def parse_firstline(self, stream):
         requestline = stream.readline()

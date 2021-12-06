@@ -284,7 +284,12 @@ Now such backends are supported:
     port: listen this port
     response: type of response. Now only 'static' is supported
         response == static:
-            response_content: always response this content
+            response_content: always response this content,
+            keep_original_data: optional: if set to True,
+                the original response, as it has arrived by the wire,
+                will be kept in response.original_data,
+                otherwise (say, the parameter is not defined at all)
+                response.original_data will be left blank
 
 and such clients:
 1) type == wrk

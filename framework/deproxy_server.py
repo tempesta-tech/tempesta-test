@@ -17,10 +17,11 @@ __license__ = 'GPL2'
 
 class ServerConnection(asyncore.dispatcher_with_send):
 
-    def __init__(self, server, sock=None, keep_alive=None):
+    def __init__(self, server, sock=None, keep_alive=None, keep_original_data=None):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.server = server
         self.keep_alive = keep_alive
+        self.keep_original_data = keep_original_data
         self.responses_done = 0
         self.request_buffer = ''
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
@@ -66,7 +67,8 @@ class ServerConnection(asyncore.dispatcher_with_send):
     def handle_read(self):
         self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
         try:
-            request = deproxy.Request(self.request_buffer)
+            request = deproxy.Request(self.request_buffer,
+                          keep_original_data = self.keep_original_data)
         except deproxy.IncompleteMessage:
             return
         except deproxy.ParseError:
@@ -89,6 +91,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
     def __init__(self, *args, **kwargs):
+        self.keep_original_data = kwargs.pop("keep_original_data", None)
         deproxy.Server.__init__(self, *args, **kwargs)
         self.stop_procedures = [self.__stop_server]
         self.is_polling = threading.Event()
@@ -100,7 +103,8 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         if pair is not None:
             sock, _ = pair
             handler = ServerConnection(server=self, sock=sock,
-                                       keep_alive=self.keep_alive)
+                                       keep_alive=self.keep_alive,
+                                       keep_original_data=self.keep_original_data)
             self.connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
@@ -187,10 +191,12 @@ def deproxy_srv_factory(server, name, tester):
     else:
         port = int(port)
     srv = None
+    ko = server.get("keep_original_data", None)
     rtype = server['response']
     if rtype == 'static':
         content = fill_template(server['response_content'], server)
-        srv = StaticDeproxyServer(port=port, response=content)
+        srv = StaticDeproxyServer(port=port, response=content,
+                                  keep_original_data = ko)
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
 

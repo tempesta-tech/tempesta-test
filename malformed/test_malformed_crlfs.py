@@ -34,6 +34,7 @@ class MalformedCrlfTest(tester.TempestaTest):
             'id' : 'deproxy',
             'type' : 'deproxy',
             'port' : '8000',
+            'keep_original_data' : True,
             'response' : 'static',
             'response_content' :
 """HTTP/1.1 200 OK
@@ -81,12 +82,12 @@ server ${general_ip}:8000;
             self.assertTrue(deproxy_srv.last_request is None, "Request was unexpectedly sent to backend")
         else:
             #print('-----')
-            #print(deproxy_srv.last_request.raw)
+            #print(deproxy_srv.last_request.original_data)
             #print('-----')
             #print(expect)
             #print('-----')
             if expect:
-                self.assertTrue(self.compare_head(deproxy_srv.last_request.raw, expect), "Request sent to backend differs from expected one")
+                self.assertTrue(self.compare_head(deproxy_srv.last_request.original_data, expect), "Request sent to backend differs from expected one")
 
     def extract_head(self, a):
         p = a.find("Host:")

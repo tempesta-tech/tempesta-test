@@ -7,11 +7,15 @@ class TiedStream(StringIO):
         #print('TiedStream init')
         StringIO.__init__(self, buf)
 
+    def read(self, n=-1):
+        r = StringIO.read(self, n)
+        if self.tied:
+            self.tied.write(r)
+        return r
+
     def readline(self, length=None):
-        #print('TiedStream readline')
-    	r = StringIO.readline(self, length)
-        #print(r)
-    	if self.tied:
-    	    self.tied.write(r)
-    	return r
+        r = StringIO.readline(self, length)
+        if self.tied:
+            self.tied.write(r)
+        return r
 
