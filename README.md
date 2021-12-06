@@ -277,15 +277,15 @@ other options, depending on item type.
 
 Now such backends are supported:
 1) type == nginx
-    status_uri: uri where nginx status is located
-    config: nginx config
+    - status_uri: uri where nginx status is located
+    - config: nginx config
 
 2) type == deproxy
-    port: listen this port
-    response: type of response. Now only 'static' is supported
-        response == static:
-            response_content: always response this content,
-            keep_original_data: optional: if set to True,
+    - port: listen this port
+    - response: type of response. Now only 'static' is supported
+    - - response == static:
+         - response_content: always response this content,
+         - keep_original_data: optional: if set to True,
                 the original response, as it has arrived by the wire,
                 will be kept in response.original_data,
                 otherwise (say, the parameter is not defined at all)
@@ -293,13 +293,13 @@ Now such backends are supported:
 
 and such clients:
 1) type == wrk
-    addr: 'ip:port'
+    - addr: 'ip:port'
 
 2) type == deproxy
-    addr: ip addr of server to connect
-    port: port
+    - addr: ip addr of server to connect
+    - port: port
 
-All options are mandatory
+All options are mandatory, unless explicitly stated otherwise.
 
 nginx config, deproxy response, addr and port can use templates
 in format `${part_variable}` where `part` is one of 'server',
