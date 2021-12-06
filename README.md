@@ -283,7 +283,7 @@ Now such backends are supported:
 2) type == deproxy
     - port: listen this port
     - response: type of response. Now only 'static' is supported
-    - - response == static:
+      - response == static:
          - response_content: always response this content,
          - keep_original_data: optional: if set to True,
                 the original response, as it has arrived by the wire,
