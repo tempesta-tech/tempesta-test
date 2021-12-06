@@ -407,7 +407,6 @@ class Request(HttpMessage):
     def __init__(self, *args, **kwargs):
         self.method = None
         self.uri = None
-        self.is_request = True
         HttpMessage.__init__(self, *args, **kwargs)
 
     def parse_firstline(self, stream):
