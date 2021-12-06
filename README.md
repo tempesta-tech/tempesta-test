@@ -286,8 +286,8 @@ Now such backends are supported:
       - response == static:
          - response_content: always response this content,
          - keep_original_data: optional: if set to True,
-                the original response, as it has arrived by the wire,
-                will be kept in response.original_data,
+                the original response will be kept in Response.original_data field
+                as it has arrived by the wire,
                 otherwise (say, the parameter is not defined at all)
                 response.original_data will be left blank
 
