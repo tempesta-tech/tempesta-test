@@ -108,17 +108,6 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_no_crlf(self):
-    	# Test normal request
-    	#
-        request = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  '\r\n'
-        expect = 'GET / HTTP/1.1\r\n' \
-                  'Host: localhost\r\n' \
-                  '\r\n'
-        self.common_check(request, 200, expect)
-
     def test_no_crlf_pipeline(self):
     	# Test 2 normal requests in pipeline
     	#

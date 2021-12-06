@@ -28,6 +28,7 @@ import calendar # for calendar.timegm()
 from  BaseHTTPServer import BaseHTTPRequestHandler
 from . import error, tf_cfg, tempesta, stateful
 from . import tistream as tistream
+import re
 
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -418,6 +419,11 @@ class Request(HttpMessage):
         self.original_length += len(requestline)
         if requestline[-1] != '\n':
             raise IncompleteMessage('Incomplete request line!')
+
+        # Skip optionsl empty lines
+        while not re.match('[A-Za-z]', requestline) and len(requestline) > 0:
+            requestline = stream.readline()
+            self.original_length += len(requestline)
 
         words = requestline.rstrip('\r\n').split()
         if len(words) == 3:
