@@ -90,7 +90,7 @@ server ${general_ip}:8000;
 
     def extract_head(self, a):
         p = a.find("Host:")
-        a = a[0:p]
+        return a[0:p]
 
     def compare_head(self, a, b):
         a = self.extract_head(a)
