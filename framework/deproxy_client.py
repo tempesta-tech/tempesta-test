@@ -22,8 +22,12 @@ class BaseDeproxyClient(deproxy.Client):
         self.rps = 0
         self.valid_req_num = 0
         self.cur_req_num = 0
-        self.segment_gap = 0; #ms
-        self.segment_size = 0; #byte
+                               # These parametes control heavy chunked testing
+                               # You can set it programmaticaly or via client config
+        self.segment_size = 0; # TCP segment size, bytes, 0 for disable
+                                   # usualy value of 1 is sufficient
+        self.segment_gap = 0;  # inter-segment gap, ms, 0 for disable
+                                   # you usualy do not need it; update timeouts if you use it
         self.last_segment_time = 0;
 
     def handle_connect(self):
