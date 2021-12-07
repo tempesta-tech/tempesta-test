@@ -1,3 +1,4 @@
+
 from framework import tester
 from helpers import tf_cfg, deproxy
 
@@ -62,7 +63,7 @@ server ${general_ip}:8000;
         },
     ]
 
-    def common_check(self, request, expect_status=200, expect=''):
+    def common_check(self, request, expect_status=200, expect='', chunked=False):
         # Set expect to expected proxied request,
         # to empty string to skip request check and
         # to None to check that request is missing
@@ -70,6 +71,8 @@ server ${general_ip}:8000;
         deproxy_srv.start()
         self.start_tempesta()
         deproxy_cl = self.get_client('deproxy')
+        if chunked:
+            deproxy_cl.segment_size = 1
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
@@ -253,4 +256,179 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 400, expect)
 
+    ##### Heavy chunked versions of the tests
 
+    def test_no_crlf_hch(self):
+        # Test normal request
+        #
+        # This is a heavy chunked version of the test
+        #
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect, True)
+
+    def test_no_crlf_pipeline_hch(self):
+        # Test 2 normal requests in pipeline
+        #
+        # This is a heavy chunked version of the test
+        #
+        request = 'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n' \
+                  'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect, True)
+
+    def test_single_crlf_hch(self):
+        # Test single CRLF before request
+        # Request should be passed to backed with stripped CRLF
+        # Proxy should return positive response
+        #
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  '\r\n' \
+                  'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect, True)
+
+    def test_single_crlf_pipeline_hch(self):
+    	# Test single CRLF before 2nd request in a pipeline
+    	# Request should be passed to backed with stripped CRLF
+    	# Proxy should return positive response
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n' \
+                  '\r\n' \
+                  'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect, True)
+
+    def test_single_lf_hch(self):
+    	# Test single LF before request
+    	# Request should be passed to backed with stripped LF
+    	# Proxy should return positive response
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  '\n' \
+                  'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect, True)
+
+    def test_single_lf_pipeline_hch(self):
+    	# Test single LF before 2nd request in a pipeline
+    	# Request should be passed to backed with stripped LF
+    	# Proxy should return positive response
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n' \
+                  '\n' \
+                  'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 200, expect, True)
+
+    def test_double_crlf_hch(self):
+    	# Test double CRLF before request
+    	# Request should be rejected by the proxy
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  '\r\n' \
+                  '\r\n' \
+                  'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = None
+        self.common_check(request, 400, expect, True)
+
+    def test_double_crlf_pipeline_hch(self):
+    	# Test double CRLF before 2nd request in a pipeline
+    	# The 1st request should be passed to backend
+    	# The 2nd request should be rejected by the proxy
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n' \
+                  '\r\n' \
+                  '\r\n' \
+                  'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 400, expect, True)
+
+    def test_double_lf_hch(self):
+    	# Test double LF before request
+    	# Request should be rejected by the proxy
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  '\n' \
+                  '\n' \
+                  'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = None
+        self.common_check(request, 400, expect, True)
+
+    def test_double_lf_pipeline_hch(self):
+    	# Test double LF before 2nd request in a pipeline
+    	# The 1st request should be sent to backed
+    	# The 2nd request should be rejected by the proxy
+    	#
+        # This is a heavy chunked version of the test
+        #
+        request = \
+                  'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n' \
+                  '\n' \
+                  '\n' \
+                  'GET /bbb HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        expect = 'GET /aaa HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  '\r\n'
+        self.common_check(request, 400, expect, True)
