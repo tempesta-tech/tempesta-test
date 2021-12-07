@@ -21,9 +21,15 @@ class BaseDeproxyClient(deproxy.Client):
         self.rps = 0
         self.valid_req_num = 0
         self.cur_req_num = 0
+        self.segment_gap = 0; #ms
+        self.segment_size = 1; #byte
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
+        if (self.segment_gap):
+            self.socket.setsockopt(
+               socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
         self.start_time = time.time()
 
     def set_events(self, polling_lock):
@@ -110,7 +116,11 @@ class BaseDeproxyClient(deproxy.Client):
         reqs = self.request_buffers
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, reqs[self.cur_req_num])
-        sent = self.send(reqs[self.cur_req_num])
+        if self.segment_gap != 0 and segment_size != 0:
+            portion = reqs[self.cur_req_num][:segment_size]
+            sent = self.send(portion)
+        else:
+            sent = self.send(reqs[self.cur_req_num])
         if sent < 0:
             return
         reqs[self.cur_req_num] = reqs[self.cur_req_num][sent:]
@@ -151,6 +161,10 @@ class BaseDeproxyClient(deproxy.Client):
         self.methods.extend(methods)
         self.valid_req_num += valid_req_num
         self.nrreq += len(self.methods)
+
+    # info for deproxy manager. secs, float
+    def ask_timeout(self)
+        return segment_gap/1000.0
 
     # need for compatibility
     def make_request(self, request):

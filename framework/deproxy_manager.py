@@ -12,7 +12,7 @@ __license__ = 'GPL2'
 def finish_all_deproxy():
     asyncore.close_all()
 
-def run_deproxy_server(deproxy, exit_event, polling_lock, q):
+def run_deproxy_server(deproxy, exit_event, polling_lock, q, timeout):
     tf_cfg.dbg(3, "Running deproxy server manager")
 
     try:
@@ -22,7 +22,7 @@ def run_deproxy_server(deproxy, exit_event, polling_lock, q):
             poll_fun = asyncore.poll
         while not exit_event.is_set():
             polling_lock.acquire()
-            poll_fun()
+            poll_fun(timeout)
             polling_lock.release()
     except Exception as e:
         tf_cfg.dbg(2, "Error while polling: %s" % str(e))
@@ -45,14 +45,23 @@ class DeproxyManager(stateful.Stateful):
 
         self.stop_procedures = [self.__stop]
         self.proc = None
+        self.timeout = 0 #secs, float
 
     def add_server(self, server):
         server.set_events(self.polling_lock)
+        ask_timeout(server)
         self.servers.append(server)
 
     def add_client(self, client):
         client.set_events(self.polling_lock)
+        ask_timeout(client)
         self.clients.append(client)
+
+    def ask_timeout(self, clsr)
+        if hasattr(clsr, "ask_timeout") and callable(getattr(clsr, "ask_timeout")):
+            ntimeout = clsr.ask_timeout(clsr)
+            if self.timeout == 0 or ntimeout < self.timeout
+                self.timeout = ntimeout
 
     # run section
     def run_start(self):
@@ -60,7 +69,8 @@ class DeproxyManager(stateful.Stateful):
         self.exit_event.clear()
         self.proc = threading.Thread(target = run_deproxy_server,
                                     args=(self, self.exit_event,
-                                          self.polling_lock, self.thread_expts))
+                                          self.polling_lock, self.thread_expts,
+                                          self.timeout))
         self.proc.start()
 
     def thread_exception(self):
