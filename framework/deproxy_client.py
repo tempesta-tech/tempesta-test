@@ -163,7 +163,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.nrreq += len(self.methods)
 
     # info for deproxy manager. secs, float
-    def ask_timeout(self)
+    def ask_timeout(self):
         return segment_gap/1000.0
 
     # need for compatibility

@@ -57,10 +57,10 @@ class DeproxyManager(stateful.Stateful):
         ask_timeout(client)
         self.clients.append(client)
 
-    def ask_timeout(self, clsr)
+    def ask_timeout(self, clsr):
         if hasattr(clsr, "ask_timeout") and callable(getattr(clsr, "ask_timeout")):
             ntimeout = clsr.ask_timeout(clsr)
-            if self.timeout == 0 or ntimeout < self.timeout
+            if self.timeout == 0 or ntimeout < self.timeout:
                 self.timeout = ntimeout
 
     # run section
