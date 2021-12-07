@@ -23,6 +23,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.cur_req_num = 0
         self.segment_gap = 0; #ms
         self.segment_size = 1; #byte
+        self.last_segment_time = 0;
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -105,6 +106,8 @@ class BaseDeproxyClient(deproxy.Client):
             return False
         if time.time() < self.next_request_time():
             return False
+        if self.segment_gap != 0 and time.time() - last_segment_time < self.segment_gap / 1000.0:
+            return false;
         return True
 
     def next_request_time(self):
@@ -119,6 +122,7 @@ class BaseDeproxyClient(deproxy.Client):
         if self.segment_gap != 0 and segment_size != 0:
             portion = reqs[self.cur_req_num][:segment_size]
             sent = self.send(portion)
+            self.last_segment_time = time.time()
         else:
             sent = self.send(reqs[self.cur_req_num])
         if sent < 0:
