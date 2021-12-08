@@ -286,10 +286,10 @@ Now such backends are supported:
       - response == static:
          - response_content: always response this content,
          - keep_original_data: optional: if set to True,
-                the original response will be kept in Response.original_data field
+                the original request will be kept in Request.original_data field
                 as it has arrived by the wire,
                 otherwise (say, the parameter is not defined at all)
-                Response.original_data will be left blank
+                Request.original_data will be left blank
 
 and such clients:
 1) type == wrk
