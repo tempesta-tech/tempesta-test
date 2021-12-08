@@ -299,7 +299,7 @@ and such clients:
     - addr: ip addr of server to connect
     - port: port
     - segment_size: optional: TCP segment size for heavy chunked testing, bytes, 0 for disable
-    - segment_gap: optionsl: inter-segment gap for heavy chunked testing, ms, 0 for disable
+    - segment_gap: optional: inter-segment gap for heavy chunked testing, ms, 0 for disable
        - you usualy do not need it; update timeouts if you use it
 
 All options are mandatory, unless explicitly stated otherwise.
