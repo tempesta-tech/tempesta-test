@@ -1,9 +1,8 @@
-
 from framework import tester
 from helpers import tf_cfg, deproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class MalformedCrlfTest(tester.TempestaTest):
@@ -101,7 +100,7 @@ server ${general_ip}:8000;
         b = self.extract_head(b)
         return a == b
 
-    def test_no_crlf(self):
+    def test_01_no_crlf(self):
     	# Test normal request
     	#
         request = 'GET / HTTP/1.1\r\n' \
@@ -112,7 +111,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_no_crlf_pipeline(self):
+    def test_02_no_crlf_pipeline(self):
     	# Test 2 normal requests in pipeline
     	#
         request = 'GET /aaa HTTP/1.1\r\n' \
@@ -126,7 +125,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_single_crlf(self):
+    def test_03_single_crlf(self):
     	# Test single CRLF before request
     	# Request should be passed to backed with stripped CRLF
     	# Proxy should return positive response
@@ -141,7 +140,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_single_crlf_pipeline(self):
+    def test_04_single_crlf_pipeline(self):
     	# Test single CRLF before 2nd request in a pipeline
     	# Request should be passed to backed with stripped CRLF
     	# Proxy should return positive response
@@ -159,7 +158,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_single_lf(self):
+    def test_05_single_lf(self):
     	# Test single LF before request
     	# Request should be passed to backed with stripped LF
     	# Proxy should return positive response
@@ -174,7 +173,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_single_lf_pipeline(self):
+    def test_06_single_lf_pipeline(self):
     	# Test single LF before 2nd request in a pipeline
     	# Request should be passed to backed with stripped LF
     	# Proxy should return positive response
@@ -192,7 +191,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect)
 
-    def test_double_crlf(self):
+    def test_07_double_crlf(self):
     	# Test double CRLF before request
     	# Request should be rejected by the proxy
     	#
@@ -205,7 +204,7 @@ server ${general_ip}:8000;
         expect = None
         self.common_check(request, 400, expect)
 
-    def test_double_crlf_pipeline(self):
+    def test_08_double_crlf_pipeline(self):
     	# Test double CRLF before 2nd request in a pipeline
     	# The 1st request should be passed to backend
     	# The 2nd request should be rejected by the proxy
@@ -224,7 +223,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 400, expect)
 
-    def test_double_lf(self):
+    def test_09_double_lf(self):
     	# Test double LF before request
     	# Request should be rejected by the proxy
     	#
@@ -237,7 +236,7 @@ server ${general_ip}:8000;
         expect = None
         self.common_check(request, 400, expect)
 
-    def test_double_lf_pipeline(self):
+    def test_10_double_lf_pipeline(self):
     	# Test double LF before 2nd request in a pipeline
     	# The 1st request should be sent to backed
     	# The 2nd request should be rejected by the proxy
@@ -258,7 +257,7 @@ server ${general_ip}:8000;
 
     ##### Heavy chunked versions of the tests
 
-    def test_no_crlf_hch(self):
+    def test_11_no_crlf_hch(self):
         # Test normal request
         #
         # This is a heavy chunked version of the test
@@ -271,7 +270,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect, True)
 
-    def test_no_crlf_pipeline_hch(self):
+    def test_12_no_crlf_pipeline_hch(self):
         # Test 2 normal requests in pipeline
         #
         # This is a heavy chunked version of the test
@@ -287,7 +286,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect, True)
 
-    def test_single_crlf_hch(self):
+    def test_13_single_crlf_hch(self):
         # Test single CRLF before request
         # Request should be passed to backed with stripped CRLF
         # Proxy should return positive response
@@ -304,7 +303,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect, True)
 
-    def test_single_crlf_pipeline_hch(self):
+    def test_14_single_crlf_pipeline_hch(self):
     	# Test single CRLF before 2nd request in a pipeline
     	# Request should be passed to backed with stripped CRLF
     	# Proxy should return positive response
@@ -324,7 +323,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect, True)
 
-    def test_single_lf_hch(self):
+    def test_15_single_lf_hch(self):
     	# Test single LF before request
     	# Request should be passed to backed with stripped LF
     	# Proxy should return positive response
@@ -341,7 +340,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect, True)
 
-    def test_single_lf_pipeline_hch(self):
+    def test_16_single_lf_pipeline_hch(self):
     	# Test single LF before 2nd request in a pipeline
     	# Request should be passed to backed with stripped LF
     	# Proxy should return positive response
@@ -361,7 +360,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 200, expect, True)
 
-    def test_double_crlf_hch(self):
+    def test_17_double_crlf_hch(self):
     	# Test double CRLF before request
     	# Request should be rejected by the proxy
     	#
@@ -376,7 +375,7 @@ server ${general_ip}:8000;
         expect = None
         self.common_check(request, 400, expect, True)
 
-    def test_double_crlf_pipeline_hch(self):
+    def test_18_double_crlf_pipeline_hch(self):
     	# Test double CRLF before 2nd request in a pipeline
     	# The 1st request should be passed to backend
     	# The 2nd request should be rejected by the proxy
@@ -397,7 +396,7 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request, 400, expect, True)
 
-    def test_double_lf_hch(self):
+    def test_19_double_lf_hch(self):
     	# Test double LF before request
     	# Request should be rejected by the proxy
     	#
@@ -412,7 +411,7 @@ server ${general_ip}:8000;
         expect = None
         self.common_check(request, 400, expect, True)
 
-    def test_double_lf_pipeline_hch(self):
+    def test_20_double_lf_pipeline_hch(self):
     	# Test double LF before 2nd request in a pipeline
     	# The 1st request should be sent to backed
     	# The 2nd request should be rejected by the proxy

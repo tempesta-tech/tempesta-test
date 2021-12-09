@@ -3,10 +3,10 @@ from framework import tester
 from helpers import tf_cfg, deproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-class MalformedCrlfTest(tester.TempestaTest):
+class HeavyChunkedPurgeTest(tester.TempestaTest):
     # This is a heavy chunked test for ss_skb_chop_head_tail() function in context
     # of rewriting PURGE method as GET, issue #1535
     #
