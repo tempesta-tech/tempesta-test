@@ -138,10 +138,8 @@ class HeaderCollection(object):
 
     @staticmethod
     def from_stream(rfile, no_crlf=False):
-        length = 0
         headers = HeaderCollection()
         line = rfile.readline()
-        length += len(line)
         while not (line == '\r\n' or line == '\n'):
             if no_crlf and not line:
                 break
@@ -155,7 +153,6 @@ class HeaderCollection(object):
             name = name.strip()
             value = value.strip()
             line = rfile.readline()
-            length += len(line)
             while line.startswith(' ') or line.startswith('\t'):
                 # Continuation lines - see RFC 2616, section 4.2
                 value += ' ' + line.strip()
