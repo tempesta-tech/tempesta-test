@@ -79,9 +79,11 @@ server ${general_ip}:8000;
         has_resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == expect_status, "Wrong status: "+str(status)+", expected: "+str(expect_status))
+        self.assertTrue(status == expect_status, "Wrong status: " + str(status)
+                                        +  ", expected: " + str(expect_status))
         if expect is None:
-            self.assertTrue(deproxy_srv.last_request is None, "Request was unexpectedly sent to backend")
+            self.assertTrue(deproxy_srv.last_request is None, 
+                                    "Request was unexpectedly sent to backend")
         else:
             #print('-----')
             #print(deproxy_srv.last_request.original_data)
@@ -89,7 +91,10 @@ server ${general_ip}:8000;
             #print(expect)
             #print('-----')
             if expect:
-                self.assertTrue(self.compare_head(deproxy_srv.last_request.original_data, expect), "Request sent to backend differs from expected one")
+                self.assertTrue(
+                    self.compare_head(
+                        deproxy_srv.last_request.original_data, expect),
+                    "Request sent to backend differs from expected one")
 
     def extract_head(self, a):
         p = a.find("Host:")
