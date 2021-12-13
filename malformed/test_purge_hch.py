@@ -83,11 +83,11 @@ cache_purge_acl ${client_ip};
             self.assertTrue(frequest is None,
                    "Request was unexpectedly sent to backend")
         else:
-            print('-----')
-            print(frequest.original_data)
-            print('-----')
-            print(expect)
-            print('-----')
+            #print('-----')
+            #print(frequest.original_data)
+            #print('-----')
+            #print(expect)
+            #print('-----')
             if expect:
                 self.assertTrue(
                     frequest.original_data == expect,
