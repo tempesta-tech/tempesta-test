@@ -12,7 +12,7 @@ import tester
 import port_checks
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class ServerConnection(asyncore.dispatcher_with_send):

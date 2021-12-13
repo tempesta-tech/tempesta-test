@@ -31,7 +31,7 @@ import re
 
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 #-------------------------------------------------------------------------------
@@ -380,6 +380,7 @@ class HttpMessage(object):
             end = ['', body]
         return '\r\n'.join([first_line] + headers + end)
 
+
 class Request(HttpMessage):
 
     # All methods registered in IANA.
@@ -404,8 +405,8 @@ class Request(HttpMessage):
         if requestline[-1] != '\n':
             raise IncompleteMessage('Incomplete request line!')
 
-        # Skip optionsl empty lines
-        while not re.match('[A-Za-z]', requestline) and len(requestline) > 0:
+        # Skip optional empty lines
+        while re.match('^[\r]?$', requestline) and len(requestline) > 0:
             requestline = stream.readline()
 
         words = requestline.rstrip('\r\n').split()

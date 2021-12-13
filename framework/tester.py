@@ -15,7 +15,7 @@ import socket
 import struct
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 backend_defs = {}
