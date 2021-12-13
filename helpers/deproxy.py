@@ -27,7 +27,6 @@ import time
 import calendar # for calendar.timegm()
 from  BaseHTTPServer import BaseHTTPRequestHandler
 from . import error, tf_cfg, tempesta, stateful
-from . import tistream as tistream
 import re
 
 
@@ -247,15 +246,13 @@ class HttpMessage(object):
 
     def parse_text(self, message_text, body_parsing=True):
         self.body_parsing = body_parsing
-        if self.keep_original_data:
-            copi = StringIO()
-            stream = tistream.TiedStream(message_text, copi)
-        else:
-            stream = StringIO(message_text)
+        stream = StringIO(message_text)
         self.__parse(stream)
         self.build_message()
+        #lp = stream.tell()
+        #print("lp == self.original_length: " + str(lp == self.original_length))
         if self.keep_original_data:
-            self.original_data = copi.getvalue()
+            self.original_data = message_text[:stream.tell()]
 
     def __parse(self, stream):
         self.parse_firstline(stream)
