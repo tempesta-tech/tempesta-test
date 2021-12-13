@@ -1,6 +1,6 @@
 
 from framework import tester
-from helpers import tf_cfg, deproxy
+from helpers import tf_cfg, deproxy, tempesta
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2021 Tempesta Technologies, Inc.'
@@ -68,24 +68,30 @@ cache_purge_acl ${client_ip};
         has_resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == expect_status_0, "Wrong status: "+str(status)+", expected: "+str(expect_status))
+        self.assertTrue(status == expect_status_0, "Wrong status: " +
+               str(status) + ", expected: " + str(expect_status))
         if chunked:
             deproxy_cl.segment_size = 1
         deproxy_cl.make_request(request)
         has_resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == expect_status, "Wrong status: "+str(status)+", expected: "+str(expect_status))
+        self.assertTrue(status == expect_status, "Wrong status: " +
+                str(status) + ", expected: " + str(expect_status))
+        frequest = deproxy_srv.last_request
         if expect is None:
-            self.assertTrue(deproxy_srv.last_request is None, "Request was unexpectedly sent to backend")
+            self.assertTrue(frequest is None,
+                   "Request was unexpectedly sent to backend")
         else:
-            #print('-----')
-            #print(deproxy_srv.last_request.original_data)
-            #print('-----')
-            #print(expect)
-            #print('-----')
+            print('-----')
+            print(frequest.original_data)
+            print('-----')
+            print(expect)
+            print('-----')
             if expect:
-                self.assertTrue(self.compare_head(deproxy_srv.last_request.original_data, expect), "Request sent to backend differs from expected one")
+                self.assertTrue(
+                    frequest.original_data == expect,
+                    "Request sent to backend differs from expected one")
 
     def extract_head(self, a):
         p = a.find("Host:")
@@ -111,6 +117,10 @@ cache_purge_acl ${client_ip};
           expect_status = 200,
           expect = 'GET / HTTP/1.1\r\n' \
                    'Host: localhost\r\n' \
+                   'X-Tempesta-Cache: GET\r\n' \
+                   'X-Forwarded-For: 127.0.0.1\r\n' +
+                   'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' % tempesta.version() +
+                   'Connection: keep-alive\r\n' \
                    '\r\n'
         )
 
@@ -129,6 +139,10 @@ cache_purge_acl ${client_ip};
           expect_status = 200,
           expect = 'GET / HTTP/1.1\r\n' \
                    'Host: localhost\r\n' \
+                   'X-Tempesta-Cache: GET\r\n' \
+                   'X-Forwarded-For: 127.0.0.1\r\n' +
+                   'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' % tempesta.version() +
+                   'Connection: keep-alive\r\n' \
                    '\r\n',
           chunked = True
         )
