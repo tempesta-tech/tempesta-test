@@ -47,11 +47,17 @@ server ${general_ip}:8000;
         },
     ]
 
-    def inner_test(self, chunksize, request):
+    def inner_test_correct_headers(self, chunksize, request):
         # This function defines a test scenario itself.
+        # @chunksize and @request are required positional
+        # parameters
+        #
         # In this partucular example the test reproduses
         # the fills_hdr_tbl_for_req() test from unit tests.
+        #
         # In your case there could be your own scenario.
+        # And it can have additional positional or keyword
+        # parameters
         deproxy_srv = self.get_server('deproxy')
         deproxy_srv.start()
         self.start_tempesta()
@@ -79,15 +85,23 @@ server ${general_ip}:8000;
         hdrs2 = req2.headers
         for hdr in hdrs:
             v2 = hdrs2.get(hdr[0], "-")
-            self.assertTrue(hdr[1] == v2, "Header "+hdr[0]+" mismatch ("
+            self.assertTrue(hdr[1] == v2, 
+                        "Header " + hdr[0] + " mismatch ("
                                           + v2 + " != " + hdr[1] + ")"
                         + "; with chunk size = " + str(chunksize))
 
-    def iterate_test(self, request, *args, **kwargs):
-        # This function provides iterations over vrious chunk sizes
+    def iterate_test(self, test_func, request, *args, **kwargs):
+        # This function provides iterations over vrious chunk sizes.
+        # It hase required positional parameters:
+        # @test_func - a function to iterate. Supposed, it implements
+        #              a test scenario and is a member of the same class.
+        # @request - a request to send.
+        # The function can accept additional positional and keyword
+        # parameters with *args and **kwargs to forward them to
+        # the @test_func().
         CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216, 1024*1024 ]
         for i in range(len(CHUNK_SIZES)):
-            self.inner_test(CHUNK_SIZES[i], request, *args, **kwargs)
+            test_func(CHUNK_SIZES[i], request, *args, **kwargs)
             if CHUNK_SIZES[i] > len(request):
                 break;
 
@@ -124,4 +138,4 @@ server ${general_ip}:8000;
             "\r\n"
             # Excluded: "X-Forwarded-For: 127.0.0.1, example.com\r\n"
             # because TFW rewrites it
-        self.iterate_test(request)
+        self.iterate_test(self.inner_test_correct_headers, request)
