@@ -47,7 +47,7 @@ server ${general_ip}:8000;
         },
     ]
 
-    def inner_test(self, request, chunksize):
+    def inner_test(self, chunksize, request):
         # This function defines a test scenario itself.
         # In this partucular example the test reproduses
         # the fills_hdr_tbl_for_req() test from unit tests.
@@ -83,11 +83,11 @@ server ${general_ip}:8000;
                                           + v2 + " != " + hdr[1] + ")"
                         + "; with chunk size = " + str(chunksize))
 
-    def iterate_test(self, request):
+    def iterate_test(self, request, *args, **kwargs):
         # This function provides iterations over vrious chunk sizes
         CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216, 1024*1024 ]
         for i in range(len(CHUNK_SIZES)):
-            self.inner_test(request, CHUNK_SIZES[i])
+            self.inner_test(CHUNK_SIZES[i], request, *args, **kwargs)
             if CHUNK_SIZES[i] > len(request):
                 break;
 
