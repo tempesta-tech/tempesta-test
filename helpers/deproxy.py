@@ -297,8 +297,9 @@ class HttpMessage(object):
                 chunk = stream.readline()
                 self.body += chunk
 
+                chunk_size_raw = len(chunk)
                 chunk_size = len(chunk.rstrip('\r\n'))
-                if chunk_size < size:
+                if chunk_size < size or chunk_size_raw < chunk_size + 2:
                     raise IncompleteMessage('Incomplete chunked body')
                 assert chunk_size == size
                 assert chunk[-1] == '\n'
