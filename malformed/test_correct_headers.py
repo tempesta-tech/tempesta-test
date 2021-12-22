@@ -13,6 +13,10 @@ class CorrectHeadersTest(tester.TempestaTest):
     # The test scenario reproduces the fills_hdr_tbl_for_req() test
     # from unit tests.
     #
+    # Another test test_ss_chunks was added to test chunking function
+    # at the server side. It also demonstrates, how to use the same
+    # iteration function in several tests.
+    #
     # TODO: move the tests to appropriate place (where?).
     #
     backends = [
@@ -139,3 +143,39 @@ server ${general_ip}:8000;
             # Excluded: "X-Forwarded-For: 127.0.0.1, example.com\r\n"
             # because TFW rewrites it
         self.iterate_test(self.inner_test_correct_headers, request)
+
+    def inner_test_ss_chunks(self, chunksize, request):
+        # This function make a simple request to check
+        # (with tcpdump) that server response is chinked
+        # as required
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv.segment_size = chunksize
+        deproxy_srv.start()
+        self.start_tempesta()
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.start()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        deproxy_cl.make_request(request)
+        self.assertTrue(deproxy_cl.valid_req_num != 0,
+                "Request was not parsed by deproxy client")
+        has_resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received"
+                        + "; with chunk size = " + str(chunksize))
+        status = int(deproxy_cl.last_response.status)
+        self.assertTrue(status == 200, "Wrong status: " + str(status)
+                                        +  ", expected: 200"
+                        + "; with chunk size = " + str(chunksize))
+        self.assertFalse(deproxy_srv.last_request is None,
+                           "Request was not send to backend"
+                        + "; with chunk size = " + str(chunksize))
+
+    def test_ss_chunks(self):
+        # This function make a simple request to check
+        # (with tcpdump) that server response is chinked
+        # as required, iterating over various chunk sizes
+        request = \
+            "GET / HTTP/1.1\r\n" \
+            "Host: localhost\r\n" \
+            "\r\n"
+        self.iterate_test(self.inner_test_ss_chunks, request)

@@ -17,13 +17,10 @@ __license__ = 'GPL2'
 
 class ServerConnection(asyncore.dispatcher_with_send):
 
-    def __init__(self, server, sock=None, keep_alive=None, keep_original_data=None, segment_size = 0, segment_gap = 0):
+    def __init__(self, server, sock=None, keep_alive=None):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.server = server
         self.keep_alive = keep_alive
-        self.keep_original_data = keep_original_data
-        self.segment_size = segment_size
-        self.segment_gap = segment_gap
         self.last_segment_time = 0
         self.responses_done = 0
         self.request_buffer = ''
@@ -32,13 +29,15 @@ class ServerConnection(asyncore.dispatcher_with_send):
     def initiate_send(self):
         """ Override dispatcher_with_send.initiate_send() which transfers
         data with too small chunks of 512 bytes.
-        However if segment_size is set (!=0), use this value.
+        However if server.segment_size is set (!=0), use this value.
         """
         num_sent = 0
-        num_sent = asyncore.dispatcher.send(self, self.out_buffer
-                   [: self.segment_size if self.segment_size > 0 else 4096])
+        num_sent = asyncore.dispatcher.send(self, self.out_buffer[:
+                          self.server.segment_size
+                          if self.server.segment_size > 0
+                          else 4096 ])
         self.out_buffer = self.out_buffer[num_sent:]
-        self.last_segment_time = time.time()       
+        self.last_segment_time = time.time()
 
     def send_pending_and_close(self):
         while len(self.out_buffer):
@@ -46,10 +45,12 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.handle_close()
 
     def writable(self):
-        if self.segment_gap != 0 and time.time() - self.last_segment_time < self.segment_gap / 1000.0:
+        if ( self.server.segment_gap != 0 and
+             time.time() - self.last_segment_time
+                  < self.server.segment_gap / 1000.0 ):
             return False;
-        return super(ServerConnection, self).writable()     
-    
+        return asyncore.dispatcher_with_send.writable(self)
+
     def send_response(self, response):
         if response:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response.')
@@ -79,7 +80,8 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
         try:
             request = deproxy.Request(self.request_buffer,
-                          keep_original_data = self.keep_original_data)
+                          keep_original_data =
+                            self.server.keep_original_data)
         except deproxy.IncompleteMessage:
             return
         except deproxy.ParseError:
@@ -105,7 +107,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         # This parameter controls whether to keep original data with the request
         # (See deproxy.HttpMessage.original_data)
         self.keep_original_data = kwargs.pop("keep_original_data", None)
-        
+
         # Following 2 parameters control heavy chunked testing
         # You can set it programmaticaly or via client config
         # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
@@ -113,7 +115,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
         self.segment_gap = kwargs.pop("segment_gap", 0)
-        
+
         deproxy.Server.__init__(self, *args, **kwargs)
         self.stop_procedures = [self.__stop_server]
         self.is_polling = threading.Event()
@@ -127,10 +129,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
             if self.segment_size:
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             handler = ServerConnection(server=self, sock=sock,
-                                       keep_alive=self.keep_alive,
-                                       keep_original_data=self.keep_original_data,
-                                       segment_size=self.segment_size,
-                                       segment_gap=self.segment_gap)
+                                       keep_alive=self.keep_alive)
             self.connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
