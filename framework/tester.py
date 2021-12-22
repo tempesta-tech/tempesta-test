@@ -146,6 +146,7 @@ class TempestaTest(unittest.TestCase):
             clt.set_server_hostname(server_hostname)
         clt.segment_size = int(client.get('segment_size', 0))
         clt.segment_gap = int(client.get('segment_gap', 0))
+        clt.keep_original_data = bool(client.get('keep_original_data', None))
         return clt
 
     def __create_client_wrk(self, client, ssl):

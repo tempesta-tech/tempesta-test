@@ -17,11 +17,14 @@ __license__ = 'GPL2'
 
 class ServerConnection(asyncore.dispatcher_with_send):
 
-    def __init__(self, server, sock=None, keep_alive=None, keep_original_data=None):
+    def __init__(self, server, sock=None, keep_alive=None, keep_original_data=None, segment_size = 0, segment_gap = 0):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.server = server
         self.keep_alive = keep_alive
         self.keep_original_data = keep_original_data
+        self.segment_size = segment_size
+        self.segment_gap = segment_gap
+        self.last_segment_time = 0
         self.responses_done = 0
         self.request_buffer = ''
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
@@ -29,16 +32,24 @@ class ServerConnection(asyncore.dispatcher_with_send):
     def initiate_send(self):
         """ Override dispatcher_with_send.initiate_send() which transfers
         data with too small chunks of 512 bytes.
+        However if segment_size is set (!=0), use this value.
         """
         num_sent = 0
-        num_sent = asyncore.dispatcher.send(self, self.out_buffer[:4096])
+        num_sent = asyncore.dispatcher.send(self, self.out_buffer
+                   [: self.segment_size if self.segment_size > 0 else 4096])
         self.out_buffer = self.out_buffer[num_sent:]
+        self.last_segment_time = time.time()       
 
     def send_pending_and_close(self):
         while len(self.out_buffer):
             self.initiate_send()
         self.handle_close()
 
+    def writable(self):
+        if self.segment_gap != 0 and time.time() - self.last_segment_time < self.segment_gap / 1000.0:
+            return False;
+        return super(ServerConnection, self).writable()     
+    
     def send_response(self, response):
         if response:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response.')
@@ -91,7 +102,18 @@ class ServerConnection(asyncore.dispatcher_with_send):
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
     def __init__(self, *args, **kwargs):
+        # This parameter controls whether to keep original data with the request
+        # (See deproxy.HttpMessage.original_data)
         self.keep_original_data = kwargs.pop("keep_original_data", None)
+        
+        # Following 2 parameters control heavy chunked testing
+        # You can set it programmaticaly or via client config
+        # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
+        self.segment_size = kwargs.pop("segment_size", 0)
+        # Inter-segment gap, ms, 0 for disable.
+        # You usualy do not need it; update timeouts if you use it.
+        self.segment_gap = kwargs.pop("segment_gap", 0)
+        
         deproxy.Server.__init__(self, *args, **kwargs)
         self.stop_procedures = [self.__stop_server]
         self.is_polling = threading.Event()
@@ -102,9 +124,13 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         pair = self.accept()
         if pair is not None:
             sock, _ = pair
+            if self.segment_size:
+                sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             handler = ServerConnection(server=self, sock=sock,
                                        keep_alive=self.keep_alive,
-                                       keep_original_data=self.keep_original_data)
+                                       keep_original_data=self.keep_original_data,
+                                       segment_size=self.segment_size,
+                                       segment_gap=self.segment_gap)
             self.connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
@@ -192,11 +218,15 @@ def deproxy_srv_factory(server, name, tester):
         port = int(port)
     srv = None
     ko = server.get("keep_original_data", None)
+    ss = server.get("segment_size", 0)
+    sg = server.get("segment_gap", 0)
     rtype = server['response']
     if rtype == 'static':
         content = fill_template(server['response_content'], server)
         srv = StaticDeproxyServer(port=port, response=content,
-                                  keep_original_data = ko)
+                                  keep_original_data = ko,
+                                  segment_size = ss,
+                                  segment_gap = sg)
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
 

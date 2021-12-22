@@ -22,15 +22,18 @@ class BaseDeproxyClient(deproxy.Client):
         self.rps = 0
         self.valid_req_num = 0
         self.cur_req_num = 0
+        # This parameter controls whether to keep original data with the response
+        # (See deproxy.HttpMessage.original_data)       
+        self.keep_original_data = None
         # Following 2 parameters control heavy chunked testing
         # You can set it programmaticaly or via client config
         # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
-        self.segment_size = 0;
+        self.segment_size = 0
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
-        self.segment_gap = 0; 
+        self.segment_gap = 0 
         # This state variable contains a timestamp of the last segment sent
-        self.last_segment_time = 0;
+        self.last_segment_time = 0
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -88,7 +91,8 @@ class BaseDeproxyClient(deproxy.Client):
             try:
                 method = self.methods[self.nrresp]
                 response = deproxy.Response(self.response_buffer,
-                                    method=method)
+                                    method=method,
+                                keep_original_data=self.keep_original_data)
                 self.response_buffer = \
                             self.response_buffer[response.original_length:]
             except deproxy.IncompleteMessage:
@@ -125,13 +129,12 @@ class BaseDeproxyClient(deproxy.Client):
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, reqs[self.cur_req_num])
         if self.segment_size != 0:
-            portion = reqs[self.cur_req_num][:self.segment_size]
-            sent = self.send(portion)
-            self.last_segment_time = time.time()
+            sent = self.send(reqs[self.cur_req_num][:self.segment_size])
         else:
             sent = self.send(reqs[self.cur_req_num])
         if sent < 0:
             return
+        self.last_segment_time = time.time()
         reqs[self.cur_req_num] = reqs[self.cur_req_num][sent:]
         if len(reqs[self.cur_req_num]) == 0:
             self.cur_req_num += 1
