@@ -324,7 +324,7 @@ Example tests can be found in `selftests/test_framework.py`
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).
 
-# Testing with chunked messages
+### Testing with chunked messages
 
 Some tests require division of request or response into small TCP segments ("chunks").
 This division is controlled by segment_size parameter of the client or the backend
