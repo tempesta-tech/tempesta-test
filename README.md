@@ -302,10 +302,10 @@ and such clients:
     - addr: ip addr of server to connect
     - port: port
     - keep_original_data: optional: if set to True,
-           the original request will be kept in Request.original_data field
+           the original response will be kept in Response.original_data field
            as it has arrived by the wire,
            otherwise (say, the parameter is not defined at all)
-           Request.original_data will be left blank
+           Response.original_data will be left blank
     - segment_size: optional: TCP segment size for heavy chunked testing, bytes, 0 for disable
     - segment_gap: optional: inter-segment gap for heavy chunked testing, ms, 0 for disable
        - you usualy do not need it; update timeouts if you use it
