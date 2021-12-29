@@ -10,7 +10,7 @@ import subprocess
 from helpers import tf_cfg, remote, shell, control, prepare
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 def usage():
@@ -144,6 +144,25 @@ unittest.installHandler()
 loader = unittest.TestLoader()
 tests = []
 shell.testsuite_flatten(tests, loader.discover('.'))
+
+if v_level >= 3:
+    # runner.TextTestRunner can print import errors, however,
+    # the failed modules will be filtered out like they never existed.
+    # So we have to explicitly find and print those errors.
+    errors = [test for test in tests if test.__class__.__name__ == 'ModuleImportFailure']
+    for error in errors:
+        try:
+            # Non-public attributes, see unittest.case.TestCase and
+            # unittest.loader._make_failed_import_test
+            attrname = getattr(error, '_testMethodName', None)
+            if attrname:
+                testFailure = getattr(error, attrname, None)
+                if testFailure is not None:
+                    testFailure()
+        except Exception as exc:
+            # format_exc() gives too much unnecessary info
+            # print(traceback.format_exc())
+            print(exc)
 
 root_required = False
 
