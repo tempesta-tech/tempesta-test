@@ -21,8 +21,8 @@ from . import error
 CLIENT_MODE = 1
 SERVER_MODE = 2
 
-SERVER_PORT_REPLACE = 90000
-CLIENT_PORT_REPLACE = 90001
+SERVER_PORT_REPLACE = 9000
+CLIENT_PORT_REPLACE = 9001
 
 MAX_MESSAGE_SIZE = 65536
 
@@ -39,14 +39,14 @@ class ProxyConnection(asyncore.dispatcher_with_send):
         self.segment_size = 0
         self.segment_gap = 0
         self.last_segment_time = 0
-        
+
     def set_chunking(segment_size, segment_gap):
         self.segment_size = segment_size
         self.segment_gap = segment_gap
-            
+
     def handle_connect(self):
         self.ready = True
-        
+
     def initiate_send(self):
         num_sent = 0
         num_sent = asyncore.dispatcher.send(self, self.out_buffer[:
@@ -57,29 +57,28 @@ class ProxyConnection(asyncore.dispatcher_with_send):
         self.last_segment_time = time.time()
         if len(self.out_buffer) == 0 and closing:
             self.handle_close()
-    
+
     def in_pause(self):
-        return
-            self.segment_gap != 0 and
-            time.time() - self.last_segment_time
-                < self.segment_gap / 1000.0
-    
+        return ( self.segment_gap != 0 and
+                 time.time() - self.last_segment_time
+                     < self.segment_gap / 1000.0 )
+
     def writable(self):
         if in_pause(self):
             return False;
         return asyncore.dispatcher_with_send.writable(self)
-        
+
     def send(self, data):
         self.out_buffer = self.out_buffer + data
-        if !self.in_pause():
+        if not self.in_pause():
             self.initiate_send()
-            
+
     def readable(self):
         return pair.ready
-        
+
     def handle_read(self):
         pair.send(self.recv(MAX_MESSAGE_SIZE))
-        
+
     def handle_close(self):
         self.ready = False
         self.closing = True
@@ -88,17 +87,17 @@ class ProxyConnection(asyncore.dispatcher_with_send):
 
 class SelfProxy(asyncore.dispatcher):
 
-    def __init__(self, mode = CLIENT_MODE, listen_host, listen_port, forward_host, forward_port, segment_size, segment_gap):
+    def __init__(self, mode, listen_host, listen_port, forward_host, forward_port, segment_size, segment_gap):
         asyncore.dispatcher.__init__(self)
-	    self.mode = mode
-	    self.listen_host = listen_host
-	    self.listen_port = listen_port
+	self.mode = mode
+	self.listen_host = listen_host
+	self.listen_port = listen_port
         self.forward_host = forward_host
         self.forward_port = forward_port
         self.segment_size = segment_size
         self.segment_gap = segment_gap
         self.connections = []
-        
+
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((self.listen_host, self.listen_port))
@@ -109,10 +108,10 @@ class SelfProxy(asyncore.dispatcher):
         for conn in self.connections:
             if conn.ready:
                 conn.handle_close()
-                
+
     def stop(self):
         self.handle_close()
-    
+
     def handle_accept(self):
         pair = self.accept()
         if pair is not None:
