@@ -87,11 +87,13 @@ class ProxyConnection(asyncore.dispatcher_with_send):
 
 class SelfProxy(asyncore.dispatcher):
 
-    def __init__(self, mode, listen_host, listen_port, forward_host, forward_port, segment_size, segment_gap):
+    def __init__(self, mode, listen_host, listen_port,
+                       forward_host, forward_port,
+                       segment_size, segment_gap):
         asyncore.dispatcher.__init__(self)
-	self.mode = mode
-	self.listen_host = listen_host
-	self.listen_port = listen_port
+        self.mode = mode
+        self.listen_host = listen_host
+        self.listen_port = listen_port
         self.forward_host = forward_host
         self.forward_port = forward_port
         self.segment_size = segment_size
