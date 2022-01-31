@@ -253,6 +253,10 @@ that matches the specified string.
 
 ## Adding new tests
 
+**WARNING**: there are 2 testing frameworks in directories `testers` and `framework`.
+Please use only `framework` for the new tests. `testers` is deprecated and must be
+removed in https://github.com/tempesta-tech/tempesta-test/issues/56 .
+
 Adding new tests is easy. First, create new Python file in the new Python module
 (directory) or existing one.
 Name of the file must be started with `test_`
