@@ -15,7 +15,7 @@ import socket
 import struct
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 backend_defs = {}
@@ -328,3 +328,15 @@ class TempestaTest(unittest.TestCase):
         for item in items:
             if item.is_running():
                 item.wait_for_finish()
+
+    # Should replace all duplicated instances of wait_all_connections
+    def wait_all_connections(self, tmt=1):
+        for sid in self.__servers:
+            srv = self.__servers[sid]
+            if not srv.wait_for_connections(timeout=tmt):
+                return False
+        return True
+
+class SingleTest(object):
+    def test(self):
+        self._test()
