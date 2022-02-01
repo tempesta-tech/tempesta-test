@@ -8,6 +8,7 @@ import sys
 import imp
 
 modules = ['unittest',
+           'scapy',
            'subprocess',
            'resource',
            'getopt',
