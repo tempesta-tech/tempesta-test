@@ -8,6 +8,9 @@ import sys
 import imp
 
 modules = ['unittest',
+           'scapy',
+           'Cryptodome',
+           'tinyec',
            'subprocess',
            'resource',
            'getopt',

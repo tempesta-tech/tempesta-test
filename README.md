@@ -104,7 +104,7 @@ That can be done using `ssh-copy-id`. Root access is required on all hosts.
 Requirements can be checked with `check_deps/check_dependencies.sh`. It should
 be ran from `check_deps` directory.
 
-### Notes on installation on Debian 11 with Pythod 2
+### Notes on installation on Debian 11 with Python 2
 Python 2 is present in Debian 11 but is not enabled by default. Also some required packages
 had gone and should be installed with `pip`.
 
