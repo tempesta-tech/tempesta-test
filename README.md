@@ -83,7 +83,8 @@ two can be installed using `pip install pycryptodomex tinyec`)
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
 `systemtap`, `tcpdump`, `bc`
-- Host for running server: `nginx`, web content directory accessible by nginx
+- Host for running server: `nginx`, web content directory accessible by nginx,
+nginx should not be running before the tests start
 
 `wrk` is an HTTP benchmarking tool, available from [Github](https://github.com/wg/wrk).
 
@@ -98,7 +99,7 @@ downloaded from [CentOS CBS](https://cbs.centos.org/koji/buildinfo?buildID=10904
 
 Testing framework manages other hosts via SSH protocol, so the host running
 testing framework must be able to be authenticated on other hosts by the key.
-That can be done using `ssh-copy-id`.
+That can be done using `ssh-copy-id`. Root access is required on all hosts.
 
 Requirements can be checked with `check_deps/check_dependencies.sh`. It should
 be ran from `check_deps` directory.
@@ -251,6 +252,10 @@ anything. When resuming, execution will continue from (after) the first test
 that matches the specified string.
 
 ## Adding new tests
+
+**WARNING**: there are 2 testing frameworks in directories `testers` and `framework`.
+Please use only `framework` for the new tests. `testers` is deprecated and must be
+removed in https://github.com/tempesta-tech/tempesta-test/issues/56 .
 
 Adding new tests is easy. First, create new Python file in the new Python module
 (directory) or existing one.
