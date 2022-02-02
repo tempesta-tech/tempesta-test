@@ -338,6 +338,10 @@ class ResponseMustRevalidateNotCached2(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
+# RFC 7234 Sections 3.2, 4.2.4:
+# "cached responses that contain the "must-revalidate" and/or
+#  "s-maxage" response directives are not allowed to be served stale
+#  by shared caches"
 class ResponseMustRevalidateCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
@@ -361,7 +365,19 @@ class ResponseMustRevalidateIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore must-revalidate;
         '''
+    # Although must-revalidate is ignored, max-age=1 remains active.
     request_headers = {}
+    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    sleep_interval = 1.5
+    should_be_cached = False
+
+class ResponseMustRevalidateIgnore2(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        cache_control_ignore must-revalidate;
+        '''
+    request_headers = {}
+    request_headers = {'Cache-control': 'max-stale=1'}
     response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
     sleep_interval = 1.5
     should_be_cached = True
@@ -393,30 +409,61 @@ class ResponseProxyRevalidateIgnore(TestCacheControl, SingleTest):
     request_headers = {}
     response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
     sleep_interval = 1.5
+    should_be_cached = False
+
+class ResponseProxyRevalidateCached3(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Cache-control': 'max-stale=1'}
+    response_headers = {'Cache-control': 'max-age=1'}
+    sleep_interval = 1.5
     should_be_cached = True
 
-# multiple directives
-class ResponseProxyRevalidateHalfIgnore(TestCacheControl, SingleTest):
+class ResponseProxyRevalidateIgnore3(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         cache_control_ignore proxy-revalidate;
         '''
-    request_headers = {}
+    request_headers = {'Cache-control': 'max-stale=1'}
+    response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
+    sleep_interval = 1.5
+    should_be_cached = True
+
+# Support for "max-stale" + "max-age=1, proxy-revalidate" is questionable and
+# already tested above. So we test multiple directives with a more reliable
+# logic of "Authorizarion" caching.
+class ResponseMustRevalidateNotCached(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'asd'}
     response_headers = {'Cache-control':
-                        'max-age=1, must-revalidate, proxy-revalidate'}
+                        'max-age=1, must-revalidate'}
     sleep_interval = 1.5
     should_be_cached = False
 
-class ResponseProxyRevalidateMultiIgnore(TestCacheControl, SingleTest):
+class ResponseMustRevalidateHalfIgnore(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
-        cache_control_ignore proxy-revalidate must-revalidate;
+        cache_control_ignore max-age;
         '''
-    request_headers = {}
+    request_headers = {'Authorization': 'asd'}
     response_headers = {'Cache-control':
-                        'max-age=1, must-revalidate, proxy-revalidate'}
+                        'max-age=1, must-revalidate'}
     sleep_interval = 1.5
     should_be_cached = True
+
+class ResponseMustRevalidateMultiIgnore(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        cache_control_ignore max-age must-revalidate;
+        '''
+    request_headers = {'Authorization': 'asd'}
+    response_headers = {'Cache-control':
+                        'max-age=1, must-revalidate'}
+    sleep_interval = 1.5
+    should_be_cached = False
 
 # max-age/s-maxage
 class ResponseMaxAgeNotCached(TestCacheControl, SingleTest):
@@ -444,10 +491,20 @@ class ResponseMaxAgeIgnore(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = True
 
-class ResponseMaxageNotCached(TestCacheControl, SingleTest):
+class ResponseSMaxageNotCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
+    response_headers = {'Cache-control': 's-maxage=1'}
+    sleep_interval = 1.5
+    should_be_cached = False
+
+# s-maxage forbids serving stale responses
+class ResponseSMaxageNotCached2(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Cache-control': 'max-stale=1'}
     response_headers = {'Cache-control': 's-maxage=1'}
     sleep_interval = 1.5
     should_be_cached = False
@@ -460,10 +517,30 @@ class ResponseSMaxageCached(TestCacheControl, SingleTest):
     sleep_interval = None
     should_be_cached = True
 
+# Authorization interacts with s-maxage, but not with max-age.
+# See RFC 7234 Section 3.2.
+class ResponseMaxAgeNotCached2(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'asd'}
+    response_headers = {'Cache-control': 's-maxage=0'}
+    sleep_interval = None
+    should_be_cached = False
+
+class ResponseMaxAgeCached2(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'asd'}
+    response_headers = {'Cache-control': 's-maxage=1'}
+    sleep_interval = None
+    should_be_cached = True
+
 class ResponseSMaxageIgnore(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
-        cache_control_ignore max-age;
+        cache_control_ignore s-maxage;
         '''
     response_headers = {'Cache-control': 's-maxage=1'}
     sleep_interval = 1.5
@@ -534,7 +611,7 @@ class ResponseMultipleNoCacheIgnore(TestCacheControl, SingleTest):
     response_headers = {'Cache-control': 'no-cache, private, no-store'}
     should_be_cached = True
 
-#public
+# public directive and Authorization header
 class ResponsePublicNotCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
@@ -543,12 +620,23 @@ class ResponsePublicNotCached(TestCacheControl, SingleTest):
     response_headers = {}
     should_be_cached = False
 
-class ResponsePublicFullfill(TestCacheControl, SingleTest):
+class ResponsePublicCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
     request_headers = {'Authorization': 'asd'}
     response_headers = {'Cache-control': 'public'}
+    should_be_cached = True
+
+class ResponsePublicCached2(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {}
+    response_headers = {}
+    # Interestingly enough, RFC 7234 does not forbid serving cached response for
+    # subsequent requests with "Authorization" header.
+    second_request_headers = {'Authorization': 'asd'}
     should_be_cached = True
 
 class ResponsePublicIgnore(TestCacheControl, SingleTest):
