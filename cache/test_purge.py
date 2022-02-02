@@ -111,9 +111,13 @@ class TestPurge(functional.FunctionalTest):
             chains.cache(method='GET', uri=uri),
         ]
 
+        # purge_get
         c = ch[2].server_response
         c.body = page
         c.headers['Content-Length'] = len(page)
+        c.headers['Set-Cookie'] = 'somecookie=2'
+        c.update()
+        c = ch[2].response
         c.headers['Set-Cookie'] = 'somecookie=2'
         c.update()
 
@@ -136,9 +140,14 @@ class TestPurge(functional.FunctionalTest):
             chains.cache(method='GET', uri=uri),
         ]
 
+        # purge_get
         c = ch[2].server_response
         c.body = page
         c.headers['Content-Length'] = len(page)
+        c.headers['Set-Cookie'] = 'somecookie=2'
+        c.headers['Cache-control'] = 'no-cache="set-cookie"'
+        c.update()
+        c = ch[2].response
         c.headers['Set-Cookie'] = 'somecookie=2'
         c.headers['Cache-control'] = 'no-cache="set-cookie"'
         c.update()
