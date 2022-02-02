@@ -235,6 +235,7 @@ class TestCache2(TestCacheControl, SingleTest):
 #  cache_control_ignore
 #########
 # request
+# max-age
 class RequestMaxAgeNoCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-age=1'}
     response_headers = {'Cache-control': 'max-age=2'}
@@ -246,7 +247,8 @@ class RequestMaxAgeCached(TestCacheControl, SingleTest):
     response_headers = {'Cache-control': 'max-age=2'}
     sleep_interval = None
     should_be_cached = True
-
+ 
+# max-age, max-stale
 class RequestMaxAgeMaxStaleNotCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-age=3, max-stale=1'}
     response_headers = {'Cache-control': 'max-age=1'}
@@ -278,6 +280,7 @@ class RequestMinFreshCached(TestCacheControl, SingleTest):
     sleep_interval = None
     should_be_cached = True
 
+# max-age
 class RequestOnlyIfCachedCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-age=1'}
     response_headers = {'Cache-control': 'max-age=2'}
@@ -294,8 +297,13 @@ class RequestOnlyIfCached504(TestCacheControl, SingleTest):
     cached_status = '504'
     should_be_cached = True
 
+
 class RequestNoStoreNotCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'no-store'}
+    should_be_cached = False
+
+class RequestNoStoreNotCached(TestCacheControl, SingleTest):
+    request_headers = {'Cache-control': 'no-cache'}
     should_be_cached = False
 
 ##########
