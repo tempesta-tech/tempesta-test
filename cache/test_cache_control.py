@@ -90,7 +90,7 @@ class TestCacheControl(tester.TempestaTest):
         client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses))
 
-        return client.responses[-1]
+        return client.last_response
 
     def check_response_headers(self, response):
         for name, val in self.response_headers.iteritems():
@@ -144,7 +144,7 @@ class TestCacheControl(tester.TempestaTest):
                "Host: localhost\r\n"
                "%s\r\n" % req_headers2)
         cached_response = self.client_send_req(client, req2)
-        self.assertEqual(response.status, self.cached_status,
+        self.assertEqual(cached_response.status, self.cached_status,
                          "request for cache failed: {}, expected {}" \
                          .format(response.status, self.cached_status))
 
@@ -238,29 +238,29 @@ class TestCache2(TestCacheControl, SingleTest):
 # max-age
 class RequestMaxAgeNoCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-age=1'}
-    response_headers = {'Cache-control': 'max-age=2'}
+    response_headers = {'Cache-control': 'max-age=3'}
     sleep_interval = 1.5
     should_be_cached = False
 
 class RequestMaxAgeCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-age=1'}
-    response_headers = {'Cache-control': 'max-age=2'}
+    response_headers = {'Cache-control': 'max-age=3'}
     sleep_interval = None
     should_be_cached = True
- 
+
 # max-age, max-stale
 class RequestMaxAgeMaxStaleNotCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=3, max-stale=1'}
+    request_headers = {'Cache-control': 'max-age=5, max-stale=1'}
     response_headers = {'Cache-control': 'max-age=1'}
-    sleep_interval = 2.5
+    sleep_interval = 3
     should_be_cached = False
 
 class RequestMaxAgeMaxStaleCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=3, max-stale=1'}
+    request_headers = {'Cache-control': 'max-age=3, max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1'}
     sleep_interval = 1.5
     should_be_cached = True
-    
+
 class RequestMaxStaleCached(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-stale'}
     response_headers = {'Cache-control': 'max-age=1'}
@@ -269,8 +269,8 @@ class RequestMaxStaleCached(TestCacheControl, SingleTest):
 
 # min-fresh
 class RequestMinFreshNotCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'min-fresh=1'}
-    response_headers = {'Cache-control': 'max-age=2'}
+    request_headers = {'Cache-control': 'min-fresh=2'}
+    response_headers = {'Cache-control': 'max-age=3'}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -292,7 +292,7 @@ class RequestOnlyIfCachedCached(TestCacheControl, SingleTest):
 class RequestOnlyIfCached504(TestCacheControl, SingleTest):
     request_headers = {'Cache-control': 'max-age=1'}
     response_headers = {'Cache-control': 'max-age=2'}
-    sleep_interval = 1.5
+    sleep_interval = 2.5
     second_request_headers = {'Cache-control': 'max-age=1, only-if-cached'}
     cached_status = '504'
     should_be_cached = True
@@ -333,7 +333,7 @@ class ResponseMustRevalidateNotCached2(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
     sleep_interval = 1.5
     should_be_cached = False
@@ -346,7 +346,7 @@ class ResponseMustRevalidateCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
     should_be_cached = True
     sleep_interval = None
@@ -377,7 +377,7 @@ class ResponseMustRevalidateIgnore2(TestCacheControl, SingleTest):
         cache_control_ignore must-revalidate;
         '''
     request_headers = {}
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
     sleep_interval = 1.5
     should_be_cached = True
@@ -396,7 +396,7 @@ class ResponseProxyRevalidateNotCached2(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
     sleep_interval = 1.5
     should_be_cached = False
@@ -411,11 +411,11 @@ class ResponseProxyRevalidateIgnore(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
-class ResponseProxyRevalidateCached3(TestCacheControl, SingleTest):
+class ResponseCached3(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1'}
     sleep_interval = 1.5
     should_be_cached = True
@@ -425,7 +425,7 @@ class ResponseProxyRevalidateIgnore3(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore proxy-revalidate;
         '''
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
     sleep_interval = 1.5
     should_be_cached = True
@@ -499,12 +499,12 @@ class ResponseSMaxageNotCached(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
-# s-maxage forbids serving stale responses
+# s-maxage forbids serving stale responses (implies proxy-revalidate)
 class ResponseSMaxageNotCached2(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
-    request_headers = {'Cache-control': 'max-stale=1'}
+    request_headers = {'Cache-control': 'max-stale=2'}
     response_headers = {'Cache-control': 's-maxage=1'}
     sleep_interval = 1.5
     should_be_cached = False
