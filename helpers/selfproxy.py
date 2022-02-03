@@ -115,7 +115,6 @@ class ProxyConnection(asyncore.dispatcher_with_send):
 
     def handle_close(self):
         print (self.modestr() + ": handle_close")
-        self.ready = False
         self.closing = True
         self.pair.closing = True
         self.close()
@@ -162,7 +161,6 @@ class SelfProxy(asyncore.dispatcher):
             accepted_conn = ProxyConnection(sock=sock,mode=PXCONN_ACCEPTED)
             forward_conn = ProxyConnection(pair=accepted_conn,mode=PXCONN_FORWARDED)
             accepted_conn.pair = forward_conn
-            accepted_conn.ready = True
             if self.mode == CLIENT_MODE:
                 forward_conn.set_chunking(self.segment_size, self.segment_gap)
             elif self.mode == SERVER_MODE:
