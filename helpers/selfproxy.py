@@ -20,6 +20,7 @@ expected to be replaced with Python 3 solution
 based on SSLObject class.
 """
 
+import sys
 import socket
 import asyncore
 import time
@@ -37,37 +38,53 @@ CLIENT_PORT_REPLACE = 9001
 
 MAX_MESSAGE_SIZE = 65536
 
+#debugging
+PXCONN_ACCEPTED  = 1
+PXCONN_FORWARDED = 2
+
 class ProxyConnection(asyncore.dispatcher_with_send):
     """
         This class represents a proxy TCP connection, both
         accepted one and forwarded one
     """
-    def __init__(self, sock=None, pair=None):
+    def __init__(self, sock=None, pair=None, mode=PXCONN_ACCEPTED):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.pair = pair;
-        self.ready = False
         self.closing = False
         self.segment_size = 0
         self.segment_gap = 0
         self.last_segment_time = 0
+        #debug
+        self.mode = mode
+
+    #debug
+    def modestr(self):
+        return ( "FORWARDED" if self.mode == PXCONN_FORWARDED else
+                 "ACCEPTED" if self.mode == PXCONN_ACCEPTED else
+                 "" )
 
     def set_chunking(self, segment_size, segment_gap):
         self.segment_size = segment_size
         self.segment_gap = segment_gap
 
     def handle_connect(self):
-        print("Connected")
-        self.ready = True
+        print (self.modestr() + ": handle_connect " + str(self.connected))
+        pass
+
+    def handle_error(self):
+        _, v, _ = sys.exc_info()
+        print (self.modestr() + ": handle_error " + str(v))
+        pass
 
     def initiate_send(self):
         num_sent = 0
         num_sent = asyncore.dispatcher.send(self, self.out_buffer[:
-                          self.server.segment_size
-                          if self.server.segment_size > 0
+                          self.segment_size
+                          if self.segment_size > 0
                           else 4096 ])
         self.out_buffer = self.out_buffer[num_sent:]
         self.last_segment_time = time.time()
-        if len(self.out_buffer) == 0 and closing:
+        if len(self.out_buffer) == 0 and self.closing:
             self.handle_close()
 
     def in_pause(self):
@@ -79,25 +96,34 @@ class ProxyConnection(asyncore.dispatcher_with_send):
         #print("writable? " + str(self.in_pause()) + str(asyncore.dispatcher_with_send.writable(self)))
         if self.in_pause():
             return False;
+        if self.closing:
+            return True;
         return asyncore.dispatcher_with_send.writable(self)
 
     def send(self, data):
+        print (self.modestr() + ": send")
         self.out_buffer = self.out_buffer + data
         if not self.in_pause():
             self.initiate_send()
 
     def readable(self):
-        return self.pair.ready
+        return self.pair.connected
 
     def handle_read(self):
-        print("Read")
+        print (self.modestr() + ": handle_read")
         self.pair.send(self.recv(MAX_MESSAGE_SIZE))
 
     def handle_close(self):
+        print (self.modestr() + ": handle_close")
         self.ready = False
         self.closing = True
         self.pair.closing = True
         self.close()
+
+    #debug
+    def handle_write(self):
+        print (self.modestr() + ": handle_write")
+        asyncore.dispatcher_with_send.handle_write(self)
 
 class SelfProxy(asyncore.dispatcher):
 
@@ -122,7 +148,7 @@ class SelfProxy(asyncore.dispatcher):
     def handle_close(self):
         self.close()
         for conn in self.connections:
-            if conn.ready:
+            if conn.connected:
                 conn.handle_close()
 
     def stop(self):
@@ -133,8 +159,8 @@ class SelfProxy(asyncore.dispatcher):
         if pair is not None:
             print("Accepted")
             sock, _ = pair
-            accepted_conn = ProxyConnection(sock=sock)
-            forward_conn = ProxyConnection(pair=accepted_conn)
+            accepted_conn = ProxyConnection(sock=sock,mode=PXCONN_ACCEPTED)
+            forward_conn = ProxyConnection(pair=accepted_conn,mode=PXCONN_FORWARDED)
             accepted_conn.pair = forward_conn
             accepted_conn.ready = True
             if self.mode == CLIENT_MODE:

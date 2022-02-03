@@ -14,8 +14,8 @@ selfproxy.request_client_selfproxy(
 listen_host = "localhost",
 listen_port = selfproxy.CLIENT_PORT_REPLACE,
 forward_host = "localhost",
-forward_port = 80,
-segment_size = 1,
+forward_port = 8080,
+segment_size = 0,
 segment_gap = 0
 )
 
