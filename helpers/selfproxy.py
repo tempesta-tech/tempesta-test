@@ -56,7 +56,8 @@ class ProxyConnection(asyncore.dispatcher_with_send):
         self.segment_gap = segment_gap
 
     def handle_connect(self):
-        pass
+        if self.segment_size:
+            self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 
     def handle_error(self):
         pass
@@ -140,13 +141,16 @@ class SelfProxy(asyncore.dispatcher):
                 forward_conn.set_chunking(self.segment_size, self.segment_gap)
             elif self.mode == SERVER_MODE:
                 accepted_conn.set_chunking(self.segment_size, self.segment_gap)
+                if self.segment_size:
+                    accepted_conn.socket.setsockopt(socket.SOL_TCP,
+                        socket.TCP_NODELAY, 1)
             else:
                 error.bug("Invalid SelfProxy mode")
+            self.connections.append(accepted_conn)
+            self.connections.append(forward_conn)
             forward_conn.create_socket(socket.AF_INET, socket.SOCK_STREAM)
             forward_conn.bind((self.listen_host, 0))
             forward_conn.connect((self.forward_host, self.forward_port))
-            self.connections.append(accepted_conn)
-            self.connections.append(forward_conn)
 
 client_selfproxy = None
 client_selfproxy_count = 0
@@ -179,6 +183,10 @@ def request_client_selfproxy(listen_host, listen_port,
         client_selfproxy_count = 1
     else:
         client_selfproxy_count += 1
+        # override segment_size and segment_gap to allow
+        # testing in loop with various values
+        client_selfproxy.segment_size = segment_size
+        client_selfproxy.segment_gap = segment_gap
 
 def release_client_selfproxy():
     global client_selfproxy
