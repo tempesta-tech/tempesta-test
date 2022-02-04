@@ -38,7 +38,10 @@ Connection: keep-alive
         'config' : """
 cache 0;
 server ${general_ip}:8000;
-
+listen 80;
+listen 443 proto=https;
+tls_certificate ${general_workdir}/tempesta.crt;
+tls_certificate_key ${general_workdir}/tempesta.key;
 """,
     }
 
@@ -48,6 +51,13 @@ server ${general_ip}:8000;
             'type' : 'deproxy',
             'addr' : "${tempesta_ip}",
             'port' : '80'
+        },
+        {
+            'id' : 'deproxy_ssl',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl'  : True
         },
     ]
 
@@ -89,7 +99,7 @@ server ${general_ip}:8000;
         hdrs2 = req2.headers
         for hdr in hdrs:
             v2 = hdrs2.get(hdr[0], "-")
-            self.assertTrue(hdr[1] == v2, 
+            self.assertTrue(hdr[1] == v2,
                         "Header " + hdr[0] + " mismatch ("
                                           + v2 + " != " + hdr[1] + ")"
                         + "; with chunk size = " + str(chunksize))
@@ -179,3 +189,35 @@ server ${general_ip}:8000;
             "Host: localhost\r\n" \
             "\r\n"
         self.iterate_test(self.inner_test_ss_chunks, request)
+
+    def inner_test_ssl(self, chunksize, request):
+        # simple access via ssl (debugging)
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv.start()
+        self.start_tempesta()
+        deproxy_cl = self.get_client('deproxy_ssl')
+        deproxy_cl.segment_size = chunksize
+        deproxy_cl.start()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        deproxy_cl.make_request(request)
+        self.assertTrue(deproxy_cl.valid_req_num != 0,
+                "Request was not parsed by deproxy client")
+        has_resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertTrue(has_resp, "Response not received"
+                        + "; with chunk size = " + str(chunksize))
+        status = int(deproxy_cl.last_response.status)
+        self.assertTrue(status == 200, "Wrong status: " + str(status)
+                                        +  ", expected: 200"
+                        + "; with chunk size = " + str(chunksize))
+        self.assertFalse(deproxy_srv.last_request is None,
+                           "Request was not send to backend"
+                        + "; with chunk size = " + str(chunksize))
+
+    def test_ssl(self):
+        # simple access via ssl (debugging)
+        request = \
+            "GET / HTTP/1.1\r\n" \
+            "Host: localhost\r\n" \
+            "\r\n"
+        self.iterate_test(self.inner_test_ssl, request)

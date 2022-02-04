@@ -23,7 +23,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.valid_req_num = 0
         self.cur_req_num = 0
         # This parameter controls whether to keep original data with the response
-        # (See deproxy.HttpMessage.original_data)       
+        # (See deproxy.HttpMessage.original_data)
         self.keep_original_data = None
         # Following 2 parameters control heavy chunked testing
         # You can set it programmaticaly or via client config
@@ -31,7 +31,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.segment_size = 0
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
-        self.segment_gap = 0 
+        self.segment_gap = 0
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
         # The following 2 variables are used to save destination address and port
@@ -40,14 +40,14 @@ class BaseDeproxyClient(deproxy.Client):
         self.overriden_port = None
         # a presense of selfproxy
         self.selfproxy_present = False
-    
+
     def insert_selfproxy(self):
         # inserting the chunking proxy between ssl client and server
-        if not ssl or segment_size == 0:
+        if not self.ssl or self.segment_size == 0:
             return
         selfproxy.request_client_selfproxy(
             listen_host = "127.0.0.1",
-            listen_post = selfproxy.CLIENT_MODE_PORT_REPLACE,
+            listen_port = selfproxy.CLIENT_MODE_PORT_REPLACE,
             forward_host = self.conn_addr,
             forward_port = self.port,
             segment_size = self.segment_size,
@@ -57,7 +57,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.conn_addr = "127.0.0.1"
         self.port = selfproxy.CLIENT_MODE_PORT_REPLACE
         self.selfproxy_present = True
-        
+
     def release_selfproxy(self):
         # action reverse to insert_selfproxy
         if self.selfproxy_present:
@@ -67,6 +67,12 @@ class BaseDeproxyClient(deproxy.Client):
             self.conn_addr = self.overriden_addr
         if self.overriden_port is not None:
             self.port = self.overriden_port
+
+    def update_selfproxy(self):
+        # update chunking parameters
+        if self.selfproxy_present:
+            selfproxy.update_client_selfproxy_chunking(
+                self.segment_size, self.segment_gap)
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -103,7 +109,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.start_time = 0
         self.valid_req_num = 0
         self.cur_req_num = 0
-        if ssl and segment_size != 0:
+        if self.ssl and self.segment_size != 0:
             self.insert_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
@@ -180,6 +186,8 @@ class BaseDeproxyClient(deproxy.Client):
         request_buffers = []
         methods = []
         valid_req_num = 0
+        if self.selfproxy_present:
+            self.update_selfproxy()
         while len(requests) > 0:
             try:
                 req = deproxy.Request(requests)

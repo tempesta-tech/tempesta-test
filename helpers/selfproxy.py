@@ -43,20 +43,16 @@ class ProxyConnection(asyncore.dispatcher_with_send):
         This class represents a proxy TCP connection, both
         accepted one and forwarded one
     """
-    def __init__(self, sock=None, pair=None):
+    def __init__(self, sock=None, pair=None, proxy=None, do_chunking=False):
         asyncore.dispatcher_with_send.__init__(self, sock)
+        self.proxy = proxy
         self.pair = pair;
         self.closing = False
-        self.segment_size = 0
-        self.segment_gap = 0
+        self.do_chunking = do_chunking
         self.last_segment_time = 0
 
-    def set_chunking(self, segment_size, segment_gap):
-        self.segment_size = segment_size
-        self.segment_gap = segment_gap
-
     def handle_connect(self):
-        if self.segment_size:
+        if self.do_chunking:
             self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 
     def handle_error(self):
@@ -65,18 +61,18 @@ class ProxyConnection(asyncore.dispatcher_with_send):
     def initiate_send(self):
         num_sent = 0
         num_sent = asyncore.dispatcher.send(self, self.out_buffer[:
-                          self.segment_size
-                          if self.segment_size > 0
-                          else 4096 ])
+                self.proxy.segment_size
+                if self.do_chunking and self.proxy.segment_size > 0
+                else 4096 ])
         self.out_buffer = self.out_buffer[num_sent:]
         self.last_segment_time = time.time()
         if len(self.out_buffer) == 0 and self.closing:
             self.handle_close()
 
     def in_pause(self):
-        return ( self.segment_gap != 0 and
+        return ( self.do_chunking and self.proxy.segment_gap > 0 and
                  time.time() - self.last_segment_time
-                     < self.segment_gap / 1000.0 )
+                     < self.proxy.segment_gap / 1000.0 )
 
     def writable(self):
         if self.in_pause():
@@ -134,13 +130,13 @@ class SelfProxy(asyncore.dispatcher):
         pair = self.accept()
         if pair is not None:
             sock, _ = pair
-            accepted_conn = ProxyConnection(sock=sock)
-            forward_conn = ProxyConnection(pair=accepted_conn)
+            accepted_conn = ProxyConnection(sock=sock, proxy=self)
+            forward_conn = ProxyConnection(pair=accepted_conn, proxy=self)
             accepted_conn.pair = forward_conn
             if self.mode == CLIENT_MODE:
-                forward_conn.set_chunking(self.segment_size, self.segment_gap)
+                forward_conn.do_chunking = True
             elif self.mode == SERVER_MODE:
-                accepted_conn.set_chunking(self.segment_size, self.segment_gap)
+                accepted_conn.do_chunking = True
                 if self.segment_size:
                     accepted_conn.socket.setsockopt(socket.SOL_TCP,
                         socket.TCP_NODELAY, 1)
@@ -163,6 +159,9 @@ SelfProxy must then releas it with release_client_selfproxy() function.
 
 The parameters of the function are transferred into instance constructor.
 
+To execute chunking tests in loop with various values of chunking
+parameters update the values with update_client_proxy_chunking().
+
 IMPORTANT LIMITATION:
 It is assumed currently that all client connections will be directed
 to the same server. So the parameters of the only first call influence
@@ -183,10 +182,6 @@ def request_client_selfproxy(listen_host, listen_port,
         client_selfproxy_count = 1
     else:
         client_selfproxy_count += 1
-        # override segment_size and segment_gap to allow
-        # testing in loop with various values
-        client_selfproxy.segment_size = segment_size
-        client_selfproxy.segment_gap = segment_gap
 
 def release_client_selfproxy():
     global client_selfproxy
@@ -197,3 +192,10 @@ def release_client_selfproxy():
             client_selfproxy.stop()
             client_selfproxy = None
         client_selfproxy_count = 0
+
+def update_client_selfproxy_chunking(segment_size, segment_gap):
+    if client_selfproxy is not None:
+        # override segment_size and segment_gap to allow
+        # testing in loop with various values
+        client_selfproxy.segment_size = segment_size
+        client_selfproxy.segment_gap = segment_gap
