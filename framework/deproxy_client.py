@@ -2,7 +2,7 @@ import abc
 import time
 import socket
 
-from helpers import deproxy, tf_cfg, stateful
+from helpers import deproxy, tf_cfg, stateful, selfproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2021 Tempesta Technologies, Inc.'
@@ -34,10 +34,43 @@ class BaseDeproxyClient(deproxy.Client):
         self.segment_gap = 0 
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
+        # The following 2 variables are used to save destination address and port
+        # when overriding to connect via ssl chunking proxy
+        self.overriden_addr = None
+        self.overriden_port = None
+        # a presense of selfproxy
+        self.selfproxy_present = False
+    
+    def insert_selfproxy(self):
+        # inserting the chunking proxy between ssl client and server
+        if not ssl or segment_size == 0:
+            return
+        selfproxy.request_client_selfproxy(
+            listen_host = "127.0.0.1",
+            listen_post = selfproxy.CLIENT_MODE_PORT_REPLACE,
+            forward_host = self.conn_addr,
+            forward_port = self.port,
+            segment_size = self.segment_size,
+            segment_gap = self.segment_gap)
+        self.overriden_addr = self.conn_addr
+        self.overriden_port = self.port
+        self.conn_addr = "127.0.0.1"
+        self.port = selfproxy.CLIENT_MODE_PORT_REPLACE
+        self.selfproxy_present = True
+        
+    def release_selfproxy(self):
+        # action reverse to insert_selfproxy
+        if self.selfproxy_present:
+            selfproxy.release_client_selfproxy()
+            self.selfproxy_present = False
+        if self.overriden_addr is not None:
+            self.conn_addr = self.overriden_addr
+        if self.overriden_port is not None:
+            self.port = self.overriden_port
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
-        if self.segment_size:
+        if self.segment_size and not self.selfproxy_present:
             self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.start_time = time.time()
 
@@ -49,12 +82,13 @@ class BaseDeproxyClient(deproxy.Client):
 
     def __stop_client(self):
         tf_cfg.dbg(4, '\tStop deproxy client')
+        self.release_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
         try:
             self.close()
         except Exception as e:
-            tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+            tf_cfg.dbg(2, "Exception while stop: %s" % str(e))
             if self.polling_lock != None:
                 self.polling_lock.release()
             raise e
@@ -69,6 +103,8 @@ class BaseDeproxyClient(deproxy.Client):
         self.start_time = 0
         self.valid_req_num = 0
         self.cur_req_num = 0
+        if ssl and segment_size != 0:
+            self.insert_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
         try:
@@ -115,7 +151,8 @@ class BaseDeproxyClient(deproxy.Client):
             return False
         if time.time() < self.next_request_time():
             return False
-        if self.segment_gap != 0 and time.time() - self.last_segment_time < self.segment_gap / 1000.0:
+        if (self.segment_gap != 0 and not self.selfproxy_present and
+            time.time() - self.last_segment_time < self.segment_gap / 1000.0):
             return False;
         return True
 
@@ -128,7 +165,7 @@ class BaseDeproxyClient(deproxy.Client):
         reqs = self.request_buffers
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, reqs[self.cur_req_num])
-        if self.segment_size != 0:
+        if self.segment_size != 0 and not self.selfproxy_present:
             sent = self.send(reqs[self.cur_req_num][:self.segment_size])
         else:
             sent = self.send(reqs[self.cur_req_num])
