@@ -347,3 +347,59 @@ return 200;
 
     def test(self):
         CurlTestBase.run_test(self, served_from_cache=True)
+
+class EmptyHeadersCache(CurlTestBase):
+    ''' Empty headers in responses might lead to kernel panic
+        (see tempesta issue #1549).
+    '''
+
+    backends = [
+        {
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'port' : '8000',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : NGINX_CONFIG % """
+add_header Referer: '';
+add_header Empty-header: '';
+add_header X-Extra-Data: '';
+
+return 200;
+""",
+        }
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % "cache_fulfill * *;",
+    }
+
+    def test(self):
+        CurlTestBase.run_test(self, served_from_cache=True)
+
+
+class SpacedHeadersCache(CurlTestBase):
+    ''' Same as EmptyHeadersCache, but with spaces as header values.
+    '''
+
+    backends = [
+        {
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'port' : '8000',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : NGINX_CONFIG % """
+add_header Referer: ' ';
+add_header Empty-header: ' ';
+add_header X-Extra-Data: ' ';
+
+return 200;
+""",
+        }
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_CONFIG % "cache_fulfill * *;",
+    }
+
+    def test(self):
+        CurlTestBase.run_test(self, served_from_cache=True)
