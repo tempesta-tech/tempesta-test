@@ -329,7 +329,7 @@ class ResponseMustRevalidateNotCached(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
-class ResponseMustRevalidateNotCached2(TestCacheControl, SingleTest):
+class ResponseMustRevalidateStaleNotCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
@@ -342,7 +342,7 @@ class ResponseMustRevalidateNotCached2(TestCacheControl, SingleTest):
 # "cached responses that contain the "must-revalidate" and/or
 #  "s-maxage" response directives are not allowed to be served stale
 #  by shared caches"
-class ResponseMustRevalidateCached(TestCacheControl, SingleTest):
+class ResponseMustRevalidateStaleCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
@@ -351,7 +351,7 @@ class ResponseMustRevalidateCached(TestCacheControl, SingleTest):
     should_be_cached = True
     sleep_interval = None
 
-class ResponseMustRevalidateCached2(TestCacheControl, SingleTest):
+class ResponseMustRevalidateCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
@@ -371,7 +371,7 @@ class ResponseMustRevalidateIgnore(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
-class ResponseMustRevalidateIgnore2(TestCacheControl, SingleTest):
+class ResponseMustRevalidateStaleIgnore(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         cache_control_ignore must-revalidate;
@@ -392,7 +392,7 @@ class ResponseProxyRevalidateNotCached(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
-class ResponseProxyRevalidateNotCached2(TestCacheControl, SingleTest):
+class ResponseProxyRevalidateStaleNotCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
@@ -411,7 +411,7 @@ class ResponseProxyRevalidateIgnore(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = False
 
-class ResponseCached3(TestCacheControl, SingleTest):
+class ResponseStaleCached(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         '''
