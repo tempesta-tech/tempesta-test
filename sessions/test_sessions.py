@@ -78,14 +78,6 @@ class StickySessions(tester.TempestaTest):
         }
     ]
 
-    def wait_all_connections(self, tmt=1):
-        sids = self.get_servers_id()
-        for sid in sids:
-            srv = self.get_server(sid)
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
-
     def client_send_req(self, client, req):
         curr_responses = len(client.responses)
         client.make_requests(req)

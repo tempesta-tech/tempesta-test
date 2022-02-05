@@ -6,7 +6,7 @@ from helpers import tf_cfg, chains
 from testers import functional
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 # TODO: add tests for 'cache_purge_acl'
@@ -18,6 +18,14 @@ class TestPurge(functional.FunctionalTest):
               'cache_methods GET HEAD;\n'
               'cache_purge;\n'
               'cache_purge_acl %s;\n'
+              % tf_cfg.cfg.get('Client', 'ip'))
+
+    config_hdr_del = ('cache 2;\n'
+              'cache_fulfill * *;\n'
+              'cache_methods GET HEAD;\n'
+              'cache_purge;\n'
+              'cache_purge_acl %s;\n'
+              'cache_resp_hdr_del set-cookie;\n'
               % tf_cfg.cfg.get('Client', 'ip'))
 
     def chains(self):
@@ -91,6 +99,66 @@ class TestPurge(functional.FunctionalTest):
             c.headers['Content-Length'] = len(page)
             c.update()
         self.generic_test_routine(self.config, ch)
+
+    def test_purge_get_update_hdr_del(self):
+        # Similar PURGE-GET test, but with Set-Cookie header removed via config
+        uri = '/page.html'
+        page = 'Another page text!\n'
+        ch = [
+            chains.proxy(method='GET', uri=uri),
+            chains.cache(method='GET', uri=uri),
+            self.purge_get(uri),
+            chains.cache(method='GET', uri=uri),
+        ]
+
+        # purge_get
+        c = ch[2].server_response
+        c.body = page
+        c.headers['Content-Length'] = len(page)
+        c.headers['Set-Cookie'] = 'somecookie=2'
+        c.update()
+        c = ch[2].response
+        c.headers['Set-Cookie'] = 'somecookie=2'
+        c.update()
+
+        c = ch[3].response
+        c.body = page
+        c.headers['Content-Length'] = len(page)
+        c.update()
+
+        self.generic_test_routine(self.config_hdr_del, ch)
+
+    def test_purge_get_update_cc(self):
+        # And another PURGE-GET test, with Set-Cookie removed due to
+        # no-cache="set-cookie" in the response
+        uri = '/page.html'
+        page = 'Another page text!\n'
+        ch = [
+            chains.proxy(method='GET', uri=uri),
+            chains.cache(method='GET', uri=uri),
+            self.purge_get(uri),
+            chains.cache(method='GET', uri=uri),
+        ]
+
+        # purge_get
+        c = ch[2].server_response
+        c.body = page
+        c.headers['Content-Length'] = len(page)
+        c.headers['Set-Cookie'] = 'somecookie=2'
+        c.headers['Cache-control'] = 'no-cache="set-cookie"'
+        c.update()
+        c = ch[2].response
+        c.headers['Set-Cookie'] = 'somecookie=2'
+        c.headers['Cache-control'] = 'no-cache="set-cookie"'
+        c.update()
+
+        c = ch[3].response
+        c.body = page
+        c.headers['Content-Length'] = len(page)
+        c.headers['Cache-control'] = 'no-cache="set-cookie"'
+        c.update()
+
+        self.generic_test_routine(self.config_hdr_del, ch)
 
     def test_useless_x_tempesta_cache(self):
         # Send an ordinary GET request with an "X-Tempesta-Cache" header, and
