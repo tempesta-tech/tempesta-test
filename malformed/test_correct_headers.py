@@ -5,20 +5,22 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+# This small testsuite is created to serve as an example or a template for
+# tests with iteration over various chunk sizes. It demonstrates how to do
+# this job in the right way.
+#
+# Every test is splitted into two functions: inner_test_xxx() and test_xxx().
+# Then the inner_test_xxx() is iterated by the 'universal' function
+# iterate_test(), whereas outer text_xxx() is responsible for start and
+# setting required parameters, if any.
+#
+# Three example tests are defined here:
+# 1. Test for forwarding the request with long and sophisticated header set.
+# 2. A simple request test for chunked response from the backend server.
+# 3. A simple request test transmitted over TLS.
+
 class CorrectHeadersTest(tester.TempestaTest):
-    # This test is created to serve as an exmple or a template for test with
-    # iterations of various chunk sizes.
-    # It demonstrates how to do this job in the right way.
-    #
-    # The test scenario reproduces the fills_hdr_tbl_for_req() test
-    # from unit tests.
-    #
-    # Another test test_ss_chunks was added to test chunking function
-    # at the server side. It also demonstrates, how to use the same
-    # iteration function in several tests.
-    #
-    # TODO: move the tests to appropriate place (where?).
-    #
+
     backends = [
         {
             'id' : 'deproxy',
@@ -61,13 +63,33 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         },
     ]
 
+    def iterate_test(self, test_func, request, *args, **kwargs):
+        # This function provides iterations over various chunk sizes.
+        # It have required positional parameters:
+        # @test_func - a function to iterate. Supposed, it implements
+        #              a test scenario and is a member of the same class.
+        # @request - a request to be sent
+        # The function can accept additional positional and keyword
+        # parameters with *args and **kwargs to forward them to
+        # the @test_func().
+        CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216,
+                        1024*1024 ]
+        for i in range(len(CHUNK_SIZES)):
+            test_func(CHUNK_SIZES[i], request, *args, **kwargs)
+            if CHUNK_SIZES[i] > len(request):
+                break;
+
     def inner_test_correct_headers(self, chunksize, request):
         # This function defines a test scenario itself.
-        # @chunksize and @request are required positional
-        # parameters
+        # @chunksize and @request are required positional parameters,
+        # to be in accordance with iterate_test().
         #
         # In this partucular example the test reproduses
         # the fills_hdr_tbl_for_req() test from unit tests.
+        # However the fills_hdr_tbl_for_req() check for contents
+        # of internal TWF tables for parsed headers, whereas
+        # this test check for headers forwarded to the backend,
+        # so these two tests checks for different potential faults.
         #
         # In your case there could be your own scenario.
         # And it can have additional positional or keyword
@@ -76,6 +98,7 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         deproxy_srv.start()
         self.start_tempesta()
         deproxy_cl = self.get_client('deproxy')
+        # This line controls chunking:
         deproxy_cl.segment_size = chunksize
         deproxy_cl.start()
         self.deproxy_manager.start()
@@ -104,24 +127,9 @@ tls_certificate_key ${general_workdir}/tempesta.key;
                                           + v2 + " != " + hdr[1] + ")"
                         + "; with chunk size = " + str(chunksize))
 
-    def iterate_test(self, test_func, request, *args, **kwargs):
-        # This function provides iterations over vrious chunk sizes.
-        # It hase required positional parameters:
-        # @test_func - a function to iterate. Supposed, it implements
-        #              a test scenario and is a member of the same class.
-        # @request - a request to send.
-        # The function can accept additional positional and keyword
-        # parameters with *args and **kwargs to forward them to
-        # the @test_func().
-        CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216, 1024*1024 ]
-        for i in range(len(CHUNK_SIZES)):
-            test_func(CHUNK_SIZES[i], request, *args, **kwargs)
-            if CHUNK_SIZES[i] > len(request):
-                break;
-
     def test_correct_headers(self):
-        # This function starts the test with (probably) different
-        # parameters
+        # This function starts the test, iterating over different
+        # chunk sizes
         request = \
             "GET / HTTP/1.1\r\n" \
             "User-Agent: Wget/1.13.4 (linux-gnu)\r\n" \
@@ -155,10 +163,11 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         self.iterate_test(self.inner_test_correct_headers, request)
 
     def inner_test_ss_chunks(self, chunksize, request):
-        # This function make a simple request to check
-        # (with tcpdump) that server response is chinked
+        # This function makes a simple request to check
+        # (with tcpdump) that server response is chunked
         # as required
         deproxy_srv = self.get_server('deproxy')
+        # This line controls chunking:
         deproxy_srv.segment_size = chunksize
         deproxy_srv.start()
         self.start_tempesta()
@@ -181,8 +190,8 @@ tls_certificate_key ${general_workdir}/tempesta.key;
                         + "; with chunk size = " + str(chunksize))
 
     def test_ss_chunks(self):
-        # This function make a simple request to check
-        # (with tcpdump) that server response is chinked
+        # This function makes a simple request to check
+        # (with tcpdump) that server response is chunked
         # as required, iterating over various chunk sizes
         request = \
             "GET / HTTP/1.1\r\n" \
@@ -191,11 +200,13 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         self.iterate_test(self.inner_test_ss_chunks, request)
 
     def inner_test_ssl(self, chunksize, request):
-        # simple access via ssl (debugging)
+        # This function makes a simple request over TLS
         deproxy_srv = self.get_server('deproxy')
         deproxy_srv.start()
         self.start_tempesta()
+        # This line selects the SSL/TLS client:
         deproxy_cl = self.get_client('deproxy_ssl')
+        # This line controls chunking:
         deproxy_cl.segment_size = chunksize
         deproxy_cl.start()
         self.deproxy_manager.start()
@@ -215,7 +226,8 @@ tls_certificate_key ${general_workdir}/tempesta.key;
                         + "; with chunk size = " + str(chunksize))
 
     def test_ssl(self):
-        # simple access via ssl (debugging)
+        # This function makes simple requests over TLS,
+        # iterating over different chunk sizes
         request = \
             "GET / HTTP/1.1\r\n" \
             "Host: localhost\r\n" \
