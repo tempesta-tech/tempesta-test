@@ -8,7 +8,7 @@ __license__ = 'GPL2'
 class CorrectHeadersTest(tester.TempestaTest):
     # This test is created to serve as an exmple or a template for test with
     # iterations of various chunk sizes.
-    # It demonstrate how to do thes job in a right way.
+    # It demonstrates how to do this job in the right way.
     #
     # The test scenario reproduces the fills_hdr_tbl_for_req() test
     # from unit tests.
