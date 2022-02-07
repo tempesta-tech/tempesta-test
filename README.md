@@ -337,7 +337,7 @@ This division is controlled by segment_size parameter of the client or the backe
 or backend configuration.
 
 An example to create tests which divide requests or responsies into chunks and
-iterate over various chunk sizes is here: `malformed/test_correct_headers.py`.
+iterate over various chunk sizes is here: `malformed/test_chunking_example.py`.
 
 ## Internal structure and motivation of user configured tests
 
