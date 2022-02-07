@@ -225,7 +225,8 @@ class HeaderCollection(object):
 class HttpMessage(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, message_text=None, body_parsing=True, method="GET", keep_original_data=None):
+    def __init__(self, message_text=None, body_parsing=True, method="GET",
+                       keep_original_data=None):
         self.msg = ''
         self.original_length = 0
         self.method = method

@@ -19,14 +19,16 @@ class MalformedCrlfTest(tester.TempestaTest):
     # But messages containing more preceding CRLFs (or LFs) must be blocked and
     # must not be forewrded to backend.
     #
-    # This function is required by issue #1061 and submitted in pull request #1534
+    # This function is required by issue #1061 and submitted in pull request
+    # 1534
     #
     # The plan for functional tests is:
     # * a single request with many CRLFs is blocked
-    # * a singled request with one CRLF or just LF is passed and both the CRLF or LF are not presented in proxied request
+    # * a single request with one CRLF or just LF is passed and both the CRLF
+    #   or LF are not presented in forwarded request
     # * a pipelined request after another request with many CRLFs is blocked
-    # * a pipelined request after another request with one CRLF or just LF is passed and both the CRLF or LF are not presented
-    #     in proxied request
+    # * a pipelined request after another request with one CRLF or just LF is
+    #   passed and both the CRLF or LF are not presented in forwarded request
     # * all the tests above with heavily chunked CRLFs
     #
     backends = [
@@ -84,17 +86,11 @@ server ${general_ip}:8000;
         if expect is None:
             self.assertTrue(deproxy_srv.last_request is None, 
                                     "Request was unexpectedly sent to backend")
-        else:
-            #print('-----')
-            #print(deproxy_srv.last_request.original_data)
-            #print('-----')
-            #print(expect)
-            #print('-----')
-            if expect:
-                self.assertTrue(
-                    self.compare_head(
-                        deproxy_srv.last_request.original_data, expect),
-                    "Request sent to backend differs from expected one")
+        elif expect:
+            self.assertTrue(
+                self.compare_head(
+                    deproxy_srv.last_request.original_data, expect),
+                "Request sent to backend differs from expected one")
 
     def extract_head(self, a):
         p = a.find("Host:")

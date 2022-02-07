@@ -116,8 +116,8 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         self.assertFalse(deproxy_srv.last_request is None,
                            "Request was not send to backend"
                         + "; with chunk size = " + str(chunksize))
-	req = deproxy.Request(request)
-	hdrs = req.headers.iteritems()
+        req = deproxy.Request(request)
+        hdrs = req.headers.iteritems()
         req2 = deproxy_srv.last_request
         hdrs2 = req2.headers
         for hdr in hdrs:
