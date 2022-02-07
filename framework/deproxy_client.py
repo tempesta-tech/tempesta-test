@@ -41,39 +41,6 @@ class BaseDeproxyClient(deproxy.Client):
         # a presense of selfproxy
         self.selfproxy_present = False
 
-    def insert_selfproxy(self):
-        # inserting the chunking proxy between ssl client and server
-        if not self.ssl or self.segment_size == 0:
-            return
-        selfproxy.request_client_selfproxy(
-            listen_host = "127.0.0.1",
-            listen_port = selfproxy.CLIENT_MODE_PORT_REPLACE,
-            forward_host = self.conn_addr,
-            forward_port = self.port,
-            segment_size = self.segment_size,
-            segment_gap = self.segment_gap)
-        self.overriden_addr = self.conn_addr
-        self.overriden_port = self.port
-        self.conn_addr = "127.0.0.1"
-        self.port = selfproxy.CLIENT_MODE_PORT_REPLACE
-        self.selfproxy_present = True
-
-    def release_selfproxy(self):
-        # action reverse to insert_selfproxy
-        if self.selfproxy_present:
-            selfproxy.release_client_selfproxy()
-            self.selfproxy_present = False
-        if self.overriden_addr is not None:
-            self.conn_addr = self.overriden_addr
-        if self.overriden_port is not None:
-            self.port = self.overriden_port
-
-    def update_selfproxy(self):
-        # update chunking parameters
-        if self.selfproxy_present:
-            selfproxy.update_client_selfproxy_chunking(
-                self.segment_size, self.segment_gap)
-
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
         if self.segment_size and not self.selfproxy_present:
@@ -226,6 +193,41 @@ class BaseDeproxyClient(deproxy.Client):
     @abc.abstractmethod
     def receive_response(self, response):
         raise NotImplementedError("Not implemented 'receive_response()'")
+
+    def insert_selfproxy(self):
+        # inserting the chunking proxy between ssl client and server
+        if not self.ssl or self.segment_size == 0:
+            return
+        selfproxy.request_client_selfproxy(
+            listen_host = "127.0.0.1",
+            listen_port = selfproxy.CLIENT_MODE_PORT_REPLACE,
+            forward_host = self.conn_addr,
+            forward_port = self.port,
+            segment_size = self.segment_size,
+            segment_gap = self.segment_gap)
+        self.overriden_addr = self.conn_addr
+        self.overriden_port = self.port
+        self.conn_addr = "127.0.0.1"
+        self.port = selfproxy.CLIENT_MODE_PORT_REPLACE
+        self.selfproxy_present = True
+
+    def release_selfproxy(self):
+        # action reverse to insert_selfproxy
+        if self.selfproxy_present:
+            selfproxy.release_client_selfproxy()
+            self.selfproxy_present = False
+        if self.overriden_addr is not None:
+            self.conn_addr = self.overriden_addr
+            self.overriden_addr = None
+        if self.overriden_port is not None:
+            self.port = self.overriden_port
+            self.overriden_port = None
+
+    def update_selfproxy(self):
+        # update chunking parameters
+        if self.selfproxy_present:
+            selfproxy.update_client_selfproxy_chunking(
+                self.segment_size, self.segment_gap)
 
 
 class DeproxyClient(BaseDeproxyClient):
