@@ -147,7 +147,7 @@ server ${general_ip}:8000;
 
     def test_04_single_crlf_pipeline(self):
     	# Test single CRLF before 2nd request in a pipeline
-    	# Request should be passed to backed with stripped CRLF
+    	# Request should be passed to the backend with stripped CRLF
     	# Proxy should return positive response
     	#
         request = \
