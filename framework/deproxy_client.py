@@ -5,7 +5,7 @@ import socket
 from helpers import deproxy, tf_cfg, stateful, selfproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2021 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2018-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class BaseDeproxyClient(deproxy.Client):
