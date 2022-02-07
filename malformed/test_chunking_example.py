@@ -2,7 +2,7 @@ from framework import tester
 from helpers import tf_cfg, deproxy
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2021 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 # This small testsuite is created to serve as an example or a template for
