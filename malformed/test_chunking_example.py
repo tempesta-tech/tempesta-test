@@ -19,7 +19,7 @@ __license__ = 'GPL2'
 # 2. A simple request test for chunked response from the backend server.
 # 3. A simple request test transmitted over TLS.
 
-class CorrectHeadersTest(tester.TempestaTest):
+class ChunkingExpampleTest(tester.TempestaTest):
 
     backends = [
         {
@@ -63,25 +63,26 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         },
     ]
 
-    def iterate_test(self, test_func, request, *args, **kwargs):
+    def iterate_test(self, test_func, msg_size, *args, **kwargs):
         # This function provides iterations over various chunk sizes.
         # It have required positional parameters:
         # @test_func - a function to iterate. Supposed, it implements
         #              a test scenario and is a member of the same class.
-        # @request - a request to be sent
+        # @msg_size - a size of the message (request or response which
+        #             plays as upper bound for chunk size
         # The function can accept additional positional and keyword
         # parameters with *args and **kwargs to forward them to
         # the @test_func().
         CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216,
                         1024*1024 ]
         for i in range(len(CHUNK_SIZES)):
-            test_func(CHUNK_SIZES[i], request, *args, **kwargs)
-            if CHUNK_SIZES[i] > len(request):
+            test_func(CHUNK_SIZES[i], *args, **kwargs)
+            if CHUNK_SIZES[i] > msg_size:
                 break;
 
-    def inner_test_correct_headers(self, chunksize, request):
+    def inner_test_long_headers(self, chunksize, request):
         # This function defines a test scenario itself.
-        # @chunksize and @request are required positional parameters,
+        # @chunksize is required positional parameter,
         # to be in accordance with iterate_test().
         #
         # In this partucular example the test reproduses
@@ -127,7 +128,7 @@ tls_certificate_key ${general_workdir}/tempesta.key;
                                           + v2 + " != " + hdr[1] + ")"
                         + "; with chunk size = " + str(chunksize))
 
-    def test_correct_headers(self):
+    def test_long_headers(self):
         # This function starts the test, iterating over different
         # chunk sizes
         request = \
@@ -160,7 +161,7 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "\r\n"
             # Excluded: "X-Forwarded-For: 127.0.0.1, example.com\r\n"
             # because TFW rewrites it
-        self.iterate_test(self.inner_test_correct_headers, request)
+        self.iterate_test(self.inner_test_correct_headers, len(request), request)
 
     def inner_test_ss_chunks(self, chunksize, request):
         # This function makes a simple request to check
@@ -197,7 +198,9 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "GET / HTTP/1.1\r\n" \
             "Host: localhost\r\n" \
             "\r\n"
-        self.iterate_test(self.inner_test_ss_chunks, request)
+        response = self.get_server('deproxy').response
+        print (response)
+        self.iterate_test(self.inner_test_ss_chunks, len(response), request)
 
     def inner_test_ssl(self, chunksize, request):
         # This function makes a simple request over TLS
@@ -232,4 +235,4 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "GET / HTTP/1.1\r\n" \
             "Host: localhost\r\n" \
             "\r\n"
-        self.iterate_test(self.inner_test_ssl, request)
+        self.iterate_test(self.inner_test_ssl, len(request), request)
