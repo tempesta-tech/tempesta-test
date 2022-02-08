@@ -9,8 +9,6 @@ class HeavyChunkedPurgeTest(tester.TempestaTest):
     # This is a heavy chunked test for ss_skb_chop_head_tail() function in context
     # of rewriting PURGE method as GET, issue #1535
     #
-    # TODO: move the test to appropriate place (/cache/?)
-    #
     backends = [
         {
             'id' : 'deproxy',
@@ -81,16 +79,10 @@ cache_purge_acl ${client_ip};
         if expect is None:
             self.assertTrue(frequest is None,
                    "Request was unexpectedly sent to backend")
-        else:
-            #print('-----')
-            #print(frequest.original_data)
-            #print('-----')
-            #print(expect)
-            #print('-----')
-            if expect:
-                self.assertTrue(
-                    frequest.original_data == expect,
-                    "Request sent to backend differs from expected one")
+        elif expect:
+            self.assertTrue(
+                frequest.original_data == expect,
+                "Request sent to backend differs from expected one")
 
     def extract_head(self, a):
         p = a.find("Host:")
