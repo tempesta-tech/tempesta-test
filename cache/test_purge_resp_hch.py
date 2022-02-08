@@ -50,9 +50,7 @@ cache_purge_acl ${client_ip};
         },
     ]
 
-    #BODY_LENGTH = 4000 # OK NON HCH
-    #BODY_LENGTH = 5000 # FAIL
-    BODY_LENGTH = 65536 # FAIL
+    BODY_LENGTH = 65536
 
     def setUp(self):
         self.backends = copy.deepcopy(self.backends_template)
@@ -72,7 +70,8 @@ Connection: keep-alive
         )
 
     def common_check(self, chunksize=0, request_0='', expect_status_0=200,
-                           request='', expect_status=200, expect=''):
+                           request='', expect_status=200, expect='',
+                           expect_body=False):
         # Set expect to expected proxied request,
         # to empty string to skip request check and
         # to None to check that request is missing
@@ -111,6 +110,14 @@ Connection: keep-alive
                 frequest.original_data == expect,
                    "Request sent to backend differs from expected one " \
                    "with chunksize = %d" % chunksize)
+        if expect_body:
+            self.assertTrue(len(deproxy_cl.last_response.body) > 0,
+                   "Response body expected but missing " \
+                   "with chunksize = %d" % chunksize)
+        else:
+            self.assertTrue(len(deproxy_cl.last_response.body) == 0,
+                   "Response body not expected but present " \
+                   "with chunksize = %d" % chunksize)
 
     def test_0_purge_resp_non_hch(self):
     	# Normal (non heavy-chunked) test
@@ -131,10 +138,9 @@ Connection: keep-alive
                    'X-Forwarded-For: 127.0.0.1\r\n' \
                    'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' \
                    'Connection: keep-alive\r\n' \
-                   '\r\n' % tempesta.version()
+                   '\r\n' % tempesta.version(),
+          expect_body = False
         )
-
-
 
     def test_1_purge_resp_hch(self):
     	# Heavy-chunked test, iterative
@@ -156,7 +162,8 @@ Connection: keep-alive
                    'X-Forwarded-For: 127.0.0.1\r\n' \
                    'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' \
                    'Connection: keep-alive\r\n' \
-                   '\r\n' % tempesta.version()
+                   '\r\n' % tempesta.version(),
+          expect_body = False
         )
 
     def iterate_test(self, test_func, msg_size, *args, **kwargs):
@@ -166,4 +173,3 @@ Connection: keep-alive
             test_func(CHUNK_SIZES[i], *args, **kwargs)
             if CHUNK_SIZES[i] > msg_size:
                 break;
-
