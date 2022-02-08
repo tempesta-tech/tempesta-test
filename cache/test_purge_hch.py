@@ -84,15 +84,6 @@ cache_purge_acl ${client_ip};
                 frequest.original_data == expect,
                 "Request sent to backend differs from expected one")
 
-    def extract_head(self, a):
-        p = a.find("Host:")
-        return a[0:p]
-
-    def compare_head(self, a, b):
-        a = self.extract_head(a)
-        b = self.extract_head(b)
-        return a == b
-
     def test_0_purge_non_hch(self):
     	# Normal (non heavy-chunked) test
     	#
