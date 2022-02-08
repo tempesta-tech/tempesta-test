@@ -199,7 +199,6 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "Host: localhost\r\n" \
             "\r\n"
         response = self.get_server('deproxy').response
-        print (response)
         self.iterate_test(self.inner_test_ss_chunks, len(response), request)
 
     def inner_test_ssl(self, chunksize, request):
