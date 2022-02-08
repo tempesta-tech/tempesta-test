@@ -3,7 +3,7 @@ from helpers import tf_cfg, deproxy, tempesta
 import copy
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2021 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class HeavyChunkedPurgeRespTest(tester.TempestaTest):
