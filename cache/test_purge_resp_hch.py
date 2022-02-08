@@ -57,7 +57,7 @@ cache_purge_acl ${client_ip};
     def setUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]['response_content'] = self.generate_content()
-        super(HeavyChunkedPurgeTest, self).setUp()
+        super(HeavyChunkedPurgeRespTest, self).setUp()
 
     def generate_content(self):
         body = "x"*self.BODY_LENGTH
