@@ -84,16 +84,20 @@ Connection: keep-alive
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
         deproxy_cl.make_request(request_0)
         has_resp = deproxy_cl.wait_for_response(timeout=10)
+
         self.assertTrue(has_resp,
                "Response not received, with chunksize = %d" % chunksize)
         status = int(deproxy_cl.last_response.status)
         self.assertTrue(status == expect_status_0,
                "Wrong status: %d , expected: %d with chunksize = %d" %
-                   (status, expect_status, chunksize))
+                   (status, expect_status_0, chunksize))
+
         deproxy_cl.make_request(request)
         has_resp = deproxy_cl.wait_for_response(timeout=10)
+
         self.assertTrue(has_resp,
                "Response not received, with chunksize = %d" % chunksize)
         status = int(deproxy_cl.last_response.status)

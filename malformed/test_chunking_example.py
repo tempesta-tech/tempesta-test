@@ -104,29 +104,30 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
         deproxy_cl.make_request(request)
         self.assertTrue(deproxy_cl.valid_req_num != 0,
                 "Request was not parsed by deproxy client")
+
         has_resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(has_resp, "Response not received"
-                        + "; with chunk size = " + str(chunksize))
+        self.assertTrue(has_resp,
+                "Response not received; with chunk size = %d" % chunksize)
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == 200, "Wrong status: " + str(status)
-                                        +  ", expected: 200"
-                        + "; with chunk size = " + str(chunksize))
+        self.assertTrue(status == 200,
+                "Wrong status: %d, expected: 200" \
+                "; with chunk size = %d" % (status, chunksize))
         self.assertFalse(deproxy_srv.last_request is None,
-                           "Request was not send to backend"
-                        + "; with chunk size = " + str(chunksize))
+                "Request was not send to backend; with chunk size = %d"
+                 % chunksize)
+
         req = deproxy.Request(request)
-        hdrs = req.headers.iteritems()
         req2 = deproxy_srv.last_request
         hdrs2 = req2.headers
-        for hdr in hdrs:
+        for hdr in req.headers.iteritems():
             v2 = hdrs2.get(hdr[0], "-")
             self.assertTrue(hdr[1] == v2,
-                        "Header " + hdr[0] + " mismatch ("
-                                          + v2 + " != " + hdr[1] + ")"
-                        + "; with chunk size = " + str(chunksize))
+                "Header %s mismatch (%s != %s); with chunk size = %d"
+                % (hdr[0], v2, hdr[1], chunksize))
 
     def test_long_headers(self):
         # This function starts the test, iterating over different
@@ -161,7 +162,7 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "\r\n"
             # Excluded: "X-Forwarded-For: 127.0.0.1, example.com\r\n"
             # because TFW rewrites it
-        self.iterate_test(self.inner_test_correct_headers, len(request), request)
+        self.iterate_test(self.inner_test_long_headers, len(request), request)
 
     def inner_test_ss_chunks(self, chunksize, request):
         # This function makes a simple request to check
@@ -176,19 +177,21 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
         deproxy_cl.make_request(request)
         self.assertTrue(deproxy_cl.valid_req_num != 0,
                 "Request was not parsed by deproxy client")
+
         has_resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(has_resp, "Response not received"
-                        + "; with chunk size = " + str(chunksize))
+        self.assertTrue(has_resp,
+                "Response not received; with chunk size = %d" % chunksize)
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == 200, "Wrong status: " + str(status)
-                                        +  ", expected: 200"
-                        + "; with chunk size = " + str(chunksize))
+        self.assertTrue(status == 200,
+                "Wrong status: %d, expected: 200" \
+                "; with chunk size = %d" % (status, chunksize))
         self.assertFalse(deproxy_srv.last_request is None,
-                           "Request was not send to backend"
-                        + "; with chunk size = " + str(chunksize))
+                "Request was not send to backend" \
+                "; with chunk size = %d" % chunksize)
 
     def test_ss_chunks(self):
         # This function makes a simple request to check
@@ -213,19 +216,21 @@ tls_certificate_key ${general_workdir}/tempesta.key;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
         deproxy_cl.make_request(request)
         self.assertTrue(deproxy_cl.valid_req_num != 0,
                 "Request was not parsed by deproxy client")
+
         has_resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(has_resp, "Response not received"
-                        + "; with chunk size = " + str(chunksize))
+        self.assertTrue(has_resp,
+                "Response not received; with chunk size = %d" % chunksize)
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == 200, "Wrong status: " + str(status)
-                                        +  ", expected: 200"
-                        + "; with chunk size = " + str(chunksize))
+        self.assertTrue(status == 200,
+                "Wrong status: %d, expected: 200" \
+                "; with chunk size = %d" % (status, chunksize))
         self.assertFalse(deproxy_srv.last_request is None,
-                           "Request was not send to backend"
-                        + "; with chunk size = " + str(chunksize))
+                "Request was not send to backend" \
+                "; with chunk size = %d" % chunksize)
 
     def test_ssl(self):
         # This function makes simple requests over TLS,

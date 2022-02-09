@@ -61,20 +61,25 @@ cache_purge_acl ${client_ip};
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
         deproxy_cl.make_request(request_0)
         has_resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == expect_status_0, "Wrong status: " +
-               str(status) + ", expected: " + str(expect_status))
+        self.assertTrue(status == expect_status_0,
+               "Wrong status: %d, expected: %d" % (status, expect_status_0))
+
         if chunked:
             deproxy_cl.segment_size = 1
         deproxy_cl.make_request(request)
         has_resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == expect_status, "Wrong status: " +
-                str(status) + ", expected: " + str(expect_status))
+        self.assertTrue(status == expect_status,
+               "Wrong status: %d, expected: %d" % (status, expect_status))
+
         frequest = deproxy_srv.last_request
         if expect is None:
             self.assertTrue(frequest is None,
@@ -100,10 +105,10 @@ cache_purge_acl ${client_ip};
           expect = 'GET / HTTP/1.1\r\n' \
                    'Host: localhost\r\n' \
                    'X-Tempesta-Cache: GET\r\n' \
-                   'X-Forwarded-For: 127.0.0.1\r\n' +
-                   'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' % tempesta.version() +
+                   'X-Forwarded-For: 127.0.0.1\r\n' \
+                   'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' \
                    'Connection: keep-alive\r\n' \
-                   '\r\n'
+                   '\r\n' % tempesta.version()
         )
 
     def test_1_purge_hch(self):
@@ -122,10 +127,10 @@ cache_purge_acl ${client_ip};
           expect = 'GET / HTTP/1.1\r\n' \
                    'Host: localhost\r\n' \
                    'X-Tempesta-Cache: GET\r\n' \
-                   'X-Forwarded-For: 127.0.0.1\r\n' +
-                   'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' % tempesta.version() +
+                   'X-Forwarded-For: 127.0.0.1\r\n' \
+                   'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' \
                    'Connection: keep-alive\r\n' \
-                   '\r\n',
+                   '\r\n' % tempesta.version(),
           chunked = True
         )
 

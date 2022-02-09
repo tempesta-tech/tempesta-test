@@ -77,15 +77,17 @@ server ${general_ip}:8000;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
         deproxy_cl.make_request(request)
         has_resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == expect_status, "Wrong status: " + str(status)
-                                        +  ", expected: " + str(expect_status))
+        self.assertTrue(status == expect_status,
+               "Wrong status: %d, expected: %d" % (status, expect_status))
         if expect is None:
             self.assertTrue(deproxy_srv.last_request is None, 
-                                    "Request was unexpectedly sent to backend")
+               "Request was unexpectedly sent to backend")
         elif expect:
             self.assertTrue(
                 self.compare_head(
