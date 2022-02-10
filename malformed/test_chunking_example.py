@@ -21,11 +21,10 @@ __license__ = 'GPL2'
 # 2. A simple request test for chunked response from the backend server.
 # 3. A simple request test transmitted over TLS.
 #
-# Two example tests demonstrate a way to make chunking for tests defined
-# in tls/ directory, in test_tls_cert module. These tests defined in their
-# own classes inherited from the test_tls_cert classes. Note that test 5
-# uses TLS implementation # from Scapy and is controlled in a slightly
-# different manner.
+# Three example tests demonstrate a way to make chunking for tests defined
+# in tls/ directory. These tests are defined in their own classes inherited
+# from the tls/ classes. Note that tests 5 and 6 uses TLS implementation from
+# Scapy and are controlled in a slightly different manner.
 #
 # 4. Certificate test.
 # 5. Certificate select test.
@@ -38,7 +37,7 @@ class ChunkingTestIterator(object):
         # It have required positional parameters:
         # @test_func - a function to iterate. Supposed, it implements
         #              a test scenario and is a member of the same class.
-        # @msg_size - a size of the message (request or response which
+        # @msg_size - a size of the message (request or response) which
         #             plays as upper bound for chunk size
         # The function can accept additional positional and keyword
         # parameters with *args and **kwargs to forward them to
