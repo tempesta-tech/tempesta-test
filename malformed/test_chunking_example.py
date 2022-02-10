@@ -15,7 +15,7 @@ __license__ = 'GPL2'
 # iterate_test(), whereas outer text_xxx() is responsible for start and
 # setting required parameters, if any.
 #
-# Three example tests are defined in the ChunkingExpampleTest below class:
+# Three example tests are defined in the ChunkingExampleTest below class:
 #
 # 1. Test for forwarding the request with long and sophisticated header set.
 # 2. A simple request test for chunked response from the backend server.
@@ -50,7 +50,7 @@ class ChunkingTestIterator(object):
             if CHUNK_SIZES[i] > msg_size:
                 break;
 
-class ChunkingExpampleTest(tester.TempestaTest, ChunkingTestIterator):
+class ChunkingExampleTest(tester.TempestaTest, ChunkingTestIterator):
 
     backends = [
         {
@@ -257,7 +257,7 @@ tls_certificate_key ${general_workdir}/tempesta.key;
                           len(request) + 64, # some overhead for TLS
                           request)
 
-class CertificateChunkingExpampleTest(test_tls_cert.RSA1024_SHA384,
+class CertificateChunkingExampleTest(test_tls_cert.RSA1024_SHA384,
                                       ChunkingTestIterator):
     # This test iterates main RSA1024_SHA384 test with various chunk sizes
     # Unchunked test is executed as well because of inheritance
@@ -270,7 +270,7 @@ class CertificateChunkingExpampleTest(test_tls_cert.RSA1024_SHA384,
     def test_cert_chunking(self):
         self.iterate_test(self.inner_test_cert_chunking, 127)
 
-class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
+class CertSelectChunkingExampleTest(test_tls_cert.TlsCertSelect,
                                      ChunkingTestIterator):
     # This test iterates main TlsCertSelect test with various chunk sizes.
     # This test uses TLS implementation fron Scapy.
@@ -294,7 +294,7 @@ class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
         self.iterate_test(self.inner_test_csel_chunking, 127)
         self.segment_size = 0
 
-class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
+class TlsHandshakeChunkingExampleTest(test_tls_handshake.TlsHandshakeTest,
                                        ChunkingTestIterator):
     # This test iterates basic handshake test from TlsHandshakeTest test with
     # various chunk sizes. This test uses TLS implementation fron Scapy.
