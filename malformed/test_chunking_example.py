@@ -1,5 +1,6 @@
 from framework import tester
 from helpers import tf_cfg, deproxy
+from tls import test_tls_cert, test_tls_handshake
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -14,12 +15,43 @@ __license__ = 'GPL2'
 # iterate_test(), whereas outer text_xxx() is responsible for start and
 # setting required parameters, if any.
 #
-# Three example tests are defined here:
+# Three example tests are defined in the ChunkingExpampleTest below class:
+#
 # 1. Test for forwarding the request with long and sophisticated header set.
 # 2. A simple request test for chunked response from the backend server.
 # 3. A simple request test transmitted over TLS.
+#
+# Two example tests demonstrate a way to make chunking for tests defined
+# in tls/ directory, in test_tls_cert module. These tests defined in their
+# own classes inherited from the test_tls_cert classes. Note that test 5
+# uses TLS implementation # from Scapy and is controlled in a slightly
+# different manner.
+#
+# 4. Certificate test.
+# 5. Certificate select test.
+# 6. Basic TLS handshake test.
+#
 
-class ChunkingExpampleTest(tester.TempestaTest):
+class ChunkingTestIterator(object):
+    def iterate_test(self, test_func, msg_size, *args, **kwargs):
+        # This function provides iterations over various chunk sizes.
+        # It have required positional parameters:
+        # @test_func - a function to iterate. Supposed, it implements
+        #              a test scenario and is a member of the same class.
+        # @msg_size - a size of the message (request or response which
+        #             plays as upper bound for chunk size
+        # The function can accept additional positional and keyword
+        # parameters with *args and **kwargs to forward them to
+        # the @test_func().
+        # The function is located in the separate class for better reusability
+        CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216,
+                        1024*1024 ]
+        for i in range(len(CHUNK_SIZES)):
+            test_func(CHUNK_SIZES[i], *args, **kwargs)
+            if CHUNK_SIZES[i] > msg_size:
+                break;
+
+class ChunkingExpampleTest(tester.TempestaTest, ChunkingTestIterator):
 
     backends = [
         {
@@ -62,23 +94,6 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             'ssl'  : True
         },
     ]
-
-    def iterate_test(self, test_func, msg_size, *args, **kwargs):
-        # This function provides iterations over various chunk sizes.
-        # It have required positional parameters:
-        # @test_func - a function to iterate. Supposed, it implements
-        #              a test scenario and is a member of the same class.
-        # @msg_size - a size of the message (request or response which
-        #             plays as upper bound for chunk size
-        # The function can accept additional positional and keyword
-        # parameters with *args and **kwargs to forward them to
-        # the @test_func().
-        CHUNK_SIZES = [ 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216,
-                        1024*1024 ]
-        for i in range(len(CHUNK_SIZES)):
-            test_func(CHUNK_SIZES[i], *args, **kwargs)
-            if CHUNK_SIZES[i] > msg_size:
-                break;
 
     def inner_test_long_headers(self, chunksize, request):
         # This function defines a test scenario itself.
@@ -239,4 +254,70 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "GET / HTTP/1.1\r\n" \
             "Host: localhost\r\n" \
             "\r\n"
-        self.iterate_test(self.inner_test_ssl, len(request), request)
+        self.iterate_test(self.inner_test_ssl,
+                          len(request) + 64 /*some overhead for TLS*/,
+                          request)
+
+class CertificateChunkingExpampleTest(test_tls_cert.RSA1024_SHA384,
+                                      ChunkingTestIterator):
+    # This test iterates main RSA1024_SHA384 test with various chunk sizes
+    # Unchunked test is executed as well because of inheritance
+    
+    def inner_test_cert_chunking(self, chunksize):
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.segment_size = chunksize
+        self.test()
+        
+    def test_cert_chunking(self):
+        self.iterate_test(self.inner_test_cert_chunking, 127, request)
+
+class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
+                                     ChunkingTestIterator):
+    # This test iterates main TlsCertSelect test with various chunk sizes
+    # Unchunked test is executed as well because of inheritance
+    
+    segment_size = 0
+    segment_gap = 0
+
+    # overriding    
+    def get_tls_handshake(self)
+        return TlsHandshake(
+            chunk = segment_size if segment_size > 0 else None,
+            sleep_time = segment_gap / 1000
+        )
+    
+    def inner_test_csel_chunking(self, chunksize):
+        self.chunksize = chunksize
+        self.test_vhost_cert_selection()
+        
+    def test_csel_chunking(self):
+        self.iterate_test(self.inner_test_csel_chunking, 127, request)
+        self.chunksize = 0
+
+class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
+                                       ChunkingTestIterator):
+    # This test iterates basic handshake test from TlsHandshakeTest test with
+    # various chunk sizes.
+    # Unchunked tests are executed as well because of inheritance
+                                       
+    segment_size = 0
+    segment_gap = 0
+
+    def get_tls_handshake(self)
+        return TlsHandshake(
+            chunk = segment_size if segment_size > 0 else None,
+            sleep_time = segment_gap / 1000
+        )
+        
+    def _test_tls12_parametric(self):
+        self.start_all()
+        res = self.get_tls_handshake().do_12()
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
+
+    def inner_test_tls12_chunking(self, chunksize):
+        self.chunksize = chunksize
+        self._test_tls12_parametric()
+        
+    def test_tls12_chunking(self):
+        self.iterate_test(self.inner_test_chunking, 127, request)
+        self.chunksize = 0
