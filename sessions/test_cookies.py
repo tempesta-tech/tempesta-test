@@ -78,14 +78,6 @@ class CookiesNotEnabled(tester.TempestaTest):
         },
     ]
 
-    def wait_all_connections(self, tmt=1):
-        sids = self.get_servers_id()
-        for sid in sids:
-            srv = self.get_server(sid)
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
-
     def client_supports_cookies(self, client_name):
         for client in self.clients:
             if client['id'] == client_name:

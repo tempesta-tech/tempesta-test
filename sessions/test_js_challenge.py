@@ -14,13 +14,6 @@ __copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class BaseJSChallenge(tester.TempestaTest):
-    def wait_all_connections(self, tmt=1):
-        sids = self.get_servers_id()
-        for sid in sids:
-            srv = self.get_server(sid)
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
 
     def client_send_req(self, client, req):
         curr_responses = len(client.responses)

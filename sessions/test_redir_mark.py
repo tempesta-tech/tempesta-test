@@ -37,12 +37,6 @@ class BaseRedirectMark(tester.TempestaTest):
         }
     ]
 
-    def wait_all_connections(self, tmt=1):
-        srv = self.get_server('server')
-        if not srv.wait_for_connections(timeout=tmt):
-            return False
-        return True
-
     def client_expect_block(self, client, req):
         curr_responses = len(client.responses)
         client.make_requests(req)
