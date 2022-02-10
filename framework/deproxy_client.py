@@ -201,6 +201,7 @@ class BaseDeproxyClient(deproxy.Client):
         selfproxy.request_client_selfproxy(
             listen_host = "127.0.0.1",
             listen_port = selfproxy.CLIENT_MODE_PORT_REPLACE,
+            bind_host = self.bind_addr
             forward_host = self.conn_addr,
             forward_port = self.port,
             segment_size = self.segment_size,

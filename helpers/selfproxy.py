@@ -100,12 +100,14 @@ class ProxyConnection(asyncore.dispatcher_with_send):
 class SelfProxy(asyncore.dispatcher):
 
     def __init__(self, mode, listen_host, listen_port,
+                       bind_host,
                        forward_host, forward_port,
                        segment_size, segment_gap):
         asyncore.dispatcher.__init__(self)
         self.mode = mode
         self.listen_host = listen_host
         self.listen_port = listen_port
+        self.bind_host = bind_host
         self.forward_host = forward_host
         self.forward_port = forward_port
         self.segment_size = segment_size
@@ -145,7 +147,7 @@ class SelfProxy(asyncore.dispatcher):
             self.connections.append(accepted_conn)
             self.connections.append(forward_conn)
             forward_conn.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-            forward_conn.bind((self.listen_host, 0))
+            forward_conn.bind((self.bind_host, 0))
             forward_conn.connect((self.forward_host, self.forward_port))
 
 client_selfproxy = None
@@ -169,7 +171,7 @@ on SelfProxy instance, and the parameters of next calls are ignored
 and only the use couner is incremented. This should be reworked if
 meet some contardiction with future requirements.
 """
-def request_client_selfproxy(listen_host, listen_port,
+def request_client_selfproxy(listen_host, listen_port, bind_host,
                        forward_host, forward_port,
                        segment_size, segment_gap):
     global client_selfproxy
@@ -177,6 +179,7 @@ def request_client_selfproxy(listen_host, listen_port,
     if client_selfproxy is None:
         client_selfproxy = SelfProxy(CLIENT_MODE,
                            listen_host, listen_port,
+                           bind_host,
                            forward_host, forward_port,
                            segment_size, segment_gap)
         client_selfproxy_count = 1
