@@ -255,19 +255,19 @@ tls_certificate_key ${general_workdir}/tempesta.key;
             "Host: localhost\r\n" \
             "\r\n"
         self.iterate_test(self.inner_test_ssl,
-                          len(request) + 64 /*some overhead for TLS*/,
+                          len(request) + 64, # some overhead for TLS
                           request)
 
 class CertificateChunkingExpampleTest(test_tls_cert.RSA1024_SHA384,
                                       ChunkingTestIterator):
     # This test iterates main RSA1024_SHA384 test with various chunk sizes
     # Unchunked test is executed as well because of inheritance
-    
+
     def inner_test_cert_chunking(self, chunksize):
         deproxy_cl = self.get_client('deproxy')
         deproxy_cl.segment_size = chunksize
         self.test()
-        
+
     def test_cert_chunking(self):
         self.iterate_test(self.inner_test_cert_chunking, 127, request)
 
@@ -275,21 +275,21 @@ class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
                                      ChunkingTestIterator):
     # This test iterates main TlsCertSelect test with various chunk sizes
     # Unchunked test is executed as well because of inheritance
-    
+
     segment_size = 0
     segment_gap = 0
 
-    # overriding    
-    def get_tls_handshake(self)
+    # overriding
+    def get_tls_handshake(self):
         return TlsHandshake(
             chunk = segment_size if segment_size > 0 else None,
             sleep_time = segment_gap / 1000
         )
-    
+
     def inner_test_csel_chunking(self, chunksize):
         self.chunksize = chunksize
         self.test_vhost_cert_selection()
-        
+
     def test_csel_chunking(self):
         self.iterate_test(self.inner_test_csel_chunking, 127, request)
         self.chunksize = 0
@@ -299,16 +299,16 @@ class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
     # This test iterates basic handshake test from TlsHandshakeTest test with
     # various chunk sizes.
     # Unchunked tests are executed as well because of inheritance
-                                       
+
     segment_size = 0
     segment_gap = 0
 
-    def get_tls_handshake(self)
+    def get_tls_handshake(self):
         return TlsHandshake(
             chunk = segment_size if segment_size > 0 else None,
             sleep_time = segment_gap / 1000
         )
-        
+
     def _test_tls12_parametric(self):
         self.start_all()
         res = self.get_tls_handshake().do_12()
@@ -317,7 +317,7 @@ class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
     def inner_test_tls12_chunking(self, chunksize):
         self.chunksize = chunksize
         self._test_tls12_parametric()
-        
+
     def test_tls12_chunking(self):
         self.iterate_test(self.inner_test_chunking, 127, request)
         self.chunksize = 0
