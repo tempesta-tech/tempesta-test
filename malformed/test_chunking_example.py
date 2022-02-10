@@ -269,11 +269,12 @@ class CertificateChunkingExpampleTest(test_tls_cert.RSA1024_SHA384,
         self.test()
 
     def test_cert_chunking(self):
-        self.iterate_test(self.inner_test_cert_chunking, 127, request)
+        self.iterate_test(self.inner_test_cert_chunking, 127)
 
 class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
                                      ChunkingTestIterator):
-    # This test iterates main TlsCertSelect test with various chunk sizes
+    # This test iterates main TlsCertSelect test with various chunk sizes.
+    # This test uses TLS implementation fron Scapy.
     # Unchunked test is executed as well because of inheritance
 
     segment_size = 0
@@ -282,22 +283,22 @@ class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
     # overriding
     def get_tls_handshake(self):
         return TlsHandshake(
-            chunk = segment_size if segment_size > 0 else None,
-            sleep_time = segment_gap / 1000
+            chunk = self.segment_size if self.segment_size > 0 else None,
+            sleep_time = self.segment_gap / 1000
         )
 
     def inner_test_csel_chunking(self, chunksize):
-        self.chunksize = chunksize
+        self.segment_size = chunksize
         self.test_vhost_cert_selection()
 
     def test_csel_chunking(self):
-        self.iterate_test(self.inner_test_csel_chunking, 127, request)
-        self.chunksize = 0
+        self.iterate_test(self.inner_test_csel_chunking, 127)
+        self.segment_size = 0
 
 class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
                                        ChunkingTestIterator):
     # This test iterates basic handshake test from TlsHandshakeTest test with
-    # various chunk sizes.
+    # various chunk sizes. This test uses TLS implementation fron Scapy.
     # Unchunked tests are executed as well because of inheritance
 
     segment_size = 0
@@ -305,8 +306,8 @@ class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
 
     def get_tls_handshake(self):
         return TlsHandshake(
-            chunk = segment_size if segment_size > 0 else None,
-            sleep_time = segment_gap / 1000
+            chunk = self.segment_size if self.segment_size > 0 else None,
+            sleep_time = self.segment_gap / 1000
         )
 
     def _test_tls12_parametric(self):
@@ -315,9 +316,9 @@ class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def inner_test_tls12_chunking(self, chunksize):
-        self.chunksize = chunksize
+        self.segment_size = chunksize
         self._test_tls12_parametric()
 
     def test_tls12_chunking(self):
-        self.iterate_test(self.inner_test_chunking, 127, request)
-        self.chunksize = 0
+        self.iterate_test(self.inner_test_tls12_chunking, 127)
+        self.segment_size = 0
