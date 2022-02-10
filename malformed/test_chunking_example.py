@@ -1,6 +1,6 @@
 from framework import tester
 from helpers import tf_cfg, deproxy
-from tls import test_tls_cert, test_tls_handshake
+from tls import handshake, test_tls_cert, test_tls_handshake
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -281,7 +281,7 @@ class CertSelectChunkingExpampleTest(test_tls_cert.TlsCertSelect,
 
     # overriding
     def get_tls_handshake(self):
-        return TlsHandshake(
+        return handshake.TlsHandshake(
             chunk = self.segment_size if self.segment_size > 0 else None,
             sleep_time = self.segment_gap / 1000
         )
@@ -304,7 +304,7 @@ class TlsHandshakeChunkingExpampleTest(test_tls_handshake.TlsHandshakeTest,
     segment_gap = 0
 
     def get_tls_handshake(self):
-        return TlsHandshake(
+        return handshake.TlsHandshake(
             chunk = self.segment_size if self.segment_size > 0 else None,
             sleep_time = self.segment_gap / 1000
         )
