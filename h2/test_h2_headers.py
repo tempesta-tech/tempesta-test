@@ -389,17 +389,13 @@ return 200;
     def test(self):
         CurlTestBase.run_test(self, served_from_cache=True)
 
-def deproxy_backend_config(additional_headers):
+def deproxy_backend_config(headers):
     return {
         'id' : 'deproxy',
         'type' : 'deproxy',
         'port' : '8000',
         'response' : 'static',
-        'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Server-id: deproxy\r\n'
-            'Content-Length: 0\r\n'
-            '%s\r\n' % additional_headers
+        'response_content' : headers
     }
 
 class HeadersEmptyCache(CurlTestBase):
@@ -408,9 +404,12 @@ class HeadersEmptyCache(CurlTestBase):
     '''
 
     backends = [
-        deproxy_backend_config('Pragma:\r\n'
+        deproxy_backend_config('HTTP/1.1 200 OK\r\n'
+                               'Server-id: deproxy\r\n'
+                               'Content-Length: 0\r\n'
+                               'Pragma:\r\n'
                                'Empty-header:\r\n'
-                               'X-Extra-Data:\r\n')
+                               'X-Extra-Data:\r\n\r\n')
     ]
 
     tempesta = {
@@ -425,9 +424,12 @@ class HeadersSpacedCache(CurlTestBase):
     '''
 
     backends = [
-        deproxy_backend_config('Pragma: \r\n'
+        deproxy_backend_config('HTTP/1.1 200 OK\r\n'
+                               'Server-id: deproxy\r\n'
+                               'Content-Length: 0\r\n'
+                               'Pragma: \r\n'
                                'Empty-header: \r\n'
-                               'X-Extra-Data: \r\n')
+                               'X-Extra-Data: \r\n\r\n')
     ]
 
     tempesta = {
