@@ -420,7 +420,7 @@ class ResponseStaleCached(TestCacheControl, SingleTest):
     sleep_interval = 1.5
     should_be_cached = True
 
-class ResponseProxyRevalidateIgnore3(TestCacheControl, SingleTest):
+class ResponseProxyRevalidateStaleIgnore(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
         cache_control_ignore proxy-revalidate;

@@ -66,6 +66,21 @@ vhost default {
 %s
 """
 
+TEMPESTA_DEPROXY_CONFIG = """
+listen 443 proto=h2;
+
+srv_group default {
+    server ${general_ip}:8000;
+}
+vhost default {
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+    proxy_pass default;
+}
+%s
+"""
+
 class HeadersParsing(tester.TempestaTest):
     '''Ask curl to make an h2 request, test failed if return code is not 0.
     '''
@@ -144,6 +159,32 @@ class CurlTestBase(tester.TempestaTest):
         nginx = self.get_server('nginx')
         nginx.get_stats()
         self.assertEqual(1 if served_from_cache else 2, nginx.requests,
+                         msg="Unexpected number forwarded requests to backend")
+
+    def run_deproxy_test(self, served_from_cache=False):
+        curl = self.get_client('curl')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections())
+
+        self.wait_while_busy(curl)
+        self.assertEqual(0, curl.returncode,
+                         msg=("Curl return code is not 0 (%d)." %
+                              (curl.returncode)))
+        curl.stop()
+
+        self.start_all_clients()
+        self.wait_while_busy(curl)
+        self.assertEqual(0, curl.returncode,
+                         msg=("Curl return code is not 0 (%d)." %
+                              (curl.returncode)))
+
+        srv = self.get_server('deproxy')
+        self.assertEqual(1 if served_from_cache else 2, len(srv.requests),
                          msg="Unexpected number forwarded requests to backend")
 
 class AddBackendShortHeaders(CurlTestBase):
@@ -347,3 +388,53 @@ return 200;
 
     def test(self):
         CurlTestBase.run_test(self, served_from_cache=True)
+
+def deproxy_backend_config(headers):
+    return {
+        'id' : 'deproxy',
+        'type' : 'deproxy',
+        'port' : '8000',
+        'response' : 'static',
+        'response_content' : headers
+    }
+
+class HeadersEmptyCache(CurlTestBase):
+    ''' Empty headers in responses might lead to kernel panic
+        (see tempesta issue #1549).
+    '''
+
+    backends = [
+        deproxy_backend_config('HTTP/1.1 200 OK\r\n'
+                               'Server-id: deproxy\r\n'
+                               'Content-Length: 0\r\n'
+                               'Pragma:\r\n'
+                               'Empty-header:\r\n'
+                               'X-Extra-Data:\r\n\r\n')
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_DEPROXY_CONFIG % "cache_fulfill * *;",
+    }
+
+    def test(self):
+        CurlTestBase.run_deproxy_test(self, served_from_cache=True)
+
+class HeadersSpacedCache(CurlTestBase):
+    ''' Same as EmptyHeadersCache, but with spaces as header values.
+    '''
+
+    backends = [
+        deproxy_backend_config('HTTP/1.1 200 OK\r\n'
+                               'Server-id: deproxy\r\n'
+                               'Content-Length: 0\r\n'
+                               'Pragma: \r\n'
+                               'Empty-header: \r\n'
+                               'X-Extra-Data: \r\n\r\n')
+    ]
+
+    tempesta = {
+        'config' : TEMPESTA_DEPROXY_CONFIG % "cache_fulfill * *;",
+    }
+
+    def test(self):
+        CurlTestBase.run_deproxy_test(self, served_from_cache=True)
