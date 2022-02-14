@@ -77,7 +77,6 @@ Connection: keep-alive
         # to None to check that request is missing
         deproxy_srv = self.get_server('deproxy')
         deproxy_srv.segment_size = chunksize
-        #print (deproxy_srv.response)
         deproxy_srv.start()
         self.start_tempesta()
         deproxy_cl = self.get_client('deproxy')
