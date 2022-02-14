@@ -27,10 +27,11 @@ import time
 import calendar # for calendar.timegm()
 from  BaseHTTPServer import BaseHTTPRequestHandler
 from . import error, tf_cfg, tempesta, stateful
+import re
 
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 #-------------------------------------------------------------------------------
@@ -136,11 +137,9 @@ class HeaderCollection(object):
         return default
 
     @staticmethod
-    def from_stream(rfile, message=None, no_crlf=False):
-        length = 0
+    def from_stream(rfile, no_crlf=False):
         headers = HeaderCollection()
         line = rfile.readline()
-        length += len(line)
         while not (line == '\r\n' or line == '\n'):
             if no_crlf and not line:
                 break
@@ -154,14 +153,11 @@ class HeaderCollection(object):
             name = name.strip()
             value = value.strip()
             line = rfile.readline()
-            length += len(line)
             while line.startswith(' ') or line.startswith('\t'):
                 # Continuation lines - see RFC 2616, section 4.2
                 value += ' ' + line.strip()
                 line = rfile.readline()
             headers.add(name, value)
-        if message != None:
-            message.original_length += length
         return headers
 
     def _as_dict_lower(self):
@@ -229,7 +225,8 @@ class HeaderCollection(object):
 class HttpMessage(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, message_text=None, body_parsing=True, method="GET"):
+    def __init__(self, message_text=None, body_parsing=True, method="GET",
+                       keep_original_data=None):
         self.msg = ''
         self.original_length = 0
         self.method = method
@@ -237,6 +234,8 @@ class HttpMessage(object):
         self.headers = HeaderCollection()
         self.trailer = HeaderCollection()
         self.body = ''
+        self.keep_original_data = keep_original_data
+        self.original_data = ''
         self.version = "HTTP/0.9" # default version.
         if message_text:
             self.parse_text(message_text, body_parsing)
@@ -246,6 +245,9 @@ class HttpMessage(object):
         stream = StringIO(message_text)
         self.__parse(stream)
         self.build_message()
+        self.original_length = stream.tell()
+        if self.keep_original_data:
+            self.original_data = message_text[:self.original_length]
 
     def __parse(self, stream):
         self.parse_firstline(stream)
@@ -268,7 +270,7 @@ class HttpMessage(object):
         return ''
 
     def parse_headers(self, stream):
-        self.headers = HeaderCollection.from_stream(stream, self)
+        self.headers = HeaderCollection.from_stream(stream)
 
     def read_encoded_body(self, stream, is_req):
         """ RFC 7230. 3.3.3 #3 """
@@ -285,7 +287,6 @@ class HttpMessage(object):
     def read_rest_body(self, stream):
         """ RFC 7230. 3.3.3 #7 """
         self.body = stream.read()
-        self.original_length += len(self.body)
 
     def read_chunked_body(self, stream):
         while True:
@@ -297,8 +298,9 @@ class HttpMessage(object):
                 chunk = stream.readline()
                 self.body += chunk
 
+                chunk_size_raw = len(chunk)
                 chunk_size = len(chunk.rstrip('\r\n'))
-                if chunk_size < size:
+                if chunk_size < size or chunk_size_raw < chunk_size + 2:
                     raise IncompleteMessage('Incomplete chunked body')
                 assert chunk_size == size
                 assert chunk[-1] == '\n'
@@ -308,7 +310,6 @@ class HttpMessage(object):
                 raise
             except:
                 raise ParseError('Error in chunked body')
-        self.original_length += len(self.body)
 
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
@@ -319,16 +320,14 @@ class HttpMessage(object):
 
         self.body = stream.read(size)
         if len(self.body) > size:
-            self.original_length += len(self.body)
             raise ParseError(("Wrong body size: expect %d but got %d!"
                               % (size, len(self.body))))
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
             raise IncompleteMessage()
-        self.original_length += len(self.body)
 
     def parse_trailer(self, stream):
-        self.trailer = HeaderCollection.from_stream(stream, self, no_crlf=True)
+        self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
 
     @abc.abstractmethod
     def __eq__(self, other):
@@ -402,9 +401,12 @@ class Request(HttpMessage):
 
     def parse_firstline(self, stream):
         requestline = stream.readline()
-        self.original_length += len(requestline)
         if requestline[-1] != '\n':
             raise IncompleteMessage('Incomplete request line!')
+
+        # Skip optional empty lines
+        while re.match('^[\r]?$', requestline) and len(requestline) > 0:
+            requestline = stream.readline()
 
         words = requestline.rstrip('\r\n').split()
         if len(words) == 3:
@@ -460,7 +462,6 @@ class Response(HttpMessage):
 
     def parse_firstline(self, stream):
         statusline = stream.readline()
-        self.original_length += len(statusline)
         if statusline[-1] != '\n':
             raise IncompleteMessage('Incomplete Status line!')
 

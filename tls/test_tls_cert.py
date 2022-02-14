@@ -366,6 +366,11 @@ class TlsCertSelect(tester.TempestaTest):
         """,
         'custom_cert': True
     }
+    
+    # This function can be redefined in subclasses to provide
+    # an instance TlsHandshake() with different parameters
+    def get_tls_handshake(self):
+        return TlsHandshake()
 
     @staticmethod
     def gen_cert(host_name, alg=None):
@@ -394,5 +399,5 @@ class TlsCertSelect(tester.TempestaTest):
                         "Cannot start Tempesta")
         # TlsHandshake proposes EC only cipher suite and it must successfully
         # request Tempesta.
-        res = TlsHandshake().do_12()
+        res = self.get_tls_handshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)

@@ -68,7 +68,7 @@ class TlsHandshake:
     Use True for @verbose to see debug output for the handshake.
     """
     def __init__(self, addr=None, port=443, io_to=0.5, chunk=None,
-                 verbose=False):
+                 sleep_time=0.001, verbose=False):
         if addr:
             self.addr = addr
         else:
@@ -76,6 +76,7 @@ class TlsHandshake:
         self.port = port
         self.io_to = io_to # seconds, maybe not so small fraction of a second.
         self.chunk = chunk
+        self.sleep_time = sleep_time if sleep_time >= 0.001 else 0.001;
         # We should be able to send at least 10KB with 1ms chunk delay for RTO.
         if self.chunk and self.chunk < 10000:
             io_to = 10000 / self.chunk * 0.001
@@ -181,7 +182,7 @@ class TlsHandshake:
                        segmentation offloads.
                     """
                     self.sock._s.sendall(chunk)
-                    sleep(0.001)
+                    sleep(self.sleep_time)
                 self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
                 self.sock.settimeout(prev_timeout)
             else:

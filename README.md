@@ -282,24 +282,40 @@ other options, depending on item type.
 
 Now such backends are supported:
 1) type == nginx
-    status_uri: uri where nginx status is located
-    config: nginx config
+    - status_uri: uri where nginx status is located
+    - config: nginx config
 
 2) type == deproxy
-    port: listen this port
-    response: type of response. Now only 'static' is supported
-        response == static:
-            response_content: always response this content
+    - port: listen this port
+    - response: type of response. Now only 'static' is supported
+      - response == static:
+         - response_content: always response this content,
+         - keep_original_data: optional: if set to True,
+                the original request will be kept in Request.original_data field
+                as it has arrived by the wire,
+                otherwise (say, the parameter is not defined at all)
+                Request.original_data will be left blank
+         - segment_size: optional: TCP segment size for heavy chunked testing, bytes, 0 for disable
+         - segment_gap: optional: inter-segment gap for heavy chunked testing, ms, 0 for disable
+              - you usualy do not need it; update timeouts if you use it
 
 and such clients:
 1) type == wrk
-    addr: 'ip:port'
+    - addr: 'ip:port'
 
 2) type == deproxy
-    addr: ip addr of server to connect
-    port: port
+    - addr: ip addr of server to connect
+    - port: port
+    - keep_original_data: optional: if set to True,
+           the original response will be kept in Response.original_data field
+           as it has arrived by the wire,
+           otherwise (say, the parameter is not defined at all)
+           Response.original_data will be left blank
+    - segment_size: optional: TCP segment size for heavy chunked testing, bytes, 0 for disable
+    - segment_gap: optional: inter-segment gap for heavy chunked testing, ms, 0 for disable
+       - you usualy do not need it; update timeouts if you use it
 
-All options are mandatory
+All options are mandatory, unless explicitly stated otherwise.
 
 nginx config, deproxy response, addr and port can use templates
 in format `${part_variable}` where `part` is one of 'server',
@@ -312,6 +328,16 @@ Example tests can be found in `selftests/test_framework.py`
 
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).
+
+### Testing with chunked messages
+
+Some tests require division of request or response into small TCP segments ("chunks").
+This division is controlled by segment_size parameter of the client or the backend
+(see above). Usualy better to set this parameter programmaticaly rather than in client
+or backend configuration.
+
+An example to create tests which divide requests or responsies into chunks and
+iterate over various chunk sizes is here: `malformed/test_chunking_example.py`.
 
 ## Internal structure and motivation of user configured tests
 
