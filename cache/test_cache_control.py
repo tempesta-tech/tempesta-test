@@ -22,8 +22,13 @@ class TestCacheControl(tester.TempestaTest):
     tempesta_template = {
         'config' :
             """
-            server ${general_ip}:8000;
             cache 2;
+            srv_group default {
+                server ${general_ip}:8000;
+            }
+            vhost vh1 {
+                proxy_pass default;
+            }
             %(tempesta_config)s
             """
     }
@@ -41,7 +46,7 @@ class TestCacheControl(tester.TempestaTest):
                 '%(response_headers)s\r\n'
         },
     ]
-    
+
     tempesta_config = '''
         cache_fulfill * *;
         '''
@@ -155,7 +160,7 @@ class TestCacheControl(tester.TempestaTest):
         else:
             self.assertEqual(2, len(srv.requests),
                              "response is cached while it should not be")
- 
+
         if self.should_be_cached:
             self.check_cached_response_headers(cached_response)
         else:
@@ -175,7 +180,7 @@ class SingleTest(object):
 # - "NotCached" - response is normally not cached (forwarded upstream);
 # - "Ignore" - the directive is disabled by cache_control_ignore, default
 #              behaviour ensues.
-# - empty value for default behaviour, 
+# - empty value for default behaviour,
 # For example, ResponseMustRevalidateIgnore - testing "must-revalidate"
 # in the request, which should be ignored due to cache_control_ignore.
 
@@ -689,7 +694,7 @@ class CCArgNoCacheCached2(TestCacheControl, SingleTest):
     cached_headers = {'Remove-me': None, 'Remove-me-2': '"arg"',
         'Cache-control': 'no-cache="remove-me"'}
     should_be_cached = True
-    
+
 class CCArgNoCacheCached3(TestCacheControl, SingleTest):
     tempesta_config = '''
         cache_fulfill * *;
@@ -743,4 +748,67 @@ class CCArgBothNoCacheCached(TestCacheControl, SingleTest):
         'Cache-control': 'no-cache="set-cookie, Remove-me-2"'}
     cached_headers = {'Set-cookie': None, 'remove-me-2': None,
         'Cache-control': 'no-cache="set-cookie, Remove-me-2"'}
+    should_be_cached = True
+
+#########################################################
+#  Http chain cache action test
+#########################################################
+# bypass cache
+class HttpChainCacheActionBypass(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        http_chain {
+            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
+            cookie "comment_author_*" == "*" -> $$cache = 0;
+            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            -> vh1;
+        }
+        '''
+    request_headers = {'Cookie': 'foo_items_in_cart='}
+    response_headers = {}
+    should_be_cached = False
+
+# bypass cache due to override later
+class HttpChainCacheActionOverrideBypass(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        http_chain {
+            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
+            cookie "comment_author_*" == "*" -> $$cache = 1;
+            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            -> vh1;
+        }
+        '''
+    request_headers = {'Cookie': 'comment_author_name=john; wordpress_logged_in=true'}
+    response_headers = {}
+    should_be_cached = False
+
+#  honour cache due to override later
+class HttpChainCacheActionOverrideCached(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        http_chain {
+            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
+            cookie "comment_author_*" == "*" -> $$cache = 1;
+            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            -> vh1;
+        }
+        '''
+    request_headers = {'Cookie': 'foo_items_in_cart=; comment_author_name=john'}
+    response_headers = {}
+    should_be_cached = True
+
+# honour cache
+class HttpChainCacheActionCached(TestCacheControl, SingleTest):
+    tempesta_config = '''
+        cache_fulfill * *;
+        http_chain {
+            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
+            cookie "comment_author_*" == "*" -> $$cache = 1;
+            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            -> vh1;
+        }
+        '''
+    request_headers = {'Cookie': 'comment_author_name=john'}
+    response_headers = {}
     should_be_cached = True
