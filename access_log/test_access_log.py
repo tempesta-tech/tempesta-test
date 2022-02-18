@@ -1,5 +1,3 @@
-import re
-
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -7,54 +5,13 @@ __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 from helpers import dmesg
+from .common import AccessLogLine
 
-
-class AccessLogLine:
-    def __init__(self, ip, vhost, method, uri, version, status,
-                 response_length, referer, user_agent):
-        self.ip = ip
-        self.vhost = vhost
-        self.method = method
-        self.uri = uri
-        self.version = version
-        self.status = status
-        self.response_length = response_length
-        self.referer = referer
-        self.user_agent = user_agent
-
-    def __repr__(self):
-        data = []
-        for f in ['ip', 'vhost', 'method', 'uri', 'version', 'status',
-                'response_length', 'referer', 'user_agent']:
-            x = getattr(self, f)
-            if x is not None:
-                if isinstance(x, str):
-                    data.append('%s => "%s"' % (f, x))
-                else:
-                    data.append('%s => %d' % (f, x))
-        return ', '.join(data)
-
-    @staticmethod
-    def parse(s):
-        fields = list(map(lambda x: x.strip('"'), s.split(' ')))
-        if len(fields) != 9:
-            return None
-        return AccessLogLine(
-            ip=fields[0],
-            vhost=fields[1],
-            method=fields[2],
-            uri=fields[3],
-            version=fields[4],
-            status=int(fields[5]),
-            response_length=int(fields[6]),
-            referer=fields[7],
-            user_agent=fields[8],
-        )
 
 class CheckedResponses(tester.TempestaTest):
     HTTP_200_OK = 'HTTP/1.1 200 OK\r\n' \
-                'Content-Length: 0\r\n' \
-                'Connection: keep-alive\r\n\r\n'
+                  'Content-Length: 0\r\n' \
+                  'Connection: keep-alive\r\n\r\n'
 
     clients = [
         {
@@ -85,10 +42,6 @@ class CheckedResponses(tester.TempestaTest):
             listen 80;
             access_log on;
 
-            #frang_limits {
-            #    http_host_required;
-            #}
-
             server ${general_ip}:8000;
 
         """
@@ -96,7 +49,7 @@ class CheckedResponses(tester.TempestaTest):
 
     # prepare request and set _expected method/version/ua/referer fields
     def make_request(self, uri, method='GET', version='1.1',
-                      request_body=None, **kwargs):
+                     request_body=None, **kwargs):
         request = [
             '{method} {uri} HTTP/{version}'.format(method=method, uri=uri,
                                                    version=version),
@@ -152,13 +105,7 @@ class CheckedResponses(tester.TempestaTest):
         deproxy_cl.start()
         deproxy_cl.make_requests(request_as_str)
         deproxy_cl.wait_for_response()
-        klog.update()
-        for line in klog.log.split('\n'):
-            msg = AccessLogLine.parse(line)
-            if msg is not None:
-                return msg
-
-        return None
+        return AccessLogLine.from_dmesg(klog)
 
     # send request that will be replied with specified
     # `status` and `body` and check dmesg for expected access_log string
@@ -166,7 +113,7 @@ class CheckedResponses(tester.TempestaTest):
         user_agent = 'ua-code-string-%d' % status
         referer = 'referer-code-string-%d' % status
         request = self.make_request('/expect-status-%d' % status,
-                                     referer=referer, user_agent=user_agent)
+                                    referer=referer, user_agent=user_agent)
         self.set_response(status, body)
 
         deproxy_cl = self.get_client('client')
@@ -211,7 +158,7 @@ class AccessLogTest(CheckedResponses):
         ]:
             self.check_response(klog, status, body)
 
-    def test_uri_trunk(self):
+    def test_uri_truncate(self):
         self.start_all()
         klog = dmesg.DmesgFinder(ratelimited=False)
         req = self.make_request('/too-long-uri_' + '1' * 4000,
@@ -221,7 +168,8 @@ class AccessLogTest(CheckedResponses):
         self.assertTrue(msg is not None, "No access_log message in dmesg")
         self.assertEqual(msg.method, 'GET', 'Wrong method')
         self.assertEqual(msg.status, 200, 'Wrong HTTP status')
-        self.assertEqual(msg.uri[:len('/too-long-uri_1111')], '/too-long-uri_1111',
+        self.assertEqual(msg.uri[:len('/too-long-uri_1111')],
+                         '/too-long-uri_1111',
                          'Wrong uri prefix')
         self.assertEqual(msg.uri[-4:], '1...', 'URI does not looks truncated')
         self.assertEqual(msg.user_agent, 'user-agent', 'Wrong user-agent')
@@ -243,7 +191,7 @@ class AccessLogTest(CheckedResponses):
         self.assertNotEqual(msg.ip, '-', 'Wrong ip')
 
 
-## Ensure
+# Ensure message is logged when request is rejected by frang
 class AccessLogFrang(CheckedResponses):
     tempesta = {
         'config': """
