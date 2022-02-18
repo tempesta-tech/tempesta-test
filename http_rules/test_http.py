@@ -33,6 +33,9 @@ class HttpRules(functional.FunctionalTest):
         '  hdr referer ==  "http://example.com*" -> hdr_r_p;\n'
         '  hdr From ==  "testuser@example.com" -> hdr_raw_e;\n'
         '  hdr Warning ==  "172 *" -> hdr_raw_p;\n'
+        '  cookie ""foo_items_in_cart" == "*" -> $cache = 0;\n'
+        '  cookie "comment_author_*" == "*" -> $cache = 0;\n'
+        '  cookie "wordpress_logged_in*" == "*" -> $cache = 0;\n'
         '  -> default;\n'
         '}\n'
         '\n')
