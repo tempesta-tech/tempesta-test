@@ -7,7 +7,7 @@ from helpers import chains, remote
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class HttpTablesTest(tester.TempestaTest):
@@ -75,6 +75,15 @@ class HttpTablesTest(tester.TempestaTest):
             'response_content' :
             'HTTP/1.1 200 OK\r\n'
             'Content-Length: 0\r\n\r\n'
+        },
+        {
+            'id' : 7,
+            'type' : 'deproxy',
+            'port' : '8007',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n\r\n'
         }
     ]
 
@@ -103,6 +112,9 @@ class HttpTablesTest(tester.TempestaTest):
         srv_group grp7 {
         server ${server_ip}:8006;
         }
+        srv_group grp8 {
+        server ${server_ip}:8007;
+        }
         vhost vh1 {
         proxy_pass grp1;
         }
@@ -124,6 +136,9 @@ class HttpTablesTest(tester.TempestaTest):
         vhost vh7 {
         proxy_pass grp7;
         }
+        vhost vh8 {
+        proxy_pass grp8;
+        }
         http_chain chain1 {
         uri == "/static*" -> vh1;
         uri == "*.php" -> vh2;
@@ -143,6 +158,7 @@ class HttpTablesTest(tester.TempestaTest):
         hdr referer == "http://example.*" -> chain3;
         hdr host == "bad.host.com" -> block;
         hdr host == "bar*" -> vh5;
+        cookie "tempesta" == "*" -> vh8;
         mark == 1 -> vh7;
         mark == 2 -> vh6;
         mark == 3 -> vh5;
@@ -196,6 +212,12 @@ class HttpTablesTest(tester.TempestaTest):
             'type' : 'deproxy',
             'addr' : "${tempesta_ip}",
             'port' : '80'
+        },
+        {
+            'id' : 7,
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '80'
         }
     ]
 
@@ -241,7 +263,13 @@ class HttpTablesTest(tester.TempestaTest):
             ('host'),
             ('bad.host.com'),
             True
-        )
+        ),
+                (
+            ('/baz/index.html'),
+            ('cookie'),
+            ('tempesta=test'),
+            False
+        ),
     ]
 
     chains = []
