@@ -63,7 +63,7 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
             cmd, err_msg=(self.err_msg % ('get stats of', self.get_name())))
         m = re.search(r'Active connections: (\d+) \n'
                       r'server accepts handled requests\n \d+ \d+ (\d+)',
-                      out)
+                      out.decode())
         if m:
             # Current request increments active connections for nginx.
             self.active_conns = int(m.group(1)) - 1

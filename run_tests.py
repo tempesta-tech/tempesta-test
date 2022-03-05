@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 from __future__ import print_function
 import unittest
 import getopt
@@ -278,11 +278,11 @@ if state_reader.has_file and not test_resume.from_file:
     state_reader.drop()
 
 # filter testcases
-resume_filter = test_resume.filter()
+resume_filter = test_resume.filter() 
 tests = [ t
           for t in tests
           if resume_filter(t)
-          and (not inclusions or shell.testcase_in(t, inclusions))
+          or (not inclusions or shell.testcase_in(t, inclusions))
           and not shell.testcase_in(t, exclusions) ]
 
 #

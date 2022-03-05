@@ -35,6 +35,6 @@ def bug(msg='', stdout=None, stderr=None):
     if stderr is not None:
         stderr = "\n\t" + "\n\t".join(stderr.splitlines()) + "\n"
         msg += "\nstderr:%s" % stderr
-    raise Error(msg), None, exc_info[2]
+    raise Error(msg).with_traceback(exc_info[2])
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

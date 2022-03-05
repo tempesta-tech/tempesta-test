@@ -5,7 +5,7 @@ __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 import os
-import body_generator
+from .body_generator import generate_body
 
 from testers import stress
 from helpers import tf_cfg, control, tempesta, remote
@@ -19,7 +19,7 @@ class ResponseTestBase(stress.StressTest):
 
     def create_content(self, length):
         """ Create content file """
-        content = body_generator.generate_body(length)
+        content = generate_body(length)
         location = tf_cfg.cfg.get('Server', 'resources')
         self.fullname = os.path.join(location, self.filename)
         tf_cfg.dbg(3, "Copy %s to %s" % (self.filename, self.fullname))

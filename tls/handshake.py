@@ -24,7 +24,7 @@ from time import sleep
 
 from helpers import dmesg, tf_cfg
 from helpers.error import Error
-from scapy_ssl_tls import ssl_tls as tls
+from .scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
@@ -45,7 +45,7 @@ def x509_check_cn(cert, cn):
     """
     for f in cert.tbsCertificate.issuer:
         if f.rdn[0].type.val == '2.5.4.3':
-            return str(f.rdn[0].value).endswith(cn)
+            return f.rdn[0].value.endswith(cn)
     raise Error("Certificate has no CommonName")
 
 
@@ -55,7 +55,7 @@ def x509_check_issuer(cert, issuer):
     """
     for f in cert.tbsCertificate.issuer:
         if f.rdn[0].type.val == '2.5.4.10':
-            return str(f.rdn[0].value).endswith(issuer)
+            return f.rdn[0].value.endswith(issuer)
     raise Error("Certificate has no Issuer OrganizationName")
 
 
@@ -135,7 +135,7 @@ class TlsHandshake:
         # default.
         self.sock.settimeout(self.io_to)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                             struct.pack('ll', self.io_to * 1000, 0))
+                             struct.pack('ll', int(self.io_to * 1000), 0))
         if self.chunk:
             # Send data immediately w/o coalescing.
             self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -154,14 +154,14 @@ class TlsHandshake:
                 prev_timeout = self.sock.gettimeout()
                 self.sock.settimeout(self.io_to)
                 if self.sock.ctx.must_encrypt:
-                    __s = str(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
+                    __s = bytes(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
                                              self.sock.compress_hook,
                                              self.sock.pre_encrypt_hook,
                                              self.sock.encrypt_hook))
                 else:
-                    __s = str(pkt)
+                    __s = bytes(pkt)
                 n = self.chunk
-                for chunk in [__s[i:i + n] for i in xrange(0, len(__s), n)]:
+                for chunk in [__s[i:i + n] for i in range(0, len(__s), n)]:
                     """
                     This is a simple and ugly way to send many TCP segments,
                     but it's the most applicable with other ways - some of
@@ -283,10 +283,8 @@ class TlsHandshake:
             session_id=self.session_id,
             session_id_length=len(self.session_id),
             cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
-                self.ciphers,
-            compression_methods=[tls.TLSCompressionMethod.NULL] +
-                self.compressions,
+                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
+            compression_methods=[tls.TLSCompressionMethod.NULL],
             # EtM isn't supported - just try to negate an unsupported extension.
             extensions=[
                 tls.TLSExtension(type=0x16), # Encrypt-then-MAC
@@ -415,7 +413,7 @@ class TlsHandshake:
         resp = self.send_recv(tls.TLSPlaintext(data=req))
         if resp.haslayer(tls.TLSRecord):
             self.http_resp = resp[tls.TLSRecord].data
-            res = self.http_resp.startswith(GOOD_RESP)
+            res = self.http_resp.decode().startswith(GOOD_RESP)
         else:
             res = False
         if self.verbose:

@@ -44,7 +44,7 @@ class FailoveringTest(functional.FunctionalTest):
 
     def check_server_connections(self):
         for s in self.servers:
-            self.assertLessEqual(s.connections, s.conns_n)
+            self.assertLessEqual(s.connections, len(s.conns_n))
 
     def test_on_close(self):
         self.init()

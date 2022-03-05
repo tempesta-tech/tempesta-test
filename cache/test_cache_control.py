@@ -77,7 +77,7 @@ class TestCacheControl(tester.TempestaTest):
 
         self.backends = copy.deepcopy(self.backends_template)
         headers = ''
-        for name, val in self.response_headers.iteritems():
+        for name, val in self.response_headers.items():
             headers += '%s: %s\r\n' % (name, '' if val is None else val)
         self.backends[0]['response_content'] = \
             self.backends[0]['response_content'] % {'response_headers': headers}
@@ -98,7 +98,7 @@ class TestCacheControl(tester.TempestaTest):
         return client.last_response
 
     def check_response_headers(self, response):
-        for name, val in self.response_headers.iteritems():
+        for name, val in self.response_headers.items():
             actual_val = response.headers.get(name, None)
             if actual_val is None:
                 self.assertIsNone(actual_val,
@@ -108,7 +108,7 @@ class TestCacheControl(tester.TempestaTest):
                     "{} header is present in the response".format(name))
 
     def check_cached_response_headers(self, response):
-        for name, val in self.cached_headers.iteritems():
+        for name, val in self.cached_headers.items():
             actual_val = response.headers.get(name, None)
             if actual_val is None:
                 self.assertIsNone(actual_val,
@@ -126,7 +126,7 @@ class TestCacheControl(tester.TempestaTest):
 
         req_headers = ''
         if self.request_headers:
-            for name, val in self.request_headers.iteritems():
+            for name, val in self.request_headers.items():
                 req_headers += '%s: %s\r\n' % (name, '' if val is None else val)
         req = ("GET / HTTP/1.1\r\n"
                "Host: localhost\r\n"
@@ -143,7 +143,7 @@ class TestCacheControl(tester.TempestaTest):
 
         req_headers2 = ''
         if self.request_headers:
-            for name, val in self.second_request_headers.iteritems():
+            for name, val in self.second_request_headers.items():
                 req_headers2 += '%s: %s\r\n' % (name, '' if val is None else val)
         req2 = ("GET / HTTP/1.1\r\n"
                "Host: localhost\r\n"

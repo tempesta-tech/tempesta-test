@@ -5,7 +5,7 @@ __copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 import unittest
-import body_generator
+from .body_generator import generate_body
 
 from testers import stress
 from helpers import tf_cfg, control, tempesta, remote, wrk
@@ -21,7 +21,7 @@ class RequestTestBase(stress.StressTest):
     def create_clients_with_body(self, length):
         """ Create wrk client with long request body """
         self.generator = wrk.ScriptGenerator()
-        self.generator.set_body(body_generator.generate_body(length))
+        self.generator.set_body(generate_body(length))
 
         self.wrk = control.Wrk()
         self.wrk.set_script(self.script, content=self.generator.make_config())

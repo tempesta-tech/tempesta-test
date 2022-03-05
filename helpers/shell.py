@@ -226,7 +226,7 @@ def testsuite_flatten(dest, src):
 def testcase_in(test, lst):
     test_id = test.id()
     for entry in lst:
-        if test_id == entry or test_id.startswith(entry + '.'):
+        if test_id == entry or test_id.startswith((entry if entry else '') + '.'):
             return True
     return False
 
