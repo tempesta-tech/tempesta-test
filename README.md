@@ -88,14 +88,10 @@ nginx should not be running before the tests start
 
 `wrk` is an HTTP benchmarking tool, available from [Github](https://github.com/wg/wrk).
 
-`ab` is Apache benchmark tool, that can be found in `apache2-utils` package in
-Debian or `httpd-tools` in CentOS.
+`ab` is Apache benchmark tool, that can be found in `apache2-utils` package.
 
 `h2spec` is HTTP/2 conformance test suite. Can't be installed from package
 manager and must be retrieved from [GitHub](https://github.com/summerwind/h2spec/releases/latest).
-
-Unfortunately, CentOS does not have `python-subprocess32` package, but it can be
-downloaded from [CentOS CBS](https://cbs.centos.org/koji/buildinfo?buildID=10904)
 
 Testing framework manages other hosts via SSH protocol, so the host running
 testing framework must be able to be authenticated on other hosts by the key.
