@@ -13,8 +13,6 @@ __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
-WARN = "Warning: Unrecognized TLS receive return code"
-
 class TlsHandshakeTest(tester.TempestaTest):
 
     backends = [
@@ -104,7 +102,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "ClientHello: bad extension size"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
@@ -129,8 +128,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
-                         "Bad SNI isn't rejected")
+        self.assertEqual(self.oops.warn_count("bad.server.name"), 1,
+                         "Bad SNI isn't logged")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sign_algs(self):
@@ -144,7 +143,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "ClientHello: bad signature algorithm extension"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
@@ -159,7 +159,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "None of the common ciphersuites is usable"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
@@ -171,7 +172,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
-        self.assertEqual(self.oops.warn_count(WARN), 1,
+        warn = "ClientHello: bad renegotiation_info"
+        self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about non-empty RenegotiationInfo")
 
     def test_alert(self):
@@ -266,6 +268,61 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         res = TlsHandshakeStandard().do_old()
         self.assertTrue(res, "Wrong old handshake result: %s" % res)
+
+
+class TlsMissingDefaultKey(tester.TempestaTest):
+    backends = TlsHandshakeTest.backends
+
+    tempesta = {
+        'config' : """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group be1 { server ${server_ip}:8000; }
+
+            vhost example.com {
+                proxy_pass be1;
+            }
+
+            vhost tempesta-tech.com {
+                proxy_pass be1;
+                tls_certificate ${general_workdir}/tempesta.crt;
+                tls_certificate_key ${general_workdir}/tempesta.key;
+            }
+
+            http_chain {
+                host == "tempesta-tech.com" -> tempesta-tech.com;
+                host == "example.com" -> example.com;
+                -> block;
+            }
+        """,
+    }
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test(self):
+        deproxy_srv = self.get_server('0')
+        deproxy_srv.start()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
+                        "Cannot start Tempesta")
+
+        # tempesta.com => ok
+        res = TlsHandshake().do_12()
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
+
+        # example.com => internal error
+        hs = TlsHandshake()
+        hs.sni = ['example.com']
+        with self.assertRaises(tls.TLSProtocolError):
+            hs.do_12()
+        # empty sni => internal error
+        hs = TlsHandshake()
+        hs.sni = []
+        with self.assertRaises(tls.TLSProtocolError):
+            hs.do_12()
+        self.assertEqual(self.oops.warn_count("requested misconfigured vhost"), 2,
+                         "Bad SNI isn't logged")
 
 
 class TlsVhostHandshakeTest(tester.TempestaTest):

@@ -261,6 +261,8 @@ class TLSLimitsBurst(TLSLimits):
 class TLSLimitsIncomplete(tester.TempestaTest):
     """Client is blocked if it recently tried to open a few TLS sessions, none
     of them was successfully established.
+    The Python test might be not so fast so we need to issue more requests than
+    the actual limit to make sure that we fit the time frame for the limit.
     """
 
     clients = [
@@ -383,7 +385,7 @@ class TLSLimitsIncomplete(tester.TempestaTest):
             }
 
             frang_limits {
-                tls_incomplete_connection_rate 10;
+                tls_incomplete_connection_rate 3;
             }
         """
     }
@@ -391,9 +393,6 @@ class TLSLimitsIncomplete(tester.TempestaTest):
     TLS_WARN="Warning: frang: incomplete TLS connections rate exceeded"
 
     def test(self):
-        """
-        """
-
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
@@ -410,9 +409,11 @@ class TLSLimitsIncomplete(tester.TempestaTest):
         for i in range(11):
             deproxy_cl = self.get_client('%d' %i)
             deproxy_cl.start()
-            # Push some data as request, don't use make_requests() here to
-            # avoid parsing errors on TLS alers
-            deproxy_cl.request_buffers += requests
+            # Push some data as request, but it will be sent as plain HTTP
+            # to a TLS socket, so 'Bad TLS record' handshake error happens
+            # on the Tempesta side. Since a TLS connection isn't established,
+            # not TLS alerts are send by Tempesta.
+            deproxy_cl.make_requests(requests)
             # Give some time to process events.
             time.sleep(0.01)
             if not deproxy_cl.connection_is_closed():
@@ -426,7 +427,9 @@ class TLSLimitsIncomplete(tester.TempestaTest):
         self.assertEqual(0, connected)
         self.assertEqual(11, not_connected)
         wc = self.klog.warn_count(self.TLS_WARN)
-        self.assertEqual(wc, 1, "Frang limits warning is not shown")
+        # We run more requests to be in time for the limit, so there could be
+        # several warnings.
+        self.assertTrue(wc >= 1, "Frang limits warning is not shown")
 
 
 class TLSMatchHostSni(tester.TempestaTest):
