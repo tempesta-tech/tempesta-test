@@ -86,10 +86,10 @@ class TlsHandshakeTest(tester.TempestaTest):
         # first, and there are no such number of distinct ciphers to fill those
         # 758 bytes, it's safe to ignore the remainder. Just making sure
         # Tempesta doesn't crash and doesn't generate an error message.
-        hs12.ciphers = range(2000)
+        hs12.ciphers = list(range(2000))
         # Add some compressions as well. `0` is NULL-compression, so we are
         # good.
-        hs12.compressions = range(15)
+        hs12.compressions = list(range(15))
         res = hs12.do_12()
         self.assertTrue(res)
 
@@ -98,7 +98,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         """ Also tests receiving of TLS alert. """
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.sni = ["a" * 100 for i in xrange(10)]
+        hs12.sni = ["a" * 100 for i in range(10)]
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
             hs12.do_12()
@@ -154,7 +154,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Generate bit longer data than Tempesta accepts (TTLS_ECP_DP_MAX = 12).
         hs12.elliptic_curves = [tls.TLSExtension() /
                                 tls.TLSExtEllipticCurves(
-                                    named_group_list=range(13),
+                                    named_group_list=list(range(13)),
                                     length=26)]
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         with self.assertRaises(tls.TLSProtocolError):
@@ -220,10 +220,10 @@ class TlsHandshakeTest(tester.TempestaTest):
         """
         self.start_all()
         fuzzer = tls_record_fuzzer()
-        for _ in xrange(10):
+        for _ in range(10):
             # Only 4 places to inject a packet in simple handshake and
             # request test.
-            for inject_rec in xrange(4):
+            for inject_rec in range(4):
                 tls_conn = TlsHandshake()
                 tls_conn.inject = inject_rec
                 try:

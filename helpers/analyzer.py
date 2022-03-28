@@ -178,7 +178,7 @@ class AnalyzerTCPSegmentation(Sniffer):
         # We're good if Tempesta generates less number of packets than
         # the server. We skip the initial TCP SYN-ACK, and the TLS 1.2
         # 2-RTT handshake overhead. This may fail for TLS 1.3.
-        for i in xrange(3, tfw_n):
+        for i in range(3, tfw_n):
             if i - 2 >= srv_n:
                 tf_cfg.dbg(4, "Extra packet %d, size=%d"
                               % (i, self.tfw_pkts[i]))

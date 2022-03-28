@@ -159,7 +159,7 @@ class TlsHandshake:
                 else:
                     __s = str(pkt)
                 n = self.chunk
-                for chunk in [__s[i:i + n] for i in xrange(0, len(__s), n)]:
+                for chunk in [__s[i:i + n] for i in range(0, len(__s), n)]:
                     """
                     This is a simple and ugly way to send many TCP segments,
                     but it's the most applicable with other ways - some of
