@@ -29,15 +29,15 @@ class LiveReconfStress(stress.StressTest):
         self.const_srvs = []
         self.servers = []
 
-        for _ in range(rm_srv_n):
+        for _ in range(int(rm_srv_n)):
             server = control.Nginx(listen_port=port)
             self.rm_srvs.append(server)
             port += 1
-        for _ in range(const_srv_n):
+        for _ in range(int(const_srv_n)):
             server = control.Nginx(listen_port=port)
             self.const_srvs.append(server)
             port += 1
-        for _ in range(add_srn_n):
+        for _ in range(int(add_srn_n)):
             server = control.Nginx(listen_port=port)
             self.add_srvs.append(server)
             port += 1

@@ -65,7 +65,7 @@ class PairingTester(deproxy.Deproxy):
         e_req = self.last_req + req_n
         b_req = self.last_req
 
-        for i in range(b_req, e_req):
+        for i in range(int(b_req), int(e_req)):
             self.client.clear()
             self.client.set_request(self.message_chains[i])
 

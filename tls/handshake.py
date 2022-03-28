@@ -133,7 +133,7 @@ class TlsHandshake:
         # default.
         self.sock.settimeout(self.io_to)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                             struct.pack('ll', self.io_to * 1000, 0))
+                             struct.pack('ll', int(self.io_to * 1000), 0))
         if self.chunk:
             # Send data immediately w/o coalescing.
             self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
