@@ -162,7 +162,7 @@ class TestHealthMonitor(functional.FunctionalTest):
         self.create_chains()
         if self.crc_check:
             resp_body = self.ch_disabled.server_response.body
-            self.crc32 = hex(~binascii.crc32(resp_body, 0xffffffff) & 0xffffffff)
+            self.crc32 = hex(~binascii.crc32(resp_body.encode(), 0xffffffff) & 0xffffffff)
         functional.FunctionalTest.setUp(self)
 
     def get_config(self):

@@ -67,16 +67,16 @@ class Wrk(client.Client):
         return client.Client.form_command(self)
 
     def parse_out(self, stdout, stderr):
-        m = re.search(r'(\d+) requests in ', stdout)
+        m = re.search(r'(\d+) requests in ', stdout.decode())
         if m:
             self.requests = int(m.group(1))
-        m = re.search(r'Non-2xx or 3xx responses: (\d+)', stdout)
+        m = re.search(r'Non-2xx or 3xx responses: (\d+)', stdout.decode())
         if m:
             self.errors = int(m.group(1))
-        m = re.search(r'Requests\/sec:\s+(\d+)', stdout)
+        m = re.search(r'Requests\/sec:\s+(\d+)', stdout.decode())
         if m:
             self.rate = int(m.group(1))
-        matches = re.findall(r'Status (\d{3}) : (\d+) times', stdout)
+        matches = re.findall(r'Status (\d{3}) : (\d+) times', stdout.decode())
         for match in matches:
             status = match[0]
             status = int(status)
@@ -85,7 +85,7 @@ class Wrk(client.Client):
             self.statuses[status] = amount
 
         sock_err_msg = "Socket errors on wrk. Too many concurrent connections?"
-        m = re.search(r'(Socket errors:.+)', stdout)
+        m = re.search(r'(Socket errors:.+)', stdout.decode())
         if self.FAIL_ON_SOCK_ERR:
             assert not m, sock_err_msg
         if m:

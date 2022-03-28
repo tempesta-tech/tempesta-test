@@ -55,7 +55,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         if response:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response.')
             tf_cfg.dbg(5, response)
-            self.send(response)
+            self.send(response.encode())
         else:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Don\'t have response')
         if self.keep_alive:
@@ -77,7 +77,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
                 pass
 
     def handle_read(self):
-        self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
+        self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         try:
             request = deproxy.Request(self.request_buffer,
                           keep_original_data =

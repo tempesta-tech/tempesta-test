@@ -681,7 +681,7 @@ class Client(TlsClient, stateful.Stateful):
     def handle_read(self):
         while True: # TLS aware - read as many records as we can
             try:
-                buf = self.recv(MAX_MESSAGE_SIZE)
+                buf = self.recv(MAX_MESSAGE_SIZE).decode()
             except IOError as err:
                 if err.errno == errno.EWOULDBLOCK:
                     break
@@ -719,7 +719,7 @@ class Client(TlsClient, stateful.Stateful):
     def handle_write(self):
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, self.request_buffer)
-        sent = self.send(self.request_buffer)
+        sent = self.send(self.request_buffer.encode())
         self.request_buffer = self.request_buffer[sent:]
 
     def handle_error(self):
@@ -746,7 +746,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
 
     def handle_read(self):
-        self.request_buffer += self.recv(MAX_MESSAGE_SIZE)
+        self.request_buffer += self.recv(MAX_MESSAGE_SIZE).decode()
         try:
             request = Request(self.request_buffer)
         except IncompleteMessage:
@@ -777,7 +777,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         if response.msg:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response to Tempesta.')
             tf_cfg.dbg(5, response.msg)
-            self.send(response.msg)
+            self.send(response.msg.encode())
         else:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Try send invalid response.')
         if self.keep_alive:

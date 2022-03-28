@@ -73,7 +73,7 @@ def route_dst_ip(node, ip):
     command = "LANG=C ip route get to %s | grep -o 'dev [a-zA-Z0-9_-]*'" % ip
     try:
         res, _ = node.run_cmd(command)
-        return res.split()[1]
+        return res.split()[1].decode()
     except Error as err:
         raise Error("Can not determine outgoing device for %s: %s"
                     % (ip, err))

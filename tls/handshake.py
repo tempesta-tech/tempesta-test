@@ -43,7 +43,7 @@ def x509_check_cn(cert, cn):
     """
     for f in cert.tbsCertificate.issuer:
         if f.rdn[0].type.val == '2.5.4.3':
-            return str(f.rdn[0].value).endswith(cn)
+            return bytes(f.rdn[0].value).decode().endswith(cn)
     raise Error("Certificate has no CommonName")
 
 
@@ -53,7 +53,7 @@ def x509_check_issuer(cert, issuer):
     """
     for f in cert.tbsCertificate.issuer:
         if f.rdn[0].type.val == '2.5.4.10':
-            return str(f.rdn[0].value).endswith(issuer)
+            return bytes(f.rdn[0].value).decode().endswith(issuer)
     raise Error("Certificate has no Issuer OrganizationName")
 
 
@@ -152,12 +152,12 @@ class TlsHandshake:
                 prev_timeout = self.sock.gettimeout()
                 self.sock.settimeout(self.io_to)
                 if self.sock.ctx.must_encrypt:
-                    __s = str(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
+                    __s = bytes(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
                                              self.sock.compress_hook,
                                              self.sock.pre_encrypt_hook,
                                              self.sock.encrypt_hook))
                 else:
-                    __s = str(pkt)
+                    __s = bytes(pkt)
                 n = self.chunk
                 for chunk in [__s[i:i + n] for i in range(0, len(__s), n)]:
                     """
@@ -413,7 +413,7 @@ class TlsHandshake:
         resp = self.send_recv(tls.TLSPlaintext(data=req))
         if resp.haslayer(tls.TLSRecord):
             self.http_resp = resp[tls.TLSRecord].data
-            res = self.http_resp.startswith(GOOD_RESP)
+            res = self.http_resp.decode().startswith(GOOD_RESP)
         else:
             res = False
         if self.verbose:

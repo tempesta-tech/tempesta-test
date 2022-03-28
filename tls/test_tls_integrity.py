@@ -59,7 +59,7 @@ class TlsIntegrityTester(tester.TempestaTest):
 
     def common_check(self, req_len, resp_len):
         resp_body = 'x' * resp_len
-        hash1 = hashlib.md5(resp_body).digest()
+        hash1 = hashlib.md5(resp_body.encode()).digest()
 
         self.get_server('deproxy').set_response(self.make_resp(resp_body))
 
@@ -72,7 +72,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             resp = client.responses[-1].body
             tf_cfg.dbg(4, '\tDeproxy response (len=%d): %s...'
                        % (len(resp), resp[:100]))
-            hash2 = hashlib.md5(resp).digest()
+            hash2 = hashlib.md5(resp.encode()).digest()
             self.assertTrue(hash1 == hash2, "Bad response checksum")
 
     @contextmanager
@@ -251,7 +251,7 @@ class CloseConnection(tester.TempestaTest):
 
     def common_check(self, req_len, resp_len):
         resp_body = 'x' * resp_len
-        hash1 = hashlib.md5(resp_body).digest()
+        hash1 = hashlib.md5(resp_body.encode()).digest()
 
         self.get_server('deproxy').set_response(self.make_resp(resp_body))
 
@@ -263,7 +263,7 @@ class CloseConnection(tester.TempestaTest):
         resp = client.responses[-1].body
         tf_cfg.dbg(4, '\tDeproxy response (len=%d): %s...'
                    % (len(resp), resp[:100]))
-        hash2 = hashlib.md5(resp).digest()
+        hash2 = hashlib.md5(resp.encode()).digest()
         self.assertTrue(hash1 == hash2, "Bad response checksum")
 
     def test1(self):

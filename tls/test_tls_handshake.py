@@ -392,8 +392,8 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         cgen = CertGenerator(cert_path, key_path)
         cgen.CN = host_name + u'.net'
         cgen.generate()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def init(self):
         self.gen_cert("vhost1")
@@ -408,7 +408,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         vhs.sni = ["vhost1.net"]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost1: %s" % res)
-        self.assertTrue(vhs.http_resp.endswith("be1"),
+        self.assertTrue(vhs.http_resp.decode().endswith("be1"),
                         "Bad response from vhost1: [%s]" % vhs.http_resp)
         self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
                         "Wrong certificate received for vhost1")
@@ -417,7 +417,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         vhs.sni = ["vhost2.net"]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost2: %s" % res)
-        self.assertTrue(vhs.http_resp.endswith("be2"),
+        self.assertTrue(vhs.http_resp.decode().endswith("be2"),
                         "Bad response from vhost2: [%s]" % vhs.http_resp)
         self.assertTrue(x509_check_cn(vhs.cert, "vhost2.net"),
                         "Wrong certificate received for vhost2")
@@ -434,7 +434,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         vhs.host = "vhost1.net"
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
-        self.assertTrue(vhs.http_resp.endswith("be1"),
+        self.assertTrue(vhs.http_resp.decode().endswith("be1"),
                         "Bad response from vhost1: [%s]" % vhs.http_resp)
         self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
                         "Wrong certificate received for vhost1")
@@ -444,7 +444,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         vhs.host = "vhost2.net"
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
-        self.assertTrue(vhs.http_resp.endswith("be2"),
+        self.assertTrue(vhs.http_resp.decode().endswith("be2"),
                         "Bad response from vhost2: [%s]" % vhs.http_resp)
         self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
                         "Wrong certificate received for vhost1")
@@ -505,9 +505,8 @@ class TlsCertReconfig(tester.TempestaTest):
         cgen = CertGenerator(cert_path, key_path)
         cgen.O = u'New Issuer'
         cgen.generate()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
-
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
     def test(self):
         deproxy_srv = self.get_server('0')
         deproxy_srv.start()

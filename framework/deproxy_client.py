@@ -91,7 +91,7 @@ class BaseDeproxyClient(deproxy.Client):
             self.polling_lock.release()
 
     def handle_read(self):
-        self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
+        self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
         tf_cfg.dbg(4, '\tDeproxy: Client: Receive response.')
@@ -139,9 +139,9 @@ class BaseDeproxyClient(deproxy.Client):
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, reqs[self.cur_req_num])
         if self.segment_size != 0 and not self.selfproxy_present:
-            sent = self.send(reqs[self.cur_req_num][:self.segment_size])
+            sent = self.send(reqs[self.cur_req_num][:self.segment_size].encode())
         else:
-            sent = self.send(reqs[self.cur_req_num])
+            sent = self.send(reqs[self.cur_req_num].encode())
         if sent < 0:
             return
         self.last_segment_time = time.time()

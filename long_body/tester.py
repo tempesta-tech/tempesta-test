@@ -16,7 +16,7 @@ class ClientMultipleResponses(deproxy.Client):
             self.request_buffer = request_chain.request.msg
 
     def handle_read(self):
-        self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE)
+        self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
         tf_cfg.dbg(4, '\tDeproxy: Client: Receive response from Tempesta.')

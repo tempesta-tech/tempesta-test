@@ -53,10 +53,10 @@ class Sniffer(object):
         '''
         stdout, stderr = self.node.run_cmd(self.cmd, timeout=None,
                                            err_msg=(self.err_msg % 'start'))
-        match = re.search(r'(\d+) packets captured', stderr)
+        match = re.search(r'(\d+) packets captured', stderr.decode())
         if match:
             self.captured = int(match.group(1))
-        with open(self.dump_file, 'w') as f:
+        with open(self.dump_file, 'wb') as f:
             f.write(stdout)
 
     def start(self):

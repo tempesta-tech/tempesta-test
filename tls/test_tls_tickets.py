@@ -213,8 +213,8 @@ class TlsVhostConfusion(tester.TempestaTest):
         cgen = CertGenerator(cert_path, key_path)
         cgen.CN = host_name
         cgen.generate()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def start_all(self):
         self.gen_certs(u'tempesta-tech.com')
