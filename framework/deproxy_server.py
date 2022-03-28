@@ -6,10 +6,10 @@ import socket
 import time
 
 from helpers import deproxy, tf_cfg, error, stateful, remote, tempesta
-from templates import fill_template
+from .templates import fill_template
 
-import tester
-import port_checks
+import framework.port_checks as port_checks
+import framework.tester
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2021 Tempesta Technologies, Inc.'

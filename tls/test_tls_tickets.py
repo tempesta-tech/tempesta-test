@@ -5,7 +5,7 @@ Test TLS tickets: Tempesta must handle both full and abbreviated handshakes.
 from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
-from handshake import *
+from .handshake import *
 
 
 __author__ = 'Tempesta Technologies, Inc.'

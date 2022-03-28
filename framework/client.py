@@ -3,7 +3,7 @@ import os
 import multiprocessing
 
 from helpers import remote, tf_cfg, stateful
-from templates import fill_template
+from .templates import fill_template
 
 def _run_client(client, exit_event, resq):
     res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))

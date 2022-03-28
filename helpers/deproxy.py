@@ -16,7 +16,7 @@ standard tools.
 """
 from __future__ import print_function
 import abc
-from StringIO import StringIO
+from io import StringIO
 import asyncore
 import errno
 import select
@@ -25,7 +25,7 @@ import ssl
 import sys
 import time
 import calendar # for calendar.timegm()
-from  BaseHTTPServer import BaseHTTPRequestHandler
+from  http.server import BaseHTTPRequestHandler
 from . import error, tf_cfg, tempesta, stateful
 import re
 
@@ -596,9 +596,8 @@ class TlsClient(asyncore.dispatcher):
         self.writable = self.tls_handshake_writable
         self.readable = self.tls_handshake_readable
         try:
-            self.socket = ssl.SSLSocket(self.socket,
-                                        do_handshake_on_connect=False,
-                                        server_hostname=self.server_hostname)
+            self.socket = ssl.wrap_socket(self.socket,
+                                        do_handshake_on_connect=False)
         except IOError as tls_e:
             tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
             raise tls_e

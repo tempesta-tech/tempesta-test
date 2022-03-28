@@ -24,7 +24,7 @@ from time import sleep
 
 from helpers import dmesg, tf_cfg
 from helpers.error import Error
-from scapy_ssl_tls import ssl_tls as tls
+from .scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'

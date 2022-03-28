@@ -5,8 +5,8 @@ handshake messages.
 from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
-from handshake import *
-from fuzzer import tls_record_fuzzer
+from .handshake import *
+from .fuzzer import tls_record_fuzzer
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'

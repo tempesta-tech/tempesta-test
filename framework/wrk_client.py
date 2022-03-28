@@ -3,7 +3,7 @@ import os
 import re
 
 from helpers import control, stateful, tf_cfg, remote
-from templates import fill_template
+from .templates import fill_template
 
 from . import client
 

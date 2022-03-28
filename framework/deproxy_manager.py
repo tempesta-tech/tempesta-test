@@ -1,4 +1,4 @@
-import Queue
+import queue
 import threading
 import asyncore
 import select
@@ -36,7 +36,7 @@ class DeproxyManager(stateful.Stateful):
     Tests don't need to manually use this class."""
 
     def __init__(self):
-        self.thread_expts = Queue.Queue()
+        self.thread_expts = queue.Queue()
         self.servers = []
         self.clients = []
         self.exit_event = threading.Event()
@@ -66,7 +66,7 @@ class DeproxyManager(stateful.Stateful):
     def thread_exception(self):
         try:
             return self.thread_expts.get()
-        except Queue.Empty:
+        except queue.Empty:
             return None
 
     def __stop(self):

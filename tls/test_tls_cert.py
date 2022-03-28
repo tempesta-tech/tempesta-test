@@ -9,8 +9,8 @@ from helpers import dmesg, remote, tf_cfg
 from helpers.error import Error
 from framework import tester
 from framework.x509 import CertGenerator
-from handshake import TlsHandshake
-from scapy_ssl_tls import ssl_tls as tls
+from .handshake import TlsHandshake
+from .scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
