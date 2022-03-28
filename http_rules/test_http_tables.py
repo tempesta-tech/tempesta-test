@@ -275,7 +275,8 @@ class HttpTablesTest(tester.TempestaTest):
     chains = []
     match_rules_test = True
 
-    def init_chain(self, (uri, header, value, block)):
+    def init_chain(self, params):
+        uri, header, value, block = params
         ch = chains.base(uri=uri)
         if block and self.match_rules_test:
             ch.request.headers.delete_all(header)

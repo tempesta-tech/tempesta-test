@@ -66,7 +66,8 @@ class Stage(object):
         self.assert_msg(result[0] == 'response', result)
         return self.tester.next_stage(result)
 
-    def assert_msg(self, cond, (message, received, expected), trans=False):
+    def assert_msg(self, cond, messages, trans=False):
+        message, received, expected = messages
         trans_str = ' during transition' if trans else ''
         assert cond, \
             ("Received message (%s) does not suit expected one%s!\n\n"
