@@ -56,10 +56,10 @@ class HeaderCollection(object):
         self.is_expected = False
         self.expected_time_delta = None
         if mapping is not None:
-            for k, v in mapping.iteritems():
+            for k, v in mapping.items():
                 self.add(k, v)
         if kwargs is not None:
-            for k, v in kwargs.iteritems():
+            for k, v in kwargs.items():
                 self.add(k, v)
 
     def set_expected(self, expected_time_delta=0):
