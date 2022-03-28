@@ -91,7 +91,7 @@ class StressTls(tester.TempestaTest):
         self.wait_while_busy(wrk)
         wrk.stop()
 
-        self.assertTrue(wrk.statuses.has_key(200))
+        self.assertTrue(200 in wrk.statuses)
         self.assertGreater(wrk.statuses[200], 0)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -139,7 +139,7 @@ class TempestaTest(unittest.TestCase):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
         clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl, bind_addr=bind_addr)
-        if ssl and client.has_key('ssl_hostname'):
+        if ssl and 'ssl_hostname' in client:
             # Don't set SNI by default, do this only if it was specified in
             # the client configuration.
             server_hostname = fill_template(client['ssl_hostname'], client)
@@ -188,7 +188,7 @@ class TempestaTest(unittest.TestCase):
         checks = []
         sid = server['id']
         populate_properties(server)
-        if server.has_key('check_ports'):
+        if 'check_ports' in server:
             for check in server['check_ports']:
                 ip = fill_template(check['ip'], server)
                 port = fill_template(check['port'], server)
@@ -212,7 +212,7 @@ class TempestaTest(unittest.TestCase):
 
     def get_server(self, sid):
         """ Return client with specified id """
-        if not self.__servers.has_key(sid):
+        if sid not in self.__servers:
             return None
         return self.__servers[sid]
 
@@ -232,7 +232,7 @@ class TempestaTest(unittest.TestCase):
 
     def get_client(self, cid):
         """ Return client with specified id """
-        if not self.__clients.has_key(cid):
+        if cid not in self.__clients:
             return None
         return self.__clients[cid]
 

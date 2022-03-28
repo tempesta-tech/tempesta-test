@@ -361,8 +361,8 @@ server ${server_ip}:8600;
         self.wait_while_busy(wrk)
         wrk.stop()
 
-        self.assertFalse(wrk.statuses.has_key(200))
-        self.assertTrue(wrk.statuses.has_key(405))
+        self.assertFalse(200 in wrk.statuses)
+        self.assertTrue(405 in wrk.statuses)
         self.assertGreater(wrk.statuses[405], 0)
 
     def test_connect(self):
