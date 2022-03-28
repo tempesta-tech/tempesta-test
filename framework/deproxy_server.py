@@ -232,4 +232,4 @@ def deproxy_srv_factory(server, name, tester):
     tester.deproxy_manager.add_server(srv)
     return srv
 
-tester.register_backend('deproxy', deproxy_srv_factory)
+framework.tester.register_backend('deproxy', deproxy_srv_factory)

@@ -204,7 +204,7 @@ class TestResume(object):
         self.state.saver.inclusions = set(inclusions)
         self.state.saver.exclusions = set(exclusions)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.state.last_id is not None
 
     def filter(self):
@@ -226,7 +226,7 @@ def testsuite_flatten(dest, src):
 def testcase_in(test, lst):
     test_id = test.id()
     for entry in lst:
-        if test_id == entry or test_id.startswith(entry + '.'):
+        if test_id == entry or test_id.startswith((entry if entry else '') + '.'):
             return True
     return False
 
