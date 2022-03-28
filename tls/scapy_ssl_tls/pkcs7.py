@@ -3,7 +3,7 @@
 # Author : janglin <http://japrogbits.blogspot.co.at>
 # http://japrogbits.blogspot.co.at/2011/02/using-encrypted-data-between-python-and.html
 import binascii
-import StringIO
+from io import StringIO
 
 
 class PKCS7Encoder(object):
@@ -43,7 +43,7 @@ class PKCS7Encoder(object):
         Remove the PKCS#7 padding from a text string
         """
         nl = len(text)
-        val = int(binascii.hexlify(text[-1]), 16)
+        val = text[-1]
         if val > self.k:
             raise ValueError('Input is not padded or padding is corrupt')
 
@@ -59,8 +59,9 @@ class PKCS7Encoder(object):
 
     def get_padding(self, text):
         l = len(text)
-        output = StringIO.StringIO()
+        output = StringIO()
         val = self.k - (l % self.k)
-        for _ in xrange(val):
+        for _ in range(val):
             output.write('%02x' % val)
-        return binascii.unhexlify(output.getvalue())
+        ret = binascii.unhexlify(output.getvalue())
+        return ret
