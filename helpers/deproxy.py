@@ -542,12 +542,15 @@ class TlsClient(asyncore.dispatcher):
     about TLS and only need to set ssl constructor argument to employ TLS.
     """
 
-    def __init__(self, ssl=False):
+    def __init__(self, is_ssl=False):
         asyncore.dispatcher.__init__(self)
-        self.ssl = ssl
+        self.ssl = is_ssl
         self.want_read = False
         self.want_write = True # TLS ClientHello is the first one
         self.server_hostname = None
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self.context.check_hostname = False
+        self.context.verify_mode = ssl.CERT_NONE
 
     def set_server_hostname(self, server_hostname):
         self.server_hostname = server_hostname
@@ -596,8 +599,10 @@ class TlsClient(asyncore.dispatcher):
         self.writable = self.tls_handshake_writable
         self.readable = self.tls_handshake_readable
         try:
-            self.socket = ssl.wrap_socket(self.socket,
-                                        do_handshake_on_connect=False)
+            self.socket = self.context.wrap_socket(self.socket,
+                                                   do_handshake_on_connect=False,
+                                                   server_hostname=self.server_hostname)
+
         except IOError as tls_e:
             tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
             raise tls_e

@@ -457,7 +457,8 @@ class TlsHandshakeStandard:
         sock.settimeout(self.io_to)
         sock.connect((self.addr, self.port))
         try:
-            tls_sock = ssl.wrap_socket(sock, ssl_version=version)
+            context = ssl.SSLContext(protocol=version)
+            tls_sock = context.wrap_socket(sock)
         except ssl.SSLError as e:
             # Correct connection termination with PROTOCOL_VERSION alert.
             if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
