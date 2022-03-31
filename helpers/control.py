@@ -18,8 +18,7 @@ __license__ = 'GPL2'
 #-------------------------------------------------------------------------------
 
 
-class Client(object):
-    __metaclass__ = abc.ABCMeta
+class Client(object, metaclass=abc.ABCMeta):
     """ Base class for managing HTTP benchmark utilities.
 
     Command-line options can be added by appending `Client.options` list.

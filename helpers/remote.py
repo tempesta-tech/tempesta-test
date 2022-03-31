@@ -24,9 +24,7 @@ DEBUG_FILES = False
 # Default timeout for SSH sessions and command processing.
 DEFAULT_TIMEOUT = 5
 
-class Node(object):
-    __metaclass__ = abc.ABCMeta
-
+class Node(object, metaclass=abc.ABCMeta):
     def __init__(self, type, hostname, workdir):
         self.host = hostname
         self.workdir = workdir

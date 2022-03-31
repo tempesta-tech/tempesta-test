@@ -24,9 +24,7 @@ ECE = 0x40
 CWR = 0x80
 
 
-class Sniffer(object):
-    __metaclass__ = abc.ABCMeta
-
+class Sniffer(object, metaclass=abc.ABCMeta):
     def __init__(self, node, host, count=0,
                  timeout=30, ports=(80,),
                  node_close=True):

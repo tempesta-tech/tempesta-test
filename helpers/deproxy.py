@@ -222,9 +222,7 @@ class HeaderCollection(object):
 # HTTP Messages
 #-------------------------------------------------------------------------------
 
-class HttpMessage(object):
-    __metaclass__ = abc.ABCMeta
-
+class HttpMessage(object, metaclass=abc.ABCMeta):
     def __init__(self, message_text=None, body_parsing=True, method="GET",
                        keep_original_data=None):
         self.msg = ''
