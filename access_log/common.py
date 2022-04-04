@@ -46,7 +46,7 @@ class AccessLogLine:
     @staticmethod
     def from_dmesg(klog):
         klog.update()
-        for line in klog.log.split('\n'):
+        for line in klog.log.decode().split('\n'):
             msg = AccessLogLine.parse(line)
             if msg is not None:
                 return msg

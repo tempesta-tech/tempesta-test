@@ -5,7 +5,7 @@ Test TLS tickets: Tempesta must handle both full and abbreviated handshakes.
 from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
-from handshake import *
+from .handshake import *
 
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -129,8 +129,8 @@ class TlsTicketTest(tester.TempestaTest):
         # rejected.
         t_data = ticket.ticket
         index = len(t_data) / 2
-        repl = 'a' if t_data[index] != 'a' else 'b'
-        t_data = t_data[:index] + repl + t_data[index + 1:]
+        repl = b'a' if t_data[int(index)] != b'a' else b'b'
+        t_data = t_data[:int(index)] + repl + t_data[int(index) + 1:]
         hs = TlsHandshake()
         hs.set_ticket_data(t_data)
         hs.session_id = '\x39' * 32
@@ -213,8 +213,8 @@ class TlsVhostConfusion(tester.TempestaTest):
         cgen = CertGenerator(cert_path, key_path)
         cgen.CN = host_name
         cgen.generate()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def start_all(self):
         self.gen_certs(u'tempesta-tech.com')

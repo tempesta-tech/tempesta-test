@@ -9,8 +9,8 @@ from helpers import dmesg, remote, tf_cfg
 from helpers.error import Error
 from framework import tester
 from framework.x509 import CertGenerator
-from handshake import TlsHandshake
-from scapy_ssl_tls import ssl_tls as tls
+from .handshake import TlsHandshake
+from .scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
@@ -63,8 +63,8 @@ class X509(tester.TempestaTest):
 
         # We have to copy the certificate and key on our own.
         cert_path, key_path = self.cgen.get_file_paths()
-        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
         self.start_tempesta()
 
         self.start_all_clients()
@@ -88,8 +88,8 @@ class X509(tester.TempestaTest):
 
         # We have to copy the certificate and key on our own.
         cert_path, key_path = self.cgen.get_file_paths()
-        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
         self.start_tempesta()
 
         # Collect warnings before start w/ a bad certificate.
@@ -111,8 +111,8 @@ class X509(tester.TempestaTest):
         self.oops_ignore = ["WARNING", "ERROR"]
         # We have to copy the certificate and key on our own.
         cert_path, key_path = self.cgen.get_file_paths()
-        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
         try:
             self.start_tempesta()
         except:
@@ -379,8 +379,8 @@ class TlsCertSelect(tester.TempestaTest):
                 'len': 2048
             }
         cgen.generate()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def test_vhost_cert_selection(self):
         self.gen_cert("tempesta_ec")

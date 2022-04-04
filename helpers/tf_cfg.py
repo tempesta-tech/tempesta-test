@@ -114,7 +114,7 @@ class TestFrameworkCfg(object):
                    (self.cfg_file,
                     self.cfg_err[0].__name__,
                     self.cfg_err[1]))
-            raise ConfigError(msg), None, self.cfg_err[2]
+            raise ConfigError(msg).with_traceback(self.cfg_err[2])
 
         # normalize paths
         normalize = [

@@ -3,11 +3,11 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-import very_many_backends.multi_backend
+from . import multi_backend
 
 from helpers import tf_cfg, tempesta
 
-class ManyBackends1InGroup(very_many_backends.multi_backend.MultipleBackends):
+class ManyBackends1InGroup(multi_backend.MultipleBackends):
     """ 1 backend in server group """
     num_interfaces = 8
     num_listeners_per_interface = 128
@@ -25,7 +25,7 @@ class ManyBackends1InGroup(very_many_backends.multi_backend.MultipleBackends):
     def test(self):
         self.generic_test_routine(self.config)
 
-class ManyBackends32InGroup(very_many_backends.multi_backend.MultipleBackends):
+class ManyBackends32InGroup(multi_backend.MultipleBackends):
     """ 32 backends in server group """
     num_interfaces = 8
     num_listeners_per_interface = 64

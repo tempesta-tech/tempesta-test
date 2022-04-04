@@ -16,7 +16,7 @@ standard tools.
 """
 from __future__ import print_function
 import abc
-from StringIO import StringIO
+from io import StringIO
 import asyncore
 import errno
 import select
@@ -25,7 +25,7 @@ import ssl
 import sys
 import time
 import calendar # for calendar.timegm()
-from  BaseHTTPServer import BaseHTTPRequestHandler
+from  http.server import BaseHTTPRequestHandler
 from . import error, tf_cfg, tempesta, stateful
 import re
 
@@ -56,10 +56,10 @@ class HeaderCollection(object):
         self.is_expected = False
         self.expected_time_delta = None
         if mapping is not None:
-            for k, v in mapping.iteritems():
+            for k, v in mapping.items():
                 self.add(k, v)
         if kwargs is not None:
-            for k, v in kwargs.iteritems():
+            for k, v in kwargs.items():
                 self.add(k, v)
 
     def set_expected(self, expected_time_delta=0):
@@ -222,9 +222,7 @@ class HeaderCollection(object):
 # HTTP Messages
 #-------------------------------------------------------------------------------
 
-class HttpMessage(object):
-    __metaclass__ = abc.ABCMeta
-
+class HttpMessage(object, metaclass=abc.ABCMeta):
     def __init__(self, message_text=None, body_parsing=True, method="GET",
                        keep_original_data=None):
         self.msg = ''
@@ -542,12 +540,15 @@ class TlsClient(asyncore.dispatcher):
     about TLS and only need to set ssl constructor argument to employ TLS.
     """
 
-    def __init__(self, ssl=False):
+    def __init__(self, is_ssl=False):
         asyncore.dispatcher.__init__(self)
-        self.ssl = ssl
+        self.ssl = is_ssl
         self.want_read = False
         self.want_write = True # TLS ClientHello is the first one
         self.server_hostname = None
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self.context.check_hostname = False
+        self.context.verify_mode = ssl.CERT_NONE
 
     def set_server_hostname(self, server_hostname):
         self.server_hostname = server_hostname
@@ -596,9 +597,10 @@ class TlsClient(asyncore.dispatcher):
         self.writable = self.tls_handshake_writable
         self.readable = self.tls_handshake_readable
         try:
-            self.socket = ssl.SSLSocket(self.socket,
-                                        do_handshake_on_connect=False,
-                                        server_hostname=self.server_hostname)
+            self.socket = self.context.wrap_socket(self.socket,
+                                                   do_handshake_on_connect=False,
+                                                   server_hostname=self.server_hostname)
+
         except IOError as tls_e:
             tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
             raise tls_e
@@ -682,7 +684,7 @@ class Client(TlsClient, stateful.Stateful):
     def handle_read(self):
         while True: # TLS aware - read as many records as we can
             try:
-                buf = self.recv(MAX_MESSAGE_SIZE)
+                buf = self.recv(MAX_MESSAGE_SIZE).decode()
             except IOError as err:
                 if err.errno == errno.EWOULDBLOCK:
                     break
@@ -720,7 +722,7 @@ class Client(TlsClient, stateful.Stateful):
     def handle_write(self):
         tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
         tf_cfg.dbg(5, self.request_buffer)
-        sent = self.send(self.request_buffer)
+        sent = self.send(self.request_buffer.encode())
         self.request_buffer = self.request_buffer[sent:]
 
     def handle_error(self):
@@ -747,7 +749,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
 
     def handle_read(self):
-        self.request_buffer += self.recv(MAX_MESSAGE_SIZE)
+        self.request_buffer += self.recv(MAX_MESSAGE_SIZE).decode()
         try:
             request = Request(self.request_buffer)
         except IncompleteMessage:
@@ -778,7 +780,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         if response.msg:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response to Tempesta.')
             tf_cfg.dbg(5, response.msg)
-            self.send(response.msg)
+            self.send(response.msg.encode())
         else:
             tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Try send invalid response.')
         if self.keep_alive:

@@ -30,11 +30,11 @@ def bug(msg='', stdout=None, stderr=None):
     if exc_info[1] is not None:
         msg += " (%s: %s)" % (exc_info[0].__name__, exc_info[1])
     if stdout is not None:
-        stdout = "\n\t" + "\n\t".join(stdout.splitlines()) + "\n"
+        stdout = "\n\t" + "\n\t".join(stdout.decode().splitlines()) + "\n"
         msg += "\nstdout:%s" % stdout
     if stderr is not None:
-        stderr = "\n\t" + "\n\t".join(stderr.splitlines()) + "\n"
+        stderr = "\n\t" + "\n\t".join(stderr.decode().splitlines()) + "\n"
         msg += "\nstderr:%s" % stderr
-    raise Error(msg), None, exc_info[2]
+    raise Error(msg).with_traceback(exc_info[2])
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

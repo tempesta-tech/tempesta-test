@@ -40,9 +40,9 @@ def version():
     parse_cmd = r"grep TFW_VERSION | awk -F '[\" ]' '{printf $3}'"
     cmd = "cat %s | %s" % (hdr_filename, parse_cmd)
     version, _ = remote.tempesta.run_cmd(cmd=cmd)
-    tfw_version = version
+    tfw_version = version.decode()
     error.assertTrue(tfw_version)
-    return version
+    return tfw_version
 
 class Stats(object):
     """ Parser for TempestaFW performance statistics (/proc/tempesta/perfstat).
@@ -241,17 +241,17 @@ class Config(object):
                 k, v = l.split(' ', 1)
             except ValueError:
                 continue # just ignore lines like '}' or '"'
-            assert not k.startswith('tls_certificate') or not cfg.has_key(k), \
+            assert not k.startswith('tls_certificate') or k not in cfg, \
                 "Two or more certificates configured, please use custom_cert" \
                 " option in Tempesta configuration"
             cfg[k] = v
-        if not cfg.has_key('listen') or not \
+        if 'listen' not in cfg or not \
             any(proto in cfg['listen'] for proto in ['https', 'h2']):
             return
         cert_path, key_path = cfg['tls_certificate'], cfg['tls_certificate_key']
         cgen = CertGenerator(cert_path, key_path, True)
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key())
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def set_defconfig(self, config, custom_cert=False):
         self.defconfig = config

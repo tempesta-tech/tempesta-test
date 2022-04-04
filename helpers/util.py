@@ -28,7 +28,7 @@ def deprecated(alt_impl_name):
             def wrap(cls_arg, *args, **kwargs):
                 tf_cfg.dbg(5, "%s must be used instead of deprecated %s"
                            % (alt_impl_name, cls_arg.__name__))
-                return new_func(cls_arg, *args, **kwargs)
+                return new_func(cls_arg)
             return wrap
 
         setattr(cls, '__new__', staticmethod(deprecated_new(cls.__new__)))

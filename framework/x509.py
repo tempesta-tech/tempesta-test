@@ -55,7 +55,7 @@ class CertGenerator:
     @staticmethod
     def __write(path, data):
         fdesc = open(path, "wt")
-        fdesc.write(data)
+        fdesc.write(data.decode())
         fdesc.close()
 
     def __encoding(self):

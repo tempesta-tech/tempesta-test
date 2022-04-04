@@ -3,7 +3,7 @@ import os
 import multiprocessing
 
 from helpers import remote, tf_cfg, stateful
-from templates import fill_template
+from .templates import fill_template
 
 def _run_client(client, exit_event, resq):
     res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
@@ -11,8 +11,7 @@ def _run_client(client, exit_event, resq):
     resq.put(res)
     exit_event.set()
 
-class Client(stateful.Stateful):
-    __metaclass__ = abc.ABCMeta
+class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     """ Base class for managing HTTP benchmark utilities.
 
     Command-line options can be added by appending `Client.options` list.

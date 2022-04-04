@@ -24,9 +24,7 @@ DEBUG_FILES = False
 # Default timeout for SSH sessions and command processing.
 DEFAULT_TIMEOUT = 5
 
-class Node(object):
-    __metaclass__ = abc.ABCMeta
-
+class Node(object, metaclass=abc.ABCMeta):
     def __init__(self, type, hostname, workdir):
         self.host = hostname
         self.workdir = workdir
@@ -112,7 +110,7 @@ class LocalNode(Node):
         if dirname != self.workdir:
             self.mkdir(dirname)
 
-        with open(filename, 'w') as f:
+        with open(filename, 'wt') as f:
             f.write(content)
 
     def copy_file_to_node(self, file, dest_dir):
@@ -198,7 +196,7 @@ class RemoteNode(Node):
 
         try:
             sftp = self.ssh.open_sftp()
-            sfile = sftp.file(filename, 'w', -1)
+            sfile = sftp.file(filename, 'wt', -1)
             sfile.write(content)
             sfile.flush()
             sftp.close()
@@ -276,10 +274,10 @@ def create_node(host):
 
 def get_max_thread_count(node):
     out, _ = node.run_cmd('grep -c processor /proc/cpuinfo')
-    m = re.match(r'^(\d+)$', out)
+    m = re.match(r'^(\d+)$', out.decode())
     if not m:
         return 1
-    return int(m.group(1).decode('ascii'))
+    return int(m.group(1))
 
 #-------------------------------------------------------------------------------
 # Global accessible SSH/Local connections

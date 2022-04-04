@@ -36,7 +36,7 @@ class DmesgFinder(object):
         performance tests.
         """
         if self.msg_cost:
-            self.node.run_cmd("sysctl -w " + self.msg_cost.replace(' ', ''))
+            self.node.run_cmd("sysctl -w " + self.msg_cost.decode().replace(' ', ''))
 
     def update(self):
         """Get log from the last run."""
@@ -48,7 +48,7 @@ class DmesgFinder(object):
         print(self.log)
 
     def _warn_count(self, warn_str):
-        match = re.findall(warn_str, self.log)
+        match = re.findall(warn_str, self.log.decode())
         return len(match)
 
     def warn_count(self, warn_str):
@@ -65,7 +65,7 @@ class DmesgFinder(object):
         """
         self.update()
         ratelimited = False
-        for line in self.log.split('\n'):
+        for line in self.log.decode().split('\n'):
             if line.find(msg) >= 0:
                 return 0
             if re.findall('net_ratelimit: [\d]+ callbacks suppressed', line):
@@ -129,7 +129,7 @@ def unlimited_rate_on_tempesta_node(func):
             node.run_cmd('echo 0 > /proc/sys/net/core/message_cost')
             return func(*args, **kwargs)
         finally:
-            cmd = 'echo {} > /proc/sys/net/core/message_cost'.format(msg_cost)
+            cmd = 'echo {} > /proc/sys/net/core/message_cost'.format(msg_cost.decode())
             node.run_cmd(cmd)
 
     return func_wrapper

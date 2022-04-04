@@ -24,9 +24,7 @@ ECE = 0x40
 CWR = 0x80
 
 
-class Sniffer(object):
-    __metaclass__ = abc.ABCMeta
-
+class Sniffer(object, metaclass=abc.ABCMeta):
     def __init__(self, node, host, count=0,
                  timeout=30, ports=(80,),
                  node_close=True):
@@ -53,10 +51,10 @@ class Sniffer(object):
         '''
         stdout, stderr = self.node.run_cmd(self.cmd, timeout=None,
                                            err_msg=(self.err_msg % 'start'))
-        match = re.search(r'(\d+) packets captured', stderr)
+        match = re.search(r'(\d+) packets captured', stderr.decode())
         if match:
             self.captured = int(match.group(1))
-        with open(self.dump_file, 'w') as f:
+        with open(self.dump_file, 'wb') as f:
             f.write(stdout)
 
     def start(self):
@@ -178,7 +176,7 @@ class AnalyzerTCPSegmentation(Sniffer):
         # We're good if Tempesta generates less number of packets than
         # the server. We skip the initial TCP SYN-ACK, and the TLS 1.2
         # 2-RTT handshake overhead. This may fail for TLS 1.3.
-        for i in xrange(3, tfw_n):
+        for i in range(3, tfw_n):
             if i - 2 >= srv_n:
                 tf_cfg.dbg(4, "Extra packet %d, size=%d"
                               % (i, self.tfw_pkts[i]))

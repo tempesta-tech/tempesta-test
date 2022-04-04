@@ -66,7 +66,8 @@ class Stage(object):
         self.assert_msg(result[0] == 'response', result)
         return self.tester.next_stage(result)
 
-    def assert_msg(self, cond, (message, received, expected), trans=False):
+    def assert_msg(self, cond, messages, trans=False):
+        message, received, expected = messages
         trans_str = ' during transition' if trans else ''
         assert cond, \
             ("Received message (%s) does not suit expected one%s!\n\n"
@@ -161,7 +162,7 @@ class TestHealthMonitor(functional.FunctionalTest):
         self.create_chains()
         if self.crc_check:
             resp_body = self.ch_disabled.server_response.body
-            self.crc32 = hex(~binascii.crc32(resp_body, 0xffffffff) & 0xffffffff)
+            self.crc32 = hex(~binascii.crc32(resp_body.encode(), 0xffffffff) & 0xffffffff)
         functional.FunctionalTest.setUp(self)
 
     def get_config(self):
