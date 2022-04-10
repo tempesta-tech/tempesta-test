@@ -12,7 +12,7 @@ import paramiko
 import errno
 import shutil
 import time
-import subprocess32 as subprocess
+import subprocess
 from . import tf_cfg, error
 
 __author__ = 'Tempesta Technologies, Inc.'

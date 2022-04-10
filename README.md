@@ -70,21 +70,14 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 ## Requirements
 
-**WARNING**: at the moment the framework requires Python 2, which is deprecated
-in Debian 11. Migration to Python 3 is the subject for
-https://github.com/tempesta-tech/tempesta-test/issues/56 . If you have to install
-the framework with Python 2 on Debian 11 still, see Notes below.
-
-- Host for testing framework: `Python2`, `python2-paramiko`,
-`python-configparser`, `python-subprocess32`, `wrk`, `ab`, `scapy`
-(Debian 10 contains outdated 2.4.0 and we require 2.4.4, so install it with pip),
-`python-cryptography`, `nghttp2`, `pycryptodomex`, and `tinyec` (the last
-two can be installed using `pip install pycryptodomex tinyec`)
+- Host for testing framework: `python3`, `python3-paramiko`, `python-configparser`,
+  `python-cryptography`, `scapy`, `wrk`, `ab`, `nghttp2`, `pycryptodomex` and `tinyec`
+  (the last two can be installed using `pip install pycryptodomex tinyec`), `tls-perf`
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
-`systemtap`, `tcpdump`, `bc`
+  `systemtap`, `tcpdump`, `bc`
 - Host for running server: `nginx`, web content directory accessible by nginx,
-nginx should not be running before the tests start
+  nginx should not be running before the tests start
 
 `wrk` is an HTTP benchmarking tool, available from [Github](https://github.com/wg/wrk).
 
@@ -93,36 +86,14 @@ nginx should not be running before the tests start
 `h2spec` is HTTP/2 conformance test suite. Can't be installed from package
 manager and must be retrieved from [GitHub](https://github.com/summerwind/h2spec/releases/latest).
 
+`tls-perf` can be downloaded from our GitHub [repository](https://github.com/tempesta-tech/tls-perf).
+
 Testing framework manages other hosts via SSH protocol, so the host running
 testing framework must be able to be authenticated on other hosts by the key.
 That can be done using `ssh-copy-id`. Root access is required on all hosts.
 
 Requirements can be checked with `check_deps/check_dependencies.sh`. It should
 be ran from `check_deps` directory.
-
-### Notes on installation on Debian 11 with Python 2
-Python 2 is present in Debian 11 but is not enabled by default. Also some required packages
-had gone and should be installed with `pip`.
-
-To install Python2 and neccessary packages one have to execute the following commands:
-
-To install Python2:
-```sh
-sudo apt install python2
-```
-    
-To install pip (pip2):
-```sh
-wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
-sudo python2 get-pip.py
-```
-    
-To install modules which no longer exist as packages:
-```sh
-sudo pip2 install paramiko
-sudo pip2 install subprocess32
-sudo pip2 install configparser
-```
 
 ## Run tests
 
