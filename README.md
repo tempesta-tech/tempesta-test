@@ -70,9 +70,9 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 ## Requirements
 
-- Host for testing framework: `python3`, `python3-paramiko`, `python-configparser`,
-  `python-cryptography`, `scapy`, `wrk`, `ab`, `nghttp2`, `pycryptodomex` and `tinyec`
-  (the last two can be installed using `pip install pycryptodomex tinyec`), `tls-perf`
+- Host for testing framework: `python3`, `python3-paramiko`, `python3-scapy`,
+`wrk`, `ab`, `nghttp2`, `configparser`, `pycryptodomex` and `tinyec`
+  (the last three can be installed using `pip install pycryptodomex tinyec`), `tls-perf`
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
   `systemtap`, `tcpdump`, `bc`
