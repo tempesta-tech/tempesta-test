@@ -3,14 +3,14 @@
 # Copyright (C) 2018 Tempesta Technologies, Inc.
 # License: GPL2
 
-pr=`whereis -b python2`
+pr=`whereis -b python3`
 
-if [ "$pr" == "python2:" ]
+if [ "$pr" == "python3:" ]
 then
-	echo -e "\t\"python2\" required, but not found.\n\tRun \"apt-get install python2\""
+	echo -e "\t\"python3\" required, but not found.\n\tRun \"apt-get install python3\""
 	exit 1
 else
-	echo -e "\tFound python2"
+	echo -e "\tFound python3"
 fi
 
 ./check_python_dependencies.py

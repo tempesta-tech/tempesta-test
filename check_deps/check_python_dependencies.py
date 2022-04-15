@@ -1,11 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 import sys
-import imp
+import importlib.util
 
 modules = ['unittest',
            'scapy',
@@ -17,12 +17,12 @@ modules = ['unittest',
            'httplib',
            're',
            'json',
+           'configparser',
            ]
 
 modules_apt = [
             'paramiko',
             'subprocess32',
-            'configparser',
             ]
 
 
@@ -31,17 +31,18 @@ def make_report_line(name):
     return '{} {}'.format(name, '.' * filler_len)
 
 
-print("\tChecking for required python2 modules:")
+print("\tChecking for required python3 modules:")
 
 all_present = True
 
 absent = []
 
 for module in modules:
-    try:
-        imp.find_module(module)
+    if module in sys.modules:
         print("\t\t{} found".format(make_report_line(module)))
-    except ImportError:
+    elif importlib.util.find_spec(module) is not None:
+        print("\t\t{} found".format(make_report_line(module)))
+    else:
         print("\t\t{} not found".format(make_report_line(module)))
         absent.append(module)
         all_present = False
@@ -49,10 +50,11 @@ for module in modules:
 package_list = []
 
 for module in modules_apt:
-    try:
-        imp.find_module(module)
+    if module in sys.modules:
         print("\t\t{} found".format(make_report_line(module)))
-    except ImportError:
+    elif importlib.util.find_spec(module) is not None:
+        print("\t\t{} found".format(make_report_line(module)))
+    else:
         print("\t\t{} not found".format(make_report_line(module)))
         absent.append(module)
         package_list.append("python-%s" % module)
