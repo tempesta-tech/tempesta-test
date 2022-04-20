@@ -39,6 +39,35 @@ http_chain {
 %s
 """
 
+TEMPESTA_STRESS_CONFIG = """
+listen 81;
+listen 82 proto=https;
+
+srv_group localhost {
+
+    server ${server_ip}:8099;
+    server ${server_ip}:8100;
+    server ${server_ip}:8101;
+    server ${server_ip}:8102;
+    server ${server_ip}:8103;
+    server ${server_ip}:8104;
+    server ${server_ip}:8105;
+    server ${server_ip}:8106;
+}
+
+vhost localhost {
+    tls_certificate /tmp/cert.pem;
+    tls_certificate_key /tmp/key.pem;
+
+    proxy_pass localhost;
+    
+}
+
+http_chain {
+    -> localhost;
+}
+"""
+
 TEMPESTA_NGINX_CONFIG = """
 listen 81;
 listen 82 proto=https;
@@ -210,8 +239,7 @@ class Ws_ping(tester.TempestaTest):
         await asyncio.gather(*tasks, return_exceptions=True)
         return 0
 
-    def run_ws(self, port, proxy=False):
-        # print("Generate certs")
+    def run_ws(self, port, count=1, proxy=False):
         cert_gen()
         ssl._create_default_https_context = ssl._create_unverified_context
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -220,7 +248,8 @@ class Ws_ping(tester.TempestaTest):
         self.start_tempesta()
 
         loop = asyncio.get_event_loop()
-        asyncio.ensure_future(websockets.serve(self.handler, hostname, port))
+        for i in range(count):
+            asyncio.ensure_future(websockets.serve(self.handler, hostname, port+i))
         loop.run_forever()
 
     def test_ping_websockets(self):
@@ -267,9 +296,39 @@ class Wss_ping_with_nginx(Wss_ping):
     }
 
     def test_ping_websockets(self):
-        p1 = Process(target=self.run_ws, args=(8099, True))
+        p1 = Process(target=self.run_ws, args=(8099, 1, True))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
         p2.start()
         p2.join()
         p1.terminate()
+
+
+class Wss_stress(Wss_ping):
+
+    tempesta = {
+        'config': TEMPESTA_STRESS_CONFIG,
+    }
+
+    def run_test(self, port, n):
+        time.sleep(2.0)
+        asyncio.run(self.wss_ping_test(port, n))
+
+    def test_ping_websockets(self):
+        p1 = Process(target=self.run_ws, args=(8099, 8))
+        p2 = Process(target=self.run_test, args=(82, 1000))
+        p1.start()
+        p2.start()
+        p2.join()
+        p1.terminate()
+
+    async def wss_ping_test(self, port, n):
+        host = hostname
+        ping_message = "ping_test"
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.load_verify_locations("/tmp/cert.pem")
+        for _ in range(n):
+            async with websockets.connect(f"wss://{host}:{port}",
+                                          ssl=ssl_context) as websocket:
+                await websocket.send(ping_message)
+                await websocket.recv()
