@@ -1,3 +1,3 @@
-__all__ = ['websockets_all']
+__all__ = ['test_ws_ping']
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

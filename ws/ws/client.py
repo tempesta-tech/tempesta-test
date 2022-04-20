@@ -9,20 +9,18 @@ import time
 import ssl
 
 
-host = "localhost"
+host = "ubuntu-20"
 target_count = 1000
 
 
-async def ws_ping_test(port):
+async def ws_ping_test(port, n):
     print("Start ping_test")
     count = 0
     ping_message = "ping_test"
-    while True:
+    for i in range(n):
         async with websockets.connect(f"ws://{host}:{port}") as websocket:
             await websocket.send(ping_message)
             resp = await websocket.recv()
-            if resp == "exit":
-                break
             if ping_message == resp:
                 count += 1
             if count >= target_count:
@@ -30,13 +28,13 @@ async def ws_ping_test(port):
                 ping_message = "exit"
 
 
-async def wss_ping_test(port):
+async def wss_ping_test(port, n, host=host):
     print("Start wss_ping_test")
     count = 0
     ping_message = "ping_test"
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations("/tmp/cert.pem")
-    while True:
+    for _ in range(n):
         async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
             await websocket.send(ping_message)
             # resp = await websocket.recv()
@@ -49,17 +47,17 @@ async def wss_ping_test(port):
                 ping_message = "exit"
 
 
-def run_ws_ping_test(port):
+def run_ws_ping_test(port, n):
     time.sleep(1)
     print("run ws_ping_test")
-    asyncio.run(ws_ping_test(port))
+    asyncio.run(ws_ping_test(port, n))
     print("success ws_ping_test")
 
 
-def run_wss_ping_test(port):
+def run_wss_ping_test(port, n, host=host):
     time.sleep(1)
     print("run wss_ping_test")
-    asyncio.run(wss_ping_test(port))
+    asyncio.run(wss_ping_test(port, n, host=host))
     print("success wss_ping_test")
 
 
@@ -93,7 +91,7 @@ async def threaded_stress(i, port):
 
 def run():
     time.sleep(1)
-    run_ws_ping_test(9080)
+    # run_ws_ping_test(9080)
     run_wss_ping_test(9081)
     run_wss_ping_test(9082)
     try:
@@ -106,11 +104,21 @@ def run():
 
 if __name__ == "__main__":
     time.sleep(1)
-    # run_ws_ping_test(9080)
-    # run_wss_ping_test(9081)
-    # run_wss_ping_test(9082)
+    # run_ws_ping_test(80, 4)
+
+    # print("Run direct")
+    # run_wss_ping_test(8100, 1)
+    # print("Run haproxy")
+    # run_wss_ping_test(9081, 1)
+    # print("Run haproxy-nginx")
+    # run_wss_ping_test(9082, 1)
+    # print("Run nginx")
+    # run_wss_ping_test(8001, 1)
+
+    print("Run tempesta-fw")
+    run_wss_ping_test(81, 1)
     # run_wss_ping_test(9999)
-    time_start = datetime.datetime.now()
-    asyncio.run(threaded_stress(4, 8099))
-    delta = datetime.datetime.now() - time_start
-    print(delta)
+    # time_start = datetime.datetime.now()
+    # asyncio.run(threaded_stress(4, 8099))
+    # delta = datetime.datetime.now() - time_start
+    # print(delta)

@@ -10,12 +10,9 @@ from OpenSSL import crypto
 import subprocess
 
 
-reply_count = 0
-
-
 def cert_gen(
         emailAddress="emailAddress",
-        commonName="localhost",
+        commonName="ubuntu-20",
         countryName="NT",
         localityName="localityName",
         stateOrProvinceName="stateOrProvinceName",
@@ -67,9 +64,9 @@ def remove_certs(cert_files_):
 
 
 async def handler(websocket, path):
-    global reply_count
     data = await websocket.recv()
-    reply = f"{data}"
+    print(f'ws ping: {data}')
+    reply = f"ws ping {data}"
     if data == "exit":
         await websocket.send(reply)
         print("Server_socket - Exit")
@@ -77,8 +74,6 @@ async def handler(websocket, path):
         await websocket.close()
     try:
         await websocket.send(reply)
-        reply_count += 1
-        print(reply_count)
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected.  Do cleanup")
         await websocket.close()
@@ -86,6 +81,7 @@ async def handler(websocket, path):
 
 async def secure_handler(websocket, path):
     data = await websocket.recv()
+    print(f'wss ping: {data}')
     reply = f"{data}"
     if data == "exit":
         await websocket.send(reply)
@@ -117,39 +113,29 @@ async def exit_handler(websocket, path):
         asyncio.get_event_loop().stop()
 
 
-def exit_(code):
-    sys.exit(code)
-
-
 def servers_start(port):
     cert_gen()
-    command = ['/usr/sbin/service', 'nginx', 'reload']
-    code = subprocess.call(command, shell=False)
-    print(f"Nginx reload code: {code}")
-    command = ['/usr/sbin/service', 'haproxy', 'restart']
-    code = subprocess.call(command, shell=False)
-    print(f"Haproxy reload code: {code}")
     ssl._create_default_https_context = ssl._create_unverified_context
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
-    ws_socket = websockets.serve(handler, "localhost", port)
+    ws_socket = websockets.serve(handler, "ubuntu-20", port)
     wss_socket = websockets.serve(
         secure_handler,
-        "localhost",
+        "ubuntu-20",
         port+1,
         max_size=9000000,
         ssl=ssl_context,
     )
     wss_socket2 = websockets.serve(
         secure_handler,
-        "localhost",
+        "ubuntu-20",
         port+2,
         max_size=9000000,
         ssl=ssl_context,
     )
     exit_socket = websockets.serve(
         exit_handler,
-        "localhost",
+        "ubuntu-20",
         9999,
         max_size=9000000,
         ssl=ssl_context,
