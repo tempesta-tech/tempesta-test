@@ -1,6 +1,3 @@
-######################################
-# This file has been auto generated. #
-######################################
 backends = [
 
     {
@@ -43,21 +40,44 @@ backends = [
 ]
 
 clients = [
+
     {
-        'id': 'curl-150',
+        'id': 'curl-h2-true',
         'type': 'external',
         'binary': 'curl',
         'ssl': True,
-        'cmd_args': '-v --http2 -k https://127.0.0.4:443/ '
+        'cmd_args': '-Ikf --http2 https://127.0.0.4:443/ '
+    },
+    {
+        'id': 'curl-h2-false',
+        'type': 'external',
+        'binary': 'curl',
+        'ssl': True,
+        'cmd_args': '-Ikf --http2 https://127.0.0.4:4433/ '
+    },
+
+    {
+        'id': 'curl-https-true',
+        'type': 'external',
+        'binary': 'curl',
+        'ssl': True,
+        'cmd_args': '-Ikf --http1.1 https://127.0.0.4:4433/ '
+    },
+    {
+        'id': 'curl-https-false',
+        'type': 'external',
+        'binary': 'curl',
+        'ssl': True,
+        'cmd_args': '-Ikf --http1.1 https://127.0.0.4:443/ '
     },
 ]
 
 tempesta = {
     'config': """
-        
+
         listen 127.0.0.4:443 proto=h2;
-        #listen 127.0.0.4:4433 proto=https;
-        
+        listen 127.0.0.4:4433 proto=https;
+
         srv_group default {
             server ${server_ip}:8000;
         }
@@ -67,8 +87,8 @@ tempesta = {
         }
 
         tls_match_any_server_name;
-        tls_certificate ECDSA/tfw-root.crt;
-        tls_certificate_key ECDSA/tfw-root.key;
+        tls_certificate RSA/tfw-root.crt;
+        tls_certificate_key RSA/tfw-root.key;
 
         cache 0;
         cache_fulfill * *;
@@ -80,7 +100,3 @@ tempesta = {
 
     """
 }
-
-######################################
-# This file has been auto generated. #
-######################################

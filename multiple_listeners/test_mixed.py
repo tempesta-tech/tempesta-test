@@ -1,3 +1,4 @@
+"""TestCase for mixed listening sockets."""
 from framework import tester
 from multiple_listenings import config_for_tests_mixed as tc
 
@@ -6,13 +7,10 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-CONNECTION_TIMEOUT = 2
 STATUS_OK = '200'
-H2SPEC_OK = '4 passed'
-H2SPEC_EXTRA_SETTINGS = 'generic/4'
 
 
-class TestLoad(tester.TempestaTest):
+class TestMixedListeners(tester.TempestaTest):
 
     backends = tc.backends
     clients = tc.clients
@@ -21,44 +19,63 @@ class TestLoad(tester.TempestaTest):
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
-        self.start_all_clients()
 
-    def test_mixed_success(self):
+    def test_mixed_h2_success(self):
+        """
+        Test h2 success situation.
 
-        # h2spec
-        for cli in tc.clients:
-            if cli['id'].startswith('h2spec'):
-                h2spec = self.get_client(
-                    cli['id'],
-                )
-                h2spec.options.append(H2SPEC_EXTRA_SETTINGS)
+        One `true` client apply h2 client for h2 socket,
+        second `false` client apply h2 client for https socket,
+        """
 
         self.start_all()
 
-        for cli in tc.clients:
+        curl_h2_true = self.get_client('curl-h2-true')
+        curl_h2_true.start()
+        self.wait_while_busy(curl_h2_true)
+        response = curl_h2_true.resq.get(True, 1)[0].decode()
+        self.assertIn(
+            STATUS_OK,
+            response,
+        )
+        curl_h2_true.stop()
 
-            # h2spec
-            if cli['id'].startswith('h2spec'):
-                h2spec = self.get_client(
-                    cli['id'],
-                )
-                self.wait_while_busy(h2spec)
-                response_h2spec = h2spec.resq.get(True, 1)[0].decode()
-                self.assertIn(
-                    H2SPEC_OK,
-                    response_h2spec,
-                )
+        curl_h2_false = self.get_client('curl-h2-false')
+        curl_h2_false.start()
+        self.wait_while_busy(curl_h2_false)
+        response = curl_h2_false.resq.get(True, 1)[0].decode()
+        self.assertNotIn(
+            STATUS_OK,
+            response,
+        )
+        curl_h2_false.stop()
 
-            # curl
-            if cli['id'].startswith('curl'):
-                curl = self.get_client(
-                    cli['id'],
-                )
-                curl.start()
-                self.wait_while_busy(curl)
-                response = curl.resq
-                self.assertIn(
-                    STATUS_OK,
-                    response,
-                )
-                curl.stop()
+    def test_mixed_https_success(self):
+        """
+        Test h2 success situation.
+
+        One `true` client apply h2 client for h2 socket,
+        second `false` client apply h2 client for https socket,
+        """
+
+        self.start_all()
+
+        curl_https_true = self.get_client('curl-https-true')
+        curl_https_true.start()
+        self.wait_while_busy(curl_https_true)
+        response = curl_https_true.resq.get(True, 1)[0].decode()
+        self.assertIn(
+            STATUS_OK,
+            response,
+        )
+        curl_https_true.stop()
+
+        curl_https_false = self.get_client('curl-https-false')
+        curl_https_false.start()
+        self.wait_while_busy(curl_https_false)
+        response = curl_https_false.resq.get(True, 1)[0].decode()
+        self.assertNotIn(
+            STATUS_OK,
+            response,
+        )
+        curl_https_false.stop()
