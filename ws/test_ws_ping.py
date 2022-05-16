@@ -276,6 +276,7 @@ class Wss_ping_with_nginx(Wss_ping):
         p2.start()
         p2.join()
         p1.terminate()
+        self.get_server('nginx').stop_nginx()
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
 
