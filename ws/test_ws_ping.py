@@ -46,6 +46,12 @@ srv_group localhost {
 
     server ${server_ip}:8099;
     server ${server_ip}:8100;
+    server ${server_ip}:8101;
+    server ${server_ip}:8102;
+    server ${server_ip}:8103;
+    server ${server_ip}:8104;
+    server ${server_ip}:8105;
+    server ${server_ip}:8106;
 
 }
 
@@ -284,7 +290,7 @@ class Wss_stress(Wss_ping):
         asyncio.run(self.wss_ping_test(port, n))
 
     def test_ping_websockets(self):
-        p1 = Process(target=self.run_ws, args=(8099,))
+        p1 = Process(target=self.run_ws, args=(8099, 8))
         p2 = Process(target=self.run_test, args=(82, 400))
         p1.start()
         p2.start()
