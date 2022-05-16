@@ -8,13 +8,17 @@ import asyncio
 import time
 import ssl
 import os
-from OpenSSL import crypto
+from framework.x509 import CertGenerator
 from helpers import tempesta
+
+from datetime import datetime
 
 from sched.test_ratio_static import NGINX_CONFIG
 
 
 hostname = 'localhost'
+ping_message = "ping_test"
+
 
 TEMPESTA_CONFIG = """
 listen 81;
@@ -47,12 +51,7 @@ srv_group localhost {
 
     server ${server_ip}:8099;
     server ${server_ip}:8100;
-    server ${server_ip}:8101;
-    server ${server_ip}:8102;
-    server ${server_ip}:8103;
-    server ${server_ip}:8104;
-    server ${server_ip}:8105;
-    server ${server_ip}:8106;
+
 }
 
 vhost localhost {
@@ -60,7 +59,7 @@ vhost localhost {
     tls_certificate_key /tmp/key.pem;
 
     proxy_pass localhost;
-    
+
 }
 
 http_chain {
@@ -73,7 +72,6 @@ listen 81;
 listen 82 proto=https;
 
 srv_group localhost {
-
     server ${server_ip}:8000;
 }
 
@@ -92,94 +90,63 @@ http_chain {
 """
 
 NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
 
-map $$http_upgrade $$connection_upgrade {
-    default Upgrade;
-    ''      close;
+events {
+    worker_connections   1024;
+    use epoll;
 }
 
-upstream websocket {
-    ip_hash;
-    server 127.0.0.1:8099;
-}
-
-upstream wss_websockets {
-    ip_hash;
-    server 127.0.0.1:8099;
-}
-
-server {
-    listen 8000;
-    location / {
-        proxy_pass http://websocket;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $$http_upgrade;
-        proxy_set_header Connection $$connection_upgrade;
-        proxy_set_header Host $$host;
+http {
+    map $$http_upgrade $$connection_upgrade {
+        default Upgrade;
+        ''      close;
     }
-}
 
-server {
-    listen 8001 ssl;
-    ssl_protocols TLSv1.2;
-    ssl_certificate /tmp/cert.pem;
-    ssl_certificate_key /tmp/key.pem;
-    location / {
-        proxy_pass http://wss_websockets;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $$http_upgrade;
-        proxy_set_header Connection $$connection_upgrade;
-        proxy_set_header Host $$host;
+    upstream websocket {
+        ip_hash;
+        server 0.0.0.0:8099;
+    }
+
+    upstream wss_websockets {
+        ip_hash;
+        server 0.0.0.0:8099;
+    }
+
+    server {
+        listen 8000;
+        location / {
+            proxy_pass http://websocket;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $$http_upgrade;
+            proxy_set_header Connection $$connection_upgrade;
+            proxy_set_header Host $$host;
+        }
+    }
+
+    server {
+        listen 8001 ssl;
+        ssl_protocols TLSv1.2;
+        ssl_certificate /tmp/cert.pem;
+        ssl_certificate_key /tmp/key.pem;
+        location / {
+            proxy_pass http://wss_websockets;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $$http_upgrade;
+            proxy_set_header Connection $$connection_upgrade;
+            proxy_set_header Host $$host;
+        }
     }
 }
 """
 
-def cert_gen(
-        emailAddress="emailAddress",
-        commonName=hostname,
-        countryName="NT",
-        localityName="localityName",
-        stateOrProvinceName="stateOrProvinceName",
-        organizationName="organizationName",
-        organizationUnitName="organizationUnitName",
-        serialNumber=0,
-        validityStartInSeconds=0,
-        validityEndInSeconds=10*365*24*60*60,
-        KEY_FILE="/tmp/key.pem",
-        CERT_FILE="/tmp/cert.pem"):
-    haproxy_pem = "/tmp/out.pem"
-    out_files = []
-    k = crypto.PKey()
-    k.generate_key(crypto.TYPE_RSA, 4096)
-    cert = crypto.X509()
-    cert.get_subject().C = countryName
-    cert.get_subject().ST = stateOrProvinceName
-    cert.get_subject().L = localityName
-    cert.get_subject().O = organizationName
-    cert.get_subject().OU = organizationUnitName
-    cert.get_subject().CN = commonName
-    cert.get_subject().emailAddress = emailAddress
-    cert.set_serial_number(serialNumber)
-    cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(validityEndInSeconds)
-    cert.set_issuer(cert.get_subject())
-    cert.set_pubkey(k)
-    cert.sign(k, 'sha512')
-    with open(CERT_FILE, "wt") as f:
-        f.write(crypto.dump_certificate(
-            crypto.FILETYPE_PEM, cert).decode("utf-8"))
-        out_files.append(CERT_FILE)
-    with open(KEY_FILE, "wt") as f:
-        f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("utf-8"))
-        out_files.append(KEY_FILE)
-    filenames = [CERT_FILE, KEY_FILE]
-    with open('/tmp/out.pem', 'w') as outfile:
-        for fname in filenames:
-            with open(fname) as infile:
-                for line in infile:
-                    outfile.write(line)
-    out_files.append(haproxy_pem)
-    return out_files
+def gen_cert(host_name):
+        cert_path = "/tmp/cert.pem"
+        key_path = "/tmp/key.pem"
+        cgen = CertGenerator(cert_path, key_path)
+        cgen.CN = host_name
+        cgen.generate()
 
 
 def remove_certs(cert_files_):
@@ -204,16 +171,16 @@ class Ws_ping(tester.TempestaTest):
         asyncio.run(self.ws_ping_test(port, n))
 
     async def ws_ping_test(self, port, n):
+        global ping_message
         host = hostname
-        ping_message = "ping_test"
         for i in range(n):
             async with websockets.connect(f"ws://{host}:{port}") as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
 
     async def wss_ping_test(self, port, n):
+        global ping_message
         host = hostname
-        ping_message = "ping_test"
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
         for _ in range(n):
@@ -224,8 +191,8 @@ class Ws_ping(tester.TempestaTest):
 
     async def run_stress(port, n):
         print("run_stress")
+        global ping_message
         host = hostname
-        ping_message = "ping_test"
         for _ in range(n):
             timeout_ = randint(9, 10)
             async with websockets.connect(f"ws://{host}:{port}",
@@ -240,13 +207,14 @@ class Ws_ping(tester.TempestaTest):
         return 0
 
     def run_ws(self, port, count=1, proxy=False):
-        cert_gen()
+        gen_cert(hostname)
         ssl._create_default_https_context = ssl._create_unverified_context
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
-
+        if proxy:
+            self.start_all_servers()
         self.start_tempesta()
-
+        
         loop = asyncio.get_event_loop()
         for i in range(count):
             asyncio.ensure_future(websockets.serve(self.handler, hostname, port+i))
@@ -268,8 +236,11 @@ class Ws_ping(tester.TempestaTest):
             os.remove(cert)
 
     async def handler(self, websocket, path):
+        global ping_message
         data = await websocket.recv()
         reply = f"{data}"
+        if f"{data}" == ping_message:
+            print("message_ok")
         await websocket.send(reply)
 
 
@@ -286,10 +257,18 @@ class Wss_ping(Ws_ping):
         p2.start()
         p2.join()
         p1.terminate()
-        remove_certs(['/tmp/cert.pem', '/tmp/key.pem', '/tmp/out.pem'])
+        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
 
 class Wss_ping_with_nginx(Wss_ping):
+
+    backends = [{
+            'id' : 'nginx',
+            'type' : 'nginx',
+            'port' : '8000',
+            'status_uri' : 'http://${server_ip}:8000/nginx_status',
+            'config' : NGINX_CONFIG,
+        }]
 
     tempesta = {
         'config': TEMPESTA_NGINX_CONFIG % "",
@@ -302,6 +281,7 @@ class Wss_ping_with_nginx(Wss_ping):
         p2.start()
         p2.join()
         p1.terminate()
+        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
 
 class Wss_stress(Wss_ping):
@@ -315,14 +295,16 @@ class Wss_stress(Wss_ping):
         asyncio.run(self.wss_ping_test(port, n))
 
     def test_ping_websockets(self):
-        p1 = Process(target=self.run_ws, args=(8099, 8))
-        p2 = Process(target=self.run_test, args=(82, 1000))
+        p1 = Process(target=self.run_ws, args=(8099,))
+        p2 = Process(target=self.run_test, args=(82, 4000))
         p1.start()
         p2.start()
         p2.join()
         p1.terminate()
+        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
     async def wss_ping_test(self, port, n):
+        start = datetime.now()
         host = hostname
         ping_message = "ping_test"
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -331,4 +313,6 @@ class Wss_stress(Wss_ping):
             async with websockets.connect(f"wss://{host}:{port}",
                                           ssl=ssl_context) as websocket:
                 await websocket.send(ping_message)
-                # await websocket.recv()
+                await websocket.recv()
+        end = datetime.now()
+        print((end - start).total_seconds())
