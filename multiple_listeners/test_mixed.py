@@ -1,6 +1,6 @@
 """TestCase for mixed listening sockets."""
 from framework import tester
-from multiple_listenings import config_for_tests_mixed as tc
+from multiple_listeners import config_for_tests_mixed as tc
 
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -52,10 +52,10 @@ class TestMixedListeners(tester.TempestaTest):
 
     def test_mixed_https_success(self):
         """
-        Test h2 success situation.
+        Test https success situation.
 
-        One `true` client apply h2 client for h2 socket,
-        second `false` client apply h2 client for https socket,
+        One `true` client apply https client for https socket,
+        second `false` client apply https client for h2 socket,
         """
 
         self.start_all()

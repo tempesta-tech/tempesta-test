@@ -1,13 +1,10 @@
-######################################
-# This file has been auto generated. #
-######################################
 backends = [
 
     {
         'id': 'nginx',
         'type': 'nginx',
         'port': '8000',
-        'status_uri': 'http://${server_ip}:8000/nginx_status',
+        'status_uri': 'http://[::0]:8000/nginx_status',
         'config': """
             pid ${pid};
             worker_processes  auto;
@@ -28,7 +25,7 @@ backends = [
                 error_log /dev/null emerg;
                 access_log off;
                 server {
-                    listen        ${server_ip}:8000;
+                    listen        [::0]:8000;
                     location / {
                         return 200;
                     }
@@ -74,7 +71,7 @@ tempesta = {
     {% endfor %}
 
         srv_group default {
-            server ${server_ip}:8000;
+            server [::0]:8000;
         }
 
         vhost tempesta-cat {
@@ -95,7 +92,3 @@ tempesta = {
 
     """
 }
-
-######################################
-# This file has been auto generated. #
-######################################

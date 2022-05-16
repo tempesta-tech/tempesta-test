@@ -163,8 +163,3 @@ class ConfigAutoGenerator(object):
                 proto=' proto={0}'.format(proto) if proto else '',
             ),
         )
-
-
-if __name__ == '__main__':
-    conf_gen = ConfigAutoGenerator()
-    conf_gen.generate()
