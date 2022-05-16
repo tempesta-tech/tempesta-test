@@ -1,11 +1,10 @@
 #! /usr/bin/python3
-from framework import tester, nginx_server
+from framework import tester
 
 from multiprocessing import Process
 from random import randint
 import websockets
 import asyncio
-import time
 import ssl
 import os
 from framework.x509 import CertGenerator
@@ -169,7 +168,6 @@ class Ws_ping(tester.TempestaTest):
     # Client
 
     def run_test(self, port, n):
-        time.sleep(2.0)
         asyncio.run(self.ws_ping_test(port, n))
 
     async def ws_ping_test(self, port, n):
@@ -208,8 +206,6 @@ class Ws_ping(tester.TempestaTest):
         ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
         if proxy:
             self.start_all_servers()
-        self.start_tempesta()
-
         loop = asyncio.get_event_loop()
         for i in range(count):
             asyncio.ensure_future(websockets.serve(self.handler, hostname, port+i))
@@ -219,6 +215,9 @@ class Ws_ping(tester.TempestaTest):
         p1 = Process(target=self.run_ws, args=(8099,))
         p2 = Process(target=self.run_test, args=(81, 4))
         p1.start()
+        self.get_tempesta().start()
+        while not self.get_tempesta().is_running():
+            pass
         p2.start()
         p2.join()
         p1.terminate()
@@ -242,13 +241,15 @@ class Ws_ping(tester.TempestaTest):
 class Wss_ping(Ws_ping):
 
     def run_test(self, port, n):
-        time.sleep(2.0)
         asyncio.run(self.wss_ping_test(port, n))
 
     def test_ping_websockets(self):
         p1 = Process(target=self.run_ws, args=(8099,))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
+        self.get_tempesta().start()
+        while not self.get_tempesta().is_running():
+            pass
         p2.start()
         p2.join()
         p1.terminate()
@@ -273,6 +274,9 @@ class Wss_ping_with_nginx(Wss_ping):
         p1 = Process(target=self.run_ws, args=(8099, 1, True))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
+        self.get_tempesta().start()
+        while not self.get_tempesta().is_running():
+            pass
         p2.start()
         p2.join()
         p1.terminate()
@@ -287,13 +291,15 @@ class Wss_stress(Wss_ping):
     }
 
     def run_test(self, port, n):
-        time.sleep(2.0)
         asyncio.run(self.wss_ping_test(port, n))
 
     def test_ping_websockets(self):
         p1 = Process(target=self.run_ws, args=(8099, 8))
         p2 = Process(target=self.run_test, args=(82, 400))
         p1.start()
+        self.get_tempesta().start()
+        while not self.get_tempesta().is_running():
+            pass
         p2.start()
         p2.join()
         p1.terminate()
