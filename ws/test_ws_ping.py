@@ -9,11 +9,6 @@ import time
 import ssl
 import os
 from framework.x509 import CertGenerator
-from helpers import tempesta
-
-from datetime import datetime
-
-from sched.test_ratio_static import NGINX_CONFIG
 
 
 hostname = 'localhost'
@@ -34,7 +29,7 @@ vhost localhost {
     tls_certificate_key /tmp/key.pem;
 
     proxy_pass localhost;
-    
+
 }
 
 http_chain {
@@ -80,7 +75,7 @@ vhost localhost {
     tls_certificate_key /tmp/key.pem;
 
     proxy_pass localhost;
-    
+
 }
 
 http_chain {
@@ -141,12 +136,13 @@ http {
 }
 """
 
+
 def gen_cert(host_name):
-        cert_path = "/tmp/cert.pem"
-        key_path = "/tmp/key.pem"
-        cgen = CertGenerator(cert_path, key_path)
-        cgen.CN = host_name
-        cgen.generate()
+    cert_path = "/tmp/cert.pem"
+    key_path = "/tmp/key.pem"
+    cgen = CertGenerator(cert_path, key_path)
+    cgen.CN = host_name
+    cgen.generate()
 
 
 def remove_certs(cert_files_):
@@ -194,17 +190,10 @@ class Ws_ping(tester.TempestaTest):
         global ping_message
         host = hostname
         for _ in range(n):
-            timeout_ = randint(9, 10)
+            timeout_ = randint(0, 2)
             async with websockets.connect(f"ws://{host}:{port}",
                                           timeout=timeout_) as websocket:
                 await websocket.send(ping_message)
-
-    async def threaded_stress(self, i, port):
-        tasks = []
-        for _ in range(i):
-            tasks.append(self.run_stress(port))
-        await asyncio.gather(*tasks, return_exceptions=True)
-        return 0
 
     def run_ws(self, port, count=1, proxy=False):
         gen_cert(hostname)
@@ -214,7 +203,7 @@ class Ws_ping(tester.TempestaTest):
         if proxy:
             self.start_all_servers()
         self.start_tempesta()
-        
+
         loop = asyncio.get_event_loop()
         for i in range(count):
             asyncio.ensure_future(websockets.serve(self.handler, hostname, port+i))
@@ -263,11 +252,11 @@ class Wss_ping(Ws_ping):
 class Wss_ping_with_nginx(Wss_ping):
 
     backends = [{
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'port' : '8000',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : NGINX_CONFIG,
+            'id': 'nginx',
+            'type': 'nginx',
+            'port': '8000',
+            'status_uri': 'http://${server_ip}:8000/nginx_status',
+            'config': NGINX_CONFIG,
         }]
 
     tempesta = {
@@ -296,7 +285,7 @@ class Wss_stress(Wss_ping):
 
     def test_ping_websockets(self):
         p1 = Process(target=self.run_ws, args=(8099,))
-        p2 = Process(target=self.run_test, args=(82, 4000))
+        p2 = Process(target=self.run_test, args=(82, 400))
         p1.start()
         p2.start()
         p2.join()
@@ -304,15 +293,19 @@ class Wss_stress(Wss_ping):
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
     async def wss_ping_test(self, port, n):
-        start = datetime.now()
         host = hostname
-        ping_message = "ping_test"
+        global ping_message
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
+        count = 0
+        next_restart = randint(0, int(n/4))
         for _ in range(n):
+            count += 1
+            if count == next_restart:
+                count = 0
+                next_restart = randint(0, int(n/4))
+                self.get_tempesta().restart()
             async with websockets.connect(f"wss://{host}:{port}",
                                           ssl=ssl_context) as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
-        end = datetime.now()
-        print((end - start).total_seconds())
