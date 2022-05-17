@@ -51,7 +51,49 @@ srv_group localhost {
     server ${server_ip}:8104;
     server ${server_ip}:8105;
     server ${server_ip}:8106;
-
+    server ${server_ip}:8107;
+    server ${server_ip}:8108;
+    server ${server_ip}:8109;
+    server ${server_ip}:8110;
+    server ${server_ip}:8111;
+    server ${server_ip}:8112;
+    server ${server_ip}:8113;
+    server ${server_ip}:8114;
+    server ${server_ip}:8115;
+    server ${server_ip}:8116;
+    server ${server_ip}:8117;
+    server ${server_ip}:8118;
+    server ${server_ip}:8119;
+    server ${server_ip}:8120;
+    server ${server_ip}:8121;
+    server ${server_ip}:8122;
+    server ${server_ip}:8123;
+    server ${server_ip}:8124;
+    server ${server_ip}:8125;
+    server ${server_ip}:8126;
+    server ${server_ip}:8127;
+    server ${server_ip}:8128;
+    server ${server_ip}:8129;
+    server ${server_ip}:8130;
+    server ${server_ip}:8131;
+    server ${server_ip}:8132;
+    server ${server_ip}:8133;
+    server ${server_ip}:8134;
+    server ${server_ip}:8135;
+    server ${server_ip}:8136;
+    server ${server_ip}:8137;
+    server ${server_ip}:8138;
+    server ${server_ip}:8139;
+    server ${server_ip}:8140;
+    server ${server_ip}:8141;
+    server ${server_ip}:8142;
+    server ${server_ip}:8143;
+    server ${server_ip}:8144;
+    server ${server_ip}:8145;
+    server ${server_ip}:8146;
+    server ${server_ip}:8147;
+    server ${server_ip}:8148;
+    server ${server_ip}:8149;
 }
 
 vhost localhost {
@@ -177,6 +219,7 @@ class Ws_ping(tester.TempestaTest):
             async with websockets.connect(f"ws://{host}:{port}") as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
+                await websocket.close()
 
     async def wss_ping_test(self, port, n):
         global ping_message
@@ -188,16 +231,7 @@ class Ws_ping(tester.TempestaTest):
                                           ssl=ssl_context) as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
-
-    async def run_stress(port, n):
-        print("run_stress")
-        global ping_message
-        host = hostname
-        for _ in range(n):
-            timeout_ = randint(0, 2)
-            async with websockets.connect(f"ws://{host}:{port}",
-                                          timeout=timeout_) as websocket:
-                await websocket.send(ping_message)
+                await websocket.close()
 
     def run_ws(self, port, count=1, proxy=False):
         gen_cert(hostname)
@@ -208,7 +242,8 @@ class Ws_ping(tester.TempestaTest):
             self.start_all_servers()
         loop = asyncio.get_event_loop()
         for i in range(count):
-            asyncio.ensure_future(websockets.serve(self.handler, hostname, port+i))
+            asyncio.ensure_future(websockets.serve(self.handler,
+                                  hostname, port+i))
         loop.run_forever()
 
     def test_ping_websockets(self):
@@ -291,11 +326,11 @@ class Wss_stress(Wss_ping):
     }
 
     def run_test(self, port, n):
-        asyncio.run(self.wss_ping_test(port, n))
+        asyncio.run(self.stress_ping_test(port, n))
 
     def test_ping_websockets(self):
-        p1 = Process(target=self.run_ws, args=(8099, 8))
-        p2 = Process(target=self.run_test, args=(82, 400))
+        p1 = Process(target=self.run_ws, args=(8099, 50))
+        p2 = Process(target=self.run_test, args=(82, 4000))
         p1.start()
         self.get_tempesta().start()
         while not self.get_tempesta().is_running():
@@ -305,7 +340,7 @@ class Wss_stress(Wss_ping):
         p1.terminate()
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
-    async def wss_ping_test(self, port, n):
+    async def stress_ping_test(self, port, n):
         host = hostname
         global ping_message
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -322,3 +357,4 @@ class Wss_stress(Wss_ping):
                                           ssl=ssl_context) as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
+                await websocket.close()
