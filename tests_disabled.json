@@ -96,6 +96,14 @@
         {
             "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
             "reason" : "#861: TCP: reset blocked connections"
+        },
+        {
+            "name" : "multiple_listeners.test_mixed.TestMixedListeners.test_mixed_h2_success",
+            "reason" : "#1624: should be fixed"
+        },
+        {
+            "name" : "multiple_listeners.test_mixed.TestMixedListeners.test_mixed_https_success",
+            "reason" : "#1624: should be fixed"
         }
     ]
 }
