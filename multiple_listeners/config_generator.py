@@ -110,13 +110,6 @@ class ConfigAutoGenerator(object):
                 # listen [::1]:8080;
                 self._add_client(ip_addr=IPv6, port=self.port_number)
 
-                # TODO listen [::1]:8080 proto=https;
-                #self._add_client(
-                #    ip_addr=IPv6,
-                #    port=self.port_number-1000,
-                #    proto='https',
-                #)
-
                 # listen [::1]:8080 proto=h2;
                 self._add_client(
                     ip_addr=IPv6,
