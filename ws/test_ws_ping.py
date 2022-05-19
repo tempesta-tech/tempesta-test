@@ -1,4 +1,5 @@
 #! /usr/bin/python3
+
 from framework import tester
 
 from multiprocessing import Process
@@ -7,8 +8,13 @@ import websockets
 import asyncio
 import ssl
 import os
+import secrets
+import requests
 from framework.x509 import CertGenerator
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 hostname = 'localhost'
 ping_message = "ping_test"
@@ -131,6 +137,34 @@ http_chain {
 %s
 """
 
+TEMPESTA_CACHE_CONFIG = """
+listen 81;
+listen 82 proto=https;
+
+srv_group localhost {
+
+    server ${server_ip}:8099;
+}
+
+vhost localhost {
+    tls_certificate /tmp/cert.pem;
+    tls_certificate_key /tmp/key.pem;
+
+    proxy_pass localhost;
+
+}
+
+access_log on;
+
+cache 1;
+cache_fulfill * *;
+
+http_chain {
+    -> localhost;
+}
+%s
+"""
+
 NGINX_CONFIG = """
 pid ${pid};
 worker_processes  auto;
@@ -197,7 +231,7 @@ def remove_certs(cert_files_):
         os.remove(cert)
 
 
-class Ws_ping(tester.TempestaTest):
+class WsPing(tester.TempestaTest):
 
     backends = []        
 
@@ -268,12 +302,12 @@ class Ws_ping(tester.TempestaTest):
         global ping_message
         data = await websocket.recv()
         reply = f"{data}"
-        if f"{data}" == ping_message:
-            print("message_ok")
+        if f"{data}" != ping_message:
+            self.fail("Ping message corrupted")
         await websocket.send(reply)
 
 
-class Wss_ping(Ws_ping):
+class WssPing(WsPing):
 
     def run_test(self, port, n):
         asyncio.run(self.wss_ping_test(port, n))
@@ -291,7 +325,7 @@ class Wss_ping(Ws_ping):
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
 
-class Wss_ping_with_nginx(Wss_ping):
+class WssPingProxy(WssPing):
 
     backends = [{
             'id': 'nginx',
@@ -319,7 +353,50 @@ class Wss_ping_with_nginx(Wss_ping):
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
 
-class Wss_stress(Wss_ping):
+class CacheTest(WssPing):
+
+    tempesta = {
+        'config': TEMPESTA_CACHE_CONFIG % "",
+    }
+
+    async def handler(self, websocket, path):
+        pass
+
+    def call_upgrade(self, port, expected_status):
+        headers_ = {
+            "Host": hostname,
+            "Connection": "Upgrade",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36",
+            "Upgrade": "websocket",
+            "Origin": "null",
+            "Sec-WebSocket-Version": "13",
+            "Accept-Encoding": "gzip, deflate",
+            "Sec-WebSocket-Key": "V4wPm2Z/oOIUvp+uaX3CFQ==",
+            "Sec-WebSocket-Accept": "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+            "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
+        }
+
+        r = requests.get(f'http://{hostname}:{port}', auth=('user', 'pass'),
+                         headers=headers_)
+
+        if r.status_code != expected_status:
+            self.fail("Test failed cause recieved invalid status_code")
+
+    def test_ping_websockets(self):
+        p1 = Process(target=self.run_ws, args=(8099,))
+        p1.start()
+        self.get_tempesta().start()
+        while not self.get_tempesta().is_running():
+            pass
+        self.call_upgrade(81, 101)
+        p1.terminate()
+        self.call_upgrade(81, 502)
+        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
+
+
+class WssStress(WssPing):
 
     tempesta = {
         'config': TEMPESTA_STRESS_CONFIG,
