@@ -284,9 +284,7 @@ class WsPing(tester.TempestaTest):
         p1 = Process(target=self.run_ws, args=(8099,))
         p2 = Process(target=self.run_test, args=(81, 4))
         p1.start()
-        self.get_tempesta().start()
-        while not self.get_tempesta().is_running():
-            pass
+        self.start_tempesta()
         p2.start()
         p2.join()
         p1.terminate()
@@ -316,9 +314,7 @@ class WssPing(WsPing):
         p1 = Process(target=self.run_ws, args=(8099,))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
-        self.get_tempesta().start()
-        while not self.get_tempesta().is_running():
-            pass
+        self.start_tempesta()
         p2.start()
         p2.join()
         p1.terminate()
@@ -343,9 +339,7 @@ class WssPingProxy(WssPing):
         p1 = Process(target=self.run_ws, args=(8099, 1, True))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
-        self.get_tempesta().start()
-        while not self.get_tempesta().is_running():
-            pass
+        self.start_tempesta()
         p2.start()
         p2.join()
         p1.terminate()
@@ -380,16 +374,13 @@ class CacheTest(WssPing):
 
         r = requests.get(f'http://{hostname}:{port}', auth=('user', 'pass'),
                          headers=headers_)
-
         if r.status_code != expected_status:
             self.fail("Test failed cause recieved invalid status_code")
 
     def test_ping_websockets(self):
         p1 = Process(target=self.run_ws, args=(8099,))
         p1.start()
-        self.get_tempesta().start()
-        while not self.get_tempesta().is_running():
-            pass
+        self.start_tempesta()
         self.call_upgrade(81, 101)
         p1.terminate()
         self.call_upgrade(81, 502)
@@ -409,9 +400,7 @@ class WssStress(WssPing):
         p1 = Process(target=self.run_ws, args=(8099, 50))
         p2 = Process(target=self.run_test, args=(82, 4000))
         p1.start()
-        self.get_tempesta().start()
-        while not self.get_tempesta().is_running():
-            pass
+        self.start_tempesta()
         p2.start()
         p2.join()
         p1.terminate()
