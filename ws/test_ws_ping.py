@@ -8,7 +8,6 @@ import websockets
 import asyncio
 import ssl
 import os
-import secrets
 import requests
 from framework.x509 import CertGenerator
 
@@ -233,7 +232,9 @@ def remove_certs(cert_files_):
 
 class WsPing(tester.TempestaTest):
 
-    backends = []        
+    """ Ping test for websocket ws scheme """
+
+    backends = []
 
     clients = []
 
@@ -307,6 +308,8 @@ class WsPing(tester.TempestaTest):
 
 class WssPing(WsPing):
 
+    """ Ping test for websocket wss scheme. """
+
     def run_test(self, port, n):
         asyncio.run(self.wss_ping_test(port, n))
 
@@ -323,13 +326,18 @@ class WssPing(WsPing):
 
 class WssPingProxy(WssPing):
 
+    """
+    Ping test for websocket wss scheme with nginx proxying TLS
+    Scheme: WSClient (TLS)-> Tempesta-fw -> NGINX (TLS)-> wss
+    """
+
     backends = [{
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': NGINX_CONFIG,
-        }]
+        'id': 'nginx',
+        'type': 'nginx',
+        'port': '8000',
+        'status_uri': 'http://${server_ip}:8000/nginx_status',
+        'config': NGINX_CONFIG,
+    }]
 
     tempesta = {
         'config': TEMPESTA_NGINX_CONFIG % "",
@@ -348,6 +356,12 @@ class WssPingProxy(WssPing):
 
 
 class CacheTest(WssPing):
+
+    """
+    Test case - we never cache 101 responses
+    First: Send upgrade HTTP connection and - get 101
+    Second: Terminate websocket, call HTTP upgrade again - get 502
+    """
 
     tempesta = {
         'config': TEMPESTA_CACHE_CONFIG % "",
@@ -388,6 +402,10 @@ class CacheTest(WssPing):
 
 
 class WssStress(WssPing):
+
+    """
+    Asynchronously make WSS Connections and restart tempesta
+    """
 
     tempesta = {
         'config': TEMPESTA_STRESS_CONFIG,
