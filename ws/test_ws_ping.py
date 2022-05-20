@@ -411,6 +411,14 @@ class WssStress(WssPing):
         'config': TEMPESTA_STRESS_CONFIG,
     }
 
+    def fibo(self, n):
+        fib = [0, 1]
+        for i in range(n):
+            fib.append(fib[-2]+fib[-1])
+            if fib[-1] > n:
+                break
+        return fib
+
     def run_test(self, port, n):
         asyncio.run(self.stress_ping_test(port, n))
 
@@ -430,12 +438,9 @@ class WssStress(WssPing):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
         count = 0
-        next_restart = randint(0, int(n/4))
         for _ in range(n):
             count += 1
-            if count == next_restart:
-                count = 0
-                next_restart = randint(0, int(n/4))
+            if (4000-count) in self.fibo(4000):
                 self.get_tempesta().restart()
             async with websockets.connect(f"wss://{host}:{port}",
                                           ssl=ssl_context) as websocket:
