@@ -96,7 +96,8 @@
         {
             "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
             "reason" : "#861: TCP: reset blocked connections"
-        },        {
+        },
+        {
             "name" : "access_log.test_access_log.AccessLogFrang.test_frang",
             "reason" : "Disabled by issue #198"
         },
