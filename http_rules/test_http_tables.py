@@ -159,13 +159,17 @@ class HttpTablesTest(tester.TempestaTest):
         hdr host == "bad.host.com" -> block;
         hdr host == "bar*" -> vh5;
         cookie "tempesta" == "*" -> vh8;
-        mark == 1 -> vh7;
-        mark == 2 -> vh6;
-        mark == 3 -> vh5;
-        mark == 4 -> vh4;
-        mark == 5 -> vh3;
-        mark == 6 -> vh2;
-        mark == 7 -> vh1;
+
+        mark == 1 -> vh8;
+        mark == 2 -> vh7;
+        mark == 3 -> vh6;
+        mark == 4 -> vh5;
+        mark == 5 -> vh4;
+        mark == 6 -> vh3;
+        mark == 7 -> vh2;
+        mark == 8 -> vh1;
+
+
         }
         """
     }
@@ -389,7 +393,7 @@ TEMPESTA_CONFIG = """
     %s
 """
 
-class HttpTablesTestBase(tester.TempestaTest):
+class HttpTablesTestBase(tester.TempestaTest, base=True):
 
     clients = [
         {
@@ -422,6 +426,8 @@ class HttpTablesTestBase(tester.TempestaTest):
                "Host: tempesta-tech.com\r\n" \
                "\r\n"
 
+    redirect_location = ""
+
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
@@ -432,14 +438,14 @@ class HttpTablesTestBase(tester.TempestaTest):
     def test(self):
         self.start_all()
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: tempesta-tech.com\r\n" \
-                   "\r\n"
         deproxy_cl = self.get_client('client')
         deproxy_cl.start()
         deproxy_cl.make_requests(self.requests)
         if (self.resp_status):
             self.assertTrue(deproxy_cl.wait_for_response())
+            if self.redirect_location:
+                self.assertEqual(deproxy_cl.last_response.headers['location'],
+                                 self.redirect_location)
             self.assertEqual(int(deproxy_cl.last_response.status),
                              self.resp_status)
         else:
@@ -566,5 +572,97 @@ http_chain {
     requests = "GET /static HTTP/1.1\r\n" \
                "Host: tempesta-tech.com\r\n" \
                "\r\n"
+
+
+# A block of tests to ensure that configuration variables $host and $request_uri work correctly.
+class HttpTablesTestCustomRedirectCorrectVariables(HttpTablesTestBase):
+    host = "tempesta-tech.com"
+    request_uri = "/static"
+    tempesta = {
+        "config": TEMPESTA_CONFIG % ("", """
+http_chain chain1 {
+    uri == "%s*" -> 301 = https://static.$$host$$request_uri;
+
+}
+http_chain {
+    hdr Host == "%s" -> chain1;
+}""" % (request_uri, host))
+    }
+
+    resp_status = 301
+    requests = f"GET {request_uri} HTTP/1.1\r\n" \
+           f"Host: {host}\r\n" \
+           "\r\n"
+    redirect_location = f"https://static.{host}{request_uri}"
+
+
+class HttpTablesTestCustomRedirectNonExistentVariables(HttpTablesTestBase):
+    host = "tempesta-tech.com"
+    request_uri = "/static"
+    tempesta = {
+        "config": TEMPESTA_CONFIG % ("", """
+http_chain chain1 {
+    uri == "%s*" -> 301 = https://$$urlfoo;
+}
+http_chain {
+    hdr Host == "%s" -> chain1;
+
+}""" % (request_uri, host))
+    }
+    resp_status = 301
+    requests = f"GET {request_uri} HTTP/1.1\r\n" \
+       f"Host: {host}\r\n" \
+       "\r\n"
+    redirect_location = "https://$urlfoo"
+
+
+class HttpTablesTestCustomRedirectDifferentResponseStatus(HttpTablesTestBase):
+    host = "tempesta-tech.com"
+    request_uri = "/blog"
+    tempesta = {
+        "config": TEMPESTA_CONFIG % ("", """
+http_chain chain1 {
+    uri == "%s" -> 308 = https://$$host$$request_uri/new;
+
+}
+http_chain {
+    hdr Host == "%s" -> chain1;
+}""" % (request_uri, host))
+    }
+
+    resp_status = 308
+    requests = f"GET {request_uri} HTTP/1.1\r\n" \
+           f"Host: {host}\r\n" \
+           "\r\n"
+    redirect_location = f"https://{host}{request_uri}/new"
+
+
+class HttpTablesTestCustomRedirectTooManyVariables(tester.TempestaTest):
+    """
+    More than 8 variables must be rejected on configuration process.
+    """
+    host = "tempesta-tech.com"
+    request_uri = "/static"
+    tempesta = {
+        "config": TEMPESTA_CONFIG % ("", """
+http_chain chain1 {
+    uri == "%s*" -> 301 = https://$$host$$request_uri/$$host$$request_uri/$$host$$request_uri/$$host$$request_uri/$$host;
+
+}
+http_chain {
+    hdr Host == "%s" -> chain1;
+}""" % (request_uri, host))
+    }
+    def tearDown(self):
+        pass
+
+    def test(self):
+        try:
+            self.start_tempesta()
+            started = True
+        except Exception:
+            started = False
+        finally:
+            self.assertFalse(started)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
