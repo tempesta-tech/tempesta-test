@@ -2109,24 +2109,7 @@
             "name" : "vhost.test_add_hdr.TestRespSetHeader.test_add_some_hdrs_custom_location",
             "reason" : "Disabled by issue #198"
         },
-        {
-            "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "ws.test_ws_ping.WsPing.test_ping_websockets",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "ws.test_ws_ping.WssPing.test_ping_websockets",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "ws.test_ws_ping.WssPingProxy.test_ping_websockets",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "ws.test_ws_ping.WssStress.test_ping_websockets",
+        {   "name" : "multiple_listeners",
             "reason" : "Disabled by issue #198"
         }
     ]
