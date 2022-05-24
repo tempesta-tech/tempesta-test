@@ -388,7 +388,7 @@ class CacheTest(WssPing):
 
         r = requests.get(f'http://{hostname}:{port}', auth=('user', 'pass'),
                          headers=headers_)
-        if r.status_code != expected_status:
+        if r.status_code not in expected_status:
             self.fail("Test failed cause recieved invalid status_code")
 
     def test_ping_websockets(self):
@@ -397,7 +397,7 @@ class CacheTest(WssPing):
         self.start_tempesta()
         self.call_upgrade(81, 101)
         p1.terminate()
-        self.call_upgrade(81, 502)
+        self.call_upgrade(81, [502, 504])
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
 
 
