@@ -96,14 +96,2037 @@
         {
             "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
             "reason" : "#861: TCP: reset blocked connections"
+        },        {
+            "name" : "access_log.test_access_log.AccessLogFrang.test_frang",
+            "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "multiple_listeners.test_mixed.TestMixedListeners.test_mixed_h2_success",
-            "reason" : "#1624: should be fixed"
+            "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
+            "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "multiple_listeners.test_mixed.TestMixedListeners.test_mixed_https_success",
-            "reason" : "#1624: should be fixed"
+            "name" : "access_log.test_access_log.AccessLogTest.test_success_path_http1x",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log.AccessLogTest.test_uri_truncate",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.FrangTest.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.Response200Test.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.Response204Test.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.Response302Test.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.Response404Test.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.Response500Test.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "access_log.test_access_log_h2.TruncateUriTest.test_tempesta",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_bypass_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_bypass_prefix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_bypass_suffix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_fulfill_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_fulfill_prefix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_fulfill_suffix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_fulfill_suffix_2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheDisabled.test_cache_wo_date",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_bypass_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_bypass_prefix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_bypass_suffix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_fulfill_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_fulfill_prefix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_fulfill_suffix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_fulfill_suffix_2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheReplicated.test_cache_wo_date",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_bypass_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_bypass_prefix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_bypass_suffix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_fulfill_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_fulfill_prefix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_fulfill_suffix",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_fulfill_suffix_2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheSharding.test_cache_wo_date",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgBothNoCacheCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgNoCacheBypass.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgNoCacheCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgNoCacheCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgNoCacheCached3.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgPrivateBypass.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgPrivateCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CCArgPrivateCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CacheHdrDelBypass.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CacheHdrDelCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.CacheHdrDelCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.HttpChainCacheActionBypass.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.HttpChainCacheActionCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.HttpChainCacheActionOverrideBypass.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.HttpChainCacheActionOverrideCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMaxAgeCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMaxAgeMaxStaleCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMaxAgeMaxStaleNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMaxAgeNoCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMaxStaleCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMinFreshCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestMinFreshNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestNoStoreNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestOnlyIfCached504.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestOnlyIfCachedCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMaxAgeCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMaxAgeCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMaxAgeIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMaxAgeNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMaxAgeNotCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMultipleNoCacheIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateHalfIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateMultiIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateStaleCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateStaleIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateStaleNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseNoCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseNoCacheIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseNoCacheIgnoreMulti.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseNoStore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponsePrivate.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseProxyRevalidateIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseProxyRevalidateNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseProxyRevalidateStaleIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseProxyRevalidateStaleNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponsePublicCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponsePublicCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponsePublicIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponsePublicIgnore2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponsePublicNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseSMaxageCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseSMaxageIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseSMaxageMaxAgeIgnore.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseSMaxageMaxAgeNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseSMaxageNotCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseSMaxageNotCached2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseStaleCached.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.TestCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.TestCache2.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_control.TestCacheBypass.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest01.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest02.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest03.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest04.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest05.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest06.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest07.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest08.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest09.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest10.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest11.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest12.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest13.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_deception_attack.CacheDeceptionAttackTest14.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_copy",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_delete",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_get",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_head",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_lock",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_mkcol",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_move",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_options",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_patch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_post",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_propfind",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_proppatch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_put",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_trace",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethods.test_unlock",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_copy",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_delete",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_get",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_head",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_lock",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_mkcol",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_move",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_options",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_patch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_post",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_propfind",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_proppatch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_put",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_trace",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestCacheMethodsNC.test_unlock",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_cache_methods.TestMultipleMethods.test_purge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_mod_since",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_mod_since_nc",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match_any",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match_list",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match_nc",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match_weak_all",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match_weak_clnt",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_conditional.TestConditional.test_none_match_weak_srv",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_basic",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_garbage",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_uncacheable",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_uncached",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_update",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_update_cc",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_purge_get_update_hdr_del",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge.TestPurge.test_useless_x_tempesta_cache",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge_hch.HeavyChunkedPurgeTest.test_0_purge_non_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge_hch.HeavyChunkedPurgeTest.test_1_purge_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge_resp_hch.HeavyChunkedPurgeRespTest.test_0_purge_resp_non_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "cache.test_purge_resp_hch.HeavyChunkedPurgeRespTest.test_1_purge_resp_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "flacky_net.test_sockets.CloseOnShutdown.test_filtered",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "flacky_net.test_sockets.CloseOnShutdown.test_not_started_server",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "flacky_net.test_sockets.CloseOnShutdown.test_reachable",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "flacky_net.test_sockets.CloseOnShutdown.test_reachable_then_closed",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "flacky_net.test_sockets.CloseOnShutdown.test_sometimes_available",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.AuthorityHeader.test_block",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.AuthorityHeader.test_pass",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_empty",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_good",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_ip",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_ip6",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_mismatch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_mismatch_empty",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_missing",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_host_required.HostHeader.test_host_old_proto",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_http_resp_code_block.HttpRespCodeBlock.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "frang.test_http_resp_code_block.HttpRespCodeBlockWithReply.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.AddBackendLongHeaders.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.AddBackendLongHeadersCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.AddBackendShortHeaders.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.AddBackendShortHeadersCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.HeadersEmptyCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.HeadersParsing.test_random_header",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.HeadersSpacedCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.LowercaseAddBackendHeaders.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_headers.LowercaseAddBackendHeadersCache.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_perf.TLSPerf.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_specs.H2Load.test_h2_specs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "h2.test_h2_specs.H2Spec.test_h2_specs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "health_monitoring.test_health_monitor.TestHealthMonitor.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "health_monitoring.test_health_monitor.TestHealthMonitorCRCOnly.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http.HttpRules.test_scheduler",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http.HttpRulesBackupServers.test_scheduler",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTest.test_chains",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestBase.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestEmptyChainDefault.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestEmptyChainDrop.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestEmptyChainReply.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestEmptyMainChainDefault.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestEmptyMainChainDrop.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestEmptyMainChainReply.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestMarkRules.test_chains",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestMixedChainDefault.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestMixedChainDrop.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestMixedChainReply.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "http_rules.test_http_tables.HttpTablesTestMixedChainResp.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "leaks.test_leak.LeakTest.test_kmemleak",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "leaks.test_leak.LeakTest.test_slab_memory",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "leaks.test_leak.LeakTest.test_used_memory",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_long_request.RequestTest1M.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_long_request.RequestTest1k.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestCorrectBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestDuplicateBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestInvalidBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestMissingBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestSecondBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestSmallBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseCorrectBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseCorrectEmptyBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseDuplicateBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseForbiddenPositiveBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseForbiddenZeroBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseInvalidBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseMissingEmptyBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_response_wrong_length.ResponseSecondBodyLength.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "unittest.loader._FailedTest.malformed.test_chunking_example",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_01_no_crlf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_02_no_crlf_pipeline",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_03_single_crlf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_04_single_crlf_pipeline",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_05_single_lf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_06_single_lf_pipeline",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_07_double_crlf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_08_double_crlf_pipeline",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_09_double_lf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_10_double_lf_pipeline",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_11_no_crlf_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_12_no_crlf_pipeline_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_13_single_crlf_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_14_single_crlf_pipeline_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_15_single_lf_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_16_single_lf_pipeline_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_17_double_crlf_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_18_double_crlf_pipeline_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_19_double_lf_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_crlfs.MalformedCrlfTest.test_20_double_lf_pipeline_hch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x00",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x09",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x20",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x21",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x22",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x23",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_x7f",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetBrangeTest.test_etag_with_xf7",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x00",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x09",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x20",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x21",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x22",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x23",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_x7f",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_headers.EtagAlphabetTest.test_etag_with_xf7",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_structure.MalformedStructureTest.test_crSPlf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_structure.MalformedStructureTest.test_lfcr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "malformed.test_malformed_structure.MalformedStructureTest.test_space",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_connect",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_get_post",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_head_get",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_mixed",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_pipeline",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_post_big",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_post_empty",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_post_small",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_real",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_real2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "mixed_requests.test_mixed.MixedRequests.test_real_pipelined",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "msg_modification.tests_encode_to_chunked.MessageTransformations.test_big_body_to_chunked",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "msg_modification.tests_encode_to_chunked.MessageTransformations.test_small_body_to_chunked",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "msg_modification.tests_encode_to_chunked.MessageTransformations.test_transform_not_possible",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "msg_modification.tests_encode_to_chunked.MessageTransformations.test_transform_possible",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "msg_modification.tests_encode_to_chunked.MessageTransformations.test_zero_body_to_chunked",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "msg_sequence.test_pairing.PairingTest.test_disconnect_client",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ConfigParameterAbsent.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ConfigParameterAtLocation.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ConfigParameterAtTopLevel.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ConfigParameterAtVhost.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ContentTypeHeaderReconstructTest.test_replacement_escaped",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ContentTypeHeaderReconstructTest.test_replacement_quoted",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ContentTypeHeaderReconstructTest.test_replacement_unquoted_1",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "normalization.test_http_multipart.ContentTypeHeaderReconstructTest.test_replacement_unquoted_2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "pipelining.test_pipelining.PipeliningTest.test_2_pipelined",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "pipelining.test_pipelining.PipeliningTest.test_failovering",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "pipelining.test_pipelining.PipeliningTest.test_pipelined",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "pipelining.test_pipelining.PipeliningTestFI.test_failovering",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "pipelining.test_pipelining.PipeliningTestFI.test_pipelined",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor.HealthMonitorChangedAutoCustomSg.test_hm_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor.HealthMonitorChangedAutoCustomSg.test_hm_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor.HealthMonitorChangedAutoCustomSg.test_hm_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor.HealthMonitorCustomSg.test_hm_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor.HealthMonitorCustomSg.test_hm_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor.HealthMonitorCustomSg.test_hm_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashCustomSg.test_hash_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashCustomSg.test_hash_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashCustomSg.test_hash_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashExplDefaultSg.test_hash_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashExplDefaultSg.test_hash_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashExplDefaultSg.test_hash_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashImplDefaultSg.test_hash_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashImplDefaultSg.test_hash_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash.SchedHashImplDefaultSg.test_hash_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_http.SchedHttp.test_hash_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicCustomSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicCustomSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicCustomSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicExplDefaultSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicExplDefaultSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicExplDefaultSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicImplDefaultSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicImplDefaultSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioDynamicImplDefaultSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictCustomSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictCustomSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictCustomSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictExplDefaultSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictExplDefaultSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictExplDefaultSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictImplDefaultSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictImplDefaultSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioPredictImplDefaultSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticCustomSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticCustomSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticCustomSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticExplDefaultSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticExplDefaultSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticExplDefaultSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticImplDefaultSg.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticImplDefaultSg.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio.SchedRatioStaticImplDefaultSg.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sticky.SchedSticky.test_ratio_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sticky.SchedSticky.test_ratio_del_add_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "reconf.test_stress_sticky.SchedSticky.test_ratio_del_srvs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_invalid.TestInvalidResponse.test_204_with_body",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_invalid.TestInvalidResponse.test_no_crlf_before_body",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_reboot.RebootUnderLoadNoTimeoutTest.test_cache",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_reboot.RebootUnderLoadNoTimeoutTest.test_proxy",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_reboot.RebootUnderLoadTest.test_cache",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_reboot.RebootUnderLoadTest.test_proxy",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.HashFailovering.test_limited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.HashFailovering.test_unlimited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.RatioFailovering.test_limited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.RatioFailovering.test_unlimited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_pipeline.Pipeline.test_pipelined_requests",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_hash_func.HashSchedulerTest.test_hash_scheduler",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_hash_stress.BindToServer.test_hash",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_hash_stress.BindToServerFailovering.test_hash",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_per_group_lb.AllDefaults.test_inherit",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_per_group_lb.LateRedefineGlobalSched.test_inherit",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_per_group_lb.RedefineAllScheds.test_inherit",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_per_group_lb.RedefineGlobalSched.test_inherit",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_per_group_lb.RedefineGroupSched.test_inherit",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioDynamic.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioDynamicAv.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioDynamicMin.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioDynamicPerc.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioPredict.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioPredictAv.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioPredictMin.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic.RatioPredictPerc.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamic.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamicAv.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamicMin.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamicPerc.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioPredict.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioPredictAv.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioPredictMin.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_dynamic_recalc.RatioPredictPerc.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_static.Ratio.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_static.RatioVariableConns.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_weight.Ratio.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sched.test_ratio_weight.RatioVariableConns.test_load_distribution",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_deproxy.DeproxyChunkedTest.test_deproxy_one_chain",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_deproxy.DeproxyTest.test_deproxy_one_chain",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_deproxy.DeproxyTestFailOver.test_deproxy_one_chain",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test_deproxy_client",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test_deproxy_srv",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test_deproxy_srvclient",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseBody.test_chunked",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseBody.test_chunked_and_trailer",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseBody.test_contentlength",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseBody.test_contentlength_too_short",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseResponse.test_equal",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "selftests.test_responses.ParseResponse.test_parse",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_cookies.CookieLifetime.test_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_cookies.CookiesEnabled.test_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_cookies.CookiesEnforced.test_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_cookies.CookiesInherit.test_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_cookies.CookiesNotEnabled.test_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_cookies.VhostCookies.test_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallenge.test_disable_challenge_on_reload",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallenge.test_fail_challenge_too_early",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallenge.test_fail_challenge_too_late",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallenge.test_get_challenge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallenge.test_pass_challenge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeAfterReload.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeDefVhostInherit.test_pass_challenge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeVhost.test_disable_challenge_on_reload",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeVhost.test_fail_challenge_too_early",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeVhost.test_fail_challenge_too_late",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeVhost.test_get_challenge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeVhost.test_js_overriden_together_with_cookie",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_js_challenge.JSChallengeVhost.test_pass_challenge",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_learn.LearnSessions.test_backend_fail",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_learn.LearnSessions.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_learn.LearnSessionsVhost.test_backend_fail",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_learn.LearnSessionsVhost.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_redir_mark.RedirectMark.test_good_rmark_value",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_redir_mark.RedirectMarkTimeout.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_redir_mark.RedirectMarkTimeoutVhost.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_good_rmark_value",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessions.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsFailover.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsFailover.test_sessions_reserved_server",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsFailoverVhost.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsFailoverVhost.test_sessions_reserved_server",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsPersistense.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsPersistenseVhost.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sessions.StickySessionsVhost.test_sessions",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "sessions.test_sticky_sess_stress.LotOfClients.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "unittest.loader._FailedTest.tcp_connection.test_connection_close",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_basic.TlsBasic.test_connection_close",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "unittest.loader._FailedTest.tls.test_tls_cert",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "unittest.loader._FailedTest.tls.test_tls_handshake",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "unittest.loader._FailedTest.tls.test_tls_integrity",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_kernel.TCrypt.test_tcrypt",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_limits.TLSLimits.test_with_deproxy",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_limits.TLSLimits.test_with_tlsperf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_deproxy",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_tlsperf",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_mismatch",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "tls.test_tls_stress.StressTls.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "unittest.loader._FailedTest.tls.test_tls_tickets",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.AddingBackendNewSG.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.DontModifyBackend.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.RemovingBackendSG.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespAddHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespAddHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespAddHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespAddHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespAddHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespDelHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespDelHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespDelHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespDelHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespDelHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespSetHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespSetHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespSetHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespSetHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestCachedRespSetHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqAddHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqAddHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqAddHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqAddHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqAddHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqDelHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqDelHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqDelHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqDelHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqDelHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqSetHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqSetHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqSetHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqSetHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestReqSetHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespAddHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespAddHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespAddHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespAddHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespAddHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespDelHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespDelHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespDelHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespDelHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespDelHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespSetHeader.test_add_hdrs_derive_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespSetHeader.test_add_hdrs_override_config",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespSetHeader.test_add_one_hdr",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespSetHeader.test_add_some_hdrs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "vhost.test_add_hdr.TestRespSetHeader.test_add_some_hdrs_custom_location",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "ws.test_ws_ping.WsPing.test_ping_websockets",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "ws.test_ws_ping.WssPing.test_ping_websockets",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "ws.test_ws_ping.WssPingProxy.test_ping_websockets",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "ws.test_ws_ping.WssStress.test_ping_websockets",
+            "reason" : "Disabled by issue #198"
         }
     ]
 }
