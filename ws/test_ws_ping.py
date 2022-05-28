@@ -395,7 +395,7 @@ class CacheTest(WssPing):
         p1 = Process(target=self.run_ws, args=(8099,))
         p1.start()
         self.start_tempesta()
-        self.call_upgrade(81, 101)
+        self.call_upgrade(81, [101])
         p1.terminate()
         self.call_upgrade(81, [502, 504])
         remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
