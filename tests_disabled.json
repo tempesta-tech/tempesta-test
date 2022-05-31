@@ -298,6 +298,10 @@
             "reason" : "Disabled by issue #203"
         },
         {
+            "name" : "tls.test_tls_limits.TLSLimitsIncomplete.test",
+            "reason" : "Disabled by issue #203"
+        },
+        {
             "name" : "unittest.loader._FailedTest.tls.test_tls_tickets",
             "reason" : "Disabled by issue #198"
         },
