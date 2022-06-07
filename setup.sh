@@ -9,3 +9,8 @@ git clone https://github.com/tempesta-tech/tls-perf.git /tmp/tls-perf
 cd /tmp/tls-perf
 make
 ln -s /tmp/tls-perf/tls-perf /bin/tls-perf
+
+# wrk
+git clone https://github.com/wg/wrk.git /tmp/wrk
+cd /tmp/wrk
+make
