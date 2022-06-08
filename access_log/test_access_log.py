@@ -4,7 +4,6 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-import time
 from helpers import dmesg
 from .common import AccessLogLine
 
