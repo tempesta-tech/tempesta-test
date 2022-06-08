@@ -67,6 +67,11 @@ framework instead of test. Both, workload and functional tests, can be rewritten
 with user configured tests. Functional test should use deproxy client and
 deproxy server, and workload tests should use wrk client and nginx server.
 
+## Setup
+
+To run requirements autoinstallation run setup.sh
+
+`./setup.sh`
 
 ## Requirements
 
