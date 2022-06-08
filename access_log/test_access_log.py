@@ -4,6 +4,7 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+import time
 from helpers import dmesg
 from .common import AccessLogLine
 
@@ -38,12 +39,21 @@ class CheckedResponses(tester.TempestaTest):
 
     tempesta = {
         'config': """
-            cache 0;
             listen 80;
             access_log on;
 
-            server ${general_ip}:8000;
+            srv_group localhost {
+                server ${server_ip}:8000;
+            }
 
+            vhost localhost {
+                proxy_pass localhost;
+
+            }
+
+            http_chain {
+                -> localhost;
+            }
         """
     }
 
@@ -120,7 +130,6 @@ class CheckedResponses(tester.TempestaTest):
         deproxy_cl.start()
         deproxy_cl.make_requests(request)
         deproxy_cl.wait_for_response()
-
         self.assertEqual(int(deproxy_cl.last_response.status), status)
         klog.update()
 
