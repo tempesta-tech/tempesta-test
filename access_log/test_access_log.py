@@ -38,6 +38,7 @@ class CheckedResponses(tester.TempestaTest):
 
     tempesta = {
         'config': """
+            cache 0;
             listen 80;
             access_log on;
 
