@@ -99,14 +99,14 @@ class CheckedResponses(tester.TempestaTest):
     def get_expected_log_msg(self):
         return '"{method} {uri} HTTP/{version}" {status}' \
                ' {response_content_length} "{referer}" "{user_agent}"'.format(
-            method=self._expected_method,
-            uri=self._expected_uri,
-            version=self._expected_version,
-            status=self._expected_status,
-            response_content_length=self._expected_content_len,
-            referer=self._expected_referer,
-            user_agent=self._expected_user_agent,
-        )
+                method=self._expected_method,
+                uri=self._expected_uri,
+                version=self._expected_version,
+                status=self._expected_status,
+                response_content_length=self._expected_content_len,
+                referer=self._expected_referer,
+                user_agent=self._expected_user_agent,
+                )
 
     def send_request_and_get_dmesg(self, klog, request_as_str,
                                    response_as_str=HTTP_200_OK):
@@ -210,7 +210,7 @@ class AccessLogFrang(CheckedResponses):
 
             frang_limits {
                 ip_block off;
-                http_uri_len 10;                            
+                http_uri_len 10;
             }
 
             server ${general_ip}:8000;

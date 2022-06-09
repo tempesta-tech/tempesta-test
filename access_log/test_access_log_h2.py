@@ -42,13 +42,13 @@ def backends(status_code):
                     # [ debug | info | notice | warn | error | crit | alert | emerg ]
                     # Fully disable log errors.
                     error_log /dev/null emerg;
-        
+
                     # Disable access log altogether.
                     access_log off;
-        
+
                     server {
                         listen        ${server_ip}:8000;
-        
+
                         location / {
                             return %d%s;
                         }
@@ -70,7 +70,7 @@ def tempesta(extra=''):
            listen 443 proto=h2;
            access_log on;
            %s
-       
+
            srv_group * {
                server ${server_ip}:8000;
            }
@@ -143,7 +143,7 @@ class CurlTestBase(tester.TempestaTest):
         if is_frang:
             try:
                 self.run_curl(curl)
-            except:
+            except Exception:
                 pass
         else:
             self.run_curl(curl)
@@ -207,7 +207,7 @@ class FrangTest(CurlTestBase):
     tempesta = tempesta("""
             frang_limits {
                 ip_block off;
-                http_uri_len 10;                            
+                http_uri_len 10;
             }
     """)
     clients = clients('/some-uri-longer-than-10-symbols')
