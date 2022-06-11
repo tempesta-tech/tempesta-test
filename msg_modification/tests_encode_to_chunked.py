@@ -9,7 +9,7 @@ it adds message framing information and leaves connection open.
 
 from helpers import deproxy
 from framework import tester
-
+import time
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
@@ -29,7 +29,17 @@ class MessageTransformations(tester.TempestaTest):
     tempesta = {
         'config' :
         """
-        server ${server_ip}:8000;
+        listen 80;
+        
+        srv_group * {
+            server ${server_ip}:8000;
+        }
+        vhost * {
+            proxy_pass *;
+        }
+        http_chain {
+            -> *;
+        }
 
         """
     }

@@ -158,10 +158,6 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "msg_modification",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "msg_sequence.test_pairing.PairingTest.test_disconnect_client",
             "reason" : "Disabled by issue #198"
         },
