@@ -98,10 +98,6 @@
             "reason" : "#861: TCP: reset blocked connections"
         },
         {
-            "name" : "access_log",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "cache",
             "reason" : "Disabled by issue #810"
         },
