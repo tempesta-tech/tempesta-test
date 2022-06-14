@@ -158,10 +158,6 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "normalization",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "pipelining",
             "reason" : "Disabled by issue #963"
         },
