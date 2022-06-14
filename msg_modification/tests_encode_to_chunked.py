@@ -9,7 +9,7 @@ it adds message framing information and leaves connection open.
 
 from helpers import deproxy
 from framework import tester
-import time
+
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
