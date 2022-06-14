@@ -150,10 +150,6 @@
             "reason" : "Disabled by issue #187"
         },
         {
-            "name" : "mixed_requests",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "msg_modification",
             "reason" : "Disabled by issue #198"
         },
