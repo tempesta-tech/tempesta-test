@@ -76,69 +76,6 @@ class TestMatchHost(tester.TempestaTest):
         """
     }
 
-    clients = [
-        {
-            'id' : 0,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 1,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 2,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 3,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 4,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 5,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 6,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 7,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 8,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 9,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        }
-    ]
-
     requests_opt = [
         {
             'uri' : 'http://testshop.com', #<--must be matched by "host eq"
@@ -171,6 +108,16 @@ class TestMatchHost(tester.TempestaTest):
             'uri' : 'http://badhost.com',
             'headers' : [
                 ('Host', 'badhost.com'),
+                ('Forwarded', 'host=testshop.com') #<--must be matched by "hdr forwarded"
+            ],
+            'block' : False,
+            'sid' : 0
+        },
+        {
+            'uri' : 'http://badhost.com',
+            'headers' : [
+                ('Host', 'badhost.com'),
+                ('Forwarded', 'host=unkhost.com'),
                 ('Forwarded', 'host=testshop.com') #<--must be matched by "hdr forwarded"
             ],
             'block' : False,
@@ -234,6 +181,15 @@ class TestMatchHost(tester.TempestaTest):
     blocked_response_status = '403'
     chains = []
 
+    def add_client(self, cid):
+        client = {
+                'id' : cid,
+                'type' : 'deproxy',
+                'addr' : "${tempesta_ip}",
+                'port' : '80'
+            }
+        self.clients.append(client)
+
     def init_chain(self, req_opt):
         ch = chains.base(uri=req_opt['uri'])
         if req_opt['block']:
@@ -255,6 +211,7 @@ class TestMatchHost(tester.TempestaTest):
         count = len(self.requests_opt)
         for i in range(count):
             self.init_chain(self.requests_opt[i])
+            self.add_client(i)
         tester.TempestaTest.setUp(self)
 
     def start_all(self):
