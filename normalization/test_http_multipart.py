@@ -95,6 +95,10 @@ class ContentTypeHeaderReconstructTest(ContentTypeTestBase):
                     http_post_validate;
                     proxy_pass default;
                 }
+                proxy_pass default;
+            }
+            http_chain {
+                -> default;
             }
             '''),
     }
@@ -129,6 +133,10 @@ class ConfigParameterAbsent(ContentTypeTestBase):
                 location prefix / {
                     proxy_pass default;
                 }
+                proxy_pass default;
+            }
+            http_chain {
+                -> default;
             }
             '''),
     }
@@ -147,6 +155,10 @@ class ConfigParameterAtTopLevel(ContentTypeTestBase):
                 location prefix / {
                     proxy_pass default;
                 }
+                proxy_pass default;
+            }
+            http_chain {
+                -> default;
             }
             '''),
     }
@@ -165,6 +177,10 @@ class ConfigParameterAtVhost(ContentTypeTestBase):
                 location prefix / {
                     proxy_pass default;
                 }
+                proxy_pass default;
+            }
+            http_chain {
+                -> default;
             }
             '''),
     }
@@ -183,6 +199,10 @@ class ConfigParameterAtLocation(ContentTypeTestBase):
                     http_post_validate;
                     proxy_pass default;
                 }
+                proxy_pass default;
+            }
+            http_chain {
+                -> default;
             }
             '''),
     }

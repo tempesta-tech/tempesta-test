@@ -4,8 +4,10 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+import os
 from helpers import dmesg
 from .common import AccessLogLine
+from framework.x509 import CertGenerator
 
 
 def backends(status_code):
@@ -40,13 +42,13 @@ def backends(status_code):
                     # [ debug | info | notice | warn | error | crit | alert | emerg ]
                     # Fully disable log errors.
                     error_log /dev/null emerg;
-        
+
                     # Disable access log altogether.
                     access_log off;
-        
+
                     server {
                         listen        ${server_ip}:8000;
-        
+
                         location / {
                             return %d%s;
                         }
@@ -68,16 +70,22 @@ def tempesta(extra=''):
            listen 443 proto=h2;
            access_log on;
            %s
-       
-           srv_group default {
+
+           srv_group * {
                server ${server_ip}:8000;
            }
-           vhost default {
-               tls_certificate ${tempesta_workdir}/tempesta.crt;
-               tls_certificate_key ${tempesta_workdir}/tempesta.key;
-       
-               proxy_pass default;
+
+           vhost * {
+               tls_certificate ${tempesta_workdir}/cert.pem;
+               tls_certificate_key ${tempesta_workdir}/key.pem;
+
+               proxy_pass *;
            }
+
+            http_chain {
+                -> *;
+            }
+
            """ % extra
     }
 
@@ -94,6 +102,19 @@ def clients(uri='/'):
             )
         },
     ]
+
+
+def gen_cert(host_name):
+    cert_path = "/tmp/tempesta/cert.pem"
+    key_path = "/tmp/tempesta/key.pem"
+    cgen = CertGenerator(cert_path, key_path)
+    cgen.CN = host_name
+    cgen.generate()
+
+
+def remove_certs(cert_files_):
+    for cert in cert_files_:
+        os.remove(cert)
 
 
 # Some tests for access_log over HTTP/2.0
@@ -115,14 +136,14 @@ class CurlTestBase(tester.TempestaTest):
         user_agent = 'http2-user-agent-%d' % status_code
         curl.options.append('-e "%s"' % referer)
         curl.options.append('-A "%s"' % user_agent)
-
+        gen_cert('127.0.0.1')
         self.start_all_servers()
         self.start_tempesta()
 
         if is_frang:
             try:
                 self.run_curl(curl)
-            except:
+            except Exception:
                 pass
         else:
             self.run_curl(curl)
@@ -131,13 +152,13 @@ class CurlTestBase(tester.TempestaTest):
         nginx.get_stats()
         self.assertEqual(0 if is_frang else 1, nginx.requests,
                          msg="Unexpected number forwarded requests to backend")
-
         msg = AccessLogLine.from_dmesg(klog)
         self.assertTrue(msg is not None, "No access_log message in dmesg")
         self.assertEqual(msg.method, 'GET', 'Wrong method')
         self.assertEqual(msg.status, status_code, 'Wrong HTTP status')
         self.assertEqual(msg.user_agent, user_agent)
         self.assertEqual(msg.referer, referer)
+        remove_certs(["/tmp/tempesta/key.pem", "/tmp/tempesta/cert.pem"])
         return msg
 
 
@@ -186,7 +207,7 @@ class FrangTest(CurlTestBase):
     tempesta = tempesta("""
             frang_limits {
                 ip_block off;
-                http_uri_len 10;                            
+                http_uri_len 10;
             }
     """)
     clients = clients('/some-uri-longer-than-10-symbols')
