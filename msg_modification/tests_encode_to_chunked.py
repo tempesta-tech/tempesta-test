@@ -37,9 +37,6 @@ class MessageTransformations(tester.TempestaTest):
         vhost * {
             proxy_pass *;
         }
-        http_chain {
-            -> *;
-        }
 
         """
     }
