@@ -127,6 +127,10 @@ class TempestaTest(unittest.TestCase):
         'backends' : [],
     }
 
+    def __init_subclass__(cls, base=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._base = base
+
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
         self.__servers = {}
@@ -285,6 +289,13 @@ class TempestaTest(unittest.TestCase):
                 raise Exception("Can not start client %s" % cid)
 
     def setUp(self):
+        # `unittest.TestLoader.discover` returns initialized objects, we can't
+        # raise `SkipTest` inside of `TempestaTest.__init__` because we are unable
+        # to interfere `unittest` code and catch that exception inside of it.
+        # Please, make sure to put the following check in your code if you override `setUp`.
+        if self._base:
+            self.skipTest("This is an abstract class")
+
         tf_cfg.dbg(3, '\tInit test case...')
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
