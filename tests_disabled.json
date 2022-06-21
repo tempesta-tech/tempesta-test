@@ -258,6 +258,89 @@
             "reason" : "Disabled by issue #198"
         },
         {
+            "name" :  "tls.test_tls_tickets.TlsVhostConfusionDfltVhost.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tcp_connection.test_connection_close.CloseConnection.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_cert.ECDSA_SHA256_SECP256.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_cert.RSA1024_SHA384.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_cert.RSA2048_SHA512.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_cert.RSA4096_SHA512.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_cert.StaleCert.test",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sni",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_handshake.TlsHandshakeTest.test_old_handshakes",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.Cache.test_various_req_resp_sizes",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test1",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test2",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test3",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test4",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test5",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test6",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test7",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.CloseConnection.test8",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.Proxy.test_tcp_segs",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_integrity.Proxy.test_various_req_resp_sizes",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" :  "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket"
+        },
+        {
             "name" : "tls.test_tls_kernel.TCrypt.test_tcrypt",
             "reason" : "Disabled by issue #203"
         },
