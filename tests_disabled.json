@@ -338,7 +338,8 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" :  "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket"
+            "name" :  "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket",
+            "reason" : "Disabled by issue #198"
         },
         {
             "name" : "tls.test_tls_kernel.TCrypt.test_tcrypt",
