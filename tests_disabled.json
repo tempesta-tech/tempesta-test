@@ -398,6 +398,10 @@
             "reason" : "Disabled by issue #198"
         },
         {
+            "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
+            "reason" : "Disabled by issue #198"
+        },
+        {
             "name" : "vhost",
             "reason" : "Disabled by issue #8"
         },
