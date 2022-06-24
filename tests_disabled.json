@@ -122,10 +122,6 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "http_rules",
-            "reason" : "Disabled by issue #214"
-        },
-        {
             "name" : "leaks.test_leak.LeakTest.test_kmemleak",
             "reason" : "Disabled by issue #198"
         },
