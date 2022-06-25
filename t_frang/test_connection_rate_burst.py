@@ -1,4 +1,4 @@
-"""Tests for Frang directive `request_rate` and 'request_burst'."""
+"""Tests for Frang directive `connection_rate` and 'connection_burst'."""
 import time
 
 from framework import tester
@@ -7,12 +7,12 @@ from helpers import dmesg
 ONE = 1
 ZERO = 0
 DELAY = 0.125
+
+ERROR_RATE = 'Warning: frang: new connections rate exceeded for'
 ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
-ERROR_RATE = 'Warning: frang: request rate exceeded for'
-ERROR_BURST = 'Warning: frang: requests burst exceeded for'
 
 
-class FrangRequestRateTestCase(tester.TempestaTest):
+class FrangConnectionRateTestCase(tester.TempestaTest):
     """Tests for 'request_rate' and 'request_burst' directive."""
 
     clients = [
@@ -20,7 +20,7 @@ class FrangRequestRateTestCase(tester.TempestaTest):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',  # noqa:E501
         },
     ]
 
@@ -66,8 +66,8 @@ class FrangRequestRateTestCase(tester.TempestaTest):
     tempesta = {
         'config': """
             frang_limits {
-                request_rate 4;
-                request_burst 2;
+                connection_rate 4;
+                connection_burst 2;
             }
 
             listen 127.0.0.4:8765;
@@ -99,17 +99,17 @@ class FrangRequestRateTestCase(tester.TempestaTest):
         super().setUp()
         self.klog = dmesg.DmesgFinder(ratelimited=False)
 
-    def test_request_rate(self):
-        """Test 'request_rate'."""
+    def test_connection_rate(self):
+        """Test 'connection_rate'."""
         curl = self.get_client('curl-1')
 
         self.start_all_servers()
         self.start_tempesta()
 
-        # request_rate 4; in tempesta, increase to catch limit
-        request_rate = 5
+        # connection_rate 4 in Tempesta config increase to get limit
+        connection_rate = 5
 
-        for step in range(request_rate):
+        for step in range(connection_rate):
             curl.start()
             self.wait_while_busy(curl)
 
@@ -119,7 +119,7 @@ class FrangRequestRateTestCase(tester.TempestaTest):
             curl.stop()
 
             # until rate limit is reached
-            if step < request_rate - 1:
+            if step < connection_rate - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_RATE),
                     ZERO,
@@ -129,59 +129,46 @@ class FrangRequestRateTestCase(tester.TempestaTest):
                     ),
                 )
 
-            else:
-                # rate limit is reached
+        self.assertGreater(
+            self.klog.warn_count(ERROR_RATE),
+            ONE,
+            ASSERT_MSG.format(
+                exp='more than {0}'.format(ONE),
+                got=self.klog.warn_count(ERROR_RATE),
+            ),
+        )
+
+    def test_connection_burst(self):  # TODO
+        """Test 'connection_burst'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        # connection_burst 2 in Tempesta config increase to get limit
+        connection_burst = 3
+
+        for step in range(connection_burst):
+            curl.start()
+            self.wait_while_busy(curl)
+            curl.stop()
+
+            # until rate limit is reached
+            if step < connection_burst - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_RATE),
-                    ONE,
+                    ZERO,
                     ASSERT_MSG.format(
-                        exp=ONE,
+                        exp=ZERO,
                         got=self.klog.warn_count(ERROR_RATE),
                     ),
                 )
 
-    def test_request_burst_reached(self):
-        """Test 'request_burst' is reached."""
-        curl = self.get_client('curl-1')
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 2; in tempesta, increase to catch limit
-        request_burst = 3
-
-        for _ in range(request_burst):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
         self.assertEqual(
-            self.klog.warn_count(ERROR_BURST),
+            self.klog.warn_count(ERROR_RATE),
             ONE,
             ASSERT_MSG.format(
                 exp=ONE,
-                got=self.klog.warn_count(ERROR_BURST),
-            ),
-        )
-
-    def test_request_burst_not_reached(self):
-        """Test 'request_burst' is NOT reached."""
-        curl = self.get_client('curl-1')
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 2; in tempesta,
-        request_burst = 2
-
-        for _ in range(request_burst):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_BURST),
-            ZERO,
-            ASSERT_MSG.format(
-                exp=ZERO,
-                got=self.klog.warn_count(ERROR_BURST),
+                got=self.klog.warn_count(ERROR_RATE),
             ),
         )
