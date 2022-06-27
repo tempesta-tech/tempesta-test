@@ -442,8 +442,6 @@ and handling corresponding types of items.
 
 ## Development
 
-## Development
-
 In the project we use linter [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
 
 Install development dependencies: `pip3 install -r requirements-dev.txt`
