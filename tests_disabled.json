@@ -403,6 +403,9 @@
         },
         {   "name" : "multiple_listeners",
             "reason" : "Disabled by issue #1624"
+        },
+        {   "name" : "forwarding",
+            "reason" : "Disabled, because PR #1629 still not marged"
         }
     ]
 }
