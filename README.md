@@ -440,6 +440,21 @@ deproxyclient, deproxyserver, nginx, wrk - this classes used for creating
 and handling corresponding types of items.
 
 
+## Development
+
+## Development
+
+In the project we use linter [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
+
+Install development dependencies: `pip3 install -r requirements-dev.txt`
+
+Configuration file `tox.ini`
+
+Run linter `flake8 <target>`:
+
+  where `tagret` is optional parameter, it defines target file to be checked,
+  if omitted, checks is going to be processed on all files in running directory.
+
 ## Resources
 
 There are not so much good references about best practices in development of
