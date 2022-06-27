@@ -8,7 +8,7 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-class TestForwaded(tester.TempestaTest):
+class TestForwardedBase(tester.TempestaTest, base=True):
 
     backends = [
         {
@@ -75,7 +75,7 @@ class TestForwaded(tester.TempestaTest):
         
         return client.last_response
 
-    def _test(self):
+    def test_run(self):
         self.start_all()
         client = self.get_client('deproxy') 
         for param in self.req_params:
@@ -84,12 +84,7 @@ class TestForwaded(tester.TempestaTest):
             self.assertEqual(resp.status, self.response_status)
             client.restart()
 
-class SingleTest(object):
-    def test(self):
-        self._test()
-
-
-class TestForwadedAllowed(SingleTest, TestForwaded):
+class TestForwardedBaseAllowed(TestForwardedBase):
     """
     Test of allowed requests. Test fails, if status of any
     of requests not equal 200
@@ -115,7 +110,7 @@ class TestForwadedAllowed(SingleTest, TestForwaded):
         'for=_hidden, for=_SEVKISEK'
     ]
 
-class TestForwadedDisallowed(SingleTest, TestForwaded):
+class TestForwardedBaseDisallowed(TestForwardedBase):
     """
     Test of disallowed requests. Test fails, if status of any
     of requests not equal 400
@@ -130,6 +125,8 @@ class TestForwadedDisallowed(SingleTest, TestForwaded):
         'host=[1:2:3]',
         'host="[1:2:3]:"',
         'host="[1:aabb:3:kk]"',
+        'host=[]',
+        'host="[]"'
         'host=example.com; for=1.1.1.1',
         'host=example.com ;for=1.1.1.1',
         'host=example.com ; for=1.1.1.1',
@@ -147,7 +144,7 @@ class TestForwadedDisallowed(SingleTest, TestForwaded):
         'host=;'
     ]
 
-class TestForwadedMalicious(TestForwaded):
+class TestForwardedBaseMalicious(TestForwardedBase):
     """
     Test of malicious requests. Test fails, if status of any
     of requests not equal 400.
