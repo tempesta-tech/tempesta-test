@@ -106,10 +106,6 @@
             "reason" : "#861: TCP: reset blocked connections"
         },
         {
-            "name" : "cache",
-            "reason" : "Disabled by issue #810"
-        },
-        {
             "name" : "flacky_net",
             "reason" : "Disabled by issue #114"
         },
@@ -399,6 +395,14 @@
         },
         {   "name" : "multiple_listeners",
             "reason" : "Disabled by issue #1624"
+        },
+        {
+            "name" : "cache.test_cache_control.CacheLocationNonidempotentGetBypass",
+            "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
+            "reason": "Disabled by issue #1663"
         }
     ]
 }
