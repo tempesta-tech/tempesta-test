@@ -29,7 +29,7 @@ class MessageTransformations(tester.TempestaTest):
     tempesta = {
         'config' :
         """
-    server ${server_ip}:8000; - default srv_group creating
+    server ${server_ip}:8000;
 
     vhost default {
         proxy_pass default;
