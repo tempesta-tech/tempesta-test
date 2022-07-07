@@ -29,14 +29,15 @@ class MessageTransformations(tester.TempestaTest):
     tempesta = {
         'config' :
         """
-        listen 80;
-        
-        srv_group * {
-            server ${server_ip}:8000;
-        }
-        vhost * {
-            proxy_pass *;
-        }
+    server ${server_ip}:8000; - default srv_group creating
+
+    vhost default {
+        proxy_pass default;
+    }
+
+    http_chain {
+        -> default;
+    }
 
         """
     }
