@@ -399,6 +399,27 @@ Basic class for user configured tests. Contains parsing of used items
 declaration (clients, backends, tempesta), startup and teardown functions.
 User configured tests should inherit it.
 
+Also there are cases when you most likely would want to create a basic abstract
+class for a group of tests and utilize Python's inheritance mechanism. In order
+to do that, just pass an argument `base` upon class creation, e.g.:
+
+```python
+class HttpTablesTestBase(tester.TempestaTest, base=True):
+    ...
+
+```
+and tests won't be called for that particular class.
+
+Default `base` value is `False`.
+
+Note that if you override `setUp` method, please, don't forget to put
+```python
+...
+super().setUp()
+...
+```
+in there, otherwise this feature won't work properly.
+
 #### DeproxyManager
 
 This class is a stateful wrap for the `run_deproxy_server()` function.

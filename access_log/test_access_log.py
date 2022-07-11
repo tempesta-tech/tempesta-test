@@ -42,8 +42,18 @@ class CheckedResponses(tester.TempestaTest):
             listen 80;
             access_log on;
 
-            server ${general_ip}:8000;
+            srv_group localhost {
+                server ${server_ip}:8000;
+            }
 
+            vhost localhost {
+                proxy_pass localhost;
+
+            }
+
+            http_chain {
+                -> localhost;
+            }
         """
     }
 
@@ -89,14 +99,14 @@ class CheckedResponses(tester.TempestaTest):
     def get_expected_log_msg(self):
         return '"{method} {uri} HTTP/{version}" {status}' \
                ' {response_content_length} "{referer}" "{user_agent}"'.format(
-            method=self._expected_method,
-            uri=self._expected_uri,
-            version=self._expected_version,
-            status=self._expected_status,
-            response_content_length=self._expected_content_len,
-            referer=self._expected_referer,
-            user_agent=self._expected_user_agent,
-        )
+                   method=self._expected_method,
+                   uri=self._expected_uri,
+                   version=self._expected_version,
+                   status=self._expected_status,
+                   response_content_length=self._expected_content_len,
+                   referer=self._expected_referer,
+                   user_agent=self._expected_user_agent,
+               )
 
     def send_request_and_get_dmesg(self, klog, request_as_str,
                                    response_as_str=HTTP_200_OK):
@@ -120,7 +130,6 @@ class CheckedResponses(tester.TempestaTest):
         deproxy_cl.start()
         deproxy_cl.make_requests(request)
         deproxy_cl.wait_for_response()
-
         self.assertEqual(int(deproxy_cl.last_response.status), status)
         klog.update()
 
@@ -201,7 +210,7 @@ class AccessLogFrang(CheckedResponses):
 
             frang_limits {
                 ip_block off;
-                http_uri_len 10;                            
+                http_uri_len 10;
             }
 
             server ${general_ip}:8000;
