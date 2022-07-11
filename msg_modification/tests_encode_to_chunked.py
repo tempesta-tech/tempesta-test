@@ -31,14 +31,6 @@ class MessageTransformations(tester.TempestaTest):
         """
     server ${server_ip}:8000;
 
-    vhost default {
-        proxy_pass default;
-    }
-
-    http_chain {
-        -> default;
-    }
-
         """
     }
 
