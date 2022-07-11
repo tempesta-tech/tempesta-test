@@ -71,20 +71,9 @@ def tempesta(extra=''):
            access_log on;
            %s
 
-           srv_group * {
-               server ${server_ip}:8000;
-           }
-
-           vhost * {
-               tls_certificate ${tempesta_workdir}/cert.pem;
-               tls_certificate_key ${tempesta_workdir}/key.pem;
-
-               proxy_pass *;
-           }
-
-            http_chain {
-                -> *;
-            }
+            server ${server_ip}:8000;
+            tls_certificate ${tempesta_workdir}/cert.pem;
+            tls_certificate_key ${tempesta_workdir}/key.pem;
 
            """ % extra
     }
