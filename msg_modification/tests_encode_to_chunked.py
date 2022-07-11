@@ -29,7 +29,7 @@ class MessageTransformations(tester.TempestaTest):
     tempesta = {
         'config' :
         """
-    server ${server_ip}:8000;
+        server ${server_ip}:8000;
 
         """
     }
