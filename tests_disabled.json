@@ -46,6 +46,14 @@
             "reason" : ""
         },
         {
+            "name" : "long_body.test_long_request.RequestTest1M",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "long_body.test_long_request.RequestTest1k",
+            "reason" : "Disabled by issue #198"
+        },
+        {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
             "reason" : "Too many 502, sometimes no good answers at all"
         },
@@ -131,10 +139,6 @@
         },
         {
             "name" : "leaks.test_leak.LeakTest.test_used_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "long_body",
             "reason" : "Disabled by issue #198"
         },
         {
