@@ -20,7 +20,7 @@ class TesterInvalidResponse(deproxy.Deproxy):
 class TestInvalidResponse(functional.FunctionalTest):
 
     config = (
-        'cache 0;\nhttp_chain {\n   -> default;\n}\n'
+        'cache 0;\n'
     )
 
     def assert_tempesta(self):
