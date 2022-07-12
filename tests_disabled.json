@@ -54,6 +54,26 @@
             "reason" : "Disabled by issue #198"
         },
         {
+            "name" : "regression.test_stress_failovering.HashFailovering.test_limited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.HashFailovering.test_unlimited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.RatioFailovering.test_limited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_failovering.RatioFailovering.test_unlimited_ka",
+            "reason" : "Disabled by issue #198"
+        },
+        {
+            "name" : "regression.test_stress_pipeline.Pipeline.test_pipelined_requests",
+            "reason" : "Disabled by issue #198"
+        },
+        {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
             "reason" : "Too many 502, sometimes no good answers at all"
         },
