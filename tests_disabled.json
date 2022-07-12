@@ -182,10 +182,6 @@
             "reason" : "Disabled by issue #988"
         },
         {
-            "name" : "regression",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "sched",
             "reason" : "Disabled by issue #702"
         },
