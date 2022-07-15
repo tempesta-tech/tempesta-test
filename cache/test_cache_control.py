@@ -51,7 +51,9 @@ class TestCacheControl(tester.TempestaTest):
         cache_fulfill * *;
         '''
 
+    uri = '/'
     request_headers = {}
+    request_method = "GET"
     response_headers = {}
     response_status = '200'
     should_be_cached = False # True means Tempesta Fw should make no forward the
@@ -74,7 +76,6 @@ class TestCacheControl(tester.TempestaTest):
         self.tempesta = copy.deepcopy(self.tempesta_template)
         self.tempesta['config'] = self.tempesta['config'] % \
                         {'tempesta_config': self.tempesta_config or ''}
-
         self.backends = copy.deepcopy(self.backends_template)
         headers = ''
         for name, val in self.response_headers.items():
@@ -128,7 +129,7 @@ class TestCacheControl(tester.TempestaTest):
         if self.request_headers:
             for name, val in self.request_headers.items():
                 req_headers += '%s: %s\r\n' % (name, '' if val is None else val)
-        req = ("GET / HTTP/1.1\r\n"
+        req = (f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                "Host: localhost\r\n"
                "%s\r\n" % req_headers)
 
@@ -145,7 +146,7 @@ class TestCacheControl(tester.TempestaTest):
         if self.request_headers:
             for name, val in self.second_request_headers.items():
                 req_headers2 += '%s: %s\r\n' % (name, '' if val is None else val)
-        req2 = ("GET / HTTP/1.1\r\n"
+        req2 = (f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                "Host: localhost\r\n"
                "%s\r\n" % req_headers2)
         cached_response = self.client_send_req(client, req2)
@@ -812,3 +813,50 @@ class HttpChainCacheActionCached(TestCacheControl, SingleTest):
     request_headers = {'Cookie': 'comment_author_name=john'}
     response_headers = {}
     should_be_cached = True
+
+class CacheLocationBase(TestCacheControl, SingleTest, base=True):
+    tempesta_template = {
+        "config":
+        """
+        server ${server_ip}:8000;
+        vhost default {
+            proxy_pass default;
+
+            location prefix "/cached" {
+                proxy_pass default;
+                cache_fulfill * *;
+            }
+
+            location prefix "/bypassed" {
+                proxy_pass default;
+                cache_bypass * *;
+            }
+            location prefix "/nonidempotent" {
+                proxy_pass default;
+                cache_fulfill * *;
+                nonidempotent GET * *;
+                nonidempotent HEAD * *;
+            }
+
+        }
+        """
+    }
+    tempesta_config = ''
+
+class CacheLocationCached(CacheLocationBase):
+    should_be_cached = True
+    uri = '/cached'
+
+class CacheLocationBypass(CacheLocationBase):
+    should_be_cached = False
+    uri = '/bypassed'
+
+
+class CacheLocationNonidempotentGetBypass(CacheLocationBase):
+    should_be_cached = False
+    uri = '/nonidempotent'
+
+class CacheLocationNonidempotentHeadBypass(CacheLocationBase):
+    should_be_cached = False
+    uri = '/nonidempotent'
+    request_method = "HEAD"
