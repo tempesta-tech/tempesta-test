@@ -39,19 +39,19 @@
         },
         {
             "name" : "long_body.test_long_response.ResponseTest1M",
-            "reason" : ""
+            "reason" : "Disabled by issue #1659"
         },
         {
             "name" : "long_body.test_long_response.ResponseTest1k",
-            "reason" : ""
+            "reason" : "Disabled by issue #1659"
         },
         {
             "name" : "long_body.test_long_request.RequestTest1M",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #1659"
         },
         {
             "name" : "long_body.test_long_request.RequestTest1k",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #1659"
         },
         {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
@@ -122,36 +122,16 @@
             "reason" : "Disabled by issue #88"
         },
         {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitor.test",
+            "name" : "health_monitoring",
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitorCRCOnly.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_kmemleak",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_slab_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_used_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.malformed.test_chunking_example",
+            "name" : "leaks.test_leak",
             "reason" : "Disabled by issue #198"
         },
         {
             "name" : "malformed",
             "reason" : "Disabled by issue #187"
-        },
-        {
-            "name" : "msg_sequence.test_pairing.PairingTest.test_disconnect_client",
-            "reason" : "Disabled by issue #198"
         },
         {
             "name" : "pipelining",
@@ -392,10 +372,6 @@
         {
             "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
             "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "vhost",
-            "reason" : "Disabled by issue #8"
         },
         {   "name" : "multiple_listeners",
             "reason" : "Disabled by issue #1624"
