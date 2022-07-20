@@ -192,7 +192,7 @@ class DontModifyBackend(stress.StressTest):
     def setup_nginx_config(self, config):
         config.enable_multi_accept()
         config.set_worker_connections(32768)
-        config.set_workers(4096)
+        config.set_workers(16)
         config.set_worker_rlimit_nofile(16384)
         config.set_ka(timeout=180)
         for listener in config.listeners:
