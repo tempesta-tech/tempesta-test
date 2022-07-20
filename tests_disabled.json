@@ -366,22 +366,6 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "very_many_backends.test_deadtime_1M.AddingBackendNewSG.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.DontModifyBackend.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.RemovingBackendSG.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },
