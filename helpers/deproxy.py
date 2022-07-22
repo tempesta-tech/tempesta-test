@@ -137,7 +137,7 @@ class HeaderCollection(object):
         return default
 
     @staticmethod
-    def from_stream(rfile, no_crlf=False):
+    def from_stream(rfile, no_crlf=False, is_h2=False):
         headers = HeaderCollection()
         line = rfile.readline()
         while not (line == '\r\n' or line == '\n'):
@@ -147,7 +147,12 @@ class HeaderCollection(object):
                 raise IncompleteMessage('Incomplete headers')
             line = line.rstrip('\r\n')
             try:
-                name, value = line.split(':', 1)
+                #h2 pseuodo-header
+                if is_h2 and line.startswith(':'):
+                    split = line.split(':', 2)
+                    name, value = ':' + ''.join(split[:2]), ''.join(split[2:])
+                else:
+                    name, value = line.split(':', 1)
             except:
                 raise ParseError('Invalid header format: [%s]' % line)
             name = name.strip()
@@ -251,7 +256,8 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         self.parse_firstline(stream)
         self.parse_headers(stream)
         self.body = ''
-        self.parse_body(stream)
+        if (self.body_parsing):
+            self.parse_body(stream)
 
     def build_message(self):
         self.msg = str(self)
@@ -450,6 +456,29 @@ class Request(HttpMessage):
         msg = HttpMessage.create(first_line, headers, date=date, body=body)
         return Request(msg)
 
+class H2Request(Request):
+
+    def __init__(self, *args, **kwargs):
+        self.version = 'HTTP2'
+        Request.__init__(self, *args, **kwargs)
+
+    def parse_firstline(self, stream):
+        pass
+
+    def get_firstline(self):
+        return ''
+
+    def parse_headers(self, stream):
+        self.headers = HeaderCollection.from_stream(stream, is_h2=True)
+        self.uri = self.headers.get(':path')
+        self.method = self.headers.get(':method')
+
+    @staticmethod
+    def create(method, headers, uri='/', version='HTTP/2', date=False,
+               body=None):
+        first_line = ' '.join([method, uri, version])
+        msg = HttpMessage.create(first_line, headers, date=date, body=body)
+        return Request(msg)
 
 class Response(HttpMessage):
 
@@ -527,6 +556,22 @@ class Response(HttpMessage):
                                  srv_version=srv_version, body=body)
         return Response(msg, method=method)
 
+class H2Response(Response):
+
+    def __init__(self, *args, **kwargs):
+        self.version = 'HTTP/2'
+        Response.__init__(self, *args, **kwargs)
+
+    def parse_firstline(self, stream):
+        pass
+
+    def get_firstline(self):
+        return ''
+
+    def parse_headers(self, stream):
+        self.headers = HeaderCollection.from_stream(stream, is_h2=True)
+        self.status = self.headers.get(':status')
+
 #-------------------------------------------------------------------------------
 # HTTP Client/Server
 #-------------------------------------------------------------------------------
@@ -540,7 +585,7 @@ class TlsClient(asyncore.dispatcher):
     about TLS and only need to set ssl constructor argument to employ TLS.
     """
 
-    def __init__(self, is_ssl=False):
+    def __init__(self, is_ssl=False, proto='http/1.1'):
         asyncore.dispatcher.__init__(self)
         self.ssl = is_ssl
         self.want_read = False
@@ -549,6 +594,8 @@ class TlsClient(asyncore.dispatcher):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.context.check_hostname = False
         self.context.verify_mode = ssl.CERT_NONE
+        self.proto = proto
+        self.apply_proto_settings()
 
     def set_server_hostname(self, server_hostname):
         self.server_hostname = server_hostname
@@ -628,11 +675,22 @@ class TlsClient(asyncore.dispatcher):
             # Handshake is done, set processing callbacks
             self.restore_handlers()
 
+    def apply_proto_settings(self):
+        if self.proto == 'h2':
+            self.context.set_alpn_protocols(["h2"])
+            #Disable old proto
+            self.context.options |= (
+            ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+            )
+            # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
+            # compression.
+            self.context.options |= ssl.OP_NO_COMPRESSION
 
 class Client(TlsClient, stateful.Stateful):
 
-    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False, bind_addr=None):
-        TlsClient.__init__(self, ssl)
+    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False, bind_addr=None,
+                 proto='http/1.1'):
+        TlsClient.__init__(self, ssl, proto)
         self.request = None
         self.request_buffer = ''
         self.response_buffer = ''
