@@ -122,10 +122,6 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "leaks.test_leak",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "malformed",
             "reason" : "Disabled by issue #187"
         },
