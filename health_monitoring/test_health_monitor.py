@@ -6,8 +6,11 @@ from __future__ import print_function
 import re
 import copy
 import binascii
-from testers import functional
-from helpers import deproxy, chains, tempesta
+from access_log.test_access_log_h2 import backends
+from framework import deproxy_client, tester
+from helpers import deproxy, chains, tempesta, dmesg
+import time
+from access_log.common import AccessLogLine
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -15,115 +18,165 @@ __license__ = 'GPL2'
 
 CHAIN_TIMEOUT = 100
 
-class Stage(object):
+TEMPESTA_CONFIG = """
 
-    def __init__(self, tester, client, chain, state, trans=None):
-        self.trans_response = None
-        self.chain = chain
-        self.state = state
-        self.tester = tester
-        self.client = client
-        self.trans_response = trans
+server_failover_http 404 5 5;
+server_failover_http 502 5 5;
+server_failover_http 403 5 5;
+cache 0;
 
-    def prepare(self):
-        self.tester.current_chain = copy.copy(self.chain)
-        self.tester.received_chain = deproxy.MessageChain.empty()
-        self.client.clear()
-        self.client.set_request(self.tester.current_chain)
-
-    def check_transition(self, messages):
-        expected = None
-        if self.trans_response:
-            expected = copy.copy(self.trans_response)
-        else:
-            temp_chain = copy.copy(self.chain)
-            expected = temp_chain.response
-        expected.set_expected(expected_time_delta=CHAIN_TIMEOUT)
-        self.assert_msg(
-            expected == messages[1],
-            (messages[0], messages[1], expected),
-            trans=True
-        )
-        num = self.tester.srv_stats.get_server_health()
-        assert (num == 1 and self.state) or (num == 0 and not self.state), \
-            ("Incorrect server HTTP availability state:\n"
-             "\tnum = %d, self.state = %d\n"
-             % (num, self.state))
-
-    def check_results(self):
-        result = None
-        for message in ['response', 'fwd_request']:
-            expected = getattr(self.tester.current_chain, message)
-            received = getattr(self.tester.received_chain, message)
-            if message == 'fwd_request' and not self.state:
-                continue
-            expected.set_expected(expected_time_delta=CHAIN_TIMEOUT)
-            if (expected != received):
-                result = (message, received, expected)
-                break
-        if not result:
-            return True
-        self.assert_msg(result[0] == 'response', result)
-        return self.tester.next_stage(result)
-
-    def assert_msg(self, cond, messages, trans=False):
-        message, received, expected = messages
-        trans_str = ' during transition' if trans else ''
-        assert cond, \
-            ("Received message (%s) does not suit expected one%s!\n\n"
-             "\tReceieved:\n<<<<<|\n%s|>>>>>\n"
-             "\tExpected:\n<<<<<|\n%s|>>>>>\n"
-             % (message, trans_str, received, expected))
+health_check h_monitor1 {
+    request "GET / HTTP/1.1\r\n\r\n";
+    request_url	"/";
+    resp_code	200;
+    resp_crc32	auto;
+    timeout		1;
+}
 
 
-class StagedDeproxy(deproxy.Deproxy):
+srv_group srv_grp1 {
+        server ${tempesta_ip}:8080;
+        server ${tempesta_ip}:8081;
+        server ${tempesta_ip}:8082;
 
-    def __init__(self, *args, **kwargs):
-        deproxy.Deproxy.__init__(self, *args, **kwargs)
-        self.stages = []
-        self.stages_n = 0
-        self.stages_processed = 0
-        self.current_stage = None
-        self.srv_stats = None
+        health h_monitor1;
+}
 
-    def run(self):
-        for _ in range(self.message_chains):
-            self.prepare()
-            self.loop()
-            if not self.check_expectations():
-                break
+vhost srv_grp1{
+        proxy_pass srv_grp1;
+}
 
-    def prepare(self):
-        self.current_stage.prepare()
+http_chain {
+-> srv_grp1;
+}
+%s
+"""
 
-    def check_expectations(self):
-        return self.current_stage.check_results()
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
 
-    def assert_stages(self):
-        assert self.stages_processed == self.stages_n, \
-            ("Not all stages are passed: processed"
-             " stages = %d, total stages count = %d"
-             % (self.stages_processed, self.stages_n))
+events {
+    worker_connections   1024;
+    use epoll;
+}
 
-    def configure(self, tempesta_obj, sg_name, stages):
-        self.stages = stages
-        self.stages_n = len(stages)
-        self.current_stage = self.stages.pop(0)
-        self.stages_processed = 1
-        self.srv_stats = tempesta.ServerStats(tempesta_obj, sg_name,
-                                              self.servers[0].ip,
-                                              self.servers[0].port)
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests ${server_keepalive_requests};
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
 
-    def next_stage(self, messages):
-        if not self.stages:
-            return False
-        self.stages[0].check_transition(messages)
-        self.current_stage = self.stages.pop(0)
-        self.stages_processed += 1
-        return True
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8080;
+
+        location / {
+            %s
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
 
 
-class TestHealthMonitor(functional.FunctionalTest):
+NGINX_CONFIG1 = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests ${server_keepalive_requests};
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8081;
+
+        location / {
+            %s
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+NGINX_CONFIG2 = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests ${server_keepalive_requests};
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8082;
+
+        location / {
+            %s
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+class TestHealthMonitor(tester.TempestaTest):
     """ Test for health monitor functionality with stress option.
     Testing process is divided into several stages:
     1. Create one message chain for enabled HM server's state:
@@ -143,95 +196,108 @@ class TestHealthMonitor(functional.FunctionalTest):
     in 'check_transition()' method.
     """
 
-    tfw_clnt_msg_otherr = True
-    messages = 500000
-    srv_group = 'srv_grp1'
-    resp_codes_list = ['200']
-    crc_check = False
+    tempesta = {
+        'config': TEMPESTA_CONFIG % "",
+    }
 
-    def create_chains(self):
-        self.ch_enabled = chains.base(uri='/page.html')
-        self.ch_enabled.server_response = chains.make_response(404, expected=False)
-        self.ch_enabled.response = chains.make_response(404)
-        self.ch_disabled = chains.base()
-        # Make 200 status expected once for transition purpose.
-        self.trans_resp = self.ch_disabled.response
-        self.ch_disabled.response = chains.make_502_expected()
+    backends = [
+        {
+            'id' : 'nginx1',
+            'type' : 'nginx',
+            'port' : '8080',
+            'status_uri' : 'http://${server_ip}:8080/nginx_status',
+            'config' : NGINX_CONFIG % """
 
-    def setUp(self):
-        self.create_chains()
-        if self.crc_check:
-            resp_body = self.ch_disabled.server_response.body
-            self.crc32 = hex(~binascii.crc32(resp_body.encode(), 0xffffffff) & 0xffffffff)
-        functional.FunctionalTest.setUp(self)
+return 404;
+""",
+        },{
+            'id' : 'nginx2',
+            'type' : 'nginx',
+            'port' : '8081',
+            'status_uri' : 'http://${server_ip}:8081/nginx_status',
+            'config' : NGINX_CONFIG1 % """
 
-    def get_config(self):
-        crc32_conf = ''
-        rcodes_conf = ''
-        vhost = self.srv_group
-        if self.crc_check:
-            crc32_conf = 'resp_crc32 %s;\n' % self.crc32
-        if self.resp_codes_list:
-            rcodes_conf = 'resp_code %s;\n' % ' '.join(self.resp_codes_list)
-        config = (
-            'server_failover_http 404 300 10;\n'
-            'cache 0;\n'
-        )
-        hm_config = ''.join(
-            [
-                'health_check h_monitor1 {\n',
-                'request "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";\n',
-                'request_url "/page.html";\n',
-                'timeout 15;\n'
-            ]
-            + [crc32_conf] + [rcodes_conf] + ['}\n']
-        )
-        rules_config = ''.join(
-            ['http_chain {\n'] +
-            ['-> %s;\n' % vhost] +
-            ['}\n']
-        )
-        return config + hm_config + rules_config
+return 404;
+""",        
+        },{
+            'id' : 'nginx3',
+            'type' : 'nginx',
+            'port' : '8082',
+            'status_uri' : 'http://${server_ip}:8082/nginx_status',
+            'config' : NGINX_CONFIG2 % """
 
-    def create_tester(self):
-        self.tester = StagedDeproxy(self.client, self.servers)
-        self.tester.configure(self.tempesta, self.srv_group, [
-            Stage(self.tester, self.client, self.ch_enabled, True),
-            Stage(self.tester, self.client, self.ch_disabled, False),
-            Stage(self.tester, self.client, self.ch_enabled, True,
-                  trans=self.trans_resp),
-            Stage(self.tester, self.client, self.ch_disabled, False),
-            Stage(self.tester, self.client, self.ch_enabled, True,
-                  trans=self.trans_resp)
-        ])
+return 200;
+""",        
+        }
+    ]
 
-    def create_servers(self):
-        p = tempesta.upstream_port_start_from()
-        self.servers = [deproxy.Server(port=p, conns_n=3)]
+    clients = [
+        {
+            'id': 'curl',
+            'type': 'external',
+            'binary': 'curl',
+            'cmd_args': (
+                    ' -o /dev/null -s -w "%{http_code}\n" '
+                    'http://${tempesta_ip}'
+            )
+        },
+    ]
 
-    def configure_tempesta(self):
-        sg = tempesta.ServerGroup(self.srv_group, hm='h_monitor1')
-        for s in self.servers:
-            sg.add_server(s.ip, s.port, s.conns_n)
-        self.tempesta.config.add_sg(sg)
+    count = 100
+    def wait_for_server(self, srv):
+        # srv.run_start()
+        while not srv.is_running():
+            print('asd')
 
-    def assert_tempesta(self):
-        self.tester.assert_stages()
-        err_msg = 'Tempesta must have errors due' \
-                  ' to inability to schedule request'
-        functional.FunctionalTest.assert_tempesta(self)
-        self.assertTrue(self.tempesta.stats.cl_msg_other_errors > 0,
-                        msg=err_msg)
+    def run_curl(self, n=1):
+        res = []
+        for _ in range(n):
+            curl = self.get_client('curl')
+            curl.run_start()
+            curl.proc_results = curl.resq.get(True, 1)
+            res.append(int((curl.proc_results[0].decode("utf-8"))[:-1]))
+        print(sorted(res))
+        return res
+        
 
     def test(self):
         """Test health monitor functionality with all new configuration
         directives and options.
         """
-        self.generic_test_routine(self.get_config(), self.messages)
+        self.start_tempesta()
+        
+        back1 = self.get_server('nginx1')
+        back2 = self.get_server('nginx2')
+        back3 = self.get_server('nginx3')
+        res = self.run_curl(self.count)
+        time.sleep(2)
+        self.assertTrue(502 in res, "No 502 in statuses")
+        
+        print('start nginx1+2')
+        back1.run_start()
+        back2.run_start()
+        time.sleep(1)
+        # self.wait_for_server(back1)
+        res = self.run_curl(self.count)
+        self.assertTrue(502 in res and 404 in res, "Not valid status")
+        
+        print('start nginx1+2+3')
+        back3.run_start()
+        time.sleep(2)
+        res = self.run_curl(self.count)
+        self.assertTrue(200 in res, "Not valid status")
+        
+        print('stop nginx1+2')
+        back1.stop_nginx()
+        back2.stop_nginx()
+        time.sleep(2)
+        res = self.run_curl(self.count)
+        self.assertTrue(404 not in res, "Not valid status")
+        back3.stop_nginx()
 
 
-class TestHealthMonitorCRCOnly(TestHealthMonitor):
-    resp_codes_list = None
-    crc_check = True
+# class TestHealthMonitorCRCOnly(TestHealthMonitor):
+#     resp_codes_list = None
+#     crc_check = True
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

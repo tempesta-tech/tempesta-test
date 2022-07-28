@@ -118,10 +118,6 @@
             "reason" : "Disabled by issue #250"
         },
         {
-            "name" : "health_monitoring",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "malformed",
             "reason" : "Disabled by issue #187"
         },
