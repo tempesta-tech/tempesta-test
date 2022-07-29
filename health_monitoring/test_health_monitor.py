@@ -9,20 +9,19 @@ import binascii
 from access_log.test_access_log_h2 import backends
 from framework import deproxy_client, tester
 from helpers import deproxy, chains, tempesta, dmesg
-import time
 from access_log.common import AccessLogLine
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-CHAIN_TIMEOUT = 100
+REQ_COUNT = 100
 
 TEMPESTA_CONFIG = """
 
-server_failover_http 404 5 5;
-server_failover_http 502 5 5;
-server_failover_http 403 5 5;
+server_failover_http 404 50 5;
+server_failover_http 502 50 5;
+server_failover_http 403 50 5;
 cache 0;
 
 health_check h_monitor1 {
@@ -81,7 +80,7 @@ http {
     access_log off;
 
     server {
-        listen        ${server_ip}:8080;
+        listen        ${server_ip}:%s;
 
         location / {
             %s
@@ -93,107 +92,22 @@ http {
 }
 """
 
-
-NGINX_CONFIG1 = """
-pid ${pid};
-worker_processes  auto;
-
-events {
-    worker_connections   1024;
-    use epoll;
-}
-
-http {
-    keepalive_timeout ${server_keepalive_timeout};
-    keepalive_requests ${server_keepalive_requests};
-    sendfile         on;
-    tcp_nopush       on;
-    tcp_nodelay      on;
-
-    open_file_cache max=1000;
-    open_file_cache_valid 30s;
-    open_file_cache_min_uses 2;
-    open_file_cache_errors off;
-
-    # [ debug | info | notice | warn | error | crit | alert | emerg ]
-    # Fully disable log errors.
-    error_log /dev/null emerg;
-
-    # Disable access log altogether.
-    access_log off;
-
-    server {
-        listen        ${server_ip}:8081;
-
-        location / {
-            %s
-        }
-        location /nginx_status {
-            stub_status on;
-        }
-    }
-}
-"""
-
-NGINX_CONFIG2 = """
-pid ${pid};
-worker_processes  auto;
-
-events {
-    worker_connections   1024;
-    use epoll;
-}
-
-http {
-    keepalive_timeout ${server_keepalive_timeout};
-    keepalive_requests ${server_keepalive_requests};
-    sendfile         on;
-    tcp_nopush       on;
-    tcp_nodelay      on;
-
-    open_file_cache max=1000;
-    open_file_cache_valid 30s;
-    open_file_cache_min_uses 2;
-    open_file_cache_errors off;
-
-    # [ debug | info | notice | warn | error | crit | alert | emerg ]
-    # Fully disable log errors.
-    error_log /dev/null emerg;
-
-    # Disable access log altogether.
-    access_log off;
-
-    server {
-        listen        ${server_ip}:8082;
-
-        location / {
-            %s
-        }
-        location /nginx_status {
-            stub_status on;
-        }
-    }
-}
-"""
 
 class TestHealthMonitor(tester.TempestaTest):
     """ Test for health monitor functionality with stress option.
     Testing process is divided into several stages:
-    1. Create one message chain for enabled HM server's state:
-    404 response will be returning until configured limit is
+    1. Run tempesta-fw without backends
+    2. Create two backends for enabled HM server's state:
+    403/404 responses will be returning until configured limit is
     reached (at this time HM will disable the server).
     2. Create another message chain - for disabled HM state:
     502 response will be returning by Tempesta until HM
     request will be sent to server after configured
     timeout (200 response will be returned and HM will
     enable the server).
-    3. Create five Stages with alternated two message chains:
-    so five transitions 'enabled=>disabled/disabled=>enabled'
-    must be passed through. Particular Stage objects are
-    constructed in create_tester() method and then inserted
-    into special StagedDeproxy tester.
-    4. Each Stage must verify server's HTTP avalability state
-    in 'check_transition()' method.
+    3. Create backend with valid HM response code and ensure 
+    requested statuses will 404/403/502 for old backends and 200 for new
+    4. Now 403/404 backends is marked unhealthy and must be gone
     """
 
     tempesta = {
@@ -206,28 +120,28 @@ class TestHealthMonitor(tester.TempestaTest):
             'type' : 'nginx',
             'port' : '8080',
             'status_uri' : 'http://${server_ip}:8080/nginx_status',
-            'config' : NGINX_CONFIG % """
+            'config' : NGINX_CONFIG % (8080, """
 
-return 404;
-""",
+return 403;
+"""),
         },{
             'id' : 'nginx2',
             'type' : 'nginx',
             'port' : '8081',
             'status_uri' : 'http://${server_ip}:8081/nginx_status',
-            'config' : NGINX_CONFIG1 % """
+            'config' : NGINX_CONFIG % (8081, """
 
 return 404;
-""",        
+"""),
         },{
             'id' : 'nginx3',
             'type' : 'nginx',
             'port' : '8082',
             'status_uri' : 'http://${server_ip}:8082/nginx_status',
-            'config' : NGINX_CONFIG2 % """
+            'config' : NGINX_CONFIG % (8082, """
 
 return 200;
-""",        
+"""),        
         }
     ]
 
@@ -243,11 +157,15 @@ return 200;
         },
     ]
 
-    count = 100
+    
+
+
     def wait_for_server(self, srv):
-        # srv.run_start()
-        while not srv.is_running():
-            print('asd')
+        srv.start()
+        while srv.state != 'started':
+            pass
+        srv.wait_for_connections()
+
 
     def run_curl(self, n=1):
         res = []
@@ -256,7 +174,6 @@ return 200;
             curl.run_start()
             curl.proc_results = curl.resq.get(True, 1)
             res.append(int((curl.proc_results[0].decode("utf-8"))[:-1]))
-        print(sorted(res))
         return res
         
 
@@ -266,34 +183,28 @@ return 200;
         """
         self.start_tempesta()
         
+        # 1
         back1 = self.get_server('nginx1')
         back2 = self.get_server('nginx2')
         back3 = self.get_server('nginx3')
-        res = self.run_curl(self.count)
-        time.sleep(2)
-        self.assertTrue(502 in res, "No 502 in statuses")
+        res = self.run_curl(REQ_COUNT)
+        self.assertTrue(list(set(res)) == [502], "No 502 in statuses")
         
-        print('start nginx1+2')
-        back1.run_start()
-        back2.run_start()
-        time.sleep(1)
-        # self.wait_for_server(back1)
-        res = self.run_curl(self.count)
-        self.assertTrue(502 in res and 404 in res, "Not valid status")
+        # 2
+        self.wait_for_server(back1)
+        self.wait_for_server(back2)
+        res = self.run_curl(REQ_COUNT)
+        self.assertTrue(sorted(list(set(res))) == [403, 404], "Not valid status")
+
+        # 3
+        self.wait_for_server(back3)
+        res = self.run_curl(REQ_COUNT)
+        self.assertTrue(sorted(list(set(res))) == [200, 403, 404, 502], "Not valid status")
         
-        print('start nginx1+2+3')
-        back3.run_start()
-        time.sleep(2)
-        res = self.run_curl(self.count)
-        self.assertTrue(200 in res, "Not valid status")
-        
-        print('stop nginx1+2')
-        back1.stop_nginx()
-        back2.stop_nginx()
-        time.sleep(2)
-        res = self.run_curl(self.count)
-        self.assertTrue(404 not in res, "Not valid status")
-        back3.stop_nginx()
+        # 4
+        res = self.run_curl(REQ_COUNT)
+        self.assertTrue(sorted(list(set(res))) == [200, 502], "Not valid status")
+        back3.stop()
 
 
 # class TestHealthMonitorCRCOnly(TestHealthMonitor):
