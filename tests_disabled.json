@@ -114,10 +114,6 @@
             "reason" : "Disabled by issue #673"
         },
         {
-            "name" : "h2.test_h2_specs",
-            "reason" : "Disabled by issue #250"
-        },
-        {
             "name" : "health_monitoring",
             "reason" : "Disabled by issue #198"
         },
