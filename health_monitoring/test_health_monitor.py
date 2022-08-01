@@ -12,7 +12,7 @@ from helpers import deproxy, chains, tempesta, dmesg
 from access_log.common import AccessLogLine
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 REQ_COUNT = 100
