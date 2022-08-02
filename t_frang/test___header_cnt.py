@@ -13,7 +13,7 @@ class FrangHttpHeaderCountTestCase(tester.TempestaTest):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"' * 2,  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"',  # noqa:E501
         },
     ]
 
