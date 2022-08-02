@@ -3,13 +3,9 @@ Tests for health monitoring functionality.
 """
 
 from __future__ import print_function
-import re
-import copy
-import binascii
 from access_log.test_access_log_h2 import backends
-from framework import deproxy_client, tester
-from helpers import deproxy, chains, tempesta, dmesg
-from access_log.common import AccessLogLine
+from framework import tester
+
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -34,9 +30,9 @@ health_check h_monitor1 {
 
 
 srv_group srv_grp1 {
-        server ${tempesta_ip}:8080;
-        server ${tempesta_ip}:8081;
-        server ${tempesta_ip}:8082;
+        server ${server_ip}:8080;
+        server ${server_ip}:8081;
+        server ${server_ip}:8082;
 
         health h_monitor1;
 }
@@ -99,14 +95,10 @@ class TestHealthMonitor(tester.TempestaTest):
     1. Run tempesta-fw without backends
     2. Create two backends for enabled HM server's state:
     403/404 responses will be returning until configured limit is
-    reached (at this time HM will disable the server).
-    2. Create another message chain - for disabled HM state:
-    502 response will be returning by Tempesta until HM
-    request will be sent to server after configured
-    timeout (200 response will be returned and HM will
-    enable the server).
-    3. Create backend with valid HM response code and ensure 
-    requested statuses will 404/403/502 for old backends and 200 for new
+    reached.
+    3. Create backend with valid HM response 200 code and ensure 
+    requested statuses will 404/403 until HM disable the old servers
+    and responses become 502 for old / 200 for new
     4. Now 403/404 backends is marked unhealthy and must be gone
     """
 
@@ -157,8 +149,6 @@ return 200;
         },
     ]
 
-    
-
 
     def wait_for_server(self, srv):
         srv.start()
@@ -178,9 +168,7 @@ return 200;
         
 
     def test(self):
-        """Test health monitor functionality with all new configuration
-        directives and options.
-        """
+        """Test health monitor functionality with described stages"""
         self.start_tempesta()
         
         # 1
@@ -205,10 +193,3 @@ return 200;
         res = self.run_curl(REQ_COUNT)
         self.assertTrue(sorted(list(set(res))) == [200, 502], "Not valid status")
         back3.stop()
-
-
-# class TestHealthMonitorCRCOnly(TestHealthMonitor):
-#     resp_codes_list = None
-#     crc_check = True
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
