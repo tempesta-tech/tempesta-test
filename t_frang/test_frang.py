@@ -1,4 +1,4 @@
-"""Tests for Frang directive `client_header_timeout`."""
+"""Tests for Frang directive `request_rate` and 'request_burst'."""
 import time
 
 from framework import tester
@@ -12,15 +12,15 @@ ERROR_RATE = 'Warning: frang: request rate exceeded for'
 ERROR_BURST = 'Warning: frang: requests burst exceeded for'
 
 
-class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
-    """Tests for 'client_header_timeout' directive."""
+class FrangRequestRateTestCase(tester.TempestaTest):
+    """Tests for 'request_rate' and 'request_burst' directive."""
 
     clients = [
         {
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"' * 100 ,  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
     ]
 
@@ -66,27 +66,22 @@ class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
     tempesta = {
         'config': """
             frang_limits {
-                client_header_timeout 0;
+                request_rate 4;
+                request_burst 2;
             }
-
             listen 127.0.0.4:8765;
-
             srv_group default {
                 server ${server_ip}:8000;
             }
-
             vhost tempesta-cat {
                 proxy_pass default;
             }
-
             tls_match_any_server_name;
             tls_certificate RSA/tfw-root.crt;
             tls_certificate_key RSA/tfw-root.key;
-
             cache 0;
             cache_fulfill * *;
             block_action attack reply;
-
             http_chain {
                 -> tempesta-cat;
             }
@@ -98,14 +93,25 @@ class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
         super().setUp()
         self.klog = dmesg.DmesgFinder(ratelimited=False)
 
-    def test_client_header_timeout(self):
-        """Test 'client_header_timeout'."""
+    def test_request_rate(self):
+        """Test 'request_rate'."""
         curl = self.get_client('curl-1')
 
         self.start_all_servers()
         self.start_tempesta()
 
-        curl.start()
-        self.wait_while_busy(curl)
+        # request_rate 4; in tempesta, increase to catch limit
+        request_rate = 5
 
-        curl.stop()
+        for step in range(request_rate):
+            print(step)
+            curl.start()
+            self.wait_while_busy(curl)
+
+
+            # delay to split tests for `rate` and `burst`
+            time.sleep(DELAY)
+
+            curl.stop()
+            response = curl.proc_results
+            print(response)

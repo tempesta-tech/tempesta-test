@@ -1,6 +1,8 @@
 """Tests for Frang directive `concurrent_connections`."""
 import threading
 import time
+import concurrent
+from concurrent.futures import ThreadPoolExecutor
 
 from framework import tester
 from helpers import dmesg
@@ -13,7 +15,7 @@ ERROR_RATE = 'Warning: frang: new connections rate exceeded for'
 ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
 
 
-class FrangConcurentConnectionTestCase(tester.TempestaTest):
+class FrangConcurrentConnectionTestCase(tester.TempestaTest):
     """Tests for 'request_rate' and 'request_burst' directive."""
 
     clients = [
@@ -21,7 +23,7 @@ class FrangConcurentConnectionTestCase(tester.TempestaTest):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v  --parallel --parallel-immediate --parallel-max 3 --config sites.txt',  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
 
@@ -67,7 +69,7 @@ class FrangConcurentConnectionTestCase(tester.TempestaTest):
     tempesta = {
         'config': """
             frang_limits {
-                concurrent_connections 3;
+                concurrent_connections 0;
             }
 
             listen 127.0.0.4:8765;
@@ -99,5 +101,37 @@ class FrangConcurentConnectionTestCase(tester.TempestaTest):
         super().setUp()
         self.klog = dmesg.DmesgFinder(ratelimited=False)
 
+    def make_curl_request(self, a):
+        print('_______', a)
+        curl = self.get_client('curl-1')
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
+
     def test_concurrent_connection(self):
-        """Test 'concurrent_connections '."""
+        """Test frang 'concurrent_connections '."""
+
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        conn = 5
+
+        curl.start()
+        #self.wait_while_busy(curl)
+
+        with ThreadPoolExecutor(max_workers=conn) as executor:
+            fut = {
+                executor.submit(self.wait_while_busy, curl) for _ in range(conn)
+            }
+
+            for future in concurrent.futures.as_completed(fut):
+                print('_____________________________')
+                try:
+                    data = future.result()
+                    print(data)
+                except Exception as e:
+                    print('Looks like something went wrong:', e)
+
+        curl.stop()

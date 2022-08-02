@@ -1,26 +1,19 @@
-"""Tests for Frang directive `client_header_timeout`."""
-import time
-
+"""Tests for Frang directive `http_header_cnt`."""
 from framework import tester
 from helpers import dmesg
 
 ONE = 1
-ZERO = 0
-DELAY = 0.125
-ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
-ERROR_RATE = 'Warning: frang: request rate exceeded for'
-ERROR_BURST = 'Warning: frang: requests burst exceeded for'
 
 
-class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
-    """Tests for 'client_header_timeout' directive."""
+class FrangHttpHeaderCountTestCase(tester.TempestaTest):
+    """Tests for 'http_header_cnt' directive."""
 
     clients = [
         {
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"' * 100 ,  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"' * 3,  # noqa:E501
         },
     ]
 
@@ -66,7 +59,7 @@ class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
     tempesta = {
         'config': """
             frang_limits {
-                client_header_timeout 0;
+                http_header_cnt 2;
             }
 
             listen 127.0.0.4:8765;
@@ -99,7 +92,12 @@ class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
         self.klog = dmesg.DmesgFinder(ratelimited=False)
 
     def test_client_header_timeout(self):
-        """Test 'client_header_timeout'."""
+        """
+        Test 'client_header_timeout'.
+
+        We set up for Tempesta `http_header_cnt 2` and
+        made request with 3 (three) dame headers `-H "Connection: keep-alive"`
+        """
         curl = self.get_client('curl-1')
 
         self.start_all_servers()
@@ -107,5 +105,20 @@ class FrangClientHeaderTimeoutTestCase(tester.TempestaTest):
 
         curl.start()
         self.wait_while_busy(curl)
+
+        self.assertEqual(
+            self.klog.warn_count(
+                'Warning: frang: duplicate header field found for',
+            ),
+            ONE,
+            'Expected msg in `journalctl`',
+        )
+        self.assertEqual(
+            self.klog.warn_count(
+                'Warning: parsed request has been filtered out',
+            ),
+            ONE,
+            'Expected msg in `journalctl`',
+        )
 
         curl.stop()
