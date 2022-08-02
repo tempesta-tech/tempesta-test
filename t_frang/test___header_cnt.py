@@ -13,7 +13,7 @@ class FrangHttpHeaderCountTestCase(tester.TempestaTest):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"' * 3,  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"' + ' -H "Connection: keep-alive"' * 2,  # noqa:E501
         },
     ]
 
@@ -59,7 +59,7 @@ class FrangHttpHeaderCountTestCase(tester.TempestaTest):
     tempesta = {
         'config': """
             frang_limits {
-                http_header_cnt 2;
+                http_header_cnt 1;
             }
 
             listen 127.0.0.4:8765;
@@ -95,8 +95,8 @@ class FrangHttpHeaderCountTestCase(tester.TempestaTest):
         """
         Test 'client_header_timeout'.
 
-        We set up for Tempesta `http_header_cnt 2` and
-        made request with 3 (three) dame headers `-H "Connection: keep-alive"`
+        We set up for Tempesta `http_header_cnt 1` and
+        made request with 2 (two) headers
         """
         curl = self.get_client('curl-1')
 
@@ -108,7 +108,7 @@ class FrangHttpHeaderCountTestCase(tester.TempestaTest):
 
         self.assertEqual(
             self.klog.warn_count(
-                'Warning: frang: duplicate header field found for',
+                'Warning: frang: HTTP headers number exceeded for',
             ),
             ONE,
             'Expected msg in `journalctl`',
