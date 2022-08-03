@@ -89,7 +89,7 @@ To run requirements autoinstallation run setup.sh
 `ab` is Apache benchmark tool, that can be found in `apache2-utils` package.
 
 `h2spec` is HTTP/2 conformance test suite. Can't be installed from package
-manager and must be retrieved from [GitHub](https://github.com/summerwind/h2spec/releases/latest).
+manager and must be [compiled from sources](https://github.com/tempesta-tech/h2spec#build).
 
 `tls-perf` can be downloaded from our GitHub [repository](https://github.com/tempesta-tech/tls-perf).
 
