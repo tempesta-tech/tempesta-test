@@ -170,6 +170,8 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
     """
     Tests for 'tls_incomplete_connection_rate'.
 
+    TODO: test does NOT work!
+
     I removes '-k'(insecure) from `curl` and got only:
     `[tempesta tls] Warning: [::ffff:127.0.0.1] Bad TLS alert on handshake`
 
