@@ -98,7 +98,7 @@ class TestHealthMonitor(tester.TempestaTest):
     reached.
     3. Create a backend, which returns valid for HM response 200 code and ensure 
     that requested statuses are 404/403 until HM disables the old servers
-    and responses become 502 for old / 200 for new
+    and responses become 502 for the old and 200 for the new backends
     4. Now 403/404 backends are marked unhealthy and must be gone
     """
 
