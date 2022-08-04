@@ -149,13 +149,11 @@ return 200;
         },
     ]
 
-
     def wait_for_server(self, srv):
         srv.start()
         while srv.state != 'started':
             pass
         srv.wait_for_connections()
-
 
     def run_curl(self, n=1):
         res = []
@@ -165,7 +163,6 @@ return 200;
             curl.proc_results = curl.resq.get(True, 1)
             res.append(int((curl.proc_results[0].decode("utf-8"))[:-1]))
         return res
-        
 
     def test(self):
         """Test health monitor functionality with described stages"""
