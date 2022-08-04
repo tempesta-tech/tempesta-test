@@ -114,35 +114,7 @@
             "reason" : "Disabled by issue #673"
         },
         {
-<<<<<<< HEAD
             "name" : "health_monitoring",
-=======
-            "name" : "http2_general",
-            "reason" : "Disabled by issue #88"
-        },
-        {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitor.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitorCRCOnly.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_kmemleak",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_slab_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_used_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.malformed.test_chunking_example",
->>>>>>> c1af0d7 (h2 folder renamed to http2_general)
             "reason" : "Disabled by issue #198"
         },
         {
