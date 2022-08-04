@@ -174,6 +174,10 @@
             "reason" : "Disabled by issue #73"
         },
         {
+            "name" : "http2_general.test_h2_headers",
+            "reason" : "Disabled by issue #261"
+        },
+        {
             "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
             "reason" : "Disabled by issue #73"
         },
