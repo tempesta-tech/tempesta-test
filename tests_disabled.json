@@ -194,6 +194,10 @@
             "reason" : "Disabled by issue #73"
         },
         {
+            "name" : "selftests.test_deproxy.DeproxyTestH2.test_bodyless_multiplexed",
+            "reason" : "Need to investigate"
+        },
+        {
             "name" : "sessions",
             "reason" : "Disabled by issue #37"
         },
