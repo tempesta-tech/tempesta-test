@@ -94,12 +94,12 @@ class TestHealthMonitor(tester.TempestaTest):
     Testing process is divided into several stages:
     1. Run tempesta-fw without backends
     2. Create two backends for enabled HM server's state:
-    403/404 responses will be returning until configured limit is
+    403/404 responses will be returned until the configured time limit is
     reached.
-    3. Create backend with valid HM response 200 code and ensure 
-    requested statuses will 404/403 until HM disable the old servers
-    and responses become 502 for old / 200 for new
-    4. Now 403/404 backends is marked unhealthy and must be gone
+    3. Create a backend, which returns valid for HM response 200 code and ensure 
+    that requested statuses are 404/403 until HM disables the old servers
+    and responses become 502 for the old and 200 for the new backends
+    4. Now 403/404 backends are marked unhealthy and must be gone
     """
 
     tempesta = {
