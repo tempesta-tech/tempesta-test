@@ -8,11 +8,9 @@ pipeline scenario. It's intended to check HTTP functionality in various aspects.
 Use implemented in C clients (e.g. wrk) and servers (e.g. nginx) if you need
 a test with heavy load condition.
 
-TODO Why do we implement HttpMessage, Request, and Response on our own instead
-of using HTTPMessage, HTTPRequest, and HTTPResponse correspondingly from
-httplib? Rewrite the code to use httplib or other standard (available in CentOS
-and Debian distros) package or write a reasoning comment why can't we use
-standard tools.
+Our Request/Response implementation differs from http.lib. We use these classes
+like a wrapper for http message and in some cases we can manually instantiate
+objects of these classes to construct message.
 """
 from __future__ import print_function
 import abc
@@ -31,7 +29,7 @@ import re
 
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2021 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 #-------------------------------------------------------------------------------
