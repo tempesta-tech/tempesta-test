@@ -15,3 +15,10 @@ git clone https://github.com/wg/wrk.git /tmp/wrk
 cd /tmp/wrk
 make
 cp /tmp/wrk/wrk /bin/wrk
+
+# h2spec
+apt  install golang-go -y
+git clone https://github.com/tempesta-tech/h2spec.git /tmp/h2spec
+cd /tmp/h2spec
+make build
+cp ./h2spec /usr/bin/h2spec
