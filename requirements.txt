@@ -5,3 +5,4 @@ paramiko
 subprocess32
 websockets
 wrk
+h2

@@ -1,6 +1,10 @@
 import abc
 import time
 import socket
+import h2.connection
+from h2.events import (
+    ResponseReceived, DataReceived, TrailersReceived, StreamEnded
+)
 
 from helpers import deproxy, tf_cfg, stateful, selfproxy
 
@@ -253,3 +257,128 @@ class DeproxyClient(BaseDeproxyClient):
                 return False
             time.sleep(0.01)
         return True
+
+class DeproxyClientH2(DeproxyClient):
+
+    def __init__(self, *args, **kwargs):
+        DeproxyClient.__init__(self, *args, **kwargs)
+        self.h2_connection = None
+        self.stream_id = 1
+        self.active_responses = {}
+
+    def make_requests(self, requests):
+        for request in requests:
+            self.make_request(request)
+
+    def make_request(self, request):
+        if self.cur_req_num >= self.nrreq:
+            self.nrresp = 0
+            self.nrreq = 0
+            self.request_buffers = []
+            self.methods = []
+            self.start_time = time.time()
+            self.cur_req_num = 0
+
+        if isinstance(request, tuple):
+            headers, body = request
+        elif isinstance(request, list):
+            headers = request
+            body = ''
+
+        try:
+            req = deproxy.H2Request(self.__headers_to_string(headers) + "\r\n" + body)
+        except Exception as e:
+            tf_cfg.dbg(2, "Can't parse request: %s" % str(e))
+            req = None
+
+        if req == None:
+            return
+
+        if self.h2_connection is None:
+            self.h2_connection = h2.connection.H2Connection()
+            self.h2_connection.initiate_connection()
+            if self.selfproxy_present:
+                self.update_selfproxy()
+
+        self.methods.append(req.method)
+
+        if body != '':
+            self.h2_connection.send_headers(self.stream_id, headers)
+            self.h2_connection.send_data(self.stream_id, body.encode(), True)
+        else:
+            self.h2_connection.send_headers(self.stream_id, headers, True)
+
+        self.stream_id += 2
+        self.request_buffers.append(self.h2_connection.data_to_send())
+        self.valid_req_num += 1
+        self.nrreq += 1
+
+    def handle_read(self):
+        self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
+        if not self.response_buffer:
+            return
+
+        tf_cfg.dbg(4, '\tDeproxy: Client: Receive response.')
+        tf_cfg.dbg(5, self.response_buffer)
+
+        try:
+            method = self.methods[self.nrresp]
+            events = self.h2_connection.receive_data(self.response_buffer)
+            for event in events:
+                if isinstance(event, ResponseReceived):
+                    headers = self.__headers_to_string(event.headers)
+
+                    response = self.active_responses.get(event.stream_id)
+                    if (response):
+                        stream = StringIO(headers)
+                        response.parse_headers(stream)
+                        response.update()
+                    else:
+                        response = deproxy.H2Response(headers + '\r\n',
+                                                      method=method,
+                                                      body_parsing=False,
+                                                      keep_original_data=\
+                                                      self.keep_original_data)
+
+                        self.active_responses[event.stream_id] = response
+
+                elif isinstance(event, DataReceived):
+                    body = event.data.decode()
+                    response = self.active_responses.get(event.stream_id)
+                    response.parse_text(str(response.headers) + '\r\n' + body)
+                elif isinstance(event, TrailersReceived):
+                    trailers = self.__headers_to_string(event.headers)
+                    response = self.active_responses.get(event.stream_id)
+                    response.parse_text(str(response.headers) + '\r\n' +
+                                        response.body + trailers)
+                elif isinstance(event, StreamEnded):
+                    response = self.active_responses.pop(event.stream_id, None)
+                    if response == None:
+                        return
+                    self.receive_response(response)
+                    self.nrresp += 1
+
+        except deproxy.IncompleteMessage:
+            tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse incomplete message\n'
+                           '<<<<<\n%s>>>>>'
+                        % self.response_buffer))
+            return
+        except deproxy.ParseError:
+            tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
+                           '<<<<<\n%s>>>>>'
+                        % self.response_buffer))
+            raise
+
+    def handle_write(self):
+        reqs = self.request_buffers
+        tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
+        tf_cfg.dbg(5, reqs[self.cur_req_num])
+
+        sent = self.send(reqs[self.cur_req_num])
+        if sent < 0:
+            return
+
+        self.cur_req_num += 1
+
+    def __headers_to_string(self, headers):
+        return ''.join(['%s: %s\r\n' % (h, v) for h, v in headers])

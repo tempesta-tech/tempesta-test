@@ -2,6 +2,9 @@ from __future__ import print_function
 from helpers import deproxy, tf_cfg, tempesta, chains
 from testers import functional
 
+from helpers import chains
+from framework import tester
+
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
@@ -94,5 +97,105 @@ class DeproxyTestFailOver(DeproxyTest):
                 deproxy.Deproxy.check_expectations(self)
 
         self.tester = DeproxyFailOver(self.client, self.servers)
+
+class DeproxyTestH2(tester.TempestaTest):
+
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n\r\n'
+        }
+    ]
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy_h2',
+            'addr' : "${server_ip}",
+            'port' : '443',
+            'ssl'  : True,
+            'ssl_hostname' : 'localhost'
+        },
+    ]
+
+    tempesta = {
+        'config' :
+        """
+        listen 443 proto=h2;
+        server ${server_ip}:8000;
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+        tls_match_any_server_name;
+
+        """
+    }
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test_bodyless(self):
+        self.start_all()
+
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'https'),
+            (':method', 'GET')
+        ]
+
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.make_request(head)
+
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertEqual(deproxy_cl.last_response.status, '200')
+
+    def test_bodyless_multiplexed(self):
+        self.start_all()
+
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'https'),
+            (':method', 'GET')
+        ]
+        request = [head, head]
+
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.make_requests(request)
+
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertEqual(2, len(deproxy_cl.responses))
+        self.assertEqual(2, len(deproxy_srv.requests))
+
+    def test_with_body(self):
+        self.start_all()
+
+        body = 'body body body'
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'https'),
+            (':method', 'POST'),
+            ('conent-length', '14')
+        ]
+        request = (head, body)
+
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.make_request(request)
+
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertEqual(deproxy_cl.last_response.status, '200')
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

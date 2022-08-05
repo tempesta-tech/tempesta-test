@@ -114,10 +114,6 @@
             "reason" : "Disabled by issue #673"
         },
         {
-            "name" : "h2.test_h2_specs",
-            "reason" : "Disabled by issue #250"
-        },
-        {
             "name" : "malformed",
             "reason" : "Disabled by issue #187"
         },
@@ -174,6 +170,10 @@
             "reason" : "Disabled by issue #73"
         },
         {
+            "name" : "http2_general.test_h2_headers",
+            "reason" : "Disabled by issue #261"
+        },
+        {
             "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
             "reason" : "Disabled by issue #73"
         },
@@ -192,6 +192,10 @@
         {
             "name" : "selftests.test_responses.ParseResponse.test_parse",
             "reason" : "Disabled by issue #73"
+        },
+        {
+            "name" : "selftests.test_deproxy.DeproxyTestH2.test_bodyless_multiplexed",
+            "reason" : "Need to investigate"
         },
         {
             "name" : "sessions",

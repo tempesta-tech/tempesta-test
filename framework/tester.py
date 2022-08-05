@@ -142,7 +142,12 @@ class TempestaTest(unittest.TestCase):
     def __create_client_deproxy(self, client, ssl, bind_addr):
         addr = fill_template(client['addr'], client)
         port = int(fill_template(client['port'], client))
-        clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl, bind_addr=bind_addr)
+        if client['type'] == 'deproxy_h2':
+            clt = deproxy_client.DeproxyClientH2(addr=addr, port=port, ssl=ssl,
+                                                 bind_addr=bind_addr, proto='h2')
+        else:
+            clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl,
+                                               bind_addr=bind_addr)
         if ssl and 'ssl_hostname' in client:
             # Don't set SNI by default, do this only if it was specified in
             # the client configuration.
@@ -171,7 +176,7 @@ class TempestaTest(unittest.TestCase):
         populate_properties(client)
         ssl = client.setdefault('ssl', False)
         cid = client['id']
-        if client['type'] == 'deproxy':
+        if client['type'] in ['deproxy', 'deproxy_h2']:
             ip = None
             if client.get('interface', False):
                 interface = tf_cfg.cfg.get('Server', 'aliases_interface')
