@@ -178,6 +178,10 @@
             "reason" : "Disabled by issue #261"
         },
         {
+            "name" : "access_log",
+            "reason" : "Disabled by issue #261"
+        },
+        {
             "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
             "reason" : "Disabled by issue #73"
         },
