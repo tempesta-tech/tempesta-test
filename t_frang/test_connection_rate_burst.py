@@ -1,18 +1,12 @@
 """Tests for Frang directive `connection_rate` and 'connection_burst'."""
 import time
 
-from framework import tester
-from helpers import dmesg
-
-ONE = 1
-ZERO = 0
-DELAY = 0.125
+from t_frang.frang_test_case import DELAY, ONE, ZERO, FrangTestCase
 
 ERROR_RATE = 'Warning: frang: new connections rate exceeded for'
-ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
 
 
-class FrangConnectionRateTestCase(tester.TempestaTest):
+class FrangConnectionRateTestCase(FrangTestCase):
     """Tests for 'request_rate' and 'request_burst' directive."""
 
     clients = [
@@ -21,45 +15,6 @@ class FrangConnectionRateTestCase(tester.TempestaTest):
             'type': 'external',
             'binary': 'curl',
             'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',  # noqa:E501
-        },
-    ]
-
-    backends = [
-        {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': """
-                pid ${pid};
-                worker_processes  auto;
-                events {
-                    worker_connections   1024;
-                    use epoll;
-                }
-                http {
-                    keepalive_timeout ${server_keepalive_timeout};
-                    keepalive_requests ${server_keepalive_requests};
-                    sendfile         on;
-                    tcp_nopush       on;
-                    tcp_nodelay      on;
-                    open_file_cache max=1000;
-                    open_file_cache_valid 30s;
-                    open_file_cache_min_uses 2;
-                    open_file_cache_errors off;
-                    error_log /dev/null emerg;
-                    access_log off;
-                    server {
-                        listen        ${server_ip}:8000;
-                        location / {
-                            return 200;
-                        }
-                        location /nginx_status {
-                            stub_status on;
-                        }
-                    }
-                }
-            """,
         },
     ]
 
@@ -94,11 +49,6 @@ class FrangConnectionRateTestCase(tester.TempestaTest):
         """,
     }
 
-    def setUp(self):
-        """Set up test."""
-        super().setUp()
-        self.klog = dmesg.DmesgFinder(ratelimited=False)
-
     def test_connection_rate(self):
         """Test 'connection_rate'."""
         curl = self.get_client('curl-1')
@@ -123,7 +73,7 @@ class FrangConnectionRateTestCase(tester.TempestaTest):
                 self.assertEqual(
                     self.klog.warn_count(ERROR_RATE),
                     ZERO,
-                    ASSERT_MSG.format(
+                    self.assert_msg.format(
                         exp=ZERO,
                         got=self.klog.warn_count(ERROR_RATE),
                     ),
@@ -132,7 +82,7 @@ class FrangConnectionRateTestCase(tester.TempestaTest):
         self.assertGreater(
             self.klog.warn_count(ERROR_RATE),
             ONE,
-            ASSERT_MSG.format(
+            self.assert_msg.format(
                 exp='more than {0}'.format(ONE),
                 got=self.klog.warn_count(ERROR_RATE),
             ),
@@ -158,7 +108,7 @@ class FrangConnectionRateTestCase(tester.TempestaTest):
                 self.assertEqual(
                     self.klog.warn_count(ERROR_RATE),
                     ZERO,
-                    ASSERT_MSG.format(
+                    self.assert_msg.format(
                         exp=ZERO,
                         got=self.klog.warn_count(ERROR_RATE),
                     ),
@@ -167,7 +117,7 @@ class FrangConnectionRateTestCase(tester.TempestaTest):
         self.assertEqual(
             self.klog.warn_count(ERROR_RATE),
             ONE,
-            ASSERT_MSG.format(
+            self.assert_msg.format(
                 exp=ONE,
                 got=self.klog.warn_count(ERROR_RATE),
             ),

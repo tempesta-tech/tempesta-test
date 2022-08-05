@@ -2,7 +2,6 @@
 from framework import tester
 from helpers import dmesg
 
-
 CURL_CODE_OK = 0
 CURL_CODE_BAD = 1
 COUNT_WARNINGS_OK = 1

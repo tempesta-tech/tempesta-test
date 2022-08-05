@@ -4,6 +4,7 @@ from helpers import dmesg
 
 ZERO = 0
 ONE = 1
+DELAY = 0.125
 ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
 
 
