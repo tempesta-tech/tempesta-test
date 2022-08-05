@@ -174,7 +174,7 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "http2_general.test_h2_headers",
+            "name" : "http2_general",
             "reason" : "Disabled by issue #261"
         },
         {
