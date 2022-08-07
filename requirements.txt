@@ -5,4 +5,5 @@ paramiko
 subprocess32
 websockets
 wrk
-h2
+h2>=4.0.0
+hyperframe>=6.0.0
