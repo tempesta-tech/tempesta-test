@@ -109,14 +109,11 @@ def remove_certs(cert_files_):
 # Some tests for access_log over HTTP/2.0
 class CurlTestBase(tester.TempestaTest):
     clients = clients()
-
-    def run_curl(self, curl):
-        self.start_all_clients()
-        self.wait_while_busy(curl)
-        self.assertEqual(0, curl.returncode,
-                         msg=("Curl return code is not 0 (%d)." %
-                              (curl.returncode)))
-        curl.stop()
+    
+    def run_curl(self):
+        curl = self.get_client('curl')
+        curl.run_start()
+        curl.proc_results = curl.resq.get(True, 1)
 
     def run_test(self, status_code=200, is_frang=False):
         klog = dmesg.DmesgFinder(ratelimited=False)
@@ -131,11 +128,11 @@ class CurlTestBase(tester.TempestaTest):
 
         if is_frang:
             try:
-                self.run_curl(curl)
+                self.run_curl()
             except Exception:
                 pass
         else:
-            self.run_curl(curl)
+            self.run_curl()
 
         nginx = self.get_server('nginx')
         nginx.get_stats()
