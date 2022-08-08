@@ -6,9 +6,13 @@ from helpers import remote, tf_cfg, stateful
 from .templates import fill_template
 
 def _run_client(client, exit_event, resq):
-    res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
-    tf_cfg.dbg(3, "\tClient exit")
+    try:
+        res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
+    except remote.CmdError as e:
+        res = (e.stdout, e.stderr)
+        client.returncode = e.returncode
     resq.put(res)
+    tf_cfg.dbg(3, "\tClient exit")
     exit_event.set()
 
 class Client(stateful.Stateful, metaclass=abc.ABCMeta):
@@ -95,7 +99,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             return
         tf_cfg.dbg(3, "Stopping client")
         self.proc.terminate()
-        self.returncode = self.proc.exitcode
         if not self.resq.empty():
             self.proc_results = self.resq.get()
         self.proc = None
@@ -158,4 +161,3 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         # until we explicitly get `self.exit_event` flag set
         while self.is_busy(verbose=False):
             pass
-        self.returncode = self.proc.exitcode

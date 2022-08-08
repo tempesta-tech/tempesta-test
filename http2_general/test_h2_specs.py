@@ -133,6 +133,7 @@ class H2Spec(tester.TempestaTest):
         self.start_tempesta()
         self.start_all_clients()
         self.wait_while_busy(h2spec)
+        self.assertEqual(0, h2spec.returncode)
 
 class H2Load(tester.TempestaTest):
     '''Tests for h2 proto implementation. Run h2load utility against Tempesta.
