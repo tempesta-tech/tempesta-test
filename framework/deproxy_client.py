@@ -326,7 +326,7 @@ class DeproxyClientH2(DeproxyClient):
             events = self.h2_connection.receive_data(self.response_buffer)
             for event in events:
                 if isinstance(event, ResponseReceived):
-                    headers = self.__headers_to_string(event.headers)
+                    headers = self.__binary_headers_to_string(event.headers)
 
                     response = self.active_responses.get(event.stream_id)
                     if (response):
@@ -382,3 +382,7 @@ class DeproxyClientH2(DeproxyClient):
 
     def __headers_to_string(self, headers):
         return ''.join(['%s: %s\r\n' % (h, v) for h, v in headers])
+
+    def __binary_headers_to_string(self, headers):
+        return ''.join(['%s: %s\r\n' % (h.decode(), v.decode())
+                        for h, v in headers])
