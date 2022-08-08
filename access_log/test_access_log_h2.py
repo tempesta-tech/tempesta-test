@@ -114,6 +114,9 @@ class CurlTestBase(tester.TempestaTest):
         curl = self.get_client('curl')
         curl.run_start()
         curl.proc_results = curl.resq.get(True, 1)
+        self.assertEqual(0, curl.returncode,
+                         msg=("Curl return code is not 0 (%d)." %
+                              (curl.returncode)))
 
     def run_test(self, status_code=200, is_frang=False):
         klog = dmesg.DmesgFinder(ratelimited=False)
