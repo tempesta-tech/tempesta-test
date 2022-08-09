@@ -184,9 +184,9 @@ return 200;
         # 3
         self.wait_for_server(back3)
         res = self.run_curl(REQ_COUNT)
-        self.assertTrue(sorted(list(set(res))) == [200, 403, 404, 502], "Not valid status")
+        self.assertTrue(sorted(list(set(res))) == [200, 403, 404], "Not valid status")
         
         # 4
         res = self.run_curl(REQ_COUNT)
-        self.assertTrue(sorted(list(set(res))) == [200, 502], "Not valid status")
+        self.assertTrue(sorted(list(set(res))) == [200], "Not valid status")
         back3.stop()

@@ -330,6 +330,10 @@
             "reason" : "Disabled by issue #203"
         },
         {
+            "name" : "health_monitoring",
+            "reason" : "Disabled by issue #273"
+        },
+        {
             "name" : "tls.test_tls_stress.StressTls.test",
             "reason" : "Disabled by issue #203"
         },
