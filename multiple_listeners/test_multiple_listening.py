@@ -4,13 +4,6 @@ TestCase for multiple listening sockets.
 Config for test is being auto generated and imported before test.
 """
 from framework import tester
-from multiple_listeners.config_generator import ConfigAutoGenerator
-import importlib
-
-
-# config_auto_generator = ConfigAutoGenerator()
-# config_auto_generator.generate()
-# test_config = importlib.import_module('multiple_listeners.config_for_tests')
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -1595,13 +1588,8 @@ class TestMultipleListening(tester.TempestaTest):
             http_chain {
                 -> tempesta-cat;
             }
-
         """
     }
-
-    # backends = test_config.backends
-    # clients = test_config.clients
-    # tempesta = test_config.tempesta
 
     def start_all(self):
         self.start_all_servers()
@@ -1611,7 +1599,7 @@ class TestMultipleListening(tester.TempestaTest):
     def test_multiple_listeners_success(self):
 
         # h2spec
-        for cli in TestMultipleListening.clients:
+        for cli in self.clients:
             if cli[ID].startswith('h2spec'):
                 h2spec = self.get_client(
                     cli[ID],
@@ -1620,7 +1608,7 @@ class TestMultipleListening(tester.TempestaTest):
 
         self.start_all()
 
-        for cli in TestMultipleListening.clients:
+        for cli in self.clients:
 
             # h2spec
             if cli[ID].startswith('h2spec'):

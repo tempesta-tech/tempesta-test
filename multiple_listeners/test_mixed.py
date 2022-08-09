@@ -1,7 +1,5 @@
 """TestCase for mixed listening sockets."""
 from framework import tester
-# from multiple_listeners import config_for_tests_mixed as tc
-
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -12,12 +10,7 @@ STATUS_OK = '200'
 
 class TestMixedListeners(tester.TempestaTest):
 
-    # backends = tc.backends
-    # clients = tc.clients
-    # tempesta = tc.tempesta
-
     backends = [
-
         {
             'id': 'nginx',
             'type': 'nginx',
@@ -58,7 +51,6 @@ class TestMixedListeners(tester.TempestaTest):
     ]
 
     clients = [
-
         {
             'id': 'curl-h2-true',
             'type': 'external',
@@ -73,7 +65,6 @@ class TestMixedListeners(tester.TempestaTest):
             'ssl': True,
             'cmd_args': '-Ikf --http2 https://127.0.0.4:4433/ '
         },
-
         {
             'id': 'curl-https-true',
             'type': 'external',

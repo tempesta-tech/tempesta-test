@@ -1,6 +1,5 @@
 """TestCase for change Tempesta config on the fly."""
 from framework import tester
-# from multiple_listeners import config_for_tests_on_fly as tc
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -12,53 +11,6 @@ STATUS_OK = 200
 SOCKET_START = ('127.0.0.4:8282',)
 SOCKET_AFTER_RELOAD = ('127.0.1.5:7654',)
 
-
-# def make_tempesta_config(sockets: tuple) -> dict:
-#     """
-#     Add `listen` socket to Tempesta config.
-#
-#     Args:
-#         sockets (tuple): sockets to add
-#
-#     Returns:
-#         config (dict): Tempesta config
-#
-#     """
-#     listen_parameters = ''
-#     for soc in sockets:
-#         listen_parameters += 'listen {0};\n\t'.format(soc)
-#     return {
-#         'config': tc.tempesta['config'] % listen_parameters,
-#     }
-
-
-# def make_test_clients() -> list:
-#     """
-#     Create wrk clients.
-#
-#     Returns:
-#         clients (list): created clients
-#
-#     """
-#     test_clients = []
-#     for soc in (SOCKET_START + SOCKET_AFTER_RELOAD):
-#         test_clients.append(
-#             {
-#                 'id': 'wrk-{0}'.format(soc),
-#                 'type': 'wrk',
-#                 'addr': soc,
-#             }
-#         )
-#         test_clients.append(
-#             {
-#                 'id': 'curl-{0}'.format(soc),
-#                 'type': 'external',
-#                 'binary': 'curl',
-#                 'cmd_args': '-Ikf http://{0}/'.format(soc),
-#             }
-#         )
-#     return test_clients
-#
 
 class TestOnTheFly(tester.TempestaTest):
 
@@ -154,9 +106,16 @@ class TestOnTheFly(tester.TempestaTest):
         """
     }
 
-    # backends = tc.backends
-    # clients = make_test_clients()
-    # tempesta = make_tempesta_config(SOCKET_START)
+    tempesta_after_reload = {
+        'config': tempesta['config']
+    }
+
+    for soc in range(0, len(SOCKET_START)):
+        try:
+            tempesta_after_reload['config'] = tempesta_after_reload['config'].replace(SOCKET_START[soc],
+                                                                                      SOCKET_AFTER_RELOAD[soc])
+        except IndexError:
+            pass
 
     def start_all(self):
         self.start_all_servers()
@@ -199,9 +158,7 @@ class TestOnTheFly(tester.TempestaTest):
             )
 
         # change config and reload Tempesta
-        tempesta.config.defconfig = make_tempesta_config(
-            SOCKET_AFTER_RELOAD,
-        )['config']
+        tempesta.config.defconfig = self.tempesta_after_reload['config']
         tempesta.reload()
 
         # check old sockets  not in config
