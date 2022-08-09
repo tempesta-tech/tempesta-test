@@ -92,8 +92,8 @@ class TestOnTheFly(tester.TempestaTest):
             }
 
             tls_match_any_server_name;
-            tls_certificate ECDSA/tfw-root.crt;
-            tls_certificate_key ECDSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/ECDSA/tfw-root.crt;
+            tls_certificate_key ${tempesta_workdir}/ECDSA/tfw-root.key;
 
             cache 0;
             cache_fulfill * *;
@@ -129,7 +129,6 @@ class TestOnTheFly(tester.TempestaTest):
             - reload Tempesta with new config -
             - start new wrk
         """
-
         self.start_all()
 
         tempesta = self.get_tempesta()

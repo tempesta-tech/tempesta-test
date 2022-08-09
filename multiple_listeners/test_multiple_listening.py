@@ -23,7 +23,7 @@ class TestMultipleListening(tester.TempestaTest):
             'id': 'nginx',
             'type': 'nginx',
             'port': '8000',
-            'status_uri': 'http://[::0]:8000/nginx_status',
+            'status_uri': 'http://${server_ip}:8000/nginx_status',
             'config': """
                 pid ${pid};
                 worker_processes  auto;
@@ -44,7 +44,7 @@ class TestMultipleListening(tester.TempestaTest):
                     error_log /dev/null emerg;
                     access_log off;
                     server {
-                        listen        [::0]:8000;
+                        listen        ${server_ip}:8000;
                         location / {
                             return 200;
                         }
@@ -1570,7 +1570,7 @@ class TestMultipleListening(tester.TempestaTest):
             listen 127.0.2.5:8086 proto=https;
 
             srv_group default {
-                server [::0]:8000;
+                ${server_ip}:8000;
             }
 
             vhost tempesta-cat {
@@ -1578,8 +1578,8 @@ class TestMultipleListening(tester.TempestaTest):
             }
 
             tls_match_any_server_name;
-            tls_certificate ECDSA/tfw-root.crt;
-            tls_certificate_key ECDSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/ECDSA/tfw-root.crt;
+            tls_certificate_key ${tempesta_workdir}/ECDSA/tfw-root.key;
 
             cache 0;
             cache_fulfill * *;
