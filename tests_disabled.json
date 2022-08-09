@@ -350,6 +350,10 @@
             "reason": "Disabled by issue #1678"
         },
         {
+            "name": "cache.test_cache.H2Cache",
+            "reason": "Disabled by issue #1669"
+        },
+        {
             "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_bad_host",
             "reason": "Disabled by issue #286"
         },
