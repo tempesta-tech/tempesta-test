@@ -199,7 +199,7 @@
         },
         {
             "name" : "selftests.test_deproxy.DeproxyTestH2.test_bodyless_multiplexed",
-            "reason" : "Need to investigate"
+            "reason" : "Disabled by issue #1669"
         },
         {
             "name" : "sessions",
