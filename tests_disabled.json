@@ -359,6 +359,10 @@
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
             "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "frang_tests.test_http_ct_required",
+            "reason": "Disabled by issue #1671"
         }
     ]
 }

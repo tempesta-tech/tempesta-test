@@ -1,1 +1,1 @@
-__all__ = ['test_host_required', 'test_http_resp_code_block']
+__all__ = ['test_host_required', 'test_http_resp_code_block', 'test_http_methods', 'test_http_ct_vals', 'test_http_method_override_allowed', 'test_http_trailer_split_allowed']
