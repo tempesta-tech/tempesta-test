@@ -96,8 +96,8 @@ class TestMixedListeners(tester.TempestaTest):
             }
 
             tls_match_any_server_name;
-            tls_certificate ${tempesta_workdir}/RSA/tfw-root.crt;
-            tls_certificate_key ${tempesta_workdir}/RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;
