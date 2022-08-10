@@ -355,7 +355,7 @@
         },
         {
             "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #1647"
         },
         {   "name" : "multiple_listeners",
             "reason" : "Disabled by issue #1624"
