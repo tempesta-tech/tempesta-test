@@ -114,10 +114,6 @@
             "reason" : "Disabled by issue #673"
         },
         {
-            "name" : "health_monitoring",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "malformed",
             "reason" : "Disabled by issue #187"
         },
@@ -336,6 +332,10 @@
         {
             "name" : "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_mismatch",
             "reason" : "Disabled by issue #203"
+        },
+        {
+            "name" : "health_monitoring",
+            "reason" : "Disabled by issue #273"
         },
         {
             "name" : "tls.test_tls_stress.StressTls.test",
