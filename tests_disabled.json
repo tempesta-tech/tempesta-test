@@ -206,24 +206,8 @@
             "reason" : "Disabled by issue #37"
         },
         {
-            "name" : "unittest.loader._FailedTest.tcp_connection.test_connection_close",
-            "reason" : "Disabled by issue #279"
-        },
-        {
             "name" : "tls.test_tls_basic.TlsBasic.test_connection_close",
             "reason" : "Disabled by issue #203"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_cert",
-            "reason" : "Disabled by issue #279"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_handshake",
-            "reason" : "Disabled by issue #279"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_integrity",
-            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_tickets.TlsVhostConfusionDfltVhost.test",
@@ -344,10 +328,6 @@
         {
             "name" : "tls.test_tls_limits.TLSLimitsIncomplete.test",
             "reason" : "Disabled by issue #203"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_tickets",
-            "reason" : "Disabled by issue #279"
         },
         {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
