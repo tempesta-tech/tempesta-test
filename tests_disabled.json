@@ -162,14 +162,6 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "selftests.test_responses.ParseBody.test_chunked",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_responses.ParseBody.test_chunked_and_trailer",
-            "reason" : "Disabled by issue #73"
-        },
-        {
             "name" : "http2_general",
             "reason" : "Disabled by issue #261"
         },

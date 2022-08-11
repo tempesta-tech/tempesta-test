@@ -241,8 +241,7 @@ class ParseBody(unittest.TestCase):
     def chunked_body():
         return ("4\n"
                 "1234\n"
-                "0\n"
-                "\n")
+                "0\n")
 
     def try_body(self, response_text, body_text, trailer_headers=None):
         response = deproxy.Response(response_text)
@@ -317,8 +316,8 @@ Connection: close
 4
 1234
 0
-
 Expires: Wed, 21 Oct 2015 07:28:00 GMT
+
 """
 
 PARSE_CONTENT_LENGTH = """HTTP/1.1 200 OK
