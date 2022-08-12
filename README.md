@@ -69,7 +69,7 @@ deproxy server, and workload tests should use wrk client and nginx server.
 
 ## Setup
 
-To run requirements autoinstallation run setup.sh
+To run requirements auto installation run setup.sh from `tempesta-test` directory
 
 `./setup.sh`
 
@@ -442,9 +442,17 @@ and handling corresponding types of items.
 
 ## Development
 
-In the project we use linter [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
+In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
+[![pre-commit](https://img.shields.io/badge/pre--commit-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 Install development dependencies: `pip3 install -r requirements-dev.txt`
+
+Copy `pre-commit.sample` to .git/hooks directory, rename to `pre-commit` and make file executable:
+```sh
+$ cp pre-commit.sample pre-commit 
+$ cp pre-commit .git/hooks 
+$ chmod +x .git/hooks/pre-commit
+```
 
 Configuration file `tox.ini`
 
@@ -452,6 +460,8 @@ Run linter `flake8 <target>`:
 
   where `tagret` is optional parameter, it defines target file to be checked,
   if omitted, checks is going to be processed on all files in running directory.
+
+Use `git commit -v -all` to check all changed python files.
 
 ## Resources
 

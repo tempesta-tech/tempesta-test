@@ -1,0 +1,12 @@
+# Settings set up https://pre-commit.com/#pre-commit-configyaml---top-level
+
+repos:
+-   repo: local
+    hooks:
+    -   id: flake8
+        name: flake8
+        description: wemake-python-styleguide enforcement
+        entry: flake8
+        args: ["--config=tox.ini"]
+        language: python
+        types: [ python ]

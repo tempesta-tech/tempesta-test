@@ -1,8 +1,0 @@
-pycryptodomex>=3.4
-scapy>=2.4.4
-tinyec>=0.3.1
-paramiko
-subprocess32
-websockets
-wrk
-wemake-python-styleguide>=0.16.1

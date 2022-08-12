@@ -15,3 +15,8 @@ git clone https://github.com/wg/wrk.git /tmp/wrk
 cd /tmp/wrk
 make
 cp /tmp/wrk/wrk /bin/wrk
+
+# pre-commit
+cp pre-commit.sample pre-commit
+cp pre-commit .git/hooks
+chmod +x .git/hooks/pre-commit
