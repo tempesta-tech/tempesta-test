@@ -6,9 +6,13 @@ from helpers import remote, tf_cfg, stateful
 from .templates import fill_template
 
 def _run_client(client, exit_event, resq):
-    res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
-    tf_cfg.dbg(3, "\tClient exit")
+    try:
+        res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
+    except remote.CmdError as e:
+        res = (e.stdout, e.stderr)
+        client.returncode = e.returncode
     resq.put(res)
+    tf_cfg.dbg(3, "\tClient exit")
     exit_event.set()
 
 class Client(stateful.Stateful, metaclass=abc.ABCMeta):
@@ -81,22 +85,22 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         for (name, content) in self.files:
             self.node.copy_file(name, content)
 
-    def is_busy(self):
+    def is_busy(self, verbose=True):
         busy = not self.exit_event.is_set()
-        if busy:
-            tf_cfg.dbg(4, "\tClient is running")
-        else:
-            tf_cfg.dbg(4, "\tClient is not running")
+        if verbose:
+            if busy:
+                tf_cfg.dbg(4, "\tClient is running")
+            else:
+                tf_cfg.dbg(4, "\tClient is not running")
         return busy
 
     def __on_finish(self):
-        if self.proc == None:
+        if not hasattr(self.proc, "terminate"):
             return
         tf_cfg.dbg(3, "Stopping client")
         self.proc.terminate()
-        self.proc.join()
-        self.returncode = self.proc.exitcode
-        self.proc_results = self.resq.get(True, 1)
+        if not self.resq.empty():
+            self.proc_results = self.resq.get()
         self.proc = None
 
         if self.proc_results != None:
@@ -154,5 +158,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.options.append('-H \'User-Agent: %s\'' % ua)
 
     def wait_for_finish(self):
-        self.proc.join()
-        self.returncode = self.proc.exitcode
+        # until we explicitly get `self.exit_event` flag set
+        while self.is_busy(verbose=False):
+            pass

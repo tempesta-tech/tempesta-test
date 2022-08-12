@@ -39,11 +39,19 @@
         },
         {
             "name" : "long_body.test_long_response.ResponseTest1M",
-            "reason" : ""
+            "reason" : "Disabled by issue #1659"
         },
         {
             "name" : "long_body.test_long_response.ResponseTest1k",
-            "reason" : ""
+            "reason" : "Disabled by issue #1659"
+        },
+        {
+            "name" : "long_body.test_long_request.RequestTest1M",
+            "reason" : "Disabled by issue #1659"
+        },
+        {
+            "name" : "long_body.test_long_request.RequestTest1k",
+            "reason" : "Disabled by issue #1659"
         },
         {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
@@ -98,10 +106,6 @@
             "reason" : "#861: TCP: reset blocked connections"
         },
         {
-            "name" : "cache",
-            "reason" : "Disabled by issue #810"
-        },
-        {
             "name" : "flacky_net",
             "reason" : "Disabled by issue #114"
         },
@@ -110,48 +114,8 @@
             "reason" : "Disabled by issue #673"
         },
         {
-            "name" : "h2",
-            "reason" : "Disabled by issue #88"
-        },
-        {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitor.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitorCRCOnly.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_kmemleak",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_slab_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "leaks.test_leak.LeakTest.test_used_memory",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "long_body",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.malformed.test_chunking_example",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "malformed",
             "reason" : "Disabled by issue #187"
-        },
-        {
-            "name" : "msg_modification",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "msg_sequence.test_pairing.PairingTest.test_disconnect_client",
-            "reason" : "Disabled by issue #198"
         },
         {
             "name" : "pipelining",
@@ -160,10 +124,6 @@
         {
             "name" : "reconf",
             "reason" : "Disabled by issue #988"
-        },
-        {
-            "name" : "regression",
-            "reason" : "Disabled by issue #198"
         },
         {
             "name" : "sched",
@@ -202,12 +162,12 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "selftests.test_responses.ParseBody.test_chunked",
-            "reason" : "Disabled by issue #73"
+            "name" : "http2_general",
+            "reason" : "Disabled by issue #261"
         },
         {
-            "name" : "selftests.test_responses.ParseBody.test_chunked_and_trailer",
-            "reason" : "Disabled by issue #73"
+            "name" : "access_log",
+            "reason" : "Disabled by issue #261"
         },
         {
             "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
@@ -230,112 +190,100 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "sessions",
-            "reason" : "Disabled by issue #37"
+            "name" : "selftests.test_deproxy.DeproxyTestH2.test_bodyless_multiplexed",
+            "reason" : "Disabled by issue #1669"
         },
         {
-            "name" : "unittest.loader._FailedTest.tcp_connection.test_connection_close",
-            "reason" : "Disabled by issue #198"
+            "name" : "sessions",
+            "reason" : "Disabled by issue #37"
         },
         {
             "name" : "tls.test_tls_basic.TlsBasic.test_connection_close",
             "reason" : "Disabled by issue #203"
         },
         {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_cert",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_handshake",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_integrity",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" :  "tls.test_tls_tickets.TlsVhostConfusionDfltVhost.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tcp_connection.test_connection_close.CloseConnection.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_cert.ECDSA_SHA256_SECP256.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_cert.RSA1024_SHA384.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_cert.RSA2048_SHA512.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_cert.RSA4096_SHA512.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_cert.StaleCert.test",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sni",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_handshake.TlsHandshakeTest.test_old_handshakes",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.Cache.test_various_req_resp_sizes",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test1",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test2",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test3",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test4",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test5",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test6",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test7",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.CloseConnection.test8",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.Proxy.test_tcp_segs",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_integrity.Proxy.test_various_req_resp_sizes",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" :  "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket",
-            "reason" : "Disabled by issue #198"
+            "reason" : "Disabled by issue #279"
         },
         {
             "name" : "tls.test_tls_kernel.TCrypt.test_tcrypt",
@@ -362,6 +310,10 @@
             "reason" : "Disabled by issue #203"
         },
         {
+            "name" : "health_monitoring",
+            "reason" : "Disabled by issue #273"
+        },
+        {
             "name" : "tls.test_tls_stress.StressTls.test",
             "reason" : "Disabled by issue #203"
         },
@@ -370,42 +322,23 @@
             "reason" : "Disabled by issue #203"
         },
         {
-            "name" : "unittest.loader._FailedTest.tls.test_tls_tickets",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.AddingBackendNewSG.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.DontModifyBackend.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.RemovingBackendSG.test",
-            "reason" : "Disabled by issue #198"
-        },
-        {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },
         {
             "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "vhost",
-            "reason" : "Disabled by issue #8"
+            "reason" : "Disabled by issue #1647"
         },
         {   "name" : "multiple_listeners",
             "reason" : "Disabled by issue #1624"
         },
-        {   "name" : "forwarding",
-            "reason" : "Disabled, because PR #1629 still not marged"
+        {
+            "name" : "cache.test_cache_control.CacheLocationNonidempotentGetBypass",
+            "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
+            "reason": "Disabled by issue #1663"
         }
     ]
 }

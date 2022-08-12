@@ -5,6 +5,8 @@ paramiko
 subprocess32
 websockets
 wrk
+h2>=4.0.0
+hyperframe>=6.0.0
 wemake-python-styleguide>=0.16.1
 pre-commit>=2.20.0
 pycodestyle==2.8.0

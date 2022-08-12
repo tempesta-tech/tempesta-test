@@ -13,6 +13,8 @@ import errno
 import shutil
 import time
 import subprocess
+from dataclasses import dataclass
+from typing import Union # TODO: use | instead when we move to python3.10
 from . import tf_cfg, error
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -58,6 +60,13 @@ class Node(object, metaclass=abc.ABCMeta):
     def wait_available(self):
         pass
 
+@dataclass
+class CmdError(Exception):
+    message: str
+    stdout: Union[str, bytes]
+    stderr: Union[str, bytes]
+    returncode: int
+
 class LocalNode(Node):
     def __init__(self, type, hostname, workdir):
         Node.__init__(self, type, hostname, workdir)
@@ -83,15 +92,17 @@ class LocalNode(Node):
                 # runnng long enough, e.g. tls-perf or wrk started in a parallel
                 # thread didn't finish before all assumptions are checked in the
                 # main thread.
-                stdout, stderr = p.communicate(timeout)
+                stdout, stderr = p.communicate(timeout=timeout)
                 assert p.returncode == 0, \
                     "Cmd: '%s' return code is not 0 (%d)." % (cmd, p.returncode)
-            except Exception as e:
-                if not err_msg:
-                    err_msg = ("Error running command '%s' on %s" %
-                               (cmd, self.host))
-                raise Exception("Remote error: %s, stdout = %s, stderr = %s" %
-                                (err_msg, stdout, stderr))
+            except subprocess.TimeoutExpired:
+                p.kill()
+                stdout, stderr = p.communicate()
+                raise CmdError(f"Cmd '{cmd}' got timed out (timeout value is {timeout})",
+				               stdout, stderr, p.returncode)
+            except AssertionError:
+                raise CmdError(f"Сmd {cmd} exited with return code {p.returncode}",
+                               stdout, stderr, p.returncode)
         return stdout, stderr
 
     def mkdir(self, path):

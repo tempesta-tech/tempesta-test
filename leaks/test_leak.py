@@ -9,6 +9,7 @@ __license__ = 'GPL2'
 import unittest
 import re
 from time import sleep
+import os.path
 
 from testers import stress
 from helpers import tf_cfg, control, tempesta, remote
@@ -22,11 +23,9 @@ def drop_caches():
 
 def file_exists(remote_file):
     """ Check existence of file on Tempesta host """
-    check_cmd = "if [ -e %s ]; then echo -n yes; fi" % remote_file
-    [stdout, stderr] = remote.tempesta.run_cmd(check_cmd)
-    if stdout != "yes":
-        return False
-    return True
+    if os.path.exists(remote_file):
+        return True
+    return False
 
 def has_kmemleak():
     """ Check presence of kmemleak """
@@ -53,7 +52,7 @@ def get_memory_lines(*names):
     [stdout, stderr] = remote.tempesta.run_cmd("cat /proc/meminfo")
     lines = []
     for name in names:
-        line = re.search("%s:[ ]+([0-9]+)" % name, stdout)
+        line = re.search("%s:[ ]+([0-9]+)" % name, str(stdout))
         if line:
             lines.append(int(line.group(1)))
         else:
