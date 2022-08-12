@@ -7,3 +7,4 @@ websockets
 wrk
 wemake-python-styleguide>=0.16.1
 pre-commit>=2.20.0
+pycodestyle==2.8.0

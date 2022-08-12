@@ -450,7 +450,7 @@ Install development dependencies: `pip3 install -r requirements-dev.txt`
 Copy `pre-commit.sample` to .git/hooks directory, rename to `pre-commit` and make file executable:
 ```sh
 $ cp pre-commit.sample pre-commit 
-$ cp pre-commit .git/hooks 
+$ mv pre-commit .git/hooks 
 $ chmod +x .git/hooks/pre-commit
 ```
 
