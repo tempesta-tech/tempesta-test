@@ -95,9 +95,8 @@ class ServerConnection(asyncore.dispatcher_with_send):
         tf_cfg.dbg(5, self.request_buffer)
         response, need_close = self.server.receive_request(request, self)
         self.request_buffer = ''
-        if not response:
-            return
-        self.send_response(response)
+        if response:
+            self.send_response(response)
         if need_close:
             self.close()
 
