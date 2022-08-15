@@ -5,7 +5,7 @@ from helpers import tf_cfg, deproxy, tempesta, control
 from framework.templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):

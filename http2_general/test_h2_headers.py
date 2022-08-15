@@ -7,7 +7,7 @@ analises its return code.
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 NGINX_CONFIG = """
