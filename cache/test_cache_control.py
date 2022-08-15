@@ -120,6 +120,24 @@ class TestCacheControl(tester.TempestaTest):
                     "{} header is present in the cached response". \
                         format(name))
 
+    def get_estimated_number_of_requests_to_server(self) -> int:
+        """This method looks at 6 situations of sending two requests:
+        1. Cache - on. Two unauthorized users - 1 request to server;
+        2. Cache - on. First request from unauthorized user, second request from authorized user - 1 request to server;
+        3. Cache - on. First request from authorized user, second request from unauthorized user - 2 requests to server;
+        4. Cache - on. Two authorized users - 2 requests to server;
+        5. Cache - on. Two requests from one authorized user - 1 request to server;
+        6. Cache - off. 2 requests to server.
+        """
+        if self.should_be_cached and self.request_headers.get('Authorization', None) \
+                == self.second_request_headers.get('Authorization', None):
+            return 1
+        elif self.should_be_cached and not self.request_headers.get('Authorization', None) and \
+                self.second_request_headers.get('Authorization', None):
+            return 1
+        else:
+            return 2
+
     def _test(self):
         self.start_all()
         client = self.get_client('deproxy')
@@ -153,15 +171,9 @@ class TestCacheControl(tester.TempestaTest):
         self.assertEqual(cached_response.status, self.cached_status,
                          "request for cache failed: {}, expected {}" \
                          .format(response.status, self.cached_status))
-
         self.assertEqual(2, len(client.responses), "response lost")
-        if self.should_be_cached:
-            self.assertEqual(1, len(srv.requests),
-                             "response not cached as expected")
-        else:
-            self.assertEqual(2, len(srv.requests),
-                             "response is cached while it should not be")
-
+        self.assertEqual(self.get_estimated_number_of_requests_to_server(),
+                         len(srv.requests), "response not cached as expected")
         if self.should_be_cached:
             self.check_cached_response_headers(cached_response)
         else:
@@ -860,3 +872,14 @@ class CacheLocationNonidempotentHeadBypass(CacheLocationBase):
     should_be_cached = False
     uri = '/nonidempotent'
     request_method = "HEAD"
+
+
+class CachingResponseAuthorizedUsersWithoutCookies(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers to the same resource and check that
+     the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
