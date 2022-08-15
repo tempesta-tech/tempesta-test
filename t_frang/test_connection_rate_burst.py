@@ -4,6 +4,7 @@ import time
 from t_frang.frang_test_case import DELAY, ONE, ZERO, FrangTestCase
 
 ERROR_RATE = 'Warning: frang: new connections rate exceeded for'
+ERROR_BURST = 'Warning: frang: new connections burst exceeded'
 
 
 class FrangConnectionRateTestCase(FrangTestCase):
@@ -96,7 +97,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
         self.start_tempesta()
 
         # connection_burst 2 in Tempesta config increase to get limit
-        connection_burst = 3
+        connection_burst = 4
 
         for step in range(connection_burst):
             curl.start()
@@ -104,21 +105,21 @@ class FrangConnectionRateTestCase(FrangTestCase):
             curl.stop()
 
             # until rate limit is reached
-            if step < connection_burst - 1:
+            if step < connection_burst-2:
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_RATE),
+                    self.klog.warn_count(ERROR_BURST),
                     ZERO,
                     self.assert_msg.format(
                         exp=ZERO,
-                        got=self.klog.warn_count(ERROR_RATE),
+                        got=self.klog.warn_count(ERROR_BURST),
                     ),
                 )
 
         self.assertEqual(
-            self.klog.warn_count(ERROR_RATE),
-            ONE,
+            self.klog.warn_count(ERROR_BURST),
+            2,
             self.assert_msg.format(
-                exp=ONE,
-                got=self.klog.warn_count(ERROR_RATE),
+                exp=2,
+                got=self.klog.warn_count(ERROR_BURST),
             ),
         )

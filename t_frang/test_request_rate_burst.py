@@ -5,6 +5,7 @@ from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
 
 DELAY = 0.125
 ERROR_MSG = 'Warning: frang: request {0} exceeded for'
+ERROR_MSG_BURST = 'Warning: frang: requests burst exceeded'
 
 
 class FrangRequestRateTestCase(FrangTestCase):
@@ -148,11 +149,11 @@ class FrangRequestBurstTestCase(FrangTestCase):
             curl.stop()
 
         self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format('burst')),
+            self.klog.warn_count(ERROR_MSG_BURST.format('burst')),
             ONE,
             self.assert_msg.format(
                 exp=ONE,
-                got=self.klog.warn_count(ERROR_MSG.format('burst')),
+                got=self.klog.warn_count(ERROR_MSG_BURST.format('burst')),
             ),
         )
 

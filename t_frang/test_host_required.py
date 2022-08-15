@@ -2,6 +2,7 @@
 from framework import tester
 from helpers import dmesg
 
+
 CURL_CODE_OK = 0
 CURL_CODE_BAD = 1
 COUNT_WARNINGS_OK = 1
@@ -10,8 +11,7 @@ COUNT_WARNINGS_ZERO = 0
 ERROR_MSG = 'Frang limits warning is not shown'
 ERROR_CURL = 'Curl return code is not `0`: {0}.'
 
-RESPONSE_CONTENT = """
-HTTP/1.1 200 OK\r\n
+RESPONSE_CONTENT = """HTTP/1.1 200 OK\r
 Content-Length: 0\r\n
 Connection: keep-alive\r\n\r\n
 """
@@ -31,6 +31,8 @@ WARN_OLD_PROTO = 'frang: Host header field in protocol prior to HTTP/1.1'
 WARN_UNKNOWN = 'frang: Request authority is unknown'
 WARN_DIFFER = 'frang: Request authority in URI differs from host header'
 WARN_IP_ADDR = 'frang: Host header field contains IP address'
+WARN_HEADER_MISSING = 'failed to parse request:'
+WARN_HEADER_MISMATCH = 'Bad TLS alert'
 
 REQUEST_SUCCESS = """
 GET / HTTP/1.1\r
@@ -392,17 +394,19 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
             expected_warning=WARN_IP_ADDR,
         )
 
-    def test_h2_host_header_missing(self):  # TODO no warning in logs
+    def test_h2_host_header_missing(self): 
         """Test with missing header `host`."""
         self._test_base_scenario(
             curl_cli_id='curl-3',
+            expected_warning=WARN_HEADER_MISSING
         )
 
-    def test_h2_host_header_mismatch(self):  # TODO return 200
+    def test_h2_host_header_mismatch(self):
         """Test with mismatched header `host`."""
         self._test_base_scenario(
             curl_cli_id='curl-4',
-            expected_warning=WARN_DIFFER,
+            expected_warning=WARN_HEADER_MISMATCH,
+            curl_code=CURL_CODE_OK,
         )
 
     def test_h2_host_header_as_ip(self):
@@ -412,17 +416,19 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
             expected_warning=WARN_IP_ADDR,
         )
 
-    def test_h2_host_header_as_ipv6(self):  # TODO return 200
+    def test_h2_host_header_as_ipv6(self):
         """Test with header `host` as ip v6 address."""
         self._test_base_scenario(
             curl_cli_id='curl-6',
-            expected_warning=WARN_IP_ADDR,
+            expected_warning=WARN_HEADER_MISMATCH,
+            curl_code=CURL_CODE_OK,
         )
 
     def _test_base_scenario(
         self,
         curl_cli_id: str,
         expected_warning: str = WARN_UNKNOWN,
+        curl_code: int = CURL_CODE_BAD,
     ):
         """
         Test base scenario for process different requests.
@@ -442,7 +448,7 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
         self.wait_while_busy(curl_cli)
 
         self.assertEqual(
-            CURL_CODE_BAD,
+            curl_code,
             curl_cli.returncode,
         )
         self.assertEqual(

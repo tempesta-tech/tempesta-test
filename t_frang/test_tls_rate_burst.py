@@ -1,8 +1,9 @@
 """Tests for Frang directive tls-related."""
 from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
+import time
 
 ERROR_TLS = 'Warning: frang: new TLS connections {0} exceeded for'
-
+ERROR_INCOMP_CONN = 'Warning: frang: incomplete TLS connections rate exceeded'
 
 class FrangTlsRateTestCase(FrangTestCase):
     """Tests for 'tls_connection_rate'."""
@@ -170,12 +171,6 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
     """
     Tests for 'tls_incomplete_connection_rate'.
 
-    TODO: test does NOT work!
-
-    I removes '-k'(insecure) from `curl` and got only:
-    `[tempesta tls] Warning: [::ffff:127.0.0.1] Bad TLS alert on handshake`
-
-    Messages in asserts are not related - it is in progress.
     """
 
     clients = [
@@ -183,11 +178,19 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'tls': True,
+            'tls': False,
             'cmd_args': '-If -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'addr' : "${tempesta_ip}",
+            'port' : '8765',
+            'interface' : True,
+            'rps': 6
+        }
     ]
-
+#tls_match_any_server_name;
     tempesta = {
         'config': """
             frang_limits {
@@ -203,14 +206,15 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             vhost tempesta-cat {
                 proxy_pass default;
             }
-
             tls_match_any_server_name;
             tls_certificate RSA/tfw-root.crt;
             tls_certificate_key RSA/tfw-root.key;
 
+
             cache 0;
             cache_fulfill * *;
             block_action attack reply;
+
 
             http_chain {
                 -> tempesta-cat;
@@ -222,35 +226,36 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         """Test 'tls_incomplete_connection_rate'."""
         curl = self.get_client('curl-1')
 
-        self.start_all_servers()
+        self.start_all_servers()    
         self.start_tempesta()
 
         # tls_incomplete_connection_rate 2; increase to catch limit
-        request_inc = 5
+        request_inc = 3
 
         for step in range(request_inc):
-            curl.start()
+            print(f'step: {step}')
+            curl.run_start()
             self.wait_while_busy(curl)
-
             curl.stop()
 
             # until rate limit is reached
             if step < request_inc - 1:
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_TLS.format('burst')),
+                    self.klog.warn_count(ERROR_INCOMP_CONN),
                     ZERO,
                     self.assert_msg.format(
                         exp=ZERO,
-                        got=self.klog.warn_count(ERROR_TLS.format('burst')),
+                        got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )
             else:
                 # rate limit is reached
+                time.sleep(1)
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_TLS.format('burst')),
+                    self.klog.warn_count(ERROR_INCOMP_CONN),
                     ONE,
                     self.assert_msg.format(
                         exp=ONE,
-                        got=self.klog.warn_count(ERROR_TLS.format('burst')),
+                        got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )
