@@ -367,6 +367,10 @@
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
             "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "http2_general.test_h2_sticky_cookie.H2StickyCookieTestCase",
+            "reason": "Does not work, issue 1396"
         }
     ]
 }
