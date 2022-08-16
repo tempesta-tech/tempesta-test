@@ -329,7 +329,10 @@
             "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
             "reason" : "Disabled by issue #1647"
         },
-        {   "name" : "multiple_listeners",
+        {   "name" : "multiple_listeners.test_mixed",
+            "reason" : "Disabled by issue #1624"
+        },
+        {   "name" : "multiple_listeners.test_on_the_fly",
             "reason" : "Disabled by issue #1624"
         },
         {

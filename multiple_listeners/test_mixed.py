@@ -100,7 +100,6 @@ class TestMixedListeners(tester.TempestaTest):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
-            cache_fulfill * *;
             block_action attack reply;
 
             http_chain {

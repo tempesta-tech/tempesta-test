@@ -1570,7 +1570,7 @@ class TestMultipleListening(tester.TempestaTest):
             listen 127.0.2.5:8086 proto=https;
 
             srv_group default {
-                ${server_ip}:8000;
+                server ${server_ip}:8000;
             }
 
             vhost tempesta-cat {
@@ -1582,7 +1582,6 @@ class TestMultipleListening(tester.TempestaTest):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
-            cache_fulfill * *;
             block_action attack reply;
 
             http_chain {
