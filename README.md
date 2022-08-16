@@ -443,7 +443,6 @@ and handling corresponding types of items.
 ## Development
 
 In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
-[![pre-commit](https://img.shields.io/badge/pre--commit-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 Install dependencies: `pip3 install -r requirements.txt`
 
