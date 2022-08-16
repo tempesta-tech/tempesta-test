@@ -445,7 +445,7 @@ and handling corresponding types of items.
 In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
 [![pre-commit](https://img.shields.io/badge/pre--commit-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
-Install development dependencies: `pip3 install -r requirements-dev.txt`
+Install dependencies: `pip3 install -r requirements.txt`
 
 Copy `pre-commit.sample` to .git/hooks directory, rename to `pre-commit` and make file executable:
 ```sh
@@ -461,7 +461,7 @@ Run linter `flake8 <target>`:
   where `tagret` is optional parameter, it defines target file to be checked,
   if omitted, checks is going to be processed on all files in running directory.
 
-Use `git commit -v -all` to check all changed python files.
+Use `git commit -v --all` to check all changed python files.
 
 ## Resources
 
