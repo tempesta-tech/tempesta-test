@@ -11,7 +11,7 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
     ]
 
@@ -115,14 +115,14 @@ class H2StickyCookieTestCase(H2StickyCookieBaseTestCase):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Cookie: name1=value1" -H "Cookie: name2=value2"',  # noqa:E501
+            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765" -H "Cookie: name1=value1" -H "Cookie: name2=value2"',  # noqa:E501
         },
         {
             'id': 'curl-3',
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
     ]
 
