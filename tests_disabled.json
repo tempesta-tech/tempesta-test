@@ -339,6 +339,18 @@
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
             "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_bad_host",
+            "reason": "Disabled by issue #286"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestMissingBodyLength",
+            "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
+        },
+        {
+            "name" : "long_body.test_request_wrong_length.RequestSmallBodyLength",
+            "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
         }
     ]
 }
