@@ -138,8 +138,9 @@ class TestCacheControl(tester.TempestaTest):
         req = (f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                "Host: localhost\r\n"
                "%s\r\n" % req_headers)
-
+        print(req)
         response = self.client_send_req(client, req)
+        print(response)
         self.assertEqual(response.status, self.response_status,
                          "request failed: {}, expected {}" \
                          .format(response.status, self.response_status))
@@ -155,7 +156,9 @@ class TestCacheControl(tester.TempestaTest):
         req2 = (f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                "Host: localhost\r\n"
                "%s\r\n" % req_headers2)
+        print(req2)
         cached_response = self.client_send_req(client, req2)
+        print(cached_response)
         self.assertEqual(cached_response.status, self.cached_status,
                          "request for cache failed: {}, expected {}" \
                          .format(response.status, self.cached_status))
@@ -1037,3 +1040,19 @@ class StoringResponsesToAuthenticatedRequestsSMaxAgeCache2(TestCacheControl, Sin
     sleep_interval = 1.5
     requests_to_server = 2
     response_headers = {'Cache-control': 's-maxage=1'}
+
+
+class StoringResponsesToRequestsWithCookiesCache(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and without cache-control header to
+    the same resource and check that the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    should_be_cached = True
+    request_headers = {'Cookie': 'session=1'}
+    response_headers = {'Set-Cookie': 'session=2', 'Cache-control': 'private'}
+    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    cached_headers = {'Set-Cookie': 'session=3'}
+
+    requests_to_server = 2
+
