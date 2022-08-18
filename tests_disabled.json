@@ -162,6 +162,10 @@
             "reason" : "Disabled by issue #73"
         },
         {
+            "name" : "http2_general",
+            "reason" : "Disabled by issue #261"
+        },
+        {
             "name" : "access_log",
             "reason" : "Disabled by issue #261"
         },
