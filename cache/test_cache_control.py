@@ -138,9 +138,7 @@ class TestCacheControl(tester.TempestaTest):
         req = (f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                "Host: localhost\r\n"
                "%s\r\n" % req_headers)
-        print(req)
         response = self.client_send_req(client, req)
-        print(response)
         self.assertEqual(response.status, self.response_status,
                          "request failed: {}, expected {}" \
                          .format(response.status, self.response_status))
@@ -156,9 +154,7 @@ class TestCacheControl(tester.TempestaTest):
         req2 = (f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                "Host: localhost\r\n"
                "%s\r\n" % req_headers2)
-        print(req2)
         cached_response = self.client_send_req(client, req2)
-        print(cached_response)
         self.assertEqual(cached_response.status, self.cached_status,
                          "request for cache failed: {}, expected {}" \
                          .format(response.status, self.cached_status))
@@ -868,7 +864,7 @@ class CacheLocationNonidempotentHeadBypass(CacheLocationBase):
 #########################################################
 # 3.2 Storing Responses to Authenticated Requests. RFC 7234
 #########################################################
-class StoringResponsesToAuthenticatedRequestsCache(TestCacheControl, SingleTest):
+class StoringResponsesToAuthenticatedRequestsDefaultCache(TestCacheControl, SingleTest):
     """This test sends two requests with different basic authentication headers and without cache-control header to
     the same resource and check that the second one wasn't serviced from the cache."""
     tempesta_config = '''
@@ -903,7 +899,7 @@ class StoringResponsesToAuthenticatedRequestsMustRevalidateCache(TestCacheContro
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
     should_be_cached = True
     sleep_interval = 1.5
-    requests_to_server = 1
+    requests_to_server = 2
     response_headers = {'Cache-control': 'must-revalidate, max-age=1'}
 
 
@@ -1042,17 +1038,170 @@ class StoringResponsesToAuthenticatedRequestsSMaxAgeCache2(TestCacheControl, Sin
     response_headers = {'Cache-control': 's-maxage=1'}
 
 
-class StoringResponsesToRequestsWithCookiesCache(TestCacheControl, SingleTest):
-    """This test sends two requests with different basic authentication headers and without cache-control header to
-    the same resource and check that the second one wasn't serviced from the cache."""
+class StoringResponsesToRequestsWithCookiesDefaultCache(TestCacheControl, SingleTest):
+    """This test sends two requests to the same resource, which responds with set-cookie headers, and check that
+    second request wasn't serviced from the cache."""
     tempesta_config = '''
         cache_fulfill * *;
         '''
     should_be_cached = True
-    request_headers = {'Cookie': 'session=1'}
-    response_headers = {'Set-Cookie': 'session=2', 'Cache-control': 'private'}
+    response_headers = {'Set-Cookie': 'session=1'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    cached_headers = {'Set-Cookie': 'session=3'}
-
     requests_to_server = 2
 
+
+class StoringResponsesToRequestsWithCookiesPublicCache(TestCacheControl, SingleTest):
+    """This test sends two requests to the same resource, which responds with public cache-control and set-cookie
+     headers, and check that second request was serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    should_be_cached = True
+    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'public'}
+    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    requests_to_server = 1
+
+
+class StoringResponsesToRequestsWithCookiesMustRevalidateCache(TestCacheControl, SingleTest):
+    """This test sends two requests to the same resource, which responds with must-revalidate cache-control and
+    set-cookie headers, and check that second request wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'must-revalidate, max-age=1'}
+    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    should_be_cached = True
+    sleep_interval = 1.5
+    requests_to_server = 2
+
+
+class StoringResponsesToRequestsWithCookiesMustRevalidateCache2(TestCacheControl, SingleTest):
+    """This test sends two requests to the same resource, which responds with must-revalidate cache-control and
+    set-cookie headers, and check that second request was serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'must-revalidate, max-age=1'}
+    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    should_be_cached = True
+    sleep_interval = None
+    requests_to_server = 1
+
+
+class StoringResponsesToRequestsWithCookiesNoCache(TestCacheControl, SingleTest):
+    """This test sends two requests to the same resource, which responds with no-cache cache-control and
+    set-cookie headers, and check that second request wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-cache'}
+    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    should_be_cached = True
+    requests_to_server = 2
+
+
+class StoringResponsesToRequestsWithCookiesNoStoreCache(TestCacheControl, SingleTest):
+    """This test sends two requests to the same resource, which responds with no-store cache-control and
+    set-cookie headers, and check that second request wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-store'}
+    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    should_be_cached = True
+    requests_to_server = 2
+
+
+class StoringResponsesToAuthenticatedRequestsNoTransformCache(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control no-transform
+    to the same resource and check that the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    requests_to_server = 2
+    response_headers = {'Cache-control': 'no-transform'}
+
+
+class StoringResponsesToAuthenticatedRequestsPrivateCache(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control private
+    to the same resource and check that the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    requests_to_server = 2
+    response_headers = {'Cache-control': 'private'}
+
+
+class StoringResponsesToAuthenticatedRequestsProxyRevalidateCache(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control proxy-revalidate
+    to the same resource and check that the second one was serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    sleep_interval = None
+    requests_to_server = 1
+    response_headers = {'Cache-control': 'proxy-revalidate, max-age=1'}
+
+
+class StoringResponsesToAuthenticatedRequestsProxyRevalidateCache2(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control proxy-revalidate
+    to the same resource and check that the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    sleep_interval = 1.5
+    requests_to_server = 2
+    response_headers = {'Cache-control': 'proxy-revalidate, max-age=1'}
+
+
+class StoringResponsesToAuthenticatedRequestsMaxAgeCache(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control max-age
+    to the same resource and check that the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    requests_to_server = 2
+    response_headers = {'Cache-control': 'max-age=1'}
+
+
+class StoringResponsesToAuthenticatedRequestsSMaxAgeCache(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control s-maxage
+    to the same resource and check that the second one was serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    sleep_interval = None
+    requests_to_server = 1
+    response_headers = {'Cache-control': 's-maxage=1'}
+
+
+class StoringResponsesToAuthenticatedRequestsSMaxAgeCache2(TestCacheControl, SingleTest):
+    """This test sends two requests with different basic authentication headers and with cache-control s-maxage
+    to the same resource and check that the second one wasn't serviced from the cache."""
+    tempesta_config = '''
+        cache_fulfill * *;
+        '''
+    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
+    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    should_be_cached = True
+    sleep_interval = 1.5
+    requests_to_server = 2
+    response_headers = {'Cache-control': 's-maxage=1'}
