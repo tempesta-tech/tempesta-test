@@ -154,8 +154,6 @@ frang_limits {
 
         deproxy_cl.wait_for_response(timeout=4)
         deproxy_cl2.wait_for_response(timeout=6)
-        print(list(p.status for p in deproxy_cl.responses))
-        print(list(p.status for p in deproxy_cl2.responses))
 
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(5, len(deproxy_cl2.responses))
@@ -194,7 +192,6 @@ frang_limits {
 
         deproxy_cl.make_requests(requests)        
         deproxy_cl.wait_for_response(timeout=4)
-        print(list(p.status for p in deproxy_cl.responses))
 
         self.assertEqual(7, len(deproxy_cl.responses))        
         self.assertTrue(deproxy_cl.connection_is_closed())
@@ -240,8 +237,6 @@ frang_limits {
 
         deproxy_cl.wait_for_response(timeout=4)
         deproxy_cl2.wait_for_response(timeout=6)
-        print(list(p.status for p in deproxy_cl.responses))
-        print(list(p.status for p in deproxy_cl2.responses))
 
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
@@ -300,8 +295,6 @@ block_action attack reply;
 
         deproxy_cl.wait_for_response(timeout=4)
         deproxy_cl2.wait_for_response(timeout=6)
-        print(list(p.status for p in deproxy_cl.responses))
-        print(list(p.status for p in deproxy_cl2.responses))
 
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(5, len(deproxy_cl2.responses))
@@ -341,7 +334,7 @@ block_action attack reply;
 
         deproxy_cl.make_requests(requests)        
         deproxy_cl.wait_for_response(timeout=4)
-        print(list(p.status for p in deproxy_cl.responses))
+
         self.assertEqual('403', deproxy_cl.responses[-1].status,
                          "Unexpected response status code")
 

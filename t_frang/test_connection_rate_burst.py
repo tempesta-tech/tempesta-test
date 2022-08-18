@@ -89,7 +89,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             ),
         )
 
-    def test_connection_burst(self):  # TODO
+    def test_connection_burst(self):
         """Test 'connection_burst'."""
         curl = self.get_client('curl-1')
 
@@ -100,7 +100,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
         connection_burst = 4
 
         for step in range(connection_burst):
-            curl.start()
+            curl.run_start()
             self.wait_while_busy(curl)
             curl.stop()
 
@@ -114,6 +114,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
                         got=self.klog.warn_count(ERROR_BURST),
                     ),
                 )
+        time.sleep(1)        
 
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),

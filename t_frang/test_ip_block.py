@@ -1,5 +1,5 @@
 """Tests for Frang directive `ip_block`."""
-from t_frang.frang_test_case import ONE, FrangTestCase
+from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
 
 
 class FrangIpBlockTestCase(FrangTestCase):
@@ -61,7 +61,7 @@ class FrangIpBlockTestCase(FrangTestCase):
 
         self.assertEqual(
             curl.returncode,
-            ONE,
+            ZERO,
         )
 
         self.assertEqual(

@@ -1,6 +1,7 @@
 """Tests for Frang directive `http_host_required`."""
 from framework import tester
 from helpers import dmesg
+import time
 
 
 CURL_CODE_OK = 0
@@ -392,13 +393,15 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
         self._test_base_scenario(
             curl_cli_id='curl-2',
             expected_warning=WARN_IP_ADDR,
+            curl_code=CURL_CODE_OK
         )
 
     def test_h2_host_header_missing(self): 
         """Test with missing header `host`."""
         self._test_base_scenario(
             curl_cli_id='curl-3',
-            expected_warning=WARN_HEADER_MISSING
+            expected_warning=WARN_HEADER_MISSING,
+            curl_code=CURL_CODE_OK,
         )
 
     def test_h2_host_header_mismatch(self):
@@ -414,6 +417,7 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
         self._test_base_scenario(
             curl_cli_id='curl-5',
             expected_warning=WARN_IP_ADDR,
+            curl_code=CURL_CODE_OK,
         )
 
     def test_h2_host_header_as_ipv6(self):
@@ -444,8 +448,9 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
 
-        curl_cli.start()
+        curl_cli.run_start()
         self.wait_while_busy(curl_cli)
+        time.sleep(1)
 
         self.assertEqual(
             curl_code,

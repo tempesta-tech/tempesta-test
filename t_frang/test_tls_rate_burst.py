@@ -233,7 +233,6 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         request_inc = 3
 
         for step in range(request_inc):
-            print(f'step: {step}')
             curl.run_start()
             self.wait_while_busy(curl)
             curl.stop()
