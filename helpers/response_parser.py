@@ -31,7 +31,9 @@ class Response(object):
         )
 
 
-def parse_response(string_to_parse: Union[str, bytes]) -> Response:
+def parse_response(
+    string_to_parse: Union[str, bytes], encoding='utf-8',
+) -> Response:
     """
     Parse curl-like response string to dictionary.
 
@@ -44,7 +46,8 @@ def parse_response(string_to_parse: Union[str, bytes]) -> Response:
     """
     headers = {}
     if isinstance(string_to_parse, bytes):
-        string_to_parse = string_to_parse.decode()
+        string_to_parse = string_to_parse.decode(encoding)
+
     string_to_parse = string_to_parse.split('\r\n')
 
     # we expect first line such 'HTTP/1.1 200 OK'

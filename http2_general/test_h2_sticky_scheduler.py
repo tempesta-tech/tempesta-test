@@ -2,6 +2,7 @@
 import http
 
 from framework import tester
+from helpers import dmesg
 from helpers.response_parser import parse_response
 
 
@@ -14,35 +15,19 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://good.com/',
-        },
-        {
-            'id': 'curl-good',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://good.com/ -H "Cookie: BIGipServerwebapps-sea-7775=1695682732.24350.0000"',  # noqa:E501
-        },
-        {
-            'id': 'curl-bad',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://bad.com/ -H "Cookie: BIGipServerwebapps-sea-7775=1695682732.24350.0000"',  # noqa:E501
+            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: good.com"',  # noqa:E501
         },
     ]
 
     tempesta = {
         'config': """
-            listen 127.0.0.4:8765 proto=h2;
+            listen ${tempesta_ip}:8765 proto=h2;
 
             srv_group default {
                 server ${server_ip}:8000;
             }
-            vhost default {
-                proxy_pass default;
-            }
-            vhost good.com {
+
+            vhost v_good {
                 proxy_pass default;
                 sticky {
                     sticky_sessions;
@@ -58,7 +43,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
             block_action attack reply;
             http_chain {
                 host == "bad.com"	-> block;
-                host == "good.com" -> default;
+                host == "good.com" -> v_good;
             }
         """,
     }
@@ -108,57 +93,72 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
 
         Cookies are taken from response.
 
-        1. client request URI http://good.com/
-        2. tempesta responds with 302 and sticky cookie TODO 200?
+        1. client request URI with Host http://good.com/
+        2. tempesta responds with 302 and sticky cookie
         3. client repeat the request with sticky cookie set
         4. tempesta forwards the request to server and
-        forwards it's response to the client with 200
-        5. client requests URI http://bad.com/ with sticky cookie set
-        6. tempesta forwards the request to server and forwards it's response
-        to the client test passed  TODO 302?
-
-        No filtering out seen.
+        forwards its response to the client with 200
+        5. client requests URI with Host http://bad.com/ with sticky cookie set
+        6. tempesta filtering out request
 
         """
+        klog = dmesg.DmesgFinder()
         curl_init = self.get_client('curl-init')
-        curl_good = self.get_client('curl-good')
-        curl_bad = self.get_client('curl-bad')
 
         self.start_all_servers()
         self.start_tempesta()
 
+        # perform `init` request
         curl_init.start()
         self.wait_while_busy(curl_init)
-        resp_init = parse_response(
-            curl_init.resq.get(True, 1)[0].decode(),
-        )
+        resp_init = curl_init.resq.get(True, 1)[0]
+        resp_init = parse_response(resp_init, encoding='latin-1')
+        set_cookie = resp_init.headers.get('set-cookie')
         self.assertEqual(
-            resp_init.status,
-            http.HTTPStatus.OK,
-            'Expected http status {0}'.format(http.HTTPStatus.OK),
+            int(resp_init.status),
+            int(http.HTTPStatus.FOUND),
+            'Expected http status {0}'.format(http.HTTPStatus.FOUND),
         )
+        self.assertTrue(set_cookie)
         curl_init.stop()
 
-        curl_good.start()
-        self.wait_while_busy(curl_good)
-        resp_good = parse_response(
-            curl_good.resq.get(True, 1)[0].decode(),
+        # perform `good` request
+        # we expected options length equal to one
+        initial_curl_cmd = curl_init.options[0]
+        curl_init.options[0] = '{0} -H "Cookie: {1}"'.format(
+            initial_curl_cmd,
+            set_cookie,
         )
+
+        curl_init.start()
+        self.wait_while_busy(curl_init)
+        resp_good = curl_init.resq.get(True, 1)[0]
+        resp_good = parse_response(resp_good, encoding='latin-1')
+
         self.assertEqual(
             resp_good.status,
             http.HTTPStatus.OK,
             'Expected http status {0}'.format(http.HTTPStatus.OK),
         )
-        curl_good.stop()
+        curl_init.stop()
 
-        curl_bad.start()
-        self.wait_while_busy(curl_bad)
-        resp_bad = parse_response(
-            curl_bad.resq.get(True, 1)[0],
+        # perform `bad` request
+        good_curl_cmd = curl_init.options[0]
+        curl_init.options[0] = good_curl_cmd.replace(
+            'good.com',
+            'bad.com',
         )
+
+        curl_init.start()
+        self.wait_while_busy(curl_init)
+        curl_init.resq.get(True, 1),
+        curl_init.stop()
+
+        # response structure is not standard, check for filtering out
         self.assertEqual(
-            resp_bad.status,
-            http.HTTPStatus.FOUND,
-            'Expected http status {0}'.format(http.HTTPStatus.FOUND),
+            klog.warn_count(
+                'request has been filtered out via http table',
+            ),
+            1,
+            'Expected msg in `dmesg`',
         )
-        curl_bad.stop()
