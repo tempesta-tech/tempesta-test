@@ -17,7 +17,7 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
 
     tempesta = {
         'config': """
-            listen 127.0.0.4:8765 proto=h2;
+            listen ${tempesta_ip}:8765 proto=h2;
 
             sticky {
                 cookie name=__test;
@@ -128,7 +128,7 @@ class H2StickyCookieTestCase(H2StickyCookieBaseTestCase):
 
     tempesta = {
         'config': """
-            listen 127.0.0.4:8765 proto=h2;
+            listen ${tempesta_ip}:8765 proto=h2;
 
             sticky {
                 cookie name=__test enforce;
