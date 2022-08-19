@@ -339,6 +339,18 @@
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
             "reason": "Disabled by issue #1663"
+        },
+        {
+            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderMaxAgeCache",
+            "reason": "Disabled by issue #1678"
+        },
+        {
+            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderNoTransformCache",
+            "reason": "Disabled by issue #1678"
+        },
+        {
+            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderDefaultCache",
+            "reason": "Disabled by issue #1678"
         }
     ]
 }
