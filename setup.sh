@@ -4,6 +4,11 @@ apt install python3-pip nginx net-tools libssl-dev unzip -y
 
 python3 -m pip install -r requirements.txt
 
+# pre-commit
+cp pre-commit.sample pre-commit
+mv pre-commit .git/hooks
+chmod +x .git/hooks/pre-commit
+
 # tls-perf
 git clone https://github.com/tempesta-tech/tls-perf.git /tmp/tls-perf
 cd /tmp/tls-perf
