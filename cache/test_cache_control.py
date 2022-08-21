@@ -67,8 +67,6 @@ class TestCacheControl(tester.TempestaTest, base=True):
     cached_headers = None  # Reference headers to compare with actual cached response.
     # Empty if cached/second response is same as first one.
     cached_status = '200'
-    requests_to_server = None  # Estimated number of requests to the server.
-    # if the should_be_cached is True - 1, if the should_be_cached is false - 2
 
     def start_all(self):
         self.start_all_servers()
@@ -95,10 +93,6 @@ class TestCacheControl(tester.TempestaTest, base=True):
             self.cached_headers = self.response_headers
         if getattr(self, 'second_request_headers', None) is None:
             self.second_request_headers = self.request_headers
-        if self.should_be_cached and not self.requests_to_server:
-            self.requests_to_server = 1
-        elif not self.should_be_cached and not self.requests_to_server:
-            self.requests_to_server = 2
 
         super().setUp()
 
@@ -173,11 +167,10 @@ class TestCacheControl(tester.TempestaTest, base=True):
                 self.cached_status,
             ),
         )
-        self.assertEqual(
-            self.requests_to_server,
-            len(srv.requests),
-            'response not cached as expected',
-        )
+        if self.should_be_cached:
+            self.assertEqual(1, len(srv.requests), 'response not cached as expected')
+        else:
+            self.assertEqual(2, len(srv.requests), 'response is cached while it should not be')
         if self.should_be_cached:
             self.check_cached_response_headers(cached_response)
         else:
@@ -1002,8 +995,7 @@ class StoringResponsesToAuthenticatedRequestsDefaultCache(TestCacheControl, Sing
         """
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
 
 
 class StoringResponsesToAuthenticatedRequestsPublicCache(TestCacheControl, SingleTest):
@@ -1019,7 +1011,6 @@ class StoringResponsesToAuthenticatedRequestsPublicCache(TestCacheControl, Singl
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
     should_be_cached = True
-    requests_to_server = 1
     response_headers = {'Cache-control': 'public'}
 
 
@@ -1036,8 +1027,6 @@ class StoringResponsesToAuthenticatedRequestsMustRevalidateCache2(TestCacheContr
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
     should_be_cached = True
-    sleep_interval = None
-    requests_to_server = 1
     response_headers = {'Cache-control': 'must-revalidate, max-age=1'}
 
 
@@ -1053,8 +1042,7 @@ class StoringResponsesToAuthenticatedRequestsNoCacheCache(TestCacheControl, Sing
         """
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
     response_headers = {'Cache-control': 'no-cache'}
 
 
@@ -1070,8 +1058,7 @@ class StoringResponsesToAuthenticatedRequestsNoStoreCache(TestCacheControl, Sing
         """
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
     response_headers = {'Cache-control': 'no-store'}
 
 
@@ -1087,8 +1074,7 @@ class StoringResponsesToAuthenticatedRequestsNoTransformCache(TestCacheControl, 
         """
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
     response_headers = {'Cache-control': 'no-transform'}
 
 
@@ -1104,8 +1090,7 @@ class StoringResponsesToAuthenticatedRequestsPrivateCache(TestCacheControl, Sing
         """
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
     response_headers = {'Cache-control': 'private'}
 
 
@@ -1123,7 +1108,6 @@ class StoringResponsesToAuthenticatedRequestsProxyRevalidateCache(TestCacheContr
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
     should_be_cached = True
     sleep_interval = None
-    requests_to_server = 1
     response_headers = {'Cache-control': 'proxy-revalidate, max-age=1'}
 
 
@@ -1139,8 +1123,7 @@ class StoringResponsesToAuthenticatedRequestsMaxAgeCache(TestCacheControl, Singl
         """
     request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
     response_headers = {'Cache-control': 'max-age=1'}
 
 
@@ -1158,7 +1141,6 @@ class StoringResponsesToAuthenticatedRequestsSMaxAgeCache(TestCacheControl, Sing
     second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
     should_be_cached = True
     sleep_interval = None
-    requests_to_server = 1
     response_headers = {'Cache-control': 's-maxage=1'}
 
 
@@ -1171,10 +1153,9 @@ class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTe
     tempesta_config = """
         cache_fulfill * *;
         """
-    should_be_cached = True
+    should_be_cached = False
     response_headers = {'Set-Cookie': 'session=1'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    requests_to_server = 2
 
 
 class StoringResponsesWithSetCookieHeaderPublicCache(TestCacheControl, SingleTest):
@@ -1189,7 +1170,6 @@ class StoringResponsesWithSetCookieHeaderPublicCache(TestCacheControl, SingleTes
     should_be_cached = True
     response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'public'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    requests_to_server = 1
 
 
 class StoringResponsesWithSetCookieHeaderMustRevalidateCache(TestCacheControl, SingleTest):
@@ -1206,7 +1186,6 @@ class StoringResponsesWithSetCookieHeaderMustRevalidateCache(TestCacheControl, S
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
     should_be_cached = True
     sleep_interval = None
-    requests_to_server = 1
 
 
 class StoringResponsesWithSetCookieHeaderNoCacheCache(TestCacheControl, SingleTest):
@@ -1221,8 +1200,7 @@ class StoringResponsesWithSetCookieHeaderNoCacheCache(TestCacheControl, SingleTe
         """
     response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-cache'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
 
 
 class StoringResponsesWithSetCookieHeaderNoStoreCache(TestCacheControl, SingleTest):
@@ -1237,8 +1215,7 @@ class StoringResponsesWithSetCookieHeaderNoStoreCache(TestCacheControl, SingleTe
         """
     response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-store'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
 
 
 class StoringResponsesWithSetCookieHeaderNoTransformCache(TestCacheControl, SingleTest):
@@ -1253,8 +1230,7 @@ class StoringResponsesWithSetCookieHeaderNoTransformCache(TestCacheControl, Sing
         """
     response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-transform'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
 
 
 class StoringResponsesWithSetCookieHeaderPrivateCache(TestCacheControl, SingleTest):
@@ -1268,8 +1244,7 @@ class StoringResponsesWithSetCookieHeaderPrivateCache(TestCacheControl, SingleTe
         """
     response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'private'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
 
 
 class StoringResponsesWithSetCookieHeaderProxyRevalidateCache(TestCacheControl, SingleTest):
@@ -1286,7 +1261,6 @@ class StoringResponsesWithSetCookieHeaderProxyRevalidateCache(TestCacheControl, 
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
     should_be_cached = True
     sleep_interval = None
-    requests_to_server = 1
 
 
 class StoringResponsesWithSetCookieHeaderMaxAgeCache(TestCacheControl, SingleTest):
@@ -1300,8 +1274,7 @@ class StoringResponsesWithSetCookieHeaderMaxAgeCache(TestCacheControl, SingleTes
         """
     response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'max-age=1'}
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
-    should_be_cached = True
-    requests_to_server = 2
+    should_be_cached = False
 
 
 class StoringResponsesWithSetCookieHeaderSMaxAgeCache(TestCacheControl, SingleTest):
@@ -1318,4 +1291,3 @@ class StoringResponsesWithSetCookieHeaderSMaxAgeCache(TestCacheControl, SingleTe
     second_request_headers = {'Cookie': response_headers['Set-Cookie']}
     should_be_cached = True
     sleep_interval = None
-    requests_to_server = 1
