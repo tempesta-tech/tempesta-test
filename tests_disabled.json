@@ -332,9 +332,6 @@
         {   "name" : "multiple_listeners.test_mixed",
             "reason" : "Disabled by issue #1624"
         },
-        {   "name" : "multiple_listeners.test_on_the_fly",
-            "reason" : "Disabled by issue #1624"
-        },
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentGetBypass",
             "reason": "Disabled by issue #1663"
