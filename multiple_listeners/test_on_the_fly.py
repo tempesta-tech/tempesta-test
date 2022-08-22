@@ -6,8 +6,10 @@ __license__ = 'GPL2'
 
 from framework import tester
 from framework.external_client import ExternalTester
+from framework.wrk_client import Wrk
 from helpers.control import Tempesta
 
+WRK_SCRIPT = 'conn_close'  # with header 'connection: close'
 STATUS_OK = '200'
 
 SOCKET_START = '127.0.0.4:8282'
@@ -79,6 +81,11 @@ class TestOnTheFly(tester.TempestaTest):
 
     clients = [
         {
+            'id': 'wrk-127.0.0.4:8282',
+            'type': 'wrk',
+            'addr': '127.0.0.4:8282',
+        },
+        {
             'id': 'curl-127.0.0.4:8282',
             'type': 'external',
             'binary': 'curl',
@@ -99,9 +106,9 @@ class TestOnTheFly(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
 
-    def check_socket(self, tempesta: Tempesta, socket: str) -> None:
+    def check_non_working_socket(self, tempesta: Tempesta, socket: str) -> None:
         """
-        Check socket operation.
+        Check that socket is not working.
 
         Args:
             tempesta: object of working Tempesta
@@ -135,7 +142,11 @@ class TestOnTheFly(tester.TempestaTest):
         self.make_curl_request('curl-{0}'.format(SOCKET_START))
 
         # check reload sockets not in config
-        self.check_socket(tempesta, SOCKET_AFTER_RELOAD)
+        self.check_non_working_socket(tempesta, SOCKET_AFTER_RELOAD)
+
+        wrk: Wrk = self.get_client('wrk-{0}'.format(SOCKET_START))
+        wrk.set_script(WRK_SCRIPT)
+        wrk.start()
 
         # change config and reload Tempesta
         tempesta.config.defconfig = tempesta.config.defconfig.replace(
@@ -145,13 +156,16 @@ class TestOnTheFly(tester.TempestaTest):
         tempesta.reload()
 
         # check old sockets  not in config
-        self.check_socket(tempesta, SOCKET_START)
+        self.check_non_working_socket(tempesta, SOCKET_START)
 
         self.make_curl_request('curl-{0}'.format(SOCKET_AFTER_RELOAD))
         self.assertIn(
             'listen {0};'.format(SOCKET_AFTER_RELOAD),
             tempesta.config.get_config(),
         )
+
+        self.wait_while_busy(wrk)
+        wrk.stop()
 
     def make_curl_request(self, curl_client_id: str):
         """
