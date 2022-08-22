@@ -2,6 +2,49 @@
 from framework import tester
 
 
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+
+nginx_backend = {
+    'id': 'nginx',
+    'type': 'nginx',
+    'port': '8000',
+    'status_uri': 'http://${server_ip}:8000/nginx_status',
+    'config': """
+        pid ${pid};
+        worker_processes  auto;
+        events {
+            worker_connections   1024;
+            use epoll;
+        }
+        http {
+            keepalive_timeout ${server_keepalive_timeout};
+            keepalive_requests ${server_keepalive_requests};
+            sendfile         on;
+            tcp_nopush       on;
+            tcp_nodelay      on;
+            open_file_cache max=1000;
+            open_file_cache_valid 30s;
+            open_file_cache_min_uses 2;
+            open_file_cache_errors off;
+            error_log /dev/null emerg;
+            access_log off;
+            server {
+                listen        ${server_ip}:8000;
+                location / {
+                    return 200;
+                }
+                location /nginx_status {
+                    stub_status on;
+                }
+            }
+        }
+    """,
+},
+
+
 class H2StickyCookieBaseTestCase(tester.TempestaTest):
     """Sticky Cookie H2 test case."""
 
@@ -33,7 +76,6 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             cache 0;
-            cache_fulfill * *;
             block_action attack reply;
             http_chain {
                 -> tempesta-cat;
@@ -42,42 +84,7 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
     }
 
     backends = [
-        {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': """
-                pid ${pid};
-                worker_processes  auto;
-                events {
-                    worker_connections   1024;
-                    use epoll;
-                }
-                http {
-                    keepalive_timeout ${server_keepalive_timeout};
-                    keepalive_requests ${server_keepalive_requests};
-                    sendfile         on;
-                    tcp_nopush       on;
-                    tcp_nodelay      on;
-                    open_file_cache max=1000;
-                    open_file_cache_valid 30s;
-                    open_file_cache_min_uses 2;
-                    open_file_cache_errors off;
-                    error_log /dev/null emerg;
-                    access_log off;
-                    server {
-                        listen        ${server_ip}:8000;
-                        location / {
-                            return 200;
-                        }
-                        location /nginx_status {
-                            stub_status on;
-                        }
-                    }
-                }
-            """,
-        },
+        nginx_backend,
     ]
 
     def test_h2_cookie_default(self):
@@ -106,7 +113,7 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
         curl.stop()
 
 
-class H2StickyCookieTestCase(H2StickyCookieBaseTestCase):
+class H2StickyCookieTestCase(tester.TempestaTest):
     """Test case to check cookies' behavior."""
 
     clients = [
@@ -144,13 +151,16 @@ class H2StickyCookieTestCase(H2StickyCookieBaseTestCase):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             cache 0;
-            cache_fulfill * *;
             block_action attack reply;
             http_chain {
                 -> tempesta-cat;
             }
         """,
     }
+
+    backends = [
+        nginx_backend,
+    ]
 
     def test_h2_many_cookie_enforce(self):
         """Send request with many `Cookie` headers and enforced option."""
