@@ -1,18 +1,12 @@
+"""Test module for malformed headers."""
 from framework import tester
 from helpers.response_parser import parse_response
 import http
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-
-base_request = request = """
-GET / HTTP/1.1\r
-Host: localhost\r
-{extra_header}\r
-\r
-"""
 
 nginx_backend = {
     'id': 'nginx',
@@ -52,7 +46,7 @@ nginx_backend = {
 }
 
 
-class MalformedRequestsTest(tester.TempestaTest):
+class MalformedRequestsTestCase(tester.TempestaTest):
     backends = [
         nginx_backend,
     ]
