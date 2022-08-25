@@ -256,7 +256,7 @@ class ParseBody(unittest.TestCase):
         self.try_body(PARSE_CHUNKED_EMPTY, '0\n\n')
 
     def test_chunked(self):
-        self.try_body(PARSE_CHUNKED, self.chunked_body())
+        self.try_body(PARSE_CHUNKED, self.chunked_body() + '\n')
 
     def test_chunked_and_trailer(self):
         self.try_body(PARSE_CHUNKED_AND_TRAILER, self.chunked_body(),

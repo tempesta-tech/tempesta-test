@@ -312,6 +312,17 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             except:
                 raise ParseError('Error in chunked body')
 
+        """
+        if trailer is not present don't pass the last CRLF to parse_trailer,
+        we must append it to body
+        """
+        pos = stream.tell()
+        end = stream.read(2)
+        if end and end.rstrip('\r\n') == '':
+            self.body += end
+            return
+
+        stream.seek(pos)
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
 
