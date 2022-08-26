@@ -9,6 +9,7 @@ import ssl
 
 from framework import tester
 from framework.external_client import ExternalTester
+from helpers import tf_cfg
 
 STATUS_OK = '200'
 
@@ -161,6 +162,10 @@ class TestMixedListeners(tester.TempestaTest):
         client.start()
         self.wait_while_busy(client)
         response = client.resq.get(True, 1)
+        if response[0].decode():
+            tf_cfg.dbg(4, f"\t{client.options[0]} request received response")
+        else:
+            tf_cfg.dbg(4, f"\t{client.options[0]} request did not receive response")
         client.stop()
         self.wait_while_busy(client)
         return response[0].decode()
