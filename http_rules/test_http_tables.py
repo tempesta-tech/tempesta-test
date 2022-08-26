@@ -383,7 +383,7 @@ TEMPESTA_CONFIG = """
     %s
 
     srv_group default {
-            server 127.0.0.1:8000;
+            server ${server_ip}:8000;
     }
 
     vhost default {
