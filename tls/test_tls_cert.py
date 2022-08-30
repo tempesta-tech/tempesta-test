@@ -401,3 +401,77 @@ class TlsCertSelect(tester.TempestaTest):
         hs.sni = ['example.com']
         with self.assertRaises(tls.TLSProtocolError):
             hs.do_12()
+
+
+class TlsCertSelectBySAN(tester.TempestaTest):
+    """Subject Alternative Name certificate match to SNI."""
+
+    tempesta = {
+        'config': """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group sg { server ${server_ip}:8000; }
+
+            vhost example.com {
+                proxy_pass sg;
+                tls_certificate ${general_workdir}/tempesta.crt;
+                tls_certificate_key ${general_workdir}/tempesta.key;
+            }
+        """,
+        'custom_cert': True
+    }
+
+    @property
+    def verbose(self):
+        return tf_cfg.v_level() >= 3
+
+    @staticmethod
+    def gen_cert(san: list[str]) -> CertGenerator:
+        """Generate and upload certificate with given
+        list of Subject Alternative Names.
+        """
+        cgen = CertGenerator()
+        cgen.san = san
+
+        cgen.generate()
+
+        cert_path, key_path = cgen.get_file_paths()
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
+        return cgen
+
+    def test_sni_matched(self):
+        """SAN certificate matches passed SNI."""
+        san = ['example.com', '*.example.com']
+        self.gen_cert(san=san)
+        self.start_tempesta()
+
+        for sni in (
+                'example.com',
+                'a.example.com',
+                'www.example.com',
+        ):
+            with self.subTest(msg="Trying TLS handshake", sni=sni):
+                hs = TlsHandshake(verbose=self.verbose)
+                hs.sni = [sni]
+                # TLS 1.2 handshake completed with no exception => SNI is accepted
+                hs._do_12_hs()
+
+    def test_sni_not_matched(self):
+        """SAN certificate does not match passed SNI."""
+        san = ['example.com', '*.example.com']
+        self.gen_cert(san=san)
+        self.start_tempesta()
+
+        for sni in (
+                'b.a.example.com',
+                'www.www.example.com',
+                'example.com.www',
+        ):
+            with self.subTest(msg="Trying TLS handshake with bad SNI", sni=sni):
+                hs = TlsHandshake(verbose=self.verbose)
+                hs.sni = [sni]
+                with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+                    hs._do_12_hs()
