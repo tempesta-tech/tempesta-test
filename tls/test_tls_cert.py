@@ -9,7 +9,7 @@ from helpers import dmesg, remote, tf_cfg
 from helpers.error import Error
 from framework import tester
 from framework.x509 import CertGenerator
-from .handshake import TlsHandshake
+from .handshake import TlsHandshake, x509_check_cn
 from .scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -426,7 +426,7 @@ class TlsCertSelectBySAN(tester.TempestaTest):
             cache 0;
             listen 443 proto=https;
 
-            srv_group sg { server ${server_ip}:8000; }
+            srv_group sg { server ${server_ip}:443; }
 
             vhost example.com {
                 proxy_pass sg;
@@ -450,12 +450,20 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 'example.com',
                 'a.example.com',
                 'www.example.com',
+                '.example.com',
+                'EXAMPLE.COM',
+                'A.EXAMPLE.COM',
+                'A.eXaMpLe.CoM',
+                '-.example.com',
+                # max length, length 240 'a' will give DECODE_ERROR
+                f"{'-' * 239}.example.com",
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
                 hs = TlsHandshake(verbose=self.verbose)
                 hs.sni = [sni]
                 # TLS 1.2 handshake completed with no exception => SNI is accepted
                 hs._do_12_hs()
+                self.assertTrue(x509_check_cn(hs.cert, "tempesta-tech.com"))
 
     def test_sni_not_matched(self):
         """SAN certificate does not match passed SNI."""
@@ -464,8 +472,21 @@ class TlsCertSelectBySAN(tester.TempestaTest):
 
         for sni in (
                 'b.a.example.com',
+                '..example.com',
+                '@.example.com',
+                '*.example.com',
+                '!!!.example.com',
+                '.a.example.com',
                 'www.www.example.com',
                 'example.com.www',
+                'example.com.',
+                'a-example.com',
+                'a.example.comm',
+                'a.example.com-',
+                'a.example.com.',
+                'a.example.com.example.com',
+                tf_cfg.cfg.get("Server", "ip"),
+                'a' * 251,  # max length, 252 will give DECODE_ERROR
         ):
             with self.subTest(msg="Trying TLS handshake with bad SNI", sni=sni):
                 hs = TlsHandshake(verbose=self.verbose)
