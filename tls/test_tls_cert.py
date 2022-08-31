@@ -17,6 +17,21 @@ __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
+def generate_certificate(san: list[str]) -> CertGenerator:
+    """Generate and upload certificate with given
+    list of Subject Alternative Names.
+    """
+    cgen = CertGenerator()
+    cgen.san = san
+    cgen.generate()
+
+    cert_path, key_path = cgen.get_file_paths()
+    remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+    remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
+    return cgen
+
+
 class X509(tester.TempestaTest):
 
     TIMEOUT = 1 # Use bigger timeout for debug builds.
@@ -426,26 +441,9 @@ class TlsCertSelectBySAN(tester.TempestaTest):
     def verbose(self):
         return tf_cfg.v_level() >= 3
 
-    @staticmethod
-    def gen_cert(san: list[str]) -> CertGenerator:
-        """Generate and upload certificate with given
-        list of Subject Alternative Names.
-        """
-        cgen = CertGenerator()
-        cgen.san = san
-
-        cgen.generate()
-
-        cert_path, key_path = cgen.get_file_paths()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
-
-        return cgen
-
     def test_sni_matched(self):
         """SAN certificate matches passed SNI."""
-        san = ['example.com', '*.example.com']
-        self.gen_cert(san=san)
+        generate_certificate(san=['example.com', '*.example.com'])
         self.start_tempesta()
 
         for sni in (
@@ -461,8 +459,7 @@ class TlsCertSelectBySAN(tester.TempestaTest):
 
     def test_sni_not_matched(self):
         """SAN certificate does not match passed SNI."""
-        san = ['example.com', '*.example.com']
-        self.gen_cert(san=san)
+        generate_certificate(san=['example.com', '*.example.com'])
         self.start_tempesta()
 
         for sni in (
@@ -475,3 +472,89 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 hs.sni = [sni]
                 with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
                     hs._do_12_hs()
+
+
+class TlsSNAwithHttpTable(tester.TempestaTest):
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '443',
+            'ssl': True,
+            'ssl_hostname': 'example.com',
+        },
+    ]
+
+    backends = [
+        {
+            'id' : 'server-1',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+                'HTTP/1.1 200 OK\r\n' \
+                'Content-Length: 4\r\n\r\n' \
+                '8000'
+        },
+        {
+            'id' : 'server-2',
+            'type' : 'deproxy',
+            'port' : '8001',
+            'response' : 'static',
+            'response_content' :
+                'HTTP/1.1 200 OK\r\n' \
+                'Content-Length: 4\r\n\r\n' \
+                '8001'
+        },
+    ]
+
+    tempesta = {
+        'config': """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group sg1 { server ${server_ip}:8000; }
+            srv_group sg2 { server ${server_ip}:8001; }
+
+            vhost example.com {
+                proxy_pass sg1;
+                tls_certificate ${general_workdir}/tempesta.crt;
+                tls_certificate_key ${general_workdir}/tempesta.key;
+            }
+
+            vhost localhost-vhost {
+                proxy_pass sg2;
+            }
+
+            http_chain {
+              host == "localhost" -> localhost-vhost;
+            }
+        """,
+        'custom_cert': True
+    }
+
+    def test_vhost_selected(self):
+        """
+        Tests that SNA certificate selection and vhost selection
+        are working separately:
+           - certificate is selected from any vhost section;
+           - certificate and SNI value does not affect HTTPtable matcher,
+             vhost is selected by the Host header.
+        """
+        generate_certificate(san=['example.com'])
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections(1))
+
+        client = self.get_client('deproxy')
+        client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        res = client.wait_for_response(timeout=X509.TIMEOUT)
+        self.assertTrue(res, "Cannot process request")
+        status = client.last_response.status
+        self.assertEqual(status, '200', "Bad response status: %s" % status)
+        self.assertEqual(client.last_response.body, '8001')
