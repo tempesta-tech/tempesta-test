@@ -4,6 +4,7 @@ and response, stale certificates and certificates with unsupported algorithms.
 """
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
+from itertools import cycle
 
 from helpers import dmesg, remote, tf_cfg
 from helpers.error import Error
@@ -493,6 +494,45 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 hs.sni = [sni]
                 with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
                     hs._do_12_hs()
+
+    def test_sni_match_after_reload(self):
+        """
+        Test that SAN certificate match changes after (multiple) configuration reload.
+        """
+        RELOAD_COUNT = 5
+
+        def handshake(sni):
+            hs = TlsHandshake(verbose=self.verbose)
+            hs.sni = [sni]
+            hs._do_12_hs()
+
+        san_iter = cycle([
+            ['*.example.com'],
+            ['*.tempesta-tech.com'],
+        ])
+        sni_iter = cycle(['a.example.com', 'b.tempesta-tech.com'])
+
+        generate_certificate(san=[])
+        # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
+        self.oops_ignore = ["WARNING"]
+        self.start_tempesta()
+
+        for i in range(RELOAD_COUNT):
+            generate_certificate(san=next(san_iter))
+            self.get_tempesta().reload()
+
+            try:
+                handshake(next(sni_iter))
+            except tls.TLSProtocolError:
+                raise Exception(f"SNI should match to the current certificate [i={i}]")
+
+            with self.assertRaisesRegex(
+                    tls.TLSProtocolError, 'UNRECOGNIZED_NAME',
+                    msg=f"SNI should not match to the current certificate [i={i}]"
+            ):
+                handshake(next(sni_iter))
+
+            next(sni_iter)
 
 
 class TlsSNAwithHttpTable(tester.TempestaTest):
