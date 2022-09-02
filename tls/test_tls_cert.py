@@ -500,6 +500,34 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
                     hs._do_12_hs()
 
+    def test_unknown_server_name_warning(self):
+        """Test that expected 'unknown server name' warning appears in DMESG logs."""
+        generate_certificate(san=['example.com', '*.example.com'])
+        self.start_tempesta()
+        for sni in (
+                "localhost",
+                "a.localhost",
+                "a.b.localhost",
+                "a.b.c.localhost",
+                "a.b.c.localhost.com",
+                "a.b.c.example.com",
+        ):
+            with self.subTest(msg="Check 'unknown server name' warning", sni=sni):
+                # restart DMESG finder, to update messages from the current time
+                self.oops = self.oops.__class__()
+
+                hs = TlsHandshake(verbose=self.verbose)
+                hs.sni = [sni]
+                with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+                    hs._do_12_hs()
+
+                self.assertEqual(
+                    1,
+                    self.oops.warn_count(f"requested unknown server name '{sni}'"),
+                    # Report all founded 'unknown server name' warnings
+                    f"Warnings: {self.oops.warn_match('requested unknown server name .*')}"
+                )
+
     def test_sni_match_after_reload(self):
         """
         Test that SAN certificate match changes after (multiple) configuration reload.

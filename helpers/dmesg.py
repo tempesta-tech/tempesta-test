@@ -48,15 +48,22 @@ class DmesgFinder(object):
         print(self.log)
 
     def _warn_count(self, warn_str):
-        match = re.findall(warn_str, self.log.decode())
-        return len(match)
+        return len(self._warn_match(warn_str))
 
-    def warn_count(self, warn_str):
+    def _warn_match(self, warn_str):
+        return re.findall(warn_str, self.log.decode())
+
+    def warn_count(self, warn_str: str) -> int:
         """Count occurrences of given string in system log. Normally used to
         count warnings during test.
         """
         self.update()
         return self._warn_count(warn_str)
+
+    def warn_match(self, warn_str: str) -> list[str]:
+        """Returns list of occurrences of given string in system log."""
+        self.update()
+        return self._warn_match(warn_str)
 
     def msg_ratelimited(self, msg):
         """ Like previous, but returns binary found/not-found status and takes
