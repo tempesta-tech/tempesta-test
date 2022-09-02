@@ -18,11 +18,15 @@ __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
-def generate_certificate(san: list[str]) -> CertGenerator:
+def generate_certificate(
+        cn: str = 'tempesta-tech.com',
+        san: list[str] = None
+) -> CertGenerator:
     """Generate and upload certificate with given
-    list of Subject Alternative Names.
+    common name and  list of Subject Alternative Names.
     """
     cgen = CertGenerator()
+    cgen.CN = cn
     cgen.san = san
     cgen.generate()
 
@@ -535,7 +539,12 @@ class TlsCertSelectBySAN(tester.TempestaTest):
             next(sni_iter)
 
 
-class TlsSNAwithHttpTable(tester.TempestaTest):
+class TlsSNIwithHttpTable(tester.TempestaTest):
+    """
+    Test that show that non-TLS vhost could be accessed with certificate from
+    another section.
+    Test should fail after the fix.
+    """
 
     clients = [
         {
@@ -550,24 +559,37 @@ class TlsSNAwithHttpTable(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 'server-1',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n' \
-                'Content-Length: 4\r\n\r\n' \
-                '8000'
+            'id': 'server-1',
+            'type': 'deproxy',
+            'port': '8000',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 8\r\n\r\n'
+                'server-1'
+            )
         },
         {
-            'id' : 'server-2',
-            'type' : 'deproxy',
-            'port' : '8001',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n' \
-                'Content-Length: 4\r\n\r\n' \
-                '8001'
+            'id': 'server-2',
+            'type': 'deproxy',
+            'port': '8001',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 8\r\n\r\n'
+                'server-2'
+            )
+        },
+        {
+            'id': 'server-3',
+            'type': 'deproxy',
+            'port': '8002',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 8\r\n\r\n'
+                'server-3'
+            )
         },
     ]
 
@@ -578,6 +600,7 @@ class TlsSNAwithHttpTable(tester.TempestaTest):
 
             srv_group sg1 { server ${server_ip}:8000; }
             srv_group sg2 { server ${server_ip}:8001; }
+            srv_group sg3 { server ${server_ip}:8002; }
 
             vhost example.com {
                 proxy_pass sg1;
@@ -589,33 +612,67 @@ class TlsSNAwithHttpTable(tester.TempestaTest):
                 proxy_pass sg2;
             }
 
+            vhost default-vhost {
+                proxy_pass sg3;
+            }
+
             http_chain {
               host == "localhost" -> localhost-vhost;
+              -> default-vhost;
             }
         """,
         'custom_cert': True
     }
 
-    def test_vhost_selected(self):
-        """
-        Tests that SNA certificate selection and vhost selection
-        are working separately:
-           - certificate is selected from any vhost section;
-           - certificate and SNI value does not affect HTTPtable matcher,
-             vhost is selected by the Host header.
-        """
-        generate_certificate(san=['example.com'])
-
+    def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
         self.start_all_clients()
         self.assertTrue(self.wait_all_connections(1))
 
+    def make_request(self, host: str) -> str:
+        """Make request with the specified `host` header and
+        return the body of response."""
         client = self.get_client('deproxy')
-        client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        client.make_request(f"GET / HTTP/1.1\r\nHost: {host}\r\n\r\n")
         res = client.wait_for_response(timeout=X509.TIMEOUT)
-        self.assertTrue(res, "Cannot process request")
+        self.assertTrue(res, 'Cannot process request')
         status = client.last_response.status
-        self.assertEqual(status, '200', "Bad response status: %s" % status)
-        self.assertEqual(client.last_response.body, '8001')
+        self.assertEqual(status, '200', f'Bad response status: {status}')
+        return client.last_response.body
+
+    def test_with_san(self):
+        """
+        CN: random()
+        SAN: [example.com]
+        SNI: example.com
+        HOST: localhost
+        """
+        generate_certificate(cn='random-name', san=['example.com'])
+        self.start_all()
+        self.assertEqual(self.make_request('localhost'), 'server-2')
+
+    def test_with_common_name(self):
+        """
+        CN: example.com
+        SAN: []
+        SNI: example.com
+        HOST: localhost
+        """
+        generate_certificate(cn='example.com', san=None)
+        self.start_all()
+        self.assertEqual(self.make_request('localhost'), 'server-2')
+
+    def test_with_any_host(self):
+        """
+        CN: random()
+        SAN: []
+        SNI: example.com
+        HOST: random()
+        """
+        # ignore "Vhost example.com doesn't have certificate with matching SAN/CN"
+        self.oops_ignore = ["WARNING"]
+        generate_certificate(cn='random-name', san=None)
+        self.start_all()
+        self.assertEqual(self.make_request('another-random-name'), 'server-3')
