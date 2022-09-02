@@ -2,9 +2,10 @@
 Tests for basic x509 handling: certificate loading and getting a valid request
 and response, stale certificates and certificates with unsupported algorithms.
 """
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
-from itertools import cycle
+from itertools import cycle, islice
 
 from helpers import dmesg, remote, tf_cfg
 from helpers.error import Error
@@ -676,3 +677,186 @@ class TlsSNIwithHttpTable(tester.TempestaTest):
         generate_certificate(cn='random-name', san=None)
         self.start_all()
         self.assertEqual(self.make_request('another-random-name'), 'server-3')
+
+
+class BaseTlsMulti(ABC):
+    """Base class to test multiplexed (pipelided) requests."""
+
+    backends = [
+        {
+            'id': 'server-1',
+            'type': 'deproxy',
+            'port': '8000',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Server: server-1\r\n'
+                'Date: test\r\n'
+                'Content-Length: 8\r\n\r\n'
+                'server-1'
+            ),
+        },
+        {
+            'id': 'server-2',
+            'type': 'deproxy',
+            'port': '8001',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Server: server-2\r\n'
+                'Date: test\r\n'
+                'Content-Length: 8\r\n\r\n'
+                'server-2'
+            ),
+        },
+    ]
+
+    tempesta_tmpl = """
+            cache 0;
+            listen 443 proto=%s;
+
+            srv_group sg1 { server ${server_ip}:8000; }
+            srv_group sg2 { server ${server_ip}:8001; }
+
+            vhost example.com {
+                proxy_pass sg1;
+                tls_certificate ${general_workdir}/tempesta.crt;
+                tls_certificate_key ${general_workdir}/tempesta.key;
+            }
+
+            vhost localhost-vhost {
+                proxy_pass sg2;
+            }
+
+            http_chain {
+              host == "localhost" -> localhost-vhost;
+              host == "a.example.com" -> example.com;
+            }
+    """
+
+    @property
+    @abstractmethod
+    def proto(self):
+        pass
+
+    @property
+    @abstractmethod
+    def clients(self):
+        pass
+
+    @abstractmethod
+    def build_requests(self, hosts: list[str]):
+        pass
+
+    def setUp(self):
+        self.tempesta = {
+            'config': self.tempesta_tmpl % (self.proto),
+            'custom_cert': True
+        }
+        tester.TempestaTest.setUp(self)
+
+    def start_all(self):
+        generate_certificate(san=['example.com', '*.example.com'])
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections(1))
+
+    def run_alterative_access(self):
+        """Try to access multiple hosts in alterating order."""
+        REQ_NUM = 4
+        self.assertFalse(REQ_NUM % 2, "REQ_NUM should be even")
+        host_iter = cycle(['a.example.com', 'localhost'])
+
+        self.start_all()
+
+        client = self.get_client('deproxy')
+        server1 = self.get_server("server-1")
+        server2 = self.get_server("server-2")
+
+        client.make_requests(
+            self.build_requests(
+                hosts=islice(host_iter, REQ_NUM)
+            )
+        )
+        client.wait_for_response(timeout=60)
+
+        self.assertEqual(REQ_NUM, len(client.responses))
+        # Half of responses are from server1,
+        self.assertEqual(REQ_NUM / 2, len(server1.requests))
+        # and half from server2
+        self.assertEqual(REQ_NUM / 2, len(server2.requests))
+
+
+class TlsSNIwithHttpTableMulti(BaseTlsMulti, tester.TempestaTest):
+
+    proto = "https"
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '443',
+            'ssl': True,
+            'ssl_hostname': 'a.example.com',
+        },
+    ]
+
+    def build_requests(self, hosts):
+
+        def build_request(host):
+            return (
+                "GET / HTTP/1.1\r\n"
+                f"Host: {host}\r\n"
+                "\r\n"
+            )
+
+        return "\r\n".join(
+            [build_request(host) for host in hosts]
+        )
+
+    def test_alternating_access(self):
+        """
+        Test for HTTP1 pipelined request: both 'example.com' and 'localhost'
+        vhosts are accessed in alternating order.
+        """
+        self.run_alterative_access()
+
+
+class TlsSNIwithHttpTableMultiH2(BaseTlsMulti, tester.TempestaTest):
+
+    proto = "h2"
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy_h2',
+            'addr': "${tempesta_ip}",
+            'port': '443',
+            'ssl': True,
+            'ssl_hostname': 'example.com'
+        },
+    ]
+
+    def build_requests(self, hosts):
+
+        def build_request(host):
+            return [
+                (':authority', host),
+                (':path', '/'),
+                (':scheme', 'https'),
+                (':method', 'GET')
+            ]
+
+        return [build_request(host) for host in hosts]
+
+    def test_alternating_access(self):
+        """
+        Test for HTTP1 pipelined request: both 'example.com' and 'localhost'
+        vhosts are accessed in alternating order.
+        """
+        # Ignore 'BUG tfw_stream_cache Tainted'
+        self.oops_ignore = ["WARNING"]
+        self.run_alterative_access()
