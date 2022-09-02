@@ -1,6 +1,7 @@
 """Tests for Frang directive `http_host_required`."""
 from framework import tester
 from helpers import dmesg
+import pytest
 
 
 ERROR_MSG = 'Frang limits warning is not shown'
@@ -51,6 +52,32 @@ X-HTTP-Method-Override: OPTIONS\r
 \r
 """
 
+REQUEST_FALSE_OVERRIDE = """
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method-Override: POST\r
+\r
+"""
+
+DOUBLE_OVERRIDE = """
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method-Override: PUT\r
+Http-Method: GET\r
+\r
+"""
+
+MULTIPLE_OVERRIDE = """
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method-Override: GET\r
+X-HTTP-Method-Override: PUT\r
+X-HTTP-Method-Override: GET\r
+X-HTTP-Method-Override: GET\r
+X-HTTP-Method-Override: PUT\r
+X-HTTP-Method-Override: GET\r
+\r
+"""
 
 
 class FrangHttpMethodsOverrideTestCase(tester.TempestaTest):
@@ -100,35 +127,41 @@ class FrangHttpMethodsOverrideTestCase(tester.TempestaTest):
         deproxy_cl = self.get_client('client')
         deproxy_cl.start()
         deproxy_cl.make_requests(
-            ACCEPTED_REQUEST,
+            ACCEPTED_REQUEST+ 
+            REQUEST_FALSE_OVERRIDE+
+            DOUBLE_OVERRIDE+
+            MULTIPLE_OVERRIDE
         )
         deproxy_cl.wait_for_response(1)
-        assert list(p.status for p in deproxy_cl.responses) == ['200']
+        assert list(p.status for p in deproxy_cl.responses) == ['200', '200', '200', '200'], f'Real status: {list(p.status for p in deproxy_cl.responses)}'
         self.assertEqual(
-            1,
+            4,
             len(deproxy_cl.responses),
         )
         self.assertFalse(
             deproxy_cl.connection_is_closed(),
         )
 
-    def test_not_accepted_request(self):
+
+    def test_not_accepted_request(self):#override methods not allowed by limit http_methods
         self._test_base_scenario(
             request_body=NOT_ACCEPTED_REQUEST,
             expected_warning=WARN_ERROR
         )
-
-    def test_unsafe_override(self):#вроде как не должно быть можно переопределять небезопасными методами? 
+    
+    
+    def test_unsafe_override(self):#should not be allowed to be overridden by unsafe methods
         self._test_base_scenario(
             request_body=REQUEST_UNSAFE_OVERRIDE,
             expected_warning=WARN_UNSAFE
-        )    
+        ) 
+
     
 
     def _test_base_scenario(
         self,
         request_body: str,
-        expected_warning: str = WARN,
+        expected_warning: str = WARN
     ):
         """
         Test base scenario for process different requests.
@@ -153,6 +186,7 @@ class FrangHttpMethodsOverrideTestCase(tester.TempestaTest):
         self.assertTrue(
             deproxy_cl.connection_is_closed(),
         )
+
         self.assertEqual(
             self.klog.warn_count(expected_warning),
             COUNT_WARNINGS_OK,

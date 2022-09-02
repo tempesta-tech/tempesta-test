@@ -80,7 +80,6 @@ class FrangHttpMethodsTestCase(tester.TempestaTest):
         )
 
     def test_accepted_request(self):
-        """Test with content_type, success."""
         self.start_all()
 
         deproxy_cl = self.get_client('client')

@@ -14,7 +14,7 @@ class FrangTlsRateTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"', 
         },
     ]
 
@@ -84,6 +84,60 @@ class FrangTlsRateTestCase(FrangTestCase):
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
+
+
+
+    def test_tls_connection_rate_without_reaching_the_limit(self):
+        """Test 'tls_connection_rate'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        # tls_connection_rate 4; in tempesta
+        request_rate = 3
+
+        for step in range(request_rate):
+            curl.start()
+            self.wait_while_busy(curl)
+
+            curl.stop()
+
+            self.assertEqual(
+                    self.klog.warn_count(ERROR_TLS.format('rate')),
+                    ZERO,
+                    self.assert_msg.format(
+                        exp=ZERO,
+                        got=self.klog.warn_count(ERROR_TLS.format('rate')),
+                    ),
+                )
+
+    def test_tls_connection_rate_on_the_limit(self):
+        """Test 'tls_connection_rate'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        # tls_connection_rate 4; in tempesta
+        request_rate = 4
+
+        for step in range(request_rate):
+            curl.start()
+            self.wait_while_busy(curl)
+
+            curl.stop()
+
+            self.assertEqual(
+                    self.klog.warn_count(ERROR_TLS.format('rate')),
+                    ZERO,
+                    self.assert_msg.format(
+                        exp=ZERO,
+                        got=self.klog.warn_count(ERROR_TLS.format('rate')),
+                    ),
+                )
+
+
 
 
 class FrangTlsBurstTestCase(FrangTestCase):
@@ -167,6 +221,60 @@ class FrangTlsBurstTestCase(FrangTestCase):
                 )
 
 
+    def test_tls_connection_burst_without_reaching_the_limit(self):
+        """Test 'tls_connection_burst'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        # tls_connection_burst 4; in tempesta
+        request_burst = 3
+
+        for step in range(request_burst):
+            curl.start()
+            self.wait_while_busy(curl)
+
+            curl.stop()
+
+            self.assertEqual(
+                    self.klog.warn_count(ERROR_TLS.format('burst')),
+                    ZERO,
+                    self.assert_msg.format(
+                        exp=ZERO,
+                        got=self.klog.warn_count(ERROR_TLS.format('burst')),
+                    ),
+                )
+
+
+    def test_tls_connection_burst_on_the_limit(self):
+        """Test 'tls_connection_burst'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        # tls_connection_burst 4; in tempesta
+        request_burst = 4
+
+        for step in range(request_burst):
+            curl.start()
+            self.wait_while_busy(curl)
+
+            curl.stop()
+
+            self.assertEqual(
+                    self.klog.warn_count(ERROR_TLS.format('burst')),
+                    ZERO,
+                    self.assert_msg.format(
+                        exp=ZERO,
+                        got=self.klog.warn_count(ERROR_TLS.format('burst')),
+                    ),
+                )
+
+
+
+
 class FrangTlsIncompleteTestCase(FrangTestCase):
     """
     Tests for 'tls_incomplete_connection_rate'.
@@ -179,22 +287,14 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'tls': False,
-            'cmd_args': '-If -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
-        },
-        {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '8765',
-            'interface' : True,
-            'rps': 6
+            'cmd_args': '-If -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  
         }
     ]
-#tls_match_any_server_name;
+
     tempesta = {
         'config': """
             frang_limits {
-                tls_incomplete_connection_rate 2;
+                tls_incomplete_connection_rate 4;
             }
 
             listen 127.0.0.4:8765 proto=https;
@@ -229,8 +329,8 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         self.start_all_servers()    
         self.start_tempesta()
 
-        # tls_incomplete_connection_rate 2; increase to catch limit
-        request_inc = 3
+        # tls_incomplete_connection_rate 4; increase to catch limit
+        request_inc = 5
 
         for step in range(request_inc):
             curl.run_start()
@@ -258,3 +358,56 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
                         got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )
+
+
+    def test_tls_incomplete_connection_rate_without_reaching_the_limit(self):
+        """Test 'tls_incomplete_connection_rate'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()    
+        self.start_tempesta()
+
+        # tls_incomplete_connection_rate 4;
+        request_inc = 3
+
+        for step in range(request_inc):
+            curl.run_start()
+            self.wait_while_busy(curl)
+            curl.stop()
+
+            self.assertEqual(
+                    self.klog.warn_count(ERROR_INCOMP_CONN),
+                    ZERO,
+                    self.assert_msg.format(
+                        exp=ZERO,
+                        got=self.klog.warn_count(ERROR_INCOMP_CONN),
+                    ),
+                )
+
+
+    def test_tls_incomplete_connection_rate_on_the_limit(self):
+        """Test 'tls_incomplete_connection_rate'."""
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()    
+        self.start_tempesta()
+
+        # tls_incomplete_connection_rate 4;
+        request_inc = 4
+
+        for step in range(request_inc):
+            curl.run_start()
+            self.wait_while_busy(curl)
+            curl.stop()
+
+            self.assertEqual(
+                    self.klog.warn_count(ERROR_INCOMP_CONN),
+                    ZERO,
+                    self.assert_msg.format(
+                        exp=ZERO,
+                        got=self.klog.warn_count(ERROR_INCOMP_CONN),
+                    ),
+                )
+
+
+

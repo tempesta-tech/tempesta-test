@@ -15,15 +15,15 @@ class FrangConnectionRateTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',  # noqa:E501
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',
         },
     ]
 
     tempesta = {
         'config': """
             frang_limits {
-                connection_rate 4;
                 connection_burst 2;
+                connection_rate 4;
             }
 
             listen 127.0.0.4:8765;
@@ -49,6 +49,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             }
         """,
     }
+
 
     def test_connection_rate(self):
         """Test 'connection_rate'."""
@@ -97,15 +98,15 @@ class FrangConnectionRateTestCase(FrangTestCase):
         self.start_tempesta()
 
         # connection_burst 2 in Tempesta config increase to get limit
-        connection_burst = 4
+        connection_burst = 3
 
         for step in range(connection_burst):
             curl.run_start()
             self.wait_while_busy(curl)
             curl.stop()
 
-            # until rate limit is reached
-            if step < connection_burst-2:
+            #until rate limit is reached
+            if step < connection_burst-1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_BURST),
                     ZERO,
@@ -118,9 +119,9 @@ class FrangConnectionRateTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),
-            2,
+            ONE,
             self.assert_msg.format(
-                exp=2,
+                exp=ONE,
                 got=self.klog.warn_count(ERROR_BURST),
             ),
         )

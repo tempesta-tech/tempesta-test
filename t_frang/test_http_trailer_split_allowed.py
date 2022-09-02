@@ -29,17 +29,30 @@ server ${server_ip}:8000;
 
 WARN = 'frang: HTTP field appear in header and trailer'
 
-ACCEPTED_REQUEST = 'POST / HTTP/1.1\r\n' \
+ACCEPTED_REQUESTS = 'POST / HTTP/1.1\r\n' \
                 'Host: debian\r\n' \
-                'Transfer-Encoding: chunked\r\n' \
+                'Transfer-Encoding: gzip, chunked\r\n' \
                 '\r\n' \
                 '4\r\n' \
                 'test\r\n' \
                 '0\r\n' \
                 'HdrTest: testVal\r\n' \
-                '\r\n'
+                '\r\n' \
+                'GET / HTTP/1.1\r\n' \
+                'Host: debian\r\n' \
+                'HdrTest: testVal\r\n' \
+                'Transfer-Encoding: chunked\r\n' \
+                '\r\n' \
+                '4\r\n' \
+                'test\r\n' \
+                '0\r\n' \
+                '\r\n' \
+                'POST / HTTP/1.1\r\n' \
+                'Host: debian\r\n' \
+                'HdrTest: testVal\r\n' \
+                '\r\n' \
 
-NOT_ACCEPTED_REQUEST = 'POST / HTTP/1.1\r\n' \
+NOT_ACCEPTED_REQUEST = 'GET / HTTP/1.1\r\n' \
                 'Host: debian\r\n' \
                 'HdrTest: testVal\r\n' \
                 'Transfer-Encoding: chunked\r\n' \
@@ -48,7 +61,8 @@ NOT_ACCEPTED_REQUEST = 'POST / HTTP/1.1\r\n' \
                 'test\r\n' \
                 '0\r\n' \
                 'HdrTest: testVal\r\n' \
-                '\r\n'
+                '\r\n' \
+
 
 
 class FrangHttpTrailerSplitTestCase(tester.TempestaTest):
@@ -98,14 +112,14 @@ class FrangHttpTrailerSplitTestCase(tester.TempestaTest):
         deproxy_cl = self.get_client('client')
         deproxy_cl.start()
         deproxy_cl.make_requests(
-            ACCEPTED_REQUEST,
+            ACCEPTED_REQUESTS,
         )
         deproxy_cl.wait_for_response(1)
         self.assertEqual(
-            1,
+            3,
             len(deproxy_cl.responses),
         )
-        assert list(p.status for p in deproxy_cl.responses) == ['200']
+        assert list(p.status for p in deproxy_cl.responses) == ['200', '200', '200']
         self.assertFalse(
             deproxy_cl.connection_is_closed(),
         )
