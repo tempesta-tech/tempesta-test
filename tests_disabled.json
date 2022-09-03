@@ -142,26 +142,6 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "selftests.test_framework.ExampleTest.test",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test2",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_deproxy_client",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_deproxy_srv",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_deproxy_srvclient",
-            "reason" : "Disabled by issue #73"
-        },
-        {
             "name" : "http2_general",
             "reason" : "Disabled by issue #261"
         },
