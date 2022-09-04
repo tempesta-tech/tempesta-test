@@ -91,7 +91,10 @@ class FrangConnectionRateTestCase(FrangTestCase):
         )
 
     def test_connection_burst(self):
-        """Test 'connection_burst'."""
+        """Test 'connection_burst'.
+        for some reason, the number of logs in the dmsg may be greater 
+        than the expected number, which may cause the test to fail
+        """
         curl = self.get_client('curl-1')
 
         self.start_all_servers()

@@ -23,13 +23,13 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-12',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/qwer5 -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/qwe -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-13',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/12345 -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/1234 -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-2',

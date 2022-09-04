@@ -99,7 +99,6 @@ server ${server_ip}:8000;
 frang_limits {
     http_body_chunk_cnt 10;
     ip_block on;
-    http_header_cnt 4;
 }
 
 """,
@@ -178,12 +177,13 @@ frang_limits {
 
         deproxy_cl.wait_for_response()
         deproxy_cl2.wait_for_response()
-        self.assertEqual(klog.warn_count(ERROR), 1,
-                          "Frang limits warning is not shown")
 
 
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertEqual(1, len(deproxy_cl2.responses))
+
+        self.assertEqual(klog.warn_count(ERROR), 1,
+                          "Frang limits warning is not shown")
 
         #for some reason, the connection remains open, but the clients stop receiving responses to requests
         self.assertFalse(deproxy_cl.connection_is_closed())

@@ -165,7 +165,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
     tempesta = {
         'config': """
             frang_limits {
-                request_burst 4;
+                request_burst 3;
             }
 
             listen 127.0.0.4:8765;
@@ -195,14 +195,14 @@ class FrangRequestBurstTestCase(FrangTestCase):
     def test_request_burst_reached(self):
         """Test 'request_burst' is reached.
         Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        this means that in 125 ms there will be less than 5 requests and the test will not reach the limit
+        this means that in 125 ms there will be less than 4 requests and the test will not reach the limit
         """
         curl = self.get_client('curl-1')
         self.start_all_servers()
         self.start_tempesta()
 
-        # request_burst 4; in tempesta, increase to catch limit
-        request_burst = 5
+        # request_burst 3; in tempesta, increase to catch limit
+        request_burst = 4
 
         for _ in range(request_burst):
             curl.start()
@@ -224,7 +224,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
         self.start_all_servers()
         self.start_tempesta()
 
-        # request_burst 4; in tempesta,
+        # request_burst 3; in tempesta,
         request_burst = 5
 
         for _ in range(request_burst):
@@ -249,8 +249,8 @@ class FrangRequestBurstTestCase(FrangTestCase):
         self.start_all_servers()
         self.start_tempesta()
 
-        # request_burst 4; in tempesta,
-        request_burst = 4
+        # request_burst 3; in tempesta,
+        request_burst = 3
 
         for _ in range(request_burst):
             curl.start()
