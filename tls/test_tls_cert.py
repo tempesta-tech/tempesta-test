@@ -7,9 +7,10 @@ from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
 from itertools import cycle, islice
 
-from helpers import dmesg, remote, tf_cfg
+from helpers import dmesg, remote, tempesta, tf_cfg
 from helpers.error import Error
 from framework import tester
+from framework.templates import fill_template, populate_properties
 from framework.x509 import CertGenerator
 from .handshake import TlsHandshake, x509_check_cn
 from .scapy_ssl_tls import ssl_tls as tls
@@ -21,12 +22,19 @@ __license__ = 'GPL2'
 
 def generate_certificate(
         cn: str = 'tempesta-tech.com',
-        san: list[str] = None
+        san: list[str] = None,
+        cert_name: str = "tempesta"
 ) -> CertGenerator:
     """Generate and upload certificate with given
     common name and  list of Subject Alternative Names.
+    Name generated files as `cert_name`.crt and `cert_name`.key.
     """
-    cgen = CertGenerator()
+    workdir = tf_cfg.cfg.get('General', 'workdir')
+
+    cgen = CertGenerator(
+        cert_path=f"{workdir}/{cert_name}.crt",
+        key_path=f"{workdir}/{cert_name}.key"
+    )
     cgen.CN = cn
     cgen.san = san
     cgen.generate()
@@ -566,6 +574,153 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 handshake(next(sni_iter))
 
             next(sni_iter)
+
+
+class TlsCertSelectBySANwitMultipleSections(tester.TempestaTest):
+    """Test that no confusion occurs between wildcard certificate
+    and certificate for specific subdomain. After Tempesta reload,
+    certificate selection is changed according to the current config.
+    """
+
+    tempesta = {
+        'config': """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group sg { server ${server_ip}:443; }
+
+            vhost example.com {
+                proxy_pass sg;
+                tls_certificate ${general_workdir}/wildcard.crt;
+                tls_certificate_key ${general_workdir}/wildcard.key;
+            }
+
+            vhost private.example.com {
+                proxy_pass sg;
+                tls_certificate ${general_workdir}/private.crt;
+                tls_certificate_key ${general_workdir}/private.key;
+            }
+
+        """,
+        'custom_cert': True
+    }
+
+    config_no_private_section = """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group sg { server ${server_ip}:443; }
+
+            vhost example.com {
+                proxy_pass sg;
+                tls_certificate ${general_workdir}/wildcard.crt;
+                tls_certificate_key ${general_workdir}/wildcard.key;
+            }
+    """
+
+    config_only_private_section = """
+            cache 0;
+            listen 443 proto=https;
+
+            srv_group sg { server ${server_ip}:443; }
+
+            vhost private.example.com {
+                proxy_pass sg;
+                tls_certificate ${general_workdir}/private.crt;
+                tls_certificate_key ${general_workdir}/private.key;
+            }
+    """
+
+    @property
+    def verbose(self):
+        return tf_cfg.v_level() >= 3
+
+    def reload_with_config(self, template: str):
+        """Reconfigure Tempesta with the provided config `template`.
+        """
+        desc = {
+            'config': template,
+            'custom_cert': True
+        }
+        populate_properties(desc)
+        config_text = fill_template(desc['config'], desc)
+
+        config = tempesta.Config()
+        config.set_defconfig(config_text, custom_cert=True)
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+
+    def test(self):
+        generate_certificate(
+            cert_name='wildcard',
+            cn='wildcard',
+            san=['example.com', '*.example.com']
+        )
+        generate_certificate(
+            cert_name='private',
+            cn='private',
+            san=['example.com', 'private.example.com']
+        )
+        self.start_tempesta()
+        # save the current config text
+        original_config = self.get_tempesta().config.defconfig
+
+        # Both 'wildcard' and 'private' certificates are provided
+        for sni, expected_cert in (
+                ('example.com', 'wildcard'),
+                ('public.example.com', 'wildcard'),
+                ('private.example.com', 'private'),
+        ):
+            with self.subTest(msg="Trying TLS handshake", sni=sni):
+                hs = TlsHandshake(verbose=self.verbose)
+                hs.sni = [sni]
+                hs._do_12_hs()
+                self.assertTrue(x509_check_cn(hs.cert, expected_cert))
+
+        self.reload_with_config(self.config_no_private_section)
+        # After Tempesta reload, 'wildcard' certificate are provided for all subdomains
+        for sni, expected_cert in (
+                ('example.com', 'wildcard'),
+                ('public.example.com', 'wildcard'),
+                ('private.example.com', 'wildcard'),
+        ):
+            with self.subTest(msg="Trying TLS handshake after config reload", sni=sni):
+                hs = TlsHandshake(verbose=self.verbose)
+                hs.sni = [sni]
+                hs._do_12_hs()
+                self.assertTrue(x509_check_cn(hs.cert, expected_cert))
+
+        self.reload_with_config(self.config_only_private_section)
+        # After Tempesta reload,
+        # 'wildcard' certificate is provided for 'private' section,
+        hs = TlsHandshake(verbose=self.verbose)
+        hs.sni = ['private.example.com']
+        hs._do_12_hs()
+        self.assertTrue(x509_check_cn(hs.cert, 'private'))
+
+        # and no certificate provided for removed 'wildcard' section subdomains
+        for sni in 'example.com', 'public.example.com':
+            with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
+                with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+                    hs = TlsHandshake(verbose=self.verbose)
+                    hs.sni = [sni]
+                    hs._do_12_hs()
+
+        # After Tempsta reload, certificates are provided as at the beginning of the test
+        self.reload_with_config(original_config)
+        for sni, expected_cert in (
+                ('example.com', 'wildcard'),
+                ('public.example.com', 'wildcard'),
+                ('private.example.com', 'private'),
+        ):
+            with self.subTest(
+                    msg="Trying TLS handshake after second config reload",
+                    sni=sni
+            ):
+                hs = TlsHandshake(verbose=self.verbose)
+                hs.sni = [sni]
+                hs._do_12_hs()
+                self.assertTrue(x509_check_cn(hs.cert, expected_cert))
 
 
 class TlsSNIwithHttpTable(tester.TempestaTest):
