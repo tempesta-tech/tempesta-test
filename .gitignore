@@ -6,3 +6,4 @@ tests_log.log
 .vscode/*
 ECDSA/
 RSA/
+certgen.sh
