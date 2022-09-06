@@ -341,6 +341,18 @@
             "reason": "Disabled by issue #1663"
         },
         {
+            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderMaxAgeCache",
+            "reason": "Disabled by issue #1678"
+        },
+        {
+            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderNoTransformCache",
+            "reason": "Disabled by issue #1678"
+        },
+        {
+            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderDefaultCache",
+            "reason": "Disabled by issue #1678"
+        },
+        {
             "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_bad_host",
             "reason": "Disabled by issue #286"
         },
