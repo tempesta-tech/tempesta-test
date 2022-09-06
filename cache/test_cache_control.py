@@ -6,6 +6,7 @@ import time
 from framework import tester
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
+from helpers import tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -15,7 +16,7 @@ TEMPESTA_CONFIG = """
 cache 2;
 
 srv_group default {
-    server ${general_ip}:8000;
+    server ${server_ip}:8000;
 }
 
 vhost vh1 {
@@ -104,7 +105,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
         )
         req = (
             f'{self.request_method} {self.uri} HTTP/1.1\r\n'
-            + 'Host: localhost\r\n'
+            + f'Host: {tf_cfg.cfg.get("Tempesta", "hostname")}\r\n'
             + f'{req_headers}\r\n'
         )
         curr_responses = len(client.responses)
@@ -115,7 +116,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
         return client.last_response
 
     def check_response_headers(self, response):
-        for header in self.response_headers.keys():
+        for header in self.response_headers:
             actual_val = response.headers.get(header, None)
             if actual_val is None:
                 self.assertIsNone(
@@ -129,7 +130,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
                 )
 
     def check_cached_response_headers(self, response):
-        for header in self.cached_headers.keys():
+        for header in self.cached_headers:
             actual_val = response.headers.get(header, None)
             if actual_val is None:
                 self.assertIsNone(
@@ -151,7 +152,8 @@ class TestCacheControl(tester.TempestaTest, base=True):
         self.assertEqual(
             response.status,
             self.response_status,
-            'request failed: {0}, expected {1}'.format(response.status, self.response_status),
+            "The client's first request did not receive the expected response."
+            + 'The caching function cannot be checked.',
         )
         self.check_response_headers(response)
 
@@ -162,10 +164,8 @@ class TestCacheControl(tester.TempestaTest, base=True):
         self.assertEqual(
             cached_response.status,
             self.cached_status,
-            'request for cache failed: {0}, expected {1}'.format(
-                cached_response.status,
-                self.cached_status,
-            ),
+            "The client's second request did not receive the expected response."
+            + 'The caching function cannot be checked.',
         )
         if self.should_be_cached:
             self.assertEqual(1, len(srv.requests), 'response not cached as expected')
