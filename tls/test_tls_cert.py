@@ -512,17 +512,20 @@ class TlsCertSelectBySAN(tester.TempestaTest):
         """Test that expected 'unknown server name' warning appears in DMESG logs."""
         generate_certificate(san=['example.com', '*.example.com'])
         self.start_tempesta()
-        for sni in (
-                "localhost",
-                "a.localhost",
-                "a.b.localhost",
-                "a.b.c.localhost",
-                "a.b.c.localhost.com",
-                "a.b.c.example.com",
+
+        for sni, printable_name in (
+                ("localhost", "'localhost'"),
+                ("a.localhost", "'a.localhost'"),
+                ("a.b.localhost", "'.b.localhost'"),  # subdomain part is not displayed
+                ("a.b.c.localhost", "'.b.c.localhost'"),
+                ("a.b.c.localhost.com", "'.b.c.localhost.com'"),
+                ("a.b.c.example.com", "'.b.c.example.com'"),
+                ("\0hidden part :)", "''"),  # non-printable characters allowed
+                ("\n\n\n", "'"),  # empty lines appears in the log
         ):
             with self.subTest(msg="Check 'unknown server name' warning", sni=sni):
-                # restart DMESG finder, to update messages from the current time
-                self.oops = self.oops.__class__()
+                # new DMESG finder instance, to update messages from the current time
+                klog = dmesg.DmesgFinder()
 
                 hs = TlsHandshake(verbose=self.verbose)
                 hs.sni = [sni]
@@ -531,9 +534,9 @@ class TlsCertSelectBySAN(tester.TempestaTest):
 
                 self.assertEqual(
                     1,
-                    self.oops.warn_count(f"requested unknown server name '{sni}'"),
+                    klog.warn_count(f"requested unknown server name {printable_name}"),
                     # Report all founded 'unknown server name' warnings
-                    f"Warnings: {self.oops.warn_match('requested unknown server name .*')}"
+                    f"Warnings: {klog.warn_match('requested unknown server name .*')}"
                 )
 
     def test_sni_match_after_reload(self):
