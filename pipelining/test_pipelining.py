@@ -5,7 +5,7 @@ from helpers import tf_cfg, deproxy, tempesta, control
 from framework.templates import fill_template
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
@@ -379,3 +379,75 @@ server ${general_ip}:8000;
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
+
+class H2MultiplexedTest(tester.TempestaTest):
+
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 0\r\n\r\n'
+        }
+    ]
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy_h2',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl'  : True,
+            'ssl_hostname' : 'localhost'
+        },
+    ]
+
+    tempesta = {
+        'config' :
+        """
+        listen 443 proto=h2;
+        server ${server_ip}:8000;
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+        tls_match_any_server_name;
+
+        """
+    }
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test_bodyless(self):
+        self.start_all()
+
+        REQ_NUM = 10
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'https'),
+            (':method', 'GET')
+        ]
+
+        request = []
+        for i in range(REQ_NUM):
+            request.append(head)
+
+        deproxy_srv = self.get_server('deproxy')
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.make_requests(request)
+
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertEqual(REQ_NUM, len(deproxy_cl.responses))
+        self.assertEqual(REQ_NUM, len(deproxy_srv.requests))
+
+        for response in deproxy_cl.responses:
+            self.assertEqual(200, int(response.status))

@@ -110,6 +110,7 @@ class H2Spec(tester.TempestaTest):
             "-x http2/5.1/6",
             "-x http2/5.1/11",
             "-x http2/5.1/12",
+            "-x http2/5.1.1/4",
             "-x http2/5.3.1/1", # causes dmesg warning
             "-x http2/5.3.1/2",
             "-x http2/5.5/2",
