@@ -455,9 +455,32 @@ class TlsCertSelectBySAN(tester.TempestaTest):
     def verbose(self):
         return tf_cfg.v_level() >= 3
 
+    def check_handshake_success(self, san: list[str], sni: str):
+        """Run TLS handshake with the given SNI and check it is completes successfully."""
+        with self.subTest(msg="Trying TLS handshake",
+                          san=san, sni=sni):
+            hs = TlsHandshake(verbose=self.verbose)
+            hs.sni = [sni]
+            # TLS 1.2 handshake completed with no exception => SNI is accepted
+            hs._do_12_hs()
+            self.assertTrue(x509_check_cn(hs.cert, 'tempesta-tech.com'))
+
+    def check_handshake_unrecognised_name(self, san: list[str], sni: str):
+        """
+        Run TLS handshake with the given SNI
+        and check server name is not recognised by the server.
+        """
+        with self.subTest(msg="Trying TLS handshake with expected unknown SNI",
+                          san=san, sni=sni):
+            hs = TlsHandshake(verbose=self.verbose)
+            hs.sni = [sni]
+            with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+                hs._do_12_hs()
+
     def test_sni_matched(self):
-        """SAN certificate matches passed SNI."""
-        generate_certificate(san=['example.com', '*.example.com'])
+        """SAN certificate matches the passed SNI."""
+        san = ['example.com', '*.example.com']
+        generate_certificate(san=san)
         self.start_tempesta()
 
         for sni in (
@@ -465,31 +488,24 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 'a.example.com',
                 'www.example.com',
                 '.example.com',
-                'EXAMPLE.COM',
-                'A.EXAMPLE.COM',
-                'A.eXaMpLe.CoM',
                 '-.example.com',
+                '@.example.com',
+                '*.example.com',
+                '!!!.example.com',
                 # max length, length 240 'a' will give DECODE_ERROR
                 f"{'-' * 239}.example.com",
         ):
-            with self.subTest(msg="Trying TLS handshake", sni=sni):
-                hs = TlsHandshake(verbose=self.verbose)
-                hs.sni = [sni]
-                # TLS 1.2 handshake completed with no exception => SNI is accepted
-                hs._do_12_hs()
-                self.assertTrue(x509_check_cn(hs.cert, "tempesta-tech.com"))
+            self.check_handshake_success(san=san, sni=sni)
 
     def test_sni_not_matched(self):
-        """SAN certificate does not match passed SNI."""
-        generate_certificate(san=['example.com', '*.example.com'])
+        """SAN certificate does not match the passed SNI."""
+        san = ['example.com', '*.example.com']
+        generate_certificate(san=san)
         self.start_tempesta()
 
         for sni in (
                 'b.a.example.com',
                 '..example.com',
-                '@.example.com',
-                '*.example.com',
-                '!!!.example.com',
                 '.a.example.com',
                 'www.www.example.com',
                 'example.com.www',
@@ -499,14 +515,51 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 'a.example.com-',
                 'a.example.com.',
                 'a.example.com.example.com',
+                'EXAMPLE.COM',
+                'www.EXAMPLE.com',
+                'A.EXAMPLE.COM',
+                'A.eXaMpLe.CoM',
                 tf_cfg.cfg.get("Server", "ip"),
                 'a' * 251,  # max length, 252 will give DECODE_ERROR
         ):
-            with self.subTest(msg="Trying TLS handshake with bad SNI", sni=sni):
-                hs = TlsHandshake(verbose=self.verbose)
-                hs.sni = [sni]
-                with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
-                    hs._do_12_hs()
+            self.check_handshake_unrecognised_name(san=san, sni=sni)
+
+    def test_various_san_and_sni_matched(self):
+        """Various SAN certificates match the passed SNI."""
+        # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
+        self.oops_ignore = ['WARNING']
+        generate_certificate()
+        self.start_tempesta()
+
+        for san, sni in (
+                (['example.com'], "example.com"),
+                ([".example.com"], "www.example.com"),
+                (['www.localhost', 'example.com'], 'example.com'),
+                (['*.xn--e1aybc.xn--90a3ac'], 'xn--e1aybc.xn--e1aybc.xn--90a3ac'),
+        ):
+            generate_certificate(san=san)
+            self.get_tempesta().reload()
+            self.check_handshake_success(san=san, sni=sni)
+
+    def test_various_san_and_sni_not_matched(self):
+        """Various SAN certificates do not match the passed SNI."""
+        # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
+        self.oops_ignore = ['WARNING']
+        generate_certificate()
+        self.start_tempesta()
+
+        for san, sni in (
+                (['a.*.example.com'], 'a.b.example.com'),
+                (["w*.example.com"], "www.example.com"),
+                (['localhost'], "localhost"),
+                (['example.onion'], "example.onion"),
+                ("['*.local", "example.local"),
+                (['www.example.com'], 'www.example.com'),
+                (["a.example.com"], "b.example.com"),
+        ):
+            generate_certificate(san=san)
+            self.get_tempesta().reload()
+            self.check_handshake_unrecognised_name(san=san, sni=sni)
 
     def test_unknown_server_name_warning(self):
         """Test that expected 'unknown server name' warning appears in DMESG logs."""
