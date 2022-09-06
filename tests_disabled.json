@@ -329,9 +329,6 @@
             "name" : "ws.test_ws_ping.CacheTest.test_ping_websockets",
             "reason" : "Disabled by issue #1647"
         },
-        {   "name" : "multiple_listeners",
-            "reason" : "Disabled by issue #1624"
-        },
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentGetBypass",
             "reason": "Disabled by issue #1663"

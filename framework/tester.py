@@ -348,7 +348,9 @@ class TempestaTest(unittest.TestCase):
 
         for item in items:
             if item.is_running():
+                tf_cfg.dbg(4, f'\tClient "{item.options[0]}" wait for finish ')
                 item.wait_for_finish()
+                tf_cfg.dbg(4, f'\tWaiting for client "{item.options[0]}" is completed')
 
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=1):
