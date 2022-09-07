@@ -2,7 +2,7 @@
 Tests for basic x509 handling: certificate loading and getting a valid request
 and response, stale certificates and certificates with unsupported algorithms.
 """
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
 from itertools import cycle, islice
@@ -432,7 +432,7 @@ class TlsCertSelect(tester.TempestaTest):
             hs.do_12()
 
 
-class TlsCertSelectBySAN(tester.TempestaTest):
+class TlsCertSelectBySan(tester.TempestaTest):
     """Subject Alternative Name certificate match to SNI."""
 
     tempesta = {
@@ -455,27 +455,23 @@ class TlsCertSelectBySAN(tester.TempestaTest):
     def verbose(self):
         return tf_cfg.v_level() >= 3
 
-    def check_handshake_success(self, san: list[str], sni: str):
+    def check_handshake_success(self, sni: str):
         """Run TLS handshake with the given SNI and check it is completes successfully."""
-        with self.subTest(msg="Trying TLS handshake",
-                          san=san, sni=sni):
-            hs = TlsHandshake(verbose=self.verbose)
-            hs.sni = [sni]
-            # TLS 1.2 handshake completed with no exception => SNI is accepted
-            hs._do_12_hs()
-            self.assertTrue(x509_check_cn(hs.cert, 'tempesta-tech.com'))
+        hs = TlsHandshake(verbose=self.verbose)
+        hs.sni = [sni]
+        # TLS 1.2 handshake completed with no exception => SNI is accepted
+        hs._do_12_hs()
+        self.assertTrue(x509_check_cn(hs.cert, 'tempesta-tech.com'))
 
-    def check_handshake_unrecognised_name(self, san: list[str], sni: str):
+    def check_handshake_unrecognized_name(self, sni: str):
         """
         Run TLS handshake with the given SNI
         and check server name is not recognised by the server.
         """
-        with self.subTest(msg="Trying TLS handshake with expected unknown SNI",
-                          san=san, sni=sni):
-            hs = TlsHandshake(verbose=self.verbose)
-            hs.sni = [sni]
-            with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
-                hs._do_12_hs()
+        hs = TlsHandshake(verbose=self.verbose)
+        hs.sni = [sni]
+        with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+            hs._do_12_hs()
 
     def test_sni_matched(self):
         """SAN certificate matches the passed SNI."""
@@ -495,7 +491,8 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 # max length, length 240 'a' will give DECODE_ERROR
                 f"{'-' * 239}.example.com",
         ):
-            self.check_handshake_success(san=san, sni=sni)
+            with self.subTest(msg="Trying TLS handshake", sni=sni):
+                self.check_handshake_success(sni=sni)
 
     def test_sni_not_matched(self):
         """SAN certificate does not match the passed SNI."""
@@ -522,7 +519,11 @@ class TlsCertSelectBySAN(tester.TempestaTest):
                 tf_cfg.cfg.get("Server", "ip"),
                 'a' * 251,  # max length, 252 will give DECODE_ERROR
         ):
-            self.check_handshake_unrecognised_name(san=san, sni=sni)
+            with self.subTest(
+                    msg="Trying TLS handshake with expected unknown SNI",
+                    sni=sni
+            ):
+                self.check_handshake_unrecognized_name(sni=sni)
 
     def test_various_san_and_sni_matched(self):
         """Various SAN certificates match the passed SNI."""
@@ -532,6 +533,7 @@ class TlsCertSelectBySAN(tester.TempestaTest):
         self.start_tempesta()
 
         for san, sni in (
+                (['*.b.c.example.com'], "a.b.c.example.com"),
                 (['example.com'], "example.com"),
                 ([".example.com"], "www.example.com"),
                 (['www.localhost', 'example.com'], 'example.com'),
@@ -539,7 +541,8 @@ class TlsCertSelectBySAN(tester.TempestaTest):
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
-            self.check_handshake_success(san=san, sni=sni)
+            with self.subTest(msg="Trying TLS handshake", san=san, sni=sni):
+                self.check_handshake_success(sni=sni)
 
     def test_various_san_and_sni_not_matched(self):
         """Various SAN certificates do not match the passed SNI."""
@@ -550,17 +553,23 @@ class TlsCertSelectBySAN(tester.TempestaTest):
 
         for san, sni in (
                 (['a.*.example.com'], 'a.b.example.com'),
-                (["w*.example.com"], "www.example.com"),
-                (['localhost'], "localhost"),
-                (['example.onion'], "example.onion"),
-                ("['*.local", "example.local"),
+                (['w*.example.com'], 'www.example.com'),
                 (['www.example.com'], 'www.example.com'),
-                (["a.example.com"], "b.example.com"),
+                (['a.example.com'], 'b.example.com'),
+                (['localhost'], 'localhost'),
+                (['example.onion'], 'example.onion'),
+                (['*.local'], 'example.local'),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
-            self.check_handshake_unrecognised_name(san=san, sni=sni)
+            with self.subTest(
+                    msg="Trying TLS handshake with expected unknown SNI",
+                    san=san,
+                    sni=sni
+            ):
+                self.check_handshake_unrecognized_name(sni=sni)
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_unknown_server_name_warning(self):
         """Test that expected 'unknown server name' warning appears in DMESG logs."""
         generate_certificate(san=['example.com', '*.example.com'])
@@ -578,12 +587,9 @@ class TlsCertSelectBySAN(tester.TempestaTest):
         ):
             with self.subTest(msg="Check 'unknown server name' warning", sni=sni):
                 # new DMESG finder instance, to update messages from the current time
-                klog = dmesg.DmesgFinder()
+                klog = dmesg.DmesgFinder(ratelimited=False)
 
-                hs = TlsHandshake(verbose=self.verbose)
-                hs.sni = [sni]
-                with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
-                    hs._do_12_hs()
+                self.check_handshake_unrecognized_name(sni=sni)
 
                 self.assertEqual(
                     1,
@@ -629,10 +635,10 @@ class TlsCertSelectBySAN(tester.TempestaTest):
             ):
                 handshake(next(sni_iter))
 
-            next(sni_iter)
+            next(sni_iter)  # additional shift to alternate the order
 
 
-class TlsCertSelectBySANwitMultipleSections(tester.TempestaTest):
+class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     """Test that no confusion occurs between wildcard certificate
     and certificate for specific subdomain. After Tempesta reload,
     certificate selection is changed according to the current config.
@@ -762,7 +768,7 @@ class TlsCertSelectBySANwitMultipleSections(tester.TempestaTest):
                     hs.sni = [sni]
                     hs._do_12_hs()
 
-        # After Tempsta reload, certificates are provided as at the beginning of the test
+        # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
         for sni, expected_cert in (
                 ('example.com', 'wildcard'),
@@ -918,7 +924,7 @@ class TlsSNIwithHttpTable(tester.TempestaTest):
         self.assertEqual(self.make_request('another-random-name'), 'server-3')
 
 
-class BaseTlsMulti(ABC):
+class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
     """Base class to test multiplexed (pipelided) requests."""
 
     backends = [
@@ -1028,7 +1034,7 @@ class BaseTlsMulti(ABC):
         self.assertEqual(REQ_NUM / 2, len(server2.requests))
 
 
-class TlsSNIwithHttpTableMulti(BaseTlsMulti, tester.TempestaTest):
+class TlsSNIwithHttpTableMulti(BaseTlsMultiTest):
 
     proto = "https"
 
@@ -1064,7 +1070,7 @@ class TlsSNIwithHttpTableMulti(BaseTlsMulti, tester.TempestaTest):
         self.run_alterative_access()
 
 
-class TlsSNIwithHttpTableMultiH2(BaseTlsMulti, tester.TempestaTest):
+class TlsSNIwithHttpTableMultiH2(BaseTlsMultiTest):
 
     proto = "h2"
 
