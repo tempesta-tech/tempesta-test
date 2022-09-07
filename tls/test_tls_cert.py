@@ -21,10 +21,10 @@ __license__ = 'GPL2'
 
 
 def generate_certificate(
-        cn: str = 'tempesta-tech.com',
-        san: list[str] = None,
-        cert_name: str = "tempesta"
-) -> CertGenerator:
+        cn = 'tempesta-tech.com',
+        san = None,
+        cert_name = "tempesta"
+):
     """Generate and upload certificate with given
     common name and  list of Subject Alternative Names.
     Name generated files as `cert_name`.crt and `cert_name`.key.
@@ -455,7 +455,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
     def verbose(self):
         return tf_cfg.v_level() >= 3
 
-    def check_handshake_success(self, sni: str):
+    def check_handshake_success(self, sni):
         """Run TLS handshake with the given SNI and check it is completes successfully."""
         hs = TlsHandshake(verbose=self.verbose)
         hs.sni = [sni]
@@ -463,7 +463,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         hs._do_12_hs()
         self.assertTrue(x509_check_cn(hs.cert, 'tempesta-tech.com'))
 
-    def check_handshake_unrecognized_name(self, sni: str):
+    def check_handshake_unrecognized_name(self, sni):
         """
         Run TLS handshake with the given SNI
         and check server name is not recognised by the server.
@@ -877,7 +877,7 @@ class TlsSNIwithHttpTable(tester.TempestaTest):
         self.start_all_clients()
         self.assertTrue(self.wait_all_connections(1))
 
-    def make_request(self, host: str) -> str:
+    def make_request(self, host):
         """Make request with the specified `host` header and
         return the body of response."""
         client = self.get_client('deproxy')
@@ -990,7 +990,7 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def build_requests(self, hosts: list[str]):
+    def build_requests(self, hosts):
         pass
 
     def setUp(self):
@@ -1064,7 +1064,7 @@ class TlsSNIwithHttpTableMulti(BaseTlsMultiTest):
 
     def test_alternating_access(self):
         """
-        Test for HTTP1 pipelined request: both 'example.com' and 'localhost'
+        Test for HTTP/1.1 pipelined request: both 'example.com' and 'localhost'
         vhosts are accessed in alternating order.
         """
         self.run_alterative_access()
@@ -1099,7 +1099,7 @@ class TlsSNIwithHttpTableMultiH2(BaseTlsMultiTest):
 
     def test_alternating_access(self):
         """
-        Test for HTTP1 pipelined request: both 'example.com' and 'localhost'
+        Test for HTTP/2 multiplexed requests: both 'example.com' and 'localhost'
         vhosts are accessed in alternating order.
         """
         # Ignore 'BUG tfw_stream_cache Tainted'

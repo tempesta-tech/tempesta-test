@@ -50,7 +50,7 @@ class CertGenerator(object):
         self.cert = None
         self.pkey = None
         # Subject Alternative Name field: list of additional host names
-        self.san: list[str] = []
+        self.san = []
         if default:
             self.generate()
 
