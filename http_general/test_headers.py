@@ -116,3 +116,64 @@ class BackendSetCoookie(tester.TempestaTest):
                     client.wait_for_response(timeout=1)
                 )
                 self.assertEqual(client.last_response.status, '200')
+
+
+class RepeatedHeaderCache(tester.TempestaTest):
+
+    backends = [
+        {
+            'id': 'headers',
+            'type': 'deproxy',
+            'port': '8000',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Dup: 1\r\n'  # Header is
+                'Dup: 2\r\n'  # repeated
+                'Content-Length: 0\r\n\r\n'
+            ),
+        },
+    ]
+
+    tempesta = {
+        'config':
+        """
+        listen 80;
+        cache 1;
+        cache_fulfill * *;
+        cache_resp_hdr_del No-Such-Header;  # Attempt to delete header
+        server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+        }
+    ]
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections(1))
+
+    def test_request_cache_del_dup_success(self):
+        """
+        Test that no kernel panic occur when:
+          - cache is on
+          - HTTP headers in response from backend are repeated
+          - `cache_resp_hdr_del` is used.
+        (see Tempesta issue #1691)
+        """
+        self.start_all()
+        client = self.get_client('deproxy')
+
+        client.make_request('GET / HTTP/1.1\r\n\r\n')
+
+        self.assertTrue(client.wait_for_response(timeout=1))
+        self.assertEqual(client.last_response.status, '200')
