@@ -1,8 +1,14 @@
 """Functional tests of caching responses."""
 
 from __future__ import print_function
+
+import copy
+
+from framework.deproxy_client import DeproxyClient
+from framework.deproxy_server import StaticDeproxyServer
 from testers import functional
-from helpers import chains
+from helpers import chains, tf_cfg
+from framework.tester import TempestaTest
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -95,3 +101,114 @@ class TestCacheReplicated(TestCacheDisabled):
     cache_mode = 2
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+
+
+class TestCacheBase(TempestaTest, base=True):
+    """"""
+    tempesta_template = {
+        'config': """
+listen 80;
+
+server ${server_ip}:8000;
+
+vhost default {
+    proxy_pass default;
+}
+
+%(tempesta_config)s"""
+    }
+
+    backends = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'port': '8000',
+            'response': 'static',
+            'response_content': '',
+        },
+    ]
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': '${tempesta_ip}',
+            'port': '80',
+        },
+    ]
+
+    messages = 10
+
+    # Disable caching
+    tempesta_config: str
+
+    def setUp(self):
+        """"""
+        self.tempesta = copy.deepcopy(self.tempesta_template)
+        self.tempesta['config'] = (
+            self.tempesta['config'] % {'tempesta_config': self.tempesta_config or ''}
+        )
+        super().setUp()
+
+    def start_all(self):
+        """Start all services."""
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections())
+
+    def _test(self):
+        """"""
+        self.start_all()
+
+        srv: StaticDeproxyServer = self.get_server('deproxy')
+        response = (
+            f'HTTP/1.1 200 OK\r\n'
+            + 'Connection: keep-alive\r\n'
+            + 'Content-Length: 13\r\n'
+            + 'Content-Type: text/html\r\n'
+            + '\r\n'
+            + '<html></html>\r\n'
+        )
+        srv.set_response(response)
+
+        client: DeproxyClient = self.get_client('deproxy')
+        request = (
+            'GET / HTTP/1.1\r\n'
+            + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
+            + 'Connection: keep-alive\r\n'
+            + 'Accept: */*\r\n'
+            + '\r\n'
+        )
+
+        for _ in range(self.messages):
+            client.make_request(request)
+            client.wait_for_response()
+
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+        self.assertEqual(tempesta.stats.cache_hits, 0, )
+        self.assertEqual(tempesta.stats.cache_misses, 0, )
+        self.assertEqual(tempesta.stats.cl_msg_received, self.messages, )
+        self.assertEqual(len(srv.requests), 10, )
+        for res in client.responses:
+            self.assertNotIn('age', str(res), )
+        # print(tempesta.stats.__dict__)
+        # print(tempesta.config.get_config())
+
+
+class TestDisabledCacheFulfillAll(TestCacheBase):
+    """"""
+    tempesta_config = 'cache 0;\r\ncache_fulfill * *;\r\n'
+
+    def test(self):
+        self._test()
+
+
+class TestDisabledCacheBypassAll(TestCacheBase):
+    """"""
+    tempesta_config = 'cache 0;\r\ncache_bypass * *;\r\n'
+
+    def test(self):
+        self._test()
