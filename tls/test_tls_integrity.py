@@ -109,7 +109,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             res = client.wait_for_response(timeout=1)
             self.assertTrue(res, "Cannot process response (len=%d)" % resp_len)
             sniffer.stop()
-            self.assertTrue(sniffer.check_results(), "Not optimal TCP flow")
+            self.assertTrue(sniffer.check_results(client.addr[0]), "Not optimal TCP flow")
 
 
 class Proxy(TlsIntegrityTester):
