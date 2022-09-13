@@ -3,9 +3,11 @@
 from __future__ import print_function
 
 import copy
+import configparser
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
+from helpers.control import Tempesta
 from testers import functional
 from helpers import chains, tf_cfg
 from framework.tester import TempestaTest
@@ -103,6 +105,7 @@ class TestCacheReplicated(TestCacheDisabled):
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
 
 
+#------------------------------------------------------------------------------------------------
 class TestCacheBase(TempestaTest, base=True):
     """"""
     tempesta_template = {
@@ -137,16 +140,25 @@ vhost default {
         },
     ]
 
+    cache_mode: int
     messages = 10
+    uri: str
 
     # Disable caching
     tempesta_config: str
+
+    # expected values for checking
+    expected_cache_hist: int
+    expected_cache_misses: int
+    expected_requests_to_server: int
 
     def setUp(self):
         """"""
         self.tempesta = copy.deepcopy(self.tempesta_template)
         self.tempesta['config'] = (
-            self.tempesta['config'] % {'tempesta_config': self.tempesta_config or ''}
+            self.tempesta['config'] % {
+                'tempesta_config': self.tempesta_config.format(self.cache_mode) or ''
+            }
         )
         super().setUp()
 
@@ -159,7 +171,6 @@ vhost default {
         self.assertTrue(self.wait_all_connections())
 
     def _test(self):
-        """"""
         self.start_all()
 
         srv: StaticDeproxyServer = self.get_server('deproxy')
@@ -175,32 +186,42 @@ vhost default {
 
         client: DeproxyClient = self.get_client('deproxy')
         request = (
-            'GET / HTTP/1.1\r\n'
+            f'GET {self.uri} HTTP/1.1\r\n'
             + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
             + 'Connection: keep-alive\r\n'
             + 'Accept: */*\r\n'
             + '\r\n'
         )
 
+        # print(request)
         for _ in range(self.messages):
             client.make_request(request)
             client.wait_for_response()
 
-        tempesta = self.get_tempesta()
+        # print(client.last_response)
+
+        tempesta: Tempesta = self.get_tempesta()
         tempesta.get_stats()
-        self.assertEqual(tempesta.stats.cache_hits, 0, )
-        self.assertEqual(tempesta.stats.cache_misses, 0, )
+
+        # print(tempesta.get_current_config())
+        self.assertEqual(tempesta.stats.cache_hits, self.expected_cache_hist, )
+        self.assertEqual(tempesta.stats.cache_misses, self.expected_cache_misses, )
         self.assertEqual(tempesta.stats.cl_msg_received, self.messages, )
-        self.assertEqual(len(srv.requests), 10, )
-        for res in client.responses:
-            self.assertNotIn('age', str(res), )
+        self.assertEqual(len(srv.requests), self.expected_requests_to_server, )
+        # for res in client.responses:
+        #     self.assertNotIn('age', str(res), )
         # print(tempesta.stats.__dict__)
         # print(tempesta.config.get_config())
 
 
 class TestDisabledCacheFulfillAll(TestCacheBase):
     """"""
-    tempesta_config = 'cache 0;\r\ncache_fulfill * *;\r\n'
+    cache_mode = 0
+    tempesta_config = 'cache {0};\r\ncache_fulfill * *;\r\n'
+    uri = '/'
+    expected_cache_hist = 0
+    expected_cache_misses = 0
+    expected_requests_to_server = 0
 
     def test(self):
         self._test()
@@ -208,7 +229,67 @@ class TestDisabledCacheFulfillAll(TestCacheBase):
 
 class TestDisabledCacheBypassAll(TestCacheBase):
     """"""
-    tempesta_config = 'cache 0;\r\ncache_bypass * *;\r\n'
+    cache_mode = 0
+    tempesta_config = 'cache {0};\r\ncache_bypass * *;\r\n'
+    uri = '/'
+    expected_cache_hist = 0
+    expected_cache_misses = 0
+    expected_requests_to_server = 0
 
     def test(self):
         self._test()
+
+
+class TestDisabledCacheMixedConfig(TestCacheBase):
+    """"""
+    cache_mode = 0
+    tempesta_config = (
+        'cache {0};\r\n'
+        + 'cache_fulfill suffix ".jpg" ".png";\r\n'
+        + 'cache_bypass suffix ".avi";\r\n'
+        + 'cache_bypass prefix "/static/dynamic_zone/";\r\n'
+        + 'cache_fulfill prefix "/static/";\r\n'
+    )
+    uri = '/picts/bear.jpg'
+    expected_cache_hist = 0
+    expected_cache_misses = 0
+    expected_requests_to_server = 0
+
+    def test_cache_fulfill_suffix(self):
+        self.uri = '/picts/bear.jpg'
+        self._test()
+
+    def test_cache_fulfill_suffix_2(self):
+        self.uri = '/jsnfsjk/jnd.png'
+        self._test()
+
+    def test_cache_bypass_suffix(self):
+        self.uri = '/howto/film.avi'
+        self._test()
+
+    def test_cache_bypass_prefix(self):
+        self.uri = '/static/dynamic_zone/content.html'
+        self._test()
+
+    def test_cache_fulfill_prefix(self):
+        self.uri = '/static/content.html'
+        self._test()
+
+    def test_cache_wo_date(self):
+        self.uri = '/static/content.html'
+        self._test()
+
+
+class TestCacheShardingMixedConfig(TestDisabledCacheMixedConfig):
+
+    # Sharding mode.
+    cache_mode = 1
+
+
+class TestCacheReplicatedMixedConfig(TestDisabledCacheMixedConfig):
+
+    # Sharding mode.
+    cache_mode = 2
+    expected_cache_hist = 9
+    expected_cache_misses = 1
+    expected_requests_to_server = 1
