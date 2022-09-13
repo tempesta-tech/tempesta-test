@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import copy
 import configparser
+import pytest
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
@@ -106,7 +107,7 @@ class TestCacheReplicated(TestCacheDisabled):
 
 
 #------------------------------------------------------------------------------------------------
-class TestCacheBase(TempestaTest, base=True):
+class CacheBase(TempestaTest, base=True):
     """"""
     tempesta_template = {
         'config': """
@@ -141,7 +142,7 @@ vhost default {
     ]
 
     cache_mode: int
-    messages = 10
+    messages: int
     uri: str
 
     # Disable caching
@@ -202,6 +203,7 @@ vhost default {
 
         tempesta: Tempesta = self.get_tempesta()
         tempesta.get_stats()
+        # print(tempesta.stats.__dict__)
 
         # print(tempesta.get_current_config())
         self.assertEqual(tempesta.stats.cache_hits, self.expected_cache_hist, )
@@ -210,39 +212,97 @@ vhost default {
         self.assertEqual(len(srv.requests), self.expected_requests_to_server, )
         # for res in client.responses:
         #     self.assertNotIn('age', str(res), )
-        # print(tempesta.stats.__dict__)
+
         # print(tempesta.config.get_config())
 
 
-class TestDisabledCacheFulfillAll(TestCacheBase):
+class TestDisabledCacheFulfillAll(CacheBase):
     """"""
+    messages = 10
     cache_mode = 0
     tempesta_config = 'cache {0};\r\ncache_fulfill * *;\r\n'
     uri = '/'
     expected_cache_hist = 0
     expected_cache_misses = 0
-    expected_requests_to_server = 0
+    expected_requests_to_server = messages
 
     def test(self):
         self._test()
 
 
-class TestDisabledCacheBypassAll(TestCacheBase):
+class TestCacheShardingFulfillAll(CacheBase):
     """"""
+    messages = 10
+    cache_mode = 1
+    tempesta_config = 'cache {0};\r\ncache_fulfill * *;\r\n'
+    uri = '/'
+    expected_cache_hist = messages - 1
+    expected_cache_misses = 1
+    expected_requests_to_server = 1
+
+    def test(self):
+        self._test()
+
+
+class TestCacheReplicatedFulfillAll(CacheBase):
+    """"""
+    messages = 10
+    cache_mode = 2
+    tempesta_config = 'cache {0};\r\ncache_fulfill * *;\r\n'
+    uri = '/'
+    expected_cache_hist = messages - 1
+    expected_cache_misses = 1
+    expected_requests_to_server = 1
+
+    def test(self):
+        self._test()
+
+
+class TestDisabledCacheBypassAll(CacheBase):
+    """"""
+    messages = 10
     cache_mode = 0
     tempesta_config = 'cache {0};\r\ncache_bypass * *;\r\n'
     uri = '/'
     expected_cache_hist = 0
     expected_cache_misses = 0
-    expected_requests_to_server = 0
+    expected_requests_to_server = messages
 
     def test(self):
         self._test()
 
 
-class TestDisabledCacheMixedConfig(TestCacheBase):
+class TestCacheShardingBypassAll(CacheBase):
     """"""
-    cache_mode = 0
+    messages = 10
+    cache_mode = 1
+    tempesta_config = 'cache {0};\r\ncache_bypass * *;\r\n'
+    uri = '/'
+    expected_cache_hist = 0
+    expected_cache_misses = 0
+    expected_requests_to_server = messages
+
+    def test(self):
+        self._test()
+
+
+class TestCacheReplicatedBypassAll(CacheBase):
+    """"""
+    messages = 10
+    cache_mode = 2
+    tempesta_config = 'cache {0};\r\ncache_bypass * *;\r\n'
+    uri = '/'
+    expected_cache_hist = 0
+    expected_cache_misses = 0
+    expected_requests_to_server = messages
+
+    def test(self):
+        self._test()
+
+
+class CacheForMixedConfig(CacheBase, base=True):
+    """"""
+    messages = 10
     tempesta_config = (
         'cache {0};\r\n'
         + 'cache_fulfill suffix ".jpg" ".png";\r\n'
@@ -250,46 +310,95 @@ class TestDisabledCacheMixedConfig(TestCacheBase):
         + 'cache_bypass prefix "/static/dynamic_zone/";\r\n'
         + 'cache_fulfill prefix "/static/";\r\n'
     )
-    uri = '/picts/bear.jpg'
+    expected_cache_hist = messages - 1
+    expected_cache_misses = 1
+    expected_requests_to_server = 1
+
+
+class NoCacheForMixedConfig(CacheBase, base=True):
+    """"""
+    messages = 10
+    tempesta_config = (
+        'cache {0};\r\n'
+        + 'cache_fulfill suffix ".jpg" ".png";\r\n'
+        + 'cache_bypass suffix ".avi";\r\n'
+        + 'cache_bypass prefix "/static/dynamic_zone/";\r\n'
+        + 'cache_fulfill prefix "/static/";\r\n'
+    )
     expected_cache_hist = 0
     expected_cache_misses = 0
-    expected_requests_to_server = 0
+    expected_requests_to_server = 10
+
+
+class TestCacheReplicatedNew(CacheForMixedConfig):
+    cache_mode = 2
+
+
+class TestCacheReplicatedMixedConfig(CacheBase, base=True):
+    """"""
+    messages = 10
+    cache_mode = 2
+    tempesta_config = (
+        'cache {0};\r\n'
+        + 'cache_fulfill suffix ".jpg" ".png";\r\n'
+        + 'cache_bypass suffix ".avi";\r\n'
+        + 'cache_bypass prefix "/static/dynamic_zone/";\r\n'
+        + 'cache_fulfill prefix "/static/";\r\n'
+    )
 
     def test_cache_fulfill_suffix(self):
+        self.expected_cache_hist = self.messages - 1
+        self.expected_cache_misses = 1
+        self.expected_requests_to_server = 1
         self.uri = '/picts/bear.jpg'
         self._test()
 
     def test_cache_fulfill_suffix_2(self):
+        self.expected_cache_hist = self.messages - 1
+        self.expected_cache_misses = 1
+        self.expected_requests_to_server = 1
         self.uri = '/jsnfsjk/jnd.png'
         self._test()
 
     def test_cache_bypass_suffix(self):
+        self.expected_cache_hist = 0
+        self.expected_cache_misses = 0
+        self.expected_requests_to_server = self.messages
         self.uri = '/howto/film.avi'
         self._test()
 
     def test_cache_bypass_prefix(self):
+        self.expected_cache_hist = 0
+        self.expected_cache_misses = 0
+        self.expected_requests_to_server = self.messages
         self.uri = '/static/dynamic_zone/content.html'
         self._test()
 
     def test_cache_fulfill_prefix(self):
+        self.expected_cache_hist = self.messages - 1
+        self.expected_cache_misses = 1
+        self.expected_requests_to_server = 1
         self.uri = '/static/content.html'
         self._test()
 
-    def test_cache_wo_date(self):
-        self.uri = '/static/content.html'
-        self._test()
+    # def test_cache_wo_date(self):
+    #     self.expected_cache_hist = 9
+    #     self.expected_cache_misses = 1
+    #     self.expected_requests_to_server = 1
+    #     self.uri = '/static/content.html'
+    #     self._test()
 
 
-class TestCacheShardingMixedConfig(TestDisabledCacheMixedConfig):
-
-    # Sharding mode.
-    cache_mode = 1
-
-
-class TestCacheReplicatedMixedConfig(TestDisabledCacheMixedConfig):
-
-    # Sharding mode.
-    cache_mode = 2
-    expected_cache_hist = 9
-    expected_cache_misses = 1
-    expected_requests_to_server = 1
+# class TestCacheShardingMixedConfig(TestDisabledCacheMixedConfig):
+#
+#     # Sharding mode.
+#     cache_mode = 1
+#
+#
+# class TestCacheReplicatedMixedConfig(TestDisabledCacheMixedConfig):
+#
+#     # Sharding mode.
+#     cache_mode = 2
+#     expected_cache_hist = 9
+#     expected_cache_misses = 1
+#     expected_requests_to_server = 1
