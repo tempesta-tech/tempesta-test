@@ -270,7 +270,7 @@ server ${server_ip}:8000;
         self.assertIn(
             '403',
             curl.response_msg,
-            f'"curl" client did received {curl.response_msg} status code, and it expected 403.',
+            'HTTP response status codes mismatch',
         )
 
     def test_double_curl(self):

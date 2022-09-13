@@ -28,5 +28,5 @@ class ExternalTester(client.Client):
         return cmd
 
     def parse_out(self, stdout, stderr):
-        self.response_msg = stdout.decode()
+        self.response_msg = stdout.decode() if stdout else stderr.decode()
         return True
