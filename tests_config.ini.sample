@@ -256,3 +256,6 @@ aliases_base_ip = 192.168.10.1
 # -1 for unlimited
 
 max_workers = 16
+
+# WordPress port
+wordpress_port = 8080
