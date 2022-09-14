@@ -254,3 +254,26 @@ class TestShardingCacheFulfillPrefix(TestDisabledCacheFulfillPrefix):
 class TestReplicatedCacheFulfillPrefix(TestDisabledCacheFulfillPrefix):
     should_be_cached = True
     cache_mode = 2
+
+
+class TestDisabledCacheDate(CacheBase):
+    should_be_cached = False
+    cache_mode = 0
+    tempesta_config = MIXED_CONFIG
+    uri = '/static/content.html'
+
+    def test(self):
+        super().test()
+        client = self.get_client('deproxy')
+        for response in client.responses:
+            self.assertIn('date', str(response), )
+
+
+class TestShardingCacheDate(TestDisabledCacheDate):
+    should_be_cached = True
+    cache_mode = 1
+
+
+class TestReplicatedCacheDate(TestDisabledCacheDate):
+    should_be_cached = True
+    cache_mode = 2
