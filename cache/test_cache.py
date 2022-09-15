@@ -113,6 +113,7 @@ vhost default {
         self.assertNotIn('age', str(client.responses[0]), )
         cache_responses = client.responses[1:]
 
+        self.assertEqual(self.messages, len(client.responses), )
         if self.should_be_cached:
             self.assertEqual(tempesta.stats.cache_misses, 1, )
             self.assertEqual(tempesta.stats.cl_msg_served_from_cache, self.messages - 1, )
