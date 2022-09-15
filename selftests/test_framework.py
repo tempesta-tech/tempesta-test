@@ -1,11 +1,14 @@
-import time
-
-from helpers import tf_cfg, deproxy
-from framework import tester, nginx_server, deproxy_server
+""" Example tests and checking functionality of services """
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
+from helpers import tf_cfg, deproxy, remote
+from helpers.control import Tempesta
+from helpers.remote import CmdError
+from framework import tester, nginx_server, wrk_client, deproxy_server, external_client
+
 
 class ExampleTest(tester.TempestaTest):
     backends = [
@@ -104,41 +107,81 @@ server ${server_ip}:8000;
             'type' : 'deproxy',
             'addr' : "${server_ip}",
             'port' : '8000'
-        }
+        },
+        {
+            'id': 'curl',
+            'type': 'external',
+            'binary': 'curl',
+            'cmd_args': '-Ikf http://127.0.0.1:80/',
+        },
+        {
+            'id': 'curl_1',
+            'type': 'external',
+            'binary': 'curl',
+            'cmd_args': '-Ikf http://127.0.0.2:80/',
+        },
     ]
 
-    def test(self):
-        """ Simple test """
-        nginx = self.get_server('nginx')
+    def test_wrk_client(self):
+        """ Check results for 'wrk' client """
+        nginx: nginx_server.Nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
-        wrk1 = self.get_client('wrk_1')
+        wrk1: wrk_client.Wrk = self.get_client('wrk_1')
         wrk1.start()
         self.wait_while_busy(wrk1)
+        wrk1.stop()
 
-    def test2(self):
-        """ Simple test 2 """
-        nginx = self.get_server('nginx')
+        self.assertNotEqual(
+            0,
+            wrk1.requests,
+            msg='"wrk" client has not sent requests or received results.',
+        )
+
+    def test_double_wrk(self):
+        """ Check the parallel work of two "wrk" clients """
+        nginx: nginx_server.Nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
-        wrk1 = self.get_client('wrk_1')
-        wrk2 = self.get_client('wrk_2')
+
+        wrk1: wrk_client.Wrk = self.get_client('wrk_1')
+        wrk2: wrk_client.Wrk = self.get_client('wrk_2')
+
         wrk1.start()
         wrk2.start()
+        wrk1_cmd = f'ps -fp {wrk1.proc.pid}'
+        wrk2_cmd = f'ps -fp {wrk2.proc.pid}'
+        remote.client.run_cmd(wrk1_cmd)
+        remote.client.run_cmd(wrk2_cmd)
         self.wait_while_busy(wrk1, wrk2)
+        self.assertRaises(CmdError, remote.client.run_cmd, wrk1_cmd)
+        self.assertRaises(CmdError, remote.client.run_cmd, wrk2_cmd)
+        wrk1.stop()
+        wrk2.stop()
 
     def test_deproxy_srv(self):
-        """ Simple test with deproxy server """
-        deproxy = self.get_server('deproxy')
+        """ Simple test with deproxy server and check tempesta stats"""
+        deproxy: deproxy_server.StaticDeproxyServer = self.get_server('deproxy')
         deproxy.start()
         self.start_tempesta()
         self.deproxy_manager.start()
         self.assertTrue(deproxy.wait_for_connections(timeout=1))
-        wrk1 = self.get_client('wrk_1')
+
+        wrk1: wrk_client.Wrk = self.get_client('wrk_1')
         wrk1.start()
         self.wait_while_busy(wrk1)
+        wrk1.stop()
+
+        tempesta: Tempesta = self.get_tempesta()
+        tempesta.get_stats()
+
+        self.assertAlmostEqual(
+            len(deproxy.requests),
+            tempesta.stats.srv_msg_received,
+            msg='Count of server request does not match tempesta stats.'
+        )
 
     def test_deproxy_srv_direct(self):
         """ Simple test with deproxy server """
@@ -148,6 +191,7 @@ server ${server_ip}:8000;
         wrk0 = self.get_client('wrk_0')
         wrk0.start()
         self.wait_while_busy(wrk0)
+        wrk0.stop()
 
     def test_deproxy_client(self):
         """ Simple test with deproxy client """
@@ -210,3 +254,55 @@ server ${server_ip}:8000;
         send = deproxy.Response(dsrv.response)
         send.set_expected()
         self.assertEqual(cl.last_response, send)
+
+    def test_curl(self):
+        """  Check results for 'curl' client """
+        nginx: nginx_server.Nginx = self.get_server('nginx')
+        nginx.start()
+        self.start_tempesta()
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
+
+        curl: external_client.ExternalTester = self.get_client('curl')
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
+
+        self.assertIn(
+            '403',
+            curl.response_msg,
+            'HTTP response status codes mismatch',
+        )
+
+    def test_double_curl(self):
+        """ Check the parallel work of two "curl" clients """
+        nginx: nginx_server.Nginx = self.get_server('nginx')
+        nginx.start()
+        self.start_tempesta()
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
+
+        curl: external_client.ExternalTester = self.get_client('curl')
+        curl1: external_client.ExternalTester = self.get_client('curl_1')
+
+        curl.start()
+        curl1.start()
+        curl_cmd = f'ps -fp {curl.proc.pid}'
+        curl1_cmd = f'ps -fp {curl1.proc.pid}'
+        remote.client.run_cmd(curl_cmd)
+        remote.client.run_cmd(curl1_cmd)
+        self.wait_while_busy(curl, curl1)
+        self.assertRaises(CmdError, remote.client.run_cmd, curl_cmd)
+        self.assertRaises(CmdError, remote.client.run_cmd, curl1_cmd)
+        curl.stop()
+        curl1.stop()
+
+        err_msg = '"Curl" client did not response message.'
+        self.assertNotEqual(
+            None,
+            curl.response_msg,
+            err_msg,
+        )
+        self.assertNotEqual(
+            None,
+            curl1.response_msg,
+            err_msg,
+        )
