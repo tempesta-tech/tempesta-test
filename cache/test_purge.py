@@ -561,3 +561,22 @@ class TestPurgeGetWithTransferEncoding(tester.TempestaTest):
                 self.assertEqual(response.headers["content-length"], "0")
                 # Purge is completed with no errors
                 self.assertFalse(response.stderr)
+
+    def test_purge_connection_close_header(self):
+        """Test that `Connection` header is passed to backend."""
+        self.start_all()
+        client = self.get_client('purge')
+        client.options.append(f"--header 'Test: close'")
+        client.options.append(f"--header 'Connection: close'")
+        client.set_uri("/server1")
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        response = client.last_response
+
+        self.assertEqual(response.status, 200, response)
+
+        server_request = self.get_server('default').last_request
+        self.assertEqual(server_request.headers['Test'], 'close')
+        self.assertEqual(server_request.headers['Connection'], 'close')
