@@ -10,6 +10,10 @@ from helpers.remote import CmdError
 from framework import tester, nginx_server, wrk_client, deproxy_server, external_client
 
 
+# Number of bytes to test external client output
+LARGE_OUTPUT_LEN = 200 * 1024
+
+
 class ExampleTest(tester.TempestaTest):
     backends = [
         {
@@ -120,6 +124,14 @@ server ${server_ip}:8000;
             'binary': 'curl',
             'cmd_args': '-Ikf http://127.0.0.2:80/',
         },
+        # Output large amount of '@' symbol
+        {
+            'id': 'large_output',
+            'type': 'external',
+            'binary': 'python',
+            'cmd_args': f"-c 'print(\"@\" * {LARGE_OUTPUT_LEN}, end=str())'",
+        },
+
     ]
 
     def test_wrk_client(self):
@@ -306,3 +318,20 @@ server ${server_ip}:8000;
             curl1.response_msg,
             err_msg,
         )
+
+    def test_client_large_data_output(self):
+        """
+        Check that a large amount of data from the external client
+        does not cause problems.
+        Test could stuck in busy loop in case of error.
+        The value of `LARGE_OUTPUT_LEN` may need to be changed
+        to reproduce on different systems.
+        (see issue #307)
+        """
+        client: external_client.ExternalTester = self.get_client('large_output')
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+
+        self.assertEqual(client.response_msg, '@' * LARGE_OUTPUT_LEN)
