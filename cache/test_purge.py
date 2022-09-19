@@ -8,7 +8,7 @@ from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
-from helpers import tf_cfg
+from helpers import dmesg, tf_cfg
 from helpers.deproxy import HttpMessage
 
 
@@ -448,7 +448,7 @@ cache_resp_hdr_del set-cookie;
         self.assertEqual(len(srv.requests), 4, "Server has lost requests.")
 
 
-class TestPurgeGetWithTransferEncoding(tester.TempestaTest):
+class TestPurgeGet(tester.TempestaTest):
 
     backends = [
         # /server-1: default transfer encoding
@@ -524,8 +524,9 @@ class TestPurgeGetWithTransferEncoding(tester.TempestaTest):
         """
     }
     clients = [
+        {"id": "purge", "type": "curl", "cmd_args": (" --request PURGE" " --max-time 2")},
         {
-            "id": "purge",
+            "id": "purge_get",
             "type": "curl",
             "cmd_args": (" --request PURGE" ' --header "X-Tempesta-Cache: get"' " --max-time 2"),
         },
@@ -542,7 +543,7 @@ class TestPurgeGetWithTransferEncoding(tester.TempestaTest):
         (see Tempesta issue #1692)
         """
         self.start_all()
-        client = self.get_client("purge")
+        client = self.get_client("purge_get")
 
         for uri in "/server1", "/server2", "/server3":
             with self.subTest("PURGE+GET", uri=uri):
@@ -565,7 +566,7 @@ class TestPurgeGetWithTransferEncoding(tester.TempestaTest):
     def test_purge_connection_close_header(self):
         """Test that `Connection` header is passed to backend."""
         self.start_all()
-        client = self.get_client('purge')
+        client = self.get_client("purge_get")
         client.options.append(f"--header 'Test: close'")
         client.options.append(f"--header 'Connection: close'")
         client.set_uri("/server1")
@@ -577,6 +578,23 @@ class TestPurgeGetWithTransferEncoding(tester.TempestaTest):
 
         self.assertEqual(response.status, 200, response)
 
-        server_request = self.get_server('default').last_request
-        self.assertEqual(server_request.headers['Test'], 'close')
-        self.assertEqual(server_request.headers['Connection'], 'close')
+        server_request = self.get_server("default").last_request
+        self.assertEqual(server_request.headers["Test"], "close")
+        self.assertEqual(server_request.headers["Connection"], "close")
+
+    def test_purge_without_get_completed_with_no_warnings(self):
+        self.start_all()
+        client = self.get_client("purge")
+        client.set_uri("/server1")
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        response = client.last_response
+
+        self.assertEqual(response.status, 200, response)
+        self.assertEqual(
+            self.oops.warn_count(dmesg.WARN_GENERIC),
+            0,
+            f"Warnings: {self.oops.warn_match('Warning: .*')}",
+        )
