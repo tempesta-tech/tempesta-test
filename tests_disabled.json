@@ -344,7 +344,10 @@
         {
             "name" : "cache.test_purge_resp_hch.HeavyChunkedPurgeRespTest.test_1_purge_resp_hch",
             "reason": "Need to investigate"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test_curl",
+            "reason": "Disable by issue #308"
         }
-        
     ]
 }
