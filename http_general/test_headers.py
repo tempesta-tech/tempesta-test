@@ -177,3 +177,60 @@ class RepeatedHeaderCache(tester.TempestaTest):
 
         self.assertTrue(client.wait_for_response(timeout=1))
         self.assertEqual(client.last_response.status, '200')
+
+
+class TestSmallHeader(tester.TempestaTest):
+    backends = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'port': '8000',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n\r\n'
+            ),
+        },
+    ]
+
+    tempesta = {
+        'config':
+        """
+        listen 80;
+        server ${server_ip}:8000;
+        cache 0;
+        """
+    }
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+        }
+    ]
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
+
+    def test_small_header_name_accepted(self):
+        """Request with small header name length completes successfully."""
+        self.start_all()
+        client = self.get_client('deproxy')
+
+        for length in range(1, 5):
+            header = 'X' * length
+            client.start()
+            with self.subTest(header=header):
+                client.make_request(
+                    'GET / HTTP/1.1\r\n'
+                    f"{header}: test\r\n"
+                    '\r\n'
+                )
+                self.assertTrue(client.wait_for_response(timeout=1))
+                self.assertEqual(client.last_response.status, '200')
+            client.stop()
