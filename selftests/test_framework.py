@@ -4,14 +4,13 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-from helpers import tf_cfg, deproxy, remote
+from helpers import tf_cfg, deproxy
 from helpers.control import Tempesta
-from helpers.remote import CmdError
 from framework import tester, nginx_server, wrk_client, deproxy_server, external_client
 
 
 # Number of bytes to test external client output
-LARGE_OUTPUT_LEN = 200 * 1024
+LARGE_OUTPUT_LEN = 1024 ** 2
 
 
 class ExampleTest(tester.TempestaTest):
@@ -128,7 +127,7 @@ server ${server_ip}:8000;
         {
             'id': 'large_output',
             'type': 'external',
-            'binary': 'python',
+            'binary': 'python3',
             'cmd_args': f"-c 'print(\"@\" * {LARGE_OUTPUT_LEN}, end=str())'",
         },
 
@@ -163,15 +162,21 @@ server ${server_ip}:8000;
 
         wrk1.start()
         wrk2.start()
-        wrk1_cmd = f'ps -fp {wrk1.proc.pid}'
-        wrk2_cmd = f'ps -fp {wrk2.proc.pid}'
-        remote.client.run_cmd(wrk1_cmd)
-        remote.client.run_cmd(wrk2_cmd)
         self.wait_while_busy(wrk1, wrk2)
-        self.assertRaises(CmdError, remote.client.run_cmd, wrk1_cmd)
-        self.assertRaises(CmdError, remote.client.run_cmd, wrk2_cmd)
         wrk1.stop()
         wrk2.stop()
+
+        err_msg = '"wrk" client has not sent requests or received results.'
+        self.assertNotEqual(
+            0,
+            wrk1.requests,
+            msg=err_msg,
+        )
+        self.assertNotEqual(
+            0,
+            wrk2.requests,
+            msg=err_msg,
+        )
 
     def test_deproxy_srv(self):
         """ Simple test with deproxy server and check tempesta stats"""
@@ -297,13 +302,7 @@ server ${server_ip}:8000;
 
         curl.start()
         curl1.start()
-        curl_cmd = f'ps -fp {curl.proc.pid}'
-        curl1_cmd = f'ps -fp {curl1.proc.pid}'
-        remote.client.run_cmd(curl_cmd)
-        remote.client.run_cmd(curl1_cmd)
         self.wait_while_busy(curl, curl1)
-        self.assertRaises(CmdError, remote.client.run_cmd, curl_cmd)
-        self.assertRaises(CmdError, remote.client.run_cmd, curl1_cmd)
         curl.stop()
         curl1.stop()
 
