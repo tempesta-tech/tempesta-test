@@ -96,6 +96,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         listen 443 proto=h2;
         server ${server_ip}:8000;
         cache 2;
+        cache_fulfill * *;
 
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -182,6 +183,7 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
         listen 443 proto=h2;
         server ${server_ip}:8000;
         cache 2;
+        cache_fulfill * *;
 
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -244,8 +246,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
             f"Last-Modified: {DATE}\r\n"
             f"Date: {DATE}\r\n"
             "Server: Deproxy Server\r\n"
-            "Transfer-Encoding: chunked\r\n\r\n"
-            "the body does not actually matter",
+            "Transfer-Encoding: chunked\r\n\r\n",
         }
     ]
     tempesta = {
@@ -254,6 +255,11 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         cache 0;
         """
     }
+
+    def setUp(self):
+        # add a chunked body
+        self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
+        super().setUp()
 
     def test(self):
         self.start_all()
@@ -274,14 +280,14 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "There should be a response")
-        self.assertEqual(len(server.requests), 1, "The response has to be server from cache")
+        self.assertEqual(len(server.requests), 2, "The response has to be server from cache")
 
 
 class TestH1BothTEAndCE(tester.TempestaTest, CommonUtils):
     """
     If a response from backend contains Transfer-Encoding other than chunked
-    and Content-Encoding such responses are valid and must be forwarded to client.
-
+    and Content-Encoding such responses are invalid for us for now.
+    Transfer-Encoding other than chunked it's really rare case, we consider it as suspicious.
     """
 
     clients = [{"id": "client", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
@@ -317,12 +323,7 @@ class TestH1BothTEAndCE(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
-        self.assertEqual(
-            response.headers.get("Transfer-Encoding"), "gzip", "Transfer encoding mismatch"
-        )
-        self.assertEqual(
-            response.headers.get("Content-Encoding"), "br", "Content encoding mismatch"
-        )
+        self.assertEqual(response.status, "502", "Wrong response status code")
 
 
 class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
