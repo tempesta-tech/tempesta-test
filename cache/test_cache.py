@@ -4,7 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+
 from framework import tester
+from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers import checks_for_tests as checks
@@ -395,6 +397,87 @@ class H2Cache(tester.TempestaTest):
             1,
             "The second request wasn't served from cache.",
         )
+
+
+class TestChunkedResponse(tester.TempestaTest):
+
+    backends = [
+        {
+            "id": "chunked",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n"
+                "9\r\n"
+                "test-data\r\n"
+                "0\r\n"
+                "\r\n"
+            ),
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        cache 1;
+        cache_fulfill * *;
+        server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            "id": "get",
+            "type": "curl",
+            "cmd_args": (
+                # Disable HTTP decoding, chunked data should be compared
+                " --raw"
+                # Prevent hang on invalid response
+                " --max-time 1"
+            ),
+        },
+    ]
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
+
+    def get_response(self, client) -> CurlResponse:
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        return client.last_response
+
+    def test_cached_data_equal_to_original(self):
+        """
+        Cached data of the chunked response
+        should be equal to the original data.
+        (see Tempesta issue #1698)
+        """
+        self.start_all()
+        srv = self.get_server("chunked")
+        client = self.get_client("get")
+
+        with self.subTest("Get non-cached response"):
+            response = self.get_response(client)
+            self.assertEqual(response.status, 200, response)
+            self.assertNotIn("age", response.headers)
+            original_data = response.stdout
+
+        with self.subTest("Get cached response"):
+            response = self.get_response(client)
+            self.assertEqual(response.status, 200, response)
+            cached_data = response.stdout
+            # check that response is from the cache
+            self.assertEqual(len(srv.requests), 1)
+            self.assertIn("age", response.headers)
+
+        self.assertEqual(cached_data, original_data)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
