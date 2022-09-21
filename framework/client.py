@@ -84,7 +84,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             self.node.copy_file(name, content)
 
     def is_busy(self, verbose=True):
-        busy = self.proc.is_alive()
+        busy = self.resq.empty()
         if verbose:
             if busy:
                 tf_cfg.dbg(4, "\tClient is running")
@@ -96,18 +96,25 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         if not hasattr(self.proc, "terminate"):
             return
         tf_cfg.dbg(3, "Stopping client")
-        self.proc.terminate()
-        if not self.resq.empty():
-            self.proc_results = self.resq.get()
+
+        self.proc_results = self.resq.get(timeout=self.duration)
+
+        self.proc.join()
         self.proc = None
 
-        if self.proc_results != None:
+        if self.proc_results:
             tf_cfg.dbg(3, '\tclient stdout:\n%s' % self.proc_results[0].decode())
 
             if len(self.proc_results[1]) > 0:
                 tf_cfg.dbg(2, '\tclient stderr:\n%s' % self.proc_results[1].decode())
 
             self.parse_out(self.proc_results[0], self.proc_results[1])
+        else:
+            tf_cfg.dbg(
+                2,
+                f'\tCmd command "{self.cmd}" has not received data from queue. '
+                + 'Queue is empty and timeout is over.'
+            )
 
         tf_cfg.dbg(3, "Client is stopped")
 

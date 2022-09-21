@@ -4,10 +4,13 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-from helpers import tf_cfg, deproxy, remote
+from helpers import tf_cfg, deproxy
 from helpers.control import Tempesta
-from helpers.remote import CmdError
 from framework import tester, nginx_server, wrk_client, deproxy_server, external_client
+
+
+# Number of bytes to test external client output
+LARGE_OUTPUT_LEN = 1024 ** 2
 
 
 class ExampleTest(tester.TempestaTest):
@@ -120,6 +123,14 @@ server ${server_ip}:8000;
             'binary': 'curl',
             'cmd_args': '-Ikf http://127.0.0.2:80/',
         },
+        # Output large amount of '@' symbol
+        {
+            'id': 'large_output',
+            'type': 'external',
+            'binary': 'python3',
+            'cmd_args': f"-c 'print(\"@\" * {LARGE_OUTPUT_LEN}, end=str())'",
+        },
+
     ]
 
     def test_wrk_client(self):
@@ -151,15 +162,21 @@ server ${server_ip}:8000;
 
         wrk1.start()
         wrk2.start()
-        wrk1_cmd = f'ps -fp {wrk1.proc.pid}'
-        wrk2_cmd = f'ps -fp {wrk2.proc.pid}'
-        remote.client.run_cmd(wrk1_cmd)
-        remote.client.run_cmd(wrk2_cmd)
         self.wait_while_busy(wrk1, wrk2)
-        self.assertRaises(CmdError, remote.client.run_cmd, wrk1_cmd)
-        self.assertRaises(CmdError, remote.client.run_cmd, wrk2_cmd)
         wrk1.stop()
         wrk2.stop()
+
+        err_msg = '"wrk" client has not sent requests or received results.'
+        self.assertNotEqual(
+            0,
+            wrk1.requests,
+            msg=err_msg,
+        )
+        self.assertNotEqual(
+            0,
+            wrk2.requests,
+            msg=err_msg,
+        )
 
     def test_deproxy_srv(self):
         """ Simple test with deproxy server and check tempesta stats"""
@@ -285,13 +302,7 @@ server ${server_ip}:8000;
 
         curl.start()
         curl1.start()
-        curl_cmd = f'ps -fp {curl.proc.pid}'
-        curl1_cmd = f'ps -fp {curl1.proc.pid}'
-        remote.client.run_cmd(curl_cmd)
-        remote.client.run_cmd(curl1_cmd)
         self.wait_while_busy(curl, curl1)
-        self.assertRaises(CmdError, remote.client.run_cmd, curl_cmd)
-        self.assertRaises(CmdError, remote.client.run_cmd, curl1_cmd)
         curl.stop()
         curl1.stop()
 
@@ -306,3 +317,20 @@ server ${server_ip}:8000;
             curl1.response_msg,
             err_msg,
         )
+
+    def test_client_large_data_output(self):
+        """
+        Check that a large amount of data from the external client
+        does not cause problems.
+        Test could stuck in busy loop in case of error.
+        The value of `LARGE_OUTPUT_LEN` may need to be changed
+        to reproduce on different systems.
+        (see issue #307)
+        """
+        client: external_client.ExternalTester = self.get_client('large_output')
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+
+        self.assertEqual(client.response_msg, '@' * LARGE_OUTPUT_LEN)

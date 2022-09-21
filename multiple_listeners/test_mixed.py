@@ -161,14 +161,13 @@ class TestMixedListeners(tester.TempestaTest):
         client: ExternalTester = self.get_client(curl_client_id)
         client.start()
         self.wait_while_busy(client)
-        response = client.resq.get(True, 1)
-        if response[0].decode():
+        client.stop()
+        if client.response_msg:
             tf_cfg.dbg(4, f"\t{client.options[0]} request received response")
         else:
             tf_cfg.dbg(4, f"\t{client.options[0]} request did not receive response")
         client.stop()
-        self.wait_while_busy(client)
-        return response[0].decode()
+        return client.response_msg
 
     def check_curl_response(self, response: str, fail=False):
         """
