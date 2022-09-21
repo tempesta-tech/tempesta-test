@@ -1,8 +1,6 @@
 import abc
 import os
 import multiprocessing
-import queue
-import time
 
 from helpers import remote, tf_cfg, stateful
 
@@ -99,18 +97,9 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             return
         tf_cfg.dbg(3, "Stopping client")
 
-        t0 = time.time()
-        while True:
-            try:
-                t = time.time()
-                if t - t0 > self.duration:
-                    break
-                self.proc_results = self.resq.get_nowait()
-                break
-            except queue.Empty:
-                time.sleep(0.01)
+        self.proc_results = self.resq.get(timeout=self.duration)
 
-        self.proc.terminate()
+        self.proc.join()
         self.proc = None
 
         if self.proc_results:
@@ -123,7 +112,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         else:
             tf_cfg.dbg(
                 2,
-                f'\tCmd command "{self.form_command()}" has not received data from queue. '
+                f'\tCmd command "{self.cmd}" has not received data from queue. '
                 + 'Queue is empty and timeout is over.'
             )
 
