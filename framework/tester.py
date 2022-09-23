@@ -359,3 +359,17 @@ class TempestaTest(unittest.TestCase):
             if not srv.wait_for_connections(timeout=tmt):
                 return False
         return True
+
+    def start_all_services(self, deproxy: bool = False) -> None:
+        """
+        Start all services.
+
+        Args:
+            deproxy (bool): True - if server is deproxy
+        """
+        self.start_tempesta()
+        self.start_all_servers()
+        self.start_all_clients()
+        if deproxy:
+            self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections())
