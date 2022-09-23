@@ -237,6 +237,7 @@ class BaseDeproxyClient(deproxy.Client):
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
     responses = []
+    last_response: deproxy.Response
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
@@ -280,6 +281,7 @@ class DeproxyClient(BaseDeproxyClient):
 
 
 class DeproxyClientH2(DeproxyClient):
+    last_response: deproxy.H2Response
 
     def __init__(self, *args, **kwargs):
         DeproxyClient.__init__(self, *args, **kwargs)
