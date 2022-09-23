@@ -86,7 +86,7 @@ cache_fulfill * *;
             self.assertEqual(
                 len(srv.requests) and tempesta.stats.srv_msg_received,
                 1,
-                'Server has received more requests than expected.',
+                'Server has received unexpected number of requests.',
             )
         else:
             checks.check_tempesta_cache_stats(
@@ -332,7 +332,11 @@ class TestMultipleMethods(TempestaTest):
             cache_misses=2,
             cl_msg_served_from_cache=2,
         )
-        self.assertEqual(len(self.get_server('deproxy').requests), 2, )
+        self.assertEqual(
+            len(self.get_server('deproxy').requests),
+            2,
+            'Server has received unexpected number of requests.',
+        )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

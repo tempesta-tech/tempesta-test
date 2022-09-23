@@ -11,11 +11,8 @@ from helpers import tf_cfg
 from helpers.deproxy import HttpMessage
 
 
-# TODO: Check that all headers that must be present in 304 response are there.
-# Not implemented since some of them (at least Vary) affect cache behaviour.
-
-
 class TestConditional(TempestaTest):
+    """There are checks for 'if-none-match' and 'if-modified-since' headers in request."""
     tempesta = {
         'config': """
 listen 80;
@@ -51,26 +48,13 @@ cache_methods GET;
         },
     ]
 
-    def start_all(self):
-        """Start all services."""
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
-    def make_request(self, request: str):
-        """"""
-        client: DeproxyClient = self.get_client('deproxy')
-        curr_responses = len(client.responses)
-        client.make_request(request)
-        client.wait_for_response(timeout=1)
-        self.assertEqual(curr_responses + 1, len(client.responses), 'Response is lost.')
-
     def _test(self, etag: str, expected_status_code: str, if_none_match: str = None,
               if_modified_since: str = None, ):
-        """"""
-        self.start_all()
+        """
+        Send GET request and receive 'Etag' header. Repeat request with correct/incorrect
+        'if-none-match' and 'if-modified-since' headers.
+        """
+        self.start_all_services(deproxy=True)
         srv: StaticDeproxyServer = self.get_server('deproxy')
         client: DeproxyClient = self.get_client('deproxy')
 
@@ -87,36 +71,42 @@ cache_methods GET;
             + '<html></html>\r\n'
         )
 
-        self.make_request(
-            f'GET /page.html HTTP/1.1\r\n'
+        client.send_request(
+            request=f'GET /page.html HTTP/1.1\r\n'
             + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
             + 'Connection: keep-alive\r\n'
             + 'Accept: */*\r\n'
             + '\r\n',
+            expected_status_code='200',
         )
         self.assertIn(etag, str(client.last_response), )
 
-        if if_none_match:
+        if if_none_match and if_modified_since:
+            option_header = (
+                f'if-none-match: {if_none_match}\r\n'
+                + f'if-modified-since: {if_modified_since}\r\n'
+            )
+        elif if_none_match:
             option_header = f'if-none-match: {if_none_match}\r\n'
         elif if_modified_since:
             option_header = f'if-modified-since: {if_modified_since}\r\n'
         else:
             option_header = ''
 
-        self.make_request(
-            f'GET /page.html HTTP/1.1\r\n'
+        client.send_request(
+            request=f'GET /page.html HTTP/1.1\r\n'
             + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
             + 'Connection: keep-alive\r\n'
             + 'Accept: */*\r\n'
             + option_header
-            + '\r\n'
+            + '\r\n',
+            expected_status_code=expected_status_code,
         )
-        self.assertIn(etag, str(client.last_response), )
-        self.assertEqual(client.last_response.status, expected_status_code, '')
-        self.assertEqual(len(srv.requests), 1, )
+        self.assertIn(etag, client.last_response.headers['etag'], )
+        self.assertEqual(len(srv.requests), 1, 'Server has received unexpected number of requests.')
 
     def test_none_match(self):
-        """Client have cached resource, send 304."""
+        """Client has cached resource, send 304."""
         self._test(
             etag='"asdfqwerty"',
             expected_status_code='304',
@@ -170,7 +160,7 @@ cache_methods GET;
         )
 
     def test_none_match_nc(self):
-        """Client have no cached resource, send full response."""
+        """Client has not cached resource, send full response."""
         self._test(
             etag='"asdfqwerty"',
             expected_status_code='200',
@@ -179,7 +169,7 @@ cache_methods GET;
         )
 
     def test_mod_since(self):
-        """Client have cached resource, send 304."""
+        """Client has cached resource, send 304."""
         self._test(
             etag='"asdfqwerty"',
             expected_status_code='304',
@@ -188,10 +178,35 @@ cache_methods GET;
         )
 
     def test_mod_since_nc(self):
-        """Client have no cached resource, send full response."""
+        """Client has not cached resource, send full response."""
         self._test(
             etag='"asdfqwerty"',
             expected_status_code='200',
             if_none_match=None,
             if_modified_since='Mon, 5 Dec 2016 13:59:39 GMT',
         )
+
+    def test_correct_none_match_and_modified_since(self):
+        """
+        Client has cached resource, send 304. 'if_modified_since' ignored.
+        RFC 9110 13.1.3
+        """
+        self._test(
+            etag='"asdfqwerty"',
+            expected_status_code='304',
+            if_none_match='"asdfqwerty"',
+            if_modified_since='Mon, 12 Dec 2016 13:59:39 GMT',
+        )
+
+    def test_incorrect_none_match_and_correct_modified_since(self):
+        """
+        Client has no cached resource, send full response. 'if_modified_since' ignored.
+        RFC 9110 13.1.3
+        """
+        self._test(
+            etag='"asdfqwerty"',
+            expected_status_code='200',
+            if_none_match='"jfgfdgnjdn"',
+            if_modified_since='Mon, 12 Dec 2016 13:59:39 GMT',
+        )
+
