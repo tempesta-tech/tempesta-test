@@ -32,6 +32,10 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             'id': 'get',
         },
         {
+            'id': 'get_authenticated',
+            'load_cookies': True,
+        },
+        {
             'id': 'get_silent',
             'disable_output': True,
         },
@@ -41,7 +45,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             'save_cookies': True,
             'uri': '/wp-login.php',
             'cmd_args': (
-                '--data "log=admin&pwd=secret"'
+                ' --data "log=admin&pwd=secret"'
             ),
         },
         {
@@ -60,13 +64,25 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             'load_cookies': True,
             'uri': '/index.php?rest_route=/wp/v2/posts',
             'cmd_args': (
-                '--header "Content-Type: application/json"'
+                ' --header "Content-Type: application/json"'
                 " --data '"
                 '{"status":"draft","title":"@test-new-post@","content":"...",'
                 '"excerpt":"","status":"publish"}'
                 "'"
             ),
         },
+        {
+            'id': 'post_form',
+            'cmd_args': (
+                ' --header "Content-Type: application/x-www-form-urlencoded"'
+            )
+        },
+        {
+            'id': 'post_admin_form',
+            'cmd_args': (
+                ' --header "Content-Type: application/x-www-form-urlencoded"'
+            )
+        }
     ]
 
     def setUp(self):
@@ -77,7 +93,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             client.update({
                 'type': 'curl',
                 'ssl': True,
-                'cmd_args': client.get('cmd_args', '') + ' --insecure'
+                'cmd_args': client.get('cmd_args', '') + ' --insecure',
                 # TODO: remove, Tempesta address should be used
                 'addr': '${server_ip}:${server_wordpress_port}',
             })
@@ -105,17 +121,57 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         )
         return 'age' in headers
 
-    def login(self, load_cookies=False):
-        client = self.get_client("login")
-        self.assertFalse(client.load_cookies)
-        if load_cookies:
-            client.load_cookies = True
+    def login(self, user='admin', load_cookies=False):
+        client = self.get_client('login')
+        client.load_cookies = load_cookies
 
         response = self.get_response(client)
         self.assertEqual(302, response.status)
         # Login page set multiple cookies
         self.assertGreater(len(response.multi_headers['set-cookie']), 1)
         self.assertTrue(response.headers['location'].endswith('/wp-admin/'))
+        return response
+
+    def post_form(self, uri, data, anonymous=True):
+        client = self.get_client('post_form' if anonymous else 'post_admin_form')
+        client.load_cookies = not anonymous
+        client.set_uri(uri)
+        client.data = data
+        return self.get_response(client)
+
+    def post_comment(self, post_id, text='Test', anonymous=True):
+        data = (
+            f"comment_post_ID={post_id}"
+            f'&comment={text}'
+            '&author=anonymous'
+            '&email=guest%40example.com'
+            '&submit=Post+Comment'
+            '&comment_parent=0'
+        )
+        response = self.post_form(
+            uri='/wp-comments-post.php',
+            data=data,
+            anonymous=anonymous
+        )
+        self.assertEqual(302, response.status, response)
+        return response
+
+    def approve_comment(self, comment_id):
+        data = (
+            f'id={comment_id}&action=dim-comment&dimClass=unapproved&new=approved'
+        )
+        response = self.post_form(
+            uri='/wp-admin/admin-ajax.php',
+            data=data,
+            anonymous=False
+        )
+        self.assertEqual(200, response.status, response)
+
+    def get_post(self, post_id):
+        client = self.get_client("get")
+        client.set_uri(f"/?p={post_id}")
+        response = self.get_response(client)
+        self.assertEqual(200, response.status)
         return response
 
     def test_get_resource(self):
@@ -204,6 +260,36 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
                     self.check_cached_headers(response.headers),
                     f"Response headers: {response.headers}"
                 )
+
+        # No comments yet
+        self.assertNotIn('_Guest-Comment-Text_', response.stdout)
+        self.assertNotIn('_User-Comment-Text_', response.stdout)
+
+        # Post comment from user
+        self.post_comment(post_id, anonymous=False, text='_User-Comment-Text_')
+        response = self.get_post(post_id)
+        # Check user commend present
+        self.assertIn('_User-Comment-Text_', response.stdout)
+
+        # Post comment from anonymous
+        response = self.post_comment(post_id, anonymous=True, text='_Guest-Comment-Text_')
+        try:
+            comment_id = re.search(
+                r'#comment-(\d+)$',
+                response.headers['location']
+            ).group(1)
+        except (AttributeError, KeyError):
+            import pdb; pdb.set_trace()
+            raise Exception(f"Can't find comment ID, headers: {response.headers}")
+
+        # Approve comment
+        client = self.get_client('post_admin_form')
+        client.options.append(f"--header 'X-WP-Nonce: {nonce}'")
+        self.approve_comment(comment_id)
+
+        # Check anonymous commend present
+        response = self.get_post(post_id)
+        self.assertIn('_Guest-Comment-Text_', response.stdout)
 
 
 class TestWordpressSite(BaseWordpressTest):
