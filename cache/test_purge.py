@@ -4,16 +4,16 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-import helpers.checks_for_tests as checks
-
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from framework.tester import TempestaTest
+from helpers import checks_for_tests as checks
 from helpers import tf_cfg
 from helpers.deproxy import HttpMessage
 
 
 class TestPurge(TempestaTest):
+    """This class contains checks for PURGE method operation."""
     tempesta = {
         'config': """
 listen 80;
@@ -30,7 +30,7 @@ cache_methods GET HEAD;
 cache_purge;
 cache_purge_acl ${client_ip};
 cache_resp_hdr_del set-cookie;
-"""
+""",
     }
 
     backends = [
@@ -64,19 +64,19 @@ cache_resp_hdr_del set-cookie;
 
     request_template = (
         '{0} /page.html HTTP/1.1\r\n'
-        + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
+        + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
         + 'Connection: keep-alive\r\n'
         + 'Accept: */*\r\n'
         + '\r\n'
     )
 
     request_template_x_tempesta_cache = (
-            '{0} /page.html HTTP/1.1\r\n'
-            + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
-            + 'Connection: keep-alive\r\n'
-            + 'Accept: */*\r\n'
-            + 'x-tempesta-cache: {1}\r\n'
-            + '\r\n'
+        '{0} /page.html HTTP/1.1\r\n'
+        + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
+        + 'Connection: keep-alive\r\n'
+        + 'Accept: */*\r\n'
+        + 'x-tempesta-cache: {1}\r\n'
+        + '\r\n'
     )
 
     def test_purge(self):
@@ -89,30 +89,30 @@ cache_resp_hdr_del set-cookie;
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
         # All cacheable method to the resource must be cached
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         self.assertEqual(len(srv.requests), 2)
-        client.send_request(self.request_template.format('PURGE'), '200', )
+        client.send_request(self.request_template.format('PURGE'), '200')
         self.assertEqual(len(srv.requests), 2)
 
         # All cached responses was removed, expect re-caching them
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         # TODO uncomment after fixing issue #1699
         # checks.check_tempesta_cache_stats(
@@ -134,38 +134,38 @@ cache_resp_hdr_del set-cookie;
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
         # All cacheable method to the resource must be cached
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         # PURGE + GET works like a cache update, so all following requests
         # must be served from the cache.
         self.assertEqual(len(srv.requests), 2)
-        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200', )
+        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200')
         self.assertEqual(len(srv.requests), 3)
 
         # Note that due to how Tempesta handles HEAD this doesn't help us
         # with HEAD pre-caching.
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('HEAD'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('HEAD'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         # TODO uncomment after fixing issue #1699
         # checks.check_tempesta_cache_stats(
         #     self.get_tempesta(),
         #     cache_hits=4,
         #     cache_misses=3,
-        #     cl_msg_served_from_cache=4
+        #     cl_msg_served_from_cache=4,
         # )
         self.assertEqual(len(srv.requests), 4)
 
@@ -178,10 +178,10 @@ cache_resp_hdr_del set-cookie;
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         new_response_body = 'New text page'
         srv.set_response(
@@ -193,23 +193,23 @@ cache_resp_hdr_del set-cookie;
             + 'Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n'
             + f'Date: {HttpMessage.date_time_string()}\r\n'
             + '\r\n'
-            + new_response_body
+            + new_response_body,
         )
         self.assertEqual(len(srv.requests), 1)
-        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200', )
+        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200')
         self.assertEqual(len(srv.requests), 2)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
-        self.assertEqual(new_response_body, client.last_response.body, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
+        self.assertEqual(new_response_body, client.last_response.body)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=2,
             cache_misses=1,
-            cl_msg_served_from_cache=2
+            cl_msg_served_from_cache=2,
         )
-        self.assertEqual(len(srv.requests), 2, )
+        self.assertEqual(len(srv.requests), 2)
 
     def test_purge_get_update_hdr_del(self):
         """
@@ -221,10 +221,10 @@ cache_resp_hdr_del set-cookie;
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         new_response_body = 'New text page'
         srv.set_response(
@@ -237,26 +237,26 @@ cache_resp_hdr_del set-cookie;
             + f'Date: {HttpMessage.date_time_string()}\r\n'
             + 'Set-Cookie: somecookie=2\r\n'
             + '\r\n'
-            + new_response_body
+            + new_response_body,
         )
 
-        self.assertEqual(len(srv.requests), 1, )
-        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200', )
-        self.assertIn('set-cookie', client.last_response.headers, )
-        self.assertEqual(len(srv.requests), 2, )
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200')
+        self.assertIn('set-cookie', client.last_response.headers)
+        self.assertEqual(len(srv.requests), 2)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
-        self.assertEqual(new_response_body, client.last_response.body, )
-        self.assertNotIn('set-cookie', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
+        self.assertEqual(new_response_body, client.last_response.body)
+        self.assertNotIn('set-cookie', client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=2,
             cache_misses=1,
-            cl_msg_served_from_cache=2
+            cl_msg_served_from_cache=2,
         )
-        self.assertEqual(len(srv.requests), 2, )
+        self.assertEqual(len(srv.requests), 2)
 
     def test_purge_get_update_cc(self):
         """
@@ -267,11 +267,11 @@ cache_resp_hdr_del set-cookie;
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         new_response_body = 'New text page'
         srv.set_response(
@@ -285,25 +285,25 @@ cache_resp_hdr_del set-cookie;
             + 'Set-Cookie: somecookie=2\r\n'
             + 'Cache-Control: no-cache="set-cookie"\r\n'
             + '\r\n'
-            + new_response_body
+            + new_response_body,
         )
 
-        self.assertEqual(len(srv.requests), 1, )
-        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200', )
-        self.assertEqual(len(srv.requests), 2, )
-        self.assertIn('set-cookie' and 'cache-control', client.last_response.headers, )
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200')
+        self.assertEqual(len(srv.requests), 2)
+        self.assertIn('set-cookie' and 'cache-control', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age' and 'cache-control', client.last_response.headers, )
-        self.assertNotIn('set-cookie:', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age' and 'cache-control', client.last_response.headers)
+        self.assertNotIn('set-cookie:', client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=2,
             cache_misses=1,
-            cl_msg_served_from_cache=2
+            cl_msg_served_from_cache=2,
         )
-        self.assertEqual(len(srv.requests), 2, )
+        self.assertEqual(len(srv.requests), 2)
 
     def test_useless_x_tempesta_cache(self):
         """
@@ -313,10 +313,10 @@ cache_resp_hdr_del set-cookie;
         self.start_all_services(deproxy=True)
         client: DeproxyClient = self.get_client('deproxy')
 
-        client.send_request(self.request_template_x_tempesta_cache.format('GET', 'GET'), '200', )
+        client.send_request(self.request_template_x_tempesta_cache.format('GET', 'GET'), '200')
 
-        client.send_request(self.request_template_x_tempesta_cache.format('GET', 'GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template_x_tempesta_cache.format('GET', 'GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
@@ -324,7 +324,7 @@ cache_resp_hdr_del set-cookie;
             cache_misses=1,
             cl_msg_served_from_cache=1,
         )
-        self.assertEqual(len(self.get_server('deproxy').requests), 1, )
+        self.assertEqual(len(self.get_server('deproxy').requests), 1)
 
     def test_purge_get_garbage(self):
         """
@@ -336,34 +336,34 @@ cache_resp_hdr_del set-cookie;
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
-        self.assertEqual(len(srv.requests), 1, )
-        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'FRED'), '200', )
-        self.assertEqual(len(srv.requests), 1, )
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'FRED'), '200')
+        self.assertEqual(len(srv.requests), 1)
 
-        client.send_request(self.request_template.format('GET', ''), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET', ''), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
-        self.assertEqual(len(srv.requests), 2, )
+        self.assertEqual(len(srv.requests), 2)
         client.send_request(
             self.request_template_x_tempesta_cache.format('PURGE', 'GETWRONG'), '200',
         )
-        self.assertNotIn('age', client.last_response.headers, )
-        self.assertEqual(len(srv.requests), 2, )
+        self.assertNotIn('age', client.last_response.headers)
+        self.assertEqual(len(srv.requests), 2)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
@@ -371,7 +371,7 @@ cache_resp_hdr_del set-cookie;
             cache_misses=1,
             cl_msg_served_from_cache=3,
         )
-        self.assertEqual(len(srv.requests), 3, )
+        self.assertEqual(len(srv.requests), 3)
 
     def test_purge_get_uncached(self):
         """
@@ -382,10 +382,10 @@ cache_resp_hdr_del set-cookie;
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
-        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200', )
+        client.send_request(self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200')
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
@@ -393,7 +393,7 @@ cache_resp_hdr_del set-cookie;
             cache_misses=1,
             cl_msg_served_from_cache=1,
         )
-        self.assertEqual(len(srv.requests), 1, )
+        self.assertEqual(len(srv.requests), 1)
 
     def test_purge_get_uncacheable(self):
         """
@@ -405,11 +405,11 @@ cache_resp_hdr_del set-cookie;
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertIn('age', client.last_response.headers)
 
         srv.set_response(
             'HTTP/1.1 200 OK\r\n'
@@ -421,19 +421,19 @@ cache_resp_hdr_del set-cookie;
             + f'Date: {HttpMessage.date_time_string()}\r\n'
             + 'Cache-Control: private\r\n'
             + '\r\n'
-            + '<html></html>\r\n'
+            + '<html></html>\r\n',
         )
 
         client.send_request(
             self.request_template_x_tempesta_cache.format('PURGE', 'GET'), '200',
         )
-        self.assertIn('cache-control', client.last_response.headers, )
+        self.assertIn('cache-control', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
-        client.send_request(self.request_template.format('GET'), '200', )
-        self.assertNotIn('age', client.last_response.headers, )
+        client.send_request(self.request_template.format('GET'), '200')
+        self.assertNotIn('age', client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
@@ -441,4 +441,4 @@ cache_resp_hdr_del set-cookie;
             cache_misses=1,
             cl_msg_served_from_cache=1,
         )
-        self.assertEqual(len(srv.requests), 4, )
+        self.assertEqual(len(srv.requests), 4, 'Server has lost requests.')

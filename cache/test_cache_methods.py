@@ -7,11 +7,10 @@ __license__ = 'GPL2'
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from framework.tester import TempestaTest
-from helpers import tf_cfg
 from helpers import checks_for_tests as checks
+from helpers import tf_cfg
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
-
 
 RESPONSE_OK_EMPTY: str = (
     'HTTP/1.1 200 OK\r\n'
@@ -37,7 +36,7 @@ vhost default {
 
 cache 2;
 cache_fulfill * *;
-"""
+""",
     }
 
     backends = [
@@ -101,20 +100,20 @@ cache_fulfill * *;
                 'Server has received fewer requests than expected.',
             )
 
-        self.assertNotIn('age', client.responses[0].headers, )
+        self.assertNotIn('age', client.responses[0].headers)
 
         for response in client.responses[1:]:
             if self.should_be_cached:
-                self.assertIn('age', response.headers, )
+                self.assertIn('age', response.headers)
             else:
-                self.assertNotIn('age', response.headers, )
+                self.assertNotIn('age', response.headers)
 
     def _test(self, method: str, server_response: str, ):
         """Send some requests. Checks that repeated requests has/hasn't been cached."""
         if self.should_be_cached:
             cache_method = method
         else:
-            cache_method = 'GET' if method != 'GET' else 'HEAD'
+            cache_method = 'HEAD' if method == 'GET' else 'GET'
 
         tempesta: Tempesta = self.get_tempesta()
         tempesta.config.defconfig += f'cache_methods {cache_method};\n'
@@ -126,7 +125,7 @@ cache_fulfill * *;
         client: DeproxyClient = self.get_client('deproxy')
         request = (
             f'{method} /page.html HTTP/1.1\r\n'
-            + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
+            + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
             + 'Connection: keep-alive\r\n'
             + 'Accept: */*\r\n'
             + '\r\n'
@@ -234,6 +233,7 @@ cache_fulfill * *;
 
 
 class TestCacheMethodsNoCache(TestCacheMethods):
+    """Parametrization of tests in TestCacheMethods class."""
     should_be_cached = False
 
 
@@ -245,6 +245,7 @@ class TestMultipleMethods(TempestaTest):
     RFC 7234:
     The primary cache key consists of the request method and target URI.
     """
+
     tempesta = {
         'config': """
     listen 80;
@@ -258,7 +259,7 @@ class TestMultipleMethods(TempestaTest):
     cache 2;
     cache_fulfill * *;
     cache_methods GET HEAD;
-    """
+    """,
     }
 
     backends = [
@@ -291,34 +292,37 @@ class TestMultipleMethods(TempestaTest):
     ]
 
     def test_caching_different_methods(self):
-        """Send requests with different methods and checks that """
+        """
+        Send requests with different methods and checks that responses has been from different
+        cache.
+        """
         self.start_all_services(deproxy=True)
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
         request: str = (
             '{0} /page.html HTTP/1.1\r\n'
-            + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
+            + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
             + 'Connection: keep-alive\r\n'
             + 'Accept: */*\r\n'
             + '\r\n'
         )
 
         client.send_request(request.format('GET'), '200')
-        self.assertNotIn('age', client.last_response.headers, )
+        self.assertNotIn('age', client.last_response.headers)
 
         srv.set_response(RESPONSE_OK_EMPTY)
 
         client.send_request(request.format('HEAD'), '200')
-        self.assertNotIn('age', client.last_response.headers, )
+        self.assertNotIn('age', client.last_response.headers)
 
         client.send_request(request.format('GET'), '200')
         response_get = client.last_response
-        self.assertIn('age', client.last_response.headers, )
+        self.assertIn('age', client.last_response.headers)
 
         client.send_request(request.format('HEAD'), '200')
         response_head = client.last_response
-        self.assertIn('age', client.last_response.headers, )
+        self.assertIn('age', client.last_response.headers)
 
         self.assertNotEqual(
             response_get.headers['Content-Length'],

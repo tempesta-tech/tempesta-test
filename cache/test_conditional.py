@@ -26,7 +26,7 @@ vhost default {
 cache 2;
 cache_fulfill * *;
 cache_methods GET;
-"""
+""",
     }
 
     backends = [
@@ -48,8 +48,13 @@ cache_methods GET;
         },
     ]
 
-    def _test(self, etag: str, expected_status_code: str, if_none_match: str = None,
-              if_modified_since: str = None, ):
+    def _test(
+        self,
+        etag: str,
+        expected_status_code: str,
+        if_none_match: str = None,
+        if_modified_since: str = None,
+    ):
         """
         Send GET request and receive 'Etag' header. Repeat request with correct/incorrect
         'if-none-match' and 'if-modified-since' headers.
@@ -68,18 +73,20 @@ cache_methods GET;
             + f'Date: {HttpMessage.date_time_string()}\r\n'
             + f'Etag: {etag}\r\n'
             + '\r\n'
-            + '<html></html>\r\n'
+            + '<html></html>\r\n',
         )
 
         client.send_request(
-            request=f'GET /page.html HTTP/1.1\r\n'
-            + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
-            + 'Connection: keep-alive\r\n'
-            + 'Accept: */*\r\n'
-            + '\r\n',
+            request=(
+                'GET /page.html HTTP/1.1\r\n'
+                + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
+                + 'Connection: keep-alive\r\n'
+                + 'Accept: */*\r\n'
+                + '\r\n'
+            ),
             expected_status_code='200',
         )
-        self.assertIn(etag, str(client.last_response), )
+        self.assertIn(etag, str(client.last_response))
 
         if if_none_match and if_modified_since:
             option_header = (
@@ -94,15 +101,17 @@ cache_methods GET;
             option_header = ''
 
         client.send_request(
-            request=f'GET /page.html HTTP/1.1\r\n'
-            + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
-            + 'Connection: keep-alive\r\n'
-            + 'Accept: */*\r\n'
-            + option_header
-            + '\r\n',
+            request=(
+                'GET /page.html HTTP/1.1\r\n'
+                + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
+                + 'Connection: keep-alive\r\n'
+                + 'Accept: */*\r\n'
+                + option_header
+                + '\r\n'
+            ),
             expected_status_code=expected_status_code,
         )
-        self.assertIn(etag, client.last_response.headers['etag'], )
+        self.assertIn(etag, client.last_response.headers['etag'])
         self.assertEqual(len(srv.requests), 1, 'Server has received unexpected number of requests.')
 
     def test_none_match(self):
@@ -209,4 +218,3 @@ cache_methods GET;
             if_none_match='"jfgfdgnjdn"',
             if_modified_since='Mon, 12 Dec 2016 13:59:39 GMT',
         )
-
