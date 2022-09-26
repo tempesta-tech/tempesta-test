@@ -13,9 +13,6 @@ from helpers import tf_cfg
 from helpers.deproxy import HttpMessage
 
 
-# TODO: add tests for 'cache_purge_acl'
-
-
 class TestPurge(TempestaTest):
     tempesta = {
         'config': """
