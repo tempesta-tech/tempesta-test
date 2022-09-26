@@ -1,7 +1,10 @@
+import json
 import re
+import time
 
 from framework import tester
 from framework.curl_client import CurlResponse
+from helpers import tf_cfg
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -22,8 +25,9 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         tls_certificate_key ${general_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        cache 1;
-        cache_fulfill * *;
+        # TODO: enable cache
+        #cache 1;
+        #cache_fulfill * *;
     """
 
     # Base Curl clients options
@@ -63,13 +67,6 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             'disable_output': True,
             'load_cookies': True,
             'uri': '/index.php?rest_route=/wp/v2/posts',
-            'cmd_args': (
-                ' --header "Content-Type: application/json"'
-                " --data '"
-                '{"status":"draft","title":"@test-new-post@","content":"...",'
-                '"excerpt":"","status":"publish"}'
-                "'"
-            ),
         },
         {
             'id': 'post_form',
@@ -139,6 +136,31 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         client.data = data
         return self.get_response(client)
 
+    def post_blog_post(self, title, nonce):
+        client = self.get_client('blog_post')
+        client.data = json.dumps({
+            "title": title,
+            "status": "draft",
+            "content": "...",
+            "excerpt": "",
+            "status":"publish"
+        })
+        client.headers = {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': nonce,
+        }
+        response = self.get_response(client)
+        self.assertEqual(201, response.status)
+        try:
+            post_id = re.search(
+                r'=/wp/v2/posts/(\d+)',
+                response.headers['location']
+            ).group(1)
+        except (IndexError, AttributeError):
+            raise Exception(f"Can't find blog ID, headers: {response.headers}")
+        tf_cfg.dbg(3, f"New post ID: {post_id}")
+        return post_id
+
     def post_comment(self, post_id, text='Test', anonymous=True):
         data = (
             f"comment_post_ID={post_id}"
@@ -167,12 +189,57 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         )
         self.assertEqual(200, response.status, response)
 
+    def delete_comment(self, comment_id, action_nonce):
+        data = (
+            f"id={comment_id}"
+            f"&_ajax_nonce={action_nonce}"
+            '&action=delete-comment'
+            '&trash=1'
+        )
+        response = self.post_form(
+            uri='/wp-admin/admin-ajax.php',
+            data=data,
+            anonymous=False
+        )
+        self.assertEqual(200, response.status, response)
+
+    def get_page_content(self, uri):
+        client = self.get_client('get')
+        client.set_uri(uri)
+        response = self.get_response(client)
+        self.assertEqual(200, response.status)
+        self.assertFalse(response.stderr)
+        return response.stdout
+
+    def get_index(self):
+        return self.get_page_content('/')
+
+    def get_comments_feed(self):
+        return self.get_page_content('/?feed=comments-rss2')
+
     def get_post(self, post_id):
         client = self.get_client("get")
         client.set_uri(f"/?p={post_id}")
         response = self.get_response(client)
         self.assertEqual(200, response.status)
         return response
+
+    def get_nonce(self):
+        client = self.get_client('get_nonce')
+        response = self.get_response(client)
+        self.assertEqual(200, response.status)
+        nonce = response.stdout
+        self.assertTrue(nonce)
+        return nonce
+
+    def get_comment_deletion_nonce(self, comment_id):
+        client = self.get_client("get_authenticated")
+        client.set_uri(f"/wp-admin/comment.php?action=editcomment&c={comment_id}")
+        response = self.get_response(client)
+        self.assertEqual(200, response.status)
+        nonce = re.search(r"action=trashcomment[^']+_wpnonce=([^']+)", response.stdout).group(1)
+        self.assertTrue(nonce)
+        return nonce
 
     def test_get_resource(self):
         self.start_tempesta()
@@ -222,74 +289,93 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
                     f"Response headers: {response.headers}"
                 )
 
-    def test_blog_post_created(self):
+    def test_blog_post_flow(self):
+        post_title = f"@{time.time()}_post_title@"
+        user_comment = f"@{time.time()}_user_comment@"
+        guest_comment = f"@{time.time()}_guest_comment@"
         self.start_tempesta()
 
-        with self.subTest('Login'):
-            self.login()
+        # Check index page
+        self.assertNotIn(post_title, self.get_index())
 
-        with self.subTest('Obtain nonce'):
-            client = self.get_client('get_nonce')
-            response = self.get_response(client)
-            self.assertEqual(200, response.status)
-            nonce = response.stdout
-            self.assertTrue(nonce)
+        # Login
+        self.login()
 
-        with self.subTest('Publish new blog post'):
-            client = self.get_client('blog_post')
-            client.options.append(f"--header 'X-WP-Nonce: {nonce}'")
-            response = self.get_response(client)
-            self.assertEqual(201, response.status)
-            try:
-                post_id = re.search(
-                    r'=/wp/v2/posts/(\d+)',
-                    response.headers['location']
-                ).group(1)
-            except (IndexError, AttributeError):
-                raise Exception(f"Can't find blog ID, headers: {response.headers}")
+        # Obtain nonce
+        nonce = self.get_nonce()
 
-        client = self.get_client("get")
-        client.set_uri(f"/?p={post_id}")
-        for i, cached in enumerate([False, False, False], 1):  # TODO: should be cached
-            with self.subTest('Get blog post', i=i, expect_cached=cached):
-                response = self.get_response(client)
-                self.assertEqual(200, response.status)
-                self.assertIn('<title>@test-new-post@', response.stdout)
-                self.assertEqual(
-                    cached,
-                    self.check_cached_headers(response.headers),
-                    f"Response headers: {response.headers}"
-                )
+        # Publish new blog post
+        post_id = self.post_blog_post(title=post_title, nonce=nonce)
+
+        # Post title presented on the blog
+        self.assertIn(post_title, self.get_index())
+
+        # Get new blog post content
+        content = self.get_page_content(f"/?p={post_id}")
+        self.assertIn(post_title, content)
 
         # No comments yet
-        self.assertNotIn('_Guest-Comment-Text_', response.stdout)
-        self.assertNotIn('_User-Comment-Text_', response.stdout)
+        self.assertNotIn(guest_comment, content)
+        self.assertNotIn(user_comment, content)
+        feed = self.get_comments_feed()
+        self.assertNotIn(user_comment, feed)
+        self.assertNotIn(guest_comment, feed)
 
         # Post comment from user
-        self.post_comment(post_id, anonymous=False, text='_User-Comment-Text_')
+        self.post_comment(post_id, anonymous=False, text=user_comment)
         response = self.get_post(post_id)
         # Check user commend present
-        self.assertIn('_User-Comment-Text_', response.stdout)
+        self.assertIn(user_comment, response.stdout)
+        # Comment presented in the comments feed
+        self.assertIn(user_comment, self.get_comments_feed())
 
         # Post comment from anonymous
-        response = self.post_comment(post_id, anonymous=True, text='_Guest-Comment-Text_')
+        response = self.post_comment(post_id, anonymous=True, text=guest_comment)
         try:
             comment_id = re.search(
                 r'#comment-(\d+)$',
                 response.headers['location']
             ).group(1)
         except (AttributeError, KeyError):
-            import pdb; pdb.set_trace()
             raise Exception(f"Can't find comment ID, headers: {response.headers}")
 
         # Approve comment
         client = self.get_client('post_admin_form')
-        client.options.append(f"--header 'X-WP-Nonce: {nonce}'")
         self.approve_comment(comment_id)
 
         # Check anonymous commend present
-        response = self.get_post(post_id)
-        self.assertIn('_Guest-Comment-Text_', response.stdout)
+        self.assertIn(guest_comment, self.get_post(post_id).stdout)
+        self.assertIn(guest_comment, self.get_comments_feed())
+
+        # Delete comment
+        self.delete_comment(
+            comment_id=comment_id,
+            action_nonce=self.get_comment_deletion_nonce(comment_id)
+        )
+
+        # Check comment removed from the page
+        self.assertNotIn(guest_comment, self.get_post(post_id).stdout)
+        self.assertNotIn(guest_comment, self.get_comments_feed())
+
+    def test_blog_post_cached(self):
+        post_title = f"@{time.time()}_post_title@"
+        self.start_tempesta()
+        self.login()
+        post_id = self.post_blog_post(title=post_title, nonce=self.get_nonce())
+
+        client = self.get_client("get")
+        client.set_uri(f"/?p={post_id}")
+        for i, cached in enumerate([False, False, False], 1):  # TODO: should be cached
+            with self.subTest('Get blog post', i=i, expect_cached=cached):
+                content = self.get_page_content(f"/?p={post_id}")
+                response = self.get_response(client)
+                self.assertEqual(200, response.status)
+                self.assertIn(post_title, response.stdout)
+                self.assertEqual(
+                    cached,
+                    self.check_cached_headers(response.headers),
+                    f"Response headers: {response.headers}"
+                )
 
 
 class TestWordpressSite(BaseWordpressTest):
