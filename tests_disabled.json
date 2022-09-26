@@ -352,10 +352,6 @@
         {
             "name" : "selftests.test_framework.ExampleTest.test_curl",
             "reason": "Disable by issue #308"
-        },
-        {
-            "name" : "tls.test_tls_cert.TlsCertSelect.test_vhost_cert_selection",
-            "reason": "Disable by issue #312"
         }
         
     ]
