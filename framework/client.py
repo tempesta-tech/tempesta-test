@@ -3,9 +3,9 @@ import os
 import multiprocessing
 
 from helpers import remote, tf_cfg, stateful
-from .templates import fill_template
 
-def _run_client(client, exit_event, resq):
+
+def _run_client(client, resq: multiprocessing.Queue):
     try:
         res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
     except remote.CmdError as e:
@@ -13,7 +13,7 @@ def _run_client(client, exit_event, resq):
         client.returncode = e.returncode
     resq.put(res)
     tf_cfg.dbg(3, "\tClient exit")
-    exit_event.set()
+
 
 class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     """ Base class for managing HTTP benchmark utilities.
@@ -48,8 +48,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         # Process
         self.proc = None
         self.returncode = 0
-        self.exit_event = multiprocessing.Event()
-        self.exit_event.clear()
         self.resq = multiprocessing.Queue()
         self.proc_results = None
         # List of files to be removed from remote node after client finish.
@@ -86,7 +84,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             self.node.copy_file(name, content)
 
     def is_busy(self, verbose=True):
-        busy = not self.exit_event.is_set()
+        busy = self.resq.empty()
         if verbose:
             if busy:
                 tf_cfg.dbg(4, "\tClient is running")
@@ -98,28 +96,36 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         if not hasattr(self.proc, "terminate"):
             return
         tf_cfg.dbg(3, "Stopping client")
-        self.proc.terminate()
-        if not self.resq.empty():
-            self.proc_results = self.resq.get()
+
+        self.proc_results = self.resq.get(timeout=self.duration)
+
+        self.proc.join()
         self.proc = None
 
-        if self.proc_results != None:
-            tf_cfg.dbg(3, '\tclient stdout:\n%s' % self.proc_results[0])
+        if self.proc_results:
+            tf_cfg.dbg(3, '\tclient stdout:\n%s' % self.proc_results[0].decode())
 
             if len(self.proc_results[1]) > 0:
-                tf_cfg.dbg(2, '\tclient stderr:\n%s' % self.proc_results[1])
+                tf_cfg.dbg(2, '\tclient stderr:\n%s' % self.proc_results[1].decode())
 
             self.parse_out(self.proc_results[0], self.proc_results[1])
+        else:
+            tf_cfg.dbg(
+                2,
+                f'\tCmd command "{self.cmd}" has not received data from queue. '
+                + 'Queue is empty and timeout is over.'
+            )
 
         tf_cfg.dbg(3, "Client is stopped")
 
     def run_start(self):
         """ Run client """
         tf_cfg.dbg(3, "Running client")
-        self.exit_event.clear()
         self.prepare()
-        self.proc = multiprocessing.Process(target = _run_client,
-                                    args=(self, self.exit_event, self.resq))
+        self.proc = multiprocessing.Process(
+            target=_run_client,
+            args=(self, self.resq)
+        )
         self.proc.start()
 
     @abc.abstractmethod
@@ -158,6 +164,5 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.options.append('-H \'User-Agent: %s\'' % ua)
 
     def wait_for_finish(self):
-        # until we explicitly get `self.exit_event` flag set
         while self.is_busy(verbose=False):
             pass

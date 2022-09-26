@@ -29,10 +29,10 @@ def bug(msg='', stdout=None, stderr=None):
     exc_info = sys.exc_info()
     if exc_info[1] is not None:
         msg += " (%s: %s)" % (exc_info[0].__name__, exc_info[1])
-    if stdout is not None:
+    if stdout:
         stdout = "\n\t" + "\n\t".join(stdout.decode().splitlines()) + "\n"
         msg += "\nstdout:%s" % stdout
-    if stderr is not None:
+    if stderr:
         stderr = "\n\t" + "\n\t".join(stderr.decode().splitlines()) + "\n"
         msg += "\nstderr:%s" % stderr
     raise Error(msg).with_traceback(exc_info[2])

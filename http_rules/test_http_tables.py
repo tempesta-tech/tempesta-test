@@ -383,7 +383,7 @@ TEMPESTA_CONFIG = """
     %s
 
     srv_group default {
-            server 127.0.0.1:8000;
+            server ${server_ip}:8000;
     }
 
     vhost default {
@@ -664,5 +664,86 @@ http_chain {
             started = False
         finally:
             self.assertFalse(started)
+
+
+class H2Redirects(tester.TempestaTest):
+    clients = [{
+        'id': 'deproxy',
+        'type': 'deproxy_h2',
+        'addr': "${tempesta_ip}",
+        'port': '443',
+        'ssl': True,
+        'ssl_hostname': 'tempesta-tech.com'
+    }]
+
+    backends = [{
+        'id' : '0',
+        'type' : 'deproxy',
+        'port' : '8000',
+        'response' : 'static',
+        'response_content' :
+        'HTTP/1.1 200 OK\r\n'
+        'Content-Length: 0\r\n\r\n'
+    }]
+
+    tempesta = {
+        'config' :
+        """
+        listen 443 proto=h2;
+        tls_match_any_server_name;
+
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+
+        vhost tempesta-tech.com {
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            proxy_pass default;
+        }
+
+        http_chain redirection_chain {
+            uri == "/moved-permanently" -> 301 = /new-location-301;
+            uri == "/temporary-redirect" -> 307 = /new-location-307;
+            -> tempesta-tech.com;
+        }
+
+        http_chain {
+            host == "tempesta-tech.com" -> redirection_chain;
+        }
+
+        """
+    }
+
+    params = [
+        ("/moved-permanently", "301", "/new-location-301"),
+        ("/temporary-redirect", "307", "/new-location-307")
+    ]
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test(self):
+        self.start_all()
+
+        for uri, status, location in self.params:
+            request = [
+                (':authority', 'tempesta-tech.com'),
+                (':path', uri),
+                (':scheme', 'https'),
+                (':method', 'GET')
+            ]
+
+            client = self.get_client('deproxy')
+            client.make_request(request)
+
+            got_response = client.wait_for_response()
+            self.assertTrue(got_response)
+            self.assertEqual(client.last_response.status, status)
+            self.assertEqual(client.last_response.headers['location'], location)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

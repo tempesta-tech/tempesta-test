@@ -6,7 +6,7 @@ __license__ = 'GPL2'
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from framework.tester import TempestaTest
+from framework import tester
 from helpers import checks_for_tests as checks
 from helpers import tf_cfg
 from helpers.control import Tempesta
@@ -20,7 +20,7 @@ MIXED_CONFIG = (
 )
 
 
-class TestCache(TempestaTest):
+class TestCache(tester.TempestaTest):
     """This class contains checks for tempesta cache config."""
 
     tempesta = {
@@ -319,3 +319,80 @@ vhost default {
         client = self.get_client('deproxy')
         for response in client.responses:
             self.assertIn('date', response.headers)
+
+
+class H2Cache(tester.TempestaTest):
+    clients = [{
+        'id': 'deproxy',
+        'type': 'deproxy_h2',
+        'addr': "${tempesta_ip}",
+        'port': '443',
+        'ssl': True,
+        'ssl_hostname': 'tempesta-tech.com'
+    }]
+
+    backends = [{
+        'id' : 'deproxy',
+        'type' : 'deproxy',
+        'port' : '8000',
+        'response' : 'static',
+        'response_content' :
+        'HTTP/1.1 200 OK\r\n'
+        'Content-Length: 0\r\n\r\n'
+    }]
+
+    tempesta = {
+        'config':
+        '''
+        cache 2;
+        cache_fulfill eq /to-be-cached;
+
+        listen 443 proto=h2;
+        tls_match_any_server_name;
+
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+
+        vhost tempesta-tech.com {
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            proxy_pass default;
+        }
+
+       '''
+    }
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test(self):
+        self.start_all()
+
+        request = [
+            (":authority", "tempesta-tech.com"),
+            (":path", "/to-be-cached"),
+            (":scheme", "https"),
+            (":method", "GET")
+        ]
+        requests = [request, request]
+
+        client = self.get_client("deproxy")
+        client.make_requests(requests)
+
+        got_response = client.wait_for_response(timeout=5)
+
+        self.assertTrue(got_response)
+
+        # Only the first request should be forwarded to the backend.
+        self.assertEqual(
+            len(self.get_server('deproxy').requests),
+            1,
+            "The second request wasn't served from cache."
+        )
+
+#vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

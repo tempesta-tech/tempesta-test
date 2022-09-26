@@ -178,9 +178,8 @@ class TestOnTheFly(tester.TempestaTest):
         curl: ExternalTester = self.get_client(curl_client_id)
         curl.start()
         self.wait_while_busy(curl)
-        response = curl.resq.get(True, 1)[0].decode()
         curl.stop()
         self.assertIn(
             STATUS_OK,
-            response,
+            curl.response_msg,
         )

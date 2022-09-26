@@ -81,7 +81,7 @@ To run requirements auto installation run setup.sh from `tempesta-test` director
 - All hosts except previous one: `sftp-server`
 - Host for running TempestaFW: Linux kernel with Tempesta, TempestaFW sources,
   `systemtap`, `tcpdump`, `bc`
-- Host for running server: `nginx`, web content directory accessible by nginx,
+- Host for running server: `netstat`, `nginx`, web content directory accessible by nginx,
   nginx should not be running before the tests start
 
 `wrk` is an HTTP benchmarking tool, available from [Github](https://github.com/wg/wrk).
