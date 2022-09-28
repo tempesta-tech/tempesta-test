@@ -1,6 +1,8 @@
 import abc
 import time
 import socket
+from io import StringIO
+
 import h2.connection
 from h2.events import (
     ResponseReceived, DataReceived, TrailersReceived, StreamEnded
@@ -12,7 +14,8 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2018-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-class BaseDeproxyClient(deproxy.Client):
+
+class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     def __init__(self, *args, **kwargs):
         deproxy.Client.__init__(self, *args, **kwargs)
@@ -44,6 +47,7 @@ class BaseDeproxyClient(deproxy.Client):
         self.overriden_port = None
         # a presense of selfproxy
         self.selfproxy_present = False
+        self.parsing = True
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -130,7 +134,7 @@ class BaseDeproxyClient(deproxy.Client):
             return False
         if (self.segment_gap != 0 and not self.selfproxy_present and
             time.time() - self.last_segment_time < self.segment_gap / 1000.0):
-            return False;
+            return False
         return True
 
     def next_request_time(self):
@@ -153,46 +157,13 @@ class BaseDeproxyClient(deproxy.Client):
         if len(reqs[self.cur_req_num]) == 0:
             self.cur_req_num += 1
 
+    @abc.abstractmethod
     def make_requests(self, requests):
-        request_buffers = []
-        methods = []
-        valid_req_num = 0
-        if self.selfproxy_present:
-            self.update_selfproxy()
-        while len(requests) > 0:
-            try:
-                req = deproxy.Request(requests)
-            except:
-                tf_cfg.dbg(2, "Can't parse request")
-                req = None
+        raise NotImplementedError("Not implemented 'make_requests()'")
 
-            if req == None:
-                break
-            request_buffers.append(requests[:req.original_length])
-            methods.append(req.method)
-            valid_req_num += 1
-            requests = requests[req.original_length:]
-
-        if len(requests) > 0:
-            request_buffers.append(requests)
-            methods.append("INVALID")
-
-        if self.cur_req_num >= self.nrreq:
-            self.nrresp = 0
-            self.nrreq = 0
-            self.request_buffers = []
-            self.methods = []
-            self.start_time = time.time()
-            self.cur_req_num = 0
-
-        self.request_buffers.extend(request_buffers)
-        self.methods.extend(methods)
-        self.valid_req_num += valid_req_num
-        self.nrreq += len(self.methods)
-
-    # need for compatibility
+    @abc.abstractmethod
     def make_request(self, request):
-        self.make_requests(request)
+        raise NotImplementedError("Not implemented 'make_request()'")
 
     @abc.abstractmethod
     def receive_response(self, response):
@@ -233,10 +204,82 @@ class BaseDeproxyClient(deproxy.Client):
             selfproxy.update_client_selfproxy_chunking(
                 self.segment_size, self.segment_gap)
 
+    def _clear_request_stats(self):
+        if self.cur_req_num >= self.nrreq:
+            self.nrresp = 0
+            self.nrreq = 0
+            self.request_buffers = []
+            self.methods = []
+            self.start_time = time.time()
+            self.cur_req_num = 0
+
 
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
     responses = []
+
+    def make_requests(self, requests: list or str) -> None:
+        """Send pipelined HTTP requests. Requests parsing can be disabled only for list."""
+        self._clear_request_stats()
+        self.update_selfproxy()
+
+        if isinstance(requests, list):
+            for request in requests:
+                self.__check_request(request)
+
+            self.request_buffers.extend(requests)
+            self.valid_req_num += len(self.request_buffers)
+            self.nrreq += len(self.request_buffers)
+
+        elif isinstance(requests, str):
+            request_buffers = []
+            valid_req_num = 0
+            while len(requests) > 0:
+                try:
+                    tf_cfg.dbg(2, 'Request parsing is running.')
+                    req = deproxy.Request(requests)
+                    tf_cfg.dbg(3, 'Request parsing is complete.')
+                except Exception as e:
+                    tf_cfg.dbg(2, f"Can't parse request. Error msg: {e}")
+                    req = None
+                if req is None:
+                    break
+
+                request_buffers.append(requests[:req.original_length])
+                self.methods.append(req.method)
+                valid_req_num += 1
+                requests = requests[req.original_length:]
+
+            if len(requests) > 0:
+                request_buffers.append(requests)
+                self.methods.append("INVALID")
+
+            self.request_buffers.extend(request_buffers)
+            self.valid_req_num += valid_req_num
+            self.nrreq += len(self.methods)
+
+    def make_request(self, request: str) -> None:
+        """Send one HTTP request"""
+        self._clear_request_stats()
+        self.update_selfproxy()
+
+        self.__check_request(request)
+
+        self.valid_req_num += 1
+        self.request_buffers.append(request)
+        self.nrreq += 1
+
+    def __check_request(self, request: str) -> None:
+        if self.parsing:
+            tf_cfg.dbg(2, 'Request parsing is running.')
+            req = deproxy.Request(request)
+            self.methods.append(req.method)
+            if request[req.original_length:]:
+                raise deproxy.ParseError('Request has excess symbols.')
+            tf_cfg.dbg(3, 'Request parsing is complete.')
+        else:
+            tf_cfg.dbg(2, 'Request parsing has been disabled.')
+            self.methods.append('INVALID')
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
@@ -258,6 +301,7 @@ class DeproxyClient(BaseDeproxyClient):
             time.sleep(0.01)
         return True
 
+
 class DeproxyClientH2(DeproxyClient):
 
     def __init__(self, *args, **kwargs):
@@ -271,13 +315,7 @@ class DeproxyClientH2(DeproxyClient):
             self.make_request(request)
 
     def make_request(self, request):
-        if self.cur_req_num >= self.nrreq:
-            self.nrresp = 0
-            self.nrreq = 0
-            self.request_buffers = []
-            self.methods = []
-            self.start_time = time.time()
-            self.cur_req_num = 0
+        self._clear_request_stats()
 
         if isinstance(request, tuple):
             headers, body = request
