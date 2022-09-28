@@ -3,7 +3,7 @@ from helpers import deproxy, tf_cfg, tempesta, chains
 from testers import functional
 
 from helpers import chains
-from framework import tester
+from framework import tester, deproxy_client
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
@@ -199,3 +199,155 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertEqual(deproxy_cl.last_response.status, '200')
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+
+
+class DeproxyClientTest(tester.TempestaTest):
+
+    backends = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'port': '8000',
+            'response': 'static',
+            'response_content':
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n'
+                'Server: deproxy\r\n\r\n',
+        },
+    ]
+
+    clients = [
+        {
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80'
+        },
+    ]
+
+    tempesta = {
+        'config': """
+cache 0;
+listen 80;
+
+server ${server_ip}:8000;
+"""
+    }
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test_make_request(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = True
+
+        client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        client.wait_for_response(timeout=0.5)
+
+        self.assertIsNotNone(client.last_response)
+        self.assertEqual(client.last_response.status, '200')
+
+    def test_parsing_make_request(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = True
+
+        self.assertRaises(
+            deproxy.ParseError,
+            client.make_request,
+            'GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n'
+        )
+        self.assertIsNone(client.last_response)
+
+    def test_no_parsing_make_request(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = False
+
+        client.make_request('GET / HTTP/1.1\r\nHost: local<host\r\n\r\n')
+        client.wait_for_response(timeout=0.5)
+
+        self.assertIsNotNone(client.last_response)
+        self.assertEqual(client.last_response.status, '400')
+
+    def test_many_make_request(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = True
+
+        messages = 5
+        for _ in range(0, messages):
+            client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            client.wait_for_response(timeout=0.5)
+
+        self.assertEqual(len(client.responses), messages)
+        for res in client.responses:
+            self.assertEqual(res.status, '200')
+
+    def test_many_make_request_2(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = False
+
+        messages = 5
+        for _ in range(0, messages):
+            client.make_request('GET / HTTP/1.1\r\nHost: local<host\r\n\r\n')
+            client.wait_for_response(timeout=0.5)
+
+        self.assertEqual(client.last_response.status, '400')
+        self.assertNotEqual(len(client.responses), messages)
+
+    def test_make_requests(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = True
+
+        request = 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'
+
+        messages = 5
+        client.make_requests(request * messages)
+        client.wait_for_response(timeout=3)
+
+        self.assertEqual(len(client.responses), messages)
+        for res in client.responses:
+            self.assertEqual(res.status, '200')
+
+    def test_parsing_make_requests(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = True
+
+        self.assertRaises(
+            deproxy.ParseError,
+            client.make_requests,
+            [
+                'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n',
+                'GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n',
+            ]
+        )
+        self.assertIsNone(client.last_response)
+
+    def test_no_parsing_make_requests(self):
+        self.start_all()
+        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client.parsing = False
+
+        request = 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'
+        bad_request = 'GETS / HTTP/1.1\r\nHost: local<host\r\n\r\n'
+        client.make_requests([
+            request,
+            request,
+            request,
+            bad_request,
+            request,
+            request,
+        ])
+
+        self.assertFalse(client.wait_for_response(timeout=3))
+        self.assertIsNotNone(client.last_response)
+        self.assertEqual(client.last_response.status, '400')
