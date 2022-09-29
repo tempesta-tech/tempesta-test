@@ -1,12 +1,10 @@
-from __future__ import print_function
+from h2.exceptions import ProtocolError
 from helpers import deproxy, tf_cfg, tempesta, chains
 from testers import functional
-
-from helpers import chains
 from framework import tester, deproxy_client
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 def sample_rule():
@@ -144,6 +142,57 @@ class DeproxyTestH2(tester.TempestaTest):
         self.start_all_clients()
         self.assertTrue(self.wait_all_connections())
 
+    def test_make_request(self):
+        self.start_all()
+
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'https'),
+            (':method', 'GET')
+        ]
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.parsing = True
+        deproxy_cl.make_request(head)
+
+        self.assertTrue(deproxy_cl.wait_for_response(timeout=0.5))
+        self.assertIsNotNone(deproxy_cl.last_response)
+        self.assertEqual(deproxy_cl.last_response.status, '200')
+
+    def test_parsing_make_request(self):
+        self.start_all()
+
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'http'),
+            ('method', 'GET')
+        ]
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.parsing = True
+
+        self.assertRaises(
+            ProtocolError,
+            deproxy_cl.make_request,
+            head
+        )
+        self.assertIsNone(deproxy_cl.last_response)
+
+    def test_no_parsing_make_request(self):
+        self.start_all()
+
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':method', 'GET'),
+        ]
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.parsing = False
+
+        deproxy_cl.make_request(head)
+        self.assertFalse(deproxy_cl.wait_for_response(timeout=0.5))
+        self.assertIsNone(deproxy_cl.last_response)
+
     def test_bodyless(self):
         self.start_all()
 
@@ -197,8 +246,6 @@ class DeproxyTestH2(tester.TempestaTest):
 
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(deproxy_cl.last_response.status, '200')
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
 
 
 class DeproxyClientTest(tester.TempestaTest):
@@ -300,7 +347,7 @@ server ${server_ip}:8000;
             client.wait_for_response(timeout=0.5)
 
         self.assertEqual(client.last_response.status, '400')
-        self.assertNotEqual(len(client.responses), messages)
+        self.assertEqual(len(client.responses), 1)
 
     def test_make_requests(self):
         self.start_all()
@@ -332,22 +379,5 @@ server ${server_ip}:8000;
         )
         self.assertIsNone(client.last_response)
 
-    def test_no_parsing_make_requests(self):
-        self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
-        client.parsing = False
 
-        request = 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'
-        bad_request = 'GETS / HTTP/1.1\r\nHost: local<host\r\n\r\n'
-        client.make_requests([
-            request,
-            request,
-            request,
-            bad_request,
-            request,
-            request,
-        ])
-
-        self.assertFalse(client.wait_for_response(timeout=3))
-        self.assertIsNotNone(client.last_response)
-        self.assertEqual(client.last_response.status, '400')
+# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

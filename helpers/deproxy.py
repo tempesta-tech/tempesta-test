@@ -464,30 +464,6 @@ class Request(HttpMessage):
         msg = HttpMessage.create(first_line, headers, date=date, body=body)
         return Request(msg)
 
-class H2Request(Request):
-
-    def __init__(self, *args, **kwargs):
-        self.version = 'HTTP2'
-        Request.__init__(self, *args, **kwargs)
-
-    def parse_firstline(self, stream):
-        pass
-
-    def get_firstline(self):
-        return ''
-
-    def parse_headers(self, stream):
-        self.headers = HeaderCollection.from_stream(stream, is_h2=True)
-        self.uri = self.headers.get(':path')
-        self.method = self.headers.get(':method')
-
-    @staticmethod
-    def create(method, headers, uri='/', version='HTTP/2', date=False,
-               body=None):
-        first_line = ' '.join([method, uri, version])
-        msg = HttpMessage.create(first_line, headers, date=date, body=body)
-        return Request(msg)
-
 class Response(HttpMessage):
 
     def __init__(self, *args, **kwargs):

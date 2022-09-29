@@ -314,7 +314,7 @@ class DeproxyClientH2(DeproxyClient):
         for request in requests:
             self.make_request(request)
 
-    def make_request(self, request):
+    def make_request(self, request: tuple or list):
         self._clear_request_stats()
 
         if isinstance(request, tuple):
@@ -323,22 +323,20 @@ class DeproxyClientH2(DeproxyClient):
             headers = request
             body = ''
 
-        try:
-            req = deproxy.H2Request(self.__headers_to_string(headers) + "\r\n" + body)
-        except Exception as e:
-            tf_cfg.dbg(2, "Can't parse request: %s" % str(e))
-            req = None
-
-        if req == None:
-            return
-
         if self.h2_connection is None:
             self.h2_connection = h2.connection.H2Connection()
             self.h2_connection.initiate_connection()
             if self.selfproxy_present:
                 self.update_selfproxy()
 
-        self.methods.append(req.method)
+        for header in headers:
+            if header[0] == ':method':
+                self.methods.append(header[1])
+
+        if not self.parsing:
+            self.h2_connection.config.normalize_outbound_headers = False
+            self.h2_connection.config.validate_inbound_headers = False
+            self.h2_connection.config.validate_outbound_headers = False
 
         if body != '':
             self.h2_connection.send_headers(self.stream_id, headers)
