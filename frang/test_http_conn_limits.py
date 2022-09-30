@@ -13,11 +13,14 @@ __license__ = 'GPL2'
 class HttpConnBase(tester.TempestaTest):
     clients = [
         {
-            'id' : 'deproxy' + str(x),
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-        } for x in range(1, 6)
+            'id': 'curl',
+            'type': 'external',
+            'binary': 'curl',
+            'cmd_args': (
+                    '--max-time 10 --parallel-immediate --parallel -H \'Host: host\' -H \'Connection: close\' ' +
+                    ('http://${tempesta_ip} ' * 6)
+            )
+        }
     ]
 
     backends = [
@@ -33,29 +36,31 @@ class HttpConnBase(tester.TempestaTest):
     ]
 
     def do(self):
-        klog = dmesg.DmesgFinder(ratelimited=False)
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "Connection: close\r\n" \
-                   "\r\n"
-        deproxy_cl = [self.get_client(x["id"]) for x in self.clients]
+        warn_count = 0
+        for x in range(3):
+            klog = dmesg.DmesgFinder(ratelimited=False)
+            clients = [self.get_client(x["id"]) for x in self.clients]
 
-        self.start_all_servers()
-        self.start_tempesta()
+            self.start_all_servers()
+            self.start_tempesta()
 
-        for cl in deproxy_cl:
-            cl.start()
+            for cl in clients:
+                cl.start()
 
-        self.deproxy_manager.start()
+            self.deproxy_manager.start()
 
-        for cl in deproxy_cl:
-            cl.make_requests(requests)
+            for cl in clients:
+                cl.start()
 
-        for cl in deproxy_cl:
-            cl.wait_for_response(timeout=2)
+            for cl in clients:
+                self.wait_while_busy(cl)
 
-        self.assertGreater(klog.warn_count(self.WARN_IP_ADDR), 0,
-                           "Frang limits warning is incorrectly shown")
+            warn_count += klog.warn_count(self.WARN_IP_ADDR)
+
+            for cl in clients:
+                cl.stop()
+
+        self.assertGreater(warn_count, 0, "Frang limits warning is incorrectly shown")
 
 class HttpConnRate(HttpConnBase):
     tempesta = {
