@@ -279,7 +279,7 @@ class DeproxyClient(BaseDeproxyClient):
             tf_cfg.dbg(3, 'Request parsing is complete.')
         else:
             tf_cfg.dbg(2, 'Request parsing has been disabled.')
-            self.methods.append('INVALID')
+            self.methods.append(request.split(' ')[0])
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
