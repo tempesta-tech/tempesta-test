@@ -1,6 +1,8 @@
 """
 HTTP Stress tests - load Tempesta FW with multiple connections.
 """
+import time
+
 from helpers import tf_cfg
 from framework import tester
 
@@ -16,6 +18,10 @@ CONCURRENT_CONNECTIONS = max(
     int(tf_cfg.cfg.get('General', 'concurrent_connections')),
     100
 )
+# Number of requests to make
+REQUESTS_COUNT = CONCURRENT_CONNECTIONS * 10
+# Time to wait for single request completion
+DURATION = tf_cfg.cfg.get('General', 'duration')
 
 
 class BaseWrkStress(tester.TempestaTest, base=True):
@@ -40,6 +46,7 @@ class BaseWrkStress(tester.TempestaTest, base=True):
         self.start_all_servers()
         self.deproxy_manager.start()
         self.start_tempesta()
+        self.assertTrue(self.wait_all_connections(1))
 
         wrk = self.get_client('wrk')
         wrk.connections = CONCURRENT_CONNECTIONS
@@ -70,7 +77,7 @@ class WrkStress(BaseWrkStress):
         {
             'id' : 'wrk',
             'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            'addr' : "${tempesta_ip}:80/1",
         },
     ]
 
@@ -120,6 +127,7 @@ class BaseCurlStress(tester.TempestaTest, base=True):
     ]
 
     tempesta_tmpl = """
+        listen 80;
         listen 443 proto=%s;
         server ${server_ip}:8000;
         tls_certificate ${general_workdir}/tempesta.crt;
@@ -129,21 +137,59 @@ class BaseCurlStress(tester.TempestaTest, base=True):
     """
 
     clients = [
+        # Client to make a single request
         {
-            # Curl client to request URLs (/1 /2 ..) in parallel
+            'id': 'single',
+            'type': 'curl',
+            'disable_output': True,
+            'uri': f"/1",
+            'headers': {
+                'Connection': 'close',
+            },
+            'cmd_args': (
+                ' --insecure'
+                f" --max-time {DURATION}"
+            ),
+        },
+        # Client to request URLs (/1 /2 ..) sequentially
+        {
+            'id': 'sequential',
+            'type': 'curl',
+            'disable_output': True,
+            'uri': f"/[1-{REQUESTS_COUNT}]",
+            'headers': {
+                'connection': 'close',
+            },
+            'cmd_args': (
+                ' --insecure'
+                f" --max-time {DURATION}"
+            ),
+        },
+        # Client to request URLs (/1 /2 ..) in a pipilene
+        {
+            'id': 'pipelined',
+            'type': 'curl',
+            'disable_output': True,
+            'uri': f"/[1-{REQUESTS_COUNT}]",
+            'cmd_args': (
+                ' --insecure'
+                f" --max-time {DURATION}"
+            ),
+        },
+        # Client to request URLs (/1 /2 ..) in parallel
+        {
             'id': 'concurrent',
             'type': 'curl',
             'disable_output': True,
-            'ssl': True,
-            'uri': f"/[1-{CONCURRENT_CONNECTIONS * 10}]",
+            'uri': f"/[1-{REQUESTS_COUNT}]",
             'cmd_args': (
                 ' --insecure'
-                ' --max-time 5'
                 ' --parallel-immediate'
                 ' --parallel'
                 f" --parallel-max {CONCURRENT_CONNECTIONS}"
+                f" --max-time {DURATION}"
             ),
-        }
+        },
     ]
 
     def setUp(self):
@@ -156,18 +202,69 @@ class BaseCurlStress(tester.TempestaTest, base=True):
         self.start_all_servers()
         self.deproxy_manager.start()
         self.start_tempesta()
+        self.assertTrue(self.wait_all_connections(1))
 
-    def test_concurrent_connections(self):
+    def make_requests(self, client_id):
+        client = self.get_client(client_id)
         self.start_all()
-        client = self.get_client('concurrent')
         client.start()
         self.wait_while_busy(client)
         client.stop()
+        tf_cfg.dbg(2, f"Number of successful requests: {client.statuses[200]}")
+        self.assertFalse(client.last_response.stderr)
+
+    def test_requests_range(self):
+        """Send requests sequentially, stop on error."""
+        self.start_all()
+        client = self.get_client('single')
+        started = time.time()
+        delta = 0
+
+        for i in range(REQUESTS_COUNT + 1):
+            delta = time.time() - started
+            client.start()
+            self.wait_while_busy(client)
+            client.stop()
+
+            response = client.last_response
+            self.assertFalse(
+                response.stderr,
+                f"Error after {delta} seconds and {i} requests."
+            )
+            self.assertEqual(response.status, 200)
+            self.assertEqual(
+                int(client.last_response.headers['content-length']),
+                LARGE_CONTENT_LENGTH
+            )
+
+        tf_cfg.dbg(2, f"Test completed after {time.time() - started} seconds and {i} requests.")
+
+    def test_sequential_requests(self):
+        """Send requests sequentially, continue on errors."""
+        self.make_requests('sequential')
+
+    def test_pipelined_requests(self):
+        """Send requests in a single pipeline."""
+        self.make_requests('pipelined')
+
+    def test_concurrent_requests(self):
+        """Send requests in parallel."""
+        self.make_requests('concurrent')
+
+
+class CurlStress(BaseCurlStress):
+    """HTTP stress test generated by `curl`."""
+    proto = "http"
 
 
 class TlsCurlStress(BaseCurlStress):
     """HTTPS stress test generated by `curl`."""
     proto = "https"
+
+    def setUp(self):
+        for client in self.clients:
+            client['ssl'] = True
+        super().setUp()
 
 
 class H2CurlStress(BaseCurlStress):
@@ -175,8 +272,8 @@ class H2CurlStress(BaseCurlStress):
     proto = "h2"
 
     def setUp(self):
-        self.clients[0]['http2'] = True
+        for client in self.clients:
+            client['http2'] = True
         super().setUp()
-
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
