@@ -1,8 +1,10 @@
-"""Tests for Frang directive `http_host_required`."""
+"""Tests for Frang directive `http_method_override_allowed`."""
 from framework import tester
 from helpers import dmesg
-import pytest
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 ERROR_MSG = 'Frang limits warning is not shown'
 COUNT_WARNINGS_OK = 1
@@ -31,24 +33,60 @@ WARN = 'frang: restricted HTTP method'
 WARN_ERROR = 'frang: restricted overridden HTTP method'
 WARN_UNSAFE = 'request dropped: unsafe method override:'
 
-ACCEPTED_REQUEST = """
+ACCEPTED_REQUESTS = """
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
 X-HTTP-Method-Override: PUT\r
 \r
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-Method-Override: PUT\r
+\r
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method: PUT\r
+\r
 """
 
-REQUEST_UNSAFE_OVERRIDE = """
+REQUEST_UNSAFE_OVERRIDE_X_HTTP_METHOD_OVERRIDE = """
 GET / HTTP/1.1\r
 Host: tempesta-tech.com\r
 X-HTTP-Method-Override: POST\r
 \r
 """
 
-NOT_ACCEPTED_REQUEST = """
+REQUEST_UNSAFE_OVERRIDE_X_METHOD_OVERRIDE = """
+GET / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-Method-Override: POST\r
+\r
+"""
+
+REQUEST_UNSAFE_OVERRIDE_X_HTTP_METHOD = """
+GET / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method: POST\r
+\r
+"""
+
+NOT_ACCEPTED_REQUEST_X_HTTP_METHOD_OVERRIDE = """
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
 X-HTTP-Method-Override: OPTIONS\r
+\r
+"""
+
+NOT_ACCEPTED_REQUEST_X_METHOD_OVERRIDE = """
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-Method-Override: OPTIONS\r
+\r
+"""
+
+NOT_ACCEPTED_REQUEST_X_HTTP_METHOD = """
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method: OPTIONS\r
 \r
 """
 
@@ -56,6 +94,8 @@ REQUEST_FALSE_OVERRIDE = """
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
 X-HTTP-Method-Override: POST\r
+X-Method-Override: POST\r
+X-HTTP-Method: POST\r
 \r
 """
 
@@ -73,15 +113,14 @@ Host: tempesta-tech.com\r
 X-HTTP-Method-Override: GET\r
 X-HTTP-Method-Override: PUT\r
 X-HTTP-Method-Override: GET\r
-X-HTTP-Method-Override: GET\r
+X-HTTP-Method: GET\r
 X-HTTP-Method-Override: PUT\r
-X-HTTP-Method-Override: GET\r
+X-Method-Override: GET\r
 \r
 """
 
 
 class FrangHttpMethodsOverrideTestCase(tester.TempestaTest):
-
 
     clients = [
         {
@@ -127,36 +166,80 @@ class FrangHttpMethodsOverrideTestCase(tester.TempestaTest):
         deproxy_cl = self.get_client('client')
         deproxy_cl.start()
         deproxy_cl.make_requests(
-            ACCEPTED_REQUEST+ 
-            REQUEST_FALSE_OVERRIDE+
-            DOUBLE_OVERRIDE+
+            ACCEPTED_REQUESTS +
+            REQUEST_FALSE_OVERRIDE +
+            DOUBLE_OVERRIDE +
             MULTIPLE_OVERRIDE
         )
         deproxy_cl.wait_for_response(1)
-        assert list(p.status for p in deproxy_cl.responses) == ['200', '200', '200', '200'], f'Real status: {list(p.status for p in deproxy_cl.responses)}'
+        assert list(p.status for p in deproxy_cl.responses) == ['200'] * 6, f'Real status: {list(p.status for p in deproxy_cl.responses)}'
         self.assertEqual(
-            4,
+            6,
             len(deproxy_cl.responses),
         )
         self.assertFalse(
             deproxy_cl.connection_is_closed(),
         )
 
-
-    def test_not_accepted_request(self):#override methods not allowed by limit http_methods
+    def test_not_accepted_request_x_http_method_override(self):
+        '''
+        override methods not allowed by limit http_methods
+        for X_HTTP_METHOD_OVERRIDE
+        '''
         self._test_base_scenario(
-            request_body=NOT_ACCEPTED_REQUEST,
+            request_body=NOT_ACCEPTED_REQUEST_X_HTTP_METHOD_OVERRIDE,
             expected_warning=WARN_ERROR
         )
-    
-    
-    def test_unsafe_override(self):#should not be allowed to be overridden by unsafe methods
-        self._test_base_scenario(
-            request_body=REQUEST_UNSAFE_OVERRIDE,
-            expected_warning=WARN_UNSAFE
-        ) 
 
-    
+    def test_not_accepted_request_x_method_override(self):
+        '''
+        override methods not allowed by limit http_methods
+        for X_METHOD_OVERRIDE
+        '''
+        self._test_base_scenario(
+            request_body=NOT_ACCEPTED_REQUEST_X_METHOD_OVERRIDE,
+            expected_warning=WARN_ERROR
+        )
+
+    def test_not_accepted_request_x_http_method(self):
+        '''
+        override methods not allowed by limit http_methods
+        for X_HTTP_METHOD
+        '''
+        self._test_base_scenario(
+            request_body=NOT_ACCEPTED_REQUEST_X_HTTP_METHOD,
+            expected_warning=WARN_ERROR
+        )
+
+    def test_unsafe_override_x_http_method_override(self):
+        '''
+        should not be allowed to be overridden by unsafe methods
+        for X-HTTP-Method-Override
+        '''
+        self._test_base_scenario(
+            request_body=REQUEST_UNSAFE_OVERRIDE_X_HTTP_METHOD_OVERRIDE,
+            expected_warning=WARN_UNSAFE
+        )
+
+    def test_unsafe_override_x_http_method(self):
+        '''
+        should not be allowed to be overridden by unsafe methods
+        for X-HTTP-Method
+        '''
+        self._test_base_scenario(
+            request_body=REQUEST_UNSAFE_OVERRIDE_X_HTTP_METHOD,
+            expected_warning=WARN_UNSAFE
+        )
+
+    def test_unsafe_override_x_method_override(self):
+        '''
+        should not be allowed to be overridden by unsafe methods
+        for X-Method-Override
+        '''
+        self._test_base_scenario(
+            request_body=REQUEST_UNSAFE_OVERRIDE_X_METHOD_OVERRIDE,
+            expected_warning=WARN_UNSAFE
+        )
 
     def _test_base_scenario(
         self,

@@ -2,6 +2,10 @@
 from framework import tester
 from helpers import dmesg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 ZERO = 0
 ONE = 1
 DELAY = 0.125
@@ -9,7 +13,9 @@ ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
 
 
 class FrangTestCase(tester.TempestaTest):
-    """Frang Test case class."""
+    """
+    Frang Test case class, defined the backend in tests
+    """
 
     backends = [
         {
@@ -51,7 +57,6 @@ class FrangTestCase(tester.TempestaTest):
     ]
 
     def setUp(self):
-        """Set up test."""
         super().setUp()
         self.klog = dmesg.DmesgFinder(ratelimited=False)
         self.assert_msg = ASSERT_MSG
