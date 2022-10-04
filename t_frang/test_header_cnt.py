@@ -75,8 +75,6 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
 
     def test_reaching_the_limit(self):
         """
-        Test 'client_header_timeout'.
-
         We set up for Tempesta `http_header_cnt 3` and
         made request with 4 headers
         """
@@ -108,8 +106,6 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
 
     def test_not_reaching_the_limit(self):
         """
-        Test 'client_header_timeout'.
-
         We set up for Tempesta `http_header_cnt 3` and
         made request with 2 headers
         """

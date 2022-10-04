@@ -3,12 +3,15 @@ import time
 
 from t_frang.frang_test_case import DELAY, ONE, ZERO, FrangTestCase
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 ERROR_RATE = 'Warning: frang: new connections rate exceeded for'
 ERROR_BURST = 'Warning: frang: new connections burst exceeded'
 
 
 class FrangConnectionRateTestCase(FrangTestCase):
-    """Tests for 'request_rate' and 'request_burst' directive."""
 
     clients = [
         {
@@ -18,7 +21,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',
         },
     ]
-
+#connection_burst 2;
     tempesta = {
         'config': """
             frang_limits {
@@ -49,7 +52,6 @@ class FrangConnectionRateTestCase(FrangTestCase):
             }
         """,
     }
-
 
     def test_connection_rate(self):
         """Test 'connection_rate'."""
@@ -125,6 +127,64 @@ class FrangConnectionRateTestCase(FrangTestCase):
             ONE,
             self.assert_msg.format(
                 exp=ONE,
+                got=self.klog.warn_count(ERROR_BURST),
+            ),
+        )
+
+    def test_connection_burst_1(self):
+        """Test 'connection_burst'.
+        for some reason, the number of logs in the dmsg may be greater 
+        than the expected number, which may cause the test to fail
+        """
+        self.tempesta = {
+        'config': """
+            frang_limits {
+                connection_burst 1;
+            }
+
+            listen 127.0.0.4:8765;
+
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+
+            vhost tempesta-cat {
+                proxy_pass default;
+            }
+
+            tls_match_any_server_name;
+            tls_certificate RSA/tfw-root.crt;
+            tls_certificate_key RSA/tfw-root.key;
+
+            cache 0;
+            cache_fulfill * *;
+            block_action attack reply;
+
+            http_chain {
+                -> tempesta-cat;
+            }
+        """,
+    }
+        curl = self.get_client('curl-1')
+
+        self.start_all_servers()
+        self.start_tempesta()
+
+        # connection_burst 2 in Tempesta config increase to get limit
+        connection_burst = 2
+
+        for step in range(connection_burst):
+            curl.run_start()
+            self.wait_while_busy(curl)
+            curl.stop()
+
+        time.sleep(3)        
+
+        self.assertEqual(
+            self.klog.warn_count(ERROR_BURST),
+            2,
+            self.assert_msg.format(
+                exp=2,
                 got=self.klog.warn_count(ERROR_BURST),
             ),
         )

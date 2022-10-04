@@ -5,10 +5,10 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
-ERROR = "Warning: frang: client body timeout exceeded"
+ERROR = "Warning: frang: client header timeout exceeded"
 
 
-class ClientBodyTimeoutBase(tester.TempestaTest):
+class ClientHeaderBase(tester.TempestaTest):
     backends = [
         {
             'id': 'nginx',
@@ -92,13 +92,13 @@ http {
     ]
 
 
-class ClientBodyTimeout(ClientBodyTimeoutBase):
+class ClientHeaderTimeout(ClientHeaderBase):
     tempesta = {
         'config': """
 server ${server_ip}:8000;
 
 frang_limits {
-    client_body_timeout 1;
+    client_header_timeout 1;
     ip_block on;
 }
 
@@ -116,11 +116,6 @@ frang_limits {
         requests = 'POST / HTTP/1.1\r\n' \
             'Host: debian\r\n' \
             'Content-Type: text/html\r\n' \
-            'Transfer-Encoding: chunked\r\n' \
-            '\r\n' \
-            '4\r\n' \
-            'test\r\n' \
-            '0\r\n' \
             '\r\n'
 
         nginx = self.get_server('nginx')
@@ -156,15 +151,9 @@ frang_limits {
         But both clients should be blocked because
         the frang limit [ip_block on;] is set
         '''
-
         requests = 'POST / HTTP/1.1\r\n' \
             'Host: debian\r\n' \
             'Content-Type: text/html\r\n' \
-            'Transfer-Encoding: chunked\r\n' \
-            '\r\n' \
-            '4\r\n' \
-            'test\r\n' \
-            '0\r\n' \
             '\r\n'
 
         nginx = self.get_server('nginx')
@@ -189,6 +178,7 @@ frang_limits {
         self.assertEqual(klog.warn_count(ERROR), 1, "Warning is not shown")
 
         self.assertEqual(0, len(deproxy_cl.responses))
+        # it must be (0, len(deproxy_cl2.responses))
         self.assertEqual(1, len(deproxy_cl2.responses))
 
         # I don't know why the connection is not closed,it should be closed

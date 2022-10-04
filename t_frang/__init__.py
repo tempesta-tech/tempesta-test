@@ -7,7 +7,8 @@ __all__ = [
     'test_length',
     'test_request_rate_burst',
     'test_tls_rate_burst',
-    'test_http_method_override_allowed'
+    'test_http_method_override_allowed',
+    'test_client_header_timeout',
     ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
