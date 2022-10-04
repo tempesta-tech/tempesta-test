@@ -82,6 +82,22 @@ class TlsIntegrityTester(tester.TempestaTest):
         finally:
             sysnet.change_mtu(node, dev, mtu)
 
+    def get_tso_state(self, dev):
+        cmd = f"ethtool --show-features {dev} | grep tcp-segmentation-offload"
+        out = remote.client.run_cmd(cmd)
+        tso_state = out[0].decode("utf-8").split(" ")[-1].strip('\n')
+        if tso_state == 'on':
+            self.tso_state = True
+        else:
+            self.tso_state = False
+
+    def change_tso(self, dev, on=True):
+        if on:
+            cmd = f"ethtool -K {dev} tso on"
+        else:
+            cmd = f"ethtool -K {dev} tso off"
+        out = remote.client.run_cmd(cmd)
+
     def tcp_flow_check(self, resp_len):
         """ Check how Tempesta generates TCP segments for TLS records. """
         # Run the sniffer first to let it start in separate thread.
@@ -103,14 +119,19 @@ class TlsIntegrityTester(tester.TempestaTest):
             prev_mtu = sysnet.change_mtu(remote.client, dev, 1500)
         except Error as err:
             self.fail(err)
-
-        with self.mtu_ctx(remote.client, dev, prev_mtu):
-            client.make_request(self.make_req(1))
-            res = client.wait_for_response(timeout=1)
-            self.assertTrue(res, "Cannot process response (len=%d)" % resp_len)
-            sniffer.stop()
-            self.assertTrue(sniffer.check_results(client.addr[0]), "Not optimal TCP flow")
-
+        try:
+            self.get_tso_state(dev)
+            self.change_tso(dev, False)
+            with self.mtu_ctx(remote.client, dev, prev_mtu):
+                client.make_request(self.make_req(1))
+                res = client.wait_for_response(timeout=1)
+                self.assertTrue(res, "Cannot process response (len=%d)" % resp_len)
+                sniffer.stop()
+                self.assertTrue(sniffer.check_results(client.addr[0]), "Not optimal TCP flow")
+            self.change_tso(dev, self.tso_state)
+        finally:
+            self.change_tso(dev, self.tso_state)
+            sysnet.change_mtu(remote.client, dev, prev_mtu)
 
 class Proxy(TlsIntegrityTester):
 
