@@ -1,23 +1,8 @@
-"""
-Functional tests for http_resp_code_block.
-If your web application works with user accounts, then typically it requires
-a user authentication. If you implement the user authentication on your web
-site, then an attacker may try to use a brute-force password cracker to get
-access to accounts of your users. The second case is much harder to detect.
-It's worth mentioning that unsuccessful authorization requests typically
-produce error HTTP responses.
-
-Tempesta FW provides http_resp_code_block for efficient blocking of all types of
-password crackers
-"""
-
-import time
-from requests import request
 from framework import tester
 from helpers import dmesg
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2019-2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 ERROR = "Warning: frang: connections max num. exceeded"
 

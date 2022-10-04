@@ -131,9 +131,11 @@ class FrangConnectionRateTestCase(FrangTestCase):
             ),
         )
 
-    def test_connection_burst_1(self):
-        """Test 'connection_burst'.
-        for some reason, the number of logs in the dmsg may be greater 
+    def test_connection_burst_limit_1(self):
+        """
+        any request will be blocked by the rate limiter, 
+        if connection_burst=1;
+        for some reason, the number of logs always greater 
         than the expected number, which may cause the test to fail
         """
         self.tempesta = {
@@ -141,7 +143,6 @@ class FrangConnectionRateTestCase(FrangTestCase):
             frang_limits {
                 connection_burst 1;
             }
-
             listen 127.0.0.4:8765;
 
             srv_group default {
@@ -165,26 +166,26 @@ class FrangConnectionRateTestCase(FrangTestCase):
             }
         """,
     }
+        self.setUp()
         curl = self.get_client('curl-1')
 
         self.start_all_servers()
         self.start_tempesta()
 
-        # connection_burst 2 in Tempesta config increase to get limit
-        connection_burst = 2
+        connection_burst = 5
 
         for step in range(connection_burst):
             curl.run_start()
             self.wait_while_busy(curl)
-            curl.stop()
+            curl.stop() 
 
-        time.sleep(3)        
+        time.sleep(1)       
 
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),
-            2,
+            5,
             self.assert_msg.format(
-                exp=2,
+                exp=5,
                 got=self.klog.warn_count(ERROR_BURST),
             ),
         )
