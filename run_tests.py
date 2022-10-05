@@ -33,6 +33,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -f, --failfast                    - Stop tests after first error.
 -r, --resume <id>                 - Continue execution from first test matching
                                     this ID prefix
+-R, --repeat <N>                  - Repeat every test for N times
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
 -n, --no-resume                   - Do not resume from state file
@@ -67,12 +68,13 @@ list_tests = False
 clean_old = False
 run_disabled = False
 prepare_tcp = True
+n_count = 1
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LCDZp',
+    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:R:a:nl:LCDZp',
                                        ['help', 'verbose', 'defaults',
                                         'duration=', 'failfast', 'resume=',
-                                        'resume-after=', 'no-resume', 'log=',
+                                        'resume-after=', 'repeat=', 'no-resume', 'log=',
                                         'list', 'clean', 'debug-files',
                                         'run-disabled', 'dont-prepare'])
 
@@ -109,6 +111,8 @@ for opt, arg in options:
         list_tests = True
     elif opt in ('-C', '--clean'):
         clean_old = True
+    elif opt in ('-R', '--repeat'):
+        n_count = arg
     elif opt in ('-D', '--debug-files'):
         remote.DEBUG_FILES = True
     elif opt in ('-Z', '--run-disabled'):
@@ -281,6 +285,7 @@ if state_reader.has_file and not test_resume.from_file:
 resume_filter = test_resume.filter()
 tests = [ t
           for t in tests
+          for _ in range(int(n_count))
           if resume_filter(t)
           and (not inclusions or shell.testcase_in(t, inclusions))
           and not shell.testcase_in(t, exclusions) ]
@@ -303,6 +308,8 @@ if test_resume:
         addn_status = " (resuming from after %s)" % test_resume.state.last_id
     else:
         addn_status = " (resuming from %s)" % test_resume.state.last_id
+if n_count != 1:
+    addn_status = f" for {n_count} times each"
 print("""
 ----------------------------------------------------------------------
 Running functional tests%s...
