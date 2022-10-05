@@ -308,6 +308,8 @@ if test_resume:
         addn_status = " (resuming from after %s)" % test_resume.state.last_id
     else:
         addn_status = " (resuming from %s)" % test_resume.state.last_id
+if n_count != 1:
+    addn_status = f" for {n_count} times each"
 print("""
 ----------------------------------------------------------------------
 Running functional tests%s...
