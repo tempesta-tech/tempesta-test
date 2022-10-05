@@ -113,7 +113,6 @@ for opt, arg in options:
         clean_old = True
     elif opt in ('-R', '--repeat'):
         n_count = arg
-        print(f'SET REPEAT COUNT: {n_count}')
     elif opt in ('-D', '--debug-files'):
         remote.DEBUG_FILES = True
     elif opt in ('-Z', '--run-disabled'):
