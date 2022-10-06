@@ -13,10 +13,10 @@ __license__ = 'GPL2'
 # Backend content size in bytes
 LARGE_CONTENT_LENGTH = 1024 * 64
 
-# Keep 100+ open connections
+# Keep 10+ open connections
 CONCURRENT_CONNECTIONS = max(
     int(tf_cfg.cfg.get('General', 'concurrent_connections')),
-    100
+    10
 )
 # Number of requests to make
 REQUESTS_COUNT = CONCURRENT_CONNECTIONS * 10
@@ -96,10 +96,12 @@ class CustomMtuMixin:
         )
 
     def tearDown(self):
-        super().tearDown()
         # Restore previous MTU values
-        for args in self._prev_mtu.values():
-            sysnet.change_mtu(*args)
+        try:
+            for args in self._prev_mtu.values():
+                sysnet.change_mtu(*args)
+        finally:
+            super().tearDown()
 
     def set_mtu(self, node, destination_ip, mtu):
         if mtu:
@@ -140,11 +142,11 @@ class BaseWrkStress(CustomMtuMixin, tester.TempestaTest, base=True):
     def test_concurrent_connections(self):
         self.start_all()
         wrk = self.get_client('wrk')
-        wrk.connections = CONCURRENT_CONNECTIONS
         wrk.set_script("foo", content='wrk.method="GET"')
+        wrk.connections = CONCURRENT_CONNECTIONS
+        wrk.duration = DURATION
         wrk.timeout = 0
-        wrk.threads = 10
-        wrk.duration = 120
+        wrk.threads = -1
 
         wrk.start()
         self.wait_while_busy(wrk)
@@ -360,8 +362,10 @@ class TlsCurlStress(BaseCurlStress):
     proto = 'https'
 
     def setUp(self):
-        for client in self.clients:
-            client['ssl'] = True
+        self.clients = [
+            {**client, 'ssl': True}
+            for client in self.clients
+        ]
         super().setUp()
 
 
@@ -370,8 +374,10 @@ class H2CurlStress(BaseCurlStress):
     proto = 'h2'
 
     def setUp(self):
-        for client in self.clients:
-            client['http2'] = True
+        self.clients = [
+            {**client, 'http2': True}
+            for client in self.clients
+        ]
         super().setUp()
 
 
@@ -382,13 +388,16 @@ class NginxMixin:
     """
 
     def setUp(self):
-        self.backends.append({
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '80',
-            'status_uri': 'http://${server_ip}:80/nginx_status',
-            'config': NGINX_CONFIG,
-        })
+        self.backends = [
+            *self.backends[:],
+            {
+                'id': 'nginx',
+                'type': 'nginx',
+                'port': '80',
+                'status_uri': 'http://${server_ip}:80/nginx_status',
+                'config': NGINX_CONFIG,
+            }
+        ]
         super().setUp()
 
     def start_all(self):
@@ -414,8 +423,10 @@ class NginxTlsCurlStress(NginxMixin, BaseCurlStress):
     proto = 'https'
 
     def setUp(self):
-        for client in self.clients:
-            client['ssl'] = True
+        self.clients = [
+            {**client, 'ssl': True}
+            for client in self.clients
+        ]
         super().setUp()
 
 
@@ -424,8 +435,10 @@ class NginxH2CurlStress(NginxMixin, BaseCurlStress):
     proto = 'h2'
 
     def setUp(self):
-        for client in self.clients:
-            client['http2'] = True
+        self.clients = [
+            {**client, 'http2': True}
+            for client in self.clients
+        ]
         super().setUp()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
