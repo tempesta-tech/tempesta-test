@@ -3,6 +3,9 @@ from framework import tester
 from helpers import dmesg
 import time
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 CURL_CODE_OK = 0
 CURL_CODE_BAD = 1
@@ -34,10 +37,13 @@ WARN_DIFFER = 'frang: Request authority in URI differs from host header'
 WARN_IP_ADDR = 'frang: Host header field contains IP address'
 WARN_HEADER_MISSING = 'failed to parse request:'
 WARN_HEADER_MISMATCH = 'Bad TLS alert'
+WARN_HEADER_FORWARDED = 'Request authority in URI differs from forwarded'
+WARN_PORT = 'port from host header doesn\'t match real port'
+WARN_HEADER_FORWARDED2 = 'frang: Request authority differs from forwarded'
 
 REQUEST_SUCCESS = """
 GET / HTTP/1.1\r
-Host: tempesta-tech.com\r
+Host: tempesta-tech.com:80\r
 \r
 GET / HTTP/1.1\r
 Host:    tempesta-tech.com     \r
@@ -47,6 +53,15 @@ Host: tempesta-tech.com\r
 \r
 GET http://user@tempesta-tech.com/ HTTP/1.1\r
 Host: tempesta-tech.com\r
+\r
+GET http://user@tempesta-tech.com/ HTTP/1.1\r
+Host: tempesta-tech.com\r
+Forwarded: host=tempesta-tech.com
+\r
+GET http://user@tempesta-tech.com/ HTTP/1.1\r
+Host: tempesta-tech.com\r
+Forwarded: host=tempesta-tech.com\r
+Forwarded: host=tempesta1-tech.com
 \r
 """
 
@@ -68,6 +83,62 @@ Host: \r
 \r
 """
 
+REQUEST_FORWARDED = """
+GET / HTTP/1.1\r
+Host: tempesta-tech.com\r
+Forwarded: host=qwerty.com\r
+\r
+"""
+
+REQUEST_FORWARDED_DOUBLE = """
+GET http://user@tempesta-tech.com/ HTTP/1.1\r
+Host: tempesta-tech.com\r
+Forwarded: host=tempesta1-tech.com\r
+Forwarded: host=tempesta-tech.com\r
+\r
+"""
+
+REQUEST_NO_PORT_URI = """
+GET http://tempesta-tech.com/ HTTP/1.1\r
+Host: tempesta-tech.com:80\r
+\r
+"""
+
+REQUEST_NO_PORT_HOST = """
+GET http://tempesta-tech.com:80/ HTTP/1.1\r
+Host: tempesta-tech.com\r
+\r
+"""
+
+REQUEST_MISMATH_PORT_URI = """
+GET http://tempesta-tech.com:81/ HTTP/1.1\r
+Host: tempesta-tech.com:80\r
+\r
+"""
+
+REQUEST_MISMATH_PORT_URI = """
+GET http://tempesta-tech.com:80/ HTTP/1.1\r
+Host: tempesta-tech.com:81\r
+\r
+"""
+
+REQUEST_MISMATH_PORT = """
+GET http://tempesta-tech.com:81/ HTTP/1.1\r
+Host: tempesta-tech.com:81\r
+\r
+"""
+
+REQUEST_HEADER_AS_IP = """
+GET / HTTP/1.1\r
+Host: 127.0.0.1\r
+\r
+"""
+
+REQUEST_HEADER_AS_IP6 = """
+GET / HTTP/1.1\r
+Host: [::1]:80\r
+\r
+"""
 
 class FrangHostRequiredTestCase(tester.TempestaTest):
     """
@@ -125,7 +196,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         )
         deproxy_cl.wait_for_response()
         self.assertEqual(
-            4,
+            6,
             len(deproxy_cl.responses),
         )
         self.assertFalse(
@@ -173,18 +244,66 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         self._test_base_scenario(
             request_body=REQUEST_EMPTY_HOST_B,
         )
+    
+    def test_host_header_forwarded(self):
+        self._test_base_scenario(
+            request_body=REQUEST_FORWARDED,
+            expected_warning=WARN_HEADER_FORWARDED
+        )
+    
+    def test_host_header_forwarded_double(self):
+        self._test_base_scenario(
+            request_body=REQUEST_FORWARDED_DOUBLE,
+            expected_warning=WARN_HEADER_FORWARDED
+        )
+
+    def test_host_header_no_port_in_uri(self): 
+        ''''
+        According to the documentation, if the port is not specified,
+        then by default it is considered as port 80. However, when I
+        specify this port in one of the headers (uri or host) and do
+        not specify in the other, then the request causes a limit.
+        '''
+        self._test_base_scenario(
+            request_body=REQUEST_NO_PORT_URI,
+            expected_warning=WARN_DIFFER
+        )
+    
+    def test_host_header_no_port_in_host(self):
+        self._test_base_scenario(
+            request_body=REQUEST_NO_PORT_HOST,
+            expected_warning=WARN_DIFFER
+        )
+
+    def test_host_header_mismath_port_in_host(self):
+        self._test_base_scenario(
+            request_body=REQUEST_MISMATH_PORT_URI,
+            expected_warning=WARN_DIFFER
+        )
+
+    def test_host_header_mismath_port_in_uri(self):
+        self._test_base_scenario(
+            request_body=REQUEST_MISMATH_PORT_URI,
+            expected_warning=WARN_DIFFER
+        )
+
+    def test_host_header_mismath_port(self):
+        self._test_base_scenario(
+            request_body=REQUEST_MISMATH_PORT,
+            expected_warning=WARN_PORT
+        )
 
     def test_host_header_as_ip(self):
         """Test with header `host` as ip address."""
         self._test_base_scenario(
-            request_body='GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n',
+            request_body=REQUEST_HEADER_AS_IP,
             expected_warning=WARN_IP_ADDR,
         )
 
     def test_host_header_as_ip6(self):
         """Test with header `host` as ip v6 address."""
         self._test_base_scenario(
-            request_body='GET / HTTP/1.1\r\nHost: [::1]:80\r\n\r\n',
+            request_body=REQUEST_HEADER_AS_IP6,
             expected_warning=WARN_IP_ADDR,
         )
 
@@ -194,7 +313,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         expected_warning: str = WARN_UNKNOWN,
     ):
         """
-        Test base scenario for process different requests.
+        Test base scenario for process different errors requests.
 
         Args:
             request_body (str): request body
@@ -208,7 +327,6 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
             request_body,
         )
         deproxy_cl.wait_for_response()
-
         self.assertEqual(
             0,
             len(deproxy_cl.responses),
@@ -229,7 +347,9 @@ CURL_C = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: "'
 CURL_D = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: example.com"'
 CURL_E = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: 127.0.0.1"'
 CURL_F = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: [::1]"'
-
+CURL_G = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=qwerty.com"'
+CURL_H = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=tempesta-tech.com" -H "Forwarded: host=tempestaa-tech.com"'
+CURL_I = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H ":authority: http://user@tempesta1-tech.com:89"'
 
 backends = [
     {
@@ -312,6 +432,27 @@ clients = [
         'binary': 'curl',
         'ssl': True,
         'cmd_args': CURL_F,
+    },
+    {
+        'id': 'curl-7',
+        'type': 'external',
+        'binary': 'curl',
+        'ssl': True,
+        'cmd_args': CURL_G,
+    },
+    {
+        'id': 'curl-8',
+        'type': 'external',
+        'binary': 'curl',
+        'ssl': True,
+        'cmd_args': CURL_H,
+    },
+    {
+        'id': 'curl-9',
+        'type': 'external',
+        'binary': 'curl',
+        'ssl': True,
+        'cmd_args': CURL_I,
     },
 ]
 
@@ -425,6 +566,30 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
         self._test_base_scenario(
             curl_cli_id='curl-6',
             expected_warning=WARN_HEADER_MISMATCH,
+            curl_code=CURL_CODE_OK,
+        )
+
+    def test_h2_host_header_forwarded(self):
+        """Test with mismsth header `forwarded`."""
+        self._test_base_scenario(
+            curl_cli_id='curl-7',
+            expected_warning=WARN_HEADER_FORWARDED2,
+            curl_code=CURL_CODE_OK,
+        )
+
+    def test_h2_host_header_double_forwarded(self):
+        """Test with double header `forwarded`."""
+        self._test_base_scenario(
+            curl_cli_id='curl-8',
+            expected_warning=WARN_HEADER_FORWARDED2,
+            curl_code=CURL_CODE_OK,
+        )
+
+    def test_h2_host_header_authority(self):
+        """Test with header `authority`."""
+        self._test_base_scenario(
+            curl_cli_id='curl-9',
+            expected_warning=WARN_HEADER_FORWARDED2,
             curl_code=CURL_CODE_OK,
         )
 

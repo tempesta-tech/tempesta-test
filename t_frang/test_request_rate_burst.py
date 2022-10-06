@@ -3,6 +3,10 @@ import time
 
 from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 DELAY = 0.125
 ERROR_MSG = 'Warning: frang: request {0} exceeded for'
 ERROR_MSG_BURST = 'Warning: frang: requests burst exceeded'

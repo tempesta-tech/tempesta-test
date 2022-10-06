@@ -1,6 +1,9 @@
 from framework import tester
 from helpers import dmesg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 COUNT_WARNINGS_OK = 1
 
@@ -14,11 +17,11 @@ Connection: keep-alive\r\n\r\n
 
 TEMPESTA_CONF = """
 cache 0;
-listen 80;  
+listen 80;
 
 frang_limits {
     http_ct_required true;
-} 
+}
 
 server ${server_ip}:8000;
 """
@@ -38,7 +41,6 @@ POST / HTTP/1.1\r
 Host: tempesta-tech.com
 \r
 """
-
 
 
 class FrangHttpCtRequiredTestCase(tester.TempestaTest):
@@ -104,8 +106,6 @@ class FrangHttpCtRequiredTestCase(tester.TempestaTest):
         self._test_base_scenario(
             request_body=REQUEST_EMPTY_CONTENT_TYPE,
         )
-
-
 
     def _test_base_scenario(
         self,

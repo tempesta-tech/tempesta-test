@@ -1,6 +1,9 @@
 """Tests for Frang directive `ip_block`."""
 from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 class FrangIpBlockTestCase(FrangTestCase):
     """Tests for 'ip_block' directive."""

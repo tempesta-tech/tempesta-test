@@ -21,7 +21,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',
         },
     ]
-#connection_burst 2;
+
     tempesta = {
         'config': """
             frang_limits {
@@ -120,7 +120,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
                         got=self.klog.warn_count(ERROR_BURST),
                     ),
                 )
-        time.sleep(1)        
+        time.sleep(DELAY)        
 
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),
@@ -179,7 +179,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             self.wait_while_busy(curl)
             curl.stop() 
 
-        time.sleep(1)       
+        time.sleep(DELAY)       
 
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),

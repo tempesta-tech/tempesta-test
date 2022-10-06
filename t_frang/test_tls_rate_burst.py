@@ -2,6 +2,10 @@
 from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
 import time
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 ERROR_TLS = 'Warning: frang: new TLS connections {0} exceeded for'
 ERROR_INCOMP_CONN = 'Warning: frang: incomplete TLS connections rate exceeded'
 

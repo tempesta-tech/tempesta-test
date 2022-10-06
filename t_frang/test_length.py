@@ -1,7 +1,9 @@
 """Tests for Frang  length related directives."""
 from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
 
-
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 class FrangLengthTestCase(FrangTestCase):
     """Tests for length related directives."""

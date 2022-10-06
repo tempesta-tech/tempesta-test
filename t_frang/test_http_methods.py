@@ -2,6 +2,9 @@
 from framework import tester
 from helpers import dmesg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 COUNT_WARNINGS_OK = 1
 
@@ -18,7 +21,7 @@ listen 80;
 
 
 frang_limits {
-    http_methods get;
+    http_methods get post;
 }
 
 
@@ -26,16 +29,36 @@ server ${server_ip}:8000;
 """
 
 WARN = 'frang: restricted HTTP method'
+WARN_PARSE = 'Parser error:'
 
 ACCEPTED_REQUEST = """
 GET / HTTP/1.1\r
 Host: tempesta-tech.com\r
 \r
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+\r
 """
 
 NOT_ACCEPTED_REQUEST = """
-POST / HTTP/1.1\r
+DELETE / HTTP/1.1\r
 Host: tempesta-tech.com\r
+"""
+
+NOT_ACCEPTED_REQUEST_REGISTER = """
+gEtt / HTTP/1.1\r
+Host: tempesta-tech.com\r
+"""
+
+NOT_ACCEPTED_REQUEST_ZERO_BYTE = """
+\\x0 POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+"""
+
+NOT_ACCEPTED_REQUEST_OVERRIDE = """
+PUT / HTTP/1.1\r
+Host: tempesta-tech.com\r
+X-HTTP-Method-Override: GET\r
 """
 
 
@@ -65,7 +88,6 @@ class FrangHttpMethodsTestCase(tester.TempestaTest):
     }
 
     def setUp(self):
-        """Set up test."""
         super().setUp()
         self.klog = dmesg.DmesgFinder(ratelimited=False)
 
@@ -88,9 +110,9 @@ class FrangHttpMethodsTestCase(tester.TempestaTest):
             ACCEPTED_REQUEST,
         )
         deproxy_cl.wait_for_response(1)
-        assert list(p.status for p in deproxy_cl.responses) == ['200']
+        assert list(p.status for p in deproxy_cl.responses) == ['200', '200']
         self.assertEqual(
-            1,
+            2,
             len(deproxy_cl.responses),
         )
         self.assertFalse(
@@ -102,11 +124,23 @@ class FrangHttpMethodsTestCase(tester.TempestaTest):
             request_body=NOT_ACCEPTED_REQUEST,
         )
 
-    def _test_base_scenario(
-        self,
-        request_body: str,
-        expected_warning: str = WARN,
-    ):
+    def test_not_accepted_request_register(self):
+        self._test_base_scenario(
+            request_body=NOT_ACCEPTED_REQUEST_REGISTER,
+        )
+
+    def test_not_accepted_request_zero_byte(self):
+        self._test_base_scenario(
+            request_body=NOT_ACCEPTED_REQUEST_ZERO_BYTE,
+            expected_warning=WARN_PARSE
+        )
+
+    def test_not_accepted_request_owerride(self):
+        self._test_base_scenario(
+            request_body=NOT_ACCEPTED_REQUEST_OVERRIDE
+        )
+
+    def _test_base_scenario(self, request_body: str, expected_warning: str = WARN):
         """
         Test base scenario for process different requests.
 

@@ -1,6 +1,9 @@
 from framework import tester
 from helpers import dmesg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 COUNT_WARNINGS_OK = 1
 
@@ -17,7 +20,7 @@ cache 0;
 listen 80;
 
 frang_limits {
-    http_ct_vals text/html;
+    http_ct_vals text/*;
 }  
 
 server ${server_ip}:8000;
@@ -31,7 +34,11 @@ WARN_ERROR = 'frang: restricted Content-Type'
 REQUEST_SUCCESS = """
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
-Content-Type: text/html
+Content-Type: text/html\r
+\r
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+Content-Type: text/html\r
 \r
 """
 
@@ -43,7 +50,7 @@ Host: tempesta-tech.com
 REQUEST_ERROR = """
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
-Content-Type: text/plain
+Content-Type: message
 \r
 """
 
@@ -98,9 +105,9 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
             REQUEST_SUCCESS,
         )
         deproxy_cl.wait_for_response()
-        assert list(p.status for p in deproxy_cl.responses) == ['200']
+        assert list(p.status for p in deproxy_cl.responses) == ['200', '200']
         self.assertEqual(
-            1,
+            2,
             len(deproxy_cl.responses),
         )
         self.assertFalse(

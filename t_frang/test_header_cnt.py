@@ -1,11 +1,14 @@
 """Tests for Frang directive `http_header_cnt`."""
 from t_frang.frang_test_case import ONE, FrangTestCase
-import time
-from requests import request
 from framework import tester
 from helpers import dmesg
 
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
+
 ERROR = "Warning: frang: HTTP headers number exceeded for"
+
 
 class FrangHttpHeaderCountTestCase(FrangTestCase):
     """Tests for 'http_header_cnt' directive."""
@@ -15,31 +18,31 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/ 
-                            -H "Host: tempesta-tech.com:8765" 
+            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/
+                            -H "Host: tempesta-tech.com:8765"
                             -H "Connection: keep-alive"
                             -H "Content-Type: text/html"
                             -H "Transfer-Encoding: chunked"
-                            ''',  
+                            ''',
         },
         {
             'id': 'curl-2',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/ 
-                            -H "Host: tempesta-tech.com:8765" 
+            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/
+                            -H "Host: tempesta-tech.com:8765"
                             -H "Connection: keep-alive"
-                            ''',  
+                            ''',
         },
         {
             'id': 'curl-3',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/ 
-                            -H "Host: tempesta-tech.com:8765" 
+            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/
+                            -H "Host: tempesta-tech.com:8765"
                             -H "Connection: keep-alive"
                             -H "Content-Type: text/html"
-                            ''',  
+                            ''',
         },
     ]
 
@@ -103,7 +106,6 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
 
         curl.stop()
 
-
     def test_not_reaching_the_limit(self):
         """
         We set up for Tempesta `http_header_cnt 3` and
@@ -133,7 +135,6 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
         )
 
         curl.stop()
-
 
     def test_ont_the_limit(self):
         """
@@ -168,14 +169,13 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
         curl.stop()
 
 
-
 class HttpHeaderCntBase(tester.TempestaTest):
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : """
+            'id': 'nginx',
+            'type': 'nginx',
+            'status_uri': 'http://${server_ip}:8000/nginx_status',
+            'config': """
 pid ${pid};
 worker_processes  auto;
 
@@ -220,38 +220,37 @@ http {
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'interface': True
         },
         {
-            'id' : 'deproxy2',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True
-        }, 
-        {
-            'id' : 'deproxy3',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
+            'id': 'deproxy2',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'interface': True
         },
         {
-            'id' : 'deproxy4',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
+            'id': 'deproxy3',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80'
+        },
+        {
+            'id': 'deproxy4',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80'
         }
     ]
 
 
-
 class HttpHeaderCnt(HttpHeaderCntBase):
     tempesta = {
-        'config' : """
+        'config': """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -265,16 +264,16 @@ frang_limits {
     def test_two_clients_two_ip(self):
 
         requests = 'POST / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'Content-Type: text/html\r\n' \
-                'Transfer-Encoding: chunked\r\n' \
-                'Connection: keep-alive\r\n' \
-                '\r\n' 
+            'Host: debian\r\n' \
+            'Content-Type: text/html\r\n' \
+            'Transfer-Encoding: chunked\r\n' \
+            'Connection: keep-alive\r\n' \
+            '\r\n'
 
         requests2 = 'POST / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'Content-Type: text/html\r\n' \
-                '\r\n'
+            'Host: debian\r\n' \
+            'Content-Type: text/html\r\n' \
+            '\r\n'
         klog = dmesg.DmesgFinder(ratelimited=False)
         nginx = self.get_server('nginx')
         nginx.start()
@@ -286,7 +285,6 @@ frang_limits {
         deproxy_cl2 = self.get_client('deproxy2')
         deproxy_cl2.start()
 
-
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
 
@@ -295,9 +293,11 @@ frang_limits {
 
         deproxy_cl.wait_for_response()
         deproxy_cl2.wait_for_response()
-        self.assertEqual(klog.warn_count(ERROR), 1,
-                          "Frang limits warning is not shown")
-
+        self.assertEqual(
+            klog.warn_count(ERROR),
+            1,
+            "Frang limits warning is not shown"
+            )
 
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertEqual(1, len(deproxy_cl2.responses))
@@ -305,20 +305,18 @@ frang_limits {
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
-
     def test_two_clients_one_ip(self):
-
         requests = 'POST / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'Content-Type: text/html\r\n' \
-                'Transfer-Encoding: chunked\r\n' \
-                'Connection: keep-alive\r\n' \
-                '\r\n' 
+            'Host: debian\r\n' \
+            'Content-Type: text/html\r\n' \
+            'Transfer-Encoding: chunked\r\n' \
+            'Connection: keep-alive\r\n' \
+            '\r\n'
 
         requests2 = 'POST / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'Content-Type: text/html\r\n' \
-                '\r\n'
+            'Host: debian\r\n' \
+            'Content-Type: text/html\r\n' \
+            '\r\n'
         klog = dmesg.DmesgFinder(ratelimited=False)
         nginx = self.get_server('nginx')
         nginx.start()
@@ -330,7 +328,6 @@ frang_limits {
         deproxy_cl2 = self.get_client('deproxy4')
         deproxy_cl2.start()
 
-
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
 
@@ -339,9 +336,11 @@ frang_limits {
 
         deproxy_cl.wait_for_response()
         deproxy_cl2.wait_for_response()
-        self.assertEqual(klog.warn_count(ERROR), 1,
-                          "Frang limits warning is not shown")
-
+        self.assertEqual(
+            klog.warn_count(ERROR),
+            1,
+            "Frang limits warning is not shown"
+            )
 
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertEqual(1, len(deproxy_cl2.responses))
@@ -349,3 +348,45 @@ frang_limits {
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertTrue(deproxy_cl2.connection_is_closed())
 
+    def test_zero_value_limit(self):
+        self.tempesta = {
+            'config': """
+            server ${server_ip}:8000;
+
+            frang_limits {
+                http_header_cnt 0;
+            }
+        """,
+        }
+        requests = 'GET / HTTP/1.1\r\n' \
+            'Host: debian\r\n' \
+            'Host1: debian\r\n' \
+            'Host2: debian\r\n' \
+            'Host3: debian\r\n' \
+            'Host4: debian\r\n' \
+            'Host5: debian\r\n' \
+            '\r\n'
+
+        self.setUp()
+        klog = dmesg.DmesgFinder(ratelimited=False)
+        nginx = self.get_server('nginx')
+        nginx.start()
+        self.start_tempesta()
+
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.start()
+
+        self.deproxy_manager.start()
+        self.assertTrue(nginx.wait_for_connections(timeout=1))
+
+        deproxy_cl.make_requests(requests)
+
+        deproxy_cl.wait_for_response(2)
+        self.assertEqual(
+            klog.warn_count(ERROR),
+            0,
+            "Frang limits warning was shown"
+            )
+
+        self.assertEqual(1, len(deproxy_cl.responses))
+        self.assertFalse(deproxy_cl.connection_is_closed())

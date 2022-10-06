@@ -2,7 +2,9 @@
 from framework import tester
 from helpers import dmesg
 
-
+__author__ = 'Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
+__license__ = 'GPL2'
 
 COUNT_WARNINGS_OK = 1
 

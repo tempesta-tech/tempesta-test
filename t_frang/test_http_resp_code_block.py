@@ -7,24 +7,24 @@ access to accounts of your users. The second case is much harder to detect.
 It's worth mentioning that unsuccessful authorization requests typically
 produce error HTTP responses.
 
-Tempesta FW provides http_resp_code_block for efficient blocking of all types of
-password crackers
+Tempesta FW provides http_resp_code_block for efficient blocking
+of all types of password crackers
 """
 
-from requests import request
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
 
 class HttpRespCodeBlockBase(tester.TempestaTest):
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : """
+            'id': 'nginx',
+            'type': 'nginx',
+            'status_uri': 'http://${server_ip}:8000/nginx_status',
+            'config': """
 pid ${pid};
 worker_processes  auto;
 
@@ -75,47 +75,44 @@ http {
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True,
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'interface': True,
             'rps': 6
         },
         {
-            'id' : 'deproxy2',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True,
-            'rps': 5
-        }, 
-        {
-            'id' : 'deproxy3',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
+            'id': 'deproxy2',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'interface': True,
             'rps': 5
         },
         {
-            'id' : 'deproxy4',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
+            'id': 'deproxy3',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'rps': 5
+        },
+        {
+            'id': 'deproxy4',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
             'rps': 5
         }
     ]
 
 
-
-
-
 class HttpRespCodeBlock(HttpRespCodeBlockBase):
     """Blocks an attacker's IP address if a protected web application return
-    5 error responses with codes 404 within 2 seconds. This is 2,5 per second.
+    5 error responses with codes 404 or 405 within 2 seconds. This is 2,5 per second.
     """
     tempesta = {
-        'config' : """
+        'config': """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -125,10 +122,10 @@ frang_limits {
 
 """,
     }
+
     def test_two_clients_block_ip(self):
         """
         Two clients to be blocked by ip for a total of 404 requests
-        
         """
         requests = "GET /uri1 HTTP/1.1\r\n" \
                    "Host: localhost\r\n" \
@@ -161,25 +158,24 @@ frang_limits {
         self.assertFalse(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
-
     def test_one_client(self):
         """
-        One client send irregular chain of 404, 405 and 200 requests with 5 rps. 
+        One client send irregular chain of 404, 405 and 200
+        requests with 5 rps.
         10 requests: [ '200', '404', '404', '404', '404',
                        '200', '405', '405', '200', '200']
         """
         requests0 = "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" 
+            "Host: localhost\r\n" \
+            "\r\n"
         requests1 = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 4
+            "Host: localhost\r\n" \
+            "\r\n" * 4
         requests2 = "GET /uri3 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 2
+            "Host: localhost\r\n" \
+            "\r\n" * 2
 
         requests = (requests0)+requests1+requests0+requests2+(requests0*2)
-
 
         nginx = self.get_server('nginx')
         nginx.start()
@@ -190,14 +186,12 @@ frang_limits {
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
 
-        deproxy_cl.make_requests(requests)        
+        deproxy_cl.make_requests(requests)
         deproxy_cl.wait_for_response(timeout=4)
 
-        self.assertEqual(7, len(deproxy_cl.responses))        
+        self.assertEqual(7, len(deproxy_cl.responses))
         self.assertTrue(deproxy_cl.connection_is_closed())
 
-
-        
     def test_two_clients(self):
         """Two clients. One client sends 12 requests by 6 per second during
     2 seconds. Of these, 6 requests by 3 per second give 404 responses and
@@ -208,17 +202,17 @@ frang_limits {
     """
 
         requests = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" \
-                   "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 6
+            "Host: localhost\r\n" \
+            "\r\n" \
+            "GET /uri2 HTTP/1.1\r\n" \
+            "Host: localhost\r\n" \
+            "\r\n" * 6
         requests2 = "GET /uri1 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" \
-                    "GET /uri2 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" * 10
+            "Host: localhost\r\n" \
+            "\r\n" \
+            "GET /uri2 HTTP/1.1\r\n" \
+            "Host: localhost\r\n" \
+            "\r\n" * 10
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
@@ -242,8 +236,7 @@ frang_limits {
         self.assertEqual(20, len(deproxy_cl2.responses))
 
         self.assertTrue(deproxy_cl.connection_is_closed())
-        self.assertFalse(deproxy_cl2.connection_is_closed())    
-
+        self.assertFalse(deproxy_cl2.connection_is_closed())
 
 
 class HttpRespCodeBlockWithReply(HttpRespCodeBlockBase):
@@ -252,7 +245,7 @@ class HttpRespCodeBlockWithReply(HttpRespCodeBlockBase):
     This is 2,5 per second.
     """
     tempesta = {
-        'config' : """
+        'config': """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -267,16 +260,15 @@ block_action attack reply;
     def test_two_clients_block_ip(self):
         """
         Two clients to be blocked by ip for a total of 404 requests
-
         Why is there no 403 response when the limit is reached?
-        
         """
+
         requests = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 10
+            "Host: localhost\r\n" \
+            "\r\n" * 10
         requests2 = "GET /uri2 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" * 10
+            "Host: localhost\r\n" \
+            "\r\n" * 10
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
@@ -302,26 +294,23 @@ block_action attack reply;
         self.assertFalse(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
-
-
     def test_one_client(self):
         """
-        One client send irregular chain of 404, 405 and 200 requests with 5 rps. 
+        One client send irregular chain of 404, 405 and 200 requests with 5 rps.
         10 requests: [ '200', '404', '404', '404', '404',
                        '200', '405', '405', '200', '200']
         """
         requests0 = "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" 
+            "Host: localhost\r\n" \
+            "\r\n"
         requests1 = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 4
+            "Host: localhost\r\n" \
+            "\r\n" * 4
         requests2 = "GET /uri3 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 2
+            "Host: localhost\r\n" \
+            "\r\n" * 2
 
         requests = (requests0)+requests1+requests0+requests2+(requests0*2)
-
 
         nginx = self.get_server('nginx')
         nginx.start()
@@ -332,38 +321,36 @@ block_action attack reply;
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
 
-        deproxy_cl.make_requests(requests)        
+        deproxy_cl.make_requests(requests)
         deproxy_cl.wait_for_response(timeout=4)
 
         self.assertEqual('403', deproxy_cl.responses[-1].status,
                          "Unexpected response status code")
 
-        self.assertEqual(8, len(deproxy_cl.responses))        
+        self.assertEqual(8, len(deproxy_cl.responses))
         self.assertTrue(deproxy_cl.connection_is_closed())
-
-
 
     def test_two_clients(self):
         """Two clients. One client sends 12 requests by 6 per second during
     2 seconds. Of these, 6 requests by 3 per second give 404 responses.
     Should be get 11 responses (5 with code 200, 5 with code 404 and
-    1 with code 403).
+    1 with code 405).
     The second client sends 20 requests by 5 per second during 4 seconds.
     Of these, 10 requests by 2.5 per second give 404 responses. All requests
-    should be get responses.
+    should get responses.
     """
         requests = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" \
-                   "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 6
+            "Host: localhost\r\n" \
+            "\r\n" \
+            "GET /uri2 HTTP/1.1\r\n" \
+            "Host: localhost\r\n" \
+            "\r\n" * 6
         requests2 = "GET /uri1 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" \
-                    "GET /uri2 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" * 10
+            "Host: localhost\r\n" \
+            "\r\n" \
+            "GET /uri2 HTTP/1.1\r\n" \
+            "Host: localhost\r\n" \
+            "\r\n" * 10
         nginx = self.get_server('nginx')
         nginx.start()
         self.start_tempesta()
