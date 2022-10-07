@@ -5,6 +5,7 @@ __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
+
 class FrangLengthTestCase(FrangTestCase):
     """Tests for length related directives."""
 
@@ -37,7 +38,7 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-2',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"  -H "X-Long: {0}"'.format( 
+            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"  -H "X-Long: {0}"'.format(
                 '1' * 293,
             ),
         },
@@ -51,7 +52,7 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-3',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(  
+            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(
                 {'some_key_long_one': 'some_value'},
             ),
         },
@@ -65,7 +66,7 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-32',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(  
+            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(
                 {'12345678': '1'},
             ),
         },
@@ -137,7 +138,7 @@ class FrangLengthTestCase(FrangTestCase):
         """
         Test 'http_uri_len'.
 
-        Set up `http_uri_len 5;` and make request with uri 0 length
+        Set up `http_uri_len 5;` and make request with uri 1 length
 
         """
         curl = self.get_client('curl-11')
@@ -162,7 +163,6 @@ class FrangLengthTestCase(FrangTestCase):
         )
 
         curl.stop()
-
 
     def test_uri_len_without_reaching_the_limit(self):
         """
@@ -223,7 +223,6 @@ class FrangLengthTestCase(FrangTestCase):
         )
 
         curl.stop()
-
 
     def test_field_len(self):
         """
