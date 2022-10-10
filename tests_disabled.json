@@ -359,19 +359,19 @@
         },
         {
             "name" : "tls.test_tls_tickets.TlsVhostConfusionDfltCertsWithUnknown.test",
-            "reason": "Disable by issue #328"
+            "reason": "Disable by issue #154"
         },
         {
             "name" : "tls.test_tls_cert.TlsCertSelect.test_vhost_cert_selection",
-            "reason": "Disable by issue #328"
+            "reason": "Disable by issue #154"
         },
         {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_tls12_synthetic",
-            "reason": "Disable by issue #328"
+            "reason": "Disable by issue #154"
         },
         {
             "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_vhost_sni",
-            "reason": "Disable by issue #328"
+            "reason": "Disable by issue #154"
         },
         {
             "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
