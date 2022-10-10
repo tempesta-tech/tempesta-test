@@ -352,6 +352,58 @@
         {
             "name" : "selftests.test_framework.ExampleTest.test_curl",
             "reason": "Disable by issue #308"
+        },
+        {
+            "name" : "http_rules.test_http.HttpRulesBackupServers.test_scheduler",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "tls.test_tls_tickets.TlsVhostConfusionDfltCertsWithUnknown.test",
+            "reason": "Disable by issue #154"
+        },
+        {
+            "name" : "tls.test_tls_cert.TlsCertSelect.test_vhost_cert_selection",
+            "reason": "Disable by issue #154"
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_tls12_synthetic",
+            "reason": "Disable by issue #154"
+        },
+        {
+            "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_vhost_sni",
+            "reason": "Disable by issue #154"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.AddingBackendNewSG.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.DontModifyBackend.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "very_many_backends.test_deadtime_1M.RemovingBackendSG.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "cache.test_cache_control.ResponseMustRevalidateCached.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "cache.test_cache_control.StoringResponsesWithSetCookieHeaderProxyRevalidateCache.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "cache.test_cache_control.RequestOnlyIfCachedCached.test",
+            "reason": "Disable by issue #328"
+        },
+        {
+            "name" : "cache.test_cache_control.StoringResponsesToAuthenticatedRequestsMustRevalidateCache2.test",
+            "reason": "Disable by issue #328"
         }
         
     ]
