@@ -1,9 +1,10 @@
 """Tests for Frang directive `ip_block`."""
-from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
+
 
 class FrangIpBlockTestCase(FrangTestCase):
     """Tests for 'ip_block' directive."""
@@ -64,20 +65,20 @@ class FrangIpBlockTestCase(FrangTestCase):
 
         self.assertEqual(
             curl.returncode,
-            ZERO,
+            0,
         )
 
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: block client:',
             ),
-            ONE,
+            1,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'frang: Host header field contains IP address',
             ),
-            ONE,
+            1,
         )
 
         curl.stop()

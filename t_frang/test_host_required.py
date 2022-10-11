@@ -140,6 +140,7 @@ Host: [::1]:80\r
 \r
 """
 
+
 class FrangHostRequiredTestCase(tester.TempestaTest):
     """
     Tests for non-TLS related checks in 'http_host_required' directive.
@@ -244,20 +245,20 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         self._test_base_scenario(
             request_body=REQUEST_EMPTY_HOST_B,
         )
-    
+
     def test_host_header_forwarded(self):
         self._test_base_scenario(
             request_body=REQUEST_FORWARDED,
             expected_warning=WARN_HEADER_FORWARDED
         )
-    
+
     def test_host_header_forwarded_double(self):
         self._test_base_scenario(
             request_body=REQUEST_FORWARDED_DOUBLE,
             expected_warning=WARN_HEADER_FORWARDED
         )
 
-    def test_host_header_no_port_in_uri(self): 
+    def test_host_header_no_port_in_uri(self):
         ''''
         According to the documentation, if the port is not specified,
         then by default it is considered as port 80. However, when I
@@ -268,8 +269,11 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
             request_body=REQUEST_NO_PORT_URI,
             expected_warning=WARN_DIFFER
         )
-    
+
     def test_host_header_no_port_in_host(self):
+        # this test does not work correctly because this request
+        # should pass without error. The request is always expected
+        # from port 80, even if it is not specified.
         self._test_base_scenario(
             request_body=REQUEST_NO_PORT_HOST,
             expected_warning=WARN_DIFFER
@@ -307,11 +311,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
             expected_warning=WARN_IP_ADDR,
         )
 
-    def _test_base_scenario(
-        self,
-        request_body: str,
-        expected_warning: str = WARN_UNKNOWN,
-    ):
+    def _test_base_scenario(self, request_body: str, expected_warning: str = WARN_UNKNOWN):
         """
         Test base scenario for process different errors requests.
 
@@ -348,8 +348,8 @@ CURL_D = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: example.com"'
 CURL_E = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: 127.0.0.1"'
 CURL_F = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: [::1]"'
 CURL_G = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=qwerty.com"'
-CURL_H = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=tempesta-tech.com" -H "Forwarded: host=tempestaa-tech.com"'
-CURL_I = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H ":authority: http://user@tempesta1-tech.com:89"'
+CURL_H = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=tempesta-tech.com" -H "Forwarded: host=tempesta1-tech.com"'
+CURL_I = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H ":authority: tempesta1-tech.com"'
 
 backends = [
     {
@@ -537,7 +537,7 @@ class FrangHostRequiredH2TestCase(tester.TempestaTest):
             curl_code=CURL_CODE_OK
         )
 
-    def test_h2_host_header_missing(self): 
+    def test_h2_host_header_missing(self):
         """Test with missing header `host`."""
         self._test_base_scenario(
             curl_cli_id='curl-3',

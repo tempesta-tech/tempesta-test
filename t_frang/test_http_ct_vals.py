@@ -20,12 +20,22 @@ cache 0;
 listen 80;
 
 frang_limits {
-    http_ct_vals text/*;
-}  
+    http_ct_vals text/html;
+}
 
 server ${server_ip}:8000;
 """
 
+TEMPESTA_CONF2 = """
+cache 0;
+listen 80;
+
+frang_limits {
+    http_ct_vals text/*;
+}
+
+server ${server_ip}:8000;
+"""
 
 WARN_UNKNOWN = 'frang: Request authority is unknown'
 WARN_EMPTY = 'frang: Content-Type header field for 127.0.0.1 is missed'
@@ -34,11 +44,18 @@ WARN_ERROR = 'frang: restricted Content-Type'
 REQUEST_SUCCESS = """
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
-Content-Type: text/html\r
+Content-Type: text/html
+\r
+"""
+
+REQUEST_SUCCESS2 = """
+POST / HTTP/1.1\r
+Host: tempesta-tech.com\r
+Content-Type: text/html
 \r
 POST / HTTP/1.1\r
 Host: tempesta-tech.com\r
-Content-Type: text/html\r
+Content-Type: text/plain
 \r
 """
 
@@ -53,7 +70,6 @@ Host: tempesta-tech.com\r
 Content-Type: message
 \r
 """
-
 
 
 class FrangHttpCtValsTestCase(tester.TempestaTest):
@@ -105,6 +121,29 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
             REQUEST_SUCCESS,
         )
         deproxy_cl.wait_for_response()
+        assert list(p.status for p in deproxy_cl.responses) == ['200']
+        self.assertEqual(
+            1,
+            len(deproxy_cl.responses),
+        )
+        self.assertFalse(
+            deproxy_cl.connection_is_closed(),
+        )
+
+    def test_content_vals_set_ok_conf2(self):
+        """This test doesn't work"""
+        self.tempesta = {
+        'config': TEMPESTA_CONF2,
+        }
+        self.setUp()
+        self.start_all()
+
+        deproxy_cl = self.get_client('client')
+        deproxy_cl.start()
+        deproxy_cl.make_requests(
+            REQUEST_SUCCESS2,
+        )
+        deproxy_cl.wait_for_response()
         assert list(p.status for p in deproxy_cl.responses) == ['200', '200']
         self.assertEqual(
             2,
@@ -114,13 +153,11 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
             deproxy_cl.connection_is_closed(),
         )
 
-
     def test_error_content_type(self):
         self._test_base_scenario(
             request_body=REQUEST_ERROR,
             expected_warning=WARN_ERROR
         )
-
 
     def test_empty_content_type(self):
         """Test with empty header `host`."""
@@ -128,8 +165,6 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
             request_body=REQUEST_EMPTY_CONTENT_TYPE,
             expected_warning=WARN_EMPTY
         )
-
-
 
     def _test_base_scenario(
         self,

@@ -1,5 +1,5 @@
 """Tests for Frang directive tls-related."""
-from t_frang.frang_test_case import DELAY, ONE, ZERO, FrangTestCase
+from t_frang.frang_test_case import DELAY, FrangTestCase
 import time
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -66,16 +66,15 @@ class FrangTlsRateTestCase(FrangTestCase):
         for step in range(request_rate):
             curl.start()
             self.wait_while_busy(curl)
-
             curl.stop()
 
             # until rate limit is reached
             if step < request_rate - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
@@ -83,9 +82,9 @@ class FrangTlsRateTestCase(FrangTestCase):
                 # rate limit is reached
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
@@ -108,9 +107,9 @@ class FrangTlsRateTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
@@ -133,9 +132,9 @@ class FrangTlsRateTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
@@ -150,9 +149,9 @@ class FrangTlsBurstTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
-        },
-    ]
+            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+        }
+        ]
 
     tempesta = {
         'config': """
@@ -197,16 +196,15 @@ class FrangTlsBurstTestCase(FrangTestCase):
         for step in range(request_burst):
             curl.start()
             self.wait_while_busy(curl)
-
             curl.stop()
 
             # until rate limit is reached
             if step < request_burst - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
@@ -214,9 +212,9 @@ class FrangTlsBurstTestCase(FrangTestCase):
                 # rate limit is reached
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
@@ -229,19 +227,22 @@ class FrangTlsBurstTestCase(FrangTestCase):
         self.start_tempesta()
 
         # tls_connection_burst 4; in tempesta
-        request_burst = 3
+        request_burst = 10
 
         for step in range(request_burst):
             curl.start()
             self.wait_while_busy(curl)
-
             curl.stop()
+            # even if it's less than 125ms,
+            # the limit can't be reached because
+            # there's one connection created every DELAY ms
+            time.sleep(DELAY)
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
@@ -264,9 +265,9 @@ class FrangTlsBurstTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
@@ -336,9 +337,9 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
             if step < request_burst - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
@@ -346,51 +347,56 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
                 # rate limit is reached
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
 
     def test_tls_connection_burst_without_reaching_the_limit(self):
-        """Test 'tls_connection_burst'."""
+        """Test 'tls_connection_burst'.
+        Don't working, disable.
+        """
         curl = self.get_client('curl-1')
 
         self.start_all_servers()
         self.start_tempesta()
 
         # tls_connection_burst 3; in tempesta
-        request_burst = 4
+        request_burst = 6
 
         for step in range(request_burst):
-            time.sleep(DELAY*2)
+            # even if it's less than 125ms,
+            # the limit tls_connection_burst
+            # can't be reached because  there's
+            # one connection created every DELAY ms
+            time.sleep(DELAY)
             curl.start()
             self.wait_while_busy(curl)
-
             curl.stop()
 
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('burst')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('burst')),
                 ),
             )
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('rate')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('rate')),
                 ),
             )
@@ -413,17 +419,17 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
 
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('burst')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('burst')),
                 ),
             )
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('rate')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('rate')),
                 ),
             )
@@ -441,16 +447,15 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         for step in range(request_rate):
             curl.start()
             self.wait_while_busy(curl)
-
             curl.stop()
 
             # until rate limit is reached
             if step < request_rate - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
@@ -458,17 +463,17 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
                 # rate limit is reached
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('rate')),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_TLS.format('rate')),
                     ),
                 )
                 self.assertEqual(
                     self.klog.warn_count(ERROR_TLS.format('burst')),
-                    ZERO,
+                    1,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_TLS.format('burst')),
                     ),
                 )
@@ -491,17 +496,17 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
 
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('rate')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('rate')),
                 ),
             )
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('burst')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('burst')),
                 ),
             )
@@ -521,20 +526,21 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
             self.wait_while_busy(curl)
 
             curl.stop()
+            time.sleep(DELAY*2)
 
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('rate')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('rate')),
                 ),
             )
         self.assertEqual(
                 self.klog.warn_count(ERROR_TLS.format('burst')),
-                ZERO,
+                0,
                 self.assert_msg.format(
-                    exp=ZERO,
+                    exp=0,
                     got=self.klog.warn_count(ERROR_TLS.format('burst')),
                 ),
             )
@@ -606,9 +612,9 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             if step < request_inc - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_INCOMP_CONN),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )
@@ -617,9 +623,9 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
                 time.sleep(1)
                 self.assertEqual(
                     self.klog.warn_count(ERROR_INCOMP_CONN),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )
@@ -641,9 +647,9 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_INCOMP_CONN),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )
@@ -665,9 +671,9 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_INCOMP_CONN),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_INCOMP_CONN),
                     ),
                 )

@@ -1,7 +1,7 @@
 """Tests for Frang directive `connection_rate` and 'connection_burst'."""
 import time
 
-from t_frang.frang_test_case import DELAY, ONE, ZERO, FrangTestCase
+from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -76,26 +76,27 @@ class FrangConnectionRateTestCase(FrangTestCase):
             if step < connection_rate - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_RATE),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_RATE),
                     ),
                 )
 
         self.assertGreater(
             self.klog.warn_count(ERROR_RATE),
-            ONE,
+            1,
             self.assert_msg.format(
-                exp='more than {0}'.format(ONE),
+                exp='more than {0}'.format(1),
                 got=self.klog.warn_count(ERROR_RATE),
             ),
         )
 
     def test_connection_burst(self):
         """Test 'connection_burst'.
-        for some reason, the number of logs in the dmsg may be greater 
+        for some reason, the number of logs in the dmsg may be greater
         than the expected number, which may cause the test to fail
+        Disabled by issure #1649
         """
         curl = self.get_client('curl-1')
 
@@ -110,32 +111,32 @@ class FrangConnectionRateTestCase(FrangTestCase):
             self.wait_while_busy(curl)
             curl.stop()
 
-            #until rate limit is reached
+            # until rate limit is reached
             if step < connection_burst-1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_BURST),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_BURST),
                     ),
                 )
-        time.sleep(DELAY)        
+        time.sleep(DELAY)
 
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),
-            ONE,
+            1,
             self.assert_msg.format(
-                exp=ONE,
+                exp=1,
                 got=self.klog.warn_count(ERROR_BURST),
             ),
         )
 
     def test_connection_burst_limit_1(self):
         """
-        any request will be blocked by the rate limiter, 
+        any request will be blocked by the rate limiter,
         if connection_burst=1;
-        for some reason, the number of logs always greater 
+        for some reason, the number of logs always greater
         than the expected number, which may cause the test to fail
         """
         self.tempesta = {
@@ -177,10 +178,9 @@ class FrangConnectionRateTestCase(FrangTestCase):
         for step in range(connection_burst):
             curl.run_start()
             self.wait_while_busy(curl)
-            curl.stop() 
+            curl.stop()
 
-        time.sleep(DELAY)       
-
+        time.sleep(DELAY)
         self.assertEqual(
             self.klog.warn_count(ERROR_BURST),
             5,

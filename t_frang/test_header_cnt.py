@@ -1,5 +1,5 @@
 """Tests for Frang directive `http_header_cnt`."""
-from t_frang.frang_test_case import ONE, FrangTestCase
+from t_frang.frang_test_case import FrangTestCase
 from framework import tester
 from helpers import dmesg
 
@@ -93,14 +93,14 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             self.klog.warn_count(
                 ERROR,
             ),
-            ONE,
+            1,
             'Expected msg in `journalctl`',
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: parsed request has been filtered out',
             ),
-            ONE,
+            1,
             'Expected msg in `journalctl`',
         )
 
@@ -155,14 +155,14 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             self.klog.warn_count(
                 ERROR,
             ),
-            ONE,
+            1,
             'Expected msg in `journalctl`',
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: parsed request has been filtered out',
             ),
-            ONE,
+            1,
             'Expected msg in `journalctl`',
         )
 

@@ -1,5 +1,5 @@
 """Tests for Frang  length related directives."""
-from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -123,13 +123,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ONE,
+            1,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP URI length exceeded for',
             ),
-            ONE,
+            1,
         )
 
         curl.stop()
@@ -153,13 +153,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ZERO,
+            0,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP URI length exceeded for',
             ),
-            ZERO,
+            0,
         )
 
         curl.stop()
@@ -183,13 +183,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ZERO,
+            0,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP URI length exceeded for',
             ),
-            ZERO,
+            0,
         )
 
         curl.stop()
@@ -213,13 +213,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ZERO,
+            0,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP URI length exceeded for',
             ),
-            ZERO,
+            0,
         )
 
         curl.stop()
@@ -243,13 +243,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ONE,
+            1,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP field length exceeded for',
             ),
-            ONE,
+            1,
         )
 
         curl.stop()
@@ -273,13 +273,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ZERO,
+            0,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP field length exceeded for',
             ),
-            ZERO,
+            0,
         )
 
         curl.stop()
@@ -303,13 +303,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ONE,
+            1,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP body length exceeded for',
             ),
-            ONE,
+            1,
         )
 
         curl.stop()
@@ -333,13 +333,13 @@ class FrangLengthTestCase(FrangTestCase):
             self.klog.warn_count(
                 ' Warning: parsed request has been filtered out:',
             ),
-            ZERO,
+            0,
         )
         self.assertEqual(
             self.klog.warn_count(
                 'Warning: frang: HTTP body length exceeded for',
             ),
-            ZERO,
+            0,
         )
 
         curl.stop()

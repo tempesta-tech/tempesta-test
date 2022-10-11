@@ -1,5 +1,3 @@
-import time
-from requests import request
 from framework import tester
 from helpers import dmesg
 
@@ -8,13 +6,14 @@ __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 ERROR = "Warning: frang: HTTP body chunk count exceeded"
 
+
 class HttpBodyChunkCntBase(tester.TempestaTest):
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : """
+            'id': 'nginx',
+            'type': 'nginx',
+            'status_uri': 'http://${server_ip}:8000/nginx_status',
+            'config': """
 pid ${pid};
 worker_processes  auto;
 
@@ -59,41 +58,40 @@ http {
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True,
+            'id': 'deproxy',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'interface': True,
             'segment_size': 1
         },
         {
-            'id' : 'deproxy2',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True,
+            'id': 'deproxy2',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
+            'interface': True,
             'segment_size': 0
-        }, 
+        },
         {
-            'id' : 'deproxy3',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
+            'id': 'deproxy3',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80',
             'segment_size': 1
         },
         {
-            'id' : 'deproxy4',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
+            'id': 'deproxy4',
+            'type': 'deproxy',
+            'addr': "${tempesta_ip}",
+            'port': '80'
         }
     ]
 
 
-
 class HttpBodyChunkCnt(HttpBodyChunkCntBase):
     tempesta = {
-        'config' : """
+        'config': """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -126,7 +124,6 @@ frang_limits {
         deproxy_cl2 = self.get_client('deproxy2')
         deproxy_cl2.start()
 
-
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
 
@@ -138,16 +135,13 @@ frang_limits {
         self.assertEqual(klog.warn_count(ERROR), 1,
                           "Frang limits warning is not shown")
 
-
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertEqual(1, len(deproxy_cl2.responses))
 
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
-
     def test_two_clients_one_ip(self):
-
         requests = 'POST / HTTP/1.1\r\n' \
                 'Host: debian\r\n' \
                 'Content-Type: text/html\r\n' \
@@ -168,7 +162,6 @@ frang_limits {
         deproxy_cl2 = self.get_client('deproxy4')
         deproxy_cl2.start()
 
-
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))
 
@@ -178,14 +171,12 @@ frang_limits {
         deproxy_cl.wait_for_response()
         deproxy_cl2.wait_for_response()
 
-
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertEqual(1, len(deproxy_cl2.responses))
 
         self.assertEqual(klog.warn_count(ERROR), 1,
                           "Frang limits warning is not shown")
 
-        #for some reason, the connection remains open, but the clients stop receiving responses to requests
+        # for some reason, the connection remains open, but the clients stop receiving responses to requests
         self.assertFalse(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
-

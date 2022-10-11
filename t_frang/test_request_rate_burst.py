@@ -1,7 +1,7 @@
 """Tests for Frang directive `request_rate` and 'request_burst'."""
 import time
 
-from t_frang.frang_test_case import ONE, ZERO, FrangTestCase
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -77,9 +77,9 @@ class FrangRequestRateTestCase(FrangTestCase):
             if step < request_rate - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
@@ -88,9 +88,9 @@ class FrangRequestRateTestCase(FrangTestCase):
                 # rate limit is reached
                 self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
@@ -116,9 +116,9 @@ class FrangRequestRateTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
@@ -144,9 +144,9 @@ class FrangRequestRateTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
@@ -212,9 +212,9 @@ class FrangRequestBurstTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG_BURST),
-            ONE,
+            1,
             self.assert_msg.format(
-                exp=ONE,
+                exp=1,
                 got=self.klog.warn_count(ERROR_MSG_BURST),
             ),
         )
@@ -236,9 +236,9 @@ class FrangRequestBurstTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG_BURST),
-            ZERO,
+            0,
             self.assert_msg.format(
-                exp=ZERO,
+                exp=0,
                 got=self.klog.warn_count(ERROR_MSG_BURST),
             ),
         )
@@ -259,9 +259,9 @@ class FrangRequestBurstTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG_BURST),
-            ZERO,
+            0,
             self.assert_msg.format(
-                exp=ZERO,
+                exp=0,
                 got=self.klog.warn_count(ERROR_MSG_BURST),
             ),
         )
@@ -333,9 +333,9 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             if step < request_rate - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
@@ -344,17 +344,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
                 # rate limit is reached
                 self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ONE,
+                    1,
                     self.assert_msg.format(
-                        exp=ONE,
+                        exp=1,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
                 self.assertEqual(
                     self.klog.warn_count(ERROR_MSG_BURST),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG_BURST),
                     ),
                 )
@@ -380,17 +380,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
             self.assertEqual(
                     self.klog.warn_count(ERROR_MSG_BURST),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG_BURST),
                     ),
                 )
@@ -416,17 +416,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
             self.assertEqual(
                     self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG.format('rate')),
                     ),
                 )
             self.assertEqual(
                     self.klog.warn_count(ERROR_MSG_BURST),
-                    ZERO,
+                    0,
                     self.assert_msg.format(
-                        exp=ZERO,
+                        exp=0,
                         got=self.klog.warn_count(ERROR_MSG_BURST),
                     ),
                 )
@@ -450,17 +450,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG_BURST),
-            ONE,
+            1,
             self.assert_msg.format(
-                exp=ONE,
+                exp=1,
                 got=self.klog.warn_count(ERROR_MSG_BURST),
             ),
         )
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG.format('rate')),
-            ZERO,
+            0,
             self.assert_msg.format(
-                exp=ZERO,
+                exp=0,
                 got=self.klog.warn_count(ERROR_MSG.format('rate')),
             ),
         )
@@ -482,9 +482,9 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG_BURST),
-            ZERO,
+            0,
             self.assert_msg.format(
-                exp=ZERO,
+                exp=0,
                 got=self.klog.warn_count(ERROR_MSG_BURST),
             ),
         )
@@ -513,17 +513,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG_BURST),
-            ZERO,
+            0,
             self.assert_msg.format(
-                exp=ZERO,
+                exp=0,
                 got=self.klog.warn_count(ERROR_MSG_BURST),
             ),
         )
         self.assertEqual(
             self.klog.warn_count(ERROR_MSG.format('rate')),
-            ZERO,
+            0,
             self.assert_msg.format(
-                exp=ZERO,
+                exp=0,
                 got=self.klog.warn_count(ERROR_MSG.format('rate')),
             ),
         )
