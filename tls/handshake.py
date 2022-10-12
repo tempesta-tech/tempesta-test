@@ -2,7 +2,7 @@ from time import sleep
 import scapy.layers.tls.crypto.suites as suites
 from scapy.all import *
 from scapy.layers.tls.all import *
-# from helpers import tf_cfg
+from helpers import tf_cfg
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     
@@ -33,16 +33,21 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             p = TLSClientHello()
         self.add_msg(p)
         raise self.ADDED_CLIENTHELLO()
+    
+    @ATMT.state(initial=True)
+    def INITIAL(self):
+        tf_cfg.dbg(2, "Starting TLS client automaton.")
+        raise self.INIT_TLS_SESSION()
 
     @ATMT.state(final=True)
     def FINAL(self):
         # We might call shutdown, but it may happen that the server
         # did not wait for us to shutdown after answering our data query.
         # self.socket.shutdown(1)
-        self.vprint("Closing client socket...")
+        tf_cfg.dbg(2, "Closing client socket...")
         self.socket.close()
         self.hs_final = True
-        self.vprint("Ending TLS client automaton.")
+        tf_cfg.dbg(2, "Ending TLS client automaton.")
 
     @ATMT.state()
     def RECEIVED_SERVERDATA(self):
@@ -58,15 +63,13 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                 # Socket mode
                 self.oi.tls.send(p.data)
             else:
-                print("> Received: %r" % p.data)
-                print("add to hs_buffer")
+                tf_cfg.dbg(2, "> Received: %r" % p.data)
                 self.hs_buffer.append(p)
-                print(f'BUFFER: {self.hs_buffer}')
         elif isinstance(p, TLSAlert):
-            print("> Received: %r" % p)
+            tf_cfg.dbg(2,"> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         elif isinstance(p, TLS13NewSessionTicket):
-            print("> Received: %r " % p)
+            tf_cfg.dbg(2, "> Received: %r " % p)
             # If arg session_ticket_file_out is set, we save
             # the ticket for resumption...
             if self.session_ticket_file_out:
@@ -102,31 +105,41 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                     f.write(struct.pack("!H", p.ticketlen))
                     f.write(self.cur_session.client_session_ticket)
         else:
-            print("> Received: %r" % p)
+            tf_cfg.dbg(2, "> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
 
     @ATMT.state()
+    def CONNECT(self):
+        s = socket.socket(self.remote_family, socket.SOCK_STREAM)
+        tf_cfg.dbg(2, "Trying to connect on %s:%d" % (self.remote_ip,
+                                                    self.remote_port))
+        s.connect((self.remote_ip, self.remote_port))
+        self.socket = s
+        self.local_ip, self.local_port = self.socket.getsockname()[:2]
+        if self.cur_session.advertised_tls_version in [0x0200, 0x0002]:
+            raise self.SSLv2_PREPARE_CLIENTHELLO()
+        elif self.cur_session.advertised_tls_version >= 0x0304:
+            raise self.TLS13_START()
+        else:
+            raise self.PREPARE_CLIENTFLIGHT1()
+
+    @ATMT.state()
     def HANDLED_SERVERFINISHED(self):
-        self.vprint("TLS handshake completed!")
-        self.vprint_sessioninfo()
-        self.vprint("HANDLE SERVERFINISHED")
-        print("TLS handshake completed!")
-        print(self.hs_state)
+        # self.vprint_sessioninfo()
+        # self.vprint("HANDLE SERVERFINISHED")
+        tf_cfg.dbg(2, "TLS handshake completed!")
         self.hs_state = True
-        print(self.hs_state)
 
 class TlsHandshake:
 
-    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=2):
+    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=0):
         self.hs_state = False
         self.data = data
         self.debug = debug
         self.sni = "tempesta-tech.com"
 
     def create_hello(self):
-        global hs_state
-        hs_state = False
         # TLS Version
         
         compression='null'
@@ -142,13 +155,13 @@ class TlsHandshake:
             _ciphers = []
             for key in suites._tls_cipher_suites_cls:
                 if key in self.ciphers:
-                    # print(key, '->', suites._tls_cipher_suites_cls[key])
+                    tf_cfg.dbg(2, key, '->', suites._tls_cipher_suites_cls[key])
                     _ciphers += [suites._tls_cipher_suites_cls[key]]
             self.ciphers = _ciphers
         except KeyError:
             pass
         except AttributeError as e:
-            print('Use default ciphers')
+            tf_cfg.dbg(2, 'Use default ciphers')
             self.ciphers = [TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]
             self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
@@ -163,7 +176,7 @@ class TlsHandshake:
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]
         ext = [ext1, ext2, ext3, ext4, ext5, ext6]
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
-        ch.show()
+        tf_cfg.dbg(2, ch.show())
         return ch
 
     def do_12(self):
@@ -177,15 +190,13 @@ class TlsHandshake:
             )
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
-        print(self.hs.state.state)
-        print(f'STATE: {self.hs.state.state}')
-        print(f'BUFF: {self.hs.hs_buffer}')
+        tf_cfg.dbg(2, f'FIN_STATE: {self.hs.state.state}')
+        tf_cfg.dbg(2, f'BUFFER: {self.hs.hs_buffer}')
         return self.hs.hs_state
 
 # t = TlsHandshake()
 # t.sni = ''
 # t.ciphers = list(range(100, 49196))
 # t.ciphers = list(range(100, 49196))
-# print(t.do_12())
-# print(t.do_12())
+# t.do_12()
 # sleep(2)
