@@ -13,7 +13,7 @@ __license__ = 'GPL2'
 class HttpConnBase(tester.TempestaTest):
     clients = [
         {
-            'id': 'curl',
+            'id': 'ab',
             'type': 'external',
             'binary': 'ab',
             'cmd_args': (
