@@ -18,7 +18,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/
+            'cmd_args': '''-Ikf -v http://${server_ip}:8765/
                             -H "Host: tempesta-tech.com:8765"
                             -H "Connection: keep-alive"
                             -H "Content-Type: text/html"
@@ -29,7 +29,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             'id': 'curl-2',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/
+            'cmd_args': '''-Ikf -v http://${server_ip}:8765/
                             -H "Host: tempesta-tech.com:8765"
                             -H "Connection: keep-alive"
                             ''',
@@ -38,7 +38,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             'id': 'curl-3',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '''-Ikf -v http://127.0.0.4:8765/
+            'cmd_args': '''-Ikf -v http://${server_ip}:8765/
                             -H "Host: tempesta-tech.com:8765"
                             -H "Connection: keep-alive"
                             -H "Content-Type: text/html"
@@ -52,7 +52,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
                 http_header_cnt 3;
             }
 
-            listen 127.0.0.4:8765;
+            listen ${server_ip}:8765;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -63,8 +63,8 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;

@@ -1,5 +1,5 @@
-from framework import tester
 from helpers import dmesg
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -7,54 +7,7 @@ __license__ = 'GPL2'
 ERROR = "Warning: frang: HTTP body chunk count exceeded"
 
 
-class HttpBodyChunkCntBase(tester.TempestaTest):
-    backends = [
-        {
-            'id': 'nginx',
-            'type': 'nginx',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': """
-pid ${pid};
-worker_processes  auto;
-
-events {
-    worker_connections   1024;
-    use epoll;
-}
-
-http {
-    keepalive_timeout ${server_keepalive_timeout};
-    keepalive_requests 10;
-    sendfile         on;
-    tcp_nopush       on;
-    tcp_nodelay      on;
-
-    open_file_cache max=1000;
-    open_file_cache_valid 30s;
-    open_file_cache_min_uses 2;
-    open_file_cache_errors off;
-
-    # [ debug | info | notice | warn | error | crit | alert | emerg ]
-    # Fully disable log errors.
-    error_log /dev/null emerg;
-
-    # Disable access log altogether.
-    access_log off;
-
-    server {
-        listen        ${server_ip}:8000;
-
-        location /uri1 {
-            return 200;
-        }
-        location /nginx_status {
-            stub_status on;
-        }
-    }
-}
-""",
-        }
-    ]
+class HttpBodyChunkCntBase(FrangTestCase):
 
     clients = [
         {

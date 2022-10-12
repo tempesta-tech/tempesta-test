@@ -14,31 +14,31 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/over5 -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': f'-Ikf -v http://${server_ip}:8765/over5 -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-11',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': f'-Ikf -v http://127.0.0.4:8765 -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': f'-Ikf -v http://${server_ip}:8765 -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-12',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/qwe -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': f'-Ikf -v http://${server_ip}:8765/qwe -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-13',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': f'-Ikf -v http://127.0.0.4:8765/1234 -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': f'-Ikf -v http://${server_ip}:8765/1234 -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-2',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"  -H "X-Long: {0}"'.format(
+            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"  -H "X-Long: {0}"'.format(
                 '1' * 293,
             ),
         },
@@ -46,13 +46,13 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-22',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
         {
             'id': 'curl-3',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(
+            'cmd_args': '-kf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(
                 {'some_key_long_one': 'some_value'},
             ),
         },
@@ -60,13 +60,13 @@ class FrangLengthTestCase(FrangTestCase):
             'id': 'curl-31',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"'
+            'cmd_args': '-kf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"'
         },
         {
             'id': 'curl-32',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-kf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(
+            'cmd_args': '-kf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765" -d {0}'.format(
                 {'12345678': '1'},
             ),
         },
@@ -80,7 +80,7 @@ class FrangLengthTestCase(FrangTestCase):
                 http_body_len 10;
             }
 
-            listen 127.0.0.4:8765;
+            listen ${server_ip}:8765;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -91,8 +91,8 @@ class FrangLengthTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;

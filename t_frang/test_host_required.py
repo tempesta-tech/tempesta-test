@@ -2,6 +2,7 @@
 from framework import tester
 from helpers import dmesg
 import time
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
@@ -341,54 +342,15 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         )
 
 
-CURL_A = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com"'
-CURL_B = '-Ikf -v --http2 https://127.0.0.4:443/'
-CURL_C = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: "'
-CURL_D = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: example.com"'
-CURL_E = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: 127.0.0.1"'
-CURL_F = '-Ikf -v --http2 https://127.0.0.4:443/ -H "Host: [::1]"'
-CURL_G = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=qwerty.com"'
-CURL_H = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=tempesta-tech.com" -H "Forwarded: host=tempesta1-tech.com"'
-CURL_I = ' -Ikf -v --http2 https://127.0.0.4:443/ -H "Host: tempesta-tech.com" -H ":authority: tempesta1-tech.com"'
-
-backends = [
-    {
-        'id': 'nginx',
-        'type': 'nginx',
-        'port': '8000',
-        'status_uri': 'http://${server_ip}:8000/nginx_status',
-        'config': """
-            pid ${pid};
-            worker_processes  auto;
-            events {
-                worker_connections   1024;
-                use epoll;
-            }
-            http {
-                keepalive_timeout ${server_keepalive_timeout};
-                keepalive_requests ${server_keepalive_requests};
-                sendfile         on;
-                tcp_nopush       on;
-                tcp_nodelay      on;
-                open_file_cache max=1000;
-                open_file_cache_valid 30s;
-                open_file_cache_min_uses 2;
-                open_file_cache_errors off;
-                error_log /dev/null emerg;
-                access_log off;
-                server {
-                    listen        ${server_ip}:8000;
-                    location / {
-                        return 200;
-                    }
-                    location /nginx_status {
-                        stub_status on;
-                    }
-                }
-            }
-        """,
-    },
-]
+CURL_A = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: tempesta-tech.com"'
+CURL_B = '-Ikf -v --http2 https://${server_ip}:443/'
+CURL_C = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: "'
+CURL_D = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: example.com"'
+CURL_E = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: 127.0.0.1"'
+CURL_F = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: [::1]"'
+CURL_G = ' -Ikf -v --http2 https://${server_ip}:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=qwerty.com"'
+CURL_H = ' -Ikf -v --http2 https://${server_ip}:443/ -H "Host: tempesta-tech.com" -H "Forwarded: host=tempesta-tech.com" -H "Forwarded: host=tempesta1-tech.com"'
+CURL_I = ' -Ikf -v --http2 https://${server_ip}:443/ -H "Host: tempesta-tech.com" -H ":authority: tempesta1-tech.com"'
 
 clients = [
     {
@@ -462,7 +424,7 @@ tempesta = {
             http_host_required;
         }
 
-        listen 127.0.0.4:443 proto=h2;
+        listen ${server_ip}:443 proto=h2;
 
         srv_group default {
             server ${server_ip}:8000;
@@ -473,8 +435,8 @@ tempesta = {
         }
 
         tls_match_any_server_name;
-        tls_certificate RSA/tfw-root.crt;
-        tls_certificate_key RSA/tfw-root.key;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         cache 0;
         cache_fulfill * *;
@@ -487,12 +449,10 @@ tempesta = {
 }
 
 
-class FrangHostRequiredH2TestCase(tester.TempestaTest):
+class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     """Tests for checks 'http_host_required' directive with http2."""
 
     clients = clients
-
-    backends = backends
 
     tempesta = tempesta
 

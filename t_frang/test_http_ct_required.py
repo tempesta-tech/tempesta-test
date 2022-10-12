@@ -26,7 +26,6 @@ frang_limits {
 server ${server_ip}:8000;
 """
 
-
 WARN_UNKNOWN = 'frang: Request authority is unknown'
 
 REQUEST_SUCCESS = """

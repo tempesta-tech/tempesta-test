@@ -19,7 +19,7 @@ class FrangTlsRateTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-Ikf -v https://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
 
@@ -29,7 +29,7 @@ class FrangTlsRateTestCase(FrangTestCase):
                 tls_connection_rate 4;
             }
 
-            listen 127.0.0.4:8765 proto=https;
+            listen ${server_ip}:8765 proto=https;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -40,8 +40,8 @@ class FrangTlsRateTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;
@@ -149,7 +149,7 @@ class FrangTlsBurstTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-Ikf -v https://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         }
         ]
 
@@ -159,7 +159,7 @@ class FrangTlsBurstTestCase(FrangTestCase):
                 tls_connection_burst 4;
             }
 
-            listen 127.0.0.4:8765 proto=https;
+            listen ${server_ip}:8765 proto=https;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -170,8 +170,8 @@ class FrangTlsBurstTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;
@@ -282,7 +282,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            'cmd_args': '-Ikf -v https://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
     ]
 
@@ -293,7 +293,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
                 tls_connection_rate 4;
             }
 
-            listen 127.0.0.4:8765 proto=https;
+            listen ${server_ip}:8765 proto=https;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -304,8 +304,8 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;
@@ -558,7 +558,7 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             'type': 'external',
             'binary': 'curl',
             'tls': False,
-            'cmd_args': '-If -v https://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-If -v https://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         }
     ]
 
@@ -568,7 +568,7 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
                 tls_incomplete_connection_rate 4;
             }
 
-            listen 127.0.0.4:8765 proto=https;
+            listen ${server_ip}:8765 proto=https;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -578,8 +578,8 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
                 proxy_pass default;
             }
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
 
             cache 0;

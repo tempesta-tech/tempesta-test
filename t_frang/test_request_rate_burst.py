@@ -20,7 +20,7 @@ class FrangRequestRateTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
 
@@ -30,7 +30,7 @@ class FrangRequestRateTestCase(FrangTestCase):
                 request_rate 4;
             }
 
-            listen 127.0.0.4:8765;
+            listen ${server_ip}:8765;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -41,8 +41,8 @@ class FrangRequestRateTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;
@@ -160,7 +160,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
     tempesta = {
@@ -169,7 +169,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
                 request_burst 3;
             }
 
-            listen 127.0.0.4:8765;
+            listen ${server_ip}:8765;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -180,8 +180,8 @@ class FrangRequestBurstTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;
@@ -275,7 +275,7 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             'id': 'curl-1',
             'type': 'external',
             'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/ -H "Host: tempesta-tech.com:8765"',
+            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
 
@@ -286,7 +286,7 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
                 request_burst 3;
             }
 
-            listen 127.0.0.4:8765;
+            listen ${server_ip}:8765;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -297,8 +297,8 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             }
 
             tls_match_any_server_name;
-            tls_certificate RSA/tfw-root.crt;
-            tls_certificate_key RSA/tfw-root.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
             cache_fulfill * *;

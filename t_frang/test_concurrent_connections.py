@@ -154,12 +154,12 @@ frang_limits {
         deproxy_cl3.wait_for_response(timeout=2)
 
         self.assertEqual(10, len(deproxy_cl.responses))
-        self.assertEqual(0, len(deproxy_cl2.responses))
+        self.assertEqual(10, len(deproxy_cl2.responses))
         self.assertEqual(0, len(deproxy_cl3.responses))
 
-        self.assertFalse(deproxy_cl.connection_is_closed())
-        self.assertTrue(deproxy_cl2.connection_is_closed())  # all clients should be blocked here, but for some reason only one gets closed
-        self.assertFalse(deproxy_cl3.connection_is_closed())
+        self.assertTrue(deproxy_cl.connection_is_closed(), "this connection should be closed by ip, i don't know why it is not")
+        self.assertTrue(deproxy_cl2.connection_is_closed(), "this connection should be closed by ip, i don't know why it is not")
+        self.assertTrue(deproxy_cl3.connection_is_closed(), "this connection should be closed by ip, i don't know why it is not")
 
     def test_two_clients_two_ip(self):
 
@@ -192,7 +192,7 @@ frang_limits {
         self.assertFalse(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
-    def test_two_clients_one_ip_case_freeze(self):
+    def test_three_clients_one_ip_case_freeze(self):
         self.tempesta = {
         'config': """
         server ${server_ip}:8000;
@@ -243,6 +243,6 @@ frang_limits {
         self.assertEqual(0, len(deproxy_cl2.responses))
         self.assertEqual(0, len(deproxy_cl3.responses))
 
-        self.assertFalse(deproxy_cl.connection_is_closed())
-        self.assertTrue(deproxy_cl2.connection_is_closed())  # all clients should be blocked here, but for some reason only one gets closed
-        self.assertFalse(deproxy_cl3.connection_is_closed())
+        self.assertTrue(deproxy_cl.connection_is_closed())
+        self.assertTrue(deproxy_cl2.connection_is_closed())
+        self.assertTrue(deproxy_cl3.connection_is_closed())
