@@ -117,7 +117,7 @@ cache_fulfill * *;
 
         tempesta: Tempesta = self.get_tempesta()
         tempesta.config.defconfig += f'cache_methods {cache_method};\n'
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
 
         srv: StaticDeproxyServer = self.get_server('deproxy')
         srv.set_response(server_response)
@@ -296,7 +296,7 @@ class TestMultipleMethods(TempestaTest):
         Send requests with different methods and checks that responses has been from different
         cache.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 

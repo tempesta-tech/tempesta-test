@@ -61,7 +61,7 @@ vhost default {
         tempesta: Tempesta = self.get_tempesta()
         tempesta.config.defconfig += tempesta_config.format(cache_mode)
 
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
 
         srv: StaticDeproxyServer = self.get_server('deproxy')
         srv.set_response(

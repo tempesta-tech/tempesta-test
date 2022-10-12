@@ -84,7 +84,7 @@ cache_resp_hdr_del set-cookie;
         Send a request and cache it. Use PURGE and repeat the request. Check that a response is
         not received from cache, but the request has been cached again.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -129,7 +129,7 @@ cache_resp_hdr_del set-cookie;
         request. Check that tempesta has sent a request to update cache for "GET" method. But cache
         for "HEAD" method has been purged.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -174,7 +174,7 @@ cache_resp_hdr_del set-cookie;
         Send a request and cache it. Update server response. Use PURGE with "x-tempesta-cache: GET"
         header and repeat the request. Check that cached response has been update.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -217,7 +217,7 @@ cache_resp_hdr_del set-cookie;
         with "x-tempesta-cache: GET" header and repeat the request. Check that cached response has
         not "Set-Cookie" header.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -263,7 +263,7 @@ cache_resp_hdr_del set-cookie;
         And another PURGE-GET test, with Set-Cookie removed due to no-cache="set-cookie" in the
         response.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -310,7 +310,7 @@ cache_resp_hdr_del set-cookie;
         Send an ordinary GET request with an "X-Tempesta-Cache" header, and make sure it doesn't
         affect anything.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
 
         client.send_request(self.request_template_x_tempesta_cache.format('GET', 'GET'), '200')
@@ -332,7 +332,7 @@ cache_resp_hdr_del set-cookie;
         re-cached. (This works the same way as a plain PURGE, so we're not using the helper
         method here.)
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -378,7 +378,7 @@ cache_resp_hdr_del set-cookie;
         Send a PURGE request with X-Tempesta-Cache for a non-cached entry. Make sure a new cache
         entry is populated after the request.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 
@@ -402,7 +402,7 @@ cache_resp_hdr_del set-cookie;
         non-cacheable response. Make sure that there is neither the old nor the new response in
         the cache.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         client: DeproxyClient = self.get_client('deproxy')
         srv: StaticDeproxyServer = self.get_server('deproxy')
 

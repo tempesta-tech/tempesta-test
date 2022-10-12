@@ -59,7 +59,7 @@ cache_methods GET;
         Send GET request and receive 'Etag' header. Repeat request with correct/incorrect
         'if-none-match' and 'if-modified-since' headers.
         """
-        self.start_all_services(deproxy=True)
+        self.start_all_services()
         srv: StaticDeproxyServer = self.get_server('deproxy')
         client: DeproxyClient = self.get_client('deproxy')
 
