@@ -150,14 +150,11 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_bad_elliptic_curves(self):
         self.start_all()
         hs12 = TlsHandshake()
-        # Generate bit longer data than Tempesta accepts (TTLS_ECP_DP_MAX = 12).
-        hs12.elliptic_curves = [tls.TLSExtension() /
-                                tls.TLSExtEllipticCurves(
-                                    named_group_list=list(range(13)),
-                                    length=26)]
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
-        with self.assertRaises(tls.TLSProtocolError):
-            hs12.do_12()
+        hs12.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=['sect163k1'])
+        hs12.do_12()
+        self.oops_ignore = ['WARNING']
+        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "None of the common ciphersuites is usable"
         self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
