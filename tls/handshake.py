@@ -162,16 +162,25 @@ class TlsHandshake:
         self.sni = "tempesta-tech.com"
         self.host = self.sni
         self.data = data
-    
-    def create_hello(self):
-        # TLS Version
+        self.sign_algs = ['sha256+rsa', \
+            'sha384+rsa', \
+            'sha1+rsa', \
+            'sha256+ecdsa', \
+            'sha384+ecdsa', \
+            'sha1+ecdsa', \
+            'sha1+dsa', \
+            'sha512+rsa', 'sha512+ecdsa'
+            ]
+        # Default extensions value
+        self.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=['x25519', 'secp256r1', 'secp384r1'])
+        self.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=self.sign_algs)
         
+    def create_hello(self):
         compression='null'
+        # Override extension if some variables changd
         ext1 = TLS_Ext_ServerName(servernames=ServerName(servername=self.sni))
         ext2 = TLS_Ext_CSR(stype='ocsp', req=OCSPStatusRequest())
-        ext3 = TLS_Ext_SupportedEllipticCurves(groups=['x25519', 'secp256r1', 'secp384r1'])
         ext4 = TLS_Ext_SupportedPointFormat(ecpl='uncompressed')
-        ext5 = TLS_Ext_SignatureAlgorithms(sig_algs=['sha256+rsa', 'sha384+rsa', 'sha1+rsa', 'sha256+ecdsa', 'sha384+ecdsa', 'sha1+ecdsa', 'sha1+dsa', 'sha512+rsa', 'sha512+ecdsa'])
         ext6 = TLS_Ext_RenegotiationInfo("")
         # ext7 = TLS_Ext_SessionTicket(ticket)
         try:
@@ -198,7 +207,7 @@ class TlsHandshake:
             self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]
-        ext = [ext1, ext2, ext3, ext4, ext5, ext6]
+        ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, ext6]
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
         tf_cfg.dbg(2, ch.show())
         return ch
