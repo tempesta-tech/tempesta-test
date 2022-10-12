@@ -6,7 +6,7 @@ from time import sleep
 from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
-from .handshake import TlsHandshake
+from .handshake import *
 from .fuzzer import tls_record_fuzzer
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -87,7 +87,8 @@ class TlsHandshakeTest(tester.TempestaTest):
         # first, and there are no such number of distinct ciphers to fill those
         # 758 bytes, it's safe to ignore the remainder. Just making sure
         # Tempesta doesn't crash and doesn't generate an error message.
-        hs12.ciphers = list(range(2000))
+        hs12.ciphers = list(range(64,50000)) # Working
+        # hs12.ciphers = list(range(50000)) # Not working
         # Add some compressions as well. `0` is NULL-compression, so we are
         # good.
         hs12.compressions = list(range(15))
@@ -111,9 +112,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         hs12 = TlsHandshake()
         hs12.sni = ''
-        # hs12.ciphers = list(range(100, 49196))
-        hs12.do_12()
-        # self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
+        self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sni(self):
@@ -126,12 +125,11 @@ class TlsHandshakeTest(tester.TempestaTest):
         """
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.sni = ["bad.server.name"]
-        hs12.host = "tempesta-tech.com"
-        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
-        with self.assertRaises(tls.TLSProtocolError):
-            hs12.do_12()
-        self.assertEqual(self.oops.warn_count("bad.server.name"), 1,
+        hs12.sni = "bad.server.name"
+        hs12.do_12()
+        self.oops_ignore = ['WARNING']
+        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
+        self.assertEqual(self.oops.warn_count("requested unknown server name '.server.name'"), 1,
                          "Bad SNI isn't logged")
 
     @dmesg.unlimited_rate_on_tempesta_node

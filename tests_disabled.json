@@ -210,10 +210,6 @@
             "reason" : "Disabled by issue #154"
         },
         {
-            "name" :  "tls.test_tls_handshake.TlsHandshakeTest.test_bad_sni",
-            "reason" : "Disabled by issue #154"
-        },
-        {
             "name" :  "tls.test_tls_handshake.TlsHandshakeTest.test_old_handshakes",
             "reason" : "Disabled by issue #154"
         },

@@ -25,6 +25,29 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.control_thread.start()
         ready.wait()
     
+    @ATMT.state()
+    def RECEIVED_SERVERFLIGHT1(self):
+        pass
+    
+    @ATMT.state()
+    def TLSALERT_RECIEVED(self):
+        self.vprint("Recieve TLSAlert from the server...")
+        self.hs_state = False
+        raise TLSAlert
+        raise self.CLOSE_NOTIFY()
+    
+    @ATMT.condition(RECEIVED_SERVERFLIGHT1, prio=1)
+    def should_handle_ServerHello(self):
+        """
+        XXX We should check the ServerHello attributes for discrepancies with
+        our own ClientHello.
+        """
+        # Catch TLSAlert intead of TLSServerHello
+        self.raise_on_packet(TLSAlert,
+                             self.TLSALERT_RECIEVED)
+        self.raise_on_packet(TLSServerHello,
+                             self.HANDLED_SERVERHELLO)
+    
     @ATMT.condition(TLSClientAutomaton.PREPARE_CLIENTFLIGHT1)
     def should_add_ClientHello(self):
         if self.client_hello:
@@ -133,12 +156,13 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
 class TlsHandshake:
 
-    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=0):
+    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=2):
         self.hs_state = False
-        self.data = data
         self.debug = debug
         self.sni = "tempesta-tech.com"
-
+        self.host = self.sni
+        self.data = data
+    
     def create_hello(self):
         # TLS Version
         
