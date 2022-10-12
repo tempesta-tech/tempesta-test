@@ -523,6 +523,24 @@ server ${general_ip}:8000;
                   '\r\n'
         self.common_check(request)
 
+    def test_char_hdr(self):
+        request = 'GET / HTTP/1.1\r\n' \
+                  'Host: localhost\r\n' \
+                  'X: test\r\n' \
+                  '\r\n'
+        srv = self.get_server('deproxy')
+        srv.start()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(srv.wait_for_connections(timeout=1))
+        clnt = self.get_client('deproxy')
+        clnt.start()
+        clnt.make_request(request)
+        resp = clnt.wait_for_response(timeout=5)
+        self.assertTrue(resp, "Response not received")
+        status = int(clnt.last_response.status)
+        self.assertTrue(status == 200, "Wrong status: %s" % status)
+
 class MalformedResponsesTest(tester.TempestaTest):
     backends = [
         {
