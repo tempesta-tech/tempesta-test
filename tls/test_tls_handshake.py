@@ -2,10 +2,11 @@
 Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
+from time import sleep
 from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
-from .handshake import *
+from .handshake import TlsHandshake
 from .fuzzer import tls_record_fuzzer
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -109,8 +110,10 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_empty_sni_default(self):
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.sni = []
-        self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
+        hs12.sni = ''
+        # hs12.ciphers = list(range(100, 49196))
+        hs12.do_12()
+        # self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sni(self):
