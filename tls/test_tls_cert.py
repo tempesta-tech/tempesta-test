@@ -16,7 +16,7 @@ from .handshake import TlsHandshake, x509_check_cn
 from .scapy_ssl_tls import ssl_tls as tls
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 
@@ -435,12 +435,25 @@ class TlsCertSelect(tester.TempestaTest):
 class TlsCertSelectBySan(tester.TempestaTest):
     """Subject Alternative Name certificate match to SNI."""
 
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n\r\n'
+            )
+        }
+    ]
+
     tempesta = {
         'config': """
             cache 0;
             listen 443 proto=https;
 
-            srv_group sg { server ${server_ip}:443; }
+            srv_group sg { server ${server_ip}:8000; }
 
             vhost example.com {
                 proxy_pass sg;
@@ -454,6 +467,12 @@ class TlsCertSelectBySan(tester.TempestaTest):
     @property
     def verbose(self):
         return tf_cfg.v_level() >= 3
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
 
     def check_handshake_success(self, sni):
         """Run TLS handshake with the given SNI and check it is completes successfully."""
@@ -470,14 +489,14 @@ class TlsCertSelectBySan(tester.TempestaTest):
         """
         hs = TlsHandshake(verbose=self.verbose)
         hs.sni = [sni]
-        with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+        with self.assertRaises(tls.TLSProtocolError):
             hs._do_12_hs()
 
     def test_sni_matched(self):
         """SAN certificate matches the passed SNI."""
         san = ['example.com', '*.example.com']
         generate_certificate(san=san)
-        self.start_tempesta()
+        self.start_all()
 
         for sni in (
                 'example.com',
@@ -485,9 +504,10 @@ class TlsCertSelectBySan(tester.TempestaTest):
                 'www.example.com',
                 '.example.com',
                 '-.example.com',
-                '@.example.com',
-                '*.example.com',
-                '!!!.example.com',
+                'EXAMPLE.COM',
+                'www.EXAMPLE.com',
+                'A.EXAMPLE.COM',
+                'A.eXaMpLe.CoM',
                 # max length, length 240 'a' will give DECODE_ERROR
                 f"{'-' * 239}.example.com",
         ):
@@ -498,7 +518,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         """SAN certificate does not match the passed SNI."""
         san = ['example.com', '*.example.com']
         generate_certificate(san=san)
-        self.start_tempesta()
+        self.start_all()
 
         for sni in (
                 'b.a.example.com',
@@ -512,12 +532,12 @@ class TlsCertSelectBySan(tester.TempestaTest):
                 'a.example.com-',
                 'a.example.com.',
                 'a.example.com.example.com',
-                'EXAMPLE.COM',
-                'www.EXAMPLE.com',
-                'A.EXAMPLE.COM',
-                'A.eXaMpLe.CoM',
                 tf_cfg.cfg.get("Server", "ip"),
                 'a' * 251,  # max length, 252 will give DECODE_ERROR
+                '@.example.com',
+                '*.example.com',
+                '!!!.example.com',
+                '\n.example.com',
         ):
             with self.subTest(
                     msg="Trying TLS handshake with expected unknown SNI",
@@ -530,7 +550,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ['WARNING']
         generate_certificate()
-        self.start_tempesta()
+        self.start_all()
 
         for san, sni in (
                 (['*.b.c.example.com'], "a.b.c.example.com"),
@@ -538,6 +558,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
                 ([".example.com"], "www.example.com"),
                 (['www.localhost', 'example.com'], 'example.com'),
                 (['*.xn--e1aybc.xn--90a3ac'], 'xn--e1aybc.xn--e1aybc.xn--90a3ac'),
+                (['localhost'], 'localhost'),
+                (['*.local'], 'example.local'),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
@@ -549,16 +571,16 @@ class TlsCertSelectBySan(tester.TempestaTest):
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ['WARNING']
         generate_certificate()
-        self.start_tempesta()
+        self.start_all()
 
         for san, sni in (
                 (['a.*.example.com'], 'a.b.example.com'),
+                # Component fragment wildcards does not accepted.
+                # Related discussion: https://codereview.chromium.org/762013002
                 (['w*.example.com'], 'www.example.com'),
                 (['www.example.com'], 'www.example.com'),
                 (['a.example.com'], 'b.example.com'),
-                (['localhost'], 'localhost'),
                 (['example.onion'], 'example.onion'),
-                (['*.local'], 'example.local'),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
@@ -573,30 +595,25 @@ class TlsCertSelectBySan(tester.TempestaTest):
     def test_unknown_server_name_warning(self):
         """Test that expected 'unknown server name' warning appears in DMESG logs."""
         generate_certificate(san=['example.com', '*.example.com'])
-        self.start_tempesta()
+        self.start_all()
 
         for sni, printable_name in (
                 ("localhost", "'localhost'"),
                 ("a.localhost", "'a.localhost'"),
-                ("a.b.localhost", "'.b.localhost'"),  # subdomain part is not displayed
-                ("a.b.c.localhost", "'.b.c.localhost'"),
-                ("a.b.c.localhost.com", "'.b.c.localhost.com'"),
-                ("a.b.c.example.com", "'.b.c.example.com'"),
+                ("a.b.localhost", "'a.b.localhost'"),  # subdomain should be displayed
+                ("a.b.c.localhost", "'a.b.c.localhost'"),
+                ("a.b.c.localhost.com", "'a.b.c.localhost.com'"),
+                ("a.b.c.example.com", "'a.b.c.example.com'"),
                 ("\0hidden part :)", "''"),  # non-printable characters allowed
                 ("\n\n\n", "'"),  # empty lines appears in the log
         ):
             with self.subTest(msg="Check 'unknown server name' warning", sni=sni):
-                # new DMESG finder instance, to update messages from the current time
-                klog = dmesg.DmesgFinder(ratelimited=False)
-
-                self.check_handshake_unrecognized_name(sni=sni)
-
-                self.assertEqual(
-                    1,
-                    klog.warn_count(f"requested unknown server name {printable_name}"),
-                    # Report all founded 'unknown server name' warnings
-                    f"Warnings: {klog.warn_match('requested unknown server name .*')}"
-                )
+                with dmesg.wait_for_msg(
+                        f"requested unknown server name {printable_name}",
+                        timeout=1,
+                        permissive=False
+                ):
+                    self.check_handshake_unrecognized_name(sni=sni)
 
     def test_sni_match_after_reload(self):
         """
@@ -618,7 +635,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         generate_certificate(san=[])
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
-        self.start_tempesta()
+        self.start_all()
 
         for i in range(RELOAD_COUNT):
             generate_certificate(san=next(san_iter))
@@ -629,8 +646,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
             except tls.TLSProtocolError:
                 raise Exception(f"SNI should match to the current certificate [i={i}]")
 
-            with self.assertRaisesRegex(
-                    tls.TLSProtocolError, 'UNRECOGNIZED_NAME',
+            with self.assertRaises(
+                    tls.TLSProtocolError,
                     msg=f"SNI should not match to the current certificate [i={i}]"
             ):
                 handshake(next(sni_iter))
@@ -644,12 +661,26 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     certificate selection is changed according to the current config.
     """
 
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' : (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 0\r\n'
+                '\r\n'
+            )
+        }
+    ]
+
     tempesta = {
         'config': """
             cache 0;
             listen 443 proto=https;
 
-            srv_group sg { server ${server_ip}:443; }
+            srv_group sg { server ${server_ip}:8000; }
 
             vhost example.com {
                 proxy_pass sg;
@@ -662,7 +693,6 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 tls_certificate ${general_workdir}/private.crt;
                 tls_certificate_key ${general_workdir}/private.key;
             }
-
         """,
         'custom_cert': True
     }
@@ -671,7 +701,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             cache 0;
             listen 443 proto=https;
 
-            srv_group sg { server ${server_ip}:443; }
+            srv_group sg { server ${server_ip}:8000; }
 
             vhost example.com {
                 proxy_pass sg;
@@ -684,7 +714,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             cache 0;
             listen 443 proto=https;
 
-            srv_group sg { server ${server_ip}:443; }
+            srv_group sg { server ${server_ip}:8000; }
 
             vhost private.example.com {
                 proxy_pass sg;
@@ -696,6 +726,12 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     @property
     def verbose(self):
         return tf_cfg.v_level() >= 3
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
 
     def reload_with_config(self, template: str):
         """Reconfigure Tempesta with the provided config `template`.
@@ -723,7 +759,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             cn='private',
             san=['example.com', 'private.example.com']
         )
-        self.start_tempesta()
+        self.start_all()
         # save the current config text
         original_config = self.get_tempesta().config.defconfig
 
@@ -763,7 +799,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         # and no certificate provided for removed 'wildcard' section subdomains
         for sni in 'example.com', 'public.example.com':
             with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
-                with self.assertRaisesRegex(tls.TLSProtocolError, 'UNRECOGNIZED_NAME'):
+                with self.assertRaises(tls.TLSProtocolError):
                     hs = TlsHandshake(verbose=self.verbose)
                     hs.sni = [sni]
                     hs._do_12_hs()
@@ -785,11 +821,11 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.cert, expected_cert))
 
 
-class TlsSNIwithHttpTable(tester.TempestaTest):
+class TlsSniWithHttpTable(tester.TempestaTest):
     """
-    Test that show that non-TLS vhost could be accessed with certificate from
+    Test that shows that non-TLS vhost could be accessed with certificate from
     another section.
-    Test should fail after the fix.
+    Test should fail after the #1688 fix.
     """
 
     clients = [
@@ -960,6 +996,9 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
             cache 0;
             listen 443 proto=%s;
 
+            # Optional Frang section
+            %s
+
             srv_group sg1 { server ${server_ip}:8000; }
             srv_group sg2 { server ${server_ip}:8001; }
 
@@ -989,13 +1028,18 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
     def clients(self):
         pass
 
+    @property
+    @abstractmethod
+    def frang_limits(self):
+        pass
+
     @abstractmethod
     def build_requests(self, hosts):
         pass
 
     def setUp(self):
         self.tempesta = {
-            'config': self.tempesta_tmpl % (self.proto),
+            'config': self.tempesta_tmpl % (self.proto, self.frang_limits),
             'custom_cert': True
         }
         tester.TempestaTest.setUp(self)
@@ -1015,7 +1059,6 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
         host_iter = cycle(['a.example.com', 'localhost'])
 
         self.start_all()
-
         client = self.get_client('deproxy')
         server1 = self.get_server("server-1")
         server2 = self.get_server("server-2")
@@ -1025,7 +1068,7 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
                 hosts=islice(host_iter, REQ_NUM)
             )
         )
-        client.wait_for_response(timeout=60)
+        client.wait_for_response(timeout=2)
 
         self.assertEqual(REQ_NUM, len(client.responses))
         # Half of responses are from server1,
@@ -1034,9 +1077,10 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
         self.assertEqual(REQ_NUM / 2, len(server2.requests))
 
 
-class TlsSNIwithHttpTableMulti(BaseTlsMultiTest):
+class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
 
     proto = "https"
+    frang_limits = ""
 
     clients = [
         {
@@ -1066,13 +1110,26 @@ class TlsSNIwithHttpTableMulti(BaseTlsMultiTest):
         """
         Test for HTTP/1.1 pipelined request: both 'example.com' and 'localhost'
         vhosts are accessed in alternating order.
+        Test should fail after the #1688 fix.
         """
         self.run_alterative_access()
 
 
-class TlsSNIwithHttpTableMultiH2(BaseTlsMultiTest):
+class TlsSniWithHttpTableMultiFrang(TlsSniWithHttpTableMulti):
+    """
+    Same as TlsSniWithHttpTableMulti, with `http_host_required` enabled.
+    Test should fail after the #1688 fix.
+    """
+    frang_limits = """
+            frang_limits {
+                http_host_required;
+            }
+    """
+
+class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 
     proto = "h2"
+    frang_limits = ""
 
     clients = [
         {
@@ -1101,7 +1158,20 @@ class TlsSNIwithHttpTableMultiH2(BaseTlsMultiTest):
         """
         Test for HTTP/2 multiplexed requests: both 'example.com' and 'localhost'
         vhosts are accessed in alternating order.
+        Test should fail after the #1688 fix.
         """
         # Ignore 'BUG tfw_stream_cache Tainted'
         self.oops_ignore = ["WARNING"]
         self.run_alterative_access()
+
+
+class TlsSniWithHttpTableMultiH2Frang(TlsSniWithHttpTableMultiH2):
+    """
+    Same as TlsSniWithHttpTableMultiH2, with `http_host_required` enabled.
+    Test should fail after the #1688 fix.
+    """
+    frang_limits = """
+            frang_limits {
+                http_host_required;
+            }
+    """

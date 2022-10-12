@@ -366,6 +366,10 @@
             "reason": "Disable by issue #154"
         },
         {
+            "name": "tls.test_tls_cert.TlsCertSelectBySan",
+            "reason": "Disable by issue #1688"
+        },
+        {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_tls12_synthetic",
             "reason": "Disable by issue #154"
         },
