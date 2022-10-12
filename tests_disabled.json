@@ -110,7 +110,11 @@
             "reason" : "Disabled by issue #114"
         },
         {
-            "name" : "frang",
+            "name" : "frang.test_host_required",
+            "reason" : "Disabled by issue #673"
+        },
+        {
+            "name" : "frang.test_http_resp_code_block",
             "reason" : "Disabled by issue #673"
         },
         {
