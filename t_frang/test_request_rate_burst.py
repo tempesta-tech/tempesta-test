@@ -3,13 +3,13 @@ import time
 
 from t_frang.frang_test_case import FrangTestCase
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 DELAY = 0.125
-ERROR_MSG = 'Warning: frang: request {0} exceeded for'
-ERROR_MSG_BURST = 'Warning: frang: requests burst exceeded'
+ERROR_MSG = "Warning: frang: request {0} exceeded for"
+ERROR_MSG_BURST = "Warning: frang: requests burst exceeded"
 
 
 class FrangRequestRateTestCase(FrangTestCase):
@@ -17,15 +17,15 @@ class FrangRequestRateTestCase(FrangTestCase):
 
     clients = [
         {
-            'id': 'curl-1',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
+            "id": "curl-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             frang_limits {
                 request_rate 4;
             }
@@ -56,7 +56,7 @@ class FrangRequestRateTestCase(FrangTestCase):
 
     def test_request_rate(self):
         """Test 'request_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -76,28 +76,28 @@ class FrangRequestRateTestCase(FrangTestCase):
             # until rate limit is reached
             if step < request_rate - 1:
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
+                    self.klog.warn_count(ERROR_MSG.format("rate")),
                     0,
                     self.assert_msg.format(
                         exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
                     ),
                 )
 
             else:
                 # rate limit is reached
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
+                    self.klog.warn_count(ERROR_MSG.format("rate")),
                     1,
                     self.assert_msg.format(
                         exp=1,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
                     ),
                 )
 
     def test_request_rate_without_reaching_the_limit(self):
         """Test 'request_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -115,17 +115,17 @@ class FrangRequestRateTestCase(FrangTestCase):
             curl.stop()
 
             self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ),
-                )
+                self.klog.warn_count(ERROR_MSG.format("rate")),
+                0,
+                self.assert_msg.format(
+                    exp=0,
+                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
+                ),
+            )
 
     def test_request_rate_on_the_limit(self):
         """Test 'request_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -143,13 +143,13 @@ class FrangRequestRateTestCase(FrangTestCase):
             curl.stop()
 
             self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ),
-                )
+                self.klog.warn_count(ERROR_MSG.format("rate")),
+                0,
+                self.assert_msg.format(
+                    exp=0,
+                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
+                ),
+            )
 
 
 class FrangRequestBurstTestCase(FrangTestCase):
@@ -157,14 +157,14 @@ class FrangRequestBurstTestCase(FrangTestCase):
 
     clients = [
         {
-            'id': 'curl-1',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
+            "id": "curl-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
     tempesta = {
-        'config': """
+        "config": """
             frang_limits {
                 request_burst 3;
             }
@@ -198,7 +198,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
         Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
         this means that in 125 ms there will be less than 4 requests and the test will not reach the limit
         """
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
         self.start_all_servers()
         self.start_tempesta()
 
@@ -221,7 +221,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
 
     def test_request_burst_not_reached_timeout(self):
         """Test 'request_burst' is NOT reached."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
         self.start_all_servers()
         self.start_tempesta()
 
@@ -245,7 +245,7 @@ class FrangRequestBurstTestCase(FrangTestCase):
 
     def test_request_burst_on_the_limit(self):
         # Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
         self.start_all_servers()
         self.start_tempesta()
 
@@ -272,15 +272,15 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
     clients = [
         {
-            'id': 'curl-1',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
+            "id": "curl-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             frang_limits {
                 request_rate 4;
                 request_burst 3;
@@ -312,7 +312,7 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
     def test_request_rate_reached(self):
         """Test 'request_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -332,22 +332,22 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             # until rate limit is reached
             if step < request_rate - 1:
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
+                    self.klog.warn_count(ERROR_MSG.format("rate")),
                     0,
                     self.assert_msg.format(
                         exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
                     ),
                 )
 
             else:
                 # rate limit is reached
                 self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
+                    self.klog.warn_count(ERROR_MSG.format("rate")),
                     1,
                     self.assert_msg.format(
                         exp=1,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
                     ),
                 )
                 self.assertEqual(
@@ -361,7 +361,7 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
 
     def test_request_rate_without_reaching_the_limit(self):
         """Test 'request_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -379,25 +379,25 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             curl.stop()
 
             self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ),
-                )
+                self.klog.warn_count(ERROR_MSG.format("rate")),
+                0,
+                self.assert_msg.format(
+                    exp=0,
+                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
+                ),
+            )
             self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG_BURST),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG_BURST),
-                    ),
-                )
+                self.klog.warn_count(ERROR_MSG_BURST),
+                0,
+                self.assert_msg.format(
+                    exp=0,
+                    got=self.klog.warn_count(ERROR_MSG_BURST),
+                ),
+            )
 
     def test_request_rate_on_the_limit(self):
         """Test 'request_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -415,28 +415,28 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             curl.stop()
 
             self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format('rate')),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format('rate')),
-                    ),
-                )
+                self.klog.warn_count(ERROR_MSG.format("rate")),
+                0,
+                self.assert_msg.format(
+                    exp=0,
+                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
+                ),
+            )
             self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG_BURST),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG_BURST),
-                    ),
-                )
+                self.klog.warn_count(ERROR_MSG_BURST),
+                0,
+                self.assert_msg.format(
+                    exp=0,
+                    got=self.klog.warn_count(ERROR_MSG_BURST),
+                ),
+            )
 
     def test_request_burst_reached(self):
         """Test 'request_burst' is reached.
         Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
         this means that in 125 ms there will be less than 4 requests and the test will not reach the limit
         """
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
         self.start_all_servers()
         self.start_tempesta()
 
@@ -457,17 +457,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             ),
         )
         self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format('rate')),
+            self.klog.warn_count(ERROR_MSG.format("rate")),
             0,
             self.assert_msg.format(
                 exp=0,
-                got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                got=self.klog.warn_count(ERROR_MSG.format("rate")),
             ),
         )
 
     def test_request_burst_not_reached_timeout(self):
         """Test 'request_burst' is NOT reached."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
         self.start_all_servers()
         self.start_tempesta()
 
@@ -475,7 +475,7 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
         request_burst = 5
 
         for _ in range(request_burst):
-            time.sleep(DELAY*2)  # the limit works only on an interval of 125 ms
+            time.sleep(DELAY * 2)  # the limit works only on an interval of 125 ms
             curl.start()
             self.wait_while_busy(curl)
             curl.stop()
@@ -489,17 +489,17 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             ),
         )
         self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format('rate')),
+            self.klog.warn_count(ERROR_MSG.format("rate")),
             0,
             self.assert_msg.format(
                 exp=0,
-                got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                got=self.klog.warn_count(ERROR_MSG.format("rate")),
             ),
         )
 
     def test_request_burst_on_the_limit(self):
         # Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
         self.start_all_servers()
         self.start_tempesta()
 
@@ -520,10 +520,10 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
             ),
         )
         self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format('rate')),
+            self.klog.warn_count(ERROR_MSG.format("rate")),
             0,
             self.assert_msg.format(
                 exp=0,
-                got=self.klog.warn_count(ERROR_MSG.format('rate')),
+                got=self.klog.warn_count(ERROR_MSG.format("rate")),
             ),
         )

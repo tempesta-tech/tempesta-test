@@ -2,14 +2,14 @@
 from framework import tester
 from helpers import dmesg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 COUNT_WARNINGS_OK = 1
 
 
-ERROR_MSG = 'Frang limits warning is not shown'
+ERROR_MSG = "Frang limits warning is not shown"
 
 RESPONSE_CONTENT = """HTTP/1.1 200 OK\r
 Content-Length: 0\r\n
@@ -37,66 +37,69 @@ listen 80;
 server ${server_ip}:8000;
 """
 
-WARN = 'frang: HTTP field appear in header and trailer'
+WARN = "frang: HTTP field appear in header and trailer"
 
-ACCEPTED_REQUESTS_LIMIT_ON = 'POST / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'Transfer-Encoding: gzip, chunked\r\n' \
-                '\r\n' \
-                '4\r\n' \
-                'test\r\n' \
-                '0\r\n' \
-                'HdrTest: testVal\r\n' \
-                '\r\n' \
-                'GET / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'HdrTest: testVal\r\n' \
-                'Transfer-Encoding: chunked\r\n' \
-                '\r\n' \
-                '4\r\n' \
-                'test\r\n' \
-                '0\r\n' \
-                '\r\n' \
-                'POST / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'HdrTest: testVal\r\n' \
-                '\r\n' \
-
-NOT_ACCEPTED_REQUEST_LIMIT_ON = 'GET / HTTP/1.1\r\n' \
-                'Host: debian\r\n' \
-                'HdrTest: testVal\r\n' \
-                'Transfer-Encoding: chunked\r\n' \
-                '\r\n' \
-                '4\r\n' \
-                'test\r\n' \
-                '0\r\n' \
-                'HdrTest: testVal\r\n' \
-                '\r\n'
+ACCEPTED_REQUESTS_LIMIT_ON = (
+    "POST / HTTP/1.1\r\n"
+    "Host: debian\r\n"
+    "Transfer-Encoding: gzip, chunked\r\n"
+    "\r\n"
+    "4\r\n"
+    "test\r\n"
+    "0\r\n"
+    "HdrTest: testVal\r\n"
+    "\r\n"
+    "GET / HTTP/1.1\r\n"
+    "Host: debian\r\n"
+    "HdrTest: testVal\r\n"
+    "Transfer-Encoding: chunked\r\n"
+    "\r\n"
+    "4\r\n"
+    "test\r\n"
+    "0\r\n"
+    "\r\n"
+    "POST / HTTP/1.1\r\n"
+    "Host: debian\r\n"
+    "HdrTest: testVal\r\n"
+    "\r\n"
+)
+NOT_ACCEPTED_REQUEST_LIMIT_ON = (
+    "GET / HTTP/1.1\r\n"
+    "Host: debian\r\n"
+    "HdrTest: testVal\r\n"
+    "Transfer-Encoding: chunked\r\n"
+    "\r\n"
+    "4\r\n"
+    "test\r\n"
+    "0\r\n"
+    "HdrTest: testVal\r\n"
+    "\r\n"
+)
 
 
 class FrangHttpTrailerSplitLimitOnTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'client',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
     backends = [
         {
-            'id': '0',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': RESPONSE_CONTENT,
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": RESPONSE_CONTENT,
         },
     ]
 
     tempesta = {
-        'config': TEMPESTA_CONF_ON,
+        "config": TEMPESTA_CONF_ON,
     }
 
     def setUp(self):
@@ -109,7 +112,7 @@ class FrangHttpTrailerSplitLimitOnTestCase(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(
             srv.wait_for_connections(timeout=1),
         )
@@ -117,7 +120,7 @@ class FrangHttpTrailerSplitLimitOnTestCase(tester.TempestaTest):
     def test_accepted_request(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             ACCEPTED_REQUESTS_LIMIT_ON,
@@ -127,7 +130,7 @@ class FrangHttpTrailerSplitLimitOnTestCase(tester.TempestaTest):
             3,
             len(deproxy_cl.responses),
         )
-        assert list(p.status for p in deproxy_cl.responses) == ['200'] * 3
+        assert list(p.status for p in deproxy_cl.responses) == ["200"] * 3
         self.assertFalse(
             deproxy_cl.connection_is_closed(),
         )
@@ -135,7 +138,7 @@ class FrangHttpTrailerSplitLimitOnTestCase(tester.TempestaTest):
     def test_not_accepted_request(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             NOT_ACCEPTED_REQUEST_LIMIT_ON,
@@ -163,25 +166,25 @@ class FrangHttpTrailerSplitLimitOffTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'client',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
     backends = [
         {
-            'id': '0',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': RESPONSE_CONTENT,
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": RESPONSE_CONTENT,
         },
     ]
 
     tempesta = {
-        'config': TEMPESTA_CONF_OFF,
+        "config": TEMPESTA_CONF_OFF,
     }
 
     def setUp(self):
@@ -194,7 +197,7 @@ class FrangHttpTrailerSplitLimitOffTestCase(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(
             srv.wait_for_connections(timeout=1),
         )
@@ -202,7 +205,7 @@ class FrangHttpTrailerSplitLimitOffTestCase(tester.TempestaTest):
     def test_accepted_request(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             ACCEPTED_REQUESTS_LIMIT_ON + NOT_ACCEPTED_REQUEST_LIMIT_ON,
@@ -212,7 +215,7 @@ class FrangHttpTrailerSplitLimitOffTestCase(tester.TempestaTest):
             4,
             len(deproxy_cl.responses),
         )
-        assert list(p.status for p in deproxy_cl.responses) == ['200']*4
+        assert list(p.status for p in deproxy_cl.responses) == ["200"] * 4
         self.assertFalse(
             deproxy_cl.connection_is_closed(),
         )

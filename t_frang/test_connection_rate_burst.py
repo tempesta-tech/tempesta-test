@@ -3,27 +3,27 @@ import time
 
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-ERROR_RATE = 'Warning: frang: new connections rate exceeded for'
-ERROR_BURST = 'Warning: frang: new connections burst exceeded'
+ERROR_RATE = "Warning: frang: new connections rate exceeded for"
+ERROR_BURST = "Warning: frang: new connections burst exceeded"
 
 
 class FrangConnectionRateTestCase(FrangTestCase):
 
     clients = [
         {
-            'id': 'curl-1',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',
+            "id": "curl-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             frang_limits {
                 connection_burst 2;
                 connection_rate 4;
@@ -55,7 +55,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
 
     def test_connection_rate(self):
         """Test 'connection_rate'."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -87,7 +87,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             self.klog.warn_count(ERROR_RATE),
             1,
             self.assert_msg.format(
-                exp='more than {0}'.format(1),
+                exp="more than {0}".format(1),
                 got=self.klog.warn_count(ERROR_RATE),
             ),
         )
@@ -98,7 +98,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
         than the expected number, which may cause the test to fail
         Disabled by issure #1649
         """
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -112,7 +112,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
             curl.stop()
 
             # until rate limit is reached
-            if step < connection_burst-1:
+            if step < connection_burst - 1:
                 self.assertEqual(
                     self.klog.warn_count(ERROR_BURST),
                     0,
@@ -140,7 +140,7 @@ class FrangConnectionRateTestCase(FrangTestCase):
         than the expected number, which may cause the test to fail
         """
         self.tempesta = {
-        'config': """
+            "config": """
             frang_limits {
                 connection_burst 1;
             }
@@ -166,9 +166,9 @@ class FrangConnectionRateTestCase(FrangTestCase):
                 -> tempesta-cat;
             }
         """,
-    }
+        }
         self.setUp()
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()

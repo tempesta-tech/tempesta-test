@@ -2,12 +2,12 @@
 from framework import tester
 from helpers import dmesg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 DELAY = 0.125  # delay for bursting logic
-ASSERT_MSG = 'Expected nums of warnings in `journalctl`: {exp}, but got {got}'
+ASSERT_MSG = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
 
 
 class FrangTestCase(tester.TempestaTest):
@@ -17,11 +17,11 @@ class FrangTestCase(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': """
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
                 pid ${pid};
                 worker_processes  auto;
                 events {

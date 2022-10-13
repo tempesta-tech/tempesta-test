@@ -4,17 +4,17 @@ from helpers import dmesg
 import time
 from t_frang.frang_test_case import FrangTestCase
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 CURL_CODE_OK = 0
 CURL_CODE_BAD = 1
 COUNT_WARNINGS_OK = 1
 COUNT_WARNINGS_ZERO = 0
 
-ERROR_MSG = 'Frang limits warning is not shown'
-ERROR_CURL = 'Curl return code is not `0`: {0}.'
+ERROR_MSG = "Frang limits warning is not shown"
+ERROR_CURL = "Curl return code is not `0`: {0}."
 
 RESPONSE_CONTENT = """HTTP/1.1 200 OK\r
 Content-Length: 0\r\n
@@ -32,15 +32,15 @@ frang_limits {
 server ${server_ip}:8000;
 """
 
-WARN_OLD_PROTO = 'frang: Host header field in protocol prior to HTTP/1.1'
-WARN_UNKNOWN = 'frang: Request authority is unknown'
-WARN_DIFFER = 'frang: Request authority in URI differs from host header'
-WARN_IP_ADDR = 'frang: Host header field contains IP address'
-WARN_HEADER_MISSING = 'failed to parse request:'
-WARN_HEADER_MISMATCH = 'Bad TLS alert'
-WARN_HEADER_FORWARDED = 'Request authority in URI differs from forwarded'
-WARN_PORT = 'port from host header doesn\'t match real port'
-WARN_HEADER_FORWARDED2 = 'frang: Request authority differs from forwarded'
+WARN_OLD_PROTO = "frang: Host header field in protocol prior to HTTP/1.1"
+WARN_UNKNOWN = "frang: Request authority is unknown"
+WARN_DIFFER = "frang: Request authority in URI differs from host header"
+WARN_IP_ADDR = "frang: Host header field contains IP address"
+WARN_HEADER_MISSING = "failed to parse request:"
+WARN_HEADER_MISMATCH = "Bad TLS alert"
+WARN_HEADER_FORWARDED = "Request authority in URI differs from forwarded"
+WARN_PORT = "port from host header doesn't match real port"
+WARN_HEADER_FORWARDED2 = "frang: Request authority differs from forwarded"
 
 REQUEST_SUCCESS = """
 GET / HTTP/1.1\r
@@ -151,25 +151,25 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'client',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
     backends = [
         {
-            'id': '0',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': RESPONSE_CONTENT,
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": RESPONSE_CONTENT,
         },
     ]
 
     tempesta = {
-        'config': TEMPESTA_CONF,
+        "config": TEMPESTA_CONF,
     }
 
     def setUp(self):
@@ -182,7 +182,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(
             srv.wait_for_connections(timeout=1),
         )
@@ -191,7 +191,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         """Test with header `host`, success."""
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             REQUEST_SUCCESS,
@@ -214,7 +214,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
     def test_host_header_missing(self):
         """Test with missing header `host`."""
         self._test_base_scenario(
-            request_body='GET / HTTP/1.1\r\n\r\n',
+            request_body="GET / HTTP/1.1\r\n\r\n",
         )
 
     def test_host_header_with_old_proto(self):
@@ -225,7 +225,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         Tempesta security rules.
         """
         self._test_base_scenario(
-            request_body='GET / HTTP/1.0\r\nHost: tempesta-tech.com\r\n\r\n',
+            request_body="GET / HTTP/1.0\r\nHost: tempesta-tech.com\r\n\r\n",
             expected_warning=WARN_OLD_PROTO,
         )
 
@@ -249,26 +249,24 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
 
     def test_host_header_forwarded(self):
         self._test_base_scenario(
-            request_body=REQUEST_FORWARDED,
-            expected_warning=WARN_HEADER_FORWARDED
+            request_body=REQUEST_FORWARDED, expected_warning=WARN_HEADER_FORWARDED
         )
 
     def test_host_header_forwarded_double(self):
         self._test_base_scenario(
             request_body=REQUEST_FORWARDED_DOUBLE,
-            expected_warning=WARN_HEADER_FORWARDED
+            expected_warning=WARN_HEADER_FORWARDED,
         )
 
     def test_host_header_no_port_in_uri(self):
-        ''''
+        """'
         According to the documentation, if the port is not specified,
         then by default it is considered as port 80. However, when I
         specify this port in one of the headers (uri or host) and do
         not specify in the other, then the request causes a limit.
-        '''
+        """
         self._test_base_scenario(
-            request_body=REQUEST_NO_PORT_URI,
-            expected_warning=WARN_DIFFER
+            request_body=REQUEST_NO_PORT_URI, expected_warning=WARN_DIFFER
         )
 
     def test_host_header_no_port_in_host(self):
@@ -276,26 +274,22 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         # should pass without error. The request is always expected
         # from port 80, even if it is not specified.
         self._test_base_scenario(
-            request_body=REQUEST_NO_PORT_HOST,
-            expected_warning=WARN_DIFFER
+            request_body=REQUEST_NO_PORT_HOST, expected_warning=WARN_DIFFER
         )
 
     def test_host_header_mismath_port_in_host(self):
         self._test_base_scenario(
-            request_body=REQUEST_MISMATH_PORT_URI,
-            expected_warning=WARN_DIFFER
+            request_body=REQUEST_MISMATH_PORT_URI, expected_warning=WARN_DIFFER
         )
 
     def test_host_header_mismath_port_in_uri(self):
         self._test_base_scenario(
-            request_body=REQUEST_MISMATH_PORT_URI,
-            expected_warning=WARN_DIFFER
+            request_body=REQUEST_MISMATH_PORT_URI, expected_warning=WARN_DIFFER
         )
 
     def test_host_header_mismath_port(self):
         self._test_base_scenario(
-            request_body=REQUEST_MISMATH_PORT,
-            expected_warning=WARN_PORT
+            request_body=REQUEST_MISMATH_PORT, expected_warning=WARN_PORT
         )
 
     def test_host_header_as_ip(self):
@@ -312,7 +306,9 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
             expected_warning=WARN_IP_ADDR,
         )
 
-    def _test_base_scenario(self, request_body: str, expected_warning: str = WARN_UNKNOWN):
+    def _test_base_scenario(
+        self, request_body: str, expected_warning: str = WARN_UNKNOWN
+    ):
         """
         Test base scenario for process different errors requests.
 
@@ -322,7 +318,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
         """
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             request_body,
@@ -343,7 +339,7 @@ class FrangHostRequiredTestCase(tester.TempestaTest):
 
 
 CURL_A = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: tempesta-tech.com"'
-CURL_B = '-Ikf -v --http2 https://${server_ip}:443/'
+CURL_B = "-Ikf -v --http2 https://${server_ip}:443/"
 CURL_C = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: "'
 CURL_D = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: example.com"'
 CURL_E = '-Ikf -v --http2 https://${server_ip}:443/ -H "Host: 127.0.0.1"'
@@ -354,72 +350,72 @@ CURL_I = ' -Ikf -v --http2 https://${server_ip}:443/ -H "Host: tempesta-tech.com
 
 clients = [
     {
-        'id': 'curl-1',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_A,
+        "id": "curl-1",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_A,
     },
     {
-        'id': 'curl-2',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_B,
+        "id": "curl-2",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_B,
     },
     {
-        'id': 'curl-3',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_C,
+        "id": "curl-3",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_C,
     },
     {
-        'id': 'curl-4',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_D,
+        "id": "curl-4",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_D,
     },
     {
-        'id': 'curl-5',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_E,
+        "id": "curl-5",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_E,
     },
     {
-        'id': 'curl-6',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_F,
+        "id": "curl-6",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_F,
     },
     {
-        'id': 'curl-7',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_G,
+        "id": "curl-7",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_G,
     },
     {
-        'id': 'curl-8',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_H,
+        "id": "curl-8",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_H,
     },
     {
-        'id': 'curl-9',
-        'type': 'external',
-        'binary': 'curl',
-        'ssl': True,
-        'cmd_args': CURL_I,
+        "id": "curl-9",
+        "type": "external",
+        "binary": "curl",
+        "ssl": True,
+        "cmd_args": CURL_I,
     },
 ]
 
 tempesta = {
-    'config': """
+    "config": """
         frang_limits {
             http_host_required;
         }
@@ -449,7 +445,7 @@ tempesta = {
 }
 
 
-class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
+class FrangHostRequiredH2TestCase(FrangTestCase):  # tester.TempestaTest):
     """Tests for checks 'http_host_required' directive with http2."""
 
     clients = clients
@@ -463,7 +459,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
 
     def test_h2_host_header_ok(self):
         """Test with header `host`, success."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -492,15 +488,13 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
         If there is no header `host`, curl set up it with ip address.
         """
         self._test_base_scenario(
-            curl_cli_id='curl-2',
-            expected_warning=WARN_IP_ADDR,
-            curl_code=CURL_CODE_OK
+            curl_cli_id="curl-2", expected_warning=WARN_IP_ADDR, curl_code=CURL_CODE_OK
         )
 
     def test_h2_host_header_missing(self):
         """Test with missing header `host`."""
         self._test_base_scenario(
-            curl_cli_id='curl-3',
+            curl_cli_id="curl-3",
             expected_warning=WARN_HEADER_MISSING,
             curl_code=CURL_CODE_OK,
         )
@@ -508,7 +502,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     def test_h2_host_header_mismatch(self):
         """Test with mismatched header `host`."""
         self._test_base_scenario(
-            curl_cli_id='curl-4',
+            curl_cli_id="curl-4",
             expected_warning=WARN_HEADER_MISMATCH,
             curl_code=CURL_CODE_OK,
         )
@@ -516,7 +510,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     def test_h2_host_header_as_ip(self):
         """Test with header `host` as ip address."""
         self._test_base_scenario(
-            curl_cli_id='curl-5',
+            curl_cli_id="curl-5",
             expected_warning=WARN_IP_ADDR,
             curl_code=CURL_CODE_OK,
         )
@@ -524,7 +518,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     def test_h2_host_header_as_ipv6(self):
         """Test with header `host` as ip v6 address."""
         self._test_base_scenario(
-            curl_cli_id='curl-6',
+            curl_cli_id="curl-6",
             expected_warning=WARN_HEADER_MISMATCH,
             curl_code=CURL_CODE_OK,
         )
@@ -532,7 +526,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     def test_h2_host_header_forwarded(self):
         """Test with mismsth header `forwarded`."""
         self._test_base_scenario(
-            curl_cli_id='curl-7',
+            curl_cli_id="curl-7",
             expected_warning=WARN_HEADER_FORWARDED2,
             curl_code=CURL_CODE_OK,
         )
@@ -540,7 +534,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     def test_h2_host_header_double_forwarded(self):
         """Test with double header `forwarded`."""
         self._test_base_scenario(
-            curl_cli_id='curl-8',
+            curl_cli_id="curl-8",
             expected_warning=WARN_HEADER_FORWARDED2,
             curl_code=CURL_CODE_OK,
         )
@@ -548,7 +542,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):#tester.TempestaTest):
     def test_h2_host_header_authority(self):
         """Test with header `authority`."""
         self._test_base_scenario(
-            curl_cli_id='curl-9',
+            curl_cli_id="curl-9",
             expected_warning=WARN_HEADER_FORWARDED2,
             curl_code=CURL_CODE_OK,
         )

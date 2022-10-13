@@ -1,14 +1,14 @@
 from framework import tester
 from helpers import dmesg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 COUNT_WARNINGS_OK = 1
 
 
-ERROR_MSG = 'Frang limits warning is not shown'
+ERROR_MSG = "Frang limits warning is not shown"
 
 RESPONSE_CONTENT = """HTTP/1.1 200 OK\r
 Content-Length: 0\r\n
@@ -37,9 +37,9 @@ frang_limits {
 server ${server_ip}:8000;
 """
 
-WARN_UNKNOWN = 'frang: Request authority is unknown'
-WARN_EMPTY = 'frang: Content-Type header field for 127.0.0.1 is missed'
-WARN_ERROR = 'frang: restricted Content-Type'
+WARN_UNKNOWN = "frang: Request authority is unknown"
+WARN_EMPTY = "frang: Content-Type header field for 127.0.0.1 is missed"
+WARN_ERROR = "frang: restricted Content-Type"
 
 REQUEST_SUCCESS = """
 POST / HTTP/1.1\r
@@ -76,25 +76,25 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'client',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
     backends = [
         {
-            'id': '0',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': RESPONSE_CONTENT,
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": RESPONSE_CONTENT,
         },
     ]
 
     tempesta = {
-        'config': TEMPESTA_CONF,
+        "config": TEMPESTA_CONF,
     }
 
     def setUp(self):
@@ -107,7 +107,7 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(
             srv.wait_for_connections(timeout=1),
         )
@@ -115,13 +115,13 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
     def test_content_vals_set_ok(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             REQUEST_SUCCESS,
         )
         deproxy_cl.wait_for_response()
-        assert list(p.status for p in deproxy_cl.responses) == ['200']
+        assert list(p.status for p in deproxy_cl.responses) == ["200"]
         self.assertEqual(
             1,
             len(deproxy_cl.responses),
@@ -133,18 +133,18 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
     def test_content_vals_set_ok_conf2(self):
         """This test doesn't work"""
         self.tempesta = {
-        'config': TEMPESTA_CONF2,
+            "config": TEMPESTA_CONF2,
         }
         self.setUp()
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             REQUEST_SUCCESS2,
         )
         deproxy_cl.wait_for_response()
-        assert list(p.status for p in deproxy_cl.responses) == ['200', '200']
+        assert list(p.status for p in deproxy_cl.responses) == ["200", "200"]
         self.assertEqual(
             2,
             len(deproxy_cl.responses),
@@ -155,15 +155,13 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
 
     def test_error_content_type(self):
         self._test_base_scenario(
-            request_body=REQUEST_ERROR,
-            expected_warning=WARN_ERROR
+            request_body=REQUEST_ERROR, expected_warning=WARN_ERROR
         )
 
     def test_empty_content_type(self):
         """Test with empty header `host`."""
         self._test_base_scenario(
-            request_body=REQUEST_EMPTY_CONTENT_TYPE,
-            expected_warning=WARN_EMPTY
+            request_body=REQUEST_EMPTY_CONTENT_TYPE, expected_warning=WARN_EMPTY
         )
 
     def _test_base_scenario(
@@ -180,7 +178,7 @@ class FrangHttpCtValsTestCase(tester.TempestaTest):
         """
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(
             request_body,

@@ -1,19 +1,19 @@
 from framework import tester
 from helpers import dmesg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019-2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 ERROR = "Warning: frang: connections max num. exceeded"
 
 
 class ConcurrentConnectionsBase(tester.TempestaTest):
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': """
+            "id": "nginx",
+            "type": "nginx",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
 pid ${pid};
 worker_processes  auto;
 
@@ -64,48 +64,48 @@ http {
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
-            'interface': True,
-            'rps': 6
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+            "rps": 6,
         },
         {
-            'id': 'deproxy2',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
-            'interface': True,
-            'rps': 5
+            "id": "deproxy2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+            "rps": 5,
         },
         {
-            'id': 'deproxy3',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
-            'rps': 5
+            "id": "deproxy3",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "rps": 5,
         },
         {
-            'id': 'deproxy4',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
-            'rps': 5
+            "id": "deproxy4",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "rps": 5,
         },
         {
-            'id': 'deproxy5',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
-            'rps': 5
-        }
+            "id": "deproxy5",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "rps": 5,
+        },
     ]
 
 
 class ConcurrentConnections(ConcurrentConnectionsBase):
     tempesta = {
-        'config': """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -120,25 +120,21 @@ frang_limits {
         Three clients to be blocked by ip
 
         """
-        requests = "GET /uri1 HTTP/1.1\r\n" \
-            "Host: localhost\r\n" \
-            "\r\n" * 10
-        requests2 = "GET /uri2 HTTP/1.1\r\n" \
-            "Host: localhost\r\n" \
-            "\r\n" * 10
+        requests = "GET /uri1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
+        requests2 = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
 
         klog = dmesg.DmesgFinder(ratelimited=False)
-        nginx = self.get_server('nginx')
+        nginx = self.get_server("nginx")
         nginx.start()
         self.start_tempesta()
 
-        deproxy_cl = self.get_client('deproxy3')
+        deproxy_cl = self.get_client("deproxy3")
         deproxy_cl.start()
 
-        deproxy_cl2 = self.get_client('deproxy4')
+        deproxy_cl2 = self.get_client("deproxy4")
         deproxy_cl2.start()
 
-        deproxy_cl3 = self.get_client('deproxy5')
+        deproxy_cl3 = self.get_client("deproxy5")
         deproxy_cl3.start()
 
         self.deproxy_manager.start()
@@ -157,24 +153,31 @@ frang_limits {
         self.assertEqual(10, len(deproxy_cl2.responses))
         self.assertEqual(0, len(deproxy_cl3.responses))
 
-        self.assertTrue(deproxy_cl.connection_is_closed(), "this connection should be closed by ip, i don't know why it is not")
-        self.assertTrue(deproxy_cl2.connection_is_closed(), "this connection should be closed by ip, i don't know why it is not")
-        self.assertTrue(deproxy_cl3.connection_is_closed(), "this connection should be closed by ip, i don't know why it is not")
+        self.assertTrue(
+            deproxy_cl.connection_is_closed(),
+            "this connection should be closed by ip, i don't know why it is not",
+        )
+        self.assertTrue(
+            deproxy_cl2.connection_is_closed(),
+            "this connection should be closed by ip, i don't know why it is not",
+        )
+        self.assertTrue(
+            deproxy_cl3.connection_is_closed(),
+            "this connection should be closed by ip, i don't know why it is not",
+        )
 
     def test_two_clients_two_ip(self):
 
-        requests = "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 10
+        requests = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
 
-        nginx = self.get_server('nginx')
+        nginx = self.get_server("nginx")
         nginx.start()
         self.start_tempesta()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.start()
 
-        deproxy_cl2 = self.get_client('deproxy2')
+        deproxy_cl2 = self.get_client("deproxy2")
         deproxy_cl2.start()
 
         self.deproxy_manager.start()
@@ -194,7 +197,7 @@ frang_limits {
 
     def test_three_clients_one_ip_case_freeze(self):
         self.tempesta = {
-        'config': """
+            "config": """
         server ${server_ip}:8000;
 
         frang_limits {
@@ -205,27 +208,22 @@ frang_limits {
         """,
         }
         self.setUp()
-        requests = "GET /uri1 HTTP/1.1\r\n" \
-            "Host: localhost\r\n" \
-            "\r\n" * 10
-        requests2 = "GET /uri2 HTTP/1.1\r\n" \
-            "Host: localhost\r\n" \
-            "\r\n" * 10
+        requests = "GET /uri1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
+        requests2 = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
 
         klog = dmesg.DmesgFinder(ratelimited=False)
-        nginx = self.get_server('nginx')
+        nginx = self.get_server("nginx")
         nginx.start()
         self.start_tempesta()
 
-        deproxy_cl = self.get_client('deproxy3')
+        deproxy_cl = self.get_client("deproxy3")
         deproxy_cl.start()
 
-        deproxy_cl2 = self.get_client('deproxy4')
+        deproxy_cl2 = self.get_client("deproxy4")
         deproxy_cl2.start()
 
-        deproxy_cl3 = self.get_client('deproxy5')
+        deproxy_cl3 = self.get_client("deproxy5")
         deproxy_cl3.start()
-
 
         self.deproxy_manager.start()
         self.assertTrue(nginx.wait_for_connections(timeout=1))

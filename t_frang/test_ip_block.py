@@ -1,9 +1,9 @@
 """Tests for Frang directive `ip_block`."""
 from t_frang.frang_test_case import FrangTestCase
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class FrangIpBlockTestCase(FrangTestCase):
@@ -11,15 +11,15 @@ class FrangIpBlockTestCase(FrangTestCase):
 
     clients = [
         {
-            'id': 'curl-1',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf -v http://127.0.0.4:8765/',
+            "id": "curl-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": "-Ikf -v http://127.0.0.4:8765/",
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             frang_limits {
                 ip_block on;
             }
@@ -55,7 +55,7 @@ class FrangIpBlockTestCase(FrangTestCase):
         Curl sent request with header Host as ip (did not set up another).
         It is reason for violation and trigger this limit.
         """
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -70,13 +70,13 @@ class FrangIpBlockTestCase(FrangTestCase):
 
         self.assertEqual(
             self.klog.warn_count(
-                'Warning: block client:',
+                "Warning: block client:",
             ),
             1,
         )
         self.assertEqual(
             self.klog.warn_count(
-                'frang: Host header field contains IP address',
+                "frang: Host header field contains IP address",
             ),
             1,
         )
