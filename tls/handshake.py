@@ -174,6 +174,7 @@ class TlsHandshake:
         # Default extensions value
         self.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=['x25519', 'secp256r1', 'secp384r1'])
         self.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=self.sign_algs)
+        self.renegotiation_info = TLS_Ext_RenegotiationInfo("")
         
     def create_hello(self):
         compression='null'
@@ -207,7 +208,7 @@ class TlsHandshake:
             self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]
-        ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, ext6]
+        ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, self.renegotiation_info]
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
         tf_cfg.dbg(2, ch.show())
         return ch

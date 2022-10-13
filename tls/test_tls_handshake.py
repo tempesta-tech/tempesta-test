@@ -100,10 +100,11 @@ class TlsHandshakeTest(tester.TempestaTest):
         """ Also tests receiving of TLS alert. """
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.sni = ["a" * 100 for i in range(10)]
+        hs12.sni = "a" * 1000
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
-        with self.assertRaises(tls.TLSProtocolError):
-            hs12.do_12()
+        hs12.do_12()
+        self.oops_ignore = ['WARNING']
+        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "ClientHello: bad extension size"
         self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about bad ClientHello")
@@ -163,11 +164,11 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_bad_renegotiation_info(self):
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.renegotiation_info = [tls.TLSExtension() /
-                                   tls.TLSExtRenegotiationInfo(data="foo")]
+        hs12.renegotiation_info = TLS_Ext_RenegotiationInfo(renegotiated_connection="foo", type=65281)
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
-        with self.assertRaises(tls.TLSProtocolError):
-            hs12.do_12()
+        hs12.do_12()
+        self.oops_ignore = ['WARNING']
+        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "ClientHello: bad renegotiation_info"
         self.assertEqual(self.oops.warn_count(warn), 1,
                          "No warning about non-empty RenegotiationInfo")
