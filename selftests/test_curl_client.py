@@ -2,7 +2,7 @@ from unittest.mock import patch
 import unittest
 
 from framework import tester
-from framework.curl_client import CurlClient, CurlResponse
+from framework.curl_client import CurlArguments, CurlClient, CurlResponse
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -23,6 +23,13 @@ server: Tempesta FW/pre-0.7.0\r
 \r
 """
 
+
+class TestCurlArguments(unittest.TestCase):
+
+    def test_kwargs_returned(self):
+        kwargs = CurlArguments.get_kwargs()
+        self.assertIn('server_addr', kwargs)
+        self.assertFalse([arg for arg in kwargs if arg.startswith('_')])
 
 class TestCurlClientParsing(unittest.TestCase):
     def test_initialized(self):

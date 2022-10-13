@@ -58,8 +58,9 @@ class CurlResponse:
 
 @dataclass
 class CurlArguments:
-    """cURL client accepted arguments (fields)."""
-
+    """Interface class for cURL client.
+    Contains all accepted arguments (fields) supported by `CurlClient`.
+    """
     server_addr: str
     uri: str = "/"
     cmd_args: str = ""
@@ -72,6 +73,11 @@ class CurlArguments:
     ssl: bool = False
     http2: bool = False
     insecure: bool = True
+
+    @classmethod
+    def get_kwargs(cls) -> list[str]:
+        """Returns list of `CurlClient` argument names."""
+        return list(cls.__dataclass_fields__.keys())
 
 
 class CurlClient(CurlArguments, client.Client):
