@@ -110,6 +110,7 @@ class H2Spec(tester.TempestaTest):
             "-x http2/5.1/6",
             "-x http2/5.1/11",
             "-x http2/5.1/12",
+            "-x http2/5.1.1/4",
             "-x http2/5.3.1/1", # causes dmesg warning
             "-x http2/5.3.1/2",
             "-x http2/5.5/2",
@@ -133,6 +134,7 @@ class H2Spec(tester.TempestaTest):
         self.start_tempesta()
         self.start_all_clients()
         self.wait_while_busy(h2spec)
+        self.assertEqual(0, h2spec.returncode)
 
 class H2Load(tester.TempestaTest):
     '''Tests for h2 proto implementation. Run h2load utility against Tempesta.

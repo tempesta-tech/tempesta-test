@@ -33,7 +33,7 @@ for node in cmds:
     for file in cmds[node]:
         cmd = "if [ -e \"%s\" ]; then echo -n true; else echo -n false; fi"
         res,_ = node.run_cmd(cmd % file)
-        if res == "true":
+        if res.decode() == "true":
             print("\t\t{} found".format(make_report_line(file)))
         else:
             print("\t\t{} not found".format(make_report_line(file)))

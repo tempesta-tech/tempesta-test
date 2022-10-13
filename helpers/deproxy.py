@@ -297,22 +297,32 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             try:
                 size = int(line.rstrip('\r\n'), 16)
                 assert size >= 0
+                if size == 0:
+                    break
                 chunk = stream.readline()
                 self.body += chunk
 
-                chunk_size_raw = len(chunk)
                 chunk_size = len(chunk.rstrip('\r\n'))
-                if chunk_size < size or chunk_size_raw < chunk_size + 2:
+                if chunk_size < size:
                     raise IncompleteMessage('Incomplete chunked body')
                 assert chunk_size == size
                 assert chunk[-1] == '\n'
-                if size == 0:
-                    break
             except IncompleteMessage:
                 raise
             except:
                 raise ParseError('Error in chunked body')
 
+        """
+        if trailer is not present don't pass the last CRLF to parse_trailer,
+        we must append it to body
+        """
+        pos = stream.tell()
+        end = stream.read(2)
+        if end and end.rstrip('\r\n') == '':
+            self.body += end
+            return
+
+        stream.seek(pos)
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
 

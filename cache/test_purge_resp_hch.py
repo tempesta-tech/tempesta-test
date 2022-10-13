@@ -32,7 +32,7 @@ THE PAGE
     tempesta = {
         'config' : """
 cache 2;
-server ${general_ip}:8000;
+server ${server_ip}:8000;
 cache_fulfill * *;
 cache_methods GET HEAD;
 cache_purge;
@@ -138,7 +138,7 @@ Connection: keep-alive
           expect = 'GET / HTTP/1.1\r\n' \
                    'Host: localhost\r\n' \
                    'X-Tempesta-Cache: GET\r\n' \
-                   'X-Forwarded-For: 127.0.0.1\r\n' \
+                   f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n' \
                    'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' \
                    'Connection: keep-alive\r\n' \
                    '\r\n' % tempesta.version(),
@@ -162,7 +162,7 @@ Connection: keep-alive
           expect = 'GET / HTTP/1.1\r\n' \
                    'Host: localhost\r\n' \
                    'X-Tempesta-Cache: GET\r\n' \
-                   'X-Forwarded-For: 127.0.0.1\r\n' \
+                   f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n' \
                    'via: 1.1 tempesta_fw (Tempesta FW %s)\r\n' \
                    'Connection: keep-alive\r\n' \
                    '\r\n' % tempesta.version(),

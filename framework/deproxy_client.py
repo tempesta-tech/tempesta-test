@@ -237,6 +237,7 @@ class BaseDeproxyClient(deproxy.Client):
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
     responses = []
+    last_response: deproxy.Response
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
@@ -258,7 +259,29 @@ class DeproxyClient(BaseDeproxyClient):
             time.sleep(0.01)
         return True
 
+    def send_request(self, request: str, expected_status_code: str, ):
+        """
+        Form and send one HTTP request. And also check that the client has received a response and
+        the status code matches.
+
+        Args:
+            request (str): request as string
+            expected_status_code (str): expected status code
+        """
+        curr_responses = len(self.responses)
+
+        self.make_request(request)
+        self.wait_for_response()
+
+        assert curr_responses + 1 == len(self.responses), \
+            'Deproxy client has lost response.'
+        assert expected_status_code in self.last_response.status, \
+            f'HTTP response status codes mismatch. Expected - {expected_status_code}. ' \
+            + f'Received - {self.last_response.status}'
+
+
 class DeproxyClientH2(DeproxyClient):
+    last_response: deproxy.H2Response
 
     def __init__(self, *args, **kwargs):
         DeproxyClient.__init__(self, *args, **kwargs)
@@ -326,7 +349,7 @@ class DeproxyClientH2(DeproxyClient):
             events = self.h2_connection.receive_data(self.response_buffer)
             for event in events:
                 if isinstance(event, ResponseReceived):
-                    headers = self.__headers_to_string(event.headers)
+                    headers = self.__binary_headers_to_string(event.headers)
 
                     response = self.active_responses.get(event.stream_id)
                     if (response):
@@ -382,3 +405,7 @@ class DeproxyClientH2(DeproxyClient):
 
     def __headers_to_string(self, headers):
         return ''.join(['%s: %s\r\n' % (h, v) for h, v in headers])
+
+    def __binary_headers_to_string(self, headers):
+        return ''.join(['%s: %s\r\n' % (h.decode(), v.decode())
+                        for h, v in headers])

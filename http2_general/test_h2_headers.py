@@ -7,7 +7,7 @@ analises its return code.
 from framework import tester
 
 __author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
+__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
 
 NGINX_CONFIG = """
@@ -438,3 +438,75 @@ class HeadersSpacedCache(CurlTestBase):
 
     def test(self):
         CurlTestBase.run_deproxy_test(self, served_from_cache=True)
+
+class MissingDateServerWithBodyTest(tester.TempestaTest):
+    """
+    Test response without Date and Server headers, but with short body.
+    This test need to verify transforming of HTTP/1 responses to HTTP/2
+    which doesn't have Date and Server headers but has a body. At forwarding
+    response stage tempesta adds its Server and Date and we need to ensure
+    this passed correctly. Exist tests uses nginx to respond to HTTP2,
+    but nginx returns Server and Date by default. Also, in most tests body
+    not present in response.
+    """
+    backends = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy',
+            'port' : '8000',
+            'response' : 'static',
+            'response_content' :
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Length: 1\r\n\r\n'
+            '1'
+        }
+    ]
+
+    clients = [
+        {
+            'id' : 'deproxy',
+            'type' : 'deproxy_h2',
+            'addr' : "${tempesta_ip}",
+            'port' : '443',
+            'ssl'  : True,
+            'ssl_hostname' : 'localhost'
+        },
+    ]
+
+    tempesta = {
+        'config' :
+        """
+        listen 443 proto=h2;
+        server ${server_ip}:8000;
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+        tls_match_any_server_name;
+
+        """
+    }
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test(self):
+        self.start_all()
+
+        head = [
+            (':authority', 'localhost'),
+            (':path', '/'),
+            (':scheme', 'https'),
+            (':method', 'GET')
+        ]
+
+        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl.make_request(head)
+
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        self.assertTrue(resp)
+        self.assertEqual(deproxy_cl.last_response.status, '200')

@@ -17,7 +17,7 @@ class FreePortsChecker(object):
 
         listen = []
 
-        for line in netstat.splitlines():
+        for line in netstat.decode().splitlines():
             portline = line.split()
             if portline[0] != 'tcp':
                 continue
