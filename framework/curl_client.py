@@ -8,12 +8,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from helpers import tf_cfg
+from helpers import error, tf_cfg
 from . import client
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+
+# Expected `curl --version`.
+# This value could be overriden by the 'Client.curl_version' config variable.
+CURL_BINARY_VERSION = "7.85.0"
 
 
 @dataclass
@@ -171,6 +176,12 @@ class CurlClient(CurlArguments, client.Client):
         return list(self._stats)
 
     @property
+    def binary_version(self) -> Optional[str]:
+        """curl binary version, parsed from the latest transfer."""
+        if self.last_stats:
+            return self._parse_binary_version(self.last_stats["curl_version"])
+
+    @property
     def cookie_jar_path(self):
         """Path to save/load cookies."""
         return Path(self.workdir) / "curl-default.jar"
@@ -250,6 +261,9 @@ class CurlClient(CurlArguments, client.Client):
                 self._stats = self._parse_stats(stdout)
             except json.JSONDecodeError:
                 tf_cfg.dbg(1, "Error: can't decode cURL JSON stats.")
+            else:
+                if self.last_stats:
+                    self._check_binary_version()
         return True
 
     def _parse_stats(self, stdout: bytes):
@@ -266,3 +280,27 @@ class CurlClient(CurlArguments, client.Client):
     def _read_output(self):
         with self.output_path.open("rb") as f:
             return f.read()
+
+    def _check_binary_version(self):
+        try:
+            expected = tf_cfg.cfg.get("Client", "curl_version")
+        except KeyError:
+            expected = CURL_BINARY_VERSION
+        # Check for badly outdated or too new version, than could not be parsed
+        error.assertTrue(
+            self.binary_version,
+            f"Can't detect `curl` version. `curl --version` should be {expected}",
+        )
+        error.assertTrue(
+            self.binary_version == expected,
+            (
+                f"Expected curl binary version: {expected}\n"
+                f"Detected curl binary version: {self.binary_version}\n"
+                f"Set 'Client.curl_version' config variable to override expected value."
+            ),
+        )
+
+    def _parse_binary_version(self, version: str) -> str:
+        # Version string example:
+        # "libcurl/7.85.0 OpenSSL/3.0.2 zlib/1.2.11 nghttp2/1.43.0"
+        return version.split()[0].split("/")[1]

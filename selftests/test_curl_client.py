@@ -3,6 +3,7 @@ import unittest
 
 from framework import tester
 from framework.curl_client import CurlArguments, CurlClient, CurlResponse
+from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -160,6 +161,11 @@ class TestCurlClient(tester.TempestaTest):
         self.wait_while_busy(client)
         client.stop()
         return client.last_response
+
+    def test_check_curl_binary_version(self):
+        client = self.get_client("default")
+        self.get_response(client)
+        client._check_binary_version()
 
     def test_default_request_completed(self):
         client = self.get_client("default")
