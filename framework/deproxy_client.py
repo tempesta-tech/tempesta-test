@@ -407,7 +407,7 @@ class DeproxyClientH2(DeproxyClient):
                 elif isinstance(event, DataReceived):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
-                    response.parse_text(str(response.headers) + "\r\n" + body)
+                    response.body += body
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
