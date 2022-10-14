@@ -169,6 +169,10 @@ class TestCurlClient(tester.TempestaTest):
         self.assertFalse(response.stderr)
         self.assertEqual(response.stdout, "test")
         self.assertEqual(response.proto, "1.1")
+        with self.subTest("stats parsed"):
+            self.assertEqual(len(client.stats), 1)
+            self.assertFalse(client.last_stats["errormsg"])
+            self.assertGreaterEqual(client.last_stats["time_total"], 0)
 
     def test_ssl_request_completed(self):
         client = self.get_client("ssl")
@@ -261,7 +265,7 @@ class TestCurlClient(tester.TempestaTest):
     def test_certificate_error(self):
         client = self.get_client("check_cert")
         response = self.get_response(client)
-        self.assertFalse(response)
+        self.assertTrue(client.last_stats["errormsg"])
 
     def test_data_posted(self):
         client = self.get_client("post")
@@ -277,3 +281,7 @@ class TestCurlClient(tester.TempestaTest):
         response = self.get_response(client)
         self.assertIn("--parallel-max 2", client.form_command())
         self.assertEqual(len(server.requests), 10)
+
+        with self.subTest("multiple stats parsed"):
+            self.assertEqual(len(client.stats), 10)
+            self.assertGreaterEqual(client.last_stats["time_total"], 0)

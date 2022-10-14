@@ -1,11 +1,12 @@
 """cURL utility wrapper."""
 import email
+import json
 import io
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from helpers import tf_cfg
 from . import client
@@ -130,7 +131,9 @@ class CurlClient(CurlArguments, client.Client):
         )
         self.options = [self.cmd_args] if self.cmd_args else []
         self._responses = []
+        self._stats = []
         self._statuses = defaultdict(lambda: 0)
+        self._output_delimeter = "\n"
 
     @property
     def responses(self) -> List[CurlResponse]:
@@ -153,6 +156,19 @@ class CurlClient(CurlArguments, client.Client):
     def statuses(self, value):
         # ignore attribute initialization by `Client`
         pass
+
+    @property
+    def last_stats(self) -> Dict[str, Any]:
+        """Information about last completed transfer.
+        See https://curl.se/docs/manpage.html#-w
+        for the list of available variables.
+        """
+        return (self._stats or [None])[-1]
+
+    @property
+    def stats(self) -> List[Dict[int, int]]:
+        """List of stats of all transfers"""
+        return list(self._stats)
 
     @property
     def cookie_jar_path(self):
@@ -182,7 +198,7 @@ class CurlClient(CurlArguments, client.Client):
         if self.disable_output:
             options.append("--silent --show-error --output /dev/null")
         else:
-            options.append("--write-out '%{json}'")
+            options.append(f"--write-out '%{{json}}{self._output_delimeter}'")
             options.append(f"--output '{self.output_path}'")
 
         if self.save_cookies:
@@ -229,7 +245,19 @@ class CurlClient(CurlArguments, client.Client):
                     )
                 self._responses.append(response)
                 self._statuses[response.status] += 1
+        if not self.disable_output and stdout:
+            try:
+                self._stats = self._parse_stats(stdout)
+            except json.JSONDecodeError:
+                tf_cfg.dbg(1, "Error: can't decode cURL JSON stats.")
         return True
+
+    def _parse_stats(self, stdout: bytes):
+        return [
+            json.loads(stats)
+            for stats in stdout.decode().split(self._output_delimeter)
+            if stats
+        ]
 
     def _read_headers_dump(self) -> bytes:
         with self.headers_dump_path.open("rb") as f:
