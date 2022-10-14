@@ -25,21 +25,21 @@ server: Tempesta FW/pre-0.7.0\r
 
 
 class TestCurlArguments(unittest.TestCase):
-
     def test_kwargs_returned(self):
         kwargs = CurlArguments.get_kwargs()
-        self.assertIn('server_addr', kwargs)
-        self.assertFalse([arg for arg in kwargs if arg.startswith('_')])
+        self.assertIn("addr", kwargs)
+        self.assertFalse([arg for arg in kwargs if arg.startswith("_")])
+
 
 class TestCurlClientParsing(unittest.TestCase):
     def test_initialized(self):
-        client = CurlClient(server_addr="127.0.0.1")
+        client = CurlClient(addr="127.0.0.1")
         self.assertFalse(client.ssl)
         self.assertFalse(client.last_response)
         self.assertEqual(client.uri, "http://127.0.0.1/")
 
     def test_multiple_responses_parsed(self):
-        client = CurlClient(server_addr="127.0.0.1")
+        client = CurlClient(addr="127.0.0.1")
         with patch(
             "framework.curl_client.CurlClient._read_headers_dump",
             return_value=MULTIPLE_RESPONSES,
@@ -63,7 +63,8 @@ class TestCurlClient(tester.TempestaTest):
                 "HTTP/1.1 200 OK\r\n"
                 "Server: test\r\n"
                 "Date: test\r\n"
-                "X-Header: Test-Value\r\n"
+                "X-Header: Test-Value-1\r\n"
+                "X-Header: Test-Value-2\r\n"
                 "Set-Cookie: curl=test\r\n"
                 "Content-Length: 4\r\n"
                 "\r\n"
@@ -80,12 +81,18 @@ class TestCurlClient(tester.TempestaTest):
         {
             "id": "wrong_port",
             "type": "curl",
-            "addr": "${server_ip}:8001",
+            "addr": "${tempesta_ip}:443",
         },
         {
             "id": "h2",
             "type": "curl",
             "http2": True,
+        },
+        {
+            "id": "ssl",
+            "type": "curl",
+            "addr": "${tempesta_ip}:444",
+            "ssl": True,
         },
         {
             "id": "cookie",
@@ -96,7 +103,27 @@ class TestCurlClient(tester.TempestaTest):
         {
             "id": "multi",
             "type": "curl",
-            "uri": f"/[1-2]",
+            "uri": "/[1-2]",
+        },
+        {
+            "id": "send_headers",
+            "type": "curl",
+            "headers": {
+                "Connection": "close",
+                "Header-Sended": "OK",
+            },
+        },
+        {"id": "with_args", "type": "curl", "cmd_args": (" --verbose")},
+        {
+            "id": "post",
+            "type": "curl",
+            "data": "param1=1&param2=2",
+        },
+        {
+            "id": "check_cert",
+            "type": "curl",
+            "ssl": True,
+            "insecure": False,
         },
     ]
 
@@ -104,12 +131,17 @@ class TestCurlClient(tester.TempestaTest):
         "config": """
             listen 80 proto=http;
             listen 443 proto=h2;
+            listen 444 proto=https;
             server ${server_ip}:8000;
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
             tls_match_any_server_name;
         """
     }
+
+    def setUp(self):
+        super().setUp()
+        self.start_all()
 
     def start_all(self):
         self.start_all_servers()
@@ -124,15 +156,23 @@ class TestCurlClient(tester.TempestaTest):
         return client.last_response
 
     def test_default_request_completed(self):
-        self.start_all()
         client = self.get_client("default")
         response = self.get_response(client)
         self.assertEqual(len(client.responses), 1)
         self.assertEqual(response.status, 200)
+        self.assertFalse(response.stderr)
         self.assertEqual(response.stdout, "test")
+        self.assertEqual(response.proto, "1.1")
+
+    def test_ssl_request_completed(self):
+        client = self.get_client("ssl")
+        response = self.get_response(client)
+        self.assertEqual(response.proto, "1.1")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.stdout, "test")
+        self.assertTrue(response.headers["via"].startswith("1.1"))
 
     def test_http2_request_completed(self):
-        self.start_all()
         client = self.get_client("h2")
         response = self.get_response(client)
         self.assertEqual(response.proto, "2")
@@ -141,21 +181,27 @@ class TestCurlClient(tester.TempestaTest):
         self.assertTrue(response.headers["via"].startswith("2.0"))
 
     def test_error_on_wrong_port(self):
-        self.start_all()
         client = self.get_client("wrong_port")
         response = self.get_response(client)
         self.assertFalse(response)
 
     def test_headers_parsed(self):
-        self.start_all()
         client = self.get_client("default")
-        headers = self.get_response(client).headers
-        self.assertEqual(headers["content-length"], "4")
-        self.assertEqual(headers["x-header"], "Test-Value")
-        self.assertTrue(headers["via"].startswith("1.1"))
+        response = self.get_response(client)
+        headers = response.headers
+
+        with self.subTest("headers"):
+            self.assertEqual(headers["content-length"], "4")
+            self.assertTrue(headers["via"].startswith("1.1"))
+            self.assertEqual(headers["x-header"], "Test-Value-2")
+
+        with self.subTest("multi headers"):
+            self.assertEqual(response.multi_headers["content-length"], ["4"])
+            self.assertEqual(
+                response.multi_headers["x-header"], ["Test-Value-1", "Test-Value-2"]
+            )
 
     def test_cookies(self):
-        self.start_all()
         client = self.get_client("cookie")
         client.clear_cookies()
         self.assertFalse(client.cookie_jar_path.exists())
@@ -163,17 +209,58 @@ class TestCurlClient(tester.TempestaTest):
         with self.subTest("Cookie saved"):
             response = self.get_response(client)
             request = self.get_server("deproxy").last_request
-            self.assertFalse(request.headers["Cookie"])
+            self.assertFalse(request.headers["cookie"])
             self.assertTrue(client.cookie_jar_path.exists())
 
         with self.subTest("Cookie loaded"):
             response = self.get_response(client)
             request = self.get_server("deproxy").last_request
-            self.assertEqual(request.headers["Cookie"], "curl=test")
+            self.assertEqual(request.headers["cookie"], "curl=test")
 
     def test_multiple_requests_completed(self):
-        self.start_all()
         client = self.get_client("multi")
         response = self.get_response(client)
         self.assertEqual(response.status, 200)
         self.assertEqual([r.status for r in client.responses], [200, 200])
+        self.assertEqual(client.statuses, {200: 2})
+
+    def test_headers_sended(self):
+        client = self.get_client("send_headers")
+        response = self.get_response(client)
+        request = self.get_server("deproxy").last_request
+        self.assertEqual(request.headers["header-sended"], "OK")
+        self.assertEqual(response.headers["connection"], "close")
+
+    def test_cmd_args_processed(self):
+        client = self.get_client("with_args")
+        response = self.get_response(client)
+        self.assertEqual(response.status, 200)
+        self.assertTrue(response.stderr.startswith("*   Trying"))
+
+    def test_uri_changed(self):
+        client = self.get_client("default")
+        client.set_uri("/314")
+        response = self.get_response(client)
+        self.assertEqual(response.status, 200)
+        request = self.get_server("deproxy").last_request
+        self.assertEqual(request.uri, "/314")
+
+    def test_options_added(self):
+        client = self.get_client("default")
+        client.options.append("--head")
+        response = self.get_response(client)
+        self.assertEqual(response.status, 200)
+        self.assertTrue(response.stdout.startswith("HTTP/1.1 200"))
+
+    def test_certificate_error(self):
+        client = self.get_client("check_cert")
+        response = self.get_response(client)
+        self.assertFalse(response)
+
+    def test_data_posted(self):
+        client = self.get_client("post")
+        response = self.get_response(client)
+        self.assertEqual(response.status, 200)
+        request = self.get_server("deproxy").last_request
+        self.assertEqual(request.method, "POST")
+        self.assertEqual(request.body, "param1=1&param2=2")

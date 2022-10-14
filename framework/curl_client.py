@@ -1,9 +1,11 @@
+"""cURL utility wrapper."""
 import email
 import io
 import re
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Dict, List, Optional
 
 from helpers import tf_cfg
 from . import client
@@ -15,14 +17,23 @@ __license__ = "GPL2"
 
 @dataclass
 class CurlResponse:
-    """Parsed cURL response."""
+    """Parsed cURL response.
 
-    headers_dump: bytes  # status line + headers
-    stdout_raw: bytes  # stdout bytes
-    stderr_raw: bytes  # stderr bytes
-    status: int = None  # parsed HTTP status code
-    proto: str = None  # parsed HTTP potocol version
-    headers: dict = None  # parsed headers with lowercase names
+    Args:
+      headers_dump (bytes): status line + headers
+      stdout_raw (bytes): stdout bytes
+      stderr_raw (bytes): stderr bytes
+      status (int): parsed HTTP status code
+      proto (str): parsed HTTP potocol version, "1.1" or "2"
+      headers (dict): parsed headers with lowercase names
+    """
+
+    headers_dump: bytes = field(repr=False)
+    stdout_raw: bytes = field(repr=False)
+    stderr_raw: bytes = field(repr=False)
+    status: int = None
+    proto: str = None
+    headers: Dict[str, str] = None
 
     @property
     def stdout(self) -> str:
@@ -35,8 +46,10 @@ class CurlResponse:
         return self.stderr_raw.decode()
 
     @property
-    def multi_headers(self):
-        """Parsed headers with lowercase names and list of values."""
+    def multi_headers(self) -> Dict[str, List[str]]:
+        """Parsed headers with lowercase names and list of values, like:
+        {'set-cookie': ['name1=xxx', 'name2=yyy'], 'content-length': ['4']}
+        """
         return dict(self._multi_headers)
 
     def __post_init__(self):
@@ -61,7 +74,8 @@ class CurlArguments:
     """Interface class for cURL client.
     Contains all accepted arguments (fields) supported by `CurlClient`.
     """
-    server_addr: str
+
+    addr: str
     uri: str = "/"
     cmd_args: str = ""
     data: str = ""
@@ -76,57 +90,97 @@ class CurlArguments:
 
     @classmethod
     def get_kwargs(cls) -> list[str]:
-        """Returns list of `CurlClient` argument names."""
+        """Returns list of `CurlClient` supported argument names."""
         return list(cls.__dataclass_fields__.keys())
 
 
 class CurlClient(CurlArguments, client.Client):
-    """Wrapper to manage cURL."""
+    """
+    Wrapper to manage cURL.
+    See `selftests/test_curl_client.py` and #332 PR for usage examples.
+
+    Args:
+      addr (str): Host (IP address) to connect to
+      uri (str): URI to access
+      cmd_args (str): additional curl options
+      data (str): data to POST
+      headers (dict[str, str]): headers to include in the request
+      dump_headers (bool): dump headers to the workdir, and enable response parsing.
+                           Enabled by default.
+      disable_output (bool): do not output results but only errors
+      save_cookies (bool): save cookies to the workdir
+      load_cookies (bool): load and send cookies from the workdir
+      ssl (bool): use SSL/TLS for the connection
+      http2 (bool): use HTTP version 2
+      insecure (bool): Ignore SSL certificate errors. Enabled by default.
+    """
 
     def __init__(self, **kwargs):
-        super().__init__(
-            **{k: v for k, v in kwargs.items() if k in CurlArguments.__match_args__}
-        )
+        # Initialize the `CurlArguments` interface first
+        super().__init__(**kwargs)
+        # Initialize the base `Client`
         client.Client.__init__(
             self,
             binary="curl",
-            server_addr=kwargs["server_addr"],
+            server_addr=self.addr,
             uri=self.uri,
             ssl=self.ssl or self.http2,
         )
         self.options = [self.cmd_args] if self.cmd_args else []
-        self.responses = []
-        self.statuses = defaultdict(lambda: 0)
+        self._responses = []
+        self._statuses = defaultdict(lambda: 0)
+
+    @property
+    def responses(self) -> List[CurlResponse]:
+        """List of all received responses."""
+        return list(self._responses)
+
+    @property
+    def last_response(self) -> Optional[CurlResponse]:
+        """Last parsed response if any."""
+        return (self.responses or [None])[-1]
+
+    @property
+    def statuses(self) -> Dict[int, int]:
+        """Received statuses counters, like:
+        {200: 1, 400: 2}
+        """
+        return dict(self._statuses)
+
+    @statuses.setter
+    def statuses(self, value):
+        # ignore attribute initialization by `Client`
+        pass
 
     @property
     def cookie_jar_path(self):
+        """Path to save/load cookies."""
         return Path(self.workdir) / "curl-default.jar"
 
     @property
     def output_path(self):
+        """Path to write stdout (response)."""
         return Path(self.workdir) / "curl-output"
 
     @property
     def headers_dump_path(self):
+        """Path do dump received headers."""
         return Path(self.workdir) / "curl-default.hdr"
 
-    @property
-    def last_response(self) -> CurlResponse:
-        return (self.responses or [None])[-1]
-
     def clear_cookies(self):
-        """Remove the cookies jar of previous runs."""
+        """Delete cookies from previous runs."""
         self.cookie_jar_path.unlink(missing_ok=True)
 
     def form_command(self):
-        options = ["--no-progress-meter", '--write-out "%{json}"']
+        options = ["--no-progress-meter", "--create-dirs"]
 
         if self.dump_headers:
             options.append(f"--dump-header '{self.headers_dump_path}'")
 
         if self.disable_output:
-            options.append(f"--silent --show-error --output /dev/null")
+            options.append("--silent --show-error --output /dev/null")
         else:
+            options.append("--write-out '%{json}'")
             options.append(f"--output '{self.output_path}'")
 
         if self.save_cookies:
@@ -166,8 +220,8 @@ class CurlClient(CurlArguments, client.Client):
                     raise Exception(
                         f"Unexpected HTTP version response: {response.proto}"
                     )
-                self.responses.append(response)
-                self.statuses[response.status] += 1
+                self._responses.append(response)
+                self._statuses[response.status] += 1
         return True
 
     def _read_headers_dump(self) -> bytes:
