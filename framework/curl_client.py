@@ -87,6 +87,7 @@ class CurlArguments:
     ssl: bool = False
     http2: bool = False
     insecure: bool = True
+    parallel: int = None
 
     @classmethod
     def get_kwargs(cls) -> list[str]:
@@ -113,6 +114,7 @@ class CurlClient(CurlArguments, client.Client):
       ssl (bool): use SSL/TLS for the connection
       http2 (bool): use HTTP version 2
       insecure (bool): Ignore SSL certificate errors. Enabled by default.
+      parallel (int): Enable parallel mode, with maximum <int> simultaneous transfers
     """
 
     def __init__(self, **kwargs):
@@ -201,6 +203,11 @@ class CurlClient(CurlArguments, client.Client):
 
         if self.ssl and self.insecure:
             options.append("--insecure")
+
+        if self.parallel:
+            options.append("--parallel")
+            options.append("--parallel-immediate")
+            options.append(f"--parallel-max {self.parallel}")
 
         cmd = " ".join([self.bin] + options + self.options + [f"'{self.uri}'"])
         tf_cfg.dbg(3, f"Curl command formatted: {cmd}")

@@ -125,6 +125,12 @@ class TestCurlClient(tester.TempestaTest):
             "ssl": True,
             "insecure": False,
         },
+        {
+            "id": "parallel",
+            "type": "curl",
+            "uri": "/[1-10]",
+            "parallel": 2,
+        },
     ]
 
     tempesta = {
@@ -264,3 +270,10 @@ class TestCurlClient(tester.TempestaTest):
         request = self.get_server("deproxy").last_request
         self.assertEqual(request.method, "POST")
         self.assertEqual(request.body, "param1=1&param2=2")
+
+    def test_parallel_mod_enabled(self):
+        client = self.get_client("parallel")
+        server = self.get_server("deproxy")
+        response = self.get_response(client)
+        self.assertIn("--parallel-max 2", client.form_command())
+        self.assertEqual(len(server.requests), 10)
