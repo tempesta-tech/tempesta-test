@@ -96,7 +96,7 @@ class CurlArguments:
     parallel: int = None
 
     @classmethod
-    def get_kwargs(cls) -> list[str]:
+    def get_kwargs(cls) -> List[str]:
         """Returns list of `CurlClient` supported argument names."""
         return list(cls.__dataclass_fields__.keys())
 
@@ -138,7 +138,7 @@ class CurlClient(CurlArguments, client.Client):
         self._responses = []
         self._stats = []
         self._statuses = defaultdict(lambda: 0)
-        self._output_delimeter = "\n"
+        self._output_delimeter = "-===curl-transfer===-"
 
     @property
     def responses(self) -> List[CurlResponse]:
