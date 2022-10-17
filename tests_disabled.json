@@ -370,6 +370,30 @@
             "reason": "Disable by issue #1688"
         },
         {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTable",
+            "reason": "Disable by issue #1688"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableFrang",
+            "reason": "Disable by issue #1688"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
+            "reason": "Disable by issue #1688"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2",
+            "reason": "Disable by issue #1688"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiFrang",
+            "reason": "Disable by issue #1688"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2Frang",
+            "reason": "Disable by issue #1688"
+        },
+        {
             "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_tls12_synthetic",
             "reason": "Disable by issue #154"
         },

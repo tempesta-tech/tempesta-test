@@ -2,7 +2,7 @@
 Tests for basic x509 handling: certificate loading and getting a valid request
 and response, stale certificates and certificates with unsupported algorithms.
 """
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import ec
 from itertools import cycle, islice
@@ -821,13 +821,11 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.cert, expected_cert))
 
 
-class TlsSniWithHttpTable(tester.TempestaTest):
-    """
-    Test that shows that non-TLS vhost could be accessed with certificate from
-    another section.
-    Test should fail after the #1688 fix.
-    """
 
+class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
+    """
+    Base class for vhost sections access tests.
+    """
     clients = [
         {
             'id': 'deproxy',
@@ -873,38 +871,70 @@ class TlsSniWithHttpTable(tester.TempestaTest):
                 'server-3'
             )
         },
+        {
+            'id': 'server-4',
+            'type': 'deproxy',
+            'port': '8003',
+            'response': 'static',
+            'response_content': (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 8\r\n\r\n'
+                'server-4'
+            )
+        },
     ]
 
-    tempesta = {
-        'config': """
+    tempesta_tmpl = """
             cache 0;
             listen 443 proto=https;
+
+            # Optional Frang section
+            %s
 
             srv_group sg1 { server ${server_ip}:8000; }
             srv_group sg2 { server ${server_ip}:8001; }
             srv_group sg3 { server ${server_ip}:8002; }
+            srv_group sg4 { server ${server_ip}:8003; }
 
             vhost example.com {
                 proxy_pass sg1;
+                tls_certificate ${general_workdir}/example.crt;
+                tls_certificate_key ${general_workdir}/example.key;
+            }
+
+            vhost tempesta-tech.com {
+                proxy_pass sg2;
                 tls_certificate ${general_workdir}/tempesta.crt;
                 tls_certificate_key ${general_workdir}/tempesta.key;
             }
 
             vhost localhost-vhost {
-                proxy_pass sg2;
-            }
-
-            vhost default-vhost {
                 proxy_pass sg3;
             }
 
+            vhost default-vhost {
+                proxy_pass sg4;
+            }
+
             http_chain {
+              host == "example.com" -> example.com;
               host == "localhost" -> localhost-vhost;
+              host == "tempesta-tech.com" -> tempesta-tech.com;
               -> default-vhost;
             }
-        """,
-        'custom_cert': True
-    }
+    """
+
+    @property
+    @abstractmethod
+    def frang_limits(self):
+        pass
+
+    def setUp(self):
+        self.tempesta = {
+            'config': self.tempesta_tmpl % (self.frang_limits),
+            'custom_cert': True
+        }
+        tester.TempestaTest.setUp(self)
 
     def start_all(self):
         self.start_all_servers()
@@ -918,11 +948,28 @@ class TlsSniWithHttpTable(tester.TempestaTest):
         return the body of response."""
         client = self.get_client('deproxy')
         client.make_request(f"GET / HTTP/1.1\r\nHost: {host}\r\n\r\n")
-        res = client.wait_for_response(timeout=X509.TIMEOUT)
-        self.assertTrue(res, 'Cannot process request')
+        return client.wait_for_response(timeout=X509.TIMEOUT)
+
+    def expect_request_processed(self, host, expected_server):
+        self.assertTrue(self.make_request(host))
+        client = self.get_client('deproxy')
         status = client.last_response.status
         self.assertEqual(status, '200', f'Bad response status: {status}')
-        return client.last_response.body
+        self.assertEqual(client.last_response.body, expected_server)
+
+    def expect_request_fail(self, host):
+        self.assertFalse(self.make_request(host))
+
+    def test_valid(self):
+        """
+        CN: example.com
+        SAN: [example.com]
+        SNI: example.com
+        HOST: example.com
+        """
+        generate_certificate(cn='example.com', san=['example.com'])
+        self.start_all()
+        self.expect_request_processed('example.com', expected_server='server-1')
 
     def test_with_san(self):
         """
@@ -933,7 +980,7 @@ class TlsSniWithHttpTable(tester.TempestaTest):
         """
         generate_certificate(cn='random-name', san=['example.com'])
         self.start_all()
-        self.assertEqual(self.make_request('localhost'), 'server-2')
+        self.expect_request_fail('localhost')
 
     def test_with_common_name(self):
         """
@@ -944,7 +991,7 @@ class TlsSniWithHttpTable(tester.TempestaTest):
         """
         generate_certificate(cn='example.com', san=None)
         self.start_all()
-        self.assertEqual(self.make_request('localhost'), 'server-2')
+        self.expect_request_fail('localhost')
 
     def test_with_any_host(self):
         """
@@ -957,10 +1004,28 @@ class TlsSniWithHttpTable(tester.TempestaTest):
         self.oops_ignore = ["WARNING"]
         generate_certificate(cn='random-name', san=None)
         self.start_all()
-        self.assertEqual(self.make_request('another-random-name'), 'server-3')
+        self.expect_request_fail('another-random-name')
 
 
-class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
+class TlsSniWithHttpTable(BaseTlsSniWithHttpTable):
+    """
+    Test that vhost could not be accessed with certificate from another section.
+    """
+    frang_limits = ""
+
+
+class TlsSniWithHttpTableFrang(BaseTlsSniWithHttpTable):
+    """
+    Same as TlsSniWithHttpTable, with `http_host_required` enabled.
+    """
+    frang_limits = """
+            frang_limits {
+                http_host_required;
+            }
+    """
+
+
+class BaseTlsMultiTest(tester.TempestaTest, base=True):
     """Base class to test multiplexed (pipelided) requests."""
 
     backends = [
@@ -1070,11 +1135,11 @@ class BaseTlsMultiTest(tester.TempestaTest, metaclass=ABCMeta):
         )
         client.wait_for_response(timeout=2)
 
-        self.assertEqual(REQ_NUM, len(client.responses))
-        # Half of responses are from server1,
-        self.assertEqual(REQ_NUM / 2, len(server1.requests))
-        # and half from server2
-        self.assertEqual(REQ_NUM / 2, len(server2.requests))
+        self.assertLess(len(client.responses), 2)
+        # server1 received requests
+        self.assertGreater(len(server1.requests), 0)
+        # server2 did not receive requests
+        self.assertEqual(len(server2.requests), 0)
 
 
 class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
@@ -1108,9 +1173,8 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
 
     def test_alternating_access(self):
         """
-        Test for HTTP/1.1 pipelined request: both 'example.com' and 'localhost'
-        vhosts are accessed in alternating order.
-        Test should fail after the #1688 fix.
+        Test for HTTP/1.1 pipelined request: 'localhost'
+        vhost should not receive requests.
         """
         self.run_alterative_access()
 
@@ -1118,7 +1182,6 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
 class TlsSniWithHttpTableMultiFrang(TlsSniWithHttpTableMulti):
     """
     Same as TlsSniWithHttpTableMulti, with `http_host_required` enabled.
-    Test should fail after the #1688 fix.
     """
     frang_limits = """
             frang_limits {
@@ -1156,9 +1219,8 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 
     def test_alternating_access(self):
         """
-        Test for HTTP/2 multiplexed requests: both 'example.com' and 'localhost'
-        vhosts are accessed in alternating order.
-        Test should fail after the #1688 fix.
+        Test for HTTP/2 multiplexed requests: 'localhost'
+        vhost should not receive requests.
         """
         # Ignore 'BUG tfw_stream_cache Tainted'
         self.oops_ignore = ["WARNING"]
@@ -1168,7 +1230,6 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 class TlsSniWithHttpTableMultiH2Frang(TlsSniWithHttpTableMultiH2):
     """
     Same as TlsSniWithHttpTableMultiH2, with `http_host_required` enabled.
-    Test should fail after the #1688 fix.
     """
     frang_limits = """
             frang_limits {
