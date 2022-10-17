@@ -263,7 +263,9 @@ class CurlClient(CurlArguments, client.Client):
             except json.JSONDecodeError:
                 tf_cfg.dbg(1, "Error: can't decode cURL JSON stats.")
             else:
-                if self.last_stats:
+                if self.last_stats or (
+                    stderr and b"unknown --write-out variable: 'json'" in stderr
+                ):
                     self._check_binary_version()
         return True
 
