@@ -136,10 +136,17 @@ class CurlClient(CurlArguments, client.Client):
             ssl=self.ssl or self.http2,
         )
         self.options = [self.cmd_args] if self.cmd_args else []
-        self._responses = []
-        self._stats = []
-        self._statuses = defaultdict(lambda: 0)
         self._output_delimeter = "-===curl-transfer===-"
+
+    @property
+    def requests(self) -> int:
+        """Number of perfomed requests."""
+        return max(len(self._stats), len(self._responses))
+
+    @requests.setter
+    def requests(self, value):
+        # ignore attribute initialization by `Client`
+        pass
 
     @property
     def responses(self) -> List[CurlResponse]:
@@ -160,8 +167,7 @@ class CurlClient(CurlArguments, client.Client):
 
     @statuses.setter
     def statuses(self, value):
-        # ignore attribute initialization by `Client`
-        pass
+        self._statuses = defaultdict(lambda: 0, value)
 
     @property
     def last_stats(self) -> Dict[str, Any]:
@@ -200,6 +206,11 @@ class CurlClient(CurlArguments, client.Client):
     def clear_cookies(self):
         """Delete cookies from previous runs."""
         self.cookie_jar_path.unlink(missing_ok=True)
+
+    def clear_stats(self):
+        super().clear_stats()
+        self._responses = []
+        self._stats = []
 
     def form_command(self):
         options = ["--no-progress-meter", "--create-dirs"]
@@ -242,7 +253,6 @@ class CurlClient(CurlArguments, client.Client):
         return cmd
 
     def parse_out(self, stdout, stderr):
-        self.requests += 1
         if self.dump_headers:
             for dump in filter(None, self._read_headers_dump().split(b"\r\n\r\n")):
 

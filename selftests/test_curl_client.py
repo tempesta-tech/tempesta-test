@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 import unittest
 
 from framework import tester
@@ -287,7 +287,38 @@ class TestCurlClient(tester.TempestaTest):
         response = self.get_response(client)
         self.assertIn("--parallel-max 2", client.form_command())
         self.assertEqual(len(server.requests), 10)
+        self.assertEqual(client.requests, 10)
+        self.assertEqual(client.results(), (10, 0, ANY, {200: ANY}))
 
         with self.subTest("multiple stats parsed"):
             self.assertEqual(len(client.stats), 10)
             self.assertGreaterEqual(client.last_stats["time_total"], 0)
+
+    def test_stats_after_multiple_requests(self):
+        client = self.get_client("default")
+        server = self.get_server("deproxy")
+        self.assertEqual(client.requests, 0)
+        self.assertEqual(client.results(), (0, 0, 0, {}))
+        self.assertEqual(len(server.requests), 0)
+
+        for i in range(2):
+            with self.subTest("make request", i=i):
+                self.assertEqual(len(server.requests), i)
+                self.get_response(client)
+                self.assertEqual(client.requests, 1)
+                self.assertEqual(len(client.responses), 1)
+                results = client.results()
+                self.assertEqual(
+                    client.results(),
+                    # requests, errors, rate, statuses
+                    (1, 0, ANY, {200: 1}),
+                )
+
+        client.set_uri("/[1-3]")
+        response = self.get_response(client)
+        self.assertEqual(client.requests, 3)
+        self.assertEqual(
+            client.results(),
+            # requests, errors, rate, statuses
+            (3, 0, ANY, {200: 3}),
+        )

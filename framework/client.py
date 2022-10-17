@@ -77,6 +77,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.requests = 0
         self.rate = -1
         self.errors = 0
+        self.statuses = {}
 
     def cleanup(self):
         for f in self.cleanup_files:
