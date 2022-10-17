@@ -437,12 +437,10 @@
             "name" : "cache.test_cache_control.StoringResponsesToAuthenticatedRequestsMustRevalidateCache2.test",
             "reason": "Disable by issue #328"
         },
-        
         {
             "name" : "frang.test_http_conn_limits.HttpConnRateBlock",
             "reason": "Disable by issue #334"
         },
-        
         {
             "name" : "frang.test_http_conn_limits.HttpConnBurstBlock",
             "reason": "Disable by issue #334"
