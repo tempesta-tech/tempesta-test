@@ -1,6 +1,6 @@
 #! /bin/sh
 
-apt install python3-pip nginx libnginx-mod-http-echo net-tools libssl-dev unzip -y
+apt install python3-pip nginx libnginx-mod-http-echo net-tools libssl-dev libnghttp2-dev autoconf unzip -y
 
 python3 -m pip install -r requirements.txt
 
@@ -27,3 +27,12 @@ git clone https://github.com/tempesta-tech/h2spec.git /tmp/h2spec
 cd /tmp/h2spec
 make build
 cp ./h2spec /usr/bin/h2spec
+
+# curl
+git clone --depth=1 --branch curl-7_85_0 https://github.com/curl/curl.git /tmp/curl
+cd /tmp/curl
+autoreconf -fi
+./configure --with-openssl --with-nghttp2 --prefix /usr/local
+make
+make install
+ldconfig

@@ -18,6 +18,7 @@ __license__ = "GPL2"
 
 # Expected `curl --version`.
 # This value could be overriden by the 'Client.curl_version' config variable.
+# When updating, version in `setup.sh` should also be updated.
 CURL_BINARY_VERSION = "7.85.0"
 
 
@@ -301,6 +302,7 @@ class CurlClient(CurlArguments, client.Client):
         )
 
     def _parse_binary_version(self, version: str) -> str:
-        # Version string example:
+        # Version string examples:
         # "libcurl/7.85.0 OpenSSL/3.0.2 zlib/1.2.11 nghttp2/1.43.0"
-        return version.split()[0].split("/")[1]
+        # "libcurl/7.85.0-DEV OpenSSL/1.1.1f zlib/1.2.11"
+        return version.split()[0].split("/")[1].split("-")[0]
