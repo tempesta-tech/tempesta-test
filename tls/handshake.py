@@ -3,10 +3,22 @@ import scapy.layers.tls.crypto.suites as suites
 from scapy.all import *
 from scapy.layers.tls.all import *
 from helpers import tf_cfg
+from helpers.error import Error
+
+def x509_check_issuer(cert, issuer):
+    """
+    The same as above, but for Issuer OrganizationName (O, OID '2.5.4.10').
+    """
+    for f in cert.tbsCertificate.issuer:
+        if f.rdn[0].type.val == '2.5.4.10':
+            return bytes(f.rdn[0].value).decode().endswith(issuer)
+    raise Error("Certificate has no Issuer OrganizationName")
+
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     
     def __init__(self, *args, **kwargs):
+        self.server_cert = None
         self.hs_state = False
         self.hs_final = False
         self.hs_buffer = []
@@ -149,14 +161,16 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERFINISHED(self):
+        tf_cfg.dbg(1, "TLS handshake completed!")
         # self.vprint_sessioninfo()
-        # self.vprint("HANDLE SERVERFINISHED")
+        self.server_cert = self.cur_session.server_certs
+        self.client_cert = self.cur_session.client_certs
         tf_cfg.dbg(2, "TLS handshake completed!")
         self.hs_state = True
 
 class TlsHandshake:
 
-    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=2):
+    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=0):
         self.hs_state = False
         self.debug = debug
         self.sni = "tempesta-tech.com"

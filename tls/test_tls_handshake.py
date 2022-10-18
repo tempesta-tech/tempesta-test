@@ -515,7 +515,7 @@ class TlsCertReconfig(tester.TempestaTest):
         vhs = TlsHandshake()
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
-        res = x509_check_issuer(vhs.cert, "Tempesta Technologies Inc.")
+        res = x509_check_issuer(vhs.hs.server_cert[0], "Tempesta Technologies Inc.")
         self.assertTrue(res, "Wrong certificate configured")
 
         # Reload Tempesta with new certificate.
@@ -525,5 +525,5 @@ class TlsCertReconfig(tester.TempestaTest):
         vhs = TlsHandshake()
         res = vhs.do_12()
         self.assertTrue(res, "Bad second handshake: %s" % res)
-        res = x509_check_issuer(vhs.cert, "New Issuer")
+        res = x509_check_issuer(vhs.hs.server_cert[0], "New Issuer")
         self.assertTrue(res, "Wrong certificate reloaded")
