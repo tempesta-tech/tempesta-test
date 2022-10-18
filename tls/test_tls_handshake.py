@@ -427,23 +427,26 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         """
         self.init()
         vhs = TlsHandshake()
-        vhs.sni = []
-        vhs.host = "vhost1.net"
+        vhs.sni = ''
+        vhs.host = 'vhost1.net'
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
-        self.assertTrue(vhs.http_resp.decode().endswith("be1"),
-                        "Bad response from vhost1: [%s]" % vhs.http_resp)
-        self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
+        # print("ASS", vhs.hs.hs_buffer[0].data.decode("utf-8"))
+        resp = vhs.hs.hs_buffer[0].data.decode("utf-8")
+        self.assertTrue(resp.endswith("be1"),
+                        "Bad response from vhost1: [%s]" % resp)
+        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
                         "Wrong certificate received for vhost1")
 
         vhs = TlsHandshake()
-        vhs.sni = []
+        vhs.sni = ''
         vhs.host = "vhost2.net"
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
-        self.assertTrue(vhs.http_resp.decode().endswith("be2"),
-                        "Bad response from vhost2: [%s]" % vhs.http_resp)
-        self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
+        resp = vhs.hs.hs_buffer[0].data.decode("utf-8")
+        self.assertTrue(resp.endswith("be2"),
+                        "Bad response from vhost2: [%s]" % resp)
+        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
                         "Wrong certificate received for vhost1")
 
     def test_bad_host(self):
