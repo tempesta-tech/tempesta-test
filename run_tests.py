@@ -33,6 +33,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -f, --failfast                    - Stop tests after first error.
 -r, --resume <id>                 - Continue execution from first test matching
                                     this ID prefix
+-R, --repeat <N>                  - Repeat every test for N times
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
 -n, --no-resume                   - Do not resume from state file
@@ -41,6 +42,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -C, --clean                       - Stop old instances of Tempesta and Nginx
 -D, --debug-files                 - Don't remove generated config files
 -Z, --run-disabled                - Run only tests from list of disabled
+-I, --ignore-errors               - Don't exit on import/syntax errors in tests
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -67,14 +69,18 @@ list_tests = False
 clean_old = False
 run_disabled = False
 prepare_tcp = True
+n_count = 1
+ignore_errors = False
+
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:a:nl:LCDZp',
+    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:R:a:nl:LCDZpI',
                                        ['help', 'verbose', 'defaults',
                                         'duration=', 'failfast', 'resume=',
-                                        'resume-after=', 'no-resume', 'log=',
+                                        'resume-after=', 'repeat=', 'no-resume', 'log=',
                                         'list', 'clean', 'debug-files',
-                                        'run-disabled', 'dont-prepare'])
+                                        'run-disabled', 'dont-prepare',
+                                        'ignore-errors'])
 
 except getopt.GetoptError as e:
     print(e)
@@ -109,12 +115,16 @@ for opt, arg in options:
         list_tests = True
     elif opt in ('-C', '--clean'):
         clean_old = True
+    elif opt in ('-R', '--repeat'):
+        n_count = arg
     elif opt in ('-D', '--debug-files'):
         remote.DEBUG_FILES = True
     elif opt in ('-Z', '--run-disabled'):
         run_disabled = True
     elif opt in ('-p', '--dont-prepare'):
         prepare_tcp = False
+    elif opt in ('-I', '--ignore-errors'):
+        ignore_errors = True
 
 tf_cfg.cfg.check()
 
@@ -145,24 +155,21 @@ loader = unittest.TestLoader()
 tests = []
 shell.testsuite_flatten(tests, loader.discover('.'))
 
-if v_level >= 3:
-    # runner.TextTestRunner can print import errors, however,
+if len(loader.errors) > 0:
+    print("\n"
+          "----------------------------------------------------------------------\n"
+          "There were errors during tests discovery stage...\n"
+          "----------------------------------------------------------------------\n",
+          file=sys.stderr)
+    # runner.TextTestRunner can print import or syntax errors, however,
     # the failed modules will be filtered out like they never existed.
     # So we have to explicitly find and print those errors.
-    errors = [test for test in tests if test.__class__.__name__ == 'ModuleImportFailure']
-    for error in errors:
-        try:
-            # Non-public attributes, see unittest.case.TestCase and
-            # unittest.loader._make_failed_import_test
-            attrname = getattr(error, '_testMethodName', None)
-            if attrname:
-                testFailure = getattr(error, attrname, None)
-                if testFailure is not None:
-                    testFailure()
-        except Exception as exc:
-            # format_exc() gives too much unnecessary info
-            # print(traceback.format_exc())
-            print(exc)
+    for error in loader.errors:
+        print(error)
+
+    if not ignore_errors:
+        sys.exit(1)
+
 
 root_required = False
 
@@ -281,6 +288,7 @@ if state_reader.has_file and not test_resume.from_file:
 resume_filter = test_resume.filter()
 tests = [ t
           for t in tests
+          for _ in range(int(n_count))
           if resume_filter(t)
           and (not inclusions or shell.testcase_in(t, inclusions))
           and not shell.testcase_in(t, exclusions) ]
@@ -303,6 +311,8 @@ if test_resume:
         addn_status = " (resuming from after %s)" % test_resume.state.last_id
     else:
         addn_status = " (resuming from %s)" % test_resume.state.last_id
+if n_count != 1:
+    addn_status = f" for {n_count} times each"
 print("""
 ----------------------------------------------------------------------
 Running functional tests%s...

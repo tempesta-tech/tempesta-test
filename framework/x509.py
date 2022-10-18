@@ -49,6 +49,8 @@ class CertGenerator(object):
         self.format = 'pem'
         self.cert = None
         self.pkey = None
+        # Subject Alternative Name field: list of additional host names
+        self.san = []
         if default:
             self.generate()
 
@@ -137,6 +139,13 @@ class CertGenerator(object):
         ).public_key(
             self.pkey.public_key(),
         )
+        if self.san:
+            builder = builder.add_extension(
+                x509.SubjectAlternativeName(
+                    [x509.DNSName(name) for name in self.san],
+                ),
+                critical=False
+            )
         self.cert = builder.sign(
             self.pkey,
             self.__hash(),

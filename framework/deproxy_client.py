@@ -217,6 +217,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 class DeproxyClient(BaseDeproxyClient):
     last_response = None
     responses = []
+    last_response: deproxy.Response
 
     def make_requests(self, requests: list or str) -> None:
         """Send pipelined HTTP requests. Requests parsing can be disabled only for list."""
@@ -301,8 +302,29 @@ class DeproxyClient(BaseDeproxyClient):
             time.sleep(0.01)
         return True
 
+    def send_request(self, request: str, expected_status_code: str):
+        """
+        Form and send one HTTP request. And also check that the client has received a response and
+        the status code matches.
+
+        Args:
+            request (str): request as string
+            expected_status_code (str): expected status code
+        """
+        curr_responses = len(self.responses)
+
+        self.make_request(request)
+        self.wait_for_response()
+
+        assert curr_responses + 1 == len(self.responses), \
+            'Deproxy client has lost response.'
+        assert expected_status_code in self.last_response.status, \
+            f'HTTP response status codes mismatch. Expected - {expected_status_code}. ' \
+            + f'Received - {self.last_response.status}'
+
 
 class DeproxyClientH2(DeproxyClient):
+    last_response: deproxy.H2Response
 
     def __init__(self, *args, **kwargs):
         DeproxyClient.__init__(self, *args, **kwargs)
