@@ -1,6 +1,6 @@
 #! /bin/sh
 
-apt install python3-pip nginx libnginx-mod-http-echo net-tools libssl-dev libnghttp2-dev autoconf unzip -y
+apt install python3-pip nginx libnginx-mod-http-echo net-tools libssl-dev apache2-utils libnghttp2-dev autoconf unzip -y
 
 python3 -m pip install -r requirements.txt
 
