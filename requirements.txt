@@ -10,3 +10,7 @@ hyperframe>=6.0.0
 wemake-python-styleguide>=0.16.1
 pycodestyle==2.8.0
 requests
+pre-commit==2.20.0
+isort==5.10.1
+black==22.10.0
+
