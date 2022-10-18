@@ -4,10 +4,11 @@ import time
 
 from helpers import control, tf_cfg, dmesg, remote
 
-import framework.wrk_client as wrk_client
+import framework.curl_client as curl_client
 import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
+import framework.wrk_client as wrk_client
 
 from framework.templates import fill_template, populate_properties
 
@@ -172,6 +173,17 @@ class TempestaTest(unittest.TestCase):
                                                     uri=None)
         return ext_client
 
+    def __create_client_curl(self, client):
+        # extract arguments that are supported by cURL client
+        kwargs = {k: client[k] for k in curl_client.CurlArguments.get_kwargs() if k in client}
+        kwargs['addr'] = fill_template(
+            client.get('addr', '${tempesta_ip}'),  # Address is Tempesta IP by default
+            client
+        )
+        kwargs['cmd_args'] = fill_template(client.get('cmd_args', ''), client)
+        curl = curl_client.CurlClient(**kwargs)
+        return curl
+
     def __create_client(self, client):
         populate_properties(client)
         ssl = client.setdefault('ssl', False)
@@ -189,6 +201,8 @@ class TempestaTest(unittest.TestCase):
             self.__clients[cid].set_rps(client.get('rps', 0))
         elif client['type'] == 'wrk':
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
+        elif client['type'] == 'curl':
+            self.__clients[cid] = self.__create_client_curl(client)
         elif client['type'] == 'external':
             self.__clients[cid] = self.__create_client_external(client)
 
@@ -348,9 +362,9 @@ class TempestaTest(unittest.TestCase):
 
         for item in items:
             if item.is_running():
-                tf_cfg.dbg(4, f'\tClient "{item.options[0]}" wait for finish ')
+                tf_cfg.dbg(4, f'\tClient "{item}" wait for finish ')
                 item.wait_for_finish()
-                tf_cfg.dbg(4, f'\tWaiting for client "{item.options[0]}" is completed')
+                tf_cfg.dbg(4, f'\tWaiting for client "{item}" is completed')
 
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=1):

@@ -80,6 +80,17 @@ workdir = /tmp/client
 #
 ab = ab
 
+# cURL binary.
+#
+# ex.: curl = /usr/bin/curl (default curl)
+#
+curl = curl
+
+# cURL version. Set to override runtime version check.
+#
+# curl_version = 7.85.0
+#
+
 # wrk benchmark utility.
 #
 # ex.: wrk = /home/user/wrk/wrk (default wrk)

@@ -59,6 +59,9 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         # Stateful
         self.stop_procedures = [self.__on_finish]
 
+    def __str__(self):
+        return self.bin
+
     def set_uri(self, uri):
         """ For some clients uri is an optional parameter, e.g. for Siege.
         They use file with list of uris instead. Don't force clients to use
@@ -74,6 +77,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.requests = 0
         self.rate = -1
         self.errors = 0
+        self.statuses = {}
 
     def cleanup(self):
         for f in self.cleanup_files:
