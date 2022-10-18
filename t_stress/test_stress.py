@@ -227,13 +227,11 @@ class BaseCurlStress(CustomMtuMixin, tester.TempestaTest, base=True):
         {
             'id': 'single',
             'type': 'curl',
-            'disable_output': True,
             'uri': f"/1",
             'headers': {
                 'Connection': 'close',
             },
             'cmd_args': (
-                ' --insecure'
                 f" --max-time {DURATION}"
             ),
         },
@@ -241,13 +239,11 @@ class BaseCurlStress(CustomMtuMixin, tester.TempestaTest, base=True):
         {
             'id': 'sequential',
             'type': 'curl',
-            'disable_output': True,
             'uri': f"/[1-{REQUESTS_COUNT}]",
             'headers': {
                 'Connection': 'close',
             },
             'cmd_args': (
-                ' --insecure'
                 f" --max-time {DURATION}"
             ),
         },
@@ -255,10 +251,8 @@ class BaseCurlStress(CustomMtuMixin, tester.TempestaTest, base=True):
         {
             'id': 'pipelined',
             'type': 'curl',
-            'disable_output': True,
             'uri': f"/[1-{REQUESTS_COUNT}]",
             'cmd_args': (
-                ' --insecure'
                 f" --max-time {DURATION}"
             ),
         },
@@ -266,13 +260,9 @@ class BaseCurlStress(CustomMtuMixin, tester.TempestaTest, base=True):
         {
             'id': 'concurrent',
             'type': 'curl',
-            'disable_output': True,
             'uri': f"/[1-{REQUESTS_COUNT}]",
+            'parallel': CONCURRENT_CONNECTIONS,
             'cmd_args': (
-                ' --insecure'
-                ' --parallel-immediate'
-                ' --parallel'
-                f" --parallel-max {CONCURRENT_CONNECTIONS}"
                 f" --max-time {DURATION}"
             ),
         },
