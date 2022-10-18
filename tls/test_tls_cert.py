@@ -398,6 +398,6 @@ class TlsCertSelect(tester.TempestaTest):
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # Similarly it must fail on RSA-only vhost.
         hs = TlsHandshake()
-        hs.sni = ['example.com']
-        with self.assertRaises(tls.TLSProtocolError):
-            hs.do_12()
+        hs.sni = 'example.com'
+        hs.do_12()
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
