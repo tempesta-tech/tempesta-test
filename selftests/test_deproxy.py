@@ -114,7 +114,7 @@ class DeproxyTestH2(tester.TempestaTest):
         {
             'id' : 'deproxy',
             'type' : 'deproxy_h2',
-            'addr' : "${server_ip}",
+            'addr' : "${tempesta_ip}",
             'port' : '443',
             'ssl'  : True,
             'ssl_hostname' : 'localhost'
