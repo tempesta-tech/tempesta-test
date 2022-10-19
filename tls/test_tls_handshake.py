@@ -176,20 +176,20 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_alert(self):
         self.start_all()
         tls_conn = TlsHandshake()
-        with tls_conn.socket_ctx():
-            self.assertTrue(tls_conn._do_12_hs(), "Can not connect to Tempesta")
-            tls_conn.send_12_alert(tls.TLSAlertLevel.WARNING,
-                                   tls.TLSAlertDescription.UNEXPECTED_MESSAGE)
-            res = tls_conn._do_12_req()
-            self.assertTrue(res, "Wrong request 1 result: %s" % res)
-            # Unknown alerts are just ignored.
-            tls_conn.send_12_alert(22, 77)
-            res = tls_conn._do_12_req()
-            self.assertTrue(res, "Wrong request 2 result: %s" % res)
-            tls_conn.send_12_alert(tls.TLSAlertLevel.FATAL,
-                                   tls.TLSAlertDescription.UNEXPECTED_MESSAGE)
-            res = tls_conn._do_12_req()
-            self.assertFalse(res, "Request processed on closed socket")
+        tls_conn.send_data = [TLSAlert(level=1, descr=10), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        self.assertTrue(tls_conn.do_12(), "Can not connect to Tempesta")
+        self.assertTrue(len(tls_conn.hs.server_data)==1, "Wrong request 1 result: %s" % tls_conn.hs.server_data)
+        
+        # Unknown alerts are just ignored.
+        tls_conn = TlsHandshake()
+        tls_conn.send_data = [TLSAlert(level=22, descr=77), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        self.assertTrue(tls_conn.do_12(), "Can not connect to Tempesta")
+        self.assertTrue(len(tls_conn.hs.server_data)==1, "Wrong request 2 result: %s" % tls_conn.hs.server_data)
+        
+        tls_conn = TlsHandshake()
+        tls_conn.send_data = [TLSAlert(level=2, descr=10), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        tls_conn.do_12()
+        self.assertTrue(len(tls_conn.hs.server_data)==0, "Request processed on closed socket")
 
     def test_close_notify(self):
         self.start_all()

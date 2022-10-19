@@ -38,6 +38,8 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                 self.chunk = value
                 # print(f"{key} == {value}" )
         del kwargs['chunk']
+        self.send_data = []
+        self.server_data = []
         self.hs_state = False
         self.hs_final = False
         self.hs_buffer_out = []
@@ -106,10 +108,14 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
-        for msg in self.hs_buffer_out:
-            self.add_msg(msg)
-            out = msg.decode("utf-8") 
-            print(f'Add message to send buffer {out}')
+        msg = self.send_data.pop(0)
+        self.add_record()
+        self.add_msg(msg)
+        raise self.ADDED_CLIENTDATA()
+
+    @ATMT.state()
+    def ADDED_CLIENTDATA(self):
+        pass
 
     @ATMT.state()
     def RECEIVED_SERVERDATA(self):
@@ -121,23 +127,14 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         """
         if self.chunk is not None:
             print('Trying to send data by chunk')
-            # for p in self.buffer_out:
-            #     print("MSG: ",p.raw_stateful())
-            #     n = self.chunk
-            #     for chunk in [p.raw_stateful()[i:i+n] for i in range(0, len(p.raw_stateful()), n)]:
-            #         print("chunk:", type(chunk))
-            #         print("chunk:", chunk)
-            #         s = b"".join(chunk)
-            #         print("s:", s)
-            #         # self.socket.send(s)
             _s = b"".join(p.raw_stateful() for p in self.buffer_out)
             n = self.chunk
             for chunk in [_s[i:i+n] for i in range(0, len(_s), n)]:
                 self.socket.send(chunk)
         else:
             s = b"".join(p.raw_stateful() for p in self.buffer_out)
-            print(type(s))
-            print("s:", s)
+            # print(type(s))
+            # print("s:", s)
             self.socket.send(s)
         self.buffer_out = []
 
@@ -146,6 +143,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
+        self.server_data.append(p)
         if isinstance(p, TLSApplicationData):
             if self.is_atmt_socket:
                 # Socket mode
@@ -198,6 +196,10 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         raise self.HANDLED_SERVERDATA()
 
     @ATMT.state()
+    def ADDED_CLIENTDATA(self):
+        pass
+
+    @ATMT.state()
     def CONNECT(self):
         s = socket.socket(self.remote_family, socket.SOCK_STREAM)
         tf_cfg.dbg(2, "Trying to connect on %s:%d" % (self.remote_ip,
@@ -231,6 +233,7 @@ class TlsHandshake:
         self.sni = "tempesta-tech.com"
         self.host = self.sni
         self.chunk=chunk
+        self.send_data = None
         self.sign_algs = ['sha256+rsa', \
             'sha384+rsa', \
             'sha1+rsa', \
@@ -285,16 +288,19 @@ class TlsHandshake:
 
     def do_12(self):
         c_h = self.create_hello()
-        self.data = f'GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n'
+        if self.send_data is None:
+            self.send_data = f'GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n'
         # tf_cfg.dbg(2, f'self.data={self.data}')
         self.hs = ModifiedTLSClientAutomaton(
             client_hello=c_h, \
             server=self.server, \
             dport=443, \
-            data=self.data, \
+            # data=self.data, \
             chunk=self.chunk, \
             debug=self.debug
             )
+        if self.send_data is not None:
+            self.hs.send_data = self.send_data
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
         tf_cfg.dbg(2, f'FIN_STATE: {self.hs.state.state}')
