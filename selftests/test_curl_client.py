@@ -1,5 +1,5 @@
-from unittest.mock import ANY, patch
 import unittest
+from unittest.mock import ANY, patch
 
 from framework import tester
 from framework.curl_client import CurlArguments, CurlClient, CurlResponse
@@ -213,9 +213,7 @@ class TestCurlClient(tester.TempestaTest):
 
         with self.subTest("multi headers"):
             self.assertEqual(response.multi_headers["content-length"], ["4"])
-            self.assertEqual(
-                response.multi_headers["x-header"], ["Test-Value-1", "Test-Value-2"]
-            )
+            self.assertEqual(response.multi_headers["x-header"], ["Test-Value-1", "Test-Value-2"])
 
     def test_cookies(self):
         client = self.get_client("cookie")

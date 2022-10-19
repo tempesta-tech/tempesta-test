@@ -1,17 +1,20 @@
 """ Testing for long body in request """
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import unittest
+
+from helpers import control, remote, tempesta, tf_cfg, wrk
+from testers import stress
+
 from . import body_generator
 
-from testers import stress
-from helpers import tf_cfg, control, tempesta, remote, wrk
 
 class RequestTestBase(stress.StressTest):
-    """ Test long request """
+    """Test long request"""
+
     config = "cache 0;\n"
     script = None
     wrk = None
@@ -19,7 +22,7 @@ class RequestTestBase(stress.StressTest):
     generator = None
 
     def create_clients_with_body(self, length):
-        """ Create wrk client with long request body """
+        """Create wrk client with long request body"""
         self.generator = wrk.ScriptGenerator()
         self.generator.set_body(body_generator.generate_body(length))
 
@@ -28,24 +31,28 @@ class RequestTestBase(stress.StressTest):
 
         self.clients = [self.wrk]
 
+
 class RequestTest1k(RequestTestBase):
-    """ Test long request """
+    """Test long request"""
+
     script = "request_1k"
 
     def create_clients(self):
         self.create_clients_with_body(1024)
 
     def test(self):
-        """ Test for 1kbyte body """
+        """Test for 1kbyte body"""
         self.generic_test_routine(self.config)
 
+
 class RequestTest1M(RequestTestBase):
-    """ Test long request """
+    """Test long request"""
+
     script = "request_1M"
 
     def create_clients(self):
         self.create_clients_with_body(1024**2)
 
     def test(self):
-        """ Test for 1Mbyte body """
+        """Test for 1Mbyte body"""
         self.generic_test_routine(self.config)

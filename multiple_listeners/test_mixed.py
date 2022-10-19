@@ -1,8 +1,8 @@
 """TestCase for mixed listening sockets."""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import socket
 import ssl
@@ -11,7 +11,7 @@ from framework import tester
 from framework.external_client import ExternalTester
 from helpers import tf_cfg
 
-STATUS_OK = '200'
+STATUS_OK = "200"
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -72,7 +72,7 @@ http_chain {
 def establish_client_server_connection(
     port: int,
     protocols: list,
-    hostname='localhost',
+    hostname="localhost",
 ):
     """
     Establish a client-server connection and check verify protocol compliance.
@@ -94,7 +94,7 @@ def establish_client_server_connection(
     with socket.create_connection((hostname, port)) as tcp_conn:
         with context.wrap_socket(tcp_conn, server_hostname=hostname) as tls_conn:
             if tls_conn.selected_alpn_protocol() not in protocols:
-                raise RuntimeError(f'Wrong protocol has been used for port {port}')
+                raise RuntimeError(f"Wrong protocol has been used for port {port}")
 
 
 class TestMixedListeners(tester.TempestaTest):
@@ -102,46 +102,46 @@ class TestMixedListeners(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     clients = [
         {
-            'id': 'curl-h2-true',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf --http2 https://127.0.0.1:443/',
+            "id": "curl-h2-true",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http2 https://127.0.0.1:443/",
         },
         {
-            'id': 'curl-h2-false',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf --http2 https://127.0.0.1:4433/',
+            "id": "curl-h2-false",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http2 https://127.0.0.1:4433/",
         },
         {
-            'id': 'curl-https-true',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf --http1.1 https://127.0.0.1:4433/',
+            "id": "curl-https-true",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http1.1 https://127.0.0.1:4433/",
         },
         {
-            'id': 'curl-https-false',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf --http1.1 https://127.0.0.1:443/',
+            "id": "curl-https-false",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http1.1 https://127.0.0.1:443/",
         },
     ]
 
-    tempesta = {'config': TEMPESTA_CONFIG}
+    tempesta = {"config": TEMPESTA_CONFIG}
 
     def start_all(self):
         """Start server and tempesta."""
@@ -181,13 +181,13 @@ class TestMixedListeners(tester.TempestaTest):
             self.assertNotIn(
                 STATUS_OK,
                 response,
-                'Error for curl',
+                "Error for curl",
             )
         else:
             self.assertIn(
                 STATUS_OK,
                 response,
-                'Error for curl',
+                "Error for curl",
             )
 
     def test_mixed_h2_success(self):
@@ -199,12 +199,12 @@ class TestMixedListeners(tester.TempestaTest):
         """
         self.start_all()
 
-        self.check_curl_response(self.make_curl_request('curl-h2-true'), fail=False)
+        self.check_curl_response(self.make_curl_request("curl-h2-true"), fail=False)
         self.assertRaises(
             ssl.SSLError,
             establish_client_server_connection,
             port=4433,
-            protocols=['h2'],
+            protocols=["h2"],
         )
 
     def test_mixed_https_success(self):
@@ -216,5 +216,5 @@ class TestMixedListeners(tester.TempestaTest):
         """
         self.start_all()
 
-        self.check_curl_response(self.make_curl_request('curl-https-true'), fail=False)
-        self.check_curl_response(self.make_curl_request('curl-https-false'), fail=True)
+        self.check_curl_response(self.make_curl_request("curl-https-true"), fail=False)
+        self.check_curl_response(self.make_curl_request("curl-https-false"), fail=True)

@@ -1,15 +1,17 @@
 from __future__ import print_function
-import unittest
-from helpers import tf_cfg, control, tempesta, stateful, dmesg, remote
-from helpers import util
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+import unittest
+
+from helpers import control, dmesg, remote, stateful, tempesta, tf_cfg, util
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 @util.deprecated("tester.TempestaTest")
 class StressTest(unittest.TestCase):
-    """ Test Suite to use HTTP benchmarks as a clients. Can be used for
+    """Test Suite to use HTTP benchmarks as a clients. Can be used for
     functional testing of schedulers and stress testing for other components.
     """
 
@@ -24,31 +26,31 @@ class StressTest(unittest.TestCase):
     errors_timeout = 0
 
     def create_clients(self):
-        """ Override to set desired list of benchmarks and their options. """
+        """Override to set desired list of benchmarks and their options."""
         self.wrk = control.Wrk()
         self.wrk.set_script("foo", content="")
         self.clients = [self.wrk]
 
     def create_tempesta(self):
-        """ Normally no override is needed.
+        """Normally no override is needed.
         Create controller for TempestaFW and add all servers to default group.
         """
         self.tempesta = control.Tempesta()
 
     def configure_tempesta(self):
-        """ Add all servers to default server group with default scheduler. """
-        sg = tempesta.ServerGroup('default')
+        """Add all servers to default server group with default scheduler."""
+        sg = tempesta.ServerGroup("default")
         for s in self.servers:
             sg.add_server(s.ip, s.config.port, s.conns_n)
         self.tempesta.config.add_sg(sg)
 
     def create_servers(self):
-        """ Overrirde to create needed amount of upstream servers. """
+        """Overrirde to create needed amount of upstream servers."""
         port = tempesta.upstream_port_start_from()
         self.servers = [control.Nginx(listen_port=port)]
 
     def create_servers_helper(self, count, start_port=None):
-        """ Helper function to spawn `count` servers in default configuration.
+        """Helper function to spawn `count` servers in default configuration.
 
         See comment in Nginx.get_stats().
         """
@@ -64,8 +66,8 @@ class StressTest(unittest.TestCase):
         self.oops_ignore = []
         self.tempesta = None
         self.servers = []
-        tf_cfg.dbg(3) # Step to the next line after name of test case.
-        tf_cfg.dbg(3, '\tInit test case...')
+        tf_cfg.dbg(3)  # Step to the next line after name of test case.
+        tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
         self.create_clients()
@@ -73,7 +75,7 @@ class StressTest(unittest.TestCase):
         self.create_tempesta()
 
     def force_stop(self):
-        """ Forcefully stop all servers. """
+        """Forcefully stop all servers."""
         # Call functions only if variables not None: there might be an error
         # before tempesta would be created.
         if self.tempesta:
@@ -82,7 +84,7 @@ class StressTest(unittest.TestCase):
             control.servers_force_stop(self.servers)
 
     def tearDown(self):
-        """ Carefully stop all servers. Error on stop will make next test fail,
+        """Carefully stop all servers. Error on stop will make next test fail,
         so mark test as failed even if everything other is fine.
         """
         # Call functions only if variables not None: there might be an error
@@ -121,15 +123,15 @@ class StressTest(unittest.TestCase):
             req_total += req
             err_total += err
             rate_total += rate
-            tf_cfg.dbg(3, ('\tClient: errors: %d, requests: %d, rate: %d'
-                           % (err, req, rate)))
+            tf_cfg.dbg(3, ("\tClient: errors: %d, requests: %d, rate: %d" % (err, req, rate)))
         tf_cfg.dbg(
-            2, '\tClients in total: errors: %d, requests: %d, rate: %d' %
-            (err_total, req_total, rate_total))
+            2,
+            "\tClients in total: errors: %d, requests: %d, rate: %d"
+            % (err_total, req_total, rate_total),
+        )
 
     def assert_client(self, req, err, statuses):
-        msg = 'HTTP client detected %i/%i errors. Results: %s' % \
-                (err, req, str(statuses))
+        msg = "HTTP client detected %i/%i errors. Results: %s" % (err, req, str(statuses))
         e_500 = 0
         e_502 = 0
         e_504 = 0
@@ -172,7 +174,7 @@ class StressTest(unittest.TestCase):
         self.assertEqual(err, e_500 + e_502 + e_504 + e_connect, msg=msg)
 
     def assert_clients(self):
-        """ Check benchmark result: no errors happen, no packet loss. """
+        """Check benchmark result: no errors happen, no packet loss."""
         cl_req_cnt = 0
         cl_conn_cnt = 0
         self.errors_502 = 0
@@ -195,14 +197,14 @@ class StressTest(unittest.TestCase):
         # So, [0; concurrent_connections] responses will be missed by the client.
         exp_max = cl_req_cnt + cl_conn_cnt
         self.assertTrue(
-            self.tempesta.stats.cl_msg_received >= exp_min and
-            self.tempesta.stats.cl_msg_received <= exp_max,
+            self.tempesta.stats.cl_msg_received >= exp_min
+            and self.tempesta.stats.cl_msg_received <= exp_max,
             msg="Tempesta received bad number %d of messages, expected [%d:%d]"
-                % (self.tempesta.stats.cl_msg_received, exp_min, exp_max)
+            % (self.tempesta.stats.cl_msg_received, exp_min, exp_max),
         )
 
     def assert_tempesta(self):
-        """ Don't make asserts by default """
+        """Don't make asserts by default"""
 
         cl_conn_cnt = 0
         for c in self.clients:
@@ -217,11 +219,10 @@ class StressTest(unittest.TestCase):
         tf_cfg.dbg(2, "SRV Msg parsing errors: %i" % srv_parsing_err)
         tf_cfg.dbg(2, "CL Msg other errors: %i" % cl_other_err)
         tf_cfg.dbg(2, "SRV Msg other errors: %i" % srv_other_err)
-
 
     def assert_tempesta_strict(self):
-        """ Assert that tempesta had no errors during test. """
-        msg = 'Tempesta have %i errors in processing HTTP %s.'
+        """Assert that tempesta had no errors during test."""
+        msg = "Tempesta have %i errors in processing HTTP %s."
         cl_conn_cnt = 0
         for c in self.clients:
             cl_conn_cnt += c.connections
@@ -236,22 +237,21 @@ class StressTest(unittest.TestCase):
         tf_cfg.dbg(2, "CL Msg other errors: %i" % cl_other_err)
         tf_cfg.dbg(2, "SRV Msg other errors: %i" % srv_other_err)
 
-        err_msg = msg % (cl_parsing_err, 'requests')
+        err_msg = msg % (cl_parsing_err, "requests")
         self.assertEqual(cl_parsing_err, 0, msg=err_msg)
-        err_msg = msg % (srv_parsing_err, 'responses')
+        err_msg = msg % (srv_parsing_err, "responses")
         self.assertEqual(srv_parsing_err, 0, msg=err_msg)
         if self.tfw_msg_errors:
             return
 
         # TODO: with self.errors_502 we should compare special counter for
         # backend connection error. But it is not present.
-        total = self.errors_502 + self.errors_504 + \
-                self.errors_connect + self.errors_timeout
-        err_msg = msg % (cl_other_err, 'requests')
+        total = self.errors_502 + self.errors_504 + self.errors_connect + self.errors_timeout
+        err_msg = msg % (cl_other_err, "requests")
         self.assertLessEqual(cl_other_err, total, msg=err_msg)
         # See comment on "positive allowance" in `assert_clients()`
         expected_err = cl_conn_cnt
-        err_msg = msg % (srv_other_err, 'responses')
+        err_msg = msg % (srv_other_err, "responses")
         self.assertLessEqual(srv_other_err, expected_err, msg=err_msg)
 
     def assert_servers(self):
@@ -280,14 +280,15 @@ class StressTest(unittest.TestCase):
         self.assert_servers()
 
     def generic_test_routine(self, tempesta_defconfig):
-        """ Make necessary updates to configs of servers, create tempesta config
+        """Make necessary updates to configs of servers, create tempesta config
         and run the routine in you `test_*()` function.
         """
         self.generic_start_test(tempesta_defconfig)
         control.clients_run_parallel(self.clients)
         self.generic_asserts_test()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

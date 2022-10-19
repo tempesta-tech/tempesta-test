@@ -1,7 +1,7 @@
 """cURL utility wrapper."""
 import email
-import json
 import io
+import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from helpers import error, tf_cfg
+
 from . import client
 
 __author__ = "Tempesta Technologies, Inc."
@@ -262,9 +263,7 @@ class CurlClient(CurlArguments, client.Client):
                     stderr_raw=stderr,
                 )
                 if response.proto and response.proto != ("2" if self.http2 else "1.1"):
-                    raise Exception(
-                        f"Unexpected HTTP version response: {response.proto}"
-                    )
+                    raise Exception(f"Unexpected HTTP version response: {response.proto}")
                 self._responses.append(response)
                 self._statuses[response.status] += 1
         if not self.disable_output and stdout:
@@ -281,9 +280,7 @@ class CurlClient(CurlArguments, client.Client):
 
     def _parse_stats(self, stdout: bytes):
         return [
-            json.loads(stats)
-            for stats in stdout.decode().split(self._output_delimeter)
-            if stats
+            json.loads(stats) for stats in stdout.decode().split(self._output_delimeter) if stats
         ]
 
     def _read_headers_dump(self) -> bytes:

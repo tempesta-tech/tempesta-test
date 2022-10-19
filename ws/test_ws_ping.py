@@ -1,21 +1,22 @@
 #! /usr/bin/python3
 
-from framework import tester
-
+import asyncio
+import os
+import ssl
 from multiprocessing import Process
 from random import randint
-import websockets
-import asyncio
-import ssl
-import os
+
 import requests
+import websockets
+
+from framework import tester
 from framework.x509 import CertGenerator
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-hostname = 'localhost'
+hostname = "localhost"
 ping_message = "ping_test"
 
 
@@ -232,14 +233,14 @@ def remove_certs(cert_files_):
 
 class WsPing(tester.TempestaTest):
 
-    """ Ping test for websocket ws scheme """
+    """Ping test for websocket ws scheme"""
 
     backends = []
 
     clients = []
 
     tempesta = {
-        'config': TEMPESTA_CONFIG % "",
+        "config": TEMPESTA_CONFIG % "",
     }
 
     # Client
@@ -262,8 +263,7 @@ class WsPing(tester.TempestaTest):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
         for _ in range(n):
-            async with websockets.connect(f"wss://{host}:{port}",
-                                          ssl=ssl_context) as websocket:
+            async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
                 await websocket.close()
@@ -277,8 +277,7 @@ class WsPing(tester.TempestaTest):
             self.start_all_servers()
         loop = asyncio.get_event_loop()
         for i in range(count):
-            asyncio.ensure_future(websockets.serve(self.handler,
-                                  hostname, port+i))
+            asyncio.ensure_future(websockets.serve(self.handler, hostname, port + i))
         loop.run_forever()
 
     def test_ping_websockets(self):
@@ -308,7 +307,7 @@ class WsPing(tester.TempestaTest):
 
 class WssPing(WsPing):
 
-    """ Ping test for websocket wss scheme. """
+    """Ping test for websocket wss scheme."""
 
     def run_test(self, port, n):
         asyncio.run(self.wss_ping_test(port, n))
@@ -321,7 +320,7 @@ class WssPing(WsPing):
         p2.start()
         p2.join()
         p1.terminate()
-        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
+        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class WssPingProxy(WssPing):
@@ -331,16 +330,18 @@ class WssPingProxy(WssPing):
     Scheme: WSClient (TLS)-> Tempesta-fw -> NGINX (TLS)-> wss
     """
 
-    backends = [{
-        'id': 'nginx',
-        'type': 'nginx',
-        'port': '8000',
-        'status_uri': 'http://${server_ip}:8000/nginx_status',
-        'config': NGINX_CONFIG,
-    }]
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
 
     tempesta = {
-        'config': TEMPESTA_NGINX_CONFIG % "",
+        "config": TEMPESTA_NGINX_CONFIG % "",
     }
 
     def test_ping_websockets(self):
@@ -351,8 +352,8 @@ class WssPingProxy(WssPing):
         p2.start()
         p2.join()
         p1.terminate()
-        self.get_server('nginx').stop_nginx()
-        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
+        self.get_server("nginx").stop_nginx()
+        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class CacheTest(WssPing):
@@ -364,7 +365,7 @@ class CacheTest(WssPing):
     """
 
     tempesta = {
-        'config': TEMPESTA_CACHE_CONFIG % "",
+        "config": TEMPESTA_CACHE_CONFIG % "",
     }
 
     async def handler(self, websocket, path):
@@ -386,8 +387,7 @@ class CacheTest(WssPing):
             "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
         }
 
-        r = requests.get(f'http://{hostname}:{port}', auth=('user', 'pass'),
-                         headers=headers_)
+        r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
             self.fail("Test failed cause recieved invalid status_code")
 
@@ -398,7 +398,7 @@ class CacheTest(WssPing):
         self.call_upgrade(81, [101])
         p1.terminate()
         self.call_upgrade(81, [502, 504])
-        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
+        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class WssStress(WssPing):
@@ -408,13 +408,13 @@ class WssStress(WssPing):
     """
 
     tempesta = {
-        'config': TEMPESTA_STRESS_CONFIG,
+        "config": TEMPESTA_STRESS_CONFIG,
     }
 
     def fibo(self, n):
         fib = [0, 1]
         for i in range(n):
-            fib.append(fib[-2]+fib[-1])
+            fib.append(fib[-2] + fib[-1])
             if fib[-1] > n:
                 break
         return fib
@@ -430,7 +430,7 @@ class WssStress(WssPing):
         p2.start()
         p2.join()
         p1.terminate()
-        remove_certs(['/tmp/cert.pem', '/tmp/key.pem'])
+        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
     async def stress_ping_test(self, port, n):
         host = hostname
@@ -440,10 +440,9 @@ class WssStress(WssPing):
         count = 0
         for _ in range(n):
             count += 1
-            if (4000-count) in self.fibo(4000):
+            if (4000 - count) in self.fibo(4000):
                 self.get_tempesta().restart()
-            async with websockets.connect(f"wss://{host}:{port}",
-                                          ssl=ssl_context) as websocket:
+            async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
                 await websocket.send(ping_message)
                 await websocket.recv()
                 await websocket.close()

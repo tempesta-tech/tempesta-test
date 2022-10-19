@@ -4,12 +4,14 @@ clients/servers are established.
 """
 
 from __future__ import print_function
-from helpers import deproxy, tempesta, remote
+
+from helpers import deproxy, remote, tempesta
 from testers import functional
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class ShutdownTest(functional.FunctionalTest):
     """Spawn a lot of clients, a lot of servers, make some requests but do not
@@ -40,7 +42,7 @@ class ShutdownTest(functional.FunctionalTest):
         self.create_servers_helper(tempesta.servers_in_group())
 
     def init(self):
-        defconfig = 'cache 0;\n'
+        defconfig = "cache 0;\n"
         self.tempesta.config.set_defconfig(defconfig)
         self.create_servers()
         for server in self.servers:
@@ -60,7 +62,7 @@ class ShutdownTest(functional.FunctionalTest):
         self.tester.loop()
         self.tempesta.stop("Tempesta")
         # Run random command on remote node to see if it is still alive.
-        remote.tempesta.run_cmd('uname')
+        remote.tempesta.run_cmd("uname")
 
     def test_shutdown_with_traffic(self):
         self.init()
@@ -71,22 +73,18 @@ class ShutdownTest(functional.FunctionalTest):
         # Run requests once more time.
         self.tester.run()
         # Run random command on remote node to see if it is still alive.
-        remote.tempesta.run_cmd('uname')
+        remote.tempesta.run_cmd("uname")
 
 
 class ShutdownTester(deproxy.Deproxy):
-
     def __init__(self, clients, servers):
         deproxy.Deproxy.__init__(self, None, servers, register=False)
         self.clients = clients
         request = deproxy.Request(
-            "GET / HTTP/1.1\r\n"
-            "Host: host\r\n"
-            "User-Agent: curl/7.53.1\r\n"
-            "\r\n")
+            "GET / HTTP/1.1\r\n" "Host: host\r\n" "User-Agent: curl/7.53.1\r\n" "\r\n"
+        )
         response = deproxy.Response()
-        self.current_chain = deproxy.MessageChain(request, response,
-                                                  server_response=response)
+        self.current_chain = deproxy.MessageChain(request, response, server_response=response)
         self.register_tester()
         self.stop_procedures = [self.close_all]
 
@@ -109,5 +107,6 @@ class ShutdownTester(deproxy.Deproxy):
         servers = [server for server in self.servers]
         for server in servers:
             server.stop("Server")
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

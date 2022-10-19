@@ -4,36 +4,33 @@ and response, stale certificates and certificates with unsupported algorithms.
 """
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from cryptography.hazmat.primitives.asymmetric import ec
 from itertools import cycle, islice
 
-from helpers import dmesg, remote, tempesta, tf_cfg
-from helpers.error import Error
+from cryptography.hazmat.primitives.asymmetric import ec
+
 from framework import tester
 from framework.templates import fill_template, populate_properties
 from framework.x509 import CertGenerator
+from helpers import dmesg, remote, tempesta, tf_cfg
+from helpers.error import Error
+
 from .handshake import TlsHandshake, x509_check_cn
 from .scapy_ssl_tls import ssl_tls as tls
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
-def generate_certificate(
-        cn = 'tempesta-tech.com',
-        san = None,
-        cert_name = "tempesta"
-):
+def generate_certificate(cn="tempesta-tech.com", san=None, cert_name="tempesta"):
     """Generate and upload certificate with given
     common name and  list of Subject Alternative Names.
     Name generated files as `cert_name`.crt and `cert_name`.key.
     """
-    workdir = tf_cfg.cfg.get('General', 'workdir')
+    workdir = tf_cfg.cfg.get("General", "workdir")
 
     cgen = CertGenerator(
-        cert_path=f"{workdir}/{cert_name}.crt",
-        key_path=f"{workdir}/{cert_name}.key"
+        cert_path=f"{workdir}/{cert_name}.crt", key_path=f"{workdir}/{cert_name}.key"
     )
     cgen.CN = cn
     cgen.san = san
@@ -48,29 +45,28 @@ def generate_certificate(
 
 class X509(tester.TempestaTest):
 
-    TIMEOUT = 1 # Use bigger timeout for debug builds.
+    TIMEOUT = 1  # Use bigger timeout for debug builds.
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl' : True,
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
     ]
 
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n' \
-                'Content-Length: 10\r\n' \
-                'Connection: keep-alive\r\n\r\n'
-                '0123456789'
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 10\r\n"
+            "Connection: keep-alive\r\n\r\n"
+            "0123456789",
         }
     ]
 
@@ -87,7 +83,7 @@ class X509(tester.TempestaTest):
         super(X509, self).__init__(*args, **kwargs)
 
     def check_good_cert(self):
-        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv = self.get_server("deproxy")
         deproxy_srv.start()
 
         # We have to copy the certificate and key on our own.
@@ -98,21 +94,22 @@ class X509(tester.TempestaTest):
 
         self.start_all_clients()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=self.TIMEOUT),
-                        "Cannot start Tempesta")
-        client = self.get_client('deproxy')
-        client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        self.assertTrue(
+            deproxy_srv.wait_for_connections(timeout=self.TIMEOUT), "Cannot start Tempesta"
+        )
+        client = self.get_client("deproxy")
+        client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = client.wait_for_response(timeout=X509.TIMEOUT)
         self.assertTrue(res, "Cannot process request")
         status = client.last_response.status
-        self.assertEqual(status, '200', "Bad response status: %s" % status)
+        self.assertEqual(status, "200", "Bad response status: %s" % status)
 
     @dmesg.unlimited_rate_on_tempesta_node
     def check_bad_alg(self, msg):
         """
         Tempesta normally loads a certificate, but fails on TLS handshake.
         """
-        deproxy_srv = self.get_server('deproxy')
+        deproxy_srv = self.get_server("deproxy")
         deproxy_srv.start()
 
         # We have to copy the certificate and key on our own.
@@ -124,14 +121,16 @@ class X509(tester.TempestaTest):
         # Collect warnings before start w/ a bad certificate.
         self.start_all_clients()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT),
-                        "Cannot start Tempesta")
-        client = self.get_client('deproxy')
-        client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        self.assertTrue(
+            deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT), "Cannot start Tempesta"
+        )
+        client = self.get_client("deproxy")
+        client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = client.wait_for_response(timeout=X509.TIMEOUT)
         self.assertFalse(res, "Erroneously established connection")
-        self.assertEqual(self.oops.warn_count(msg), 1,
-                         "Tempesta doesn't throw a warning on bad certificate")
+        self.assertEqual(
+            self.oops.warn_count(msg), 1, "Tempesta doesn't throw a warning on bad certificate"
+        )
 
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start(self, msg):
@@ -146,23 +145,18 @@ class X509(tester.TempestaTest):
             self.start_tempesta()
         except:
             pass
-        self.assertGreater(self.oops.warn_count(msg), 0,
-                           "Tempesta doesn't report error")
+        self.assertGreater(self.oops.warn_count(msg), 0, "Tempesta doesn't report error")
 
 
 class RSA4096_SHA512(X509):
-
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.key = {
-            'alg': 'rsa',
-            'len': 4096
-        }
-        self.cgen.sign_alg = 'sha512'
+        self.cgen.key = {"alg": "rsa", "len": 4096}
+        self.cgen.sign_alg = "sha512"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -171,18 +165,14 @@ class RSA4096_SHA512(X509):
 
 
 class RSA2048_SHA512(X509):
-
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.key = {
-            'alg': 'rsa',
-            'len': 2048
-        }
-        self.cgen.sign_alg = 'sha512'
+        self.cgen.key = {"alg": "rsa", "len": 2048}
+        self.cgen.sign_alg = "sha512"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -191,18 +181,14 @@ class RSA2048_SHA512(X509):
 
 
 class RSA1024_SHA384(X509):
-
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.key = {
-            'alg': 'rsa',
-            'len': 1024
-        }
-        self.cgen.sign_alg = 'sha384'
+        self.cgen.key = {"alg": "rsa", "len": 1024}
+        self.cgen.sign_alg = "sha384"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -211,39 +197,39 @@ class RSA1024_SHA384(X509):
 
 
 class RSA512_SHA256(X509):
-
     def setUp(self):
         self.cgen = CertGenerator()
         self.cgen.key = {
-            'alg': 'rsa',
-            'len': 512 # We do not support RSA key length less than 1024
+            "alg": "rsa",
+            "len": 512,  # We do not support RSA key length less than 1024
         }
-        self.cgen.sign_alg = 'sha256'
+        self.cgen.sign_alg = "sha256"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
     def test(self):
-        self.check_cannot_start("Warning: Trying to load an RSA key smaller"
-                                + " than 1024 bits. Please use stronger keys.")
+        self.check_cannot_start(
+            "Warning: Trying to load an RSA key smaller"
+            + " than 1024 bits. Please use stronger keys."
+        )
 
 
 class ECDSA_SHA256_SECP192(X509):
-
     def setUp(self):
         self.cgen = CertGenerator()
         self.cgen.key = {
-            'alg': 'ecdsa',
-            'curve': ec.SECP192R1() # Deprecated curve, RFC 8422 5.1.1
+            "alg": "ecdsa",
+            "curve": ec.SECP192R1(),  # Deprecated curve, RFC 8422 5.1.1
         }
-        self.cgen.sign_alg = 'sha256'
+        self.cgen.sign_alg = "sha256"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -252,19 +238,16 @@ class ECDSA_SHA256_SECP192(X509):
 
 
 class ECDSA_SHA256_SECP256(X509):
-    """ ECDSA-SHA256-SECP256R1 is the default certificate. """
+    """ECDSA-SHA256-SECP256R1 is the default certificate."""
 
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.key = {
-            'alg': 'ecdsa',
-            'curve': ec.SECP256R1()
-        }
-        self.cgen.sign_alg = 'sha256'
+        self.cgen.key = {"alg": "ecdsa", "curve": ec.SECP256R1()}
+        self.cgen.sign_alg = "sha256"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -273,22 +256,19 @@ class ECDSA_SHA256_SECP256(X509):
 
 
 class ECDSA_SHA384_SECP521(X509):
-    """ The curve secp521r1 isn't recommended by IANA, so it isn't supported
+    """The curve secp521r1 isn't recommended by IANA, so it isn't supported
     by Tempesta FW.
     https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-8
     """
 
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.key = {
-            'alg': 'ecdsa',
-            'curve': ec.SECP521R1()
-        }
-        self.cgen.sign_alg = 'sha384'
+        self.cgen.key = {"alg": "ecdsa", "curve": ec.SECP521R1()}
+        self.cgen.sign_alg = "sha384"
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -297,14 +277,13 @@ class ECDSA_SHA384_SECP521(X509):
 
 
 class InvalidHash(X509):
-
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.sign_alg = 'sha1' # Unsupported
+        self.cgen.sign_alg = "sha1"  # Unsupported
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -319,6 +298,7 @@ class StaleCert(X509):
     for tools like certbot. Probably, we should print a warning about stale
     certificates.
     """
+
     def setUp(self):
         self.cgen = CertGenerator()
         self.cgen.not_valid_before = datetime.now() - timedelta(days=365)
@@ -326,8 +306,8 @@ class StaleCert(X509):
         self.cgen.not_valid_after = datetime.now() - timedelta(seconds=30)
         self.cgen.generate()
         self.tempesta = {
-            'config' : X509.tempesta_tmpl % self.cgen.get_file_paths(),
-            'custom_cert': True
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
@@ -338,30 +318,29 @@ class StaleCert(X509):
 class TlsCertSelect(tester.TempestaTest):
     clients = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl' : True,
-            'ssl_hostname' : 'example.com'
+            "id": "0",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "example.com",
         },
     ]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         },
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -388,9 +367,9 @@ class TlsCertSelect(tester.TempestaTest):
                 -> block;
             }
         """,
-        'custom_cert': True
+        "custom_cert": True,
     }
-    
+
     # This function can be redefined in subclasses to provide
     # an instance TlsHandshake() with different parameters
     def get_tls_handshake(self):
@@ -398,36 +377,32 @@ class TlsCertSelect(tester.TempestaTest):
 
     @staticmethod
     def gen_cert(host_name, alg=None):
-        workdir = tf_cfg.cfg.get('General', 'workdir')
+        workdir = tf_cfg.cfg.get("General", "workdir")
         cert_path = "%s/%s.crt" % (workdir, host_name)
         key_path = "%s/%s.key" % (workdir, host_name)
         cgen = CertGenerator(cert_path, key_path)
-        if alg == 'rsa':
-             cgen.key = {
-                'alg': 'rsa',
-                'len': 2048
-            }
+        if alg == "rsa":
+            cgen.key = {"alg": "rsa", "len": 2048}
         cgen.generate()
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def test_vhost_cert_selection(self):
         self.gen_cert("tempesta_ec")
-        self.gen_cert("tempesta_rsa", 'rsa')
-        self.gen_cert("tempesta_global", 'rsa')
-        deproxy_srv = self.get_server('0')
+        self.gen_cert("tempesta_rsa", "rsa")
+        self.gen_cert("tempesta_global", "rsa")
+        deproxy_srv = self.get_server("0")
         deproxy_srv.start()
         self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
-                        "Cannot start Tempesta")
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
         # TlsHandshake proposes EC only cipher suite and it must successfully
         # request Tempesta.
         res = self.get_tls_handshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # Similarly it must fail on RSA-only vhost.
         hs = TlsHandshake()
-        hs.sni = ['example.com']
+        hs.sni = ["example.com"]
         with self.assertRaises(tls.TLSProtocolError):
             hs.do_12()
 
@@ -437,19 +412,16 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' : (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n\r\n'
-            )
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n"),
         }
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -461,7 +433,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
                 tls_certificate_key ${general_workdir}/tempesta.key;
             }
         """,
-        'custom_cert': True
+        "custom_cert": True,
     }
 
     @property
@@ -480,7 +452,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         hs.sni = [sni]
         # TLS 1.2 handshake completed with no exception => SNI is accepted
         hs._do_12_hs()
-        self.assertTrue(x509_check_cn(hs.cert, 'tempesta-tech.com'))
+        self.assertTrue(x509_check_cn(hs.cert, "tempesta-tech.com"))
 
     def check_handshake_unrecognized_name(self, sni):
         """
@@ -494,72 +466,69 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
     def test_sni_matched(self):
         """SAN certificate matches the passed SNI."""
-        san = ['example.com', '*.example.com']
+        san = ["example.com", "*.example.com"]
         generate_certificate(san=san)
         self.start_all()
 
         for sni in (
-                'example.com',
-                'a.example.com',
-                'www.example.com',
-                '.example.com',
-                '-.example.com',
-                'EXAMPLE.COM',
-                'www.EXAMPLE.com',
-                'A.EXAMPLE.COM',
-                'A.eXaMpLe.CoM',
-                # max length, length 240 'a' will give DECODE_ERROR
-                f"{'-' * 239}.example.com",
+            "example.com",
+            "a.example.com",
+            "www.example.com",
+            ".example.com",
+            "-.example.com",
+            "EXAMPLE.COM",
+            "www.EXAMPLE.com",
+            "A.EXAMPLE.COM",
+            "A.eXaMpLe.CoM",
+            # max length, length 240 'a' will give DECODE_ERROR
+            f"{'-' * 239}.example.com",
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
                 self.check_handshake_success(sni=sni)
 
     def test_sni_not_matched(self):
         """SAN certificate does not match the passed SNI."""
-        san = ['example.com', '*.example.com']
+        san = ["example.com", "*.example.com"]
         generate_certificate(san=san)
         self.start_all()
 
         for sni in (
-                'b.a.example.com',
-                '..example.com',
-                '.a.example.com',
-                'www.www.example.com',
-                'example.com.www',
-                'example.com.',
-                'a-example.com',
-                'a.example.comm',
-                'a.example.com-',
-                'a.example.com.',
-                'a.example.com.example.com',
-                tf_cfg.cfg.get("Server", "ip"),
-                'a' * 251,  # max length, 252 will give DECODE_ERROR
-                '@.example.com',
-                '*.example.com',
-                '!!!.example.com',
-                '\n.example.com',
+            "b.a.example.com",
+            "..example.com",
+            ".a.example.com",
+            "www.www.example.com",
+            "example.com.www",
+            "example.com.",
+            "a-example.com",
+            "a.example.comm",
+            "a.example.com-",
+            "a.example.com.",
+            "a.example.com.example.com",
+            tf_cfg.cfg.get("Server", "ip"),
+            "a" * 251,  # max length, 252 will give DECODE_ERROR
+            "@.example.com",
+            "*.example.com",
+            "!!!.example.com",
+            "\n.example.com",
         ):
-            with self.subTest(
-                    msg="Trying TLS handshake with expected unknown SNI",
-                    sni=sni
-            ):
+            with self.subTest(msg="Trying TLS handshake with expected unknown SNI", sni=sni):
                 self.check_handshake_unrecognized_name(sni=sni)
 
     def test_various_san_and_sni_matched(self):
         """Various SAN certificates match the passed SNI."""
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
-        self.oops_ignore = ['WARNING']
+        self.oops_ignore = ["WARNING"]
         generate_certificate()
         self.start_all()
 
         for san, sni in (
-                (['*.b.c.example.com'], "a.b.c.example.com"),
-                (['example.com'], "example.com"),
-                ([".example.com"], "www.example.com"),
-                (['www.localhost', 'example.com'], 'example.com'),
-                (['*.xn--e1aybc.xn--90a3ac'], 'xn--e1aybc.xn--e1aybc.xn--90a3ac'),
-                (['localhost'], 'localhost'),
-                (['*.local'], 'example.local'),
+            (["*.b.c.example.com"], "a.b.c.example.com"),
+            (["example.com"], "example.com"),
+            ([".example.com"], "www.example.com"),
+            (["www.localhost", "example.com"], "example.com"),
+            (["*.xn--e1aybc.xn--90a3ac"], "xn--e1aybc.xn--e1aybc.xn--90a3ac"),
+            (["localhost"], "localhost"),
+            (["*.local"], "example.local"),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
@@ -569,49 +538,45 @@ class TlsCertSelectBySan(tester.TempestaTest):
     def test_various_san_and_sni_not_matched(self):
         """Various SAN certificates do not match the passed SNI."""
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
-        self.oops_ignore = ['WARNING']
+        self.oops_ignore = ["WARNING"]
         generate_certificate()
         self.start_all()
 
         for san, sni in (
-                (['a.*.example.com'], 'a.b.example.com'),
-                # Component fragment wildcards does not accepted.
-                # Related discussion: https://codereview.chromium.org/762013002
-                (['w*.example.com'], 'www.example.com'),
-                (['www.example.com'], 'www.example.com'),
-                (['a.example.com'], 'b.example.com'),
-                (['example.onion'], 'example.onion'),
+            (["a.*.example.com"], "a.b.example.com"),
+            # Component fragment wildcards does not accepted.
+            # Related discussion: https://codereview.chromium.org/762013002
+            (["w*.example.com"], "www.example.com"),
+            (["www.example.com"], "www.example.com"),
+            (["a.example.com"], "b.example.com"),
+            (["example.onion"], "example.onion"),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
             with self.subTest(
-                    msg="Trying TLS handshake with expected unknown SNI",
-                    san=san,
-                    sni=sni
+                msg="Trying TLS handshake with expected unknown SNI", san=san, sni=sni
             ):
                 self.check_handshake_unrecognized_name(sni=sni)
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_unknown_server_name_warning(self):
         """Test that expected 'unknown server name' warning appears in DMESG logs."""
-        generate_certificate(san=['example.com', '*.example.com'])
+        generate_certificate(san=["example.com", "*.example.com"])
         self.start_all()
 
         for sni, printable_name in (
-                ("localhost", "'localhost'"),
-                ("a.localhost", "'a.localhost'"),
-                ("a.b.localhost", "'a.b.localhost'"),  # subdomain should be displayed
-                ("a.b.c.localhost", "'a.b.c.localhost'"),
-                ("a.b.c.localhost.com", "'a.b.c.localhost.com'"),
-                ("a.b.c.example.com", "'a.b.c.example.com'"),
-                ("\0hidden part :)", "''"),  # non-printable characters allowed
-                ("\n\n\n", "'"),  # empty lines appears in the log
+            ("localhost", "'localhost'"),
+            ("a.localhost", "'a.localhost'"),
+            ("a.b.localhost", "'a.b.localhost'"),  # subdomain should be displayed
+            ("a.b.c.localhost", "'a.b.c.localhost'"),
+            ("a.b.c.localhost.com", "'a.b.c.localhost.com'"),
+            ("a.b.c.example.com", "'a.b.c.example.com'"),
+            ("\0hidden part :)", "''"),  # non-printable characters allowed
+            ("\n\n\n", "'"),  # empty lines appears in the log
         ):
             with self.subTest(msg="Check 'unknown server name' warning", sni=sni):
                 with dmesg.wait_for_msg(
-                        f"requested unknown server name {printable_name}",
-                        timeout=1,
-                        permissive=False
+                    f"requested unknown server name {printable_name}", timeout=1, permissive=False
                 ):
                     self.check_handshake_unrecognized_name(sni=sni)
 
@@ -626,11 +591,13 @@ class TlsCertSelectBySan(tester.TempestaTest):
             hs.sni = [sni]
             hs._do_12_hs()
 
-        san_iter = cycle([
-            ['*.example.com'],
-            ['*.tempesta-tech.com'],
-        ])
-        sni_iter = cycle(['a.example.com', 'b.tempesta-tech.com'])
+        san_iter = cycle(
+            [
+                ["*.example.com"],
+                ["*.tempesta-tech.com"],
+            ]
+        )
+        sni_iter = cycle(["a.example.com", "b.tempesta-tech.com"])
 
         generate_certificate(san=[])
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
@@ -647,8 +614,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
                 raise Exception(f"SNI should match to the current certificate [i={i}]")
 
             with self.assertRaises(
-                    tls.TLSProtocolError,
-                    msg=f"SNI should not match to the current certificate [i={i}]"
+                tls.TLSProtocolError, msg=f"SNI should not match to the current certificate [i={i}]"
             ):
                 handshake(next(sni_iter))
 
@@ -663,20 +629,16 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' : (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                '\r\n'
-            )
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" "\r\n"),
         }
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -694,7 +656,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 tls_certificate_key ${general_workdir}/private.key;
             }
         """,
-        'custom_cert': True
+        "custom_cert": True,
     }
 
     config_no_private_section = """
@@ -734,14 +696,10 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         self.assertTrue(self.wait_all_connections(1))
 
     def reload_with_config(self, template: str):
-        """Reconfigure Tempesta with the provided config `template`.
-        """
-        desc = {
-            'config': template,
-            'custom_cert': True
-        }
+        """Reconfigure Tempesta with the provided config `template`."""
+        desc = {"config": template, "custom_cert": True}
         populate_properties(desc)
-        config_text = fill_template(desc['config'], desc)
+        config_text = fill_template(desc["config"], desc)
 
         config = tempesta.Config()
         config.set_defconfig(config_text, custom_cert=True)
@@ -750,14 +708,10 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
     def test(self):
         generate_certificate(
-            cert_name='wildcard',
-            cn='wildcard',
-            san=['example.com', '*.example.com']
+            cert_name="wildcard", cn="wildcard", san=["example.com", "*.example.com"]
         )
         generate_certificate(
-            cert_name='private',
-            cn='private',
-            san=['example.com', 'private.example.com']
+            cert_name="private", cn="private", san=["example.com", "private.example.com"]
         )
         self.start_all()
         # save the current config text
@@ -765,9 +719,9 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
         # Both 'wildcard' and 'private' certificates are provided
         for sni, expected_cert in (
-                ('example.com', 'wildcard'),
-                ('public.example.com', 'wildcard'),
-                ('private.example.com', 'private'),
+            ("example.com", "wildcard"),
+            ("public.example.com", "wildcard"),
+            ("private.example.com", "private"),
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
                 hs = TlsHandshake(verbose=self.verbose)
@@ -778,9 +732,9 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         self.reload_with_config(self.config_no_private_section)
         # After Tempesta reload, 'wildcard' certificate are provided for all subdomains
         for sni, expected_cert in (
-                ('example.com', 'wildcard'),
-                ('public.example.com', 'wildcard'),
-                ('private.example.com', 'wildcard'),
+            ("example.com", "wildcard"),
+            ("public.example.com", "wildcard"),
+            ("private.example.com", "wildcard"),
         ):
             with self.subTest(msg="Trying TLS handshake after config reload", sni=sni):
                 hs = TlsHandshake(verbose=self.verbose)
@@ -792,12 +746,12 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         # After Tempesta reload,
         # 'wildcard' certificate is provided for 'private' section,
         hs = TlsHandshake(verbose=self.verbose)
-        hs.sni = ['private.example.com']
+        hs.sni = ["private.example.com"]
         hs._do_12_hs()
-        self.assertTrue(x509_check_cn(hs.cert, 'private'))
+        self.assertTrue(x509_check_cn(hs.cert, "private"))
 
         # and no certificate provided for removed 'wildcard' section subdomains
-        for sni in 'example.com', 'public.example.com':
+        for sni in "example.com", "public.example.com":
             with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
                 with self.assertRaises(tls.TLSProtocolError):
                     hs = TlsHandshake(verbose=self.verbose)
@@ -807,80 +761,61 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
         for sni, expected_cert in (
-                ('example.com', 'wildcard'),
-                ('public.example.com', 'wildcard'),
-                ('private.example.com', 'private'),
+            ("example.com", "wildcard"),
+            ("public.example.com", "wildcard"),
+            ("private.example.com", "private"),
         ):
-            with self.subTest(
-                    msg="Trying TLS handshake after second config reload",
-                    sni=sni
-            ):
+            with self.subTest(msg="Trying TLS handshake after second config reload", sni=sni):
                 hs = TlsHandshake(verbose=self.verbose)
                 hs.sni = [sni]
                 hs._do_12_hs()
                 self.assertTrue(x509_check_cn(hs.cert, expected_cert))
 
 
-
 class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     """
     Base class for vhost sections access tests.
     """
+
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '443',
-            'ssl': True,
-            'ssl_hostname': 'example.com',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "example.com",
         },
     ]
 
     backends = [
         {
-            'id': 'server-1',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 8\r\n\r\n'
-                'server-1'
-            )
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 8\r\n\r\n" "server-1"),
         },
         {
-            'id': 'server-2',
-            'type': 'deproxy',
-            'port': '8001',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 8\r\n\r\n'
-                'server-2'
-            )
+            "id": "server-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 8\r\n\r\n" "server-2"),
         },
         {
-            'id': 'server-3',
-            'type': 'deproxy',
-            'port': '8002',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 8\r\n\r\n'
-                'server-3'
-            )
+            "id": "server-3",
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 8\r\n\r\n" "server-3"),
         },
         {
-            'id': 'server-4',
-            'type': 'deproxy',
-            'port': '8003',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 8\r\n\r\n'
-                'server-4'
-            )
+            "id": "server-4",
+            "type": "deproxy",
+            "port": "8003",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 8\r\n\r\n" "server-4"),
         },
     ]
 
@@ -930,10 +865,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         pass
 
     def setUp(self):
-        self.tempesta = {
-            'config': self.tempesta_tmpl % (self.frang_limits),
-            'custom_cert': True
-        }
+        self.tempesta = {"config": self.tempesta_tmpl % (self.frang_limits), "custom_cert": True}
         tester.TempestaTest.setUp(self)
 
     def start_all(self):
@@ -946,15 +878,15 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     def make_request(self, host):
         """Make request with the specified `host` header and
         return the body of response."""
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
         client.make_request(f"GET / HTTP/1.1\r\nHost: {host}\r\n\r\n")
         return client.wait_for_response(timeout=X509.TIMEOUT)
 
     def expect_request_processed(self, host, expected_server):
         self.assertTrue(self.make_request(host))
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
         status = client.last_response.status
-        self.assertEqual(status, '200', f'Bad response status: {status}')
+        self.assertEqual(status, "200", f"Bad response status: {status}")
         self.assertEqual(client.last_response.body, expected_server)
 
     def expect_request_fail(self, host):
@@ -967,9 +899,9 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: example.com
         """
-        generate_certificate(cn='example.com', san=['example.com'])
+        generate_certificate(cn="example.com", san=["example.com"])
         self.start_all()
-        self.expect_request_processed('example.com', expected_server='server-1')
+        self.expect_request_processed("example.com", expected_server="server-1")
 
     def test_with_san(self):
         """
@@ -978,9 +910,9 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: localhost
         """
-        generate_certificate(cn='random-name', san=['example.com'])
+        generate_certificate(cn="random-name", san=["example.com"])
         self.start_all()
-        self.expect_request_fail('localhost')
+        self.expect_request_fail("localhost")
 
     def test_with_common_name(self):
         """
@@ -989,9 +921,9 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: localhost
         """
-        generate_certificate(cn='example.com', san=None)
+        generate_certificate(cn="example.com", san=None)
         self.start_all()
-        self.expect_request_fail('localhost')
+        self.expect_request_fail("localhost")
 
     def test_with_any_host(self):
         """
@@ -1002,15 +934,16 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         """
         # ignore "Vhost example.com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
-        generate_certificate(cn='random-name', san=None)
+        generate_certificate(cn="random-name", san=None)
         self.start_all()
-        self.expect_request_fail('another-random-name')
+        self.expect_request_fail("another-random-name")
 
 
 class TlsSniWithHttpTable(BaseTlsSniWithHttpTable):
     """
     Test that vhost could not be accessed with certificate from another section.
     """
+
     frang_limits = ""
 
 
@@ -1018,6 +951,7 @@ class TlsSniWithHttpTableFrang(BaseTlsSniWithHttpTable):
     """
     Same as TlsSniWithHttpTable, with `http_host_required` enabled.
     """
+
     frang_limits = """
             frang_limits {
                 http_host_required;
@@ -1030,29 +964,29 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
     backends = [
         {
-            'id': 'server-1',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Server: server-1\r\n'
-                'Date: test\r\n'
-                'Content-Length: 8\r\n\r\n'
-                'server-1'
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Server: server-1\r\n"
+                "Date: test\r\n"
+                "Content-Length: 8\r\n\r\n"
+                "server-1"
             ),
         },
         {
-            'id': 'server-2',
-            'type': 'deproxy',
-            'port': '8001',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Server: server-2\r\n'
-                'Date: test\r\n'
-                'Content-Length: 8\r\n\r\n'
-                'server-2'
+            "id": "server-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Server: server-2\r\n"
+                "Date: test\r\n"
+                "Content-Length: 8\r\n\r\n"
+                "server-2"
             ),
         },
     ]
@@ -1104,13 +1038,13 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
     def setUp(self):
         self.tempesta = {
-            'config': self.tempesta_tmpl % (self.proto, self.frang_limits),
-            'custom_cert': True
+            "config": self.tempesta_tmpl % (self.proto, self.frang_limits),
+            "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
     def start_all(self):
-        generate_certificate(san=['example.com', '*.example.com'])
+        generate_certificate(san=["example.com", "*.example.com"])
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
@@ -1121,18 +1055,14 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
         """Try to access multiple hosts in alterating order."""
         REQ_NUM = 4
         self.assertFalse(REQ_NUM % 2, "REQ_NUM should be even")
-        host_iter = cycle(['a.example.com', 'localhost'])
+        host_iter = cycle(["a.example.com", "localhost"])
 
         self.start_all()
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
         server1 = self.get_server("server-1")
         server2 = self.get_server("server-2")
 
-        client.make_requests(
-            self.build_requests(
-                hosts=islice(host_iter, REQ_NUM)
-            )
-        )
+        client.make_requests(self.build_requests(hosts=islice(host_iter, REQ_NUM)))
         client.wait_for_response(timeout=2)
 
         self.assertLess(len(client.responses), 2)
@@ -1149,27 +1079,20 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '443',
-            'ssl': True,
-            'ssl_hostname': 'a.example.com',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "a.example.com",
         },
     ]
 
     def build_requests(self, hosts):
-
         def build_request(host):
-            return (
-                "GET / HTTP/1.1\r\n"
-                f"Host: {host}\r\n"
-                "\r\n"
-            )
+            return "GET / HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
 
-        return "\r\n".join(
-            [build_request(host) for host in hosts]
-        )
+        return "\r\n".join([build_request(host) for host in hosts])
 
     def test_alternating_access(self):
         """
@@ -1183,11 +1106,13 @@ class TlsSniWithHttpTableMultiFrang(TlsSniWithHttpTableMulti):
     """
     Same as TlsSniWithHttpTableMulti, with `http_host_required` enabled.
     """
+
     frang_limits = """
             frang_limits {
                 http_host_required;
             }
     """
+
 
 class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 
@@ -1196,24 +1121,18 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy_h2',
-            'addr': "${tempesta_ip}",
-            'port': '443',
-            'ssl': True,
-            'ssl_hostname': 'example.com'
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "example.com",
         },
     ]
 
     def build_requests(self, hosts):
-
         def build_request(host):
-            return [
-                (':authority', host),
-                (':path', '/'),
-                (':scheme', 'https'),
-                (':method', 'GET')
-            ]
+            return [(":authority", host), (":path", "/"), (":scheme", "https"), (":method", "GET")]
 
         return [build_request(host) for host in hosts]
 
@@ -1231,6 +1150,7 @@ class TlsSniWithHttpTableMultiH2Frang(TlsSniWithHttpTableMultiH2):
     """
     Same as TlsSniWithHttpTableMultiH2, with `http_host_required` enabled.
     """
+
     frang_limits = """
             frang_limits {
                 http_host_required;

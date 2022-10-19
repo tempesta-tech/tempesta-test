@@ -6,33 +6,30 @@ If the client creates too many connections, block them.
 from framework import tester
 from helpers import dmesg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class HttpConnBase(tester.TempestaTest):
     clients = [
         {
-            'id': 'ab',
-            'type': 'external',
-            'binary': 'ab',
-            'cmd_args': (
-                    '-c 2 -n 2 ' +
-                    '-H \'Host: \' -H \'Connection: close\' ' +
-                    'http://${tempesta_ip}/'
-            )
+            "id": "ab",
+            "type": "external",
+            "binary": "ab",
+            "cmd_args": (
+                "-c 2 -n 2 " + "-H 'Host: ' -H 'Connection: close' " + "http://${tempesta_ip}/"
+            ),
         }
     ]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.0 200 OK\r\n'
-                'Content-Length: 0\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.0 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         }
     ]
 
@@ -56,9 +53,10 @@ class HttpConnBase(tester.TempestaTest):
         for cl in clients:
             cl.stop()
 
+
 class HttpConnRateBlock(HttpConnBase):
     tempesta = {
-        'config' : """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -74,9 +72,10 @@ frang_limits {
         self.do()
         self.assertGreater(self.warn_count, 0, "Frang limits warning is incorrectly shown")
 
+
 class HttpConnBurstBlock(HttpConnBase):
     tempesta = {
-        'config' : """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -92,9 +91,10 @@ frang_limits {
         self.do()
         self.assertGreater(self.warn_count, 0, "Frang limits warning is incorrectly shown")
 
+
 class HttpConnRateUnblock(HttpConnBase):
     tempesta = {
-        'config' : """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -110,9 +110,10 @@ frang_limits {
         self.do()
         self.assertEqual(self.warn_count, 0, "Frang limits warning is incorrectly shown")
 
+
 class HttpConnBurstUnblock(HttpConnBase):
     tempesta = {
-        'config' : """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
