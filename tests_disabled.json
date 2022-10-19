@@ -146,19 +146,7 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "http2_general.test_h2_perf",
-            "reason" : "Disabled by issue #261"
-        },
-        {
-            "name" : "http2_general.test_h2_ping",
-            "reason" : "Disabled by issue #261"
-        },
-        {
-            "name" : "http2_general.test_h2_specs",
-            "reason" : "Disabled by issue #261"
-        },
-        {
-            "name" : "http2_general.test_h2_sticky_cookie",
+            "name" : "http2_general",
             "reason" : "Disabled by issue #261"
         },
         {
