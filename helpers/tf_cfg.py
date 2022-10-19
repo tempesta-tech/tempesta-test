@@ -52,6 +52,10 @@ class TestFrameworkCfg(object):
                     "duration": "10",
                     "concurrent_connections": "10",
                     "log_file": "tests_log.log",
+                    "stress_threads": "2",
+                    "stress_large_content_length": "65536",
+                    "stress_requests_count": "100",
+                    "stress_mtu": "0",
                 },
                 "Client": {
                     "ip": "127.0.0.1",

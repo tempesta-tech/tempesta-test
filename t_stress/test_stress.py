@@ -12,29 +12,28 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-# Keep 10+ open connections
-CONCURRENT_CONNECTIONS = max(
-    int(tf_cfg.cfg.get("General", "concurrent_connections")),
-    10
-)
+
+# Number of open connections
+CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
 # Number of threads to use for wrk and h2load tests
-THREADS = 2
+THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
+
 # Number of requests to make
-REQUESTS_COUNT = CONCURRENT_CONNECTIONS * 10
+REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 # Time to wait for single request completion
-DURATION = tf_cfg.cfg.get('General', 'duration')
+DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 # MTU values to set for interfaces. 0 - do not change value.
 # There was errors when MTU is set to 80 (see Tempesta issue #1703)
 # Tempesta -> Client interface
-TEMPESTA_TO_CLIENT_MTU = 0
+TEMPESTA_TO_CLIENT_MTU = int(tf_cfg.cfg.get("General", "stress_mtu"))
 # Tempesta -> Server interface
-TEMPESTA_TO_SERVER_MTU = 0
+TEMPESTA_TO_SERVER_MTU = int(tf_cfg.cfg.get("General", "stress_mtu"))
 # Server -> Tempesta interface
-SERVER_TO_TEMPESTA_MTU = 0
+SERVER_TO_TEMPESTA_MTU = int(tf_cfg.cfg.get("General", "stress_mtu"))
 
 # Backend response content size in bytes
-LARGE_CONTENT_LENGTH = 1024 * 64
+LARGE_CONTENT_LENGTH = int(tf_cfg.cfg.get("General", "stress_large_content_length"))
 
 # NGINX backend config with the large page response
 NGINX_LARGE_PAGE_CONFIG = """
