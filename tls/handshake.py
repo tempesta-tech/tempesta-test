@@ -1,3 +1,4 @@
+import chunk
 from time import sleep
 import scapy.layers.tls.crypto.suites as suites
 from scapy.all import *
@@ -32,9 +33,14 @@ def x509_check_issuer(cert, issuer):
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     
     def __init__(self, *args, **kwargs):
-        
+        for key, value in kwargs.items():
+            if key == 'chunk':
+                self.chunk = value
+                # print(f"{key} == {value}" )
+        del kwargs['chunk']
         self.hs_state = False
         self.hs_final = False
+        self.hs_buffer_out = []
         self.hs_buffer = []
         TLSClientAutomaton.__init__(self, *args, **kwargs)
     
@@ -99,8 +105,41 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         tf_cfg.dbg(2, "Ending TLS client automaton.")
 
     @ATMT.state()
+    def WAIT_CLIENTDATA(self):
+        for msg in self.hs_buffer_out:
+            self.add_msg(msg)
+            out = msg.decode("utf-8") 
+            print(f'Add message to send buffer {out}')
+
+    @ATMT.state()
     def RECEIVED_SERVERDATA(self):
         pass
+
+    def flush_records(self):
+        """
+        Send all buffered records and update the session accordingly.
+        """
+        if self.chunk is not None:
+            print('Trying to send data by chunk')
+            # for p in self.buffer_out:
+            #     print("MSG: ",p.raw_stateful())
+            #     n = self.chunk
+            #     for chunk in [p.raw_stateful()[i:i+n] for i in range(0, len(p.raw_stateful()), n)]:
+            #         print("chunk:", type(chunk))
+            #         print("chunk:", chunk)
+            #         s = b"".join(chunk)
+            #         print("s:", s)
+            #         # self.socket.send(s)
+            _s = b"".join(p.raw_stateful() for p in self.buffer_out)
+            n = self.chunk
+            for chunk in [_s[i:i+n] for i in range(0, len(_s), n)]:
+                self.socket.send(chunk)
+        else:
+            s = b"".join(p.raw_stateful() for p in self.buffer_out)
+            print(type(s))
+            print("s:", s)
+            self.socket.send(s)
+        self.buffer_out = []
 
     @ATMT.condition(RECEIVED_SERVERDATA, prio=1)
     def should_handle_ServerData(self):
@@ -175,23 +214,23 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERFINISHED(self):
-        # self.vprint_sessioninfo()
         self.server_cert = self.cur_session.server_certs
         self.client_cert = self.cur_session.client_certs
-        # print(self.server_cert[0])
-        # self.vprint("HANDLE SERVERFINISHED")
+        if tf_cfg.v_level() > 1:
+            self.vprint_sessioninfo()
+            print(self.server_cert[0])
         tf_cfg.dbg(2, "TLS handshake completed!")
         self.hs_state = True
 
 class TlsHandshake:
 
-    def __init__(self, data='GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n', debug=0):
+    def __init__(self, chunk=None, debug=2):
         self.server = '127.0.0.1'
         self.hs_state = False
         self.debug = debug
         self.sni = "tempesta-tech.com"
         self.host = self.sni
-        self.data = data
+        self.chunk=chunk
         self.sign_algs = ['sha256+rsa', \
             'sha384+rsa', \
             'sha1+rsa', \
@@ -240,18 +279,20 @@ class TlsHandshake:
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]
         ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, self.renegotiation_info]
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
-        # tf_cfg.dbg(2, ch.show())
+        if tf_cfg.v_level() > 1:
+            ch.show()
         return ch
 
     def do_12(self):
         c_h = self.create_hello()
         self.data = f'GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n'
-        tf_cfg.dbg(2, f'self.data={self.data}')
+        # tf_cfg.dbg(2, f'self.data={self.data}')
         self.hs = ModifiedTLSClientAutomaton(
             client_hello=c_h, \
             server=self.server, \
             dport=443, \
             data=self.data, \
+            chunk=self.chunk, \
             debug=self.debug
             )
         self.hs.run(wait=False)
@@ -259,10 +300,3 @@ class TlsHandshake:
         tf_cfg.dbg(2, f'FIN_STATE: {self.hs.state.state}')
         tf_cfg.dbg(2, f'BUFFER: {self.hs.hs_buffer}')
         return self.hs.hs_state
-
-# t = TlsHandshake()
-# t.sni = ''
-# t.ciphers = list(range(100, 49196))
-# t.ciphers = list(range(100, 49196))
-# t.do_12()
-# sleep(2)
