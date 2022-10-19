@@ -4,9 +4,9 @@ Tests for correct handling of HTTP/1.1 headers.
 
 from framework import tester
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 # Response from the WordPress POST /wp-login.php
@@ -34,40 +34,37 @@ class BackendSetCoookie(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'set-cookie-1',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Set-Cookie: c1=test1\r\n'
-                'Content-Length: 0\r\n\r\n'
+            "id": "set-cookie-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n" "Set-Cookie: c1=test1\r\n" "Content-Length: 0\r\n\r\n"
             ),
         },
         {
-            'id': 'set-cookie-2',
-            'type': 'deproxy',
-            'port': '8001',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Set-Cookie: c1=test1\r\n'
-                'Set-Cookie: c2=test2\r\n'
-                'Content-Length: 0\r\n\r\n'
+            "id": "set-cookie-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Set-Cookie: c1=test1\r\n"
+                "Set-Cookie: c2=test2\r\n"
+                "Content-Length: 0\r\n\r\n"
             ),
         },
         {
-            'id': 'wordpress-login',
-            'type': 'deproxy',
-            'port': '8002',
-            'response': 'static',
-            'response_content': wordpress_login_response,
+            "id": "wordpress-login",
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": wordpress_login_response,
         },
     ]
 
     tempesta = {
-        'config':
-        """
+        "config": """
         listen 80;
         srv_group sg1 { server ${server_ip}:8000; }
         srv_group sg2 { server ${server_ip}:8001; }
@@ -87,10 +84,10 @@ class BackendSetCoookie(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         }
     ]
 
@@ -104,40 +101,37 @@ class BackendSetCoookie(tester.TempestaTest):
     def test_request_success(self):
         """Test that Tempesta proxies responses with Set-Cookie headers successfully."""
         self.start_all()
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
         for path in (
-                "cookie1",  # single Set-Cookie header
-                "cookie2",  # two Set-Cookie headers
-                "wordpress-login",  # WordPress response with multiple Set-Cookie headers
+            "cookie1",  # single Set-Cookie header
+            "cookie2",  # two Set-Cookie headers
+            "wordpress-login",  # WordPress response with multiple Set-Cookie headers
         ):
             with self.subTest("GET cookies", path=path):
                 client.make_request(f"GET /{path} HTTP/1.1\r\n\r\n")
-                self.assertTrue(
-                    client.wait_for_response(timeout=1)
-                )
-                self.assertEqual(client.last_response.status, '200')
+                self.assertTrue(client.wait_for_response(timeout=1))
+                self.assertEqual(client.last_response.status, "200")
 
 
 class RepeatedHeaderCache(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'headers',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Dup: 1\r\n'  # Header is
-                'Dup: 2\r\n'  # repeated
-                'Content-Length: 0\r\n\r\n'
+            "id": "headers",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Dup: 1\r\n"  # Header is
+                "Dup: 2\r\n"  # repeated
+                "Content-Length: 0\r\n\r\n"
             ),
         },
     ]
 
     tempesta = {
-        'config':
-        """
+        "config": """
         listen 80;
         cache 1;
         cache_fulfill * *;
@@ -148,10 +142,10 @@ class RepeatedHeaderCache(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         }
     ]
 
@@ -171,31 +165,27 @@ class RepeatedHeaderCache(tester.TempestaTest):
         (see Tempesta issue #1691)
         """
         self.start_all()
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
 
-        client.make_request('GET / HTTP/1.1\r\n\r\n')
+        client.make_request("GET / HTTP/1.1\r\n\r\n")
 
         self.assertTrue(client.wait_for_response(timeout=1))
-        self.assertEqual(client.last_response.status, '200')
+        self.assertEqual(client.last_response.status, "200")
 
 
 class TestSmallHeader(tester.TempestaTest):
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n\r\n'
-            ),
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n"),
         },
     ]
 
     tempesta = {
-        'config':
-        """
+        "config": """
         listen 80;
         server ${server_ip}:8000;
         cache 0;
@@ -204,10 +194,10 @@ class TestSmallHeader(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         }
     ]
 
@@ -220,17 +210,13 @@ class TestSmallHeader(tester.TempestaTest):
     def test_small_header_name_accepted(self):
         """Request with small header name length completes successfully."""
         self.start_all()
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
 
         for length in range(1, 5):
-            header = 'X' * length
+            header = "X" * length
             client.start()
             with self.subTest(header=header):
-                client.make_request(
-                    'GET / HTTP/1.1\r\n'
-                    f"{header}: test\r\n"
-                    '\r\n'
-                )
+                client.make_request("GET / HTTP/1.1\r\n" f"{header}: test\r\n" "\r\n")
                 self.assertTrue(client.wait_for_response(timeout=1))
-                self.assertEqual(client.last_response.status, '200')
+                self.assertEqual(client.last_response.status, "200")
             client.stop()

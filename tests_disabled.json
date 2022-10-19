@@ -146,7 +146,19 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "http2_general",
+            "name" : "http2_general.test_h2_perf",
+            "reason" : "Disabled by issue #261"
+        },
+        {
+            "name" : "http2_general.test_h2_ping",
+            "reason" : "Disabled by issue #261"
+        },
+        {
+            "name" : "http2_general.test_h2_specs",
+            "reason" : "Disabled by issue #261"
+        },
+        {
+            "name" : "http2_general.test_h2_sticky_cookie",
             "reason" : "Disabled by issue #261"
         },
         {
@@ -440,6 +452,23 @@
         {
             "name" : "selftests.test_framework.ExampleTest.test_curl",
             "reason": "Disable by issue #308"
+        },
+        {
+            "name" : "http2_general.test_h2_headers.MissingDateServerWithBodyTest",
+            "reason" : "Disabled by issue #1669"
+        },
+        {
+            "name" : "http2_general.test_h2_headers.MissingDateServerWithLargeBodyTest",
+            "reason" : "Disabled by issue #1704"
+        },
+        {
+            "name" : "http_general.test_headers.BackendSetCoookie",
+            "reason" : "Disabled by issue #1690"
+        },
+        {
+            "name" : "http_general.test_headers.TestSmallHeader",
+            "reason" : "Disabled by issue #1697"
         }
+
     ]
 }
