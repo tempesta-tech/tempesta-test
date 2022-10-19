@@ -2,11 +2,11 @@
 HTTP Stress tests - load Tempesta FW with multiple connections.
 """
 
-from pathlib import Path
 import time
+from pathlib import Path
 
-from helpers import remote, sysnet, tf_cfg
 from framework import tester
+from helpers import remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

@@ -1,12 +1,14 @@
 """
 HTTP Stress tests with NGINX in place of Tempesta FW - to compare results.
 """
+from pathlib import Path
+
+from framework.x509 import CertGenerator
+from t_stress.test_stress import BaseCurlStress, TlsWrkStress, WrkStress
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
-
-from t_stress.test_stress import BaseCurlStress, TlsWrkStress, WrkStress
 
 
 # Config to start Nginx instead of Tempesta on 80 and 443 ports
@@ -33,8 +35,8 @@ http {
         listen 80;
         listen 443 ssl http2;
         server_name tempesta-tech.com;
-        ssl_certificate ${tempesta_workdir}/tempesta.crt;
-        ssl_certificate_key ${tempesta_workdir}/tempesta.key;
+        ssl_certificate ${server_workdir}/nginx_proxy.crt;
+        ssl_certificate_key ${server_workdir}/nginx_proxy.key;
         ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
         ssl_ciphers HIGH:!aNULL:!MD5;
         location / {
@@ -58,7 +60,7 @@ class NginxProxyMixin:
         self.backends = [
             *self.backends[:],
             {
-                "id": "nginx",
+                "id": "nginx_proxy",
                 "type": "nginx",
                 "port": "80",
                 "status_uri": "http://${server_ip}:80/nginx_status",
@@ -69,8 +71,20 @@ class NginxProxyMixin:
 
     def start_all(self):
         # Start servers, but not Tempesta
+        self.create_cert()
         self.start_all_servers()
         self.deproxy_manager.start()
+
+    def create_cert(self):
+        server = self.get_server("nginx_proxy")
+        workdir = Path(server.workdir)
+        cert_path = workdir / "nginx_proxy.crt"
+        key_path = workdir / "nginx_proxy.key"
+        workdir.mkdir(parents=True, exist_ok=True)
+
+        cgen = CertGenerator(cert_path, key_path, default=True)
+        server.node.copy_file(cert_path, cgen.serialize_cert().decode())
+        server.node.copy_file(key_path, cgen.serialize_priv_key().decode())
 
 
 class NginxWrkStress(NginxProxyMixin, WrkStress):
