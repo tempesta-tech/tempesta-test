@@ -108,9 +108,7 @@ class LargePageNginxBackendMixin:
 
     def create_large_page(self):
         server = self.get_server("nginx-large-page")
-        server.node.run_cmd(
-            f"fallocate -l {self.nginx_backend_page_size} {self.large_page_path}"
-        )
+        server.node.run_cmd(f"fallocate -l {self.nginx_backend_page_size} {self.large_page_path}")
 
     def remove_large_page(self):
         server = self.get_server("nginx-large-page")
@@ -157,9 +155,7 @@ class CustomMtuMixin:
                 self._prev_mtu[dev] = [node, dev, prev]
 
 
-class BaseWrkStress(
-    CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTest, base=True
-):
+class BaseWrkStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTest, base=True):
     """Base class for `wrk` stress tests."""
 
     def start_all(self):
@@ -227,9 +223,7 @@ class TlsWrkStress(BaseWrkStress):
     ]
 
 
-class BaseCurlStress(
-    CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTest, base=True
-):
+class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTest, base=True):
     """Base class for HTTPS ans HTTP/2 stress tests with `curl`."""
 
     tempesta_tmpl = """
@@ -320,18 +314,14 @@ class BaseCurlStress(
             client.stop()
 
             response = client.last_response
-            self.assertFalse(
-                response.stderr, f"Error after {delta} seconds and {i} requests."
-            )
+            self.assertFalse(response.stderr, f"Error after {delta} seconds and {i} requests.")
             self.assertEqual(response.status, 200)
             self.assertEqual(
                 int(client.last_response.headers["content-length"]),
                 LARGE_CONTENT_LENGTH,
             )
 
-        tf_cfg.dbg(
-            2, f"Test completed after {time.time() - started} seconds and {i} requests."
-        )
+        tf_cfg.dbg(2, f"Test completed after {time.time() - started} seconds and {i} requests.")
 
     def test_sequential_requests(self):
         """Send requests sequentially, continue on errors."""
