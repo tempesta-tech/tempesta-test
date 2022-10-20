@@ -227,33 +227,28 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_regression_1(self):
         """Application data records before ClientFinished."""
         self.start_all()
+        
+        class _ModifiedTLSClientAutomaton(ModifiedTLSClientAutomaton):
+            pass
+            self.host = 'tempesta-tech.com'
+
+            @ATMT.state()
+            def ADDED_CHANGECIPHERSPEC(self):
+                pass
+
+            @ATMT.condition(ADDED_CHANGECIPHERSPEC)
+            def should_add_ClientFinished(self):
+                self.add_record()
+                self.add_msg(TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"))
+                self.add_record()
+                self.add_msg(TLSFinished())
+                raise self.ADDED_CLIENTFINISHED()
+
         conn = TlsHandshake()
-        conn.conn_estab()
-        c_h = tls.TLSClientHello(
-            gmt_unix_time=0x22222222,
-            random_bytes='\x11' * 28,
-            cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
-            compression_methods=[tls.TLSCompressionMethod.NULL],
-            extensions=[
-                tls.TLSExtension() / tls.TLSExtECPointsFormat()]
-            + conn.extra_extensions()
-        )
-        msg1 = tls.TLSRecord(version='TLS_1_2') / \
-               tls.TLSHandshakes(handshakes=[tls.TLSHandshake() / c_h])
-        resp = conn.send_recv(msg1)
-        self.assertTrue(resp.haslayer(tls.TLSCertificate))
-
-        cke_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        conn.sock.tls_ctx.get_client_kex_data(val=0xdeadbabe)])
-        msg2 = tls.TLSRecord(version='TLS_1_2') / cke_h
-        msg3 = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
-
-        conn.sock.sendall(tls.TLS.from_records([msg2, msg3]))
-        # An application data record before Client Finished message.
-        conn.send_recv(tls.TLSPlaintext(data='x'*1000))
-
+        res = conn.do_12(automaton=_ModifiedTLSClientAutomaton)
+        self.assertFalse(res, "Bad handshake successfully processed")
+        
+        
     def test_old_handshakes(self):
         self.start_all()
         res = TlsHandshakeStandard().do_old()
@@ -297,7 +292,7 @@ class TlsMissingDefaultKey(tester.TempestaTest):
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
 
-        # # tempesta.com => ok
+        # tempesta.com => ok
         res = TlsHandshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
