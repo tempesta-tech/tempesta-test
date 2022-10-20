@@ -194,20 +194,14 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_close_notify(self):
         self.start_all()
         tls_conn = TlsHandshake()
-        with tls_conn.socket_ctx():
-            self.assertTrue(tls_conn._do_12_hs(), "Can not connect to Tempesta")
-            res = tls_conn._do_12_req()
-            self.assertTrue(res, "Wrong request result: %s" % res)
-            tls_conn.send_12_alert(tls.TLSAlertLevel.WARNING,
-                                   tls.TLSAlertDescription.CLOSE_NOTIFY)
-            resp = tls_conn.sock.recvall(timeout=tls_conn.io_to)
-            self.assertTrue(resp.haslayer(tls.TLSAlert))
-            if resp.haslayer(tls.TLSAlert):
-                alert = resp[tls.TLSAlert]
-                self.assertEqual(len(alert), 2)
-                self.assertEqual(alert.level, tls.TLSAlertLevel.WARNING)
-                self.assertEqual(alert.description,
-                                 tls.TLSAlertDescription.CLOSE_NOTIFY)
+        tls_conn.send_data = [TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"), TLSAlert(level=1, descr=0), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        self.assertTrue(tls_conn.do_12(), "Can not connect to Tempesta")
+        self.assertTrue(len(tls_conn.hs.server_data)==2, "Wrong request result: %s" % tls_conn.hs.server_data)
+        print(tls_conn.hs.server_data)
+        alert = tls_conn.hs.server_data[1]
+        self.assertTrue(isinstance(alert, TLSAlert), "Wrong request result: %s" % tls_conn.hs.server_data)
+        self.assertEqual(len(alert), 2)
+        self.assertEqual(alert, TLSAlert(level=1, descr=0))
 
     @util.profiled
     def test_fuzzing(self):

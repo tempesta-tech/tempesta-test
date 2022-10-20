@@ -305,4 +305,5 @@ class TlsHandshake:
         self.hs.control_thread.join(5)
         tf_cfg.dbg(2, f'FIN_STATE: {self.hs.state.state}')
         tf_cfg.dbg(2, f'BUFFER: {self.hs.hs_buffer}')
+        tf_cfg.dbg(2, f'SERVER_DATA: {self.hs.server_data}')
         return self.hs.hs_state
