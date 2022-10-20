@@ -1,10 +1,10 @@
-import chunk
 from time import sleep
 import scapy.layers.tls.crypto.suites as suites
 from scapy.all import *
 from scapy.layers.tls.all import *
-from helpers import tf_cfg
+from helpers import tf_cfg, dmesg
 from helpers.error import Error
+import ssl
 
 
 def x509_check_cn(cert, cn):
@@ -295,12 +295,12 @@ class TlsHandshake:
             ch.show()
         return ch
 
-    def do_12(self):
+    def do_12(self, automaton=ModifiedTLSClientAutomaton):
         c_h = self.create_hello()
         if self.send_data is None:
             self.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n")]
         # tf_cfg.dbg(2, f'self.data={self.data}')
-        self.hs = ModifiedTLSClientAutomaton(
+        self.hs = automaton(
             client_hello=c_h, \
             server=self.server, \
             dport=443, \
@@ -316,3 +316,51 @@ class TlsHandshake:
         tf_cfg.dbg(2, f'BUFFER: {self.hs.hs_buffer}')
         tf_cfg.dbg(2, f'SERVER_DATA: {self.hs.server_data}')
         return self.hs.hs_state
+
+
+class TlsHandshakeStandard:
+    """
+    This class uses OpenSSL backend, so all its routines less customizable,
+    but are good to test TempestaTLS behavior with standard tools and libs.
+    """
+    def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
+        if addr:
+            self.addr = addr
+        else:
+            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
+        self.port = port
+        self.io_to = io_to
+        self.verbose = verbose
+
+    def try_tls_vers(self, version):
+        klog = dmesg.DmesgFinder(ratelimited=False)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(self.io_to)
+        sock.connect((self.addr, self.port))
+        try:
+            context = ssl.SSLContext(protocol=version)
+            tls_sock = context.wrap_socket(sock)
+        except ssl.SSLError as e:
+            # Correct connection termination with PROTOCOL_VERSION alert.
+            if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
+                return True
+        except IOError as e:
+            if self.verbose:
+                print("TLS handshake failed w/o warning")
+        if self.verbose:
+            print("Connection of unsupported TLS 1.%d established" % version)
+        return False
+
+    def do_old(self):
+        """
+        Test TLS 1.0 and TLS 1.1 handshakes.
+        Modern OpenSSL versions don't support SSLv{1,2,3}.0, so use TLSv1.{0,1}
+        just to test that we correctly drop wrong TLS connections. We do not
+        support SSL as well and any SSL record is treated as a broken TLS
+        record, so fuzzing of normal TLS fields should be used to test TLS
+        fields processing.
+        """
+        for version in (ssl.PROTOCOL_TLSv1, ssl.PROTOCOL_TLSv1_1):
+            if not self.try_tls_vers(version):
+                return False
+        return True
