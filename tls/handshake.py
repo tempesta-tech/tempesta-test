@@ -46,6 +46,10 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.hs_buffer = []
         TLSClientAutomaton.__init__(self, *args, **kwargs)
     
+    def set_data(self, _data):
+        self.send_data = _data
+        print(self.send_data)
+    
     def _do_start(self, *args, **kargs):
         # type: (Any, Any) -> None
         ready = threading.Event()
@@ -295,7 +299,7 @@ class TlsHandshake:
     def do_12(self):
         c_h = self.create_hello()
         if self.send_data is None:
-            self.send_data = f'GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n'
+            self.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n")]
         # tf_cfg.dbg(2, f'self.data={self.data}')
         self.hs = ModifiedTLSClientAutomaton(
             client_hello=c_h, \
@@ -306,7 +310,7 @@ class TlsHandshake:
             debug=self.debug
             )
         if self.send_data is not None:
-            self.hs.send_data = self.send_data
+            self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
         tf_cfg.dbg(2, f'FIN_STATE: {self.hs.state.state}')
