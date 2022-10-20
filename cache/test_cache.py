@@ -4,7 +4,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-
 from framework import tester
 from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClient
