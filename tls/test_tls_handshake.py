@@ -2,6 +2,7 @@
 Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
+from curses import reset_shell_mode
 from time import sleep
 from framework import tester
 from framework.x509 import CertGenerator
@@ -395,21 +396,23 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
     def test_vhost_sni(self):
         self.init()
         vhs = TlsHandshake()
-        vhs.sni = ["vhost1.net"]
+        vhs.sni = "vhost1.net"
+        vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {vhs.sni}\r\n\r\n")]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost1: %s" % res)
-        self.assertTrue(vhs.http_resp.decode().endswith("be1"),
-                        "Bad response from vhost1: [%s]" % vhs.http_resp)
-        self.assertTrue(x509_check_cn(vhs.cert, "vhost1.net"),
+        self.assertTrue(vhs.hs.server_data[0].data.decode().endswith("be1"),
+                        "Bad response from vhost1: [%s]" % vhs.hs.server_data[0].data.decode())
+        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
                         "Wrong certificate received for vhost1")
 
         vhs = TlsHandshake()
-        vhs.sni = ["vhost2.net"]
+        vhs.sni = "vhost2.net"
+        vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {vhs.sni}\r\n\r\n")]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost2: %s" % res)
-        self.assertTrue(vhs.http_resp.decode().endswith("be2"),
-                        "Bad response from vhost2: [%s]" % vhs.http_resp)
-        self.assertTrue(x509_check_cn(vhs.cert, "vhost2.net"),
+        self.assertTrue(vhs.hs.server_data[0].data.decode().endswith("be2"),
+                        "Bad response from vhost2: [%s]" % vhs.hs.server_data[0].data.decode())
+        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost2.net"),
                         "Wrong certificate received for vhost2")
 
     @dmesg.unlimited_rate_on_tempesta_node

@@ -65,7 +65,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     
     @ATMT.state()
     def TLSALERT_RECIEVED(self):
-        self.vprint("Recieve TLSAlert from the server...")
+        tf_cfg.dbg(2,"Recieve TLSAlert from the server...")
         self.hs_state = False
         raise TLSAlert
         raise self.CLOSE_NOTIFY()
@@ -132,7 +132,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         Send all buffered records and update the session accordingly.
         """
         if self.chunk is not None:
-            print('Trying to send data by chunk')
+            tf_cfg.dbg(2, 'Trying to send data by chunk')
             _s = b"".join(p.raw_stateful() for p in self.buffer_out)
             n = self.chunk
             for chunk in [_s[i:i+n] for i in range(0, len(_s), n)]:
