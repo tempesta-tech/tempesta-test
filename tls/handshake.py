@@ -96,6 +96,12 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         tf_cfg.dbg(2, "Starting TLS client automaton.")
         raise self.INIT_TLS_SESSION()
 
+    @ATMT.state()
+    def CLOSE_NOTIFY(self):
+        if tf_cfg.v_level() > 1:
+            self.vprint()
+            self.vprint("Trying to send a TLSAlert to the server...")
+
     @ATMT.state(final=True)
     def FINAL(self):
         # We might call shutdown, but it may happen that the server
@@ -226,7 +232,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
 class TlsHandshake:
 
-    def __init__(self, chunk=None, debug=2):
+    def __init__(self, chunk=None, debug=(tf_cfg.v_level()-1)):
         self.server = '127.0.0.1'
         self.hs_state = False
         self.debug = debug
