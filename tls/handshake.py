@@ -48,7 +48,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     
     def set_data(self, _data):
         self.send_data = _data
-        print(self.send_data)
     
     def _do_start(self, *args, **kargs):
         # type: (Any, Any) -> None

@@ -297,20 +297,21 @@ class TlsMissingDefaultKey(tester.TempestaTest):
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
                         "Cannot start Tempesta")
 
-        # tempesta.com => ok
+        # # tempesta.com => ok
         res = TlsHandshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
         # example.com => internal error
         hs = TlsHandshake()
-        hs.sni = ['example.com']
-        with self.assertRaises(tls.TLSProtocolError):
-            hs.do_12()
+        hs.sni = 'example.com'
+        hs.do_12()
+        self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
+
         # empty sni => internal error
         hs = TlsHandshake()
-        hs.sni = []
-        with self.assertRaises(tls.TLSProtocolError):
-            hs.do_12()
+        hs.sni = ''
+        hs.do_12()
+        self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
         self.assertEqual(self.oops.warn_count("requested misconfigured vhost"), 2,
                          "Bad SNI isn't logged")
 
