@@ -1,31 +1,9 @@
-from dataclasses import dataclass
-import email
-import io
-import re
-
 from framework import tester
+from framework.curl_client import CurlResponse
 
 __author__ = 'Tempesta Technologies, Inc.'
 __copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
 __license__ = 'GPL2'
-
-
-@dataclass
-class CurlResponse:
-    """Curl response parser."""
-
-    response_data: bytes  # response data to parse
-    status: int = None  # parsed HTTP status code
-    headers: dict = None  # parsed headers, with lowercase names
-
-    def __post_init__(self):
-        try:
-            response_line, headers = self.response_data.decode().split('\r\n', 1)
-        except ValueError:
-            raise ValueError(f"Unexpected HTTP response: {self.response_data}") from None
-        message = email.message_from_file(io.StringIO(headers))
-        self.status_code = int(re.match(r"HTTP/1.1 (\d+)", response_line).group(1))
-        self.headers = {k.lower(): v for k, v in message.items()}
 
 
 class TestGetWordpressPages(tester.TempestaTest):
@@ -42,9 +20,12 @@ class TestGetWordpressPages(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'get-page',
-            'type': 'external',
-            'binary': 'curl',
+            'id': 'get_page',
+            'type': 'curl',
+            'ssl': False,
+            'uri': '/?page_id=1370',  # TODO: replace with the valid page ID
+            'disable_output': True,
+        },
             'cmd_args': (
                 '--silent --head --request GET --fail '
                 ' http://${tempesta_ip}'
@@ -53,10 +34,11 @@ class TestGetWordpressPages(tester.TempestaTest):
         },
     ]
 
-    def get_response(self, client):
+    def get_response(self, client) -> CurlResponse:
+        self.restart_client(client)
         self.wait_while_busy(client)
-        self.assertEqual(0, client.returncode)
-        return CurlResponse(client.resq.get(True, 1)[0])
+        client.stop()
+        return client.last_response
 
     def restart_client(self, client):
         if client.is_running():
@@ -76,23 +58,21 @@ class TestGetWordpressPages(tester.TempestaTest):
 
     def test_page_cached(self):
         self.start_tempesta()
-        client = self.get_client("get-page")
-        self.restart_client(client)
+        client = self.get_client("get_page")
 
-        # first request, expect non-cached response
-        response = self.get_response(client)
-        self.assertEqual(200, response.status_code)
-        self.assertFalse(
-            self.check_cached_headers(response.headers),
-            f"Response headers: {response.headers}"
-        )
+        with self.subTest("First request, expect non-cached response"):
+            response = self.get_response(client)
+            self.assertEqual(200, response.status_code)
+            self.assertFalse(
+                self.check_cached_headers(response.headers),
+                f"Response headers: {response.headers}"
+            )
 
-        self.restart_client(client)
+        with self.subTest("Second request, expect cached response"):
+            response = self.get_response(client)
+            self.assertEqual(200, response.status_code)
+            self.assertTrue(
+                self.check_cached_headers(response.headers),
+                f"Response headers: {response.headers}"
+            )
 
-        # second request, expect cached response
-        response = self.get_response(client)
-        self.assertEqual(200, response.status_code)
-        self.assertTrue(
-            self.check_cached_headers(response.headers),
-            f"Response headers: {response.headers}"
-        )
