@@ -452,10 +452,6 @@
         {
             "name" : "http_general.test_headers.BackendSetCoookie",
             "reason" : "Disabled by issue #1690"
-        },
-        {
-            "name" : "http_general.test_headers.TestSmallHeader",
-            "reason" : "Disabled by issue #1697"
         }
 
     ]
