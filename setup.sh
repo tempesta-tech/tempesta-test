@@ -2,6 +2,10 @@
 
 apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev apache2-utils libnghttp2-dev autoconf unzip -y
 
+# stop and disable installed nginx
+systemctl stop nginx
+systemctl disable nginx
+
 python3 -m pip install -r requirements.txt
 
 # pre-commit
