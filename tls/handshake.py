@@ -6,7 +6,6 @@ from helpers import tf_cfg, dmesg
 from helpers.error import Error
 import ssl
 
-
 def x509_check_cn(cert, cn):
     """
     Decode x509 certificate in BER and check CommonName (CN, OID '2.5.4.3')
@@ -44,6 +43,8 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.hs_final = False
         self.hs_buffer_out = []
         self.hs_buffer = []
+        self.session_ticket = None
+        self.master_secret = None
         TLSClientAutomaton.__init__(self, *args, **kwargs)
     
     def set_data(self, _data):
@@ -100,6 +101,30 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         raise self.INIT_TLS_SESSION()
 
     @ATMT.state()
+    def RECEIVED_SERVERFLIGHT2(self):
+        pass
+
+    @ATMT.state()
+    def RECEIVED_TICKET(self):
+        self.session_ticket = self.cur_pkt
+
+    @ATMT.condition(RECEIVED_SERVERFLIGHT2, prio=2)
+    def should_handle_SessionTicket(self):
+        self.raise_on_packet(TLSNewSessionTicket,
+                        self.RECEIVED_TICKET)
+    
+    @ATMT.condition(RECEIVED_SERVERFLIGHT2, prio=1)
+    def should_handle_ChangeCipherSpec(self):
+        self.raise_on_packet(TLSChangeCipherSpec,
+                        self.HANDLED_CHANGECIPHERSPEC)
+
+    @ATMT.condition(RECEIVED_TICKET)
+    def should_handle_ChangeCipherSpec(self):
+        self.raise_on_packet(TLSChangeCipherSpec,
+                        self.HANDLED_CHANGECIPHERSPEC)
+
+
+    @ATMT.state()
     def CLOSE_NOTIFY(self):
         if tf_cfg.v_level() > 1:
             self.vprint()
@@ -117,10 +142,11 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
-        msg = self.send_data.pop(0)
-        self.add_record()
-        self.add_msg(msg)
-        raise self.ADDED_CLIENTDATA()
+        if len(self.send_data) > 0:
+            msg = self.send_data.pop(0)
+            self.add_record()
+            self.add_msg(msg)
+            raise self.ADDED_CLIENTDATA()
 
     @ATMT.state()
     def ADDED_CLIENTDATA(self):
@@ -205,6 +231,11 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         raise self.HANDLED_SERVERDATA()
 
     @ATMT.state()
+    def HANDLED_SERVERDATA(self):
+        self.master_secret = self.cur_session.master_secret
+        raise self.WAIT_CLIENTDATA()
+
+    @ATMT.state()
     def ADDED_CLIENTDATA(self):
         pass
 
@@ -252,6 +283,7 @@ class TlsHandshake:
             'sha1+dsa', \
             'sha512+rsa', 'sha512+ecdsa'
             ]
+        self.ticket_data = None
         # Default extensions value
         self.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=['x25519', 'secp256r1', 'secp384r1'])
         self.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=self.sign_algs)
@@ -262,9 +294,7 @@ class TlsHandshake:
         # Override extension if some variables changd
         ext1 = TLS_Ext_ServerName(servernames=ServerName(servername=self.sni))
         ext2 = TLS_Ext_CSR(stype='ocsp', req=OCSPStatusRequest())
-        ext4 = TLS_Ext_SupportedPointFormat(ecpl='uncompressed')
-        ext6 = TLS_Ext_RenegotiationInfo("")
-        # ext7 = TLS_Ext_SessionTicket(ticket)
+        ext4 = TLS_Ext_SupportedPointFormat(ecpl='uncompressed')        
         try:
             self.ciphers
             _ciphers = []
@@ -290,6 +320,11 @@ class TlsHandshake:
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]
         ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, self.renegotiation_info]
+        
+        if self.ticket_data is not None:
+            ticket = TLS_Ext_SessionTicket(ticket=self.ticket_data)
+            ext.append(ticket)
+            
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
         if tf_cfg.v_level() > 1:
             ch.show()
@@ -315,6 +350,7 @@ class TlsHandshake:
         tf_cfg.dbg(2, f'FIN_STATE: {self.hs.state.state}')
         tf_cfg.dbg(2, f'BUFFER: {self.hs.hs_buffer}')
         tf_cfg.dbg(2, f'SERVER_DATA: {self.hs.server_data}')
+        tf_cfg.dbg(2, f'SESSION_TICKET: {type(self.hs.session_ticket)}')
         return self.hs.hs_state
 
 
