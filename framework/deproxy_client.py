@@ -408,6 +408,10 @@ class DeproxyClientH2(DeproxyClient):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
+                    self.h2_connection.acknowledge_received_data(
+                        acknowledged_size=event.flow_controlled_length,
+                        stream_id=event.stream_id
+                    )
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
