@@ -5,9 +5,11 @@ apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-de
 python3 -m pip install -r requirements.txt
 
 # pre-commit
-cp pre-commit.sample pre-commit
-mv pre-commit .git/hooks
-chmod +x .git/hooks/pre-commit
+pre-commit install
+pre-commit autoupdate
+
+# ignore formatter commit in git blame
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # tls-perf
 git clone https://github.com/tempesta-tech/tls-perf.git /tmp/tls-perf

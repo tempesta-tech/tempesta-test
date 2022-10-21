@@ -1,20 +1,22 @@
 """Functional tests for adding user difined headers."""
 
 from __future__ import print_function
-from testers import functional
-from helpers import chains
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+from helpers import chains
+from testers import functional
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class TestReqAddHeader(functional.FunctionalTest):
 
-    location = '/'
-    directive = 'req_hdr_add'
+    location = "/"
+    directive = "req_hdr_add"
 
     def make_def_config(self):
-        self.config = ''
+        self.config = ""
 
     def config_append_directive(self, hdrs, location=None):
         if location is not None:
@@ -22,7 +24,7 @@ class TestReqAddHeader(functional.FunctionalTest):
         for (name, val) in hdrs:
             self.config = self.config + ('%s %s "%s";\n' % (self.directive, name, val))
         if location is not None:
-            self.config = self.config + '}\n'
+            self.config = self.config + "}\n"
 
     def make_chain(self, hdrs):
         chain = chains.proxy()
@@ -37,25 +39,23 @@ class TestReqAddHeader(functional.FunctionalTest):
         self.make_chain(hdrs)
 
     def test_add_one_hdr(self):
-        hdrs = [('X-My-Hdr', 'some text')]
+        hdrs = [("X-My-Hdr", "some text")]
         self.add_hdrs(hdrs)
         self.generic_test_routine(self.config, self.msg_chain)
 
     def test_add_some_hdrs(self):
-        hdrs = [('X-My-Hdr', 'some text'),
-                ('X-My-Hdr-2', 'some other text')]
+        hdrs = [("X-My-Hdr", "some text"), ("X-My-Hdr-2", "some other text")]
         self.add_hdrs(hdrs)
         self.generic_test_routine(self.config, self.msg_chain)
 
     def test_add_some_hdrs_custom_location(self):
-        hdrs = [('X-My-Hdr', 'some text'),
-                ('X-My-Hdr-2', 'some other text')]
+        hdrs = [("X-My-Hdr", "some text"), ("X-My-Hdr-2", "some other text")]
         self.add_hdrs(hdrs, self.location)
         self.generic_test_routine(self.config, self.msg_chain)
 
     def test_add_hdrs_derive_config(self):
-        '''Derive general settings to custom location.'''
-        hdrs = [('X-My-Hdr', 'some text')]
+        """Derive general settings to custom location."""
+        hdrs = [("X-My-Hdr", "some text")]
         self.make_def_config()
         self.config_append_directive(hdrs)
         self.config_append_directive([], self.location)
@@ -63,9 +63,9 @@ class TestReqAddHeader(functional.FunctionalTest):
         self.generic_test_routine(self.config, self.msg_chain)
 
     def test_add_hdrs_override_config(self):
-        '''Override general settings to custom location.'''
-        hdrs = [('X-My-Hdr', 'some text')]
-        o_hdrs = [('X-My-Hdr-2', 'some other text')]
+        """Override general settings to custom location."""
+        hdrs = [("X-My-Hdr", "some text")]
+        o_hdrs = [("X-My-Hdr-2", "some other text")]
         self.make_def_config()
         self.config_append_directive(hdrs)
         self.config_append_directive(o_hdrs, self.location)
@@ -75,7 +75,7 @@ class TestReqAddHeader(functional.FunctionalTest):
 
 class TestRespAddHeader(TestReqAddHeader):
 
-    directive = 'resp_hdr_add'
+    directive = "resp_hdr_add"
 
     def make_chain(self, hdrs):
         chain = chains.proxy()
@@ -86,11 +86,10 @@ class TestRespAddHeader(TestReqAddHeader):
 
 
 class TestCachedRespAddHeader(TestRespAddHeader):
-    """ Response is served from cache. """
+    """Response is served from cache."""
 
     def make_def_config(self):
-        self.config = ('cache 2;\n'
-                       'cache_fulfill * *;\n')
+        self.config = "cache 2;\n" "cache_fulfill * *;\n"
 
     def make_chain(self, hdrs):
         chain_p = chains.proxy()
@@ -105,11 +104,10 @@ class TestCachedRespAddHeader(TestRespAddHeader):
 
 class TestReqSetHeader(TestReqAddHeader):
 
-    directive = 'req_hdr_set'
+    directive = "req_hdr_set"
 
     def make_chain(self, hdrs):
-        orig_hdrs = [('X-My-Hdr', 'original text'),
-                     ('X-My-Hdr-2', 'other original text')]
+        orig_hdrs = [("X-My-Hdr", "original text"), ("X-My-Hdr-2", "other original text")]
         chain = chains.proxy()
         for (name, val) in orig_hdrs:
             chain.request.headers[name] = val
@@ -123,32 +121,29 @@ class TestReqSetHeader(TestReqAddHeader):
 
 class TestRespSetHeader(TestReqSetHeader):
 
-    directive = 'resp_hdr_set'
+    directive = "resp_hdr_set"
 
     def make_chain(self, hdrs):
-        orig_hdrs = [('X-My-Hdr', 'original text'),
-                     ('X-My-Hdr-2', 'other original text')]
+        orig_hdrs = [("X-My-Hdr", "original text"), ("X-My-Hdr-2", "other original text")]
         chain = chains.proxy()
         for (name, val) in orig_hdrs:
             chain.server_response.headers[name] = val
             chain.response.headers[name] = val
         for (name, val) in hdrs:
-                chain.response.headers[name] = val
+            chain.response.headers[name] = val
         chain.server_response.update()
         chain.response.update()
         self.msg_chain = [chain]
 
 
 class TestCachedRespSetHeader(TestRespSetHeader):
-    """ Response is served from cache. """
+    """Response is served from cache."""
 
     def make_def_config(self):
-        self.config = ('cache 2;\n'
-                       'cache_fulfill * *;\n')
+        self.config = "cache 2;\n" "cache_fulfill * *;\n"
 
     def make_chain(self, hdrs):
-        orig_hdrs = [('X-My-Hdr', 'original text'),
-                     ('X-My-Hdr-2', 'other original text')]
+        orig_hdrs = [("X-My-Hdr", "original text"), ("X-My-Hdr-2", "other original text")]
         chain_p = chains.proxy()
         chain_c = chains.cache()
         for (name, val) in orig_hdrs:
@@ -156,8 +151,8 @@ class TestCachedRespSetHeader(TestRespSetHeader):
             chain_p.response.headers[name] = val
             chain_c.response.headers[name] = val
         for (name, val) in hdrs:
-                chain_p.response.headers[name] = val
-                chain_c.response.headers[name] = val
+            chain_p.response.headers[name] = val
+            chain_c.response.headers[name] = val
         chain_p.server_response.update()
         chain_p.response.update()
         chain_c.response.update()
@@ -166,19 +161,18 @@ class TestCachedRespSetHeader(TestRespSetHeader):
 
 class TestReqDelHeader(TestReqAddHeader):
 
-    directive = 'req_hdr_set'
+    directive = "req_hdr_set"
 
     def config_append_directive(self, hdrs, location=None):
         if location is not None:
             self.config = self.config + ('location prefix "%s" {\n' % location)
         for (name, val) in hdrs:
-            self.config = self.config + ('%s %s;\n' % (self.directive, name))
+            self.config = self.config + ("%s %s;\n" % (self.directive, name))
         if location is not None:
-            self.config = self.config + '}\n'
+            self.config = self.config + "}\n"
 
     def make_chain(self, hdrs):
-        orig_hdrs = [('X-My-Hdr', 'original text'),
-                     ('X-My-Hdr-2', 'other original text')]
+        orig_hdrs = [("X-My-Hdr", "original text"), ("X-My-Hdr-2", "other original text")]
         chain = chains.proxy()
         for (name, val) in orig_hdrs:
             chain.request.headers[name] = val
@@ -192,11 +186,10 @@ class TestReqDelHeader(TestReqAddHeader):
 
 class TestRespDelHeader(TestReqDelHeader):
 
-    directive = 'resp_hdr_set'
+    directive = "resp_hdr_set"
 
     def make_chain(self, hdrs):
-        orig_hdrs = [('X-My-Hdr', 'original text'),
-                     ('X-My-Hdr-2', 'other original text')]
+        orig_hdrs = [("X-My-Hdr", "original text"), ("X-My-Hdr-2", "other original text")]
         chain = chains.proxy()
         for (name, val) in orig_hdrs:
             chain.server_response.headers[name] = val
@@ -209,15 +202,13 @@ class TestRespDelHeader(TestReqDelHeader):
 
 
 class TestCachedRespDelHeader(TestRespDelHeader):
-    """ Response is served from cache. """
+    """Response is served from cache."""
 
     def make_def_config(self):
-        self.config = ('cache 2;\n'
-                       'cache_fulfill * *;\n')
+        self.config = "cache 2;\n" "cache_fulfill * *;\n"
 
     def make_chain(self, hdrs):
-        orig_hdrs = [('X-My-Hdr', 'original text'),
-                     ('X-My-Hdr-2', 'other original text')]
+        orig_hdrs = [("X-My-Hdr", "original text"), ("X-My-Hdr-2", "other original text")]
         chain_p = chains.proxy()
         chain_c = chains.cache()
         for (name, val) in orig_hdrs:
@@ -231,5 +222,6 @@ class TestCachedRespDelHeader(TestRespDelHeader):
         chain_p.response.update()
         chain_c.response.update()
         self.msg_chain = [chain_p, chain_c]
+
 
 # TODO: add tests for different vhosts, when vhosts will be implemented.

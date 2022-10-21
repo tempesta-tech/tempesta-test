@@ -1,19 +1,22 @@
 """ Nginx helpers. """
 
 from __future__ import print_function
-import re
-import os
-from . import tf_cfg, error
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+import os
+import re
+
+from . import error, tf_cfg
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class Config(object):
-    """ Nginx config file builder. """
+    """Nginx config file builder."""
 
     def __init__(self, workdir, port, workers):
-        self.port = 80 # keep port linked with default config
+        self.port = 80  # keep port linked with default config
         self.config_template = """
 pid /var/run/nginx.pid;
 worker_processes  auto;
@@ -65,31 +68,34 @@ http {
         self.config_template = regex.sub(value, self.config_template)
 
     def set_ka(self, req, timeout=65):
-        """ Set Keepalive parameters for server. """
-        self.__replace(r'keepalive_timeout[ ]+(\d+);',
-                       ' '.join(['keepalive_timeout', str(timeout), ';']))
-        self.__replace(r'keepalive_requests[ ]+(\d+);',
-                       ' '.join(['keepalive_requests', str(req), ';']))
+        """Set Keepalive parameters for server."""
+        self.__replace(
+            r"keepalive_timeout[ ]+(\d+);", " ".join(["keepalive_timeout", str(timeout), ";"])
+        )
+        self.__replace(
+            r"keepalive_requests[ ]+(\d+);", " ".join(["keepalive_requests", str(req), ";"])
+        )
 
-    def set_workers(self, workers='auto'):
-        self.__replace(r'worker_processes[ ]+(\w+);',
-                       ' '.join(['worker_processes', str(workers), ';']))
+    def set_workers(self, workers="auto"):
+        self.__replace(
+            r"worker_processes[ ]+(\w+);", " ".join(["worker_processes", str(workers), ";"])
+        )
 
     def set_port(self, port):
         self.port = int(port)
-        self.config_name = 'nginx_%d.conf' % port
-        self.pidfile_name = 'nginx_%d.pid' % port
-        self.__replace(r'listen[ ]+(\w+);',
-                       ' '.join(['listen', str(port), ';']))
+        self.config_name = "nginx_%d.conf" % port
+        self.pidfile_name = "nginx_%d.pid" % port
+        self.__replace(r"listen[ ]+(\w+);", " ".join(["listen", str(port), ";"]))
 
     def set_workdir(self, workdir):
         error.assertTrue(workdir)
-        self.__replace(r'pid[ ]+([\w._/]+);',
-                       ''.join(['pid ', os.path.join(workdir, self.pidfile_name), ' ;']))
+        self.__replace(
+            r"pid[ ]+([\w._/]+);", "".join(["pid ", os.path.join(workdir, self.pidfile_name), " ;"])
+        )
 
-    def set_resourse_location(self, location=''):
+    def set_resourse_location(self, location=""):
         if not location:
-            location = tf_cfg.cfg.get('Server', 'resources')
+            location = tf_cfg.cfg.get("Server", "resources")
         self.location = "root %s" % location
         self.update_config()
 
@@ -99,5 +105,6 @@ http {
 
     def update_config(self):
         self.config = self.config_template % self.location
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

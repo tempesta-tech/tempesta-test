@@ -1,20 +1,21 @@
 #!/usr/bin/env python2
 from __future__ import print_function
-import unittest
-import os
+
 import errno
 import json
+import os
+import unittest
 
-from helpers import tf_cfg, remote
+from helpers import remote, tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 STATE_FILE_NAME = "tests_resume.json"
 
-class DisabledListLoader(object):
 
+class DisabledListLoader(object):
     def __init__(self, disabled_list_file):
         self.disabled_list_file = disabled_list_file
         self.has_file = False
@@ -22,16 +23,16 @@ class DisabledListLoader(object):
         self.disable = False
 
     def try_load(self):
-        """ Try to load specified state file"""
+        """Try to load specified state file"""
         tf_cfg.dbg(2, "Loading disabled file")
         try:
             self.disabled = []
-            with open(self.disabled_list_file, 'r') as dis_file:
+            with open(self.disabled_list_file, "r") as dis_file:
                 f = self.__parse_file(dis_file)
-                self.disable = f['disable']
+                self.disable = f["disable"]
                 if self.disable == False:
                     return True
-                self.disabled = f['disabled']
+                self.disabled = f["disabled"]
                 return True
         except IOError as err:
             if err.errno != errno.ENOENT:
@@ -46,7 +47,6 @@ class DisabledListLoader(object):
 
 
 class TestStateLoader(object):
-
     def __init__(self, state_file):
         self.state_file = state_file
         self.has_file = False
@@ -55,12 +55,12 @@ class TestStateLoader(object):
         self.last_completed = None
 
     def try_load(self):
-        """ Try to load specified state file"""
+        """Try to load specified state file"""
         try:
-            with open(self.state_file, 'r') as st_file:
+            with open(self.state_file, "r") as st_file:
                 self.state = self.__parse_file(st_file)
-                self.last_id = self.state['last_id']
-                self.last_completed = self.state['last_completed']
+                self.last_id = self.state["last_id"]
+                self.last_completed = self.state["last_completed"]
                 return True
         except IOError as err:
             if err.errno != errno.ENOENT:
@@ -73,12 +73,12 @@ class TestStateLoader(object):
     def __parse_file(st_file):
         dump = json.load(st_file)
         # convert lists to sets where needed
-        dump['inclusions'] = set(dump['inclusions'])
-        dump['exclusions'] = set(dump['exclusions'])
+        dump["inclusions"] = set(dump["inclusions"])
+        dump["exclusions"] = set(dump["exclusions"])
         return dump
 
-class TestStateSaver(object):
 
+class TestStateSaver(object):
     def __init__(self, loader, state_file):
         self.inclusions = set()
         self.exclusions = set()
@@ -91,44 +91,45 @@ class TestStateSaver(object):
     def advance(self, test, after):
         self.last_id = test
         self.last_completed = after
-        with open(self.state_file, 'w') as st_file:
+        with open(self.state_file, "w") as st_file:
             self.__build_file(st_file)
 
     def __build_file(self, st_file):
         dump = dict()
-        dump['last_id'] = self.last_id
-        dump['last_completed'] = self.last_completed
+        dump["last_id"] = self.last_id
+        dump["last_completed"] = self.last_completed
         # convert sets to lists where needed
-        dump['inclusions'] = list(self.inclusions)
-        dump['exclusions'] = list(self.exclusions)
+        dump["inclusions"] = list(self.inclusions)
+        dump["exclusions"] = list(self.exclusions)
         json.dump(dump, st_file)
         self.has_file = True
 
+
 class TestState(object):
-    """ Parse saved state """
+    """Parse saved state"""
+
     has_file = False
     last_id = None
     last_completed = False
-    state_file = os.path.relpath(os.path.join(os.path.dirname(__file__),
-                                              '..', STATE_FILE_NAME))
+    state_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", STATE_FILE_NAME))
 
     def __init__(self):
         self.loader = TestStateLoader(self.state_file)
         self.saver = TestStateSaver(self.loader, self.state_file)
 
     def load(self):
-        """ Load state of test suite from file """
+        """Load state of test suite from file"""
         self.has_file = self.loader.try_load()
 
     def advance(self, test, after=False):
-        """ Set new state of test suite """
+        """Set new state of test suite"""
         self.saver.advance(test, after)
         self.has_file = self.has_file or self.saver.has_file
         self.last_id = self.saver.last_id
         self.last_completed = self.saver.last_completed
 
     def drop(self):
-        """ Clear tests state """
+        """Clear tests state"""
         if self.has_file is False:
             return
         try:
@@ -139,6 +140,7 @@ class TestState(object):
         except OSError as exc:
             if exc.errno != errno.ENOENT:
                 raise
+
 
 class TestResume(object):
     # Filter is instantiated by TestResume.filter(), passing instance of the
@@ -186,14 +188,16 @@ class TestResume(object):
             tf_cfg.dbg(2, "Not resuming: File %s not found" % STATE_FILE_NAME)
             return
 
-        if not (self.state.saver.inclusions == self.state.loader.state['inclusions'] and
-                self.state.saver.exclusions == self.state.loader.state['exclusions']):
-            tf_cfg.dbg(1, 'Not resuming from "%s": different filters specified' %
-                       self.state.state_file)
+        if not (
+            self.state.saver.inclusions == self.state.loader.state["inclusions"]
+            and self.state.saver.exclusions == self.state.loader.state["exclusions"]
+        ):
+            tf_cfg.dbg(
+                1, 'Not resuming from "%s": different filters specified' % self.state.state_file
+            )
             return
         # will raise before changing anything if state object is incomplete
-        self.set(test=self.state.loader.last_id,
-                 after=self.state.loader.last_completed)
+        self.set(test=self.state.loader.last_id, after=self.state.loader.last_completed)
         self.from_file = True
 
     def set(self, test, after=False):
@@ -213,7 +217,8 @@ class TestResume(object):
         return lambda test: True
 
     def resultclass(self):
-        return type('Result', (TestResume.Result,), {'matcher': self.state})
+        return type("Result", (TestResume.Result,), {"matcher": self.state})
+
 
 # I'd use a recursive generator, but `yield from` is python 3.3+
 def testsuite_flatten(dest, src):
@@ -223,12 +228,14 @@ def testsuite_flatten(dest, src):
     else:
         dest.append(src)
 
+
 def testcase_in(test, lst):
     test_id = test.id()
     for entry in lst:
-        if test_id == entry or test_id.startswith((entry if entry else '') + '.'):
+        if test_id == entry or test_id.startswith((entry if entry else "") + "."):
             return True
     return False
+
 
 def test_id_parse(loader, name):
     if name and os.path.exists(name):

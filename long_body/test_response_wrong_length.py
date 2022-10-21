@@ -1,48 +1,51 @@
 """ Testing for missing or wrong body length in response """
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-import unittest
 import os
+import unittest
+
+from helpers import chains, control, deproxy, remote, tempesta, tf_cfg
+from testers import functional
 
 from . import tester
 
-from testers import functional
-from helpers import tf_cfg, control, tempesta, remote, deproxy, chains
 
 def resp_body_length(base, length):
-    """ Generate chain with missing or specified body length """
-    for msg in ['response', 'server_response']:
+    """Generate chain with missing or specified body length"""
+    for msg in ["response", "server_response"]:
         field = getattr(base, msg)
-        field.headers.delete_all('Content-Length')
+        field.headers.delete_all("Content-Length")
         if length != None:
             actual_len = len(field.body)
-            if msg == 'response' and actual_len < length:
-                field.headers.add('Content-Length', '%i' % actual_len)
+            if msg == "response" and actual_len < length:
+                field.headers.add("Content-Length", "%i" % actual_len)
             else:
-                field.headers.add('Content-Length', '%i' % length)
+                field.headers.add("Content-Length", "%i" % length)
 
     base.response.update()
     base.server_response.build_message()
     return base
 
-def generate_chain_200(method='GET', response_body=""):
+
+def generate_chain_200(method="GET", response_body=""):
     base = chains.base(method=method)
     base.response.status = "200"
     base.response.body = response_body
-    base.response.headers['Content-Length'] = len(response_body)
+    base.response.headers["Content-Length"] = len(response_body)
     base.server_response.status = "200"
     base.server_response.body = response_body
-    base.server_response.headers['Content-Length'] = len(response_body)
+    base.server_response.headers["Content-Length"] = len(response_body)
     base.response.update()
     base.server_response.update()
     return base
 
-def generate_chain_204(method='GET'):
+
+def generate_chain_204(method="GET"):
     base = chains.base(method=method)
-    base.response.status = "204" # it's default, but for explicity
+    base.response.status = "204"  # it's default, but for explicity
     base.response.body = ""
     base.server_response.status = "204"
     base.server_response.body = ""
@@ -50,27 +53,28 @@ def generate_chain_204(method='GET'):
 
 
 class InvalidResponseServer(deproxy.Server):
-
     def __stop_server(self):
         deproxy.Server.__stop_server(self)
-        assert len(self.connections) <= self.conns_n, \
-                ('Too many connections, expect %d, got %d'
-                 % (self.conns_n, len(self.connections)))
+        assert len(self.connections) <= self.conns_n, "Too many connections, expect %d, got %d" % (
+            self.conns_n,
+            len(self.connections),
+        )
 
     def handle_accept(self):
         pair = self.accept()
         if pair is not None:
             sock, _ = pair
-            handler = deproxy.ServerConnection(self.tester, server=self,
-                                               sock=sock,
-                                               keep_alive=self.keep_alive)
+            handler = deproxy.ServerConnection(
+                self.tester, server=self, sock=sock, keep_alive=self.keep_alive
+            )
             self.connections.append(handler)
 
 
 class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain_200(method='GET')
+        base = generate_chain_200(method="GET")
         return (base, len(base.response.body))
 
     def received_response(self, response):
@@ -85,9 +89,10 @@ class TesterCorrectEmptyBodyLength(deproxy.Deproxy):
 
 
 class TesterCorrectBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain_200(method='GET', response_body="abcd")
+        base = generate_chain_200(method="GET", response_body="abcd")
         return (base, len(base.response.body))
 
     def __init__(self, *args, **kwargs):
@@ -98,36 +103,40 @@ class TesterCorrectBodyLength(deproxy.Deproxy):
 
 
 class TesterMissingEmptyBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     reply_body = ""
 
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
-        chain = generate_chain_200(method='GET', response_body=self.reply_body)
-        chain.server_response.headers.delete_all('Content-Length')
+        chain = generate_chain_200(method="GET", response_body=self.reply_body)
+        chain.server_response.headers.delete_all("Content-Length")
         chain.server_response.update()
-        chain.response.headers.delete_all('Content-Length')
-        chain.response.headers['Transfer-Encoding'] = 'chunked'
-        chain.response.body = '0\r\n\r\n'
+        chain.response.headers.delete_all("Content-Length")
+        chain.response.headers["Transfer-Encoding"] = "chunked"
+        chain.response.body = "0\r\n\r\n"
         chain.response.update()
 
         self.message_chains = [chain]
         self.cookies = []
 
+
 class TesterSmallBodyLength(TesterCorrectBodyLength):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain_200(method='GET', response_body="abcdefgh")
+        base = generate_chain_200(method="GET", response_body="abcdefgh")
         return (base, len(base.response.body) - 1)
 
 
 class TesterForbiddenZeroBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = self.create_base()
-        base[0].server_response.headers.delete_all('Content-Length')
-        base[0].server_response.headers.add('Content-Length', "%i" % base[1])
+        base[0].server_response.headers.delete_all("Content-Length")
+        base[0].server_response.headers.add("Content-Length", "%i" % base[1])
         base[0].server_response.build_message()
 
         base[0].response = chains.make_502_expected()
@@ -136,24 +145,26 @@ class TesterForbiddenZeroBodyLength(deproxy.Deproxy):
         self.cookies = []
 
     def create_base(self):
-        base = generate_chain_204(method='GET')
+        base = generate_chain_204(method="GET")
         return (base, 0)
 
 
 class TesterForbiddenPositiveBodyLength(TesterForbiddenZeroBodyLength):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain_204(method='GET')
+        base = generate_chain_204(method="GET")
         return (base, 1)
 
 
 class TesterDuplicateBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = self.create_base()
-        cl = base[0].server_response.headers['Content-Length']
-        base[0].server_response.headers.add('Content-Length', cl)
+        cl = base[0].server_response.headers["Content-Length"]
+        base[0].server_response.headers.add("Content-Length", cl)
         base[0].server_response.build_message()
 
         base[0].response = chains.make_502_expected()
@@ -162,19 +173,19 @@ class TesterDuplicateBodyLength(deproxy.Deproxy):
         self.cookies = []
 
     def create_base(self):
-        base = generate_chain_204(method='GET')
+        base = generate_chain_204(method="GET")
         return (base, 0)
 
 
 class TesterSecondBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = self.create_base()
-        cl = base[0].server_response.headers['Content-Length']
+        cl = base[0].server_response.headers["Content-Length"]
         length = int(cl)
-        base[0].server_response.headers.add('Content-Length',
-                                            "%i" % (length - 1))
+        base[0].server_response.headers.add("Content-Length", "%i" % (length - 1))
         base[0].server_response.build_message()
 
         base[0].response = chains.make_502_expected()
@@ -183,16 +194,17 @@ class TesterSecondBodyLength(deproxy.Deproxy):
         self.cookies = []
 
     def create_base(self):
-        base = generate_chain_204(method='GET')
+        base = generate_chain_204(method="GET")
         return (base, 0)
 
 
 class TesterInvalidBodyLength(deproxy.Deproxy):
-    """ Tester """
+    """Tester"""
+
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         base = self.create_base()
-        base[0].server_response.headers['Content-Length'] = "invalid"
+        base[0].server_response.headers["Content-Length"] = "invalid"
         base[0].server_response.build_message()
 
         base[0].response = chains.make_502_expected()
@@ -201,13 +213,14 @@ class TesterInvalidBodyLength(deproxy.Deproxy):
         self.cookies = []
 
     def create_base(self):
-        base = generate_chain_204(method='GET')
+        base = generate_chain_204(method="GET")
         return (base, 0)
 
 
 class ResponseCorrectEmptyBodyLength(functional.FunctionalTest):
-    """ Correct body length """
-    config = 'cache 0;\nblock_action error reply;\nblock_action attack reply;\n'
+    """Correct body length"""
+
+    config = "cache 0;\nblock_action error reply;\nblock_action attack reply;\n"
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
@@ -220,19 +233,19 @@ class ResponseCorrectEmptyBodyLength(functional.FunctionalTest):
         self.tester = TesterCorrectEmptyBodyLength(self.client, self.servers)
 
     def test(self):
-        """ Test """
+        """Test"""
         self.generic_test_routine(self.config, [])
 
 
 class ResponseCorrectBodyLength(ResponseCorrectEmptyBodyLength):
-    """ Correct body length """
+    """Correct body length"""
 
     def create_tester(self):
         self.tester = TesterCorrectBodyLength(self.client, self.servers)
 
 
 class ResponseMissingEmptyBodyLength(ResponseCorrectEmptyBodyLength):
-    """ Missing body length """
+    """Missing body length"""
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
@@ -243,21 +256,17 @@ class ResponseMissingEmptyBodyLength(ResponseCorrectEmptyBodyLength):
 
 
 class ResponseSmallBodyLength(ResponseCorrectEmptyBodyLength):
-    """ Small body length """
+    """Small body length"""
 
     def create_tester(self):
         self.tester = TesterSmallBodyLength(self.client, self.servers)
 
     def assert_tempesta(self):
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0,
-                         msg=(msg % 'responses'))
-        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 1,
-                         msg=(msg % 'responses'))
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0, msg=(msg % "responses"))
+        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 1, msg=(msg % "responses"))
 
     # To be fixed in tempesta#1012
     @unittest.expectedFailure
@@ -266,29 +275,24 @@ class ResponseSmallBodyLength(ResponseCorrectEmptyBodyLength):
 
 
 class ResponseForbiddenZeroBodyLength(ResponseCorrectEmptyBodyLength):
-    """ Forbidden body length """
+    """Forbidden body length"""
 
     def create_tester(self):
         self.tester = TesterForbiddenZeroBodyLength(self.client, self.servers)
 
     def assert_tempesta(self):
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 1,
-                         msg=(msg % 'responses'))
-        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
-                         msg=(msg % 'responses'))
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 1, msg=(msg % "responses"))
+        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0, msg=(msg % "responses"))
 
 
 class ResponseForbiddenPositiveBodyLength(ResponseForbiddenZeroBodyLength):
-    """ Forbidden body length """
+    """Forbidden body length"""
 
     def create_tester(self):
-        self.tester = TesterForbiddenPositiveBodyLength(self.client,
-                                                        self.servers)
+        self.tester = TesterForbiddenPositiveBodyLength(self.client, self.servers)
 
 
 class ResponseDuplicateBodyLength(ResponseCorrectEmptyBodyLength):
@@ -296,15 +300,11 @@ class ResponseDuplicateBodyLength(ResponseCorrectEmptyBodyLength):
         self.tester = TesterDuplicateBodyLength(self.client, self.servers)
 
     def assert_tempesta(self):
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 1,
-                         msg=(msg % 'responses'))
-        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
-                         msg=(msg % 'responses'))
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 1, msg=(msg % "responses"))
+        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0, msg=(msg % "responses"))
 
 
 class ResponseSecondBodyLength(ResponseDuplicateBodyLength):

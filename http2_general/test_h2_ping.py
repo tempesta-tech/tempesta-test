@@ -2,11 +2,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import ssl
 import socket
+import ssl
 import time
-import h2
 
+import h2
 from framework import tester
 from helpers import tf_cfg
 
@@ -55,9 +55,7 @@ class TestH2Ping(tester.TempestaTest):
         context.verify_mode = ssl.CERT_NONE
 
         with socket.create_connection((hostname, port)) as sock:
-            with context.wrap_socket(
-                sock, server_hostname="tempesta-tech.com"
-            ) as ssock:
+            with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
                 conn = h2.connection.H2Connection()
                 window_size = 65535
                 ping_data = b"\x00\x01\x02\x03\x04\x05\x06\x07"
@@ -86,9 +84,7 @@ class TestH2Ping(tester.TempestaTest):
                             )
                             stream_ended, got_response = True, True
                             break
-                        if isinstance(
-                            event, (h2.events.StreamEnded, h2.events.StreamReset)
-                        ):
+                        if isinstance(event, (h2.events.StreamEnded, h2.events.StreamReset)):
                             stream_ended = True
                             break
                     self.assertTrue(

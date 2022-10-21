@@ -1,18 +1,18 @@
 """Test module for http2 and Sticky Cookie."""
 from framework import tester
 
-
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-nginx_backend = {
-    'id': 'nginx',
-    'type': 'nginx',
-    'port': '8000',
-    'status_uri': 'http://${server_ip}:8000/nginx_status',
-    'config': """
+nginx_backend = (
+    {
+        "id": "nginx",
+        "type": "nginx",
+        "port": "8000",
+        "status_uri": "http://${server_ip}:8000/nginx_status",
+        "config": """
         pid ${pid};
         worker_processes  auto;
         events {
@@ -42,7 +42,8 @@ nginx_backend = {
             }
         }
     """,
-},
+    },
+)
 
 
 class H2StickyCookieBaseTestCase(tester.TempestaTest):
@@ -50,16 +51,16 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'curl-1',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            "id": "curl-1",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             listen ${tempesta_ip}:8765 proto=h2;
 
             sticky {
@@ -89,7 +90,7 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
 
     def test_h2_cookie_default(self):
         """Check for presents `set-cookie` header."""
-        curl = self.get_client('curl-1')
+        curl = self.get_client("curl-1")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -99,15 +100,15 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
 
         response = curl.resq.get(True, 1)[0].decode()
         self.assertIn(
-            'set-cookie',
+            "set-cookie",
             response,
-            'Expected header `set-cookie` in response',
+            "Expected header `set-cookie` in response",
         )
         # cookie name `__test` set up in settings
         self.assertIn(
-            '__test',
+            "__test",
             response,
-            'Expected cookie name in response',
+            "Expected cookie name in response",
         )
 
         curl.stop()
@@ -118,23 +119,23 @@ class H2StickyCookieTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'curl-2',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765" -H "Cookie: name1=value1" -H "Cookie: name2=value2"',  # noqa:E501
+            "id": "curl-2",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765" -H "Cookie: name1=value1" -H "Cookie: name2=value2"',  # noqa:E501
         },
         {
-            'id': 'curl-3',
-            'type': 'external',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
+            "id": "curl-3",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: tempesta-tech.com:8765"',  # noqa:E501
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             listen ${tempesta_ip}:8765 proto=h2;
 
             sticky {
@@ -164,7 +165,7 @@ class H2StickyCookieTestCase(tester.TempestaTest):
 
     def test_h2_many_cookie_enforce(self):
         """Send request with many `Cookie` headers and enforced option."""
-        curl = self.get_client('curl-2')
+        curl = self.get_client("curl-2")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -180,7 +181,7 @@ class H2StickyCookieTestCase(tester.TempestaTest):
 
     def test_h2_no_cookie_enforce(self):
         """Send request with no `Cookie` headers and enforced option."""
-        curl = self.get_client('curl-3')
+        curl = self.get_client("curl-3")
 
         self.start_all_servers()
         self.start_tempesta()

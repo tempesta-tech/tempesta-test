@@ -1,18 +1,18 @@
 """Functional tests of caching config."""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
+from framework import tester
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from framework import tester
 from helpers import checks_for_tests as checks
 from helpers import tf_cfg
 from helpers.control import Tempesta
 
 MIXED_CONFIG = (
-    'cache {0};\r\n'
+    "cache {0};\r\n"
     + 'cache_fulfill suffix ".jpg" ".png";\r\n'
     + 'cache_bypass suffix ".avi";\r\n'
     + 'cache_bypass prefix "/static/dynamic_zone/";\r\n'
@@ -24,7 +24,7 @@ class TestCache(tester.TempestaTest):
     """This class contains checks for tempesta cache config."""
 
     tempesta = {
-        'config': """
+        "config": """
 listen 80;
 
 server ${server_ip}:8000;
@@ -37,20 +37,20 @@ vhost default {
 
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': '',
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
         },
     ]
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
@@ -63,30 +63,30 @@ vhost default {
 
         self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server('deproxy')
+        srv: StaticDeproxyServer = self.get_server("deproxy")
         srv.set_response(
-            'HTTP/1.1 200 OK\r\n'
-            + 'Connection: keep-alive\r\n'
-            + 'Content-Length: 13\r\n'
-            + 'Content-Type: text/html\r\n'
-            + '\r\n'
-            + '<html></html>\r\n',
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + "\r\n"
+            + "<html></html>\r\n",
         )
 
-        client: DeproxyClient = self.get_client('deproxy')
+        client: DeproxyClient = self.get_client("deproxy")
         request = (
-            f'GET {uri} HTTP/1.1\r\n'
-            + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
-            + 'Connection: keep-alive\r\n'
-            + 'Accept: */*\r\n'
-            + '\r\n'
+            f"GET {uri} HTTP/1.1\r\n"
+            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + "\r\n"
         )
 
         for _ in range(self.messages):
-            client.send_request(request, expected_status_code='200')
+            client.send_request(request, expected_status_code="200")
 
-        self.assertNotIn('age', client.responses[0].headers)
-        msg = 'Server has received unexpected number of requests.'
+        self.assertNotIn("age", client.responses[0].headers)
+        msg = "Server has received unexpected number of requests."
         if should_be_cached:
             checks.check_tempesta_cache_stats(
                 tempesta,
@@ -106,68 +106,68 @@ vhost default {
 
         for response in client.responses[1:]:  # Note WPS 440
             if should_be_cached:
-                self.assertIn('age', response.headers, msg)
+                self.assertIn("age", response.headers, msg)
             else:
-                self.assertNotIn('age', response.headers, msg)
+                self.assertNotIn("age", response.headers, msg)
 
     def test_disabled_cache_fulfill_all(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/',
+            uri="/",
             cache_mode=0,
             should_be_cached=False,
-            tempesta_config='cache {0};\r\ncache_fulfill * *;\r\n',
+            tempesta_config="cache {0};\r\ncache_fulfill * *;\r\n",
         )
 
     def test_sharding_cache_fulfill_all(self):
         """If cache_mode = 1 and cache_fulfill * *,  all requests are cached."""
         self._test(
-            uri='/',
+            uri="/",
             cache_mode=1,
             should_be_cached=True,
-            tempesta_config='cache {0};\r\ncache_fulfill * *;\r\n',
+            tempesta_config="cache {0};\r\ncache_fulfill * *;\r\n",
         )
 
     def test_replicated_cache_fulfill_all(self):
         """If cache_mode = 2 and cache_fulfill * *,  all requests are cached."""
         self._test(
-            uri='/',
+            uri="/",
             cache_mode=2,
             should_be_cached=True,
-            tempesta_config='cache {0};\r\ncache_fulfill * *;\r\n',
+            tempesta_config="cache {0};\r\ncache_fulfill * *;\r\n",
         )
 
     def test_disabled_cache_bypass_all(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/',
+            uri="/",
             cache_mode=0,
             should_be_cached=False,
-            tempesta_config='cache {0};\r\ncache_bypass * *;\r\n',
+            tempesta_config="cache {0};\r\ncache_bypass * *;\r\n",
         )
 
     def test_sharding_cache_bypass_all(self):
         """If cache_mode = 1 and cache_bypass * *,  all requests are not cached."""
         self._test(
-            uri='/',
+            uri="/",
             cache_mode=1,
             should_be_cached=False,
-            tempesta_config='cache {0};\r\ncache_bypass * *;\r\n',
+            tempesta_config="cache {0};\r\ncache_bypass * *;\r\n",
         )
 
     def test_replicated_cache_bypass_all(self):
         """If cache_mode = 2 and cache_bypass * *, all requests are not cached."""
         self._test(
-            uri='/',
+            uri="/",
             cache_mode=2,
             should_be_cached=False,
-            tempesta_config='cache {0};\r\ncache_bypass * *;\r\n',
+            tempesta_config="cache {0};\r\ncache_bypass * *;\r\n",
         )
 
     def test_disabled_cache_fulfill_suffix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/picts/bear.jpg',
+            uri="/picts/bear.jpg",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -176,7 +176,7 @@ vhost default {
     def test_sharding_cache_fulfill_suffix(self):
         """If cache_mode = 1 and cache_fulfill suffix ".jpg", all requests are cached."""
         self._test(
-            uri='/picts/bear.jpg',
+            uri="/picts/bear.jpg",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
@@ -185,7 +185,7 @@ vhost default {
     def test_replicated_cache_fulfill_suffix(self):
         """If cache_mode = 2 and cache_fulfill suffix ".jpg", all requests are cached."""
         self._test(
-            uri='/picts/bear.jpg',
+            uri="/picts/bear.jpg",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
@@ -194,7 +194,7 @@ vhost default {
     def test_disabled_cache_fulfill_suffix2(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/jsnfsjk/jnd.png',
+            uri="/jsnfsjk/jnd.png",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -203,7 +203,7 @@ vhost default {
     def test_sharding_cache_fulfill_suffix2(self):
         """If cache_mode = 1 and cache_fulfill suffix ".png", all requests are cached."""
         self._test(
-            uri='/jsnfsjk/jnd.png',
+            uri="/jsnfsjk/jnd.png",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
@@ -212,7 +212,7 @@ vhost default {
     def test_replicated_cache_fulfill_suffix2(self):
         """If cache_mode = 2 and cache_fulfill suffix ".png", all requests are cached."""
         self._test(
-            uri='/jsnfsjk/jnd.png',
+            uri="/jsnfsjk/jnd.png",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
@@ -221,7 +221,7 @@ vhost default {
     def test_disabled_cache_bypass_suffix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/howto/film.avi',
+            uri="/howto/film.avi",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -230,7 +230,7 @@ vhost default {
     def test_sharding_cache_bypass_suffix(self):
         """If cache_mode = 1 and cache_bypass suffix ".avi", all requests are not cached."""
         self._test(
-            uri='/howto/film.avi',
+            uri="/howto/film.avi",
             cache_mode=1,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -239,7 +239,7 @@ vhost default {
     def test_replicated_cache_bypass_suffix(self):
         """If cache_mode = 2 and cache_bypass suffix ".avi", all requests are not cached."""
         self._test(
-            uri='/howto/film.avi',
+            uri="/howto/film.avi",
             cache_mode=2,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -248,7 +248,7 @@ vhost default {
     def test_disabled_cache_bypass_prefix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/static/dynamic_zone/content.html',
+            uri="/static/dynamic_zone/content.html",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -260,7 +260,7 @@ vhost default {
         cached.
         """
         self._test(
-            uri='/static/dynamic_zone/content.html',
+            uri="/static/dynamic_zone/content.html",
             cache_mode=1,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -272,7 +272,7 @@ vhost default {
         cached.
         """
         self._test(
-            uri='/static/dynamic_zone/content.html',
+            uri="/static/dynamic_zone/content.html",
             cache_mode=2,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -281,7 +281,7 @@ vhost default {
     def test_disabled_cache_fulfill_prefix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
         self._test(
-            uri='/static/content.html',
+            uri="/static/content.html",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
@@ -290,7 +290,7 @@ vhost default {
     def test_sharding_cache_fulfill_prefix(self):
         """If cache_mode = 1 and cache_fulfill prefix "/static/", all requests are cached."""
         self._test(
-            uri='/static/content.html',
+            uri="/static/content.html",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
@@ -299,7 +299,7 @@ vhost default {
     def test_replicated_cache_fulfill_prefix(self):
         """If cache_mode = 2 and cache_fulfill prefix "/static/", all requests are cached."""
         self._test(
-            uri='/static/content.html',
+            uri="/static/content.html",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
@@ -311,39 +311,40 @@ vhost default {
         response.
         """
         self._test(
-            uri='/static/content.html',
+            uri="/static/content.html",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
         for response in client.responses:
-            self.assertIn('date', response.headers)
+            self.assertIn("date", response.headers)
 
 
 class H2Cache(tester.TempestaTest):
-    clients = [{
-        'id': 'deproxy',
-        'type': 'deproxy_h2',
-        'addr': "${tempesta_ip}",
-        'port': '443',
-        'ssl': True,
-        'ssl_hostname': 'tempesta-tech.com'
-    }]
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        }
+    ]
 
-    backends = [{
-        'id' : 'deproxy',
-        'type' : 'deproxy',
-        'port' : '8000',
-        'response' : 'static',
-        'response_content' :
-        'HTTP/1.1 200 OK\r\n'
-        'Content-Length: 0\r\n\r\n'
-    }]
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        }
+    ]
 
     tempesta = {
-        'config':
-        '''
+        "config": """
         cache 2;
         cache_fulfill eq /to-be-cached;
 
@@ -360,7 +361,7 @@ class H2Cache(tester.TempestaTest):
             proxy_pass default;
         }
 
-       '''
+       """
     }
 
     def start_all(self):
@@ -377,7 +378,7 @@ class H2Cache(tester.TempestaTest):
             (":authority", "tempesta-tech.com"),
             (":path", "/to-be-cached"),
             (":scheme", "https"),
-            (":method", "GET")
+            (":method", "GET"),
         ]
         requests = [request, request]
 
@@ -390,9 +391,10 @@ class H2Cache(tester.TempestaTest):
 
         # Only the first request should be forwarded to the backend.
         self.assertEqual(
-            len(self.get_server('deproxy').requests),
+            len(self.get_server("deproxy").requests),
             1,
-            "The second request wasn't served from cache."
+            "The second request wasn't served from cache.",
         )
 
-#vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+
+# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

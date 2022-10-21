@@ -20,15 +20,16 @@ expected to be replaced with Python 3 solution
 based on SSLObject class.
 """
 
-import sys
-import socket
 import asyncore
+import socket
+import sys
 import time
+
 from . import error
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 CLIENT_MODE = 1
 SERVER_MODE = 2
@@ -38,15 +39,17 @@ CLIENT_MODE_PORT_REPLACE = 9001
 
 MAX_MESSAGE_SIZE = 65536
 
+
 class ProxyConnection(asyncore.dispatcher_with_send):
     """
-        This class represents a proxy TCP connection, both
-        accepted one and forwarded one
+    This class represents a proxy TCP connection, both
+    accepted one and forwarded one
     """
+
     def __init__(self, sock=None, pair=None, proxy=None, do_chunking=False):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.proxy = proxy
-        self.pair = pair;
+        self.pair = pair
         self.closing = False
         self.do_chunking = do_chunking
         self.last_segment_time = 0
@@ -60,25 +63,31 @@ class ProxyConnection(asyncore.dispatcher_with_send):
 
     def initiate_send(self):
         num_sent = 0
-        num_sent = asyncore.dispatcher.send(self, self.out_buffer[:
-                self.proxy.segment_size
+        num_sent = asyncore.dispatcher.send(
+            self,
+            self.out_buffer[
+                : self.proxy.segment_size
                 if self.do_chunking and self.proxy.segment_size > 0
-                else 4096 ])
+                else 4096
+            ],
+        )
         self.out_buffer = self.out_buffer[num_sent:]
         self.last_segment_time = time.time()
         if len(self.out_buffer) == 0 and self.closing:
             self.handle_close()
 
     def in_pause(self):
-        return ( self.do_chunking and self.proxy.segment_gap > 0 and
-                 time.time() - self.last_segment_time
-                     < self.proxy.segment_gap / 1000.0 )
+        return (
+            self.do_chunking
+            and self.proxy.segment_gap > 0
+            and time.time() - self.last_segment_time < self.proxy.segment_gap / 1000.0
+        )
 
     def writable(self):
         if self.in_pause():
-            return False;
+            return False
         if self.closing:
-            return True;
+            return True
         return asyncore.dispatcher_with_send.writable(self)
 
     def send(self, data):
@@ -97,11 +106,11 @@ class ProxyConnection(asyncore.dispatcher_with_send):
         self.pair.closing = True
         self.close()
 
-class SelfProxy(asyncore.dispatcher):
 
-    def __init__(self, mode, listen_host, listen_port,
-                       forward_host, forward_port,
-                       segment_size, segment_gap):
+class SelfProxy(asyncore.dispatcher):
+    def __init__(
+        self, mode, listen_host, listen_port, forward_host, forward_port, segment_size, segment_gap
+    ):
         asyncore.dispatcher.__init__(self)
         self.mode = mode
         self.listen_host = listen_host
@@ -138,8 +147,7 @@ class SelfProxy(asyncore.dispatcher):
             elif self.mode == SERVER_MODE:
                 accepted_conn.do_chunking = True
                 if self.segment_size:
-                    accepted_conn.socket.setsockopt(socket.SOL_TCP,
-                        socket.TCP_NODELAY, 1)
+                    accepted_conn.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             else:
                 error.bug("Invalid SelfProxy mode")
             self.connections.append(accepted_conn)
@@ -147,6 +155,7 @@ class SelfProxy(asyncore.dispatcher):
             forward_conn.create_socket(socket.AF_INET, socket.SOCK_STREAM)
             forward_conn.bind(("0.0.0.0", 0))
             forward_conn.connect((self.forward_host, self.forward_port))
+
 
 client_selfproxy = None
 client_selfproxy_count = 0
@@ -169,19 +178,27 @@ on SelfProxy instance, and the parameters of next calls are ignored
 and only the use couner is incremented. This should be reworked if
 meet some contardiction with future requirements.
 """
-def request_client_selfproxy(listen_host, listen_port,
-                       forward_host, forward_port,
-                       segment_size, segment_gap):
+
+
+def request_client_selfproxy(
+    listen_host, listen_port, forward_host, forward_port, segment_size, segment_gap
+):
     global client_selfproxy
     global client_selfproxy_count
     if client_selfproxy is None:
-        client_selfproxy = SelfProxy(CLIENT_MODE,
-                           listen_host, listen_port,
-                           forward_host, forward_port,
-                           segment_size, segment_gap)
+        client_selfproxy = SelfProxy(
+            CLIENT_MODE,
+            listen_host,
+            listen_port,
+            forward_host,
+            forward_port,
+            segment_size,
+            segment_gap,
+        )
         client_selfproxy_count = 1
     else:
         client_selfproxy_count += 1
+
 
 def release_client_selfproxy():
     global client_selfproxy
@@ -192,6 +209,7 @@ def release_client_selfproxy():
             client_selfproxy.stop()
             client_selfproxy = None
         client_selfproxy_count = 0
+
 
 def update_client_selfproxy_chunking(segment_size, segment_gap):
     if client_selfproxy is not None:

@@ -8,9 +8,9 @@ from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers import tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 TEMPESTA_CONFIG = """
 cache 2;
@@ -29,26 +29,25 @@ vhost vh1 {
 class TestCacheControl(tester.TempestaTest, base=True):
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
-    tempesta_template = {'config': TEMPESTA_CONFIG}
+    tempesta_template = {"config": TEMPESTA_CONFIG}
 
     backends_template = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content':
-                'HTTP/1.1 200 OK\r\n'
-                + 'Server-id: deproxy\r\n'
-                + 'Content-Length: 0\r\n'
-                + '%(response_headers)s\r\n',
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            + "Server-id: deproxy\r\n"
+            + "Content-Length: 0\r\n"
+            + "%(response_headers)s\r\n",
         },
     ]
 
@@ -56,18 +55,18 @@ class TestCacheControl(tester.TempestaTest, base=True):
         cache_fulfill * *;
         """
 
-    uri = '/'
+    uri = "/"
     request_headers = {}
-    request_method = 'GET'
+    request_method = "GET"
     response_headers = {}
-    response_status = '200'
+    response_status = "200"
     should_be_cached = False  # True means Tempesta Fw should make no forward the
     # request upstream and serve it from cache only.
     sleep_interval = None  # between the first and second request.
     second_request_headers = None  # When the two requests differ.
     cached_headers = None  # Reference headers to compare with actual cached response.
     # Empty if cached/second response is same as first one.
-    cached_status = '200'
+    cached_status = "200"
 
     def start_all(self):
         self.start_all_servers()
@@ -78,40 +77,40 @@ class TestCacheControl(tester.TempestaTest, base=True):
 
     def setUp(self):
         self.tempesta = copy.deepcopy(self.tempesta_template)
-        self.tempesta['config'] = (
-            self.tempesta['config'] % {'tempesta_config': self.tempesta_config or ''}
-        )
+        self.tempesta["config"] = self.tempesta["config"] % {
+            "tempesta_config": self.tempesta_config or ""
+        }
         self.backends = copy.deepcopy(self.backends_template)
-        headers = ''.join(
-            '{0}: {1}\r\n'.format(header, '' if header_value is None else header_value)
+        headers = "".join(
+            "{0}: {1}\r\n".format(header, "" if header_value is None else header_value)
             for header, header_value in self.response_headers.items()
         )
-        self.backends[0]['response_content'] = (
-            self.backends[0]['response_content'] % {'response_headers': headers}
-        )
+        self.backends[0]["response_content"] = self.backends[0]["response_content"] % {
+            "response_headers": headers
+        }
         # apply default values for optional fields
-        if getattr(self, 'cached_headers', None) is None:
+        if getattr(self, "cached_headers", None) is None:
             self.cached_headers = self.response_headers
-        if getattr(self, 'second_request_headers', None) is None:
+        if getattr(self, "second_request_headers", None) is None:
             self.second_request_headers = self.request_headers
 
         super().setUp()
 
     def client_send_req(self, client, headers: dict):
 
-        req_headers = ''.join(
-            '{0}: {1}\r\n'.format(header, header_value if header_value else '')
+        req_headers = "".join(
+            "{0}: {1}\r\n".format(header, header_value if header_value else "")
             for header, header_value in headers.items()
         )
         req = (
-            f'{self.request_method} {self.uri} HTTP/1.1\r\n'
+            f"{self.request_method} {self.uri} HTTP/1.1\r\n"
             + f'Host: {tf_cfg.cfg.get("Tempesta", "hostname")}\r\n'
-            + f'{req_headers}\r\n'
+            + f"{req_headers}\r\n"
         )
         curr_responses = len(client.responses)
         client.make_requests(req)
         client.wait_for_response(timeout=1)
-        self.assertEqual(curr_responses + 1, len(client.responses), 'response lost')
+        self.assertEqual(curr_responses + 1, len(client.responses), "response lost")
 
         return client.last_response
 
@@ -121,12 +120,12 @@ class TestCacheControl(tester.TempestaTest, base=True):
             if actual_val is None:
                 self.assertIsNone(
                     actual_val,
-                    '{0} header is missing in the response'.format(header),
+                    "{0} header is missing in the response".format(header),
                 )
             else:
                 self.assertIsNotNone(
                     actual_val,
-                    '{0} header is present in the response'.format(header),
+                    "{0} header is present in the response".format(header),
                 )
 
     def check_cached_response_headers(self, response):
@@ -135,25 +134,25 @@ class TestCacheControl(tester.TempestaTest, base=True):
             if actual_val is None:
                 self.assertIsNone(
                     actual_val,
-                    '{0} header is missing in the cached response'.format(header),
+                    "{0} header is missing in the cached response".format(header),
                 )
             else:
                 self.assertIsNotNone(
                     actual_val,
-                    '{0} header is present in the cached response'.format(header),
+                    "{0} header is present in the cached response".format(header),
                 )
 
     def _test(self):
         self.start_all()
-        client: DeproxyClient = self.get_client('deproxy')
-        srv: StaticDeproxyServer = self.get_server('deproxy')
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
 
         response = self.client_send_req(client, self.request_headers)
         self.assertEqual(
             response.status,
             self.response_status,
             "The client's first request did not receive the expected response."
-            + 'The caching function cannot be checked.',
+            + "The caching function cannot be checked.",
         )
         self.check_response_headers(response)
 
@@ -165,12 +164,12 @@ class TestCacheControl(tester.TempestaTest, base=True):
             cached_response.status,
             self.cached_status,
             "The client's second request did not receive the expected response."
-            + 'The caching function cannot be checked.',
+            + "The caching function cannot be checked.",
         )
         if self.should_be_cached:
-            self.assertEqual(1, len(srv.requests), 'response not cached as expected')
+            self.assertEqual(1, len(srv.requests), "response not cached as expected")
         else:
-            self.assertEqual(2, len(srv.requests), 'response is cached while it should not be')
+            self.assertEqual(2, len(srv.requests), "response is cached while it should not be")
         if self.should_be_cached:
             self.check_cached_response_headers(cached_response)
         else:
@@ -209,7 +208,7 @@ class CacheHdrDelBypass(TestCacheControl, SingleTest):
         cache_bypass * *;
         cache_resp_hdr_del set-cookie Remove-me-2;
         """
-    response_headers = {'Set-Cookie': 'cookie=2; a=b', 'Remove-me-2': ''}
+    response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": ""}
     should_be_cached = False
 
 
@@ -218,8 +217,8 @@ class CacheHdrDelCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_resp_hdr_del set-cookie Remove-me-2;
         """
-    response_headers = {'Set-Cookie': 'cookie=2; a=b', 'Remove-me-2': ''}
-    cached_headers = {'Set-Cookie': None, 'Remove-me-2': None}
+    response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": ""}
+    cached_headers = {"Set-Cookie": None, "Remove-me-2": None}
     should_be_cached = True
 
 
@@ -228,8 +227,8 @@ class CacheHdrDelCached2(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_resp_hdr_del set-cookie Remove-me-2;
         """
-    response_headers = {'Set-Cookie': 'cookie=2; a=b', 'Remove-me-2': '2'}
-    cached_headers = {'Set-Cookie': None, 'Remove-me-2': None}
+    response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": "2"}
+    cached_headers = {"Set-Cookie": None, "Remove-me-2": None}
     should_be_cached = True
 
 
@@ -240,7 +239,7 @@ class TestCacheBypass(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_bypass * *;
         """
-    response_headers = {'Remove-me': '', 'Remove-me-2': ''}
+    response_headers = {"Remove-me": "", "Remove-me-2": ""}
     should_be_cached = False
 
 
@@ -248,7 +247,7 @@ class TestCache(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Remove-me': '', 'Remove-me-2': ''}
+    response_headers = {"Remove-me": "", "Remove-me-2": ""}
     should_be_cached = True
 
 
@@ -256,7 +255,7 @@ class TestCache2(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Remove-me': '2', 'Remove-me-2': '2'}
+    response_headers = {"Remove-me": "2", "Remove-me-2": "2"}
     should_be_cached = True
 
 
@@ -266,82 +265,82 @@ class TestCache2(TestCacheControl, SingleTest):
 # request
 # max-age
 class RequestMaxAgeNoCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=1'}
-    response_headers = {'Cache-control': 'max-age=3'}
+    request_headers = {"Cache-control": "max-age=1"}
+    response_headers = {"Cache-control": "max-age=3"}
     sleep_interval = 1.5
     should_be_cached = False
 
 
 class RequestMaxAgeCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=1'}
-    response_headers = {'Cache-control': 'max-age=3'}
+    request_headers = {"Cache-control": "max-age=1"}
+    response_headers = {"Cache-control": "max-age=3"}
     sleep_interval = None
     should_be_cached = True
 
 
 # max-age, max-stale
 class RequestMaxAgeMaxStaleNotCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=5, max-stale=1'}
-    response_headers = {'Cache-control': 'max-age=1'}
+    request_headers = {"Cache-control": "max-age=5, max-stale=1"}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = 3
     should_be_cached = False
 
 
 class RequestMaxAgeMaxStaleCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=3, max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1'}
+    request_headers = {"Cache-control": "max-age=3, max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = 1.5
     should_be_cached = True
 
 
 class RequestMaxStaleCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-stale'}
-    response_headers = {'Cache-control': 'max-age=1'}
+    request_headers = {"Cache-control": "max-stale"}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = 1.5
     should_be_cached = True
 
 
 # min-fresh
 class RequestMinFreshNotCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'min-fresh=2'}
-    response_headers = {'Cache-control': 'max-age=3'}
+    request_headers = {"Cache-control": "min-fresh=2"}
+    response_headers = {"Cache-control": "max-age=3"}
     sleep_interval = 1.5
     should_be_cached = False
 
 
 class RequestMinFreshCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'min-fresh=1'}
-    response_headers = {'Cache-control': 'max-age=2'}
+    request_headers = {"Cache-control": "min-fresh=1"}
+    response_headers = {"Cache-control": "max-age=2"}
     sleep_interval = None
     should_be_cached = True
 
 
 # max-age
 class RequestOnlyIfCachedCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=1'}
-    response_headers = {'Cache-control': 'max-age=2'}
+    request_headers = {"Cache-control": "max-age=1"}
+    response_headers = {"Cache-control": "max-age=2"}
     sleep_interval = None
-    second_request_headers = {'Cache-control': 'max-age=1, only-if-cached'}
-    cached_status = '200'
+    second_request_headers = {"Cache-control": "max-age=1, only-if-cached"}
+    cached_status = "200"
     should_be_cached = True
 
 
 class RequestOnlyIfCached504(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'max-age=1'}
-    response_headers = {'Cache-control': 'max-age=2'}
+    request_headers = {"Cache-control": "max-age=1"}
+    response_headers = {"Cache-control": "max-age=2"}
     sleep_interval = 2.5
-    second_request_headers = {'Cache-control': 'max-age=1, only-if-cached'}
-    cached_status = '504'
+    second_request_headers = {"Cache-control": "max-age=1, only-if-cached"}
+    cached_status = "504"
     should_be_cached = True
 
 
 class RequestNoStoreNotCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'no-store'}
+    request_headers = {"Cache-control": "no-store"}
     should_be_cached = False
 
 
 class RequestNoChacheNotCached(TestCacheControl, SingleTest):
-    request_headers = {'Cache-control': 'no-cache'}
+    request_headers = {"Cache-control": "no-cache"}
     should_be_cached = False
 
 
@@ -364,7 +363,7 @@ class ResponseMustRevalidateNotCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     request_headers = {}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -373,8 +372,8 @@ class ResponseMustRevalidateStaleNotCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -387,8 +386,8 @@ class ResponseMustRevalidateStaleCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     should_be_cached = True
     sleep_interval = None
 
@@ -398,7 +397,7 @@ class ResponseMustRevalidateCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     request_headers = {}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = None
     should_be_cached = True
 
@@ -410,7 +409,7 @@ class ResponseMustRevalidateIgnore(TestCacheControl, SingleTest):
         """
     # Although must-revalidate is ignored, max-age=1 remains active.
     request_headers = {}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -420,8 +419,8 @@ class ResponseMustRevalidateStaleIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore must-revalidate;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -432,7 +431,7 @@ class ResponseProxyRevalidateNotCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     request_headers = {}
-    response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
+    response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -441,8 +440,8 @@ class ResponseProxyRevalidateStaleNotCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -453,7 +452,7 @@ class ResponseProxyRevalidateIgnore(TestCacheControl, SingleTest):
         cache_control_ignore proxy-revalidate;
         """
     request_headers = {}
-    response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
+    response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -462,8 +461,8 @@ class ResponseStaleCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -473,8 +472,8 @@ class ResponseProxyRevalidateStaleIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore proxy-revalidate;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 'max-age=1, proxy-revalidate'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -486,8 +485,8 @@ class ResponseForAuthorizationUserMustRevalidateNotCached(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -497,8 +496,8 @@ class ResponseMustRevalidateHalfIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore max-age;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -508,8 +507,8 @@ class ResponseMustRevalidateMultiIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore max-age must-revalidate;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 'max-age=1, must-revalidate'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "max-age=1, must-revalidate"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -519,7 +518,7 @@ class ResponseMaxAgeNotCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 'max-age=1'}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -528,7 +527,7 @@ class ResponseMaxAgeCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 'max-age=1'}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = None
     should_be_cached = True
 
@@ -538,7 +537,7 @@ class ResponseMaxAgeIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore max-age;
         """
-    response_headers = {'Cache-control': 'max-age=1'}
+    response_headers = {"Cache-control": "max-age=1"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -547,7 +546,7 @@ class ResponseSMaxageNotCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 's-maxage=1'}
+    response_headers = {"Cache-control": "s-maxage=1"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -557,8 +556,8 @@ class ResponseSMaxageNotCached2(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Cache-control': 'max-stale=2'}
-    response_headers = {'Cache-control': 's-maxage=1'}
+    request_headers = {"Cache-control": "max-stale=2"}
+    response_headers = {"Cache-control": "s-maxage=1"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -567,7 +566,7 @@ class ResponseSMaxageCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 's-maxage=1'}
+    response_headers = {"Cache-control": "s-maxage=1"}
     sleep_interval = None
     should_be_cached = True
 
@@ -578,8 +577,8 @@ class ResponseMaxAgeNotCached2(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 's-maxage=0'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "s-maxage=0"}
     sleep_interval = None
     should_be_cached = False
 
@@ -588,8 +587,8 @@ class ResponseMaxAgeCached2(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 's-maxage=1'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "s-maxage=1"}
     sleep_interval = None
     should_be_cached = True
 
@@ -599,7 +598,7 @@ class ResponseSMaxageIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore s-maxage;
         """
-    response_headers = {'Cache-control': 's-maxage=1'}
+    response_headers = {"Cache-control": "s-maxage=1"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -609,7 +608,7 @@ class ResponseSMaxageMaxAgeNotCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore max-age;
         """
-    response_headers = {'Cache-control': 'max-age=1, s-maxage=1'}
+    response_headers = {"Cache-control": "max-age=1, s-maxage=1"}
     sleep_interval = 1.5
     should_be_cached = False
 
@@ -619,7 +618,7 @@ class ResponseSMaxageMaxAgeIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore max-age s-maxage;
         """
-    response_headers = {'Cache-control': 'max-age=1, s-maxage=1'}
+    response_headers = {"Cache-control": "max-age=1, s-maxage=1"}
     sleep_interval = 1.5
     should_be_cached = True
 
@@ -629,7 +628,7 @@ class ResponsePrivate(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 'private'}
+    response_headers = {"Cache-control": "private"}
     should_be_cached = False
 
 
@@ -637,7 +636,7 @@ class ResponseNoCache(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 'no-cache'}
+    response_headers = {"Cache-control": "no-cache"}
     should_be_cached = False
 
 
@@ -645,7 +644,7 @@ class ResponseNoStore(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Cache-control': 'no-store'}
+    response_headers = {"Cache-control": "no-store"}
     should_be_cached = False
 
 
@@ -654,7 +653,7 @@ class ResponseNoCacheIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore no-cache;
         """
-    response_headers = {'Cache-control': 'no-cache'}
+    response_headers = {"Cache-control": "no-cache"}
     should_be_cached = True
 
 
@@ -664,7 +663,7 @@ class ResponseNoCacheIgnoreMulti(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore max-age no-cache;
         """
-    response_headers = {'Cache-control': 'no-cache'}
+    response_headers = {"Cache-control": "no-cache"}
     should_be_cached = True
 
 
@@ -673,7 +672,7 @@ class ResponseMultipleNoCacheIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore no-cache private no-store;
         """
-    response_headers = {'Cache-control': 'no-cache, private, no-store'}
+    response_headers = {"Cache-control": "no-cache, private, no-store"}
     should_be_cached = True
 
 
@@ -682,7 +681,7 @@ class ResponsePublicNotCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'asd'}
+    request_headers = {"Authorization": "asd"}
     response_headers = {}
     should_be_cached = False
 
@@ -691,8 +690,8 @@ class ResponsePublicCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 'public'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "public"}
     should_be_cached = True
 
 
@@ -704,7 +703,7 @@ class ResponsePublicCached2(TestCacheControl, SingleTest):
     response_headers = {}
     # Interestingly enough, RFC 7234 does not forbid serving cached response for
     # subsequent requests with "Authorization" header.
-    second_request_headers = {'Authorization': 'asd'}
+    second_request_headers = {"Authorization": "asd"}
     should_be_cached = True
 
 
@@ -713,8 +712,8 @@ class ResponsePublicIgnore(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore public;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 'public'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "public"}
     should_be_cached = False
 
 
@@ -724,8 +723,8 @@ class ResponsePublicIgnore2(TestCacheControl, SingleTest):
         cache_fulfill * *;
         cache_control_ignore must-revalidate public;
         """
-    request_headers = {'Authorization': 'asd'}
-    response_headers = {'Cache-control': 'public'}
+    request_headers = {"Authorization": "asd"}
+    response_headers = {"Cache-control": "public"}
     should_be_cached = False
 
 
@@ -738,9 +737,9 @@ class CCArgNoCacheBypass(TestCacheControl, SingleTest):
         cache_bypass * *;
         """
     response_headers = {
-        'Remove-me': '',
-        'Remove-me-2': '',
-        'Cache-control': 'no-cache="remove-me"',
+        "Remove-me": "",
+        "Remove-me-2": "",
+        "Cache-control": 'no-cache="remove-me"',
     }
     should_be_cached = False
 
@@ -750,14 +749,14 @@ class CCArgNoCacheCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        'Remove-me': '',
-        'Remove-me-2': '',
-        'Cache-control': 'no-cache="remove-me"',
+        "Remove-me": "",
+        "Remove-me-2": "",
+        "Cache-control": 'no-cache="remove-me"',
     }
     cached_headers = {
-        'Remove-me': None,
-        'Remove-me-2': '',
-        'Cache-control': 'no-cache="remove-me"',
+        "Remove-me": None,
+        "Remove-me-2": "",
+        "Cache-control": 'no-cache="remove-me"',
     }
     should_be_cached = True
 
@@ -767,14 +766,14 @@ class CCArgNoCacheCached2(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        'Remove-me': '"arg"',
-        'Remove-me-2': '"arg"',
-        'Cache-control': 'no-cache="remove-me"',
+        "Remove-me": '"arg"',
+        "Remove-me-2": '"arg"',
+        "Cache-control": 'no-cache="remove-me"',
     }
     cached_headers = {
-        'Remove-me': None,
-        'Remove-me-2': '"arg"',
-        'Cache-control': 'no-cache="remove-me"',
+        "Remove-me": None,
+        "Remove-me-2": '"arg"',
+        "Cache-control": 'no-cache="remove-me"',
     }
     should_be_cached = True
 
@@ -784,13 +783,12 @@ class CCArgNoCacheCached3(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        'Cache-Control': 'public, no-cache="Set-Cookie", must-revalidate, max-age=120',
-        'Set-Cookie': 'some=cookie',
+        "Cache-Control": 'public, no-cache="Set-Cookie", must-revalidate, max-age=120',
+        "Set-Cookie": "some=cookie",
     }
     cached_headers = {
-        'Cache-Control':
-            'public, no-cache="Set-Cookie", must-revalidate, max-age=120',
-        'Set-Cookie': None,
+        "Cache-Control": 'public, no-cache="Set-Cookie", must-revalidate, max-age=120',
+        "Set-Cookie": None,
     }
     should_be_cached = True
 
@@ -802,9 +800,9 @@ class CCArgPrivateBypass(TestCacheControl, SingleTest):
         cache_bypass * *;
         """
     response_headers = {
-        'Set-cookie': 'some=cookie',
-        'remove-me-2': '',
-        'Cache-control': 'private="set-cookie"',
+        "Set-cookie": "some=cookie",
+        "remove-me-2": "",
+        "Cache-control": 'private="set-cookie"',
     }
     should_be_cached = False
 
@@ -814,14 +812,14 @@ class CCArgPrivateCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        'Set-cookie': 'some=cookie',
-        'remove-me-2': '',
-        'Cache-control': 'private="set-cookie"',
+        "Set-cookie": "some=cookie",
+        "remove-me-2": "",
+        "Cache-control": 'private="set-cookie"',
     }
     cached_headers = {
-        'Set-cookie': None,
-        'remove-me-2': '',
-        'Cache-control': 'private="set-cookie"',
+        "Set-cookie": None,
+        "remove-me-2": "",
+        "Cache-control": 'private="set-cookie"',
     }
     should_be_cached = True
 
@@ -831,14 +829,14 @@ class CCArgPrivateCached2(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        'Set-cookie': 'some=cookie',
-        'remove-me-2': '=',
-        'Cache-control': 'private="set-cookie"',
+        "Set-cookie": "some=cookie",
+        "remove-me-2": "=",
+        "Cache-control": 'private="set-cookie"',
     }
     cached_headers = {
-        'Set-cookie': None,
-        'remove-me-2': '=',
-        'Cache-control': 'private="set-cookie"',
+        "Set-cookie": None,
+        "remove-me-2": "=",
+        "Cache-control": 'private="set-cookie"',
     }
     should_be_cached = True
 
@@ -849,14 +847,14 @@ class CCArgBothNoCacheCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        'Set-cookie': 'some=cookie',
-        'remove-me-2': '"',
-        'Cache-control': 'no-cache="set-cookie, Remove-me-2"',
+        "Set-cookie": "some=cookie",
+        "remove-me-2": '"',
+        "Cache-control": 'no-cache="set-cookie, Remove-me-2"',
     }
     cached_headers = {
-        'Set-cookie': None,
-        'remove-me-2': None,
-        'Cache-control': 'no-cache="set-cookie, Remove-me-2"',
+        "Set-cookie": None,
+        "remove-me-2": None,
+        "Cache-control": 'no-cache="set-cookie, Remove-me-2"',
     }
     should_be_cached = True
 
@@ -875,7 +873,7 @@ class HttpChainCacheActionBypass(TestCacheControl, SingleTest):
             -> vh1;
         }
         """
-    request_headers = {'Cookie': 'foo_items_in_cart='}
+    request_headers = {"Cookie": "foo_items_in_cart="}
     response_headers = {}
     should_be_cached = False
 
@@ -891,7 +889,7 @@ class HttpChainCacheActionOverrideBypass(TestCacheControl, SingleTest):
             -> vh1;
         }
         """
-    request_headers = {'Cookie': 'comment_author_name=john; wordpress_logged_in=true'}
+    request_headers = {"Cookie": "comment_author_name=john; wordpress_logged_in=true"}
     response_headers = {}
     should_be_cached = False
 
@@ -907,7 +905,7 @@ class HttpChainCacheActionOverrideCached(TestCacheControl, SingleTest):
             -> vh1;
         }
         """
-    request_headers = {'Cookie': 'foo_items_in_cart=; comment_author_name=john'}
+    request_headers = {"Cookie": "foo_items_in_cart=; comment_author_name=john"}
     response_headers = {}
     should_be_cached = True
 
@@ -923,7 +921,7 @@ class HttpChainCacheActionCached(TestCacheControl, SingleTest):
             -> vh1;
         }
         """
-    request_headers = {'Cookie': 'comment_author_name=john'}
+    request_headers = {"Cookie": "comment_author_name=john"}
     response_headers = {}
     should_be_cached = True
 
@@ -955,29 +953,29 @@ class CacheLocationBase(TestCacheControl, SingleTest, base=True):
     }
     """
 
-    tempesta_template = {'config': tempesta_config_sample}
-    tempesta_config = ''
+    tempesta_template = {"config": tempesta_config_sample}
+    tempesta_config = ""
 
 
 class CacheLocationCached(CacheLocationBase):
     should_be_cached = True
-    uri = '/cached'
+    uri = "/cached"
 
 
 class CacheLocationBypass(CacheLocationBase):
     should_be_cached = False
-    uri = '/bypassed'
+    uri = "/bypassed"
 
 
 class CacheLocationNonidempotentGetBypass(CacheLocationBase):
     should_be_cached = False
-    uri = '/nonidempotent'
+    uri = "/nonidempotent"
 
 
 class CacheLocationNonidempotentHeadBypass(CacheLocationBase):
     should_be_cached = False
-    uri = '/nonidempotent'
-    request_method = 'HEAD'
+    uri = "/nonidempotent"
+    request_method = "HEAD"
 
 
 #########################################################
@@ -993,8 +991,8 @@ class StoringResponsesToAuthenticatedRequestsDefaultCache(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = False
 
 
@@ -1008,10 +1006,10 @@ class StoringResponsesToAuthenticatedRequestsPublicCache(TestCacheControl, Singl
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = True
-    response_headers = {'Cache-control': 'public'}
+    response_headers = {"Cache-control": "public"}
 
 
 class StoringResponsesToAuthenticatedRequestsMustRevalidateCache2(TestCacheControl, SingleTest):
@@ -1024,10 +1022,10 @@ class StoringResponsesToAuthenticatedRequestsMustRevalidateCache2(TestCacheContr
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = True
-    response_headers = {'Cache-control': 'must-revalidate, max-age=1'}
+    response_headers = {"Cache-control": "must-revalidate, max-age=1"}
 
 
 class StoringResponsesToAuthenticatedRequestsNoCacheCache(TestCacheControl, SingleTest):
@@ -1040,10 +1038,10 @@ class StoringResponsesToAuthenticatedRequestsNoCacheCache(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = False
-    response_headers = {'Cache-control': 'no-cache'}
+    response_headers = {"Cache-control": "no-cache"}
 
 
 class StoringResponsesToAuthenticatedRequestsNoStoreCache(TestCacheControl, SingleTest):
@@ -1056,10 +1054,10 @@ class StoringResponsesToAuthenticatedRequestsNoStoreCache(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = False
-    response_headers = {'Cache-control': 'no-store'}
+    response_headers = {"Cache-control": "no-store"}
 
 
 class StoringResponsesToAuthenticatedRequestsNoTransformCache(TestCacheControl, SingleTest):
@@ -1072,10 +1070,10 @@ class StoringResponsesToAuthenticatedRequestsNoTransformCache(TestCacheControl, 
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = False
-    response_headers = {'Cache-control': 'no-transform'}
+    response_headers = {"Cache-control": "no-transform"}
 
 
 class StoringResponsesToAuthenticatedRequestsPrivateCache(TestCacheControl, SingleTest):
@@ -1088,10 +1086,10 @@ class StoringResponsesToAuthenticatedRequestsPrivateCache(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = False
-    response_headers = {'Cache-control': 'private'}
+    response_headers = {"Cache-control": "private"}
 
 
 class StoringResponsesToAuthenticatedRequestsProxyRevalidateCache(TestCacheControl, SingleTest):
@@ -1104,11 +1102,11 @@ class StoringResponsesToAuthenticatedRequestsProxyRevalidateCache(TestCacheContr
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = True
     sleep_interval = None
-    response_headers = {'Cache-control': 'proxy-revalidate, max-age=1'}
+    response_headers = {"Cache-control": "proxy-revalidate, max-age=1"}
 
 
 class StoringResponsesToAuthenticatedRequestsMaxAgeCache(TestCacheControl, SingleTest):
@@ -1121,10 +1119,10 @@ class StoringResponsesToAuthenticatedRequestsMaxAgeCache(TestCacheControl, Singl
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = False
-    response_headers = {'Cache-control': 'max-age=1'}
+    response_headers = {"Cache-control": "max-age=1"}
 
 
 class StoringResponsesToAuthenticatedRequestsSMaxAgeCache(TestCacheControl, SingleTest):
@@ -1137,11 +1135,11 @@ class StoringResponsesToAuthenticatedRequestsSMaxAgeCache(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    request_headers = {'Authorization': 'Basic dXNlcjE6cGFzc3dvcmQx'}
-    second_request_headers = {'Authorization': 'Basic dXNlcjI6cGFzc3dvcmQy'}
+    request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
+    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
     should_be_cached = True
     sleep_interval = None
-    response_headers = {'Cache-control': 's-maxage=1'}
+    response_headers = {"Cache-control": "s-maxage=1"}
 
 
 class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTest):
@@ -1154,8 +1152,8 @@ class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTe
         cache_fulfill * *;
         """
     should_be_cached = False
-    response_headers = {'Set-Cookie': 'session=1'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
 
 
 class StoringResponsesWithSetCookieHeaderPublicCache(TestCacheControl, SingleTest):
@@ -1168,8 +1166,8 @@ class StoringResponsesWithSetCookieHeaderPublicCache(TestCacheControl, SingleTes
         cache_fulfill * *;
         """
     should_be_cached = True
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'public'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "public"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
 
 
 class StoringResponsesWithSetCookieHeaderMustRevalidateCache(TestCacheControl, SingleTest):
@@ -1182,8 +1180,8 @@ class StoringResponsesWithSetCookieHeaderMustRevalidateCache(TestCacheControl, S
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'must-revalidate, max-age=1'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "must-revalidate, max-age=1"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = True
     sleep_interval = None
 
@@ -1198,8 +1196,8 @@ class StoringResponsesWithSetCookieHeaderNoCacheCache(TestCacheControl, SingleTe
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-cache'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-cache"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = False
 
 
@@ -1213,8 +1211,8 @@ class StoringResponsesWithSetCookieHeaderNoStoreCache(TestCacheControl, SingleTe
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-store'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-store"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = False
 
 
@@ -1228,8 +1226,8 @@ class StoringResponsesWithSetCookieHeaderNoTransformCache(TestCacheControl, Sing
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'no-transform'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-transform"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = False
 
 
@@ -1242,8 +1240,8 @@ class StoringResponsesWithSetCookieHeaderPrivateCache(TestCacheControl, SingleTe
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'private'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "private"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = False
 
 
@@ -1257,8 +1255,8 @@ class StoringResponsesWithSetCookieHeaderProxyRevalidateCache(TestCacheControl, 
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'proxy-revalidate, max-age=1'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "proxy-revalidate, max-age=1"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = True
     sleep_interval = None
 
@@ -1272,8 +1270,8 @@ class StoringResponsesWithSetCookieHeaderMaxAgeCache(TestCacheControl, SingleTes
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 'max-age=1'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "max-age=1"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = False
 
 
@@ -1287,7 +1285,7 @@ class StoringResponsesWithSetCookieHeaderSMaxAgeCache(TestCacheControl, SingleTe
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {'Set-Cookie': 'session=1', 'Cache-control': 's-maxage=1'}
-    second_request_headers = {'Cookie': response_headers['Set-Cookie']}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "s-maxage=1"}
+    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
     should_be_cached = True
     sleep_interval = None

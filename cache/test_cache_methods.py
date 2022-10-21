@@ -1,8 +1,8 @@
 """Functional tests of caching different methods."""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
@@ -13,19 +13,20 @@ from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 
 RESPONSE_OK_EMPTY: str = (
-    'HTTP/1.1 200 OK\r\n'
-    + 'Connection: keep-alive\r\n'
-    + 'Content-Length: 0\r\n'
-    + 'Server: Deproxy Server\r\n'
-    + f'Date: {HttpMessage.date_time_string()}\r\n'
-    + '\r\n'
+    "HTTP/1.1 200 OK\r\n"
+    + "Connection: keep-alive\r\n"
+    + "Content-Length: 0\r\n"
+    + "Server: Deproxy Server\r\n"
+    + f"Date: {HttpMessage.date_time_string()}\r\n"
+    + "\r\n"
 )
 
 
 class TestCacheMethods(TempestaTest):
     """There are checks for tempesta config - 'cache_methods [method];'."""
+
     tempesta = {
-        'config': """
+        "config": """
 listen 80;
 
 server ${server_ip}:8000;
@@ -41,29 +42,29 @@ cache_fulfill * *;
 
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': '',
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
         },
     ]
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
     response_no_content: str = (
-        'HTTP/1.1 204 No Content\r\n'
-        + 'Connection: keep-alive\r\n'
-        + 'Server: Deproxy Server\r\n'
-        + f'Date: {HttpMessage.date_time_string()}\r\n'
-        + '\r\n'
+        "HTTP/1.1 204 No Content\r\n"
+        + "Connection: keep-alive\r\n"
+        + "Server: Deproxy Server\r\n"
+        + f"Date: {HttpMessage.date_time_string()}\r\n"
+        + "\r\n"
     )
 
     messages = 10
@@ -73,7 +74,7 @@ cache_fulfill * *;
         """Check tempesta cache stats and 'age' header in responses."""
         tempesta: Tempesta = self.get_tempesta()
         tempesta.get_stats()
-        srv: StaticDeproxyServer = self.get_server('deproxy')
+        srv: StaticDeproxyServer = self.get_server("deproxy")
 
         if self.should_be_cached:
             checks.check_tempesta_cache_stats(
@@ -85,7 +86,7 @@ cache_fulfill * *;
             self.assertEqual(
                 len(srv.requests) and tempesta.stats.srv_msg_received,
                 1,
-                'Server has received unexpected number of requests.',
+                "Server has received unexpected number of requests.",
             )
         else:
             checks.check_tempesta_cache_stats(
@@ -97,38 +98,42 @@ cache_fulfill * *;
             self.assertEqual(
                 len(srv.requests) and tempesta.stats.srv_msg_received,
                 self.messages,
-                'Server has received fewer requests than expected.',
+                "Server has received fewer requests than expected.",
             )
 
-        self.assertNotIn('age', client.responses[0].headers)
+        self.assertNotIn("age", client.responses[0].headers)
 
         for response in client.responses[1:]:
             if self.should_be_cached:
-                self.assertIn('age', response.headers)
+                self.assertIn("age", response.headers)
             else:
-                self.assertNotIn('age', response.headers)
+                self.assertNotIn("age", response.headers)
 
-    def _test(self, method: str, server_response: str, ):
+    def _test(
+        self,
+        method: str,
+        server_response: str,
+    ):
         """Send some requests. Checks that repeated requests has/hasn't been cached."""
         if self.should_be_cached:
             cache_method = method
         else:
-            cache_method = 'HEAD' if method == 'GET' else 'GET'
+            cache_method = "HEAD" if method == "GET" else "GET"
 
         tempesta: Tempesta = self.get_tempesta()
-        tempesta.config.defconfig += f'cache_methods {cache_method};\n'
+        tempesta.config.defconfig += f"cache_methods {cache_method};\n"
         self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server('deproxy')
+        srv: StaticDeproxyServer = self.get_server("deproxy")
         srv.set_response(server_response)
 
-        client: DeproxyClient = self.get_client('deproxy')
+        client: DeproxyClient = self.get_client("deproxy")
         request = (
-            f'{method} /page.html HTTP/1.1\r\n'
-            + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
-            + 'Connection: keep-alive\r\n'
-            + 'Accept: */*\r\n'
-            + '\r\n'
+            f"{method} /page.html HTTP/1.1\r\n"
+            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + "\r\n"
         )
         for _ in range(self.messages):
             client.make_request(request)
@@ -137,103 +142,104 @@ cache_fulfill * *;
         self.assertEqual(
             self.messages,
             len(client.responses),
-            'Client has lost responses.',
+            "Client has lost responses.",
         )
         self.check_tempesta_stats_and_response(client)
 
     def test_get(self):
         self._test(
-            method='GET',
+            method="GET",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_post(self):
         self._test(
-            method='POST',
+            method="POST",
             server_response=self.response_no_content,
         )
 
     def test_copy(self):
         self._test(
-            method='COPY',
+            method="COPY",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_delete(self):
         self._test(
-            method='DELETE',
+            method="DELETE",
             server_response=self.response_no_content,
         )
 
     def test_head(self):
         self._test(
-            method='HEAD',
+            method="HEAD",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_lock(self):
         self._test(
-            method='LOCK',
+            method="LOCK",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_mkcol(self):
         self._test(
-            method='MKCOL',
+            method="MKCOL",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_move(self):
         self._test(
-            method='MOVE',
+            method="MOVE",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_options(self):
         self._test(
-            method='OPTIONS',
+            method="OPTIONS",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_patch(self):
         self._test(
-            method='PATCH',
+            method="PATCH",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_propfind(self):
         self._test(
-            method='PROPFIND',
+            method="PROPFIND",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_proppatch(self):
         self._test(
-            method='PROPPATCH',
+            method="PROPPATCH",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_put(self):
         self._test(
-            method='PUT',
+            method="PUT",
             server_response=self.response_no_content,
         )
 
     def test_trace(self):
         self._test(
-            method='TRACE',
+            method="TRACE",
             server_response=RESPONSE_OK_EMPTY,
         )
 
     def test_unlock(self):
         self._test(
-            method='UNLOCK',
+            method="UNLOCK",
             server_response=RESPONSE_OK_EMPTY,
         )
 
 
 class TestCacheMethodsNoCache(TestCacheMethods):
     """Parametrization of tests in TestCacheMethods class."""
+
     should_be_cached = False
 
 
@@ -247,7 +253,7 @@ class TestMultipleMethods(TempestaTest):
     """
 
     tempesta = {
-        'config': """
+        "config": """
     listen 80;
 
     server ${server_ip}:8000;
@@ -264,30 +270,30 @@ class TestMultipleMethods(TempestaTest):
 
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': (
-                'HTTP/1.1 200 OK\r\n'
-                + 'Connection: keep-alive\r\n'
-                + 'Content-Length: 13\r\n'
-                + 'Content-Type: text/html\r\n'
-                + 'Server: Deproxy Server\r\n'
-                + 'Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n'
-                + f'Date: {HttpMessage.date_time_string()}\r\n'
-                + '\r\n'
-                + '<html><>/html\r\n'
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Connection: keep-alive\r\n"
+                + "Content-Length: 13\r\n"
+                + "Content-Type: text/html\r\n"
+                + "Server: Deproxy Server\r\n"
+                + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "\r\n"
+                + "<html><>/html\r\n"
             ),
         },
     ]
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
@@ -297,37 +303,37 @@ class TestMultipleMethods(TempestaTest):
         cache.
         """
         self.start_all_services()
-        client: DeproxyClient = self.get_client('deproxy')
-        srv: StaticDeproxyServer = self.get_server('deproxy')
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
 
         request: str = (
-            '{0} /page.html HTTP/1.1\r\n'
-            + 'Host: {0}\r\n'.format(tf_cfg.cfg.get('Client', 'hostname'))
-            + 'Connection: keep-alive\r\n'
-            + 'Accept: */*\r\n'
-            + '\r\n'
+            "{0} /page.html HTTP/1.1\r\n"
+            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + "\r\n"
         )
 
-        client.send_request(request.format('GET'), '200')
-        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(request.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
 
         srv.set_response(RESPONSE_OK_EMPTY)
 
-        client.send_request(request.format('HEAD'), '200')
-        self.assertNotIn('age', client.last_response.headers)
+        client.send_request(request.format("HEAD"), "200")
+        self.assertNotIn("age", client.last_response.headers)
 
-        client.send_request(request.format('GET'), '200')
+        client.send_request(request.format("GET"), "200")
         response_get = client.last_response
-        self.assertIn('age', client.last_response.headers)
+        self.assertIn("age", client.last_response.headers)
 
-        client.send_request(request.format('HEAD'), '200')
+        client.send_request(request.format("HEAD"), "200")
         response_head = client.last_response
-        self.assertIn('age', client.last_response.headers)
+        self.assertIn("age", client.last_response.headers)
 
         self.assertNotEqual(
-            response_get.headers['Content-Length'],
-            response_head.headers['Content-Length'],
-            'Responses has received from a single cache.',
+            response_get.headers["Content-Length"],
+            response_head.headers["Content-Length"],
+            "Responses has received from a single cache.",
         )
 
         checks.check_tempesta_cache_stats(
@@ -337,9 +343,9 @@ class TestMultipleMethods(TempestaTest):
             cl_msg_served_from_cache=2,
         )
         self.assertEqual(
-            len(self.get_server('deproxy').requests),
+            len(self.get_server("deproxy").requests),
             2,
-            'Server has received unexpected number of requests.',
+            "Server has received unexpected number of requests.",
         )
 
 

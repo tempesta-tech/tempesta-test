@@ -5,26 +5,30 @@ framework on the same node (developer tests case) or on separate machines (CI
 case).
 """
 from __future__ import print_function
-import re
-import os
-import abc
-import paramiko
-import errno
-import shutil
-import time
-import subprocess
-from dataclasses import dataclass
-from typing import Union # TODO: use | instead when we move to python3.10
-from . import tf_cfg, error
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+import abc
+import errno
+import os
+import re
+import shutil
+import subprocess
+import time
+from dataclasses import dataclass
+from typing import Union  # TODO: use | instead when we move to python3.10
+
+import paramiko
+
+from . import error, tf_cfg
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 # Don't remove files from remote node. Helpful for tests development.
 DEBUG_FILES = False
 # Default timeout for SSH sessions and command processing.
 DEFAULT_TIMEOUT = 5
+
 
 class Node(object, metaclass=abc.ABCMeta):
     def __init__(self, type, hostname, workdir):
@@ -33,11 +37,10 @@ class Node(object, metaclass=abc.ABCMeta):
         self.type = type
 
     def is_remote(self):
-        return self.host != 'localhost'
+        return self.host != "localhost"
 
     @abc.abstractmethod
-    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False,
-                err_msg='', env={}):
+    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False, err_msg="", env={}):
         pass
 
     @abc.abstractmethod
@@ -60,6 +63,7 @@ class Node(object, metaclass=abc.ABCMeta):
     def wait_available(self):
         pass
 
+
 @dataclass
 class CmdError(Exception):
     message: str
@@ -67,23 +71,23 @@ class CmdError(Exception):
     stderr: Union[str, bytes]
     returncode: int
 
+
 class LocalNode(Node):
     def __init__(self, type, hostname, workdir):
         Node.__init__(self, type, hostname, workdir)
 
-    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False,
-                err_msg='', env={}):
+    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False, err_msg="", env={}):
         tf_cfg.dbg(4, "\tRun command '%s' on host %s with environment %s" % (cmd, self.host, env))
-        stdout = ''
-        stderr = ''
-        stderr_pipe = (open(os.devnull, 'w') if ignore_stderr
-                       else subprocess.PIPE)
+        stdout = ""
+        stderr = ""
+        stderr_pipe = open(os.devnull, "w") if ignore_stderr else subprocess.PIPE
         # Popen() expects full environment
         env_full = {}
         env_full.update(os.environ)
         env_full.update(env)
-        with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-                              stderr=stderr_pipe, env=env_full) as p:
+        with subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=stderr_pipe, env=env_full
+        ) as p:
             try:
                 # TODO #120: we should provide kill() and pid() interfaces to
                 # let caller to determine if the command is executed and
@@ -93,16 +97,26 @@ class LocalNode(Node):
                 # thread didn't finish before all assumptions are checked in the
                 # main thread.
                 stdout, stderr = p.communicate(timeout=timeout)
-                assert p.returncode == 0, \
-                    "Cmd: '%s' return code is not 0 (%d)." % (cmd, p.returncode)
+                assert p.returncode == 0, "Cmd: '%s' return code is not 0 (%d)." % (
+                    cmd,
+                    p.returncode,
+                )
             except subprocess.TimeoutExpired:
                 p.kill()
                 stdout, stderr = p.communicate()
-                raise CmdError(f"Cmd '{cmd}' got timed out (timeout value is {timeout})",
-				               stdout, stderr, p.returncode)
+                raise CmdError(
+                    f"Cmd '{cmd}' got timed out (timeout value is {timeout})",
+                    stdout,
+                    stderr,
+                    p.returncode,
+                )
             except AssertionError:
-                raise CmdError(f"Сmd {cmd} exited with return code {p.returncode}",
-                               stdout, stderr, p.returncode)
+                raise CmdError(
+                    f"Сmd {cmd} exited with return code {p.returncode}",
+                    stdout,
+                    stderr,
+                    p.returncode,
+                )
         return stdout, stderr
 
     def mkdir(self, path):
@@ -121,7 +135,7 @@ class LocalNode(Node):
         if dirname != self.workdir:
             self.mkdir(dirname)
 
-        with open(filename, 'wt') as f:
+        with open(filename, "wt") as f:
             f.write(content)
 
     def copy_file_to_node(self, file, dest_dir):
@@ -145,37 +159,31 @@ class RemoteNode(Node):
         self.connect()
 
     def connect(self):
-        """ Open SSH connection to node if remote. Returns False on SSH errors.
-        """
+        """Open SSH connection to node if remote. Returns False on SSH errors."""
         try:
             self.ssh = paramiko.SSHClient()
             self.ssh.load_system_host_keys()
             # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
             # key to known_hosts.
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.ssh.connect(hostname=self.host, username=self.user,
-                             port=self.port, timeout=DEFAULT_TIMEOUT)
+            self.ssh.connect(
+                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT
+            )
         except Exception as e:
             error.bug("Error connecting %s" % self.host)
 
     def close(self):
-        """ Release SSH connection without waiting for GC. """
+        """Release SSH connection without waiting for GC."""
         self.ssh.close()
 
-    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False,
-                err_msg='', env={}):
-        tf_cfg.dbg(4, "\tRun command '%s' on host %s with environment %s" %
-                      (cmd, self.host, env))
-        stderr = ''
-        stdout = ''
+    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False, err_msg="", env={}):
+        tf_cfg.dbg(4, "\tRun command '%s' on host %s with environment %s" % (cmd, self.host, env))
+        stderr = ""
+        stdout = ""
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
         if len(env) > 0:
-            cmd = ' '.join([
-                'env',
-                ' '.join([ "%s='%s'" % (k, v) for k, v in env.items() ]),
-                cmd
-            ])
+            cmd = " ".join(["env", " ".join(["%s='%s'" % (k, v) for k, v in env.items()]), cmd])
             tf_cfg.dbg(4, "\tEffective command '%s' after injecting environment" % cmd)
         try:
             # TODO #120: the same as for LocalNode - provide an interface to check
@@ -188,13 +196,12 @@ class RemoteNode(Node):
             assert out_f.channel.recv_exit_status() == 0, "Return code is not 0."
         except Exception as e:
             if not err_msg:
-                err_msg = ("Error running command '%s' on %s" %
-                           (cmd, self.host))
+                err_msg = "Error running command '%s' on %s" % (cmd, self.host)
             error.bug(err_msg, stdout=stdout, stderr=stderr)
         return stdout, stderr
 
     def mkdir(self, path):
-        self.run_cmd('mkdir -p %s' % path)
+        self.run_cmd("mkdir -p %s" % path)
 
     def copy_file(self, filename, content):
         # workdir will be ignored if an absolute filename is passed
@@ -207,13 +214,12 @@ class RemoteNode(Node):
 
         try:
             sftp = self.ssh.open_sftp()
-            sfile = sftp.file(filename, 'wt', -1)
+            sfile = sftp.file(filename, "wt", -1)
             sfile.write(content)
             sfile.flush()
             sftp.close()
         except Exception as e:
-            error.bug(("Error copying file %s to %s" %
-                       (filename, self.host)))
+            error.bug(("Error copying file %s to %s" % (filename, self.host)))
 
     def copy_file_to_node(self, file, dest_dir):
         try:
@@ -221,8 +227,7 @@ class RemoteNode(Node):
             sftp.put(file, dest_dir)
             sftp.close()
         except Exception as e:
-            error.bug(("Error copying file %s to %s" %
-                       (file, self.host)))
+            error.bug(("Error copying file %s to %s" % (file, self.host)))
 
     def remove_file(self, filename):
         if DEBUG_FILES:
@@ -236,12 +241,11 @@ class RemoteNode(Node):
                     raise
             sftp.close()
         except Exception as e:
-            error.bug(("Error removing file %s on %s" %
-                       (filename, self.host)))
+            error.bug(("Error removing file %s on %s" % (filename, self.host)))
 
     def wait_available(self):
-        tf_cfg.dbg(3, '\tWaiting for %s node' % self.type)
-        timeout = float(tf_cfg.cfg.get(self.type, 'unavaliable_timeout'))
+        tf_cfg.dbg(3, "\tWaiting for %s node" % self.type)
+        timeout = float(tf_cfg.cfg.get(self.type, "unavaliable_timeout"))
         t0 = time.time()
         while True:
             t = time.time()
@@ -251,7 +255,7 @@ class RemoteNode(Node):
                 tf_cfg.dbg(2, "Node %s is not available" % self.type)
                 return False
             try:
-                res,_ = self.run_cmd("echo -n check", timeout=1)
+                res, _ = self.run_cmd("echo -n check", timeout=1)
                 tf_cfg.dbg(4, "Result = [%s]" % res)
                 if res.decode() == "check":
                     tf_cfg.dbg(2, "Node %s is available" % self.type)
@@ -264,56 +268,62 @@ class RemoteNode(Node):
 
             time.sleep(1)
 
+
 def create_host_node():
-    workdir = tf_cfg.cfg.get('General', 'workdir')
-    return LocalNode('General', 'localhost', workdir)
+    workdir = tf_cfg.cfg.get("General", "workdir")
+    return LocalNode("General", "localhost", workdir)
+
 
 def create_node(host):
-    hostname = tf_cfg.cfg.get(host, 'hostname')
-    workdir = tf_cfg.cfg.get(host, 'workdir')
+    hostname = tf_cfg.cfg.get(host, "hostname")
+    workdir = tf_cfg.cfg.get(host, "workdir")
 
-    if hostname != 'localhost':
-        port = int(tf_cfg.cfg.get(host, 'port'))
-        username = tf_cfg.cfg.get(host, 'user')
+    if hostname != "localhost":
+        port = int(tf_cfg.cfg.get(host, "port"))
+        username = tf_cfg.cfg.get(host, "user")
         return RemoteNode(host, hostname, workdir, username, port)
     return LocalNode(host, hostname, workdir)
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Helper functions.
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 def get_max_thread_count(node):
-    out, _ = node.run_cmd('grep -c processor /proc/cpuinfo')
-    m = re.match(r'^(\d+)$', out.decode())
+    out, _ = node.run_cmd("grep -c processor /proc/cpuinfo")
+    m = re.match(r"^(\d+)$", out.decode())
     if not m:
         return 1
     return int(m.group(1))
 
-#-------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------
 # Global accessible SSH/Local connections
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 client = None
 tempesta = None
 server = None
 host = None
 
+
 def connect():
     global client
-    client = create_node('Client')
+    client = create_node("Client")
 
     global tempesta
-    tempesta = create_node('Tempesta')
+    tempesta = create_node("Tempesta")
 
     global server
-    server = create_node('Server')
+    server = create_node("Server")
 
     global host
     host = create_host_node()
 
     for node in [client, server, tempesta, host]:
         node.mkdir(node.workdir)
+
 
 def wait_available():
     global client
@@ -324,5 +334,6 @@ def wait_available():
         if not node.wait_available():
             return False
     return True
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

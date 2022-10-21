@@ -1,22 +1,19 @@
 import abc
-import time
 import socket
+import time
 from io import StringIO
 
 import h2.connection
-from h2.events import (
-    ResponseReceived, DataReceived, TrailersReceived, StreamEnded
-)
+from h2.events import DataReceived, ResponseReceived, StreamEnded, TrailersReceived
 
-from helpers import deproxy, tf_cfg, stateful, selfproxy
+from helpers import deproxy, selfproxy, stateful, tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class BaseDeproxyClient(deproxy.Client, abc.ABC):
-
     def __init__(self, *args, **kwargs):
         deproxy.Client.__init__(self, *args, **kwargs)
         self.polling_lock = None
@@ -62,7 +59,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.rps = rps
 
     def __stop_client(self):
-        tf_cfg.dbg(4, '\tStop deproxy client')
+        tf_cfg.dbg(4, "\tStop deproxy client")
         self.release_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
@@ -102,38 +99,44 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
-        tf_cfg.dbg(4, '\tDeproxy: Client: Receive response.')
+        tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
         tf_cfg.dbg(5, self.response_buffer)
         while len(self.response_buffer) > 0 and self.nrreq > self.nrresp:
             try:
                 method = self.methods[self.nrresp]
-                response = deproxy.Response(self.response_buffer,
-                                    method=method,
-                                keep_original_data=self.keep_original_data)
-                self.response_buffer = \
-                            self.response_buffer[response.original_length:]
+                response = deproxy.Response(
+                    self.response_buffer, method=method, keep_original_data=self.keep_original_data
+                )
+                self.response_buffer = self.response_buffer[response.original_length :]
             except deproxy.IncompleteMessage:
                 return
             except deproxy.ParseError:
-                tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
-                               '<<<<<\n%s>>>>>'
-                            % self.response_buffer))
+                tf_cfg.dbg(
+                    4,
+                    (
+                        "Deproxy: Client: Can't parse message\n"
+                        "<<<<<\n%s>>>>>" % self.response_buffer
+                    ),
+                )
                 raise
             self.receive_response(response)
             self.nrresp += 1
 
         if self.nrreq == self.nrresp and len(self.response_buffer) > 0:
-            raise deproxy.ParseError('Garbage after response'
-                                     ' end:\n```\n%s\n```\n' % \
-                                     self.response_buffer)
+            raise deproxy.ParseError(
+                "Garbage after response" " end:\n```\n%s\n```\n" % self.response_buffer
+            )
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
             return False
         if time.time() < self.next_request_time():
             return False
-        if (self.segment_gap != 0 and not self.selfproxy_present and
-            time.time() - self.last_segment_time < self.segment_gap / 1000.0):
+        if (
+            self.segment_gap != 0
+            and not self.selfproxy_present
+            and time.time() - self.last_segment_time < self.segment_gap / 1000.0
+        ):
             return False
         return True
 
@@ -144,10 +147,10 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     def handle_write(self):
         reqs = self.request_buffers
-        tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
+        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
         if self.segment_size != 0 and not self.selfproxy_present:
-            sent = self.send(reqs[self.cur_req_num][:self.segment_size].encode())
+            sent = self.send(reqs[self.cur_req_num][: self.segment_size].encode())
         else:
             sent = self.send(reqs[self.cur_req_num].encode())
         if sent < 0:
@@ -174,12 +177,13 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if not self.ssl or self.segment_size == 0:
             return
         selfproxy.request_client_selfproxy(
-            listen_host = "127.0.0.1",
-            listen_port = selfproxy.CLIENT_MODE_PORT_REPLACE,
-            forward_host = self.conn_addr,
-            forward_port = self.port,
-            segment_size = self.segment_size,
-            segment_gap = self.segment_gap)
+            listen_host="127.0.0.1",
+            listen_port=selfproxy.CLIENT_MODE_PORT_REPLACE,
+            forward_host=self.conn_addr,
+            forward_port=self.port,
+            segment_size=self.segment_size,
+            segment_gap=self.segment_gap,
+        )
         self.overriden_addr = self.conn_addr
         self.overriden_port = self.port
         self.conn_addr = "127.0.0.1"
@@ -201,8 +205,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def update_selfproxy(self):
         # update chunking parameters
         if self.selfproxy_present:
-            selfproxy.update_client_selfproxy_chunking(
-                self.segment_size, self.segment_gap)
+            selfproxy.update_client_selfproxy_chunking(self.segment_size, self.segment_gap)
 
     def _clear_request_stats(self):
         if self.cur_req_num >= self.nrreq:
@@ -237,19 +240,19 @@ class DeproxyClient(BaseDeproxyClient):
             valid_req_num = 0
             while len(requests) > 0:
                 try:
-                    tf_cfg.dbg(2, 'Request parsing is running.')
+                    tf_cfg.dbg(2, "Request parsing is running.")
                     req = deproxy.Request(requests)
-                    tf_cfg.dbg(3, 'Request parsing is complete.')
+                    tf_cfg.dbg(3, "Request parsing is complete.")
                 except Exception as e:
                     tf_cfg.dbg(2, f"Can't parse request. Error msg: {e}")
                     req = None
                 if req is None:
                     break
 
-                request_buffers.append(requests[:req.original_length])
+                request_buffers.append(requests[: req.original_length])
                 self.methods.append(req.method)
                 valid_req_num += 1
-                requests = requests[req.original_length:]
+                requests = requests[req.original_length :]
 
             if len(requests) > 0:
                 request_buffers.append(requests)
@@ -272,15 +275,15 @@ class DeproxyClient(BaseDeproxyClient):
 
     def __check_request(self, request: str) -> None:
         if self.parsing:
-            tf_cfg.dbg(2, 'Request parsing is running.')
+            tf_cfg.dbg(2, "Request parsing is running.")
             req = deproxy.Request(request)
             self.methods.append(req.method)
-            if request[req.original_length:]:
-                raise deproxy.ParseError('Request has excess symbols.')
-            tf_cfg.dbg(3, 'Request parsing is complete.')
+            if request[req.original_length :]:
+                raise deproxy.ParseError("Request has excess symbols.")
+            tf_cfg.dbg(3, "Request parsing is complete.")
         else:
-            tf_cfg.dbg(2, 'Request parsing has been disabled.')
-            self.methods.append(request.split(' ')[0])
+            tf_cfg.dbg(2, "Request parsing has been disabled.")
+            self.methods.append(request.split(" ")[0])
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
@@ -316,11 +319,11 @@ class DeproxyClient(BaseDeproxyClient):
         self.make_request(request)
         self.wait_for_response()
 
-        assert curr_responses + 1 == len(self.responses), \
-            'Deproxy client has lost response.'
-        assert expected_status_code in self.last_response.status, \
-            f'HTTP response status codes mismatch. Expected - {expected_status_code}. ' \
-            + f'Received - {self.last_response.status}'
+        assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
+        assert expected_status_code in self.last_response.status, (
+            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
+            + f"Received - {self.last_response.status}"
+        )
 
 
 class DeproxyClientH2(DeproxyClient):
@@ -343,7 +346,7 @@ class DeproxyClientH2(DeproxyClient):
             headers, body = request
         elif isinstance(request, list):
             headers = request
-            body = ''
+            body = ""
 
         if self.h2_connection is None:
             self.h2_connection = h2.connection.H2Connection()
@@ -352,7 +355,7 @@ class DeproxyClientH2(DeproxyClient):
                 self.update_selfproxy()
 
         for header in headers:
-            if header[0] == ':method':
+            if header[0] == ":method":
                 self.methods.append(header[1])
 
         if not self.parsing:
@@ -360,7 +363,7 @@ class DeproxyClientH2(DeproxyClient):
             self.h2_connection.config.validate_inbound_headers = False
             self.h2_connection.config.validate_outbound_headers = False
 
-        if body != '':
+        if body != "":
             self.h2_connection.send_headers(self.stream_id, headers)
             self.h2_connection.send_data(self.stream_id, body.encode(), True)
         else:
@@ -376,7 +379,7 @@ class DeproxyClientH2(DeproxyClient):
         if not self.response_buffer:
             return
 
-        tf_cfg.dbg(4, '\tDeproxy: Client: Receive response.')
+        tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
         tf_cfg.dbg(5, self.response_buffer)
 
         try:
@@ -387,28 +390,28 @@ class DeproxyClientH2(DeproxyClient):
                     headers = self.__binary_headers_to_string(event.headers)
 
                     response = self.active_responses.get(event.stream_id)
-                    if (response):
+                    if response:
                         stream = StringIO(headers)
                         response.parse_headers(stream)
                         response.update()
                     else:
-                        response = deproxy.H2Response(headers + '\r\n',
-                                                      method=method,
-                                                      body_parsing=False,
-                                                      keep_original_data=\
-                                                      self.keep_original_data)
+                        response = deproxy.H2Response(
+                            headers + "\r\n",
+                            method=method,
+                            body_parsing=False,
+                            keep_original_data=self.keep_original_data,
+                        )
 
                         self.active_responses[event.stream_id] = response
 
                 elif isinstance(event, DataReceived):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
-                    response.parse_text(str(response.headers) + '\r\n' + body)
+                    response.parse_text(str(response.headers) + "\r\n" + body)
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
-                    response.parse_text(str(response.headers) + '\r\n' +
-                                        response.body + trailers)
+                    response.parse_text(str(response.headers) + "\r\n" + response.body + trailers)
                 elif isinstance(event, StreamEnded):
                     response = self.active_responses.pop(event.stream_id, None)
                     if response == None:
@@ -417,19 +420,24 @@ class DeproxyClientH2(DeproxyClient):
                     self.nrresp += 1
 
         except deproxy.IncompleteMessage:
-            tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse incomplete message\n'
-                           '<<<<<\n%s>>>>>'
-                        % self.response_buffer))
+            tf_cfg.dbg(
+                4,
+                (
+                    "Deproxy: Client: Can't parse incomplete message\n"
+                    "<<<<<\n%s>>>>>" % self.response_buffer
+                ),
+            )
             return
         except deproxy.ParseError:
-            tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
-                           '<<<<<\n%s>>>>>'
-                        % self.response_buffer))
+            tf_cfg.dbg(
+                4,
+                ("Deproxy: Client: Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
+            )
             raise
 
     def handle_write(self):
         reqs = self.request_buffers
-        tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
+        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
 
         sent = self.send(reqs[self.cur_req_num])
@@ -439,8 +447,7 @@ class DeproxyClientH2(DeproxyClient):
         self.cur_req_num += 1
 
     def __headers_to_string(self, headers):
-        return ''.join(['%s: %s\r\n' % (h, v) for h, v in headers])
+        return "".join(["%s: %s\r\n" % (h, v) for h, v in headers])
 
     def __binary_headers_to_string(self, headers):
-        return ''.join(['%s: %s\r\n' % (h.decode(), v.decode())
-                        for h, v in headers])
+        return "".join(["%s: %s\r\n" % (h.decode(), v.decode()) for h, v in headers])

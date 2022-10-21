@@ -1,20 +1,24 @@
 from h2.exceptions import ProtocolError
-from helpers import deproxy, tf_cfg, tempesta, chains
-from testers import functional
-from framework import tester, deproxy_client
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+from framework import deproxy_client, tester
+from helpers import chains, deproxy, tempesta, tf_cfg
+from testers import functional
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 def sample_rule():
     return chains.base()
 
+
 def sample_rule_chunked():
     return chains.base_chunked()
 
+
 def defconfig():
-    return 'cache 0;\n'
+    return "cache 0;\n"
 
 
 class DeproxyDummyTest(functional.FunctionalTest):
@@ -24,8 +28,8 @@ class DeproxyDummyTest(functional.FunctionalTest):
         self.client = None
         self.servers = []
         self.tester = None
-        tf_cfg.dbg(3) # Step to the next line after name of test case.
-        tf_cfg.dbg(3, '\tInit test case...')
+        tf_cfg.dbg(3)  # Step to the next line after name of test case.
+        tf_cfg.dbg(3, "\tInit test case...")
 
     def tearDown(self):
         if self.client:
@@ -35,7 +39,7 @@ class DeproxyDummyTest(functional.FunctionalTest):
 
     def create_clients(self):
         port = tempesta.upstream_port_start_from()
-        self.client = deproxy.Client(port=port, host='Client')
+        self.client = deproxy.Client(port=port, host="Client")
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
@@ -64,66 +68,60 @@ class DeproxyDummyTest(functional.FunctionalTest):
 
 
 class DeproxyTest(functional.FunctionalTest):
-
     def test_deproxy_one_chain(self):
         message_chains = [sample_rule()]
         self.generic_test_routine(defconfig(), message_chains)
 
 
 class DeproxyChunkedTest(functional.FunctionalTest):
-
     def test_deproxy_one_chain(self):
         message_chains = [sample_rule_chunked()]
         self.generic_test_routine(defconfig(), message_chains)
 
 
 class DeproxyTestFailOver(DeproxyTest):
-
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
         self.servers = [deproxy.Server(port=port, keep_alive=1)]
 
     def create_tester(self):
-
         class DeproxyFailOver(deproxy.Deproxy):
             def check_expectations(self):
                 # We closed server connection after response. Tempesta must
                 # failover the connection. Run loop with small timeout
                 # once again to process events.
                 self.loop(0.1)
-                assert self.is_srvs_ready(), 'Failovering failed!'
+                assert self.is_srvs_ready(), "Failovering failed!"
                 deproxy.Deproxy.check_expectations(self)
 
         self.tester = DeproxyFailOver(self.client, self.servers)
+
 
 class DeproxyTestH2(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         }
     ]
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy_h2',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
-            'ssl_hostname' : 'localhost'
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "localhost",
         },
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 443 proto=h2;
         server ${server_ip}:8000;
 
@@ -146,47 +144,38 @@ class DeproxyTestH2(tester.TempestaTest):
         self.start_all()
 
         head = [
-            (':authority', 'localhost'),
-            (':path', '/'),
-            (':scheme', 'https'),
-            (':method', 'GET')
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "GET"),
         ]
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = True
         deproxy_cl.make_request(head)
 
         self.assertTrue(deproxy_cl.wait_for_response(timeout=0.5))
         self.assertIsNotNone(deproxy_cl.last_response)
-        self.assertEqual(deproxy_cl.last_response.status, '200')
+        self.assertEqual(deproxy_cl.last_response.status, "200")
 
     def test_parsing_make_request(self):
         self.start_all()
 
-        head = [
-            (':authority', 'localhost'),
-            (':path', '/'),
-            (':scheme', 'http'),
-            ('method', 'GET')
-        ]
-        deproxy_cl = self.get_client('deproxy')
+        head = [(":authority", "localhost"), (":path", "/"), (":scheme", "http"), ("method", "GET")]
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = True
 
-        self.assertRaises(
-            ProtocolError,
-            deproxy_cl.make_request,
-            head
-        )
+        self.assertRaises(ProtocolError, deproxy_cl.make_request, head)
         self.assertIsNone(deproxy_cl.last_response)
 
     def test_no_parsing_make_request(self):
         self.start_all()
 
         head = [
-            (':authority', 'localhost'),
-            (':path', '/'),
-            (':method', 'GET'),
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":method", "GET"),
         ]
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
         deproxy_cl.make_request(head)
@@ -197,31 +186,31 @@ class DeproxyTestH2(tester.TempestaTest):
         self.start_all()
 
         head = [
-            (':authority', 'localhost'),
-            (':path', '/'),
-            (':scheme', 'https'),
-            (':method', 'GET')
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "GET"),
         ]
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(head)
 
         resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertEqual(deproxy_cl.last_response.status, '200')
+        self.assertEqual(deproxy_cl.last_response.status, "200")
 
     def test_bodyless_multiplexed(self):
         self.start_all()
 
         head = [
-            (':authority', 'localhost'),
-            (':path', '/'),
-            (':scheme', 'https'),
-            (':method', 'GET')
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "GET"),
         ]
         request = [head, head]
 
-        deproxy_srv = self.get_server('deproxy')
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_srv = self.get_server("deproxy")
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(request)
 
         resp = deproxy_cl.wait_for_response(timeout=5)
@@ -231,49 +220,43 @@ class DeproxyTestH2(tester.TempestaTest):
     def test_with_body(self):
         self.start_all()
 
-        body = 'body body body'
+        body = "body body body"
         head = [
-            (':authority', 'localhost'),
-            (':path', '/'),
-            (':scheme', 'https'),
-            (':method', 'POST'),
-            ('conent-length', '14')
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "POST"),
+            ("conent-length", "14"),
         ]
         request = (head, body)
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(request)
 
         resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertEqual(deproxy_cl.last_response.status, '200')
+        self.assertEqual(deproxy_cl.last_response.status, "200")
 
 
 class DeproxyClientTest(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content':
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Server: deproxy\r\n\r\n',
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Server: deproxy\r\n\r\n",
         },
     ]
 
     clients = [
-        {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80'
-        },
+        {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
     tempesta = {
-        'config': """
+        "config": """
 cache 0;
 listen 80;
 
@@ -290,71 +273,69 @@ server ${server_ip}:8000;
 
     def test_make_request(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
-        client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         client.wait_for_response(timeout=0.5)
 
         self.assertIsNotNone(client.last_response)
-        self.assertEqual(client.last_response.status, '200')
+        self.assertEqual(client.last_response.status, "200")
 
     def test_parsing_make_request(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
         self.assertRaises(
-            deproxy.ParseError,
-            client.make_request,
-            'GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n'
+            deproxy.ParseError, client.make_request, "GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         )
         self.assertIsNone(client.last_response)
 
     def test_no_parsing_make_request(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = False
 
-        client.make_request('GET / HTTP/1.1\r\nHost: local<host\r\n\r\n')
+        client.make_request("GET / HTTP/1.1\r\nHost: local<host\r\n\r\n")
         client.wait_for_response(timeout=0.5)
 
         self.assertIsNotNone(client.last_response)
-        self.assertEqual(client.last_response.status, '400')
+        self.assertEqual(client.last_response.status, "400")
 
     def test_many_make_request(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
         messages = 5
         for _ in range(0, messages):
-            client.make_request('GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
             client.wait_for_response(timeout=0.5)
 
         self.assertEqual(len(client.responses), messages)
         for res in client.responses:
-            self.assertEqual(res.status, '200')
+            self.assertEqual(res.status, "200")
 
     def test_many_make_request_2(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = False
 
         messages = 5
         for _ in range(0, messages):
-            client.make_request('GET / HTTP/1.1\r\nHost: local<host\r\n\r\n')
+            client.make_request("GET / HTTP/1.1\r\nHost: local<host\r\n\r\n")
             client.wait_for_response(timeout=0.5)
 
-        self.assertEqual(client.last_response.status, '400')
+        self.assertEqual(client.last_response.status, "400")
         self.assertEqual(len(client.responses), 1)
 
     def test_make_requests(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
-        request = 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'
+        request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
 
         messages = 5
         client.make_requests(request * messages)
@@ -362,20 +343,20 @@ server ${server_ip}:8000;
 
         self.assertEqual(len(client.responses), messages)
         for res in client.responses:
-            self.assertEqual(res.status, '200')
+            self.assertEqual(res.status, "200")
 
     def test_parsing_make_requests(self):
         self.start_all()
-        client: deproxy_client.DeproxyClient = self.get_client('deproxy')
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
         self.assertRaises(
             deproxy.ParseError,
             client.make_requests,
             [
-                'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n',
-                'GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n',
-            ]
+                "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                "GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            ],
         )
         self.assertIsNone(client.last_response)
 

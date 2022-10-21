@@ -443,24 +443,25 @@ and handling corresponding types of items.
 ## Development
 
 In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 Install dependencies: `pip3 install -r requirements.txt`
 
-Copy `pre-commit.sample` to .git/hooks directory, rename to `pre-commit` and make file executable:
-```sh
-$ cp pre-commit.sample pre-commit 
-$ mv pre-commit .git/hooks 
-$ chmod +x .git/hooks/pre-commit
-```
+Run `pre-commit install` to set up the git hook script.
 
-Configuration file `tox.ini`
+Run `pre-commit autoupdate` for update to the latest repos' versions (optional).
+
+Configuration files: wemake - `tox.ini`, black and isort - `pyproject.toml`, pre-commit - `.pre-commit-config.yaml`.
+
+Run formatters `isort <source_file_or_directory>` and `black <source_file_or_directory>`
 
 Run linter `flake8 <target>`:
 
   where `tagret` is optional parameter, it defines target file to be checked,
   if omitted, checks is going to be processed on all files in running directory.
 
-Use `git commit -v --all` to check all changed python files.
+Use `git commit -v --all` to format all changed python files or just use `git commit -m <msg>`.
 
 ## Resources
 
