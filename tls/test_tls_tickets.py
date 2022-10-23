@@ -6,6 +6,7 @@ from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
 from .handshake import *
+# from .handshake_old import *
 
 
 __author__ = 'Tempesta Technologies, Inc.'
@@ -80,16 +81,14 @@ class TlsTicketTest(tester.TempestaTest):
         res = hs.do_12()
         ticket = hs.hs.session_ticket.ticket
         master_secret = hs.hs.master_secret
-        print(ticket)
-        print(master_secret)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(ticket, 'Ticket value is empty')
         self.assertIsNotNone(master_secret, "Can't read master secret")
         # # A new connection with the same ticket will receive abbreviated
         # # handshake
         hs_abb = TlsHandshake()
-        hs_abb.set_ticket_data(ticket)
-        res = hs_abb.do_12_resume(master_secret, ticket)
+        hs_abb.ticket_data = ticket
+        res = hs_abb.do_12()
         # ticket = getattr(hs_abb.sock.tls_ctx, 'ticket', None)
         # self.assertTrue(res, "Wrong handshake result: %s" % res)
         # self.assertNotEqual(ticket, None,

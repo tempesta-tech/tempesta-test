@@ -113,13 +113,13 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.raise_on_packet(TLSNewSessionTicket,
                         self.RECEIVED_TICKET)
     
-    @ATMT.condition(RECEIVED_SERVERFLIGHT2, prio=1)
+    @ATMT.condition(RECEIVED_SERVERFLIGHT2)
     def should_handle_ChangeCipherSpec(self):
         self.raise_on_packet(TLSChangeCipherSpec,
                         self.HANDLED_CHANGECIPHERSPEC)
 
     @ATMT.condition(RECEIVED_TICKET)
-    def should_handle_ChangeCipherSpec(self):
+    def should_handle_ChangeCipherSpecAfterTicket(self):
         self.raise_on_packet(TLSChangeCipherSpec,
                         self.HANDLED_CHANGECIPHERSPEC)
 
@@ -234,7 +234,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     def HANDLED_SERVERDATA(self):
         self.master_secret = self.cur_session.master_secret
         raise self.WAIT_CLIENTDATA()
-
+    
     @ATMT.state()
     def ADDED_CLIENTDATA(self):
         pass
@@ -294,7 +294,7 @@ class TlsHandshake:
         # Override extension if some variables changd
         ext1 = TLS_Ext_ServerName(servernames=ServerName(servername=self.sni))
         ext2 = TLS_Ext_CSR(stype='ocsp', req=OCSPStatusRequest())
-        ext4 = TLS_Ext_SupportedPointFormat(ecpl='uncompressed')        
+        ext4 = TLS_Ext_SupportedPointFormat(ecpl='uncompressed')
         try:
             self.ciphers
             _ciphers = []
@@ -324,7 +324,7 @@ class TlsHandshake:
         if self.ticket_data is not None:
             ticket = TLS_Ext_SessionTicket(ticket=self.ticket_data)
             ext.append(ticket)
-            
+
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
         if tf_cfg.v_level() > 1:
             ch.show()
