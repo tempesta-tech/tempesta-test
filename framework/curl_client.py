@@ -87,7 +87,7 @@ class CurlArguments:
     uri: str = "/"
     cmd_args: str = ""
     data: str = ""
-    headers: dict = None
+    headers: dict = field(default_factory=dict)
     dump_headers: int = True
     disable_output: bool = False
     save_cookies: bool = False

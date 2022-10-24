@@ -245,6 +245,13 @@ class TestCurlClient(tester.TempestaTest):
         self.assertEqual(request.headers["header-sended"], "OK")
         self.assertEqual(response.headers["connection"], "close")
 
+    def test_set_header_after_initialization(self):
+        client = self.get_client("default")
+        client.headers["New-Header"] = "OK"
+        response = self.get_response(client)
+        request = self.get_server("deproxy").last_request
+        self.assertEqual(request.headers["new-header"], "OK")
+
     def test_cmd_args_processed(self):
         client = self.get_client("with_args")
         response = self.get_response(client)
