@@ -24,6 +24,14 @@ server: Tempesta FW/pre-0.7.0\r
 \r
 """
 
+HTTP_1_0_RESPONSE = b"""HTTP/1.0 200 OK\r
+Server: SimpleHTTP/0.6 Python/3.10.8\r
+Date: Mon, 24 Oct 2022 10:59:20 GMT\r
+Content-type: text/html; charset=utf-8\r
+Content-Length: 395\r
+\r
+"""
+
 
 class TestCurlArguments(unittest.TestCase):
     def test_kwargs_returned(self):
@@ -50,6 +58,18 @@ class TestCurlClientParsing(unittest.TestCase):
             self.assertEqual(len(client.responses), 2)
             self.assertEqual(client.responses[0].headers["content-length"], "1")
             self.assertEqual(client.responses[1].headers["content-length"], "2")
+
+    def test_http_1_0_response_parsed(self):
+        client = CurlClient(addr="127.0.0.1")
+        with patch(
+            "framework.curl_client.CurlClient._read_headers_dump",
+            return_value=HTTP_1_0_RESPONSE,
+        ):
+            client.dump_headers = True
+            client.parse_out(b"", b"")
+            self.assertEqual(len(client.responses), 1)
+            self.assertEqual(client.responses[0].proto, "1.0")
+            self.assertEqual(client.responses[0].headers["content-length"], "395")
 
 
 class TestCurlClient(tester.TempestaTest):
