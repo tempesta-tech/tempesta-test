@@ -4,11 +4,11 @@ Decsription Placeholder
 """
 
 import ssl
-import scapy.all
-import scapy.layers.tls.all
 import scapy.layers.tls.crypto.suites as suites
 
+from scapy.all import *
 from scapy.layers.tls.record import _TLSEncryptedContent
+from scapy.layers.tls.all import *
 from helpers import tf_cfg, dmesg
 from helpers.error import Error
 
@@ -274,7 +274,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             tf_cfg.dbg(2, "Trying to send data by chunk")
             _s = b"".join(p.raw_stateful() for p in self.buffer_out)
             n = self.chunk
-            for chunk in [_s[i: i + n] for i in range(0, len(_s), n)]:
+            for chunk in [_s[i : i + n] for i in range(0, len(_s), n)]:
                 self.socket.send(chunk)
         else:
             s = b"".join(p.raw_stateful() for p in self.buffer_out)
