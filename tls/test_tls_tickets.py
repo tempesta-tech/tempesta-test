@@ -77,20 +77,31 @@ class TlsTicketTest(tester.TempestaTest):
         self.start_all()
 
         hs = TlsHandshake()
+        # hs.sni = 'isocpp.org'
+        # hs.server = '198.199.109.141'
         hs.ticket_data = ''
         res = hs.do_12()
         ticket = hs.hs.session_ticket.ticket
         master_secret = hs.hs.master_secret
+        print(master_secret)
+        print(ticket)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(ticket, 'Ticket value is empty')
         self.assertIsNotNone(master_secret, "Can't read master secret")
+        del(hs)
         # # A new connection with the same ticket will receive abbreviated
         # # handshake
+
+        print(f"\n\nticket: {ticket}")
+        print(f"\n\nmaster_secret: {master_secret}")
+
         hs_abb = TlsHandshake()
+        # hs_abb.sni = 'isocpp.org'
+        # hs_abb.server = '198.199.109.141'
         hs_abb.ticket_data = ticket
-        res = hs_abb.do_12()
+        res = hs_abb.do_12_res(master_secret)
         # ticket = getattr(hs_abb.sock.tls_ctx, 'ticket', None)
-        # self.assertTrue(res, "Wrong handshake result: %s" % res)
+        self.assertTrue(res, "Wrong handshake result: %s" % res)
         # self.assertNotEqual(ticket, None,
         #                     'Ticket value is empty, no NewSessionTicket message '
         #                     'was found')
