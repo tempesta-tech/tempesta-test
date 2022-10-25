@@ -70,7 +70,7 @@ class TestDockerServer(tester.TempestaTest):
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
-        self.assertTrue(self.wait_all_connections())
+        self.assertTrue(self.wait_all_connections(5))
 
     def get_response(self, host, uri="/"):
         client = self.get_client("default")
@@ -97,3 +97,22 @@ class TestDockerServer(tester.TempestaTest):
         with self.subTest("httpbin"):
             response = self.get_response("httpbin", "/status/202")
             self.assertEqual(response.status, 202)
+
+
+    def test_service_long_start(self):
+        """
+        Test that requests succeed when web server start is delayed
+        from the time the container was started.
+        """
+        server = self.get_server("python_hello")
+        server.cmd_args = "-c 'import time ; time.sleep(5); import hello'"
+
+        server.start()
+        self.start_tempesta()
+
+        self.assertFalse(server.wait_for_connections(timeout=1))
+        self.assertTrue(server.wait_for_connections(timeout=6))
+
+        response = self.get_response("python-hello")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.stdout, "Hello")

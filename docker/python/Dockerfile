@@ -1,4 +1,5 @@
 FROM python:3.10-alpine
+ENV LOGLEVEL INFO
 WORKDIR /run
 COPY . .
 RUN python3 -m pip install -r requirements.txt

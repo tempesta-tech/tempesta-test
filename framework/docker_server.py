@@ -1,5 +1,6 @@
 """Docker containers backend server."""
 import tarfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
@@ -25,8 +26,9 @@ class DockerServerArguments:
     general_workdir: str
     server_workdir: str
     build_timeout: int = 300
-    stop_timeout: int = 11
+    stop_timeout: int = 6
     ports: Dict[int, int] = field(default_factory=dict)
+    check_ports: List[Dict[str, str]] = field(default_factory=list)
     cmd_args: str = ""
     entrypoint: str = None
 
@@ -42,16 +44,17 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
     stop, get statistics etc., from other Python classes.
 
     Args:
-      id (str): backend server ID
-      tag (str): image to use from the `docker` directory
-      server_ip (str): IP address of the server
-      general_workdir (str): Path to temporary files
-      server_workdir (str): Path to temporary files on the server node
-      build_timeout (int): container build operation timeout
-      stop_timeout (int): container stop operation timeout
-      ports (dict[int, int]): host-container map of published ports
-      cmd_args (str): additional `docker run` command arguments
-      entrypoint (str): overwrite the default ENTRYPOINT of the image
+      id: backend server ID
+      tag: image to use from the `docker` directory
+      server_ip: IP address of the server
+      general_workdir: Path to temporary files
+      server_workdir: Path to temporary files on the server node
+      build_timeout: container build operation timeout
+      stop_timeout: container stop operation timeout
+      ports: host-container map of published ports
+      check_ports: list of IP+port to check for availability before container is started
+      cmd_args: additional `docker run` command arguments
+      entrypoint: overwrite the default ENTRYPOINT of the image
     """
 
     def __init__(self, **kwargs):
@@ -97,10 +100,19 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
             error.bug(self._form_error(action="run"))
         self.container_id = stdout.decode()
 
-    def wait_for_connections(self, timeout=1):
+    def wait_for_connections(self, timeout=5):
         if self.state != stateful.STATE_STARTED:
             return False
-        return True
+
+        t0 = time.time()
+        t = time.time()
+        while t - t0 <= timeout:
+            if self.check_ports_established(ip=self.server_ip, ports=self.ports.keys()):
+                return True
+            time.sleep(0.001)  # to prevent redundant CPU usage
+            t = time.time()
+
+        return False
 
     def stop_server(self):
         tf_cfg.dbg(3, f"\tDocker server: Stop {self.id} ({self.tag})")
