@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import framework.port_checks as port_checks
+from framework.templates import fill_template
 from framework.tester import register_backend
 from helpers import remote, stateful, tf_cfg
 
@@ -29,6 +30,8 @@ class DockerServerArguments:
     stop_timeout: int = 6
     ports: Dict[int, int] = field(default_factory=dict)
     check_ports: List[Dict[str, str]] = field(default_factory=list)
+    build_args: Dict[str, str] = field(default_factory=dict)
+    env: Dict[str, str] = field(default_factory=dict)
     cmd_args: str = ""
     entrypoint: str = None
 
@@ -53,6 +56,8 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
       stop_timeout: container stop operation timeout
       ports: host-container map of published ports
       check_ports: list of IP+port to check for availability before container is started
+      build_args: build-time variables
+      env: environment (runtime) variables
       cmd_args: additional `docker run` command arguments
       entrypoint: overwrite the default ENTRYPOINT of the image
     """
@@ -143,14 +148,19 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
             tar.add(self.context_path, arcname=".")
 
     def _form_build_command(self):
-        cmd = f"cat {self.remote_tar_path} | docker build - --tag {self.image_name}"
+        build_args = " ".join(
+            f"--build-arg {arg}='{value}'" for arg, value in self.build_args.items()
+        )
+        cmd = f"cat {self.remote_tar_path} | docker build - {build_args} --tag {self.image_name}"
         tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
 
     def _form_run_command(self):
         ports = " ".join(f"-p {host}:{container}" for host, container in self.ports.items())
+        env = " ".join(f"--env {arg}='{value}'" for arg, value in self.env.items())
         entrypoint = f"--entrypoint {self.entrypoint}" if self.entrypoint else ""
-        cmd = f"docker run -d --rm {ports} {entrypoint} {self.image_name} {self.cmd_args}"
+
+        cmd = f"docker run -d --rm {ports} {env} {entrypoint} {self.image_name} {self.cmd_args}"
         tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
 
@@ -167,6 +177,13 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
 
 
 def docker_srv_factory(server, name, tester):
+    def fill_args(name):
+        server[name] = {k: fill_template(v, server) for k, v in (server.get(name) or {}).items()}
+
+    # Apply `fill_template` to arguments of dict type
+    fill_args("build_args")
+    fill_args("env")
+
     return DockerServer(**server)
 
 

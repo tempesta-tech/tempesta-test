@@ -1,9 +1,7 @@
 """Tests for `framework.docker_server.DockerServer`."""
 import unittest
-from unittest.mock import ANY, patch
 
 from framework import docker_server, tester
-from framework.curl_client import CurlArguments, CurlClient, CurlResponse
 from helpers import tf_cfg
 
 
@@ -13,22 +11,32 @@ class TestDockerServer(tester.TempestaTest):
         {
             "id": "python_simple_server",
             "type": "docker",
-            "ports": {"8000": "8000"},
+            "ports": {8000: 8000},
             "tag": "python",
             "cmd_args": "-m http.server",
         },
         {
             "id": "python_hello",
             "type": "docker",
-            "ports": {"8001": "8080"},
+            "ports": {8001: 8080},
             "tag": "python",
             "cmd_args": "hello.py",
         },
         {
             "id": "httpbin",
             "type": "docker",
-            "ports": {"8002": "8000"},
+            "ports": {8002: 8000},
             "tag": "httpbin",
+        },
+        {
+            "id": "wordpress",
+            "type": "docker",
+            "ports": {8003: 80},
+            "tag": "wordpress",
+            "env": {
+                "WP_HOME": "http://${tempesta_ip}",
+                "WP_SITEURL": "http://${tempesta_ip}",
+            },
         },
     ]
 
@@ -46,6 +54,7 @@ class TestDockerServer(tester.TempestaTest):
             srv_group python-simple-server { server ${server_ip}:8000; }
             srv_group python-hello { server ${server_ip}:8001; }
             srv_group httpbin { server ${server_ip}:8002; }
+            srv_group wordpress { server ${server_ip}:8003; }
 
             vhost python-simple-server {
                 proxy_pass python-simple-server;
@@ -59,10 +68,15 @@ class TestDockerServer(tester.TempestaTest):
                 proxy_pass httpbin;
             }
 
+            vhost wordpress {
+                proxy_pass wordpress;
+            }
+
             http_chain {
               host == "python-simple-server" -> python-simple-server;
               host == "python-hello" -> python-hello;
               host == "httpbin" -> httpbin;
+              host == "wordpress" -> wordpress;
             }
         """
     }
@@ -97,6 +111,13 @@ class TestDockerServer(tester.TempestaTest):
         with self.subTest("httpbin"):
             response = self.get_response("httpbin", "/status/202")
             self.assertEqual(response.status, 202)
+
+        with self.subTest("wordpress"):
+            response = self.get_response("wordpress")
+            self.assertEqual(response.status, 200)
+            self.assertTrue(response.headers["x-powered-by"].startswith("PHP/"))
+            link = response.headers["link"]
+            self.assertTrue(link.startswith(f"<http://{tf_cfg.cfg.get('Tempesta', 'ip')}/"), link)
 
 
     def test_service_long_start(self):

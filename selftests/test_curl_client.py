@@ -3,7 +3,6 @@ from unittest.mock import ANY, patch
 
 from framework import tester
 from framework.curl_client import CurlArguments, CurlClient, CurlResponse
-from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

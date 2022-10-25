@@ -1,0 +1,9 @@
+{
+    "require": {
+        "aaemnnosttv/wp-sqlite-db": "v1.2.0",
+        "wp-cli/wp-cli-bundle": "2.7.1"
+    },
+    "config": {
+        "allow-plugins": true
+    }
+}
