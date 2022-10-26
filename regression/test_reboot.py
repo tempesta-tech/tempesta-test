@@ -3,14 +3,17 @@ Test TempestaFW reeboot under heavy load.
 """
 
 from __future__ import print_function
+
 from threading import Thread
 from time import sleep
-from helpers import tf_cfg, remote, control
+
+from helpers import control, remote, tf_cfg
 from testers import stress
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class RebootUnderLoadTest(stress.StressTest):
     """Reboot under constant load"""
@@ -33,10 +36,10 @@ class RebootUnderLoadTest(stress.StressTest):
         sleep(self.warm_timeout)
         for i in range(self.restart_cycles):
             sleep(self.restart_timeout)
-            tf_cfg.dbg(3, '\tReboot %d of %d' % (i + 1, self.restart_cycles))
+            tf_cfg.dbg(3, "\tReboot %d of %d" % (i + 1, self.restart_cycles))
             self.tempesta.stop()
             # Run random command on remote node to see if it is still alive.
-            remote.tempesta.run_cmd('uname')
+            remote.tempesta.run_cmd("uname")
             self.tempesta.start()
 
     def reboot_routine(self, config):
@@ -54,17 +57,16 @@ class RebootUnderLoadTest(stress.StressTest):
         self.show_performance()
 
     def tearDown(self):
-        if hasattr(self, 'r_thread'):
+        if hasattr(self, "r_thread"):
             self.r_thread.join()
         stress.StressTest.tearDown(self)
 
     def test_proxy(self):
-        config = 'cache 0;\n'
+        config = "cache 0;\n"
         self.reboot_routine(config)
 
     def test_cache(self):
-        config = ('cache 2;\n'
-                  'cache_fulfill * *;\n')
+        config = "cache 2;\n" "cache_fulfill * *;\n"
         self.reboot_routine(config)
 
 
@@ -73,5 +75,6 @@ class RebootUnderLoadNoTimeoutTest(RebootUnderLoadTest):
 
     restart_timeout = 0
     warm_timeout = 5
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

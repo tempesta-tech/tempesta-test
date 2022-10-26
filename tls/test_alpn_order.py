@@ -2,8 +2,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import ssl
 import socket
+import ssl
 from copy import deepcopy
 
 from framework import tester
@@ -49,9 +49,7 @@ class TestALPNOrderBase(tester.TempestaTest, base=True):
         context.verify_mode = ssl.CERT_NONE
 
         with socket.create_connection((hostname, 443)) as sock:
-            with context.wrap_socket(
-                sock, server_hostname="tempesta-tech.com"
-            ) as ssock:
+            with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
                 self.assertEqual(
                     ssock.selected_alpn_protocol(),
                     self.protocols[0],

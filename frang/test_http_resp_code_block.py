@@ -13,17 +13,18 @@ password crackers
 
 from framework import tester
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class HttpRespCodeBlockBase(tester.TempestaTest):
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : """
+            "id": "nginx",
+            "type": "nginx",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
 pid ${pid};
 worker_processes  auto;
 
@@ -71,20 +72,20 @@ http {
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True,
-            'rps': 6
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+            "rps": 6,
         },
         {
-            'id' : 'deproxy2',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
-            'interface' : True,
-            'rps': 5
+            "id": "deproxy2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+            "rps": 5,
         },
     ]
 
@@ -93,8 +94,9 @@ class HttpRespCodeBlock(HttpRespCodeBlockBase):
     """Blocks an attacker's IP address if a protected web application return
     5 error responses with codes 404 within 2 seconds. This is 2,5 per second.
     """
+
     tempesta = {
-        'config' : """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -110,27 +112,32 @@ frang_limits {
     Of these, 10 requests by 2.5 per second give 404 responses and should not be
     blocked.
     """
+
     def test(self):
-        requests = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" \
-                   "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 6
-        requests2 = "GET /uri1 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" \
-                    "GET /uri2 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" * 10
-        nginx = self.get_server('nginx')
+        requests = (
+            "GET /uri1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n"
+            "GET /uri2 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n" * 6
+        )
+        requests2 = (
+            "GET /uri1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n"
+            "GET /uri2 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n" * 10
+        )
+        nginx = self.get_server("nginx")
         nginx.start()
         self.start_tempesta()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.start()
 
-        deproxy_cl2 = self.get_client('deproxy2')
+        deproxy_cl2 = self.get_client("deproxy2")
         deproxy_cl2.start()
 
         self.deproxy_manager.start()
@@ -148,13 +155,15 @@ frang_limits {
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
+
 class HttpRespCodeBlockWithReply(HttpRespCodeBlockBase):
     """Tempesta must return appropriate error status if a protected web
     application return more 5 error responses with codes 404 within 2 seconds.
     This is 2,5 per second.
     """
+
     tempesta = {
-        'config' : """
+        "config": """
 server ${server_ip}:8000;
 
 frang_limits {
@@ -173,27 +182,32 @@ block_action attack reply;
     Of these, 10 requests by 2.5 per second give 404 responses. All requests
     should be get responses.
     """
+
     def test(self):
-        requests = "GET /uri1 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" \
-                   "GET /uri2 HTTP/1.1\r\n" \
-                   "Host: localhost\r\n" \
-                   "\r\n" * 6
-        requests2 = "GET /uri1 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" \
-                    "GET /uri2 HTTP/1.1\r\n" \
-                    "Host: localhost\r\n" \
-                    "\r\n" * 10
-        nginx = self.get_server('nginx')
+        requests = (
+            "GET /uri1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n"
+            "GET /uri2 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n" * 6
+        )
+        requests2 = (
+            "GET /uri1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n"
+            "GET /uri2 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n" * 10
+        )
+        nginx = self.get_server("nginx")
         nginx.start()
         self.start_tempesta()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.start()
 
-        deproxy_cl2 = self.get_client('deproxy2')
+        deproxy_cl2 = self.get_client("deproxy2")
         deproxy_cl2.start()
 
         self.deproxy_manager.start()
@@ -208,8 +222,7 @@ block_action attack reply;
         self.assertEqual(11, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
 
-        self.assertEqual('403', deproxy_cl.responses[-1].status,
-                         "Unexpected response status code")
+        self.assertEqual("403", deproxy_cl.responses[-1].status, "Unexpected response status code")
 
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())

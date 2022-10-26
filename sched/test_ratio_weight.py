@@ -23,12 +23,12 @@ since it unpredictably affects load distribution.
 """
 
 from framework import tester
-from helpers.control import servers_get_stats
 from helpers import tf_cfg
+from helpers.control import servers_get_stats
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -102,118 +102,118 @@ server ${server_ip}:8009 weight=10 conns_n=12;
 
 """
 
+
 def sched_ratio_static_def_weight():
     return 50
 
 
 class Ratio(tester.TempestaTest):
-    """Ratio static scheduler with random weight of every server.
-    """
+    """Ratio static scheduler with random weight of every server."""
 
     # 10 backend servers, only difference between them - listen port.
     backends = [
         {
-            'id' : 'nginx_8000',
-            'type' : 'nginx',
-            'port' : '8000',
-            'weight' : '50',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8000",
+            "type": "nginx",
+            "port": "8000",
+            "weight": "50",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8001',
-            'type' : 'nginx',
-            'port' : '8001',
-            'weight' : '50',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8001",
+            "type": "nginx",
+            "port": "8001",
+            "weight": "50",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8002',
-            'type' : 'nginx',
-            'port' : '8002',
-            'weight' : '5',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8002",
+            "type": "nginx",
+            "port": "8002",
+            "weight": "5",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8003',
-            'type' : 'nginx',
-            'port' : '8003',
-            'weight' : '20',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8003",
+            "type": "nginx",
+            "port": "8003",
+            "weight": "20",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8004',
-            'type' : 'nginx',
-            'port' : '8004',
-            'weight' : '30',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8004",
+            "type": "nginx",
+            "port": "8004",
+            "weight": "30",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8005',
-            'type' : 'nginx',
-            'port' : '8005',
-            'weight' : '44',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8005",
+            "type": "nginx",
+            "port": "8005",
+            "weight": "44",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8006',
-            'type' : 'nginx',
-            'port' : '8006',
-            'weight' : '22',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8006",
+            "type": "nginx",
+            "port": "8006",
+            "weight": "22",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8007',
-            'type' : 'nginx',
-            'port' : '8007',
-            'weight' : '80',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8007",
+            "type": "nginx",
+            "port": "8007",
+            "weight": "80",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8008',
-            'type' : 'nginx',
-            'port' : '8008',
-            'weight' : '100',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8008",
+            "type": "nginx",
+            "port": "8008",
+            "weight": "100",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8009',
-            'type' : 'nginx',
-            'port' : '8009',
-            'weight' : '10',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8009",
+            "type": "nginx",
+            "port": "8009",
+            "weight": "10",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     clients = [
         {
-            'id' : 'wrk',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            "id": "wrk",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
     ]
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG,
+        "config": TEMPESTA_CONFIG,
     }
 
     # Base precision to check the fairness.
     precision = 0.1
 
     def test_load_distribution(self):
-        """ Manually calculate resulted weight of every server and compare with
+        """Manually calculate resulted weight of every server and compare with
         definded in configuration.
         """
-        wrk = self.get_client('wrk')
+        wrk = self.get_client("wrk")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -246,27 +246,33 @@ class Ratio(tester.TempestaTest):
             s_reqs_expected = cl_reqs * exp_weight / tot_weight
             delta = prec * s_reqs_expected
 
-            tf_cfg.dbg(3,
-                       "Server %s with weight %d received %d requests; "
-                       "calculated weight is %f, [%d, %d] requests was expected"
-                       % (srv.get_name(), exp_weight, srv.requests,
-                          calc_weight,
-                          s_reqs_expected - delta,
-                          s_reqs_expected + delta)
-                      )
+            tf_cfg.dbg(
+                3,
+                "Server %s with weight %d received %d requests; "
+                "calculated weight is %f, [%d, %d] requests was expected"
+                % (
+                    srv.get_name(),
+                    exp_weight,
+                    srv.requests,
+                    calc_weight,
+                    s_reqs_expected - delta,
+                    s_reqs_expected + delta,
+                ),
+            )
             self.assertAlmostEqual(
-                calc_weight, exp_weight, delta=(exp_weight * prec),
-                msg=("Server %s calculated weight is %f, but %d was expected"
-                     % (srv.get_name(), calc_weight, exp_weight)
-                    )
-                )
+                calc_weight,
+                exp_weight,
+                delta=(exp_weight * prec),
+                msg=(
+                    "Server %s calculated weight is %f, but %d was expected"
+                    % (srv.get_name(), calc_weight, exp_weight)
+                ),
+            )
 
 
 class RatioVariableConns(Ratio):
-    """ Same as base test, but now every server has the random number of
+    """Same as base test, but now every server has the random number of
     connections.
     """
 
-    tempesta = {
-        'config' : TEMPESTA_CONFIG_VAR_CONNS
-    }
+    tempesta = {"config": TEMPESTA_CONFIG_VAR_CONNS}

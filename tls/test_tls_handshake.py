@@ -5,32 +5,32 @@ handshake messages.
 from time import sleep
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import remote, tf_cfg, util, dmesg
-from .handshake import *
-from .fuzzer import tls_record_fuzzer
+from helpers import dmesg, remote, tf_cfg, util
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+from .fuzzer import tls_record_fuzzer
+from .handshake import *
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class TlsHandshakeTest(tester.TempestaTest):
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -51,12 +51,11 @@ class TlsHandshakeTest(tester.TempestaTest):
     }
 
     def start_all(self):
-        deproxy_srv = self.get_server('0')
+        deproxy_srv = self.get_server("0")
         deproxy_srv.start()
         self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
-                        "Cannot start Tempesta")
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
     def test_tls12_synthetic(self):
         self.start_all()
@@ -100,7 +99,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_long_sni(self):
-        """ Also tests receiving of TLS alert. """
+        """Also tests receiving of TLS alert."""
         self.start_all()
         hs12 = TlsHandshake()
         hs12.sni = "a" * 1000
@@ -109,8 +108,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "ClientHello: bad extension size"
-        self.assertEqual(self.oops.warn_count(warn), 1,
-                         "No warning about bad ClientHello")
+        self.assertEqual(self.oops.warn_count(warn), 1, "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
         self.start_all()
@@ -147,8 +145,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "ClientHello: bad signature algorithm extension"
-        self.assertEqual(self.oops.warn_count(warn), 1,
-                         "No warning about bad ClientHello")
+        self.assertEqual(self.oops.warn_count(warn), 1, "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_elliptic_curves(self):
@@ -160,21 +157,22 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "None of the common ciphersuites is usable"
-        self.assertEqual(self.oops.warn_count(warn), 1,
-                         "No warning about bad ClientHello")
+        self.assertEqual(self.oops.warn_count(warn), 1, "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_renegotiation_info(self):
         self.start_all()
         hs12 = TlsHandshake()
+
         hs12.renegotiation_info = TLS_Ext_RenegotiationInfo(renegotiated_connection="foo", type=65281)
         # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         hs12.do_12()
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
         warn = "ClientHello: bad renegotiation_info"
-        self.assertEqual(self.oops.warn_count(warn), 1,
-                         "No warning about non-empty RenegotiationInfo")
+        self.assertEqual(
+            self.oops.warn_count(warn), 1, "No warning about non-empty RenegotiationInfo"
+        )
 
     def test_alert(self):
         self.start_all()
@@ -193,6 +191,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         tls_conn.send_data = [TLSAlert(level=2, descr=10), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
         tls_conn.do_12()
         self.assertTrue(len(tls_conn.hs.server_data)==0, "Request processed on closed socket")
+
 
     def test_close_notify(self):
         self.start_all()
@@ -261,7 +260,7 @@ class TlsMissingDefaultKey(tester.TempestaTest):
     backends = TlsHandshakeTest.backends
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -287,12 +286,11 @@ class TlsMissingDefaultKey(tester.TempestaTest):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test(self):
-        deproxy_srv = self.get_server('0')
+        deproxy_srv = self.get_server("0")
         deproxy_srv.start()
         self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
-                        "Cannot start Tempesta")
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
         # tempesta.com => ok
         res = TlsHandshake().do_12()
@@ -316,33 +314,31 @@ class TlsMissingDefaultKey(tester.TempestaTest):
 class TlsVhostHandshakeTest(tester.TempestaTest):
     backends = [
         {
-            'id' : 'be1',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 3\r\n'
-                'Connection: keep-alive\r\n'
-                '\r\n'
-                'be1'
+            "id": "be1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 3\r\n"
+            "Connection: keep-alive\r\n"
+            "\r\n"
+            "be1",
         },
         {
-            'id' : 'be2',
-            'type' : 'deproxy',
-            'port' : '8001',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 3\r\n'
-                'Connection: keep-alive\r\n'
-                '\r\n'
-                'be2'
-        }
+            "id": "be2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 3\r\n"
+            "Connection: keep-alive\r\n"
+            "\r\n"
+            "be2",
+        },
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -369,16 +365,16 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
                 -> block;
             }
         """,
-        'custom_cert': True
+        "custom_cert": True,
     }
 
     @staticmethod
     def gen_cert(host_name):
-        workdir = tf_cfg.cfg.get('General', 'workdir')
+        workdir = tf_cfg.cfg.get("General", "workdir")
         cert_path = "%s/%s.crt" % (workdir, host_name)
         key_path = "%s/%s.key" % (workdir, host_name)
         cgen = CertGenerator(cert_path, key_path)
-        cgen.CN = host_name + u'.net'
+        cgen.CN = host_name + ".net"
         cgen.generate()
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
@@ -456,21 +452,21 @@ class TlsCertReconfig(tester.TempestaTest):
     test. However, we need a low level access to the exchanged certificate, so
     ScaPy interface is required and the test went here.
     """
+
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         },
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -492,21 +488,21 @@ class TlsCertReconfig(tester.TempestaTest):
 
     @staticmethod
     def gen_cert():
-        workdir = tf_cfg.cfg.get('General', 'workdir')
+        workdir = tf_cfg.cfg.get("General", "workdir")
         cert_path = "%s/tempesta.crt" % workdir
         key_path = "%s/tempesta.key" % workdir
         cgen = CertGenerator(cert_path, key_path)
-        cgen.O = u'New Issuer'
+        cgen.O = "New Issuer"
         cgen.generate()
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
     def test(self):
-        deproxy_srv = self.get_server('0')
+        deproxy_srv = self.get_server("0")
         deproxy_srv.start()
         self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
-                        "Cannot start Tempesta")
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
         vhs = TlsHandshake()
         res = vhs.do_12()

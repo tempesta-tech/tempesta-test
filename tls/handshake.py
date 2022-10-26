@@ -3,6 +3,10 @@ TLS Handshake Class: Based on TLSAutomaton
 Use it to overrides and see what happens
 """
 
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import ssl
 import scapy.layers.tls.crypto.suites as suites
 
@@ -34,6 +38,7 @@ def x509_check_issuer(cert, issuer):
         if f.rdn[0].type.val == "2.5.4.10":
             return bytes(f.rdn[0].value).decode().endswith(issuer)
     raise Error("Certificate has no Issuer OrganizationName")
+
 
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
@@ -239,6 +244,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         pass
 
     def flush_records(self):
+
         """
         Send all buffered records and update the session accordingly.
         """
@@ -427,13 +433,14 @@ class TlsHandshake:
         return self.hs.hs_state
 
 
+
 class TlsHandshakeStandard:
     """
     This class uses OpenSSL backend, so all its routines less customizable,
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
 
-    def __init__(self, addr=None, port=443, io_to=0.5, verbose=True):
+    def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
         if addr:
             self.addr = addr
         else:

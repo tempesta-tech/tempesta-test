@@ -1,13 +1,15 @@
 from __future__ import print_function
+
 import unittest
+
 from helpers import deproxy
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class ParseResponse(unittest.TestCase):
-
     def setUp(self):
         deproxy.HeaderCollection._disable_report_wrong_is_expected = True
         self.plain = deproxy.Response(PLAIN)
@@ -46,31 +48,37 @@ class ParseResponse(unittest.TestCase):
         self.assertTrue(self.trailer != self.o_trailer)
 
     def test_parse(self):
-        self.assertEqual(self.plain.status, '200')
-        self.assertEqual(self.plain.reason, 'OK')
-        self.assertEqual(self.plain.version, 'HTTP/1.1')
+        self.assertEqual(self.plain.status, "200")
+        self.assertEqual(self.plain.reason, "OK")
+        self.assertEqual(self.plain.version, "HTTP/1.1")
 
-        headers = [('Date', 'Mon, 23 May 2005 22:38:34 GMT'),
-                   ('Content-Type', 'text/html; charset=UTF-8'),
-                   ('Content-Encoding', 'UTF-8'),
-                   ('Content-Length', '130'),
-                   ('Last-Modified', 'Wed, 08 Jan 2003 23:11:55 GMT'),
-                   ('Server', 'Apache/1.3.3.7 (Unix) (Red-Hat/Linux)'),
-                   ('ETag', '"3f80f-1b6-3e1cb03b"'),
-                   ('Accept-Ranges', 'bytes'),
-                   ('Connection', 'close')]
+        headers = [
+            ("Date", "Mon, 23 May 2005 22:38:34 GMT"),
+            ("Content-Type", "text/html; charset=UTF-8"),
+            ("Content-Encoding", "UTF-8"),
+            ("Content-Length", "130"),
+            ("Last-Modified", "Wed, 08 Jan 2003 23:11:55 GMT"),
+            ("Server", "Apache/1.3.3.7 (Unix) (Red-Hat/Linux)"),
+            ("ETag", '"3f80f-1b6-3e1cb03b"'),
+            ("Accept-Ranges", "bytes"),
+            ("Connection", "close"),
+        ]
         for header, value in headers:
             self.assertEqual(self.plain.headers[header], value.strip())
 
-        self.assertEqual(self.plain.body,
-                         ("<html>\n"
-                          "<head>\n"
-                          "  <title>An Example Page</title>\n"
-                          "</head>\n"
-                          "<body>\n"
-                          "  Hello World, this is a very simple HTML document.\n"
-                          "</body>\n"
-                          "</html>\n"))
+        self.assertEqual(
+            self.plain.body,
+            (
+                "<html>\n"
+                "<head>\n"
+                "  <title>An Example Page</title>\n"
+                "</head>\n"
+                "<body>\n"
+                "  Hello World, this is a very simple HTML document.\n"
+                "</body>\n"
+                "</html>\n"
+            ),
+        )
 
 
 PLAIN = """HTTP/1.1 200 OK
@@ -224,24 +232,24 @@ Connection: close
 Expires: Wed, 21 Dec 2015 07:28:00 GMT
 """
 
-class ParseBody(unittest.TestCase):
 
+class ParseBody(unittest.TestCase):
     @staticmethod
     def default_body():
-        return ("<html>\n"
-                "<head>\n"
-                "  <title>An Example Page</title>\n"
-                "</head>\n"
-                "<body>\n"
-                "  Hello World, this is a very simple HTML document.\n"
-                "</body>\n"
-                "</html>\n")
+        return (
+            "<html>\n"
+            "<head>\n"
+            "  <title>An Example Page</title>\n"
+            "</head>\n"
+            "<body>\n"
+            "  Hello World, this is a very simple HTML document.\n"
+            "</body>\n"
+            "</html>\n"
+        )
 
     @staticmethod
     def chunked_body():
-        return ("4\n"
-                "1234\n"
-                "0\n")
+        return "4\n" "1234\n" "0\n"
 
     def try_body(self, response_text, body_text, trailer_headers=None):
         response = deproxy.Response(response_text)
@@ -253,21 +261,24 @@ class ParseBody(unittest.TestCase):
                 self.assertEqual(response.trailer[header], value.strip())
 
     def test_chunked_empty(self):
-        self.try_body(PARSE_CHUNKED_EMPTY, '0\n\n')
+        self.try_body(PARSE_CHUNKED_EMPTY, "0\n\n")
 
     def test_chunked(self):
-        self.try_body(PARSE_CHUNKED, self.chunked_body() + '\n')
+        self.try_body(PARSE_CHUNKED, self.chunked_body() + "\n")
 
     def test_chunked_and_trailer(self):
-        self.try_body(PARSE_CHUNKED_AND_TRAILER, self.chunked_body(),
-                      [('Expires', 'Wed, 21 Oct 2015 07:28:00 GMT')])
+        self.try_body(
+            PARSE_CHUNKED_AND_TRAILER,
+            self.chunked_body(),
+            [("Expires", "Wed, 21 Oct 2015 07:28:00 GMT")],
+        )
 
     def test_contentlength(self):
         self.try_body(PARSE_CONTENT_LENGTH, self.default_body())
 
     def test_contentlength_too_short(self):
         with self.assertRaises(deproxy.ParseError):
-            self.try_body(PARSE_CONTENT_LENGTH_TOO_SHORT, '')
+            self.try_body(PARSE_CONTENT_LENGTH_TOO_SHORT, "")
 
 
 PARSE_CHUNKED_EMPTY = """HTTP/1.1 200 OK
@@ -364,7 +375,7 @@ Connection: close
 
 """
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

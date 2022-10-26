@@ -1,10 +1,11 @@
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
-
-from helpers import tf_cfg, remote
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import re
+
+from helpers import remote, tf_cfg
+
 
 class FreePortsChecker(object):
 
@@ -19,9 +20,9 @@ class FreePortsChecker(object):
 
         for line in netstat.decode().splitlines():
             portline = line.split()
-            if portline[0] != 'tcp':
+            if portline[0] != "tcp":
                 continue
-            if portline[5] != 'LISTEN':
+            if portline[5] != "LISTEN":
                 continue
             tf_cfg.dbg(5, "\tListen %s" % str(portline))
             listen.append(portline)

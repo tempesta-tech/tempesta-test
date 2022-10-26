@@ -6,31 +6,28 @@ from framework import tester
 from framework.x509 import CertGenerator
 from helpers import remote, tf_cfg, util, dmesg
 from .handshake import *
-# from .handshake_old import *
 
-
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class TlsTicketTest(tester.TempestaTest):
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -51,15 +48,14 @@ class TlsTicketTest(tester.TempestaTest):
     }
 
     def start_all(self):
-        deproxy_srv = self.get_server('0')
+        deproxy_srv = self.get_server("0")
         deproxy_srv.start()
         self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1),
-                        "Cannot start Tempesta")
+        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
     def test_no_ticket_support(self):
-        """ Session ticket extension is not sent to the server, NewSessionTicket
+        """Session ticket extension is not sent to the server, NewSessionTicket
         is not sent by Tempesta.
         """
         self.start_all()
@@ -68,12 +64,12 @@ class TlsTicketTest(tester.TempestaTest):
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_empty_ticket(self):
-        """ Session ticket extension empty: client is waiting for the ticket,
+        """Session ticket extension empty: client is waiting for the ticket,
         NewSessionTicket is sent by Tempesta. The same ticket can be used to
         establish TLS connection using abbreviated handshake.
         """
-        ticket = ''
-        master_secret = ''
+        ticket = ""
+        master_secret = ""
         self.start_all()
 
         hs = TlsHandshake()
@@ -102,45 +98,43 @@ class TlsTicketTest(tester.TempestaTest):
         #                     'was found')
 
     def test_invalid_ticket(self):
-        """ Session ticket extension has invalid value, Tempesta rejects the
+        """Session ticket extension has invalid value, Tempesta rejects the
         ticket and falls back to the full handshake, and a
         NewSessionTicket message is received.
         """
         self.start_all()
-        #random data is inserted, full handshake is processed
-        t_random_data = 'asdfghjklqwertyuiozxcvbnmqwertyuiopasdfghjklzxcvbnm'
+        # random data is inserted, full handshake is processed
+        t_random_data = "asdfghjklqwertyuiozxcvbnmqwertyuiopasdfghjklzxcvbnm"
         hs = TlsHandshake()
         hs.set_ticket_data(t_random_data)
-        hs.session_id = '\x38' * 32
+        hs.session_id = "\x38" * 32
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, 'ticket', None)
-        self.assertIsNotNone(ticket,
-                             'Ticket value is empty, no NewSessionTicket message '
-                             'was found')
-        self.assertNotEqual(ticket.ticket, '',
-                            'Ticket value is empty, no NewSessionTicket message '
-                            'was found')
-        self.assertNotEqual(ticket.ticket, t_random_data,
-                            'No new ticket was provided by Tempesta')
+        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        self.assertIsNotNone(
+            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
+        )
+        self.assertNotEqual(
+            ticket.ticket, "", "Ticket value is empty, no NewSessionTicket message " "was found"
+        )
+        self.assertNotEqual(ticket.ticket, t_random_data, "No new ticket was provided by Tempesta")
 
         # Now insert a modification into valid ticket data, ticket must be
         # rejected.
         t_data = ticket.ticket
         index = len(t_data) / 2
-        repl = b'a' if t_data[int(index)] != b'a' else b'b'
-        t_data = t_data[:int(index)] + repl + t_data[int(index) + 1:]
+        repl = b"a" if t_data[int(index)] != b"a" else b"b"
+        t_data = t_data[: int(index)] + repl + t_data[int(index) + 1 :]
         hs = TlsHandshake()
         hs.set_ticket_data(t_data)
-        hs.session_id = '\x39' * 32
+        hs.session_id = "\x39" * 32
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, 'ticket', None)
-        self.assertIsNotNone(ticket,
-                             'Ticket value is empty, no NewSessionTicket message '
-                             'was found')
-        self.assertNotEqual(ticket.ticket, t_random_data,
-                            'No new ticket was provided by Tempesta')
+        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        self.assertIsNotNone(
+            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
+        )
+        self.assertNotEqual(ticket.ticket, t_random_data, "No new ticket was provided by Tempesta")
 
 
 class TlsVhostConfusion(tester.TempestaTest):
@@ -150,32 +144,30 @@ class TlsVhostConfusion(tester.TempestaTest):
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'X-Vhost: tempesta-tech\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "X-Vhost: tempesta-tech\r\n"
+            "Connection: keep-alive\r\n\r\n",
         },
         {
-            'id' : '1',
-            'type' : 'deproxy',
-            'port' : '8001',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'X-Vhost: tempesta\r\n'
-                'Connection: keep-alive\r\n\r\n'
-        }
+            "id": "1",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "X-Vhost: tempesta\r\n"
+            "Connection: keep-alive\r\n\r\n",
+        },
     ]
 
     tempesta = {
-        'custom_cert': True,
-        'config' : """
+        "custom_cert": True,
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -201,12 +193,12 @@ class TlsVhostConfusion(tester.TempestaTest):
                 host == "tempesta.com" -> tempesta.com;
                 -> block;
             }
-        """
+        """,
     }
 
     @staticmethod
     def gen_certs(host_name):
-        workdir = tf_cfg.cfg.get('Tempesta', 'workdir')
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         cert_path = "%s/%s.crt" % (workdir, host_name)
         key_path = "%s/%s.key" % (workdir, host_name)
         cgen = CertGenerator(cert_path, key_path)
@@ -216,36 +208,34 @@ class TlsVhostConfusion(tester.TempestaTest):
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     def start_all(self):
-        self.gen_certs(u'tempesta-tech.com')
-        self.gen_certs(u'tempesta.com')
+        self.gen_certs("tempesta-tech.com")
+        self.gen_certs("tempesta.com")
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        for srv in [self.get_server('0'), self.get_server('1')]:
-            self.assertTrue(srv.wait_for_connections(timeout=1),
-                            "Cannot start Tempesta")
+        for srv in [self.get_server("0"), self.get_server("1")]:
+            self.assertTrue(srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
     def test(self):
-        """ Session established with one vhost must not be resumed with
+        """Session established with one vhost must not be resumed with
         another.
         """
-        ticket = ''
-        master_secret = ''
+        ticket = ""
+        master_secret = ""
         self.start_all()
 
         # Obtain a working ticket first
         hs = TlsHandshake()
-        hs.set_ticket_data('')
-        hs.sni = ['tempesta-tech.com']
+        hs.set_ticket_data("")
+        hs.sni = ["tempesta-tech.com"]
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, 'ticket', None)
-        master_secret = getattr(hs.sock.tls_ctx, 'master_secret', None)
+        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        self.assertIsNotNone(ticket,
-                             'Ticket value is empty, no NewSessionTicket message '
-                             'was found')
-        self.assertIsNotNone(master_secret,
-                             "Can't read master secret")
+        self.assertIsNotNone(
+            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
+        )
+        self.assertIsNotNone(master_secret, "Can't read master secret")
         if not ticket:
             return
 
@@ -253,18 +243,18 @@ class TlsVhostConfusion(tester.TempestaTest):
         # abbreviated, handshake because SNI is different.
         hs = TlsHandshake()
         hs.set_ticket_data(ticket)
-        hs.session_id = '\x39' * 32
-        hs.sni = ['tempesta.com']
-        res = hs.do_12() # Full handshake, not abbreviated
+        hs.session_id = "\x39" * 32
+        hs.sni = ["tempesta.com"]
+        res = hs.do_12()  # Full handshake, not abbreviated
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, 'ticket', None)
+        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
 
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
 
     tempesta = {
-        'custom_cert': True,
-        'config' : """
+        "custom_cert": True,
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -293,43 +283,41 @@ class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
                 host == "tempesta.com" -> default;
                 -> block;
             }
-        """
+        """,
     }
 
 
 class TlsVhostConfusionDfltCerts(tester.TempestaTest):
-    """ Vhosts are chosen by SNI, but global default certificates are used,
+    """Vhosts are chosen by SNI, but global default certificates are used,
     thus vhost won't be confused.
     """
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'X-Vhost: tempesta-tech\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "X-Vhost: tempesta-tech\r\n"
+            "Connection: keep-alive\r\n\r\n",
         },
         {
-            'id' : '1',
-            'type' : 'deproxy',
-            'port' : '8001',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'X-Vhost: tempesta\r\n'
-                'Connection: keep-alive\r\n\r\n'
-        }
+            "id": "1",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "X-Vhost: tempesta\r\n"
+            "Connection: keep-alive\r\n\r\n",
+        },
     ]
 
     tempesta = {
-        'custom_cert': True,
-        'config' : """
+        "custom_cert": True,
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -354,38 +342,36 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
                 host == "tempesta.com" -> tempesta.com;
                 -> block;
             }
-        """
+        """,
     }
 
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        for srv in [self.get_server('0'), self.get_server('1')]:
-            self.assertTrue(srv.wait_for_connections(timeout=1),
-                            "Cannot start Tempesta")
+        for srv in [self.get_server("0"), self.get_server("1")]:
+            self.assertTrue(srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
     def test(self):
-        """ Session established with one vhost must not be resumed with
+        """Session established with one vhost must not be resumed with
         another.
         """
-        ticket = ''
-        master_secret = ''
+        ticket = ""
+        master_secret = ""
         self.start_all()
 
         # Obtain a working ticket first
         hs = TlsHandshake()
-        hs.set_ticket_data('')
-        hs.sni = ['tempesta-tech.com']
+        hs.set_ticket_data("")
+        hs.sni = ["tempesta-tech.com"]
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, 'ticket', None)
-        master_secret = getattr(hs.sock.tls_ctx, 'master_secret', None)
+        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        self.assertIsNotNone(ticket,
-                             'Ticket value is empty, no NewSessionTicket message '
-                             'was found')
-        self.assertIsNotNone(master_secret,
-                             "Can't read master secret")
+        self.assertIsNotNone(
+            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
+        )
+        self.assertIsNotNone(master_secret, "Can't read master secret")
         if not ticket:
             return
 
@@ -393,12 +379,12 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         # abbreviated, handshake because SNI is different.
         hs = TlsHandshake()
         hs.set_ticket_data(ticket)
-        hs.session_id = '\x39' * 32
-        hs.sni = ['tempesta.com']
+        hs.session_id = "\x39" * 32
+        hs.sni = ["tempesta.com"]
         # Abbreviated handshake with different SNI:
-        res = hs.do_12() # Full handshake, not abbreviated
+        res = hs.do_12()  # Full handshake, not abbreviated
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, 'ticket', None)
+        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
 
 
 class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):
@@ -407,8 +393,8 @@ class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):
     """
 
     tempesta = {
-        'custom_cert': True,
-        'config' : """
+        "custom_cert": True,
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -434,7 +420,7 @@ class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):
                 host == "tempesta.com" -> vh2;
                 -> block;
             }
-        """
+        """,
     }
 
 
@@ -449,30 +435,27 @@ class StandardTlsClient(tester.TempestaTest):
 
     clients = [
         {
-            'id' : 'tls-perf',
-            'type' : 'external',
-            'binary' : 'tls-perf',
-            'cmd_args' : (
-                '-l 1 -t 1 -n 2  --tickets on ${server_ip} 443'
-                )
+            "id": "tls-perf",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": ("-l 1 -t 1 -n 2  --tickets on ${server_ip} 443"),
         },
     ]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -493,7 +476,7 @@ class StandardTlsClient(tester.TempestaTest):
     }
 
     def test(self):
-        tls_perf = self.get_client('tls-perf')
+        tls_perf = self.get_client("tls-perf")
 
         self.start_all_servers()
         self.start_tempesta()

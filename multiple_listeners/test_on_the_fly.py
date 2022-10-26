@@ -1,19 +1,19 @@
 """TestCase for change Tempesta config on the fly."""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 from framework import tester
 from framework.external_client import ExternalTester
 from framework.wrk_client import Wrk
 from helpers.control import Tempesta
 
-WRK_SCRIPT = 'conn_close'  # with header 'connection: close'
-STATUS_OK = '200'
+WRK_SCRIPT = "conn_close"  # with header 'connection: close'
+STATUS_OK = "200"
 
-SOCKET_START = '127.0.0.4:8282'
-SOCKET_AFTER_RELOAD = '127.0.1.5:7654'
+SOCKET_START = "127.0.0.4:8282"
+SOCKET_AFTER_RELOAD = "127.0.1.5:7654"
 
 TEMPESTA_CONFIG = """
 listen 127.0.0.4:8282;
@@ -71,35 +71,35 @@ class TestOnTheFly(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     clients = [
         {
-            'id': 'wrk-127.0.0.4:8282',
-            'type': 'wrk',
-            'addr': '127.0.0.4:8282',
+            "id": "wrk-127.0.0.4:8282",
+            "type": "wrk",
+            "addr": "127.0.0.4:8282",
         },
         {
-            'id': 'curl-127.0.0.4:8282',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf http://127.0.0.4:8282/',
+            "id": "curl-127.0.0.4:8282",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": "-Ikf http://127.0.0.4:8282/",
         },
         {
-            'id': 'curl-127.0.1.5:7654',
-            'type': 'external',
-            'binary': 'curl',
-            'cmd_args': '-Ikf http://127.0.1.5:7654/',
+            "id": "curl-127.0.1.5:7654",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": "-Ikf http://127.0.1.5:7654/",
         },
     ]
 
-    tempesta = {'config': TEMPESTA_CONFIG}
+    tempesta = {"config": TEMPESTA_CONFIG}
 
     def start_all(self):
         """Start server and tempesta."""
@@ -117,10 +117,10 @@ class TestOnTheFly(tester.TempestaTest):
         self.assertRaises(
             Exception,
             self.make_curl_request,
-            'curl-{0}'.format(socket),
+            "curl-{0}".format(socket),
         )
         self.assertNotIn(
-            'listen {0};'.format(socket),
+            "listen {0};".format(socket),
             tempesta.config.get_config(),
         )
 
@@ -136,15 +136,15 @@ class TestOnTheFly(tester.TempestaTest):
         tempesta: Tempesta = self.get_tempesta()
 
         self.assertIn(
-            'listen {0};'.format(SOCKET_START),
+            "listen {0};".format(SOCKET_START),
             tempesta.config.get_config(),
         )
-        self.make_curl_request('curl-{0}'.format(SOCKET_START))
+        self.make_curl_request("curl-{0}".format(SOCKET_START))
 
         # check reload sockets not in config
         self.check_non_working_socket(tempesta, SOCKET_AFTER_RELOAD)
 
-        wrk: Wrk = self.get_client('wrk-{0}'.format(SOCKET_START))
+        wrk: Wrk = self.get_client("wrk-{0}".format(SOCKET_START))
         wrk.set_script(WRK_SCRIPT)
         wrk.start()
 
@@ -158,9 +158,9 @@ class TestOnTheFly(tester.TempestaTest):
         # check old sockets  not in config
         self.check_non_working_socket(tempesta, SOCKET_START)
 
-        self.make_curl_request('curl-{0}'.format(SOCKET_AFTER_RELOAD))
+        self.make_curl_request("curl-{0}".format(SOCKET_AFTER_RELOAD))
         self.assertIn(
-            'listen {0};'.format(SOCKET_AFTER_RELOAD),
+            "listen {0};".format(SOCKET_AFTER_RELOAD),
             tempesta.config.get_config(),
         )
 

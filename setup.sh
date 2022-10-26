@@ -1,13 +1,19 @@
 #! /bin/sh
 
-apt install python3-pip nginx libnginx-mod-http-echo net-tools libssl-dev unzip -y
+apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev apache2-utils libnghttp2-dev autoconf unzip -y
+
+# stop and disable installed nginx
+systemctl stop nginx
+systemctl disable nginx
 
 python3 -m pip install -r requirements.txt
 
 # pre-commit
-cp pre-commit.sample pre-commit
-mv pre-commit .git/hooks
-chmod +x .git/hooks/pre-commit
+pre-commit install
+pre-commit autoupdate
+
+# ignore formatter commit in git blame
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # tls-perf
 git clone https://github.com/tempesta-tech/tls-perf.git /tmp/tls-perf
@@ -27,3 +33,12 @@ git clone https://github.com/tempesta-tech/h2spec.git /tmp/h2spec
 cd /tmp/h2spec
 make build
 cp ./h2spec /usr/bin/h2spec
+
+# curl
+git clone --depth=1 --branch curl-7_85_0 https://github.com/curl/curl.git /tmp/curl
+cd /tmp/curl
+autoreconf -fi
+./configure --with-openssl --with-nghttp2 --prefix /usr/local
+make
+make install
+ldconfig

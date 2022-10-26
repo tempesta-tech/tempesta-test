@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 from __future__ import print_function
-import unittest
+
 import getopt
-import sys
 import os
 import resource
 import subprocess
+import sys
+import unittest
 
-from helpers import tf_cfg, remote, shell, control, prepare
+from helpers import control, prepare, remote, shell, tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 def usage():
-    print("""
+    print(
+        """
 Functional tests for TempestaFW.
 
 Test Framework Configuration is stored in 'tests_config.ini', Use '-d' option
@@ -42,6 +45,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -C, --clean                       - Stop old instances of Tempesta and Nginx
 -D, --debug-files                 - Don't remove generated config files
 -Z, --run-disabled                - Run only tests from list of disabled
+-I, --ignore-errors               - Don't exit on import/syntax errors in tests
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -51,7 +55,9 @@ Prefix an argument with `-` to exclude every matching test: `-cache.test_purge`,
 
 Testsuite execution is automatically resumed if it was interrupted, or it can
 be resumed manually from any given test.
-""")
+"""
+    )
+
 
 DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
 disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
@@ -69,14 +75,32 @@ clean_old = False
 run_disabled = False
 prepare_tcp = True
 n_count = 1
+ignore_errors = False
+
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'hvdt:fr:R:a:nl:LCDZp',
-                                       ['help', 'verbose', 'defaults',
-                                        'duration=', 'failfast', 'resume=',
-                                        'resume-after=', 'repeat=', 'no-resume', 'log=',
-                                        'list', 'clean', 'debug-files',
-                                        'run-disabled', 'dont-prepare'])
+    options, remainder = getopt.getopt(
+        sys.argv[1:],
+        "hvdt:fr:R:a:nl:LCDZpI",
+        [
+            "help",
+            "verbose",
+            "defaults",
+            "duration=",
+            "failfast",
+            "resume=",
+            "resume-after=",
+            "repeat=",
+            "no-resume",
+            "log=",
+            "list",
+            "clean",
+            "debug-files",
+            "run-disabled",
+            "dont-prepare",
+            "ignore-errors",
+        ],
+    )
 
 except getopt.GetoptError as e:
     print(e)
@@ -84,56 +108,56 @@ except getopt.GetoptError as e:
     sys.exit(2)
 
 for opt, arg in options:
-    if opt in ('-f', '--failfast'):
+    if opt in ("-f", "--failfast"):
         fail_fast = True
-    if opt in ('-v', '--verbose'):
+    if opt in ("-v", "--verbose"):
         tf_cfg.cfg.inc_verbose()
-    if opt in ('-t', '--duration'):
+    if opt in ("-t", "--duration"):
         if not tf_cfg.cfg.set_duration(arg):
-            print('Invalid option: ', opt, arg)
+            print("Invalid option: ", opt, arg)
             usage()
             sys.exit(2)
-    elif opt in ('-d', '--save'):
+    elif opt in ("-d", "--save"):
         tf_cfg.cfg.save_defaults()
         sys.exit(0)
-    elif opt in ('-h', '--help'):
+    elif opt in ("-h", "--help"):
         usage()
         sys.exit(0)
-    elif opt in ('-r', '--resume'):
+    elif opt in ("-r", "--resume"):
         test_resume.set(arg)
-    elif opt in ('-a', '--resume-after'):
+    elif opt in ("-a", "--resume-after"):
         test_resume.set(arg, after=True)
-    elif opt in ('-n', '--no-resume'):
+    elif opt in ("-n", "--no-resume"):
         state_reader.drop()
-    elif opt in ('-l', '--log'):
-        tf_cfg.cfg.config['General']['log_file'] = arg
-    elif opt in ('-L', '--list'):
+    elif opt in ("-l", "--log"):
+        tf_cfg.cfg.config["General"]["log_file"] = arg
+    elif opt in ("-L", "--list"):
         list_tests = True
-    elif opt in ('-C', '--clean'):
+    elif opt in ("-C", "--clean"):
         clean_old = True
-    elif opt in ('-R', '--repeat'):
+    elif opt in ("-R", "--repeat"):
         n_count = arg
-    elif opt in ('-D', '--debug-files'):
+    elif opt in ("-D", "--debug-files"):
         remote.DEBUG_FILES = True
-    elif opt in ('-Z', '--run-disabled'):
+    elif opt in ("-Z", "--run-disabled"):
         run_disabled = True
-    elif opt in ('-p', '--dont-prepare'):
+    elif opt in ("-p", "--dont-prepare"):
         prepare_tcp = False
+    elif opt in ("-I", "--ignore-errors"):
+        ignore_errors = True
 
 tf_cfg.cfg.check()
 
 # Redirect stderr into a file
 tee = subprocess.Popen(
-    ['tee', '-i', tf_cfg.cfg.get('General', 'log_file')],
-    stdin=subprocess.PIPE,
-    stdout=sys.stderr
+    ["tee", "-i", tf_cfg.cfg.get("General", "log_file")], stdin=subprocess.PIPE, stdout=sys.stderr
 )
 sys.stderr.flush()
 os.dup2(tee.stdin.fileno(), sys.stderr.fileno())
 tee.stdin.close()
 
 # Verbose level for unit tests must be > 1.
-v_level = int(tf_cfg.cfg.get('General', 'Verbose')) + 1
+v_level = int(tf_cfg.cfg.get("General", "Verbose")) + 1
 
 # Install Ctrl-C handler for graceful stop.
 unittest.installHandler()
@@ -147,42 +171,40 @@ unittest.installHandler()
 # afterwards instead of importing individual tests by positive filters.
 loader = unittest.TestLoader()
 tests = []
-shell.testsuite_flatten(tests, loader.discover('.'))
+shell.testsuite_flatten(tests, loader.discover("."))
 
-if v_level >= 3:
-    # runner.TextTestRunner can print import errors, however,
+if len(loader.errors) > 0:
+    print(
+        "\n"
+        "----------------------------------------------------------------------\n"
+        "There were errors during tests discovery stage...\n"
+        "----------------------------------------------------------------------\n",
+        file=sys.stderr,
+    )
+    # runner.TextTestRunner can print import or syntax errors, however,
     # the failed modules will be filtered out like they never existed.
     # So we have to explicitly find and print those errors.
-    errors = [test for test in tests if test.__class__.__name__ == 'ModuleImportFailure']
-    for error in errors:
-        try:
-            # Non-public attributes, see unittest.case.TestCase and
-            # unittest.loader._make_failed_import_test
-            attrname = getattr(error, '_testMethodName', None)
-            if attrname:
-                testFailure = getattr(error, attrname, None)
-                if testFailure is not None:
-                    testFailure()
-        except Exception as exc:
-            # format_exc() gives too much unnecessary info
-            # print(traceback.format_exc())
-            print(exc)
+    for error in loader.errors:
+        print(error)
+
+    if not ignore_errors:
+        sys.exit(1)
+
 
 root_required = False
 
 # Root is required if too mony concurrent connections are requested
 (s_limit, _) = resource.getrlimit(resource.RLIMIT_NOFILE)
 # '4' multiplier is enough to start everything on one host.
-min_limit = int(tf_cfg.cfg.get('General', 'concurrent_connections')) * 4
-if (s_limit < min_limit):
+min_limit = int(tf_cfg.cfg.get("General", "concurrent_connections")) * 4
+if s_limit < min_limit:
     root_required = True
     print("Root privileges are required: too many concurrent connections.")
 
 # Root is required if Tempesta is started locally
-if tf_cfg.cfg.get('Tempesta', 'hostname') == 'localhost':
+if tf_cfg.cfg.get("Tempesta", "hostname") == "localhost":
     root_required = True
-    print("Root privileges are required: need access to module loading on "
-          "localhost.")
+    print("Root privileges are required: need access to module loading on " "localhost.")
 
 if root_required:
     if os.geteuid() != 0:
@@ -206,16 +228,16 @@ if prepare_tcp:
 # if we called with -C, just call tearDown for last test
 if clean_old:
     if state_reader is None or state_reader.loader.last_id is None:
-        tf_cfg.dbg(2, 'No test for clearing')
+        tf_cfg.dbg(2, "No test for clearing")
         sys.exit(0)
-    tf_cfg.dbg(2, 'Clearing last test: %s' % state_reader.loader.last_id)
+    tf_cfg.dbg(2, "Clearing last test: %s" % state_reader.loader.last_id)
     for test in tests:
         if test.id() == state_reader.loader.last_id:
             # We don't have more information about test
             # So we can use only this
-            tf_cfg.dbg(2, 'setting up')
+            tf_cfg.dbg(2, "setting up")
             test.setUp()
-            tf_cfg.dbg(2, 'stopping')
+            tf_cfg.dbg(2, "stopping")
             test.force_stop()
             break
     state_reader.drop()
@@ -239,7 +261,7 @@ if not run_disabled:
 
     for name in use_tests:
         # determine if this is an inclusion or exclusion
-        if name.startswith('-'):
+        if name.startswith("-"):
             name = name[1:]
             exclusions.append(name)
         else:
@@ -249,15 +271,15 @@ if not run_disabled:
         for disabled in disabled_reader.disabled:
             if v_level == 0:
                 tf_cfg.dbg(0, "D")
-            name = disabled['name']
-            reason = disabled['reason']
-            tf_cfg.dbg(1, "Disabled test \"%s\" : %s" % (name, reason))
+            name = disabled["name"]
+            reason = disabled["reason"]
+            tf_cfg.dbg(1, 'Disabled test "%s" : %s' % (name, reason))
             exclusions.append(name)
 else:
     for disabled in disabled_reader.disabled:
-        name = disabled['name']
-        reason = disabled['reason']
-        tf_cfg.dbg(1, "Run disabled test \"%s\" : %s" % (name, reason))
+        name = disabled["name"]
+        reason = disabled["reason"]
+        tf_cfg.dbg(1, 'Run disabled test "%s" : %s' % (name, reason))
         inclusions.append(name)
     if len(inclusions) == 0:
         tf_cfg.dbg(1, "No disabled tests, exiting")
@@ -268,14 +290,15 @@ test_resume.set_filters(inclusions, exclusions)
 if not test_resume:
     test_resume.set_from_file()
 else:
-    tf_cfg.dbg(2, 'Not resuming from file: next test specified on command line')
+    tf_cfg.dbg(2, "Not resuming from file: next test specified on command line")
 
 # Now that we initialized the loader, convert arguments to dotted form (if any).
 for lst in (inclusions, exclusions):
     lst[:] = [shell.test_id_parse(loader, t) for t in lst]
 
-test_resume.state.advance(shell.test_id_parse(loader, test_resume.state.last_id),
-                          test_resume.state.last_completed)
+test_resume.state.advance(
+    shell.test_id_parse(loader, test_resume.state.last_id), test_resume.state.last_completed
+)
 
 # if the file was not used, delete it
 if state_reader.has_file and not test_resume.from_file:
@@ -283,12 +306,14 @@ if state_reader.has_file and not test_resume.from_file:
 
 # filter testcases
 resume_filter = test_resume.filter()
-tests = [ t
-          for t in tests
-          for _ in range(int(n_count))
-          if resume_filter(t)
-          and (not inclusions or shell.testcase_in(t, inclusions))
-          and not shell.testcase_in(t, exclusions) ]
+tests = [
+    t
+    for t in tests
+    for _ in range(int(n_count))
+    if resume_filter(t)
+    and (not inclusions or shell.testcase_in(t, inclusions))
+    and not shell.testcase_in(t, exclusions)
+]
 
 #
 # List tests and exit, if requested
@@ -310,11 +335,15 @@ if test_resume:
         addn_status = " (resuming from %s)" % test_resume.state.last_id
 if n_count != 1:
     addn_status = f" for {n_count} times each"
-print("""
+print(
+    """
 ----------------------------------------------------------------------
 Running functional tests%s...
 ----------------------------------------------------------------------
-""" % addn_status, file=sys.stderr)
+"""
+    % addn_status,
+    file=sys.stderr,
+)
 
 
 #
@@ -322,15 +351,13 @@ Running functional tests%s...
 #
 
 testsuite = unittest.TestSuite(tests)
-testRunner = unittest.runner.TextTestRunner(verbosity=v_level,
-                                            failfast=fail_fast,
-                                            descriptions=False,
-                                            resultclass=test_resume.resultclass())
+testRunner = unittest.runner.TextTestRunner(
+    verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
+)
 result = testRunner.run(testsuite)
 
 # check if we finished running the tests
-if not tests or (test_resume.state.last_id == tests[-1].id()
-                 and test_resume.state.last_completed):
+if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
     state_reader.drop()
 
 if len(result.errors) > 0:

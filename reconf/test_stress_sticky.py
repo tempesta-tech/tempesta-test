@@ -3,26 +3,28 @@ Live reconfiguration stress test for sticky sessions.
 """
 
 from helpers import control, tf_cfg
+
 from . import reconf_stress
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class SchedSticky(reconf_stress.LiveReconfStress):
 
-    sg_name = 'default'
-    sched = 'ratio static'
+    sg_name = "default"
+    sched = "ratio static"
     defconfig = (
-        'cache 0;\n'
-        'sticky {\n'
-        '   cookie enforce;\n'
+        "cache 0;\n"
+        "sticky {\n"
+        "   cookie enforce;\n"
         '   secret "f00)9eR59*_/22";\n'
-        '   sticky_sessions;\n'
-        '}\n'
-        '\n')
-    clients_num = min(int(tf_cfg.cfg.get('General', 'concurrent_connections')),
-                      1000)
+        "   sticky_sessions;\n"
+        "}\n"
+        "\n"
+    )
+    clients_num = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 1000)
     auto_vhosts = False
 
     def create_clients(self):
@@ -45,15 +47,13 @@ class SchedSticky(reconf_stress.LiveReconfStress):
         reconf_stress.LiveReconfStress.configure_srvs_del_add(self)
 
     def test_ratio_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start,
-                                     self.configure_srvs_add)
+        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_add)
 
     def test_ratio_del_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start,
-                                     self.configure_srvs_del)
+        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del)
 
     def test_ratio_del_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start,
-                                     self.configure_srvs_del_add)
+        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del_add)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

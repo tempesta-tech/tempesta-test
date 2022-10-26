@@ -3,137 +3,135 @@ Tests for Frang TLS limits.
 """
 
 import time
+
 from framework import tester
-from helpers import remote, tf_cfg, util, dmesg
+from helpers import dmesg, remote, tf_cfg, util
 
-
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class TLSLimits(tester.TempestaTest):
-    """Client is blocked if opens to many new TLS sessions.
-    """
+    """Client is blocked if opens to many new TLS sessions."""
 
     clients = [
         {
-            'id' : 'tls-perf',
-            'type' : 'external',
-            'binary' : 'tls-perf',
-            'cmd_args' : (
-                '-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 11  --tickets off ${server_ip} 443'
-                )
+            "id": "tls-perf",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 11  --tickets off ${server_ip} 443"
+            ),
         },
         {
-            'id' : 'tls-perf-with-tickets',
-            'type' : 'external',
-            'binary' : 'tls-perf',
-            'cmd_args' : (
-                '-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 20  --tickets on ${server_ip} 443'
-                )
+            "id": "tls-perf-with-tickets",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 20  --tickets on ${server_ip} 443"
+            ),
         },
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "0",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '1',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '2',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '3',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "3",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '4',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "4",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '5',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "5",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '6',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "6",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '7',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "7",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '8',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "8",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '9',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "9",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '10',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "10",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : '11',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "11",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
     ]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -157,7 +155,7 @@ class TLSLimits(tester.TempestaTest):
         """
     }
 
-    TLS_WARN="Warning: frang: new TLS connections rate exceeded for "
+    TLS_WARN = "Warning: frang: new TLS connections rate exceeded for "
     BURST = False
 
     def test_with_tlsperf(self):
@@ -170,26 +168,26 @@ class TLSLimits(tester.TempestaTest):
 
         self.start_all_servers()
         self.start_tempesta()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.deproxy_manager.start()
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        tls_perf = self.get_client('tls-perf-with-tickets')
+        tls_perf = self.get_client("tls-perf-with-tickets")
         tls_perf.start()
         self.wait_while_busy(tls_perf)
-        self.assertEqual(klog.warn_count(self.TLS_WARN), 0,
-                         "Frang limits warning was incorrectly shown")
+        self.assertEqual(
+            klog.warn_count(self.TLS_WARN), 0, "Frang limits warning was incorrectly shown"
+        )
 
-        tls_perf = self.get_client('tls-perf')
+        tls_perf = self.get_client("tls-perf")
         tls_perf.start()
         self.wait_while_busy(tls_perf)
-        self.assertEqual(klog.warn_count(self.TLS_WARN), 1,
-                         "Frang limits warning is not shown")
+        self.assertEqual(klog.warn_count(self.TLS_WARN), 1, "Frang limits warning is not shown")
 
     def test_with_deproxy(self):
-        """ Test with deproxy, Python has no session resumption on client side,
+        """Test with deproxy, Python has no session resumption on client side,
         thus clients will use a new TLS session every time. If self.BURST is
         disabled, make a pause to open connections slower. Don't use high limit
         values here: deproxy is not fast.
@@ -197,18 +195,16 @@ class TLSLimits(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: tempesta-tech.com\r\n" \
-                   "\r\n"
+        requests = "GET / HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"
         connected = 0
         not_connected = 0
         for i in range(11):
-            deproxy_cl = self.get_client('%d' %i)
+            deproxy_cl = self.get_client("%d" % i)
             deproxy_cl.start()
             # Test works more stable if client sends a request
             deproxy_cl.make_requests(requests)
@@ -222,14 +218,13 @@ class TLSLimits(tester.TempestaTest):
 
         self.assertEqual(1, not_connected)
         self.assertEqual(10, connected)
-        self.assertEqual(klog.warn_count(self.TLS_WARN), 1,
-                          "Frang limits warning is not shown")
+        self.assertEqual(klog.warn_count(self.TLS_WARN), 1, "Frang limits warning is not shown")
 
 
 class TLSLimitsBurst(TLSLimits):
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -254,7 +249,7 @@ class TLSLimitsBurst(TLSLimits):
         """
     }
 
-    TLS_WARN="Warning: frang: new TLS connections burst exceeded for "
+    TLS_WARN = "Warning: frang: new TLS connections burst exceeded for "
     BURST = True
 
 
@@ -267,106 +262,105 @@ class TLSLimitsIncomplete(tester.TempestaTest):
 
     clients = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "0",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '1',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '2',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '3',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "3",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '4',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "4",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '5',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "5",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '6',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "6",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '7',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "7",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '8',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "8",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '9',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "9",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '10',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : False,
+            "id": "10",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": False,
         },
         {
-            'id' : '11',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "11",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
     ]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
 
@@ -390,24 +384,22 @@ class TLSLimitsIncomplete(tester.TempestaTest):
         """
     }
 
-    TLS_WARN="Warning: frang: incomplete TLS connections rate exceeded"
+    TLS_WARN = "Warning: frang: incomplete TLS connections rate exceeded"
 
     def test(self):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
         self.klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: tempesta-tech.com\r\n" \
-                   "\r\n"
+        requests = "GET / HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"
         connected = 0
         not_connected = 0
         for i in range(11):
-            deproxy_cl = self.get_client('%d' %i)
+            deproxy_cl = self.get_client("%d" % i)
             deproxy_cl.start()
             # Push some data as request, but it will be sent as plain HTTP
             # to a TLS socket, so 'Bad TLS record' handshake error happens
@@ -436,45 +428,44 @@ class TLSMatchHostSni(tester.TempestaTest):
 
     clients = [
         {
-            'id' : 'usual-client',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
-            'ssl_hostname' : 'tempesta-tech.com'
+            "id": "usual-client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
         {
-            'id' : 'no-sni-client',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
+            "id": "no-sni-client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
-            'id' : 'over-444-port',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '444',
-            'ssl'  : True,
-            'ssl_hostname' : 'tempesta-tech.com'
-        }
+            "id": "over-444-port",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "444",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        },
     ]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: keep-alive\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: keep-alive\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             cache 0;
             listen 443 proto=https;
             listen 444 proto=https;
@@ -499,97 +490,94 @@ class TLSMatchHostSni(tester.TempestaTest):
         """
     }
 
-    TLS_WARN="Warning: frang: host header doesn't match SNI from TLS handshake"
-    TLS_WARN_PORT="Warning: frang: port from host header doesn't match real port"
+    TLS_WARN = "Warning: frang: host header doesn't match SNI from TLS handshake"
+    TLS_WARN_PORT = "Warning: frang: port from host header doesn't match real port"
 
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
     def test_host_sni_mismatch(self):
-        """ With the `http_host_required` limit, the host header and SNI name
+        """With the `http_host_required` limit, the host header and SNI name
         must be identical. Otherwise request will be filtered. After client
         send a request that doesnt match his SNI, t is blocked
         """
         self.start_all()
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: tempesta-tech.com\r\n" \
-                   "\r\n" \
-                   "GET / HTTP/1.1\r\n" \
-                   "Host:    tempesta-tech.com     \r\n" \
-                   "\r\n" \
-                   "GET / HTTP/1.1\r\n" \
-                   "Host: example.com\r\n" \
-                   "\r\n"
-        deproxy_cl = self.get_client('usual-client')
+        requests = (
+            "GET / HTTP/1.1\r\n"
+            "Host: tempesta-tech.com\r\n"
+            "\r\n"
+            "GET / HTTP/1.1\r\n"
+            "Host:    tempesta-tech.com     \r\n"
+            "\r\n"
+            "GET / HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "\r\n"
+        )
+        deproxy_cl = self.get_client("usual-client")
         deproxy_cl.start()
         deproxy_cl.make_requests(requests)
         deproxy_cl.wait_for_response()
 
         self.assertEqual(2, len(deproxy_cl.responses))
         self.assertTrue(deproxy_cl.connection_is_closed())
-        self.assertEqual(klog.warn_count(self.TLS_WARN), 1,
-                          "Frang limits warning is not shown")
+        self.assertEqual(klog.warn_count(self.TLS_WARN), 1, "Frang limits warning is not shown")
 
     def test_host_sni_bypass_check(self):
-        """ SNI is not set. Requests to any ports are allowed.
-        """
+        """SNI is not set. Requests to any ports are allowed."""
         self.start_all()
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: example.com\r\n" \
-                   "\r\n"
-        deproxy_cl = self.get_client('no-sni-client')
+        requests = "GET / HTTP/1.1\r\n" "Host: example.com\r\n" "\r\n"
+        deproxy_cl = self.get_client("no-sni-client")
         deproxy_cl.start()
         deproxy_cl.make_requests(requests)
         deproxy_cl.wait_for_response()
 
         self.assertEqual(1, len(deproxy_cl.responses))
-        self.assertEqual(klog.warn_count(self.TLS_WARN), 0,
-                          "Frang limits warning was unexpectedly shown")
+        self.assertEqual(
+            klog.warn_count(self.TLS_WARN), 0, "Frang limits warning was unexpectedly shown"
+        )
 
     def test_port_mismatch(self):
-        """ After client send a request that has port mismatch in host header,
+        """After client send a request that has port mismatch in host header,
         # it is blocked.
         """
         self.start_all()
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: tempesta-tech.com:80\r\n" \
-                   "\r\n"
-        deproxy_cl = self.get_client('usual-client')
+        requests = "GET / HTTP/1.1\r\n" "Host: tempesta-tech.com:80\r\n" "\r\n"
+        deproxy_cl = self.get_client("usual-client")
         deproxy_cl.start()
         deproxy_cl.make_requests(requests)
         deproxy_cl.wait_for_response()
 
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertTrue(deproxy_cl.connection_is_closed())
-        self.assertEqual(klog.warn_count(self.TLS_WARN_PORT), 1,
-                          "Frang limits warning is not shown")
+        self.assertEqual(
+            klog.warn_count(self.TLS_WARN_PORT), 1, "Frang limits warning is not shown"
+        )
 
     def test_auto_port_mismatch(self):
-        """ After client send a request that has port mismatch in host header,
+        """After client send a request that has port mismatch in host header,
         # it is blocked. Port is defined from implicit values.
         """
         self.start_all()
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = "GET / HTTP/1.1\r\n" \
-                   "Host: tempesta-tech.com\r\n" \
-                   "\r\n"
-        deproxy_cl = self.get_client('over-444-port')
+        requests = "GET / HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"
+        deproxy_cl = self.get_client("over-444-port")
         deproxy_cl.start()
         deproxy_cl.make_requests(requests)
         deproxy_cl.wait_for_response()
 
         self.assertEqual(0, len(deproxy_cl.responses))
         self.assertTrue(deproxy_cl.connection_is_closed())
-        self.assertEqual(klog.warn_count(self.TLS_WARN_PORT), 1,
-                          "Frang limits warning is not shown")
+        self.assertEqual(
+            klog.warn_count(self.TLS_WARN_PORT), 1, "Frang limits warning is not shown"
+        )

@@ -1,18 +1,20 @@
 """ Helper for Tempesta system log operations."""
 
 from __future__ import print_function
-from contextlib import contextmanager
+
 import re
 import time
+from contextlib import contextmanager
+
 from . import error, remote, tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class DmesgFinder(object):
-    """dmesg helper class. """
+    """dmesg helper class."""
 
     def __init__(self, ratelimited=True):
         """
@@ -22,7 +24,7 @@ class DmesgFinder(object):
         or exception.
         """
         self.node = remote.tempesta
-        self.log = ''
+        self.log = ""
         self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
         # Suppress net ratelimiter to have all the messages in dmesg.
         if ratelimited:
@@ -32,11 +34,11 @@ class DmesgFinder(object):
             self.node.run_cmd("sysctl -w net.core.message_cost=0")
 
     def __del__(self):
-        """ Restore net.core.message_cost to not to flood the log on
+        """Restore net.core.message_cost to not to flood the log on
         performance tests.
         """
         if self.msg_cost:
-            self.node.run_cmd("sysctl -w " + self.msg_cost.decode().replace(' ', ''))
+            self.node.run_cmd("sysctl -w " + self.msg_cost.decode().replace(" ", ""))
 
     def update(self):
         """Get log from the last run."""
@@ -48,8 +50,10 @@ class DmesgFinder(object):
         print(self.log)
 
     def _warn_count(self, warn_str):
-        match = re.findall(warn_str, self.log.decode())
-        return len(match)
+        return len(self._warn_match(warn_str))
+
+    def _warn_match(self, warn_str):
+        return re.findall(warn_str, self.log.decode())
 
     def warn_count(self, warn_str):
         """Count occurrences of given string in system log. Normally used to
@@ -58,28 +62,33 @@ class DmesgFinder(object):
         self.update()
         return self._warn_count(warn_str)
 
+    def warn_match(self, warn_str):
+        """Returns list of occurrences of given string in system log."""
+        self.update()
+        return self._warn_match(warn_str)
+
     def msg_ratelimited(self, msg):
-        """ Like previous, but returns binary found/not-found status and takes
+        """Like previous, but returns binary found/not-found status and takes
         care about ratelimited messages. Returns 0 on success, -1 if msg wasn't
         found and 1 if there are no msg and the log is ratelimited.
         """
         self.update()
         ratelimited = False
-        for line in self.log.decode().split('\n'):
+        for line in self.log.decode().split("\n"):
             if line.find(msg) >= 0:
                 return 0
-            if re.findall('net_ratelimit: [\d]+ callbacks suppressed', line):
+            if re.findall("net_ratelimit: [\d]+ callbacks suppressed", line):
                 ratelimited = True
         return 1 if ratelimited else -1
 
 
-WARN_GENERIC = 'Warning: '
-WARN_SPLIT_ATTACK = 'Warning: Paired request missing, HTTP Response Splitting attack?'
+WARN_GENERIC = "Warning: "
+WARN_SPLIT_ATTACK = "Warning: Paired request missing, HTTP Response Splitting attack?"
 
 
 @contextmanager
 def wait_for_msg(msg, timeout, permissive):
-    """ Execute a code and waith for the messages in dmesg with the timeout.
+    """Execute a code and waith for the messages in dmesg with the timeout.
     Dmesg may rate limit some messages and our message might be skipped in the
     log. Permissive mode assumes that if msg wasn't found and the log was
     rate limited, then the message was one of the skipped records.
@@ -121,15 +130,16 @@ def unlimited_rate_on_tempesta_node(func):
     The decorator turns off dmesg messages rate limiting to ensure important
     messages are caught.
     """
+
     def func_wrapper(*args, **kwargs):
         node = remote.tempesta
-        get_msg_cost_cmd = 'cat /proc/sys/net/core/message_cost'
+        get_msg_cost_cmd = "cat /proc/sys/net/core/message_cost"
         msg_cost = node.run_cmd(get_msg_cost_cmd)[0].strip()
         try:
-            node.run_cmd('echo 0 > /proc/sys/net/core/message_cost')
+            node.run_cmd("echo 0 > /proc/sys/net/core/message_cost")
             return func(*args, **kwargs)
         finally:
-            cmd = 'echo {} > /proc/sys/net/core/message_cost'.format(msg_cost.decode())
+            cmd = "echo {} > /proc/sys/net/core/message_cost".format(msg_cost.decode())
             node.run_cmd(cmd)
 
     return func_wrapper

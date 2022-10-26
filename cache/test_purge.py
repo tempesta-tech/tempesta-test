@@ -1,226 +1,448 @@
 """Functional tests of caching different methods."""
 
-from __future__ import print_function
-import unittest
-from helpers import tf_cfg, chains
-from testers import functional
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+from framework.deproxy_client import DeproxyClient
+from framework.deproxy_server import StaticDeproxyServer
+from framework.tester import TempestaTest
+from helpers import checks_for_tests as checks
+from helpers import tf_cfg
+from helpers.deproxy import HttpMessage
 
-# TODO: add tests for 'cache_purge_acl'
 
-class TestPurge(functional.FunctionalTest):
+class TestPurge(TempestaTest):
+    """This class contains checks for PURGE method operation."""
 
-    config = ('cache 2;\n'
-              'cache_fulfill * *;\n'
-              'cache_methods GET HEAD;\n'
-              'cache_purge;\n'
-              'cache_purge_acl %s;\n'
-              % tf_cfg.cfg.get('Client', 'ip'))
+    tempesta = {
+        "config": """
+listen 80;
 
-    config_hdr_del = ('cache 2;\n'
-              'cache_fulfill * *;\n'
-              'cache_methods GET HEAD;\n'
-              'cache_purge;\n'
-              'cache_purge_acl %s;\n'
-              'cache_resp_hdr_del set-cookie;\n'
-              % tf_cfg.cfg.get('Client', 'ip'))
+server ${server_ip}:8000;
 
-    def chains(self):
-        uri = '/page.html'
-        result = [
-            # All cacheable method to the resource must be cached
-            chains.proxy(method='GET', uri=uri),
-            chains.proxy(method='HEAD', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            chains.cache(method='HEAD', uri=uri),
+vhost default {
+    proxy_pass default;
+}
 
-            chains.cache(method='PURGE', uri=uri),
-            # All cached responses was removed, expect re-caching them
-            chains.proxy(method='GET', uri=uri),
-            chains.proxy(method='HEAD', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            chains.cache(method='HEAD', uri=uri)
-        ]
-        return result
+cache 2;
+cache_fulfill * *;
+cache_methods GET HEAD;
+cache_purge;
+cache_purge_acl ${client_ip};
+cache_resp_hdr_del set-cookie;
+""",
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Connection: keep-alive\r\n"
+                + "Content-Length: 13\r\n"
+                + "Content-Type: text/html\r\n"
+                + "Server: Deproxy Server\r\n"
+                + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "\r\n"
+                + "<html></html>\r\n"
+            ),
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    request_template = (
+        "{0} /page.html HTTP/1.1\r\n"
+        + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+        + "Connection: keep-alive\r\n"
+        + "Accept: */*\r\n"
+        + "\r\n"
+    )
+
+    request_template_x_tempesta_cache = (
+        "{0} /page.html HTTP/1.1\r\n"
+        + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+        + "Connection: keep-alive\r\n"
+        + "Accept: */*\r\n"
+        + "x-tempesta-cache: {1}\r\n"
+        + "\r\n"
+    )
 
     def test_purge(self):
-        self.generic_test_routine(self.config, self.chains())
+        """
+        Send a request and cache it. Use PURGE and repeat the request. Check that a response is
+        not received from cache, but the request has been cached again.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
 
-    def purge_get(self, uri, method='GET'):
-        c = chains.proxy(uri=uri)
-        c.request.method = 'PURGE'
-        c.request.headers['X-Tempesta-Cache'] = method
-        c.request.update()
-        # A response body must be empty
-        c.response.headers['Content-Length'] = '0'
-        c.response.body = ''
-        c.response.update()
-        # Our X-header goes to an upstream
-        c.fwd_request.headers['X-Tempesta-Cache'] = method
-        return c
+        # All cacheable method to the resource must be cached
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        self.assertEqual(len(srv.requests), 2)
+        client.send_request(self.request_template.format("PURGE"), "200")
+        self.assertEqual(len(srv.requests), 2)
+
+        # All cached responses was removed, expect re-caching them
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        # TODO uncomment after fixing issue #1699
+        # checks.check_tempesta_cache_stats(
+        #     self.get_tempesta(),
+        #     cache_hits=4,
+        #     cache_misses=4,
+        #     cl_msg_served_from_cache=4
+        # )
+        self.assertEqual(len(self.get_server("deproxy").requests), 4)
 
     def test_purge_get_basic(self):
-        # Basic PURGE use.
-        uri = '/page.html'
-        ch = [
-            # All cacheable method to the resource must be cached
-            chains.proxy(method='GET', uri=uri),
-            chains.proxy(method='HEAD', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            chains.cache(method='HEAD', uri=uri),
-            # PURGE + GET works like a cache update, so all following requests
-            # must be served from the cache.
-            self.purge_get(uri),
-            chains.cache(method='GET', uri=uri),
-            # Note that due to how Tempesta handles HEAD this doesn't help us
-            # with HEAD pre-caching.
-            chains.proxy(method='HEAD', uri=uri),
-            chains.cache(method='HEAD', uri=uri),
-        ]
-        self.generic_test_routine(self.config, ch)
+        """
+        Send a request and cache it. Use PURGE with "x-tempesta-cache: GET" header and repeat the
+        request. Check that tempesta has sent a request to update cache for "GET" method. But cache
+        for "HEAD" method has been purged.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+
+        # All cacheable method to the resource must be cached
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        # PURGE + GET works like a cache update, so all following requests
+        # must be served from the cache.
+        self.assertEqual(len(srv.requests), 2)
+        client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "GET"), "200")
+        self.assertEqual(len(srv.requests), 3)
+
+        # Note that due to how Tempesta handles HEAD this doesn't help us
+        # with HEAD pre-caching.
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("HEAD"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        # TODO uncomment after fixing issue #1699
+        # checks.check_tempesta_cache_stats(
+        #     self.get_tempesta(),
+        #     cache_hits=4,
+        #     cache_misses=3,
+        #     cl_msg_served_from_cache=4,
+        # )
+        self.assertEqual(len(srv.requests), 4)
 
     def test_purge_get_update(self):
-        # Return a new response from the upstream to the PURGE+GET request
-        # pair, make sure we receive this new response from subsequent
-        # requests.
-        uri = '/page.html'
-        page = 'New page text!\n'
-        ch = [
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            self.purge_get(uri),
-            chains.cache(method='GET', uri=uri),
-        ]
-        for c in (ch[2].server_response, ch[3].response):
-            c.body = page
-            c.headers['Content-Length'] = len(page)
-            c.update()
-        self.generic_test_routine(self.config, ch)
+        """
+        Send a request and cache it. Update server response. Use PURGE with "x-tempesta-cache: GET"
+        header and repeat the request. Check that cached response has been update.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        new_response_body = "New text page"
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "\r\n"
+            + new_response_body,
+        )
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "GET"), "200")
+        self.assertEqual(len(srv.requests), 2)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+        self.assertEqual(new_response_body, client.last_response.body)
+
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=2,
+            cache_misses=1,
+            cl_msg_served_from_cache=2,
+        )
+        self.assertEqual(len(srv.requests), 2)
 
     def test_purge_get_update_hdr_del(self):
-        # Similar PURGE-GET test, but with Set-Cookie header removed via config
-        uri = '/page.html'
-        page = 'Another page text!\n'
-        ch = [
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            self.purge_get(uri),
-            chains.cache(method='GET', uri=uri),
-        ]
+        """
+        Send a request and cache it. Update server response with "Set-Cookie" header. Use PURGE
+        with "x-tempesta-cache: GET" header and repeat the request. Check that cached response has
+        not "Set-Cookie" header.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
 
-        # purge_get
-        c = ch[2].server_response
-        c.body = page
-        c.headers['Content-Length'] = len(page)
-        c.headers['Set-Cookie'] = 'somecookie=2'
-        c.update()
-        c = ch[2].response
-        c.headers['Set-Cookie'] = 'somecookie=2'
-        c.update()
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
 
-        c = ch[3].response
-        c.body = page
-        c.headers['Content-Length'] = len(page)
-        c.update()
+        new_response_body = "New text page"
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Set-Cookie: somecookie=2\r\n"
+            + "\r\n"
+            + new_response_body,
+        )
 
-        self.generic_test_routine(self.config_hdr_del, ch)
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "GET"), "200")
+        self.assertIn("set-cookie", client.last_response.headers)
+        self.assertEqual(len(srv.requests), 2)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+        self.assertEqual(new_response_body, client.last_response.body)
+        self.assertNotIn("set-cookie", client.last_response.headers)
+
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=2,
+            cache_misses=1,
+            cl_msg_served_from_cache=2,
+        )
+        self.assertEqual(len(srv.requests), 2)
 
     def test_purge_get_update_cc(self):
-        # And another PURGE-GET test, with Set-Cookie removed due to
-        # no-cache="set-cookie" in the response
-        uri = '/page.html'
-        page = 'Another page text!\n'
-        ch = [
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            self.purge_get(uri),
-            chains.cache(method='GET', uri=uri),
-        ]
+        """
+        And another PURGE-GET test, with Set-Cookie removed due to no-cache="set-cookie" in the
+        response.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
 
-        # purge_get
-        c = ch[2].server_response
-        c.body = page
-        c.headers['Content-Length'] = len(page)
-        c.headers['Set-Cookie'] = 'somecookie=2'
-        c.headers['Cache-control'] = 'no-cache="set-cookie"'
-        c.update()
-        c = ch[2].response
-        c.headers['Set-Cookie'] = 'somecookie=2'
-        c.headers['Cache-control'] = 'no-cache="set-cookie"'
-        c.update()
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
 
-        c = ch[3].response
-        c.body = page
-        c.headers['Content-Length'] = len(page)
-        c.headers['Cache-control'] = 'no-cache="set-cookie"'
-        c.update()
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
 
-        self.generic_test_routine(self.config_hdr_del, ch)
+        new_response_body = "New text page"
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Set-Cookie: somecookie=2\r\n"
+            + 'Cache-Control: no-cache="set-cookie"\r\n'
+            + "\r\n"
+            + new_response_body,
+        )
+
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "GET"), "200")
+        self.assertEqual(len(srv.requests), 2)
+        self.assertIn("set-cookie" and "cache-control", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age" and "cache-control", client.last_response.headers)
+        self.assertNotIn("set-cookie:", client.last_response.headers)
+
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=2,
+            cache_misses=1,
+            cl_msg_served_from_cache=2,
+        )
+        self.assertEqual(len(srv.requests), 2)
 
     def test_useless_x_tempesta_cache(self):
-        # Send an ordinary GET request with an "X-Tempesta-Cache" header, and
-        # make sure it doesn't affect anything.
-        uri = '/page.html'
-        ch = [
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-        ]
-        for c in ch:
-            c.request.headers['X-Tempesta-Cache'] = 'GET'
-            c.request.update()
-            if c.fwd_request:
-                c.fwd_request.headers['X-Tempesta-Cache'] = 'GET'
-                c.fwd_request.update()
-        self.generic_test_routine(self.config, ch)
+        """
+        Send an ordinary GET request with an "X-Tempesta-Cache" header, and make sure it doesn't
+        affect anything.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+
+        client.send_request(self.request_template_x_tempesta_cache.format("GET", "GET"), "200")
+
+        client.send_request(self.request_template_x_tempesta_cache.format("GET", "GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=1,
+            cache_misses=1,
+            cl_msg_served_from_cache=1,
+        )
+        self.assertEqual(len(self.get_server("deproxy").requests), 1)
 
     def test_purge_get_garbage(self):
-        # Send some garbage in the "X-Tempesta-Cache" header. The entry must
-        # be purged, but not re-cached. (This works the same way as a plain
-        # PURGE, so we're not using the helper method here.)
-        uri = '/page.html'
-        def purge(method):
-            p = chains.cache(method='PURGE', uri=uri)
-            p.request.headers['X-Tempesta-Cache'] = method
-            p.request.update()
-            return p
-        ch = [
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            purge('FRED'),
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            purge('GETWRONG'),
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-        ]
-        self.generic_test_routine(self.config, ch)
+        """
+        Send some garbage in the "X-Tempesta-Cache" header. The entry must be purged, but not
+        re-cached. (This works the same way as a plain PURGE, so we're not using the helper
+        method here.)
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        self.assertEqual(len(srv.requests), 1)
+        client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "FRED"), "200")
+        self.assertEqual(len(srv.requests), 1)
+
+        client.send_request(self.request_template.format("GET", ""), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        self.assertEqual(len(srv.requests), 2)
+        client.send_request(
+            self.request_template_x_tempesta_cache.format("PURGE", "GETWRONG"),
+            "200",
+        )
+        self.assertNotIn("age", client.last_response.headers)
+        self.assertEqual(len(srv.requests), 2)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=3,
+            cache_misses=1,
+            cl_msg_served_from_cache=3,
+        )
+        self.assertEqual(len(srv.requests), 3)
 
     def test_purge_get_uncached(self):
-        # Send a PURGE request with X-Tempesta-Cache for a non-cached
-        # entry. Make sure a new cache entry is populated after the request.
-        uri = '/page.html'
-        ch = [
-            self.purge_get(uri),
-            chains.cache(method='GET', uri=uri),
-        ]
-        self.generic_test_routine(self.config, ch)
+        """
+        Send a PURGE request with X-Tempesta-Cache for a non-cached entry. Make sure a new cache
+        entry is populated after the request.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+
+        client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "GET"), "200")
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        # TODO uncomment after fixing issue #1699
+        # checks.check_tempesta_cache_stats(
+        #     self.get_tempesta(),
+        #     cache_hits=1,
+        #     cache_misses=1,
+        #     cl_msg_served_from_cache=1,
+        # )
+        self.assertEqual(len(srv.requests), 1)
 
     def test_purge_get_uncacheable(self):
-        # Send a PURGE request with "X-Tempesta-Cache" for an existing cache
-        # entry, and generate a non-cacheable response. Make sure that there
-        # is neither the old nor the new response in the cache.
-        uri = '/page.html'
-        purge = self.purge_get(uri)
-        for c in (purge.server_response, purge.response):
-            c.headers['Cache-Control'] = 'private'
-            c.update()
-        ch = [
-            chains.proxy(method='GET', uri=uri),
-            chains.cache(method='GET', uri=uri),
-            purge,
-            chains.proxy(method='GET', uri=uri),
-        ]
-        self.generic_test_routine(self.config, ch)
+        """
+        Send a PURGE request with "X-Tempesta-Cache" for an existing cache entry, and generate a
+        non-cacheable response. Make sure that there is neither the old nor the new response in
+        the cache.
+        """
+        self.start_all_services()
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertIn("age", client.last_response.headers)
+
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Cache-Control: private\r\n"
+            + "\r\n"
+            + "<html></html>\r\n",
+        )
+
+        client.send_request(
+            self.request_template_x_tempesta_cache.format("PURGE", "GET"),
+            "200",
+        )
+        self.assertIn("cache-control", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        client.send_request(self.request_template.format("GET"), "200")
+        self.assertNotIn("age", client.last_response.headers)
+
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=1,
+            cache_misses=1,
+            cl_msg_served_from_cache=1,
+        )
+        self.assertEqual(len(srv.requests), 4, "Server has lost requests.")
