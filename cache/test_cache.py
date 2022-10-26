@@ -466,7 +466,7 @@ class TestChunkedResponse(tester.TempestaTest):
             response = self.get_response(client)
             self.assertEqual(response.status, 200, response)
             self.assertNotIn("age", response.headers)
-            original_data = response.stdout
+            self.assertEqual(response.stdout, "9\r\ntest-data\r\n0\r\n\r\n")
 
         with self.subTest("Get cached response"):
             response = self.get_response(client)
@@ -475,8 +475,8 @@ class TestChunkedResponse(tester.TempestaTest):
             # check that response is from the cache
             self.assertEqual(len(srv.requests), 1)
             self.assertIn("age", response.headers)
-
-        self.assertEqual(cached_data, original_data)
+            # Cached response is dechunked after the #1418
+            self.assertEqual(response.stdout, "test-data")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
