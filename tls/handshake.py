@@ -1,6 +1,6 @@
 """
-TLS Handshake Class: Decsription Placeholder
-Decsription Placeholder
+TLS Handshake Class: Based on TLSAutomaton
+Use it to overrides and see what happens
 """
 
 import ssl
@@ -41,7 +41,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         for key, value in kwargs.items():
             if key == "chunk":
                 self.chunk = value
-                # print(f"{key} == {value}" )
+                tf_cfg.dbg(3, f"{key} == {value}" )
         del kwargs["chunk"]
         self.send_data = []
         self.server_data = []
@@ -77,7 +77,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     def TLSALERT_RECIEVED(self):
         tf_cfg.dbg(2, "Recieve TLSAlert from the server...")
         self.hs_state = False
-        print(self.cur_pkt.show2())
         raise TLSAlert
         raise self.CLOSE_NOTIFY()
 
@@ -85,7 +84,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     def TLSFINISHED_REC(self):
         tf_cfg.dbg(2, "Recieve TLSFinished...")
         self.hs_state = False
-        print("\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n")
+        tf_cfg.dbg(3, "\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n")
 
     @ATMT.condition(RECEIVED_SERVERFLIGHT1, prio=1)
     def should_handle_ServerHello(self):
@@ -111,12 +110,11 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         s = self.cur_session
         s.client_session_ticket = self.session_ticket
         s.master_secret = self.master_secret
-        print("\n\n!!!!!!TLSChangeCipherSpec_after_ticket!!!!!!\n\n")
-        print(self.cur_pkt.show2())
+        # tf_cfg.dbg(2, self.cur_pkt.show2())
 
     @ATMT.condition(HANDLED_CHANGECIPHERSPEC_AFTER_TICKET)
     def wait_Finished_afterticket(self):
-        print("\n\nTRY TO GET TLSSERVERFINISHED\n\n")
+        tf_cfg.dbg(3, "\n\nTRY TO GET TLSSERVERFINISHED\n\n")
         self.get_next_msg(0.3, 1)
         raise self.WAITING_RECORDS()
         self.raise_on_packet(TLSFinished, self.HANDLED_SERVERFINISHED)
@@ -126,11 +124,11 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
-        print(type(p))
+        tf_cfg.dbg(3, type(p))
         if isinstance(p, _TLSEncryptedContent):
-            print("_TLSEncryptedContent DETECTED")
-            self.cur_session.show2()
-            print(self.cur_session.master_secret)
+            tf_cfg.dbg(2, "_TLSEncryptedContent DETECTED")
+            # self.cur_session.show2()
+            tf_cfg.dbg(3, self.cur_session.master_secret)
         if isinstance(p, TLSChangeCipherSpec):
             self.raise_on_packet(
                 TLSChangeCipherSpec, self.HANDLED_CHANGECIPHERSPEC_AFTER_TICKET
@@ -140,65 +138,39 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                 # Socket mode
                 self.oi.tls.send(p.data)
             else:
-                print("> Received: %r" % p.data)
+                tf_cfg.dbg(3, "> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
-            print("> Received: %r" % p)
+            tf_cfg.dbg(3, "> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
-        elif isinstance(p, TLS13NewSessionTicket):
-            print("> Received: %r " % p)
-            # If arg session_ticket_file_out is set, we save
-            # the ticket for resumption...
-            if self.session_ticket_file_out:
-                print("\n\nWRITE TICKETFILE\n\n")
-                # Struct of ticket file :
-                #  * ciphersuite_len (1 byte)
-                #  * ciphersuite (ciphersuite_len bytes) :
-                #       we need to the store the ciphersuite for resumption
-                #  * ticket_nonce_len (1 byte)
-                #  * ticket_nonce (ticket_nonce_len bytes) :
-                #       we need to store the nonce to compute the PSK
-                #       for resumption
-                #  * ticket_age_len (2 bytes)
-                #  * ticket_age (ticket_age_len bytes) :
-                #       we need to store the time we received the ticket for
-                #       computing the obfuscated_ticket_age when resuming
-                #  * ticket_age_add_len (2 bytes)
-                #  * ticket_age_add (ticket_age_add_len bytes) :
-                #       we need to store the ticket_age_add value from the
-                #       ticket to compute the obfuscated ticket age
-                #  * ticket_len (2 bytes)
-                #  * ticket (ticket_len bytes)
-                with open(self.session_ticket_file_out, "wb") as f:
-                    f.write(struct.pack("B", 2))
-                    # we choose wcs arbitrarily...
-                    f.write(struct.pack("!H", self.cur_session.wcs.ciphersuite.val))
-                    f.write(struct.pack("B", p.noncelen))
-                    f.write(p.ticket_nonce)
-                    f.write(struct.pack("!H", 4))
-                    f.write(struct.pack("!I", int(time.time())))
-                    f.write(struct.pack("!H", 4))
-                    f.write(struct.pack("!I", p.ticket_age_add))
-                    f.write(struct.pack("!H", p.ticketlen))
-                    f.write(self.cur_session.client_session_ticket)
         else:
-            print("> Received: %r" % p)
+            tf_cfg.dbg(3, "> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.WAITING_RECORDS()
 
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERDATA, prio=1)
+    def should_handle_ServerData(self):
+        if not self.buffer_in:
+            raise self.WAIT_CLIENTDATA()
+        p = self.buffer_in[0]
+        if isinstance(p, TLSApplicationData):
+            if self.is_atmt_socket:
+                # Socket mode
+                self.oi.tls.send(p.data)
+            else:
+                tf_cfg.dbg(2, "> Received: %r" % p.data)
+        elif isinstance(p, TLSAlert):
+            tf_cfg.dbg(2, "> Received: %r" % p)
+            raise self.CLOSE_NOTIFY()
+        else:
+            tf_cfg.dbg(2, "> Received: %r" % p)
+        self.buffer_in = self.buffer_in[1:]
+        raise self.HANDLED_SERVERDATA()
+
     @ATMT.condition(TLSClientAutomaton.HANDLED_SERVERHELLO, prio=1)
     def should_handle_ServerCertificate(self):
-        print(self.cur_pkt.show2)
         if not self.cur_session.prcs.key_exchange.anonymous:
             self.raise_on_packet(TLSCertificate, self.HANDLED_SERVERCERTIFICATE)
-        # self.raise_on_packet(TLSFinished,
-        #                      self.TLSALERT_RECIEVED)
         raise self.WAITING_RECORDS()
-
-    # @ATMT.condition(TLSClientAutomaton.HANDLED_SERVERCERTIFICATE, prio=2)
-    # def missing_ServerKeyExchange(self):
-    #     print(self.cur_pkt.show2)
-    #     if not self.cur_session.prcs.key_exchange.no_ske:
-    #         raise self.MISSING_SERVERKEYEXCHANGE()
 
     @ATMT.condition(TLSClientAutomaton.PREPARE_CLIENTFLIGHT1)
     def should_add_ClientHello(self):
@@ -278,8 +250,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                 self.socket.send(chunk)
         else:
             s = b"".join(p.raw_stateful() for p in self.buffer_out)
-            # print(type(s))
-            # print("s:", s)
             self.socket.send(s)
         self.buffer_out = []
 
@@ -312,7 +282,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.client_cert = self.cur_session.client_certs
         if tf_cfg.v_level() > 1:
             self.vprint_sessioninfo()
-            print(self.server_cert[0])
+            tf_cfg.dbg(3, self.server_cert[0])
         tf_cfg.dbg(2, "TLS handshake completed!")
         self.hs_state = True
 
@@ -391,6 +361,15 @@ class TlsHandshake:
         return ch
 
     def do_12_res(self, _master_secret, automaton=ModifiedTLSClientAutomaton):
+        """ TLS Handshake Resumption
+
+        Args:
+            _master_secret (bytes): _description_
+            automaton (_type_, optional): _description_. Defaults to ModifiedTLSClientAutomaton.
+
+        Returns:
+            _type_: _description_
+        """
         c_h = self.create_hello(resumption=True)
         if self.send_data is None:
             self.send_data = [
@@ -418,18 +397,26 @@ class TlsHandshake:
         return self.hs.hs_state
 
     def do_12(self, automaton=ModifiedTLSClientAutomaton):
+        """ Full TLS v1.2 Handshake
+
+        Args:
+            automaton (ModifiedTLSClientAutomaton, optional):
+            You can pass your own modified automaton. 
+            Defaults to ModifiedTLSClientAutomaton.
+
+        Returns:
+            bool: Handshake result
+        """
         c_h = self.create_hello()
         if self.send_data is None:
             self.send_data = [
                 TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n")
             ]
-        # tf_cfg.dbg(2, f'self.data={self.data}')
+
         self.hs = automaton(
             client_hello=c_h,
-            session_ticket_file_out="/tmp/session_ticket",
             server=self.server,
             dport=443,
-            # data=self.data, \
             chunk=self.chunk,
             debug=self.debug,
         )
@@ -437,10 +424,10 @@ class TlsHandshake:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
-        tf_cfg.dbg(2, f"FIN_STATE: {self.hs.state.state}")
-        tf_cfg.dbg(2, f"BUFFER: {self.hs.hs_buffer}")
-        tf_cfg.dbg(2, f"SERVER_DATA: {self.hs.server_data}")
-        tf_cfg.dbg(2, f"SESSION_TICKET: {type(self.hs.session_ticket)}")
+        tf_cfg.dbg(2, f"Fin_state: {self.hs.state.state}")
+        tf_cfg.dbg(2, f"Buffer: {self.hs.hs_buffer}")
+        tf_cfg.dbg(2, f"Server_data: {self.hs.server_data}")
+        tf_cfg.dbg(2, f"Session_ticket: {type(self.hs.session_ticket)}")
         self.hs.socket.close()
         return self.hs.hs_state
 
@@ -474,9 +461,9 @@ class TlsHandshakeStandard:
                 return True
         except IOError as e:
             if self.verbose:
-                print("TLS handshake failed w/o warning")
+                tf_cfg.dbg(3, "TLS handshake failed w/o warning")
         if self.verbose:
-            print("Connection of unsupported TLS 1.%d established" % version)
+            tf_cfg.dbg(3, "Connection of unsupported TLS 1.%d established" % version)
         return False
 
     def do_old(self):

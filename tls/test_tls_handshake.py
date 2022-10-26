@@ -65,16 +65,19 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_1byte_transfer(self):
         self.start_all()
+        self.oops_ignore = ['WARNING']
         res = TlsHandshake(chunk=1).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_9byte_transfer(self):
         self.start_all()
+        self.oops_ignore = ['WARNING']
         res = TlsHandshake(chunk=9).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_10byte_transfer(self):
         self.start_all()
+        self.oops_ignore = ['WARNING']
         res = TlsHandshake(chunk=10).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
