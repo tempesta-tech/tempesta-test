@@ -91,16 +91,9 @@ class BackendSetCoookie(tester.TempestaTest):
         }
     ]
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_request_success(self):
         """Test that Tempesta proxies responses with Set-Cookie headers successfully."""
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         for path in (
             "cookie1",  # single Set-Cookie header
@@ -149,13 +142,6 @@ class RepeatedHeaderCache(tester.TempestaTest):
         }
     ]
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_request_cache_del_dup_success(self):
         """
         Test that no kernel panic occur when:
@@ -164,7 +150,7 @@ class RepeatedHeaderCache(tester.TempestaTest):
           - `cache_resp_hdr_del` is used.
         (see Tempesta issue #1691)
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
 
         client.make_request("GET / HTTP/1.1\r\n\r\n")
@@ -201,15 +187,9 @@ class TestSmallHeader(tester.TempestaTest):
         }
     ]
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_small_header_name_accepted(self):
         """Request with small header name length completes successfully."""
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
 
         for length in range(1, 5):
