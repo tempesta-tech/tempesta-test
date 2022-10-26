@@ -218,7 +218,7 @@
             "reason" : "Disabled by issue #203"
         },
         {
-            "name" : "tls.test_tls_tickets.TlsTicketTest",
+            "name" : "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket",
             "reason" : "Disabled by issue #203"
         },
         {
