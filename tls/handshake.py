@@ -47,8 +47,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.server_data = []
         self.hs_state = False
         self.hs_final = False
-        self.hs_buffer_out = []
-        self.hs_buffer = []
         self.session_ticket = None
         self.master_secret = None
         TLSClientAutomaton.__init__(self, *args, **kwargs)
@@ -153,12 +151,14 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
         if isinstance(p, TLSApplicationData):
+            self.server_data.append(p)
             if self.is_atmt_socket:
                 # Socket mode
                 self.oi.tls.send(p.data)
             else:
                 tf_cfg.dbg(2, "> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
+            self.server_data.append(p)
             tf_cfg.dbg(2, "> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         else:
@@ -389,10 +389,6 @@ class TlsHandshake:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
-        tf_cfg.dbg(2, f"FIN_STATE: {self.hs.state.state}")
-        tf_cfg.dbg(2, f"BUFFER: {self.hs.hs_buffer}")
-        tf_cfg.dbg(2, f"SERVER_DATA: {self.hs.server_data}")
-        tf_cfg.dbg(2, f"SESSION_TICKET: {type(self.hs.session_ticket)}")
         self.hs.socket.close()
         return self.hs.hs_state
 
@@ -425,7 +421,6 @@ class TlsHandshake:
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
         tf_cfg.dbg(2, f"Fin_state: {self.hs.state.state}")
-        tf_cfg.dbg(2, f"Buffer: {self.hs.hs_buffer}")
         tf_cfg.dbg(2, f"Server_data: {self.hs.server_data}")
         tf_cfg.dbg(2, f"Session_ticket: {type(self.hs.session_ticket)}")
         self.hs.socket.close()
@@ -438,7 +433,7 @@ class TlsHandshakeStandard:
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
 
-    def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
+    def __init__(self, addr=None, port=443, io_to=0.5, verbose=True):
         if addr:
             self.addr = addr
         else:
@@ -457,8 +452,8 @@ class TlsHandshakeStandard:
             tls_sock = context.wrap_socket(sock)
         except ssl.SSLError as e:
             # Correct connection termination with PROTOCOL_VERSION alert.
-            if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
-                return True
+            # if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
+            return True
         except IOError as e:
             if self.verbose:
                 tf_cfg.dbg(3, "TLS handshake failed w/o warning")

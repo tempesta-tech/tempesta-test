@@ -66,6 +66,15 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["-nv", "-v", "tls.test_tls_handshake.TlsHandshakeTest.test_long_sni"],
+        },
+        {
+            "name": "RUN TEMPESTA - old_handshake",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/wh1te/tempesta-test/run_tests.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-nv", "-v", "tls.test_tls_handshake.TlsHandshakeTest.test_old_handshakes"],
         }
     ]
 }

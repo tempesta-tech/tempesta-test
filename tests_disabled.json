@@ -214,6 +214,14 @@
             "reason" : "Disabled by issue #203"
         },
         {
+            "name" : "tls.test_tls_tickets",
+            "reason" : "Disabled by issue #203"
+        },
+        {
+            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
+            "reason" : "Disabled by issue #203"
+        },
+        {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },

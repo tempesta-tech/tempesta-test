@@ -232,7 +232,6 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         
         class _ModifiedTLSClientAutomaton(ModifiedTLSClientAutomaton):
-            pass
             self.host = 'tempesta-tech.com'
 
             @ATMT.state()
@@ -423,7 +422,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         vhs = TlsHandshake()
         vhs.sni = ''
         vhs.host = 'vhost1.net'
-        # vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: vhost1.net\r\n\r\n")]
+        vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: vhost1.net\r\n\r\n")]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
         resp = vhs.hs.server_data[0].data.decode("utf-8")

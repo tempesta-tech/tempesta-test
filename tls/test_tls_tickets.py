@@ -83,17 +83,12 @@ class TlsTicketTest(tester.TempestaTest):
         res = hs.do_12()
         ticket = hs.hs.session_ticket.ticket
         master_secret = hs.hs.master_secret
-        print(master_secret)
-        print(ticket)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(ticket, 'Ticket value is empty')
         self.assertIsNotNone(master_secret, "Can't read master secret")
         del(hs)
         # # A new connection with the same ticket will receive abbreviated
         # # handshake
-
-        print(f"\n\nticket: {ticket}")
-        print(f"\n\nmaster_secret: {master_secret}")
 
         hs_abb = TlsHandshake()
         # hs_abb.sni = 'isocpp.org'
