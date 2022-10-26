@@ -448,21 +448,21 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
     def check_handshake_success(self, sni):
         """Run TLS handshake with the given SNI and check it is completes successfully."""
-        hs = TlsHandshake(verbose=self.verbose)
-        hs.sni = [sni]
+        hs = TlsHandshake()
+        hs.sni = sni
         # TLS 1.2 handshake completed with no exception => SNI is accepted
-        hs._do_12_hs()
-        self.assertTrue(x509_check_cn(hs.cert, "tempesta-tech.com"))
+        hs.do_12()
+        self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "tempesta-tech.com"))
 
     def check_handshake_unrecognized_name(self, sni):
         """
         Run TLS handshake with the given SNI
         and check server name is not recognised by the server.
         """
-        hs = TlsHandshake(verbose=self.verbose)
-        hs.sni = [sni]
+        hs = TlsHandshake()
+        hs.sni = sni
         with self.assertRaises(tls.TLSProtocolError):
-            hs._do_12_hs()
+            hs.do_12()
 
     def test_sni_matched(self):
         """SAN certificate matches the passed SNI."""
@@ -587,9 +587,9 @@ class TlsCertSelectBySan(tester.TempestaTest):
         RELOAD_COUNT = 5
 
         def handshake(sni):
-            hs = TlsHandshake(verbose=self.verbose)
-            hs.sni = [sni]
-            hs._do_12_hs()
+            hs = TlsHandshake()
+            hs.sni = sni
+            hs.do_12()
 
         san_iter = cycle(
             [
@@ -724,10 +724,10 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             ("private.example.com", "private"),
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
-                hs = TlsHandshake(verbose=self.verbose)
-                hs.sni = [sni]
-                hs._do_12_hs()
-                self.assertTrue(x509_check_cn(hs.cert, expected_cert))
+                hs = TlsHandshake()
+                hs.sni = sni
+                hs.do_12()
+                self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
         self.reload_with_config(self.config_no_private_section)
         # After Tempesta reload, 'wildcard' certificate are provided for all subdomains
@@ -737,26 +737,26 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             ("private.example.com", "wildcard"),
         ):
             with self.subTest(msg="Trying TLS handshake after config reload", sni=sni):
-                hs = TlsHandshake(verbose=self.verbose)
-                hs.sni = [sni]
-                hs._do_12_hs()
-                self.assertTrue(x509_check_cn(hs.cert, expected_cert))
+                hs = TlsHandshake()
+                hs.sni = sni
+                hs.do_12()
+                self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
         self.reload_with_config(self.config_only_private_section)
         # After Tempesta reload,
         # 'wildcard' certificate is provided for 'private' section,
-        hs = TlsHandshake(verbose=self.verbose)
-        hs.sni = ["private.example.com"]
-        hs._do_12_hs()
-        self.assertTrue(x509_check_cn(hs.cert, "private"))
+        hs = TlsHandshake()
+        hs.sni = "private.example.com"
+        hs.do_12()
+        self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "private"))
 
         # and no certificate provided for removed 'wildcard' section subdomains
         for sni in "example.com", "public.example.com":
             with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
-                with self.assertRaises(tls.TLSProtocolError):
-                    hs = TlsHandshake(verbose=self.verbose)
-                    hs.sni = [sni]
-                    hs._do_12_hs()
+                hs = TlsHandshake()
+                hs.sni = sni
+                hs.do_12()
+                self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
 
         # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
@@ -766,10 +766,10 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             ("private.example.com", "private"),
         ):
             with self.subTest(msg="Trying TLS handshake after second config reload", sni=sni):
-                hs = TlsHandshake(verbose=self.verbose)
-                hs.sni = [sni]
-                hs._do_12_hs()
-                self.assertTrue(x509_check_cn(hs.cert, expected_cert))
+                hs = TlsHandshake()
+                hs.sni = sni
+                hs.do_12()
+                self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
 
 class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
