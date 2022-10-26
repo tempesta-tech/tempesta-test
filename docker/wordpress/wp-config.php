@@ -56,6 +56,11 @@ define( 'WP_DEBUG', false );
 /* Add any custom values between this line and the "stop editing" line. */
 
 
+/* Enable SSL, depending on WP_HOME value */
+if (strpos(getenv('WP_HOME'), 'https') === 0) {
+      $_SERVER['HTTPS']='on';
+}
+
 
 /* That's all, stop editing! Happy publishing. */
 

@@ -1,0 +1,103 @@
+## Users
+Hellonico\Fixtures\Entity\User:
+  user{1..20}:
+    user_login (unique): <username()> # '(unique)' is required
+    user_pass: secret
+    user_email: <safeEmail()>
+    user_url: <url()>
+    user_registered: <dateTimeThisDecade()>
+    first_name: <firstName()>
+    last_name: <lastName()>
+    description: <sentence()>
+    role: <randomElement(['subscriber', 'editor'])>
+    meta:
+      phone_number: <phoneNumber()>
+      address: <streetAddress()>
+      zip: <postcode()>
+      city: <city()>
+    acf:
+      facebook_url: <url()>
+      twitter_url: <url()>
+
+## Attachments
+Hellonico\Fixtures\Entity\Attachment:
+    default (template):
+        post_title: <words(2, true)>
+        post_date: <dateTimeThisDecade()>
+        post_content: <paragraphs(5, true)>
+    pics{1..15} (extends default):
+        file: <fileIn('/usr/src/wordpress/wp-content/themes/twentytwentytwo/assets/images')>
+
+## Terms
+Hellonico\Fixtures\Entity\Term:
+    category{1..10}:
+        name (unique): <words(2, true)> # '(unique)' is required
+        description: <sentence()>
+        parent: '50%? <termId(childless=1)>'
+    tag{1..100}:
+        __construct: ['post_tag']
+        name (unique): <words(2, true)>
+        description: <sentence()>
+        taxonomy: post_tag
+
+Hellonico\Fixtures\Entity\Post:
+    ## Pages
+    default_page (template):
+        post_title: <words(1, true)>
+        post_type: page
+        post_status: publish
+        post_content: <paragraphs(10, true)>
+        post_date: <dateTimeThisDecade()>
+        meta:
+            _thumbnail_id: '@pics*->ID'
+    about_page:
+        post_title: About
+        post_type: page
+        post_status: publish
+        post_content: <paragraphs(10, true)>
+    long_page:
+        post_title: Long page
+        post_type: page
+        post_status: publish
+        post_content: <paragraphs(1000, true)>
+    page{1..30}:
+        post_title: <words(1, true)>
+        post_type: page
+        post_status: publish
+        post_content: <paragraphs(100, true)>
+        post_date: <dateTimeThisDecade()>
+        meta:
+            _thumbnail_id: '@pics*->ID'
+
+    ## Posts
+    default (template):
+        post_title: <words(2, true)>
+        post_date: <dateTimeThisDecade()>
+        post_content: <paragraphs(5, true)>
+        post_excerpt: <paragraphs(1, true)>
+        meta:
+            _thumbnail_id: '@pics*->ID'
+    post{1..100} (extends default):
+        post_category: '1x @category*->term_id'
+        tax_input:
+            post_tag: '5x @tag*->term_id'
+
+## Comments
+Hellonico\Fixtures\Entity\Comment:
+  comment{1..300}:
+    comment_post_ID: '@post*->ID'
+    user_id: '@user*->ID'
+    comment_date: <dateTimeThisDecade()>
+    comment_author: <username()>
+    comment_author_email: <safeEmail()>
+    comment_author_url: <url()>
+    comment_content: <paragraphs(2, true)>
+    comment_agent: <userAgent()>
+    comment_author_IP: <ipv4()>
+    comment_approved: 1
+    comment_karma: <numberBetween(1, 100)>
+    comment_meta:
+      some_key: <sentence()>
+    meta:
+      another_key: <sentence()>
+
