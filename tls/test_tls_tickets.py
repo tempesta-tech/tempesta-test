@@ -82,7 +82,7 @@ class TlsTicketTest(tester.TempestaTest):
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(ticket, 'Ticket value is empty')
         self.assertIsNotNone(master_secret, "Can't read master secret")
-        del(hs)
+
         # # A new connection with the same ticket will receive abbreviated
         # # handshake
 
