@@ -11,28 +11,28 @@ class TestDockerServer(tester.TempestaTest):
         {
             "id": "python_simple_server",
             "type": "docker",
+            "image": "python",
             "ports": {8000: 8000},
-            "tag": "python",
             "cmd_args": "-m http.server",
         },
         {
             "id": "python_hello",
             "type": "docker",
+            "image": "python",
             "ports": {8001: 8080},
-            "tag": "python",
             "cmd_args": "hello.py",
         },
         {
             "id": "httpbin",
             "type": "docker",
+            "image": "httpbin",
             "ports": {8002: 8000},
-            "tag": "httpbin",
         },
         {
             "id": "wordpress",
             "type": "docker",
+            "image": "wordpress",
             "ports": {8003: 80},
-            "tag": "wordpress",
             "env": {
                 "WP_HOME": "http://${tempesta_ip}",
                 "WP_SITEURL": "http://${tempesta_ip}",
@@ -118,7 +118,6 @@ class TestDockerServer(tester.TempestaTest):
             self.assertTrue(response.headers["x-powered-by"].startswith("PHP/"))
             link = response.headers["link"]
             self.assertTrue(link.startswith(f"<http://{tf_cfg.cfg.get('Tempesta', 'ip')}/"), link)
-
 
     def test_service_long_start(self):
         """

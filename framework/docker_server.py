@@ -22,7 +22,7 @@ class DockerServerArguments:
     """
 
     id: str
-    tag: str
+    image: str
     server_ip: str
     general_workdir: str
     server_workdir: str
@@ -48,10 +48,10 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
 
     Args:
       id: backend server ID
-      tag: image to use from the `docker` directory
-      server_ip: IP address of the server
-      general_workdir: Path to temporary files
-      server_workdir: Path to temporary files on the server node
+      image: image to use from the `docker` directory
+      server_ip: IP address of the server (set from config)
+      general_workdir: Path to temporary files (set from config)
+      server_workdir: Path to temporary files on the server node (set from config)
       build_timeout: container build operation timeout
       stop_timeout: container stop operation timeout
       ports: host-container map of published ports
@@ -72,8 +72,11 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
 
     @property
     def image_name(self):
-        """Docker image name."""
-        return f"tt-{self.tag}"
+        """
+        Name used for the built image on the server:
+        all test images are prefixed to distinguish from other images.
+        """
+        return f"tt-{self.image}"
 
     @property
     def context_path(self):
@@ -81,7 +84,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         the files and directories that will be available to the Docker engine
         during the image build stage.
         """
-        return Path("docker") / f"{self.tag}"
+        return Path("docker") / f"{self.image}"
 
     @property
     def local_tar_path(self):
@@ -94,7 +97,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         return Path(self.server_workdir) / f"{self.image_name}.tar.gz"
 
     def run_start(self):
-        tf_cfg.dbg(3, f"\tDocker Server: Start {self.id} ({self.tag})")
+        tf_cfg.dbg(3, f"\tDocker Server: Start {self.id} (image {self.image})")
         self.check_ports_status()
         self._build_image()
         stdout, stderr = self.node.run_cmd(
@@ -120,7 +123,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         return False
 
     def stop_server(self):
-        tf_cfg.dbg(3, f"\tDocker server: Stop {self.id} ({self.tag})")
+        tf_cfg.dbg(3, f"\tDocker server: Stop {self.id} (image {self.image})")
         if self.container_id:
             self.node.run_cmd(
                 self._form_stop_command(),
