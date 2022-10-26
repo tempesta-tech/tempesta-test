@@ -106,11 +106,11 @@ class TlsTicketTest(tester.TempestaTest):
         # random data is inserted, full handshake is processed
         t_random_data = "asdfghjklqwertyuiozxcvbnmqwertyuiopasdfghjklzxcvbnm"
         hs = TlsHandshake()
-        hs.set_ticket_data(t_random_data)
+        hs.ticket_data = t_random_data
         hs.session_id = "\x38" * 32
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        ticket = hs.hs.session_ticket
         self.assertIsNotNone(
             ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
         )
@@ -126,11 +126,11 @@ class TlsTicketTest(tester.TempestaTest):
         repl = b"a" if t_data[int(index)] != b"a" else b"b"
         t_data = t_data[: int(index)] + repl + t_data[int(index) + 1 :]
         hs = TlsHandshake()
-        hs.set_ticket_data(t_data)
+        hs.ticket_data = t_data
         hs.session_id = "\x39" * 32
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        ticket = hs.hs.session_ticket
         self.assertIsNotNone(
             ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
         )
@@ -226,11 +226,11 @@ class TlsVhostConfusion(tester.TempestaTest):
 
         # Obtain a working ticket first
         hs = TlsHandshake()
-        hs.set_ticket_data("")
-        hs.sni = ["tempesta-tech.com"]
+        hs.ticket_data = ""
+        hs.sni = "tempesta-tech.com"
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
-        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
+        ticket = hs.hs.session_ticket
+        master_secret = hs.hs.master_secret
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(
             ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
@@ -242,13 +242,13 @@ class TlsVhostConfusion(tester.TempestaTest):
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
         hs = TlsHandshake()
-        hs.set_ticket_data(ticket)
+        hs.ticket_data = ticket
         hs.session_id = "\x39" * 32
-        hs.sni = ["tempesta.com"]
+        hs.sni = "tempesta.com"
         res = hs.do_12()  # Full handshake, not abbreviated
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
-
+        ticket = hs.hs.session_ticket
+        
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
 
@@ -362,11 +362,11 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
 
         # Obtain a working ticket first
         hs = TlsHandshake()
-        hs.set_ticket_data("")
-        hs.sni = ["tempesta-tech.com"]
+        hs.ticket_data = ""
+        hs.sni = "tempesta-tech.com"
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
-        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
+        ticket = hs.hs.session_ticket
+        master_secret = hs.hs.master_secret
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(
             ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
@@ -378,13 +378,13 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
         hs = TlsHandshake()
-        hs.set_ticket_data(ticket)
+        hs.ticket_data = ticket
         hs.session_id = "\x39" * 32
-        hs.sni = ["tempesta.com"]
+        hs.sni = "tempesta.com"
         # Abbreviated handshake with different SNI:
         res = hs.do_12()  # Full handshake, not abbreviated
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        ticket = hs.hs.session_ticket
 
 
 class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):
