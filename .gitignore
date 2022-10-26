@@ -3,4 +3,4 @@ tests_resume.json
 tests_log.log
 *.pyc
 *~
-.vscode/
+.vscode/*
