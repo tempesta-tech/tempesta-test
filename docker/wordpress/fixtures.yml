@@ -1,3 +1,11 @@
+
+## Assets
+#
+# Directory with theme images: /usr/src/wordpress/wp-content/themes/twentytwentytwo/assets/images
+#
+# Directory with generated images: /usr/src/wordpress/images
+#
+
 ## Users
 Hellonico\Fixtures\Entity\User:
   user{1..20}:
@@ -25,7 +33,7 @@ Hellonico\Fixtures\Entity\Attachment:
         post_title: <words(2, true)>
         post_date: <dateTimeThisDecade()>
         post_content: <paragraphs(5, true)>
-    pics{1..15} (extends default):
+    pics{1..16} (extends default):
         file: <fileIn('/usr/src/wordpress/wp-content/themes/twentytwentytwo/assets/images')>
 
 ## Terms
@@ -51,15 +59,17 @@ Hellonico\Fixtures\Entity\Post:
         meta:
             _thumbnail_id: '@pics*->ID'
     about_page:
+        __construct: [2]
         post_title: About
         post_type: page
         post_status: publish
-        post_content: <paragraphs(10, true)>
+        post_content: 'Page with short text. <paragraphs(10, true)>'
     long_page:
-        post_title: Long page
+        __construct: [3]
+        post_title: Long read
         post_type: page
         post_status: publish
-        post_content: <paragraphs(1000, true)>
+        post_content: 'Page with long text. <paragraphs(1000, true)>'
     page{1..30}:
         post_title: <words(1, true)>
         post_type: page
@@ -68,7 +78,6 @@ Hellonico\Fixtures\Entity\Post:
         post_date: <dateTimeThisDecade()>
         meta:
             _thumbnail_id: '@pics*->ID'
-
     ## Posts
     default (template):
         post_title: <words(2, true)>
@@ -77,6 +86,7 @@ Hellonico\Fixtures\Entity\Post:
         post_excerpt: <paragraphs(1, true)>
         meta:
             _thumbnail_id: '@pics*->ID'
+
     post{1..100} (extends default):
         post_category: '1x @category*->term_id'
         tax_input:

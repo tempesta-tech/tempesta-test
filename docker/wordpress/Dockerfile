@@ -1,19 +1,30 @@
 # WordPress installation with generated blog data
+
+# /images URI path provides images of different dimensions:
+#  - 128.jpg - 128x128 image, about 40K size
+#    ...
+#  - 2048.jpg - 2048x2048 image, about 9,9M size
+# Available dimensions:
+#  2048, 1920, 1792, 1664, 1536, 1408, 1280, 1152,
+#  1024, 896, 768, 640, 512, 384, 256, 128
+#
+
 FROM wordpress:php8.1-apache
 COPY --from=composer/composer:2.4.3 /usr/bin/composer /usr/bin/composer
 
 ARG WORDPRESS_URL=http://127.0.0.1
 ARG WORDPRESS_DIR=/usr/src/wordpress
+ENV DEBIAN_FRONTEND=noninteractive
 ENV WORDPRESS_DIR=$WORDPRESS_DIR
 ENV WP_HOME=$WORDPRESS_URL
 ENV WP_SITEURL=$WORDPRESS_URL
 ENV PATH="${PATH}:/var/www/.composer/vendor/bin"
 
+RUN apt-get -y update && apt install -y imagemagick
+
 RUN chown www-data /var/www
 COPY --chown=www-data wp-config.php "${WORDPRESS_DIR}/wp-config.php"
 COPY --chown=www-data composer.json /var/www/.composer/composer.json
-COPY --chown=www-data fixtures.yml /var/www/fixtures.yml
-COPY html "$WORDPRESS_DIR"
 COPY tt-docker-entrypoint.sh /usr/local/bin
 RUN chmod +x /usr/local/bin/tt-docker-entrypoint.sh
 
@@ -23,6 +34,20 @@ RUN composer global update --no-interaction
 RUN cp /var/www/.composer/wp-content/wp-sqlite-db/src/db.php "${WORDPRESS_DIR}/wp-content/db.php"
 
 RUN wp core install --path="${WORDPRESS_DIR}" --url="${WORDPRESS_URL}" --title="Tempesta Wordpress Test" --admin_user=admin --admin_password=secret --admin_email=test@tempesta-tech.com --skip-email
+
+# Generate images
+RUN mkdir "${WORDPRESS_DIR}/images" && \
+    cd "${WORDPRESS_DIR}/images" && \
+    for i in $(seq 128 128 2048); \
+    do \
+      convert -size "$i"x"$i" xc: +noise Random \
+      -fill white -draw "scale 7,7 gravity center text 0,0 '$i'" \
+      -quality 98 "$i.jpg"; \
+    done
+
+# Generate site data
+COPY html "$WORDPRESS_DIR"
+COPY --chown=www-data fixtures.yml /var/www/fixtures.yml
 RUN wp fixtures load --debug --path="${WORDPRESS_DIR}" --file=/var/www/fixtures.yml
 
 WORKDIR /var/www/html
