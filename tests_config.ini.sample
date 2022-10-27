@@ -77,6 +77,9 @@ log_file = tests_log.txt
 #
 workdir = /tmp/host
 
+# Body size in MB for long body tests.
+long_body_size = 500
+
 
 [Client]
 # Configuration for the HTTP clients. Clients are always ran locally.
