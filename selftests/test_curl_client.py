@@ -80,6 +80,11 @@ class TestCurlClient(tester.TempestaTest):
             "type": "curl",
         },
         {
+            "id": "no_output",
+            "type": "curl",
+            "disable_output": True,
+        },
+        {
             "id": "wrong_port",
             "type": "curl",
             "addr": "${tempesta_ip}:443",
@@ -179,6 +184,15 @@ class TestCurlClient(tester.TempestaTest):
             self.assertEqual(len(client.stats), 1)
             self.assertFalse(client.last_stats["errormsg"])
             self.assertGreaterEqual(client.last_stats["time_total"], 0)
+
+    def test_request_completed_with_output_disabled(self):
+        client = self.get_client("no_output")
+        client.output_path.unlink(missing_ok=True)
+        response = self.get_response(client)
+        self.assertEqual(len(client.responses), 1)
+        self.assertEqual(response.status, 200)
+        self.assertFalse(response.stderr)
+        self.assertFalse(response.stdout)
 
     def test_ssl_request_completed(self):
         client = self.get_client("ssl")

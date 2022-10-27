@@ -259,7 +259,7 @@ class CurlClient(CurlArguments, client.Client):
 
                 response = CurlResponse(
                     headers_dump=dump,
-                    stdout_raw=self._read_output(),
+                    stdout_raw=self._read_output() if not self.disable_output else b"",
                     stderr_raw=stderr,
                 )
                 if response.proto and response.proto != ("2" if self.http2 else "1.1"):
