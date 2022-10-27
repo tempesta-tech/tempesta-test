@@ -324,7 +324,13 @@ class TlsHandshake:
     def create_hello(self, resumption=False):
         compression = "null"
         # Override extension if some variables changd
-        ext1 = TLS_Ext_ServerName(servernames=ServerName(servername=self.sni))
+        if type(self.sni) is list:
+            servers = []
+            for servername in self.sni:
+                servers.append(ServerName(servername=servername))
+            ext1 = TLS_Ext_ServerName(servernames=servers)
+        elif type(self.sni) is str:
+            ext1 = TLS_Ext_ServerName(servernames=ServerName(servername=self.sni))
         ext2 = TLS_Ext_CSR(stype="ocsp", req=OCSPStatusRequest())
         ext4 = TLS_Ext_SupportedPointFormat(ecpl="uncompressed")
         try:
