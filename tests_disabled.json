@@ -354,10 +354,6 @@
             "reason": "Need to investigate"
         },
         {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
-        },
-        {
             "name" : "http_rules.test_http.HttpRulesBackupServers.test_scheduler",
             "reason": "Disable by issue #328"
         },
