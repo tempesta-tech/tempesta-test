@@ -218,10 +218,6 @@
             "reason" : "Disabled by issue #203"
         },
         {
-            "name" : "tls.test_tls_tickets.TlsTicketTest.test_empty_ticket",
-            "reason" : "Disabled by issue #203"
-        },
-        {
             "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
             "reason" : "Disabled by issue #203"
         },
@@ -274,20 +270,8 @@
             "reason": "Need to investigate"
         },
         {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
-        },
-        {
             "name" : "http_rules.test_http.HttpRulesBackupServers.test_scheduler",
             "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "tls.test_tls_tickets.TlsVhostConfusionDfltCertsWithUnknown.test",
-            "reason": "Disable by issue #154"
-        },
-        {
-            "name" : "tls.test_tls_cert.TlsCertSelect.test_vhost_cert_selection",
-            "reason": "Disable by issue #154"
         },
         {
             "name": "tls.test_tls_cert.TlsCertSelectBySan",
@@ -316,14 +300,6 @@
         {
             "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2Frang",
             "reason": "Disable by issue #1688"
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsHandshakeTest.test_tls12_synthetic",
-            "reason": "Disable by issue #154"
-        },
-        {
-            "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_vhost_sni",
-            "reason": "Disable by issue #154"
         },
         {
             "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
