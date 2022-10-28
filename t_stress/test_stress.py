@@ -454,12 +454,12 @@ class H2LoadStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTe
         self.wait_while_busy(client)
         client.stop()
         self.assertEqual(client.returncode, 0)
-        self.assertNotIn(' 0 2xx, ', client.response_msg)
+        self.assertNotIn(" 0 2xx, ", client.response_msg)
 
 
 class RequestStress(CustomMtuMixin, tester.TempestaTest):
     tempesta = {
-        'config': """
+        "config": """
     listen 80;
     listen 443 proto=https;
     listen 4433 proto=h2;
@@ -473,20 +473,20 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
     """
     }
 
-    location = tf_cfg.cfg.get('Client', 'workdir')
-    fullname = os.path.join(location, 'long_body.bin')
+    location = tf_cfg.cfg.get("Client", "workdir")
+    fullname = os.path.join(location, "long_body.bin")
 
     clients = [
         {
-            'id': 'wrk-http',
-            'type': 'wrk',
-            'addr': '${tempesta_ip}:80',
+            "id": "wrk-http",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
         {
-            'id': 'wrk-https',
-            'type': 'wrk',
-            'ssl': True,
-            'addr': '${tempesta_ip}:443',
+            "id": "wrk-https",
+            "type": "wrk",
+            "ssl": True,
+            "addr": "${tempesta_ip}:443",
         },
         {
             "id": "h2load",
@@ -499,29 +499,29 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
                 f" --threads {THREADS}"
                 f" --max-concurrent-streams {REQUESTS_COUNT}"
                 f" --duration {DURATION}"
-                f' --data={fullname}'
+                f" --data={fullname}"
             ),
         },
     ]
 
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     def setUp(self):
-        remote.client.copy_file(self.fullname, 'x' * LARGE_CONTENT_LENGTH)
+        remote.client.copy_file(self.fullname, "x" * LARGE_CONTENT_LENGTH)
         super().setUp()
 
     def tearDown(self):
         super().tearDown()
         if not remote.DEBUG_FILES:
-            remote.client.run_cmd(f'rm {self.fullname}')
+            remote.client.run_cmd(f"rm {self.fullname}")
 
     def _test_wrk(self, client_id: str, method: str):
         """
@@ -530,14 +530,14 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
         self.start_all_services(client=False)
         client = self.get_client(client_id)
         client.set_script(
-            script='request_1k',
+            script="request_1k",
             content=(
-                    f'wrk.method = "{method}"\n'
-                    + 'wrk.path = "/"\n'
-                    + 'wrk.header = {\n'
-                    + '}\n'
-                    + f'wrk.body = "{"x" * LARGE_CONTENT_LENGTH}"\n'
-            )
+                f'wrk.method = "{method}"\n'
+                + 'wrk.path = "/"\n'
+                + "wrk.header = {\n"
+                + "}\n"
+                + f'wrk.body = "{"x" * LARGE_CONTENT_LENGTH}"\n'
+            ),
         )
         client.connections = CONCURRENT_CONNECTIONS
         client.duration = int(DURATION)
@@ -548,11 +548,11 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
         self.wait_while_busy(client)
         client.stop()
 
-        self.assertGreater(client.statuses[200], 0, 'Client has not received 200 responses.')
+        self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
     def _test_h2load(self, method: str):
         self.start_all_services(client=False)
-        client = self.get_client('h2load')
+        client = self.get_client("h2load")
         client.options[0] += f' -H ":method:{method}"'
 
         client.start()
@@ -560,25 +560,25 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
         client.stop()
 
         self.assertEqual(client.returncode, 0)
-        self.assertNotIn(' 0 2xx, ', client.response_msg)
+        self.assertNotIn(" 0 2xx, ", client.response_msg)
 
     def test_http_post_request(self):
-        self._test_wrk(client_id='wrk-http', method='POST')
+        self._test_wrk(client_id="wrk-http", method="POST")
 
     def test_http_put_request(self):
-        self._test_wrk(client_id='wrk-http', method='PUT')
+        self._test_wrk(client_id="wrk-http", method="PUT")
 
     def test_https_post_request(self):
-        self._test_wrk(client_id='wrk-https', method='POST')
+        self._test_wrk(client_id="wrk-https", method="POST")
 
     def test_https_put_request(self):
-        self._test_wrk(client_id='wrk-https', method='PUT')
+        self._test_wrk(client_id="wrk-https", method="PUT")
 
     def test_h2_post_request(self):
-        self._test_h2load(method='POST')
+        self._test_h2load(method="POST")
 
     def test_h2_put_request(self):
-        self._test_h2load(method='PUT')
+        self._test_h2load(method="PUT")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -1,30 +1,31 @@
 """Utils for wrong length tests"""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from framework.tester import TempestaTest
-from helpers import tf_cfg
 from helpers import checks_for_tests as checks
+from helpers import tf_cfg
 
 
 class TestContentLengthBase(TempestaTest, base=True):
     """Base class for checking length of request/response body."""
+
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': '',
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             listen 80;
 
             srv_group default {
@@ -43,10 +44,10 @@ class TestContentLengthBase(TempestaTest, base=True):
 
     clients = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'addr': '${tempesta_ip}',
-            'port': '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
     ]
 
@@ -75,28 +76,28 @@ class TestContentLengthBase(TempestaTest, base=True):
         Send request with correct or incorrect data to server and check if response have been
         received.
         """
-        srv: StaticDeproxyServer = self.get_server('deproxy')
+        srv: StaticDeproxyServer = self.get_server("deproxy")
         srv.keep_alive = self.keep_alive
         self.start_all_services()
 
-        client: DeproxyClient = self.get_client('deproxy')
+        client: DeproxyClient = self.get_client("deproxy")
         client.parsing = False
 
         response = (
-            f'HTTP/1.1 {self.response_status}\r\n'
-            + 'Connection: keep-alive\r\n'
-            + 'Server: Deproxy Server\r\n'
-            + f'{self.response_headers}\r\n'
-            + f'{self.response_body}'
+            f"HTTP/1.1 {self.response_status}\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: Deproxy Server\r\n"
+            + f"{self.response_headers}\r\n"
+            + f"{self.response_body}"
         )
         srv.set_response(response)
 
         client.send_request(
             request=(
-                f'{self.request_method} {self.uri} HTTP/1.1\r\n'
+                f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                 + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
-                + f'{self.request_headers}\r\n'
-                + f'{self.request_body}'
+                + f"{self.request_headers}\r\n"
+                + f"{self.request_body}"
             ),
             expected_status_code=self.expected_response_status,
         )
@@ -111,5 +112,5 @@ class TestContentLengthBase(TempestaTest, base=True):
         self.assertEqual(
             self.expected_requests_to_server,
             len(srv.requests),
-            'Server received unexpected number of requests.',
+            "Server received unexpected number of requests.",
         )

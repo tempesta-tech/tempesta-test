@@ -1,19 +1,19 @@
 """Tests for long body in request."""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import os
 
 from framework import curl_client
 from framework.tester import TempestaTest
-from helpers import tf_cfg, remote
 from helpers import checks_for_tests as checks
+from helpers import remote, tf_cfg
 from t_long_body import utils
 from t_stress.test_stress import CustomMtuMixin
 
-BODY_SIZE = 1024 ** 2 * int(tf_cfg.cfg.get("General", "long_body_size"))
+BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -62,7 +62,7 @@ http {
 
 class LongBodyInRequest(TempestaTest, CustomMtuMixin):
     tempesta = {
-        'config': """
+        "config": """
     listen 80;
     listen 443 proto=https;
     listen 4433 proto=h2;
@@ -78,17 +78,17 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
 
     clients = [
         {
-            'id': 'deproxy-http',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '80',
+            "id": "deproxy-http",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         },
         {
-            'id': 'deproxy-https',
-            'type': 'deproxy',
-            'addr': "${tempesta_ip}",
-            'port': '443',
-            'ssl': True,
+            "id": "deproxy-https",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
         {
             "id": "curl-h2",
@@ -100,24 +100,24 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
 
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     def setUp(self):
-        location = tf_cfg.cfg.get('Client', 'workdir')
-        self.abs_path = os.path.join(location, 'long_body.bin')
-        remote.client.copy_file(self.abs_path, 'x' * BODY_SIZE)
+        location = tf_cfg.cfg.get("Client", "workdir")
+        self.abs_path = os.path.join(location, "long_body.bin")
+        remote.client.copy_file(self.abs_path, "x" * BODY_SIZE)
         super().setUp()
 
     def tearDown(self):
         super().tearDown()
         if not remote.DEBUG_FILES:
-            remote.client.run_cmd(f'rm {self.abs_path}')
+            remote.client.run_cmd(f"rm {self.abs_path}")
 
     def _test(self, client_id: str, header: str, body: str):
         """Send request with long body and check that Tempesta does not crash."""
@@ -133,14 +133,14 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
             client.start()
             client.send_request(
                 request=(
-                        'POST / HTTP/1.1\r\n'
-                        + 'Host: localhost\r\n'
-                        + 'Content-type: text/html\r\n'
-                        + f'{header}\r\n'
-                        + '\r\n'
-                        + body
+                    "POST / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Content-type: text/html\r\n"
+                    + f"{header}\r\n"
+                    + "\r\n"
+                    + body
                 ),
-                expected_status_code='200',
+                expected_status_code="200",
             )
 
         tempesta = self.get_tempesta()
@@ -155,29 +155,42 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         )
 
     def test_http(self):
-        self._test(client_id='deproxy-http', header=f'Content-Length: {BODY_SIZE}',
-                   body='x' * BODY_SIZE)
+        self._test(
+            client_id="deproxy-http", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE
+        )
 
     def test_https(self):
-        self._test(client_id='deproxy-https', header=f'Content-Length: {BODY_SIZE}',
-                   body='x' * BODY_SIZE)
+        self._test(
+            client_id="deproxy-https", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE
+        )
 
     def test_h2(self):
-        self._test(client_id='curl-h2', header=f'Content-Length: {BODY_SIZE}',
-                   body='x' * BODY_SIZE)
+        self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE)
 
     def test_one_big_chunk_in_request_http(self):
-        self._test(client_id='deproxy-http', header='Transfer-Encoding: chunked',
-                   body=utils.create_one_big_chunk(BODY_SIZE))
+        self._test(
+            client_id="deproxy-http",
+            header="Transfer-Encoding: chunked",
+            body=utils.create_one_big_chunk(BODY_SIZE),
+        )
 
     def test_one_big_chunk_in_request_https(self):
-        self._test(client_id='deproxy-https', header='Transfer-Encoding: chunked',
-                   body=utils.create_one_big_chunk(BODY_SIZE))
+        self._test(
+            client_id="deproxy-https",
+            header="Transfer-Encoding: chunked",
+            body=utils.create_one_big_chunk(BODY_SIZE),
+        )
 
     def test_many_big_chunks_in_request_http(self):
-        self._test(client_id='deproxy-http', header='Transfer-Encoding: chunked',
-                   body=utils.create_many_big_chunks(BODY_SIZE))
+        self._test(
+            client_id="deproxy-http",
+            header="Transfer-Encoding: chunked",
+            body=utils.create_many_big_chunks(BODY_SIZE),
+        )
 
     def test_many_big_chunks_in_request_https(self):
-        self._test(client_id='deproxy-https', header='Transfer-Encoding: chunked',
-                   body=utils.create_many_big_chunks(BODY_SIZE))
+        self._test(
+            client_id="deproxy-https",
+            header="Transfer-Encoding: chunked",
+            body=utils.create_many_big_chunks(BODY_SIZE),
+        )

@@ -1,22 +1,22 @@
 """Tests for long body in response."""
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-from framework import deproxy_server, curl_client
+from framework import curl_client, deproxy_server
 from framework.tester import TempestaTest
-from helpers import tf_cfg, deproxy
 from helpers import checks_for_tests as checks
+from helpers import deproxy, tf_cfg
 from t_long_body import utils
 from t_stress.test_stress import CustomMtuMixin
 
-BODY_SIZE = 1024 ** 2 * int(tf_cfg.cfg.get("General", "long_body_size"))
+BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 
 
 class LongBodyInResponse(TempestaTest, CustomMtuMixin):
     tempesta = {
-        'config': """
+        "config": """
 listen 80;
 listen 443 proto=https;
 listen 4433 proto=h2;
@@ -52,11 +52,11 @@ cache 0;
 
     backends = [
         {
-            'id': 'deproxy',
-            'type': 'deproxy',
-            'port': '8000',
-            'response': 'static',
-            'response_content': ''
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
         }
     ]
 
@@ -66,27 +66,27 @@ cache 0;
         """
         self.start_all_services(client=False)
 
-        server: deproxy_server.StaticDeproxyServer = self.get_server('deproxy')
+        server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
         server.set_response(
-            'HTTP/1.1 200 OK\r\n'
-            + 'Connection: keep-alive\r\n'
-            + 'Content-type: text/html\r\n'
-            + 'Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n'
-            + 'Server: Deproxy Server\r\n'
-            + f'{header}\r\n'
-            + f'Date: {deproxy.HttpMessage.date_time_string()}\r\n'
-            + '\r\n'
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-type: text/html\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + "Server: Deproxy Server\r\n"
+            + f"{header}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "\r\n"
             + body
         )
 
         client: curl_client.CurlClient = self.get_client(client_id)
-        client.options = [' --raw']
+        client.options = [" --raw"]
         client.start()
         client.wait_for_finish()
         client.stop()
 
         if client.http2:
-            self.assertEqual(client.last_response.stdout, 'x' * BODY_SIZE)
+            self.assertEqual(client.last_response.stdout, "x" * BODY_SIZE)
         else:
             self.assertEqual(client.last_response.stdout, body)
         checks.check_tempesta_request_and_response_stats(
@@ -99,63 +99,55 @@ cache 0;
 
     def test_http(self):
         self._test(
-            client_id="curl-http",
-            header=f'Content-Length: {BODY_SIZE}',
-            body='x' * BODY_SIZE
+            client_id="curl-http", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE
         )
 
     def test_https(self):
         self._test(
-            client_id="curl-https",
-            header=f'Content-Length: {BODY_SIZE}',
-            body='x' * BODY_SIZE
+            client_id="curl-https", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE
         )
 
     def test_h2(self):
-        self._test(
-            client_id="curl-h2",
-            header=f'Content-Length: {BODY_SIZE}',
-            body='x' * BODY_SIZE
-        )
+        self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE)
 
     def test_http_one_big_chunk(self):
         self._test(
             client_id="curl-http",
-            header='Transfer-Encoding: chunked',
-            body=utils.create_one_big_chunk(BODY_SIZE)
+            header="Transfer-Encoding: chunked",
+            body=utils.create_one_big_chunk(BODY_SIZE),
         )
 
     def test_https_one_big_chunk(self):
         self._test(
             client_id="curl-https",
-            header='Transfer-Encoding: chunked',
-            body=utils.create_one_big_chunk(BODY_SIZE)
+            header="Transfer-Encoding: chunked",
+            body=utils.create_one_big_chunk(BODY_SIZE),
         )
 
     def test_h2_one_big_chunk(self):
         self._test(
             client_id="curl-h2",
-            header='Transfer-Encoding: chunked',
-            body=utils.create_one_big_chunk(BODY_SIZE)
+            header="Transfer-Encoding: chunked",
+            body=utils.create_one_big_chunk(BODY_SIZE),
         )
 
     def test_http_many_big_chunks(self):
         self._test(
             client_id="curl-http",
-            header='Transfer-Encoding: chunked',
-            body=utils.create_many_big_chunks(BODY_SIZE)
+            header="Transfer-Encoding: chunked",
+            body=utils.create_many_big_chunks(BODY_SIZE),
         )
 
     def test_https_many_big_chunks(self):
         self._test(
             client_id="curl-https",
-            header='Transfer-Encoding: chunked',
-            body=utils.create_many_big_chunks(BODY_SIZE)
+            header="Transfer-Encoding: chunked",
+            body=utils.create_many_big_chunks(BODY_SIZE),
         )
 
     def test_h2_many_big_chunks(self):
         self._test(
             client_id="curl-h2",
-            header='Transfer-Encoding: chunked',
-            body=utils.create_many_big_chunks(BODY_SIZE)
+            header="Transfer-Encoding: chunked",
+            body=utils.create_many_big_chunks(BODY_SIZE),
         )
