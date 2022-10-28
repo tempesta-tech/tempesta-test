@@ -115,7 +115,6 @@ cache_resp_hdr_del set-cookie;
         client.send_request(self.request_template.format("HEAD"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        # TODO uncomment after fixing issue #1699
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=4,
@@ -161,7 +160,6 @@ cache_resp_hdr_del set-cookie;
         client.send_request(self.request_template.format("HEAD"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        # TODO uncomment after fixing issue #1699
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=4,
@@ -389,7 +387,6 @@ cache_resp_hdr_del set-cookie;
         client.send_request(self.request_template.format("GET"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        # TODO uncomment after fixing issue #1699
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=1,
