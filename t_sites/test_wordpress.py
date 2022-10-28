@@ -16,17 +16,44 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
 
     proto = "https"
 
+    backends = [
+        {
+            "id": "wordpress",
+            "type": "docker",
+            "image": "wordpress",
+            "ports": {8000: 80},
+            "env": {
+                "WP_HOME": "https://${tempesta_ip}/",
+                "WP_SITEURL": "https://${tempesta_ip}/",
+            },
+        },
+    ]
+
     tempesta_tmpl = """
         listen 443 proto=%s;
-        server ${server_ip}:${server_wordpress_port};
+        srv_group wordpress {
+            server ${server_ip}:8000;
+        }
 
         tls_certificate ${general_workdir}/tempesta.crt;
         tls_certificate_key ${general_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        # TODO: enable cache
-        #cache 1;
-        #cache_fulfill * *;
+        vhost tempesta-tech.com {
+            proxy_pass wordpress;
+        }
+
+        http_chain {
+            cookie "wordpress_logged_in_*" == "*" -> $$cache = 0;
+            cookie "wp-postpass_*" == "*" -> $$cache = 0;
+            cookie "comment_author_*" == "*" -> $$cache = 0;
+            -> tempesta-tech.com;
+        }
+
+        cache 1;
+        cache_fulfill * *;
+        cache_methods GET;
+        cache_bypass prefix "/wp-admin/";
     """
 
     # Base Curl clients options
@@ -84,12 +111,14 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
                 {
                     "type": "curl",
                     "ssl": True,
-                    "cmd_args": client.get("cmd_args", "") + " --insecure",
-                    # TODO: remove, Tempesta address should be used
-                    "addr": "${server_ip}:${server_wordpress_port}",
                 }
             )
         super().setUp()
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.assertTrue(self.wait_all_connections())
 
     def get_response(self, client) -> CurlResponse:
         self.restart_client(client)
@@ -106,9 +135,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
 
     def check_cached_headers(self, headers):
         """Return True if headers are from cached response."""
-        self.assertIn(
-            "x-powered-by", headers.keys(), "Unexpected headers (not from WordPress?)"
-        )
+        self.assertIn("x-powered-by", headers.keys(), "Unexpected headers (not from WordPress?)")
         return "age" in headers
 
     def login(self, user="admin", load_cookies=False):
@@ -147,9 +174,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         response = self.get_response(client)
         self.assertEqual(201, response.status)
         try:
-            post_id = re.search(
-                r"=/wp/v2/posts/(\d+)", response.headers["location"]
-            ).group(1)
+            post_id = re.search(r"=/wp/v2/posts/(\d+)", response.headers["location"]).group(1)
         except (IndexError, AttributeError):
             raise Exception(f"Can't find blog ID, headers: {response.headers}")
         tf_cfg.dbg(3, f"New post ID: {post_id}")
@@ -164,29 +189,18 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             "&submit=Post+Comment"
             "&comment_parent=0"
         )
-        response = self.post_form(
-            uri="/wp-comments-post.php", data=data, anonymous=anonymous
-        )
+        response = self.post_form(uri="/wp-comments-post.php", data=data, anonymous=anonymous)
         self.assertEqual(302, response.status, response)
         return response
 
     def approve_comment(self, comment_id):
         data = f"id={comment_id}&action=dim-comment&dimClass=unapproved&new=approved"
-        response = self.post_form(
-            uri="/wp-admin/admin-ajax.php", data=data, anonymous=False
-        )
+        response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
         self.assertEqual(200, response.status, response)
 
     def delete_comment(self, comment_id, action_nonce):
-        data = (
-            f"id={comment_id}"
-            f"&_ajax_nonce={action_nonce}"
-            "&action=delete-comment"
-            "&trash=1"
-        )
-        response = self.post_form(
-            uri="/wp-admin/admin-ajax.php", data=data, anonymous=False
-        )
+        data = f"id={comment_id}" f"&_ajax_nonce={action_nonce}" "&action=delete-comment" "&trash=1"
+        response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
         self.assertEqual(200, response.status, response)
 
     def get_page_content(self, uri):
@@ -223,32 +237,36 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         client.set_uri(f"/wp-admin/comment.php?action=editcomment&c={comment_id}")
         response = self.get_response(client)
         self.assertEqual(200, response.status)
-        nonce = re.search(
-            r"action=trashcomment[^']+_wpnonce=([^']+)", response.stdout
-        ).group(1)
+        nonce = re.search(r"action=trashcomment[^']+_wpnonce=([^']+)", response.stdout).group(1)
         self.assertTrue(nonce)
         return nonce
 
     def test_get_resource(self):
-        self.start_tempesta()
+        self.start_all()
         client = self.get_client("get")
-
         for uri, expected_code in [
             ("/empty.txt", 200),
             ("/hello.txt", 200),
-            ("/?p=1", 200),
-            ("/no-such-page-964f5300", 404),
+            ("/images/128.jpg", 200),  # small image
+            ("/images/2048.jpg", 200),  # large image
+            ("/?p=1", 200),  # blog post
+            ("/?page_id=2", 200),  # page
+            ("/generated.php", 200),
+            ("/?page_id=99999999999", 404),
         ]:
             with self.subTest("GET", uri=uri):
                 client.set_uri(uri)
                 response = self.get_response(client)
                 self.assertEqual(response.status, expected_code, response)
+                self.assertFalse(response.stderr)
+                length = response.headers.get("content-length")
+                if length:
+                    self.assertEqual(int(length), len(response.stdout_raw))
 
     def test_page_cached(self):
-        self.start_tempesta()
+        self.start_all()
         client = self.get_client("get")
-        # TODO: replace with the valid page ID
-        client.set_uri("/?page_id=128")
+        client.set_uri("/?page_id=2")  # About page
 
         with self.subTest("First request, expect non-cached response"):
             response = self.get_response(client)
@@ -320,9 +338,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         # Post comment from anonymous
         response = self.post_comment(post_id, anonymous=True, text=guest_comment)
         try:
-            comment_id = re.search(
-                r"#comment-(\d+)$", response.headers["location"]
-            ).group(1)
+            comment_id = re.search(r"#comment-(\d+)$", response.headers["location"]).group(1)
         except (AttributeError, KeyError):
             raise Exception(f"Can't find comment ID, headers: {response.headers}")
 
@@ -345,19 +361,31 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         self.assertNotIn(guest_comment, self.get_comments_feed())
 
     def test_blog_post_cached(self):
-        post_title = f"@{time.time()}_post_title@"
-        self.start_tempesta()
-        self.login()
-        post_id = self.post_blog_post(title=post_title, nonce=self.get_nonce())
+        post_id = "1"  # Use 'Hello world!' post
+        self.start_all()
 
         client = self.get_client("get")
         client.set_uri(f"/?p={post_id}")
-        for i, cached in enumerate([False, False, False], 1):  # TODO: should be cached
+        for i, cached in enumerate([False, True, True], 1):
             with self.subTest("Get blog post", i=i, expect_cached=cached):
-                content = self.get_page_content(f"/?p={post_id}")
                 response = self.get_response(client)
                 self.assertEqual(200, response.status)
-                self.assertIn(post_title, response.stdout)
+                self.assertFalse(response.stderr)
+                self.assertTrue(response.stdout.endswith("</html>\n"))
+                self.assertGreater(len(response.stdout), 65000, len(response.stdout))
+                length = response.headers.get("content-length")
+                if length:
+                    self.assertEqual(int(length), len(response.stdout_raw))
+                elif cached:
+                    raise Exception("No Content-Length for cached response", response.headers)
+                self.assertIn(
+                    (
+                        "Welcome to WordPress. "
+                        "This is your first post. "
+                        "Edit or delete it, then start writing!"
+                    ),
+                    response.stdout,
+                )
                 self.assertEqual(
                     cached,
                     self.check_cached_headers(response.headers),

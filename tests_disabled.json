@@ -460,6 +460,26 @@
         {
             "name" : "http_general.test_headers.BackendSetCoookie",
             "reason" : "Disabled by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_auth_not_cached",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_auth_not_cached",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_blog_post_flow",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2",
+            "reason": "Disable by issue #1669"
         }
 
     ]
