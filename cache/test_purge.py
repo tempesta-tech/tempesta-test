@@ -115,13 +115,12 @@ cache_resp_hdr_del set-cookie;
         client.send_request(self.request_template.format("HEAD"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        # TODO uncomment after fixing issue #1699
-        # checks.check_tempesta_cache_stats(
-        #     self.get_tempesta(),
-        #     cache_hits=4,
-        #     cache_misses=4,
-        #     cl_msg_served_from_cache=4
-        # )
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=4,
+            cache_misses=4,
+            cl_msg_served_from_cache=4
+        )
         self.assertEqual(len(self.get_server("deproxy").requests), 4)
 
     def test_purge_get_basic(self):
@@ -161,13 +160,12 @@ cache_resp_hdr_del set-cookie;
         client.send_request(self.request_template.format("HEAD"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        # TODO uncomment after fixing issue #1699
-        # checks.check_tempesta_cache_stats(
-        #     self.get_tempesta(),
-        #     cache_hits=4,
-        #     cache_misses=3,
-        #     cl_msg_served_from_cache=4,
-        # )
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=4,
+            cache_misses=3,
+            cl_msg_served_from_cache=4,
+        )
         self.assertEqual(len(srv.requests), 4)
 
     def test_purge_get_update(self):
@@ -370,7 +368,7 @@ cache_resp_hdr_del set-cookie;
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=3,
-            cache_misses=1,
+            cache_misses=3,
             cl_msg_served_from_cache=3,
         )
         self.assertEqual(len(srv.requests), 3)
@@ -389,13 +387,12 @@ cache_resp_hdr_del set-cookie;
         client.send_request(self.request_template.format("GET"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        # TODO uncomment after fixing issue #1699
-        # checks.check_tempesta_cache_stats(
-        #     self.get_tempesta(),
-        #     cache_hits=1,
-        #     cache_misses=1,
-        #     cl_msg_served_from_cache=1,
-        # )
+        checks.check_tempesta_cache_stats(
+            self.get_tempesta(),
+            cache_hits=1,
+            cache_misses=0,
+            cl_msg_served_from_cache=1,
+        )
         self.assertEqual(len(srv.requests), 1)
 
     def test_purge_get_uncacheable(self):
@@ -442,7 +439,7 @@ cache_resp_hdr_del set-cookie;
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=1,
-            cache_misses=1,
+            cache_misses=3,
             cl_msg_served_from_cache=1,
         )
         self.assertEqual(len(srv.requests), 4, "Server has lost requests.")
