@@ -436,7 +436,10 @@
         {
             "name" : "http2_general.test_h2_sticky_cookie.H2StickyCookieTestCase",
             "reason": "Does not work, issue 1396"
+        },
+        {
+            "name" : "selftests.test_framework.ExampleTest.test_curl",
+            "reason": "Disable by issue #308"
         }
-        
     ]
 }
