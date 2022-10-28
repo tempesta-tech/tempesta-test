@@ -53,3 +53,6 @@ RUN wp fixtures load --debug --path="${WORDPRESS_DIR}" --file=/var/www/fixtures.
 WORKDIR /var/www/html
 ENTRYPOINT ["tt-docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
+HEALTHCHECK --interval=0.5s --timeout=1s --retries=10 CMD \
+            test -f /var/www/healthy || \
+            { curl --fail http://127.0.0.1/health-check || exit 1; } && touch /var/www/healthy

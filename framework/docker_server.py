@@ -1,4 +1,5 @@
 """Docker containers backend server."""
+import json
 import tarfile
 import time
 from dataclasses import dataclass, field
@@ -32,8 +33,9 @@ class DockerServerArguments:
     check_ports: List[Dict[str, str]] = field(default_factory=list)
     build_args: Dict[str, str] = field(default_factory=dict)
     env: Dict[str, str] = field(default_factory=dict)
-    cmd_args: str = ""
     entrypoint: str = None
+    options: str = ""
+    cmd_args: str = ""
 
     @classmethod
     def get_kwargs(cls) -> List[str]:
@@ -58,8 +60,9 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
       check_ports: list of IP+port to check for availability before container is started
       build_args: build-time variables
       env: environment (runtime) variables
-      cmd_args: additional `docker run` command arguments
       entrypoint: overwrite the default ENTRYPOINT of the image
+      options: additional `docker run` command options
+      cmd_args: additional `docker run` command arguments
     """
 
     def __init__(self, **kwargs):
@@ -96,6 +99,23 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         """Path to store the build context archive on the server."""
         return Path(self.server_workdir) / f"{self.image_name}.tar.gz"
 
+    @property
+    def health_status(self):
+        """Status of the container: 'starting', 'healthy', 'unhealthy'."""
+        stdout, stderr = self.node.run_cmd(
+            self._form_inspect_health_command(), err_msg=self._form_error(action="inspect_health")
+        )
+        if stderr or not stdout:
+            error.bug(self._form_error(action="inspect_health"))
+        try:
+            health = json.loads(stdout.decode())
+        except json.JSONDecodeError:
+            error.bug(self._form_error(action="decode_health"))
+        status = health and health["Status"] or "unhealthy"
+        if status == "unhealthy":
+            tf_cfg.dbg(3, f"\tDocker Server: {self.id} is unhealthy: {stdout}")
+        return status
+
     def run_start(self):
         tf_cfg.dbg(3, f"\tDocker Server: Start {self.id} (image {self.image})")
         self.check_ports_status()
@@ -106,16 +126,22 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         tf_cfg.dbg(3, stdout, stderr)
         if stderr or not stdout:
             error.bug(self._form_error(action="run"))
-        self.container_id = stdout.decode()
+        self.container_id = stdout.decode().strip()
 
     def wait_for_connections(self, timeout=5):
+        """
+        Wait until the container becomes healthy
+        and Tempesta establishes connections to the server ports.
+        """
         if self.state != stateful.STATE_STARTED:
             return False
 
         t0 = time.time()
         t = time.time()
-        while t - t0 <= timeout:
-            if self.check_ports_established(ip=self.server_ip, ports=self.ports.keys()):
+        while t - t0 <= timeout and self.health_status != "unhealthy":
+            if self.health_status == "healthy" and self.check_ports_established(
+                ip=self.server_ip, ports=self.ports.keys()
+            ):
                 return True
             time.sleep(0.001)  # to prevent redundant CPU usage
             t = time.time()
@@ -162,8 +188,11 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         ports = " ".join(f"-p {host}:{container}" for host, container in self.ports.items())
         env = " ".join(f"--env {arg}='{value}'" for arg, value in self.env.items())
         entrypoint = f"--entrypoint {self.entrypoint}" if self.entrypoint else ""
-
-        cmd = f"docker run -d --rm {ports} {env} {entrypoint} {self.image_name} {self.cmd_args}"
+        cmd = (
+            "docker run -d --rm"
+            f" {ports} {env} {self.options} {entrypoint}"
+            f" {self.image_name} {self.cmd_args}"
+        )
         tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
 
@@ -174,6 +203,9 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         cmd = f"docker stop --time {timeout} {self.container_id}"
         tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
+
+    def _form_inspect_health_command(self):
+        return f"docker inspect --format='{{{{json .State.Health}}}}' {self.container_id}"
 
     def _form_error(self, action):
         return f"Can't {action} Docker server"

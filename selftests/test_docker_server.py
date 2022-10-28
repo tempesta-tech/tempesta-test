@@ -19,7 +19,7 @@ class TestDockerServer(tester.TempestaTest):
             "id": "python_hello",
             "type": "docker",
             "image": "python",
-            "ports": {8001: 8080},
+            "ports": {8001: 8000},
             "cmd_args": "hello.py",
         },
         {
@@ -119,20 +119,59 @@ class TestDockerServer(tester.TempestaTest):
             link = response.headers["link"]
             self.assertTrue(link.startswith(f"<http://{tf_cfg.cfg.get('Tempesta', 'ip')}/"), link)
 
+
+class TestHealthCheck(tester.TempestaTest):
+
+    backends = [
+        {
+            "id": "default",
+            "type": "docker",
+            "image": "python",
+            "ports": {8000: 8000},
+            "cmd_args": "hello.py",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80 proto=http;
+        server ${server_ip}:8000;
+        """
+    }
+
     def test_service_long_start(self):
         """
         Test that requests succeed when web server start is delayed
         from the time the container was started.
         """
-        server = self.get_server("python_hello")
-        server.cmd_args = "-c 'import time ; time.sleep(5); import hello'"
+        server = self.get_server("default")
+        server.cmd_args = "-c 'import time ; time.sleep(3); import hello'"
 
         server.start()
+        self.assertEqual(server.health_status, "starting")
+
         self.start_tempesta()
 
         self.assertFalse(server.wait_for_connections(timeout=1))
-        self.assertTrue(server.wait_for_connections(timeout=6))
+        self.assertTrue(server.wait_for_connections(timeout=3))
+        self.assertEqual(server.health_status, "healthy")
 
-        response = self.get_response("python-hello")
-        self.assertEqual(response.status, 200)
-        self.assertEqual(response.stdout, "Hello")
+    def test_unhealthy_server(self):
+        server = self.get_server("default")
+        server.cmd_args = "-c 'import time ; time.sleep(10)'"
+
+        server.start()
+
+        self.assertEqual(server.health_status, "starting")
+        self.assertFalse(server.wait_for_connections(timeout=7))
+        self.assertEqual(server.health_status, "unhealthy")
+
+    def test_override_default_healthcheck(self):
+        server = self.get_server("default")
+        server.options = "--health-interval 0.1s --health-cmd 'exit 0'"
+        server.cmd_args = "-c 'import time ; time.sleep(10)'"
+
+        server.start()
+
+        server.wait_for_connections(timeout=1)
+        self.assertEqual(server.health_status, "healthy")
