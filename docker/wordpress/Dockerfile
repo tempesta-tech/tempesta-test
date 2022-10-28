@@ -1,14 +1,5 @@
 # WordPress installation with generated blog data
 
-# /images URI path provides images of different dimensions:
-#  - 128.jpg - 128x128 image, about 40K size
-#    ...
-#  - 2048.jpg - 2048x2048 image, about 9,9M size
-# Available dimensions:
-#  2048, 1920, 1792, 1664, 1536, 1408, 1280, 1152,
-#  1024, 896, 768, 640, 512, 384, 256, 128
-#
-
 FROM wordpress:php8.1-apache
 COPY --from=composer/composer:2.4.3 /usr/bin/composer /usr/bin/composer
 

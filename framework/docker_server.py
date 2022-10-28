@@ -47,6 +47,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
     """
     The set of wrappers to manage Docker container, such as to start,
     stop, get statistics etc., from other Python classes.
+    See `docker/README.md` and `selftests/test_docker_server.py` for usage examples.
 
     Args:
       id: backend server ID
