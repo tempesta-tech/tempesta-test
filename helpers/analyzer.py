@@ -166,11 +166,13 @@ class AnalyzerTCPSegmentation(Sniffer):
                     self.tfw_pkts += [int(plen)]
                 elif p[TCP].sport == self.srv_port:
                     self.srv_pkts += [int(plen)]
-                tf_cfg.dbg(2, (f'pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id}'))
+                tf_cfg.dbg(3, (f'pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id}'))
+        self.srv_pkts.pop(0) # Exclude first ack
+        tls_offset = self.tfw_pkts.index(self.srv_pkts[0]) # Find payload offset
+        self.tfw_pkts.pop(tls_offset+1) # Exclude heades
         (tfw_n, srv_n) = (len(self.tfw_pkts), len(self.srv_pkts))
-
         tfw_sent = tfw_n - tls_offset # TLS handshake
-        srv_sent = srv_n - 1 # Ack packet
+        srv_sent = srv_n # Ack packet
         assert tfw_n and srv_n, "Traffic wasn't captured"
         assert tfw_n >= 6, "Captured the number of packets less than" \
                           " the TCP/TLS overhead"
@@ -182,9 +184,11 @@ class AnalyzerTCPSegmentation(Sniffer):
             tf_cfg.dbg(2, (f"Tempesta TLS generates more packets ({tfw_sent}) than" \
                           f" original server ({srv_sent})"))
             res = False
-        if not res:
-            tf_cfg.dbg(2, "Tempesta segments: %s\nServer segments: %s"
-                       % (str(self.tfw_pkts[tls_offset:]), str(self.srv_pkts[1:])))
+        tf_cfg.dbg(2, "Tempesta segments len: %s\nServer segments len: %s" % (sum(self.tfw_pkts[tls_offset:]), sum(self.srv_pkts)))
+        tf_cfg.dbg(2, "Tempesta\Server len delta: %s" % (sum(self.tfw_pkts[tls_offset:]) - sum(self.srv_pkts)))
+        tf_cfg.dbg(2, "Tempesta segments: %s\nServer segments: %s"
+                    % (str(self.tfw_pkts[tls_offset:]), str(self.srv_pkts)))
+        self.first_run = False
         return res
 
 

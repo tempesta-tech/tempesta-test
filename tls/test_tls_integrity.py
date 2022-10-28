@@ -98,7 +98,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             cmd = f"ethtool -K {dev} tso off"
         out = remote.client.run_cmd(cmd)
 
-    def tcp_flow_check(self, resp_len):
+    def tcp_flow_check(self, resp_len, mtu=1500):
         """ Check how Tempesta generates TCP segments for TLS records. """
         # Run the sniffer first to let it start in separate thread.
         sniffer = analyzer.AnalyzerTCPSegmentation(remote.tempesta, 'Tempesta',
@@ -116,7 +116,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             # change MTU on the local interface only to get the same MTU for
             # both the client and server connections.
             dev = sysnet.route_dst_ip(remote.client, client.addr[0])
-            prev_mtu = sysnet.change_mtu(remote.client, dev, 1500)
+            prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
         except Error as err:
             self.fail(err)
         try:
@@ -158,7 +158,12 @@ class Proxy(TlsIntegrityTester):
 
     def test_tcp_segs(self):
         self.start_all()
-        self.tcp_flow_check(8192)
+        self.tcp_flow_check(4096) # works
+        self.tcp_flow_check(4096+2048) # works
+        self.tcp_flow_check(7020, mtu=1500) # works
+        # self.tcp_flow_check(7030, mtu=1500) # not works
+        # self.tcp_flow_check(4096*2, mtu=1700) # not works
+        # self.tcp_flow_check(4096*2, mtu=1800) # works
 
 
 class Cache(TlsIntegrityTester):
