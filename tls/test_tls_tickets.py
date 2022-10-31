@@ -4,7 +4,8 @@ Test TLS tickets: Tempesta must handle both full and abbreviated handshakes.
 
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import remote, tf_cfg, util, dmesg
+from helpers import dmesg, remote, tf_cfg, util
+
 from .handshake import *
 
 __author__ = "Tempesta Technologies, Inc."
@@ -71,26 +72,21 @@ class TlsTicketTest(tester.TempestaTest):
         ticket = ""
         master_secret = ""
         self.start_all()
-
         hs = TlsHandshake()
-        # hs.sni = 'isocpp.org'
-        # hs.server = '198.199.109.141'
-        hs.ticket_data = ''
+        hs.ticket_data = ""
         res = hs.do_12()
         ticket = hs.hs.session_ticket.ticket
-        master_secret = hs.hs.master_secret
+        cached_secrets = SessionSecrets(hs.hs.cur_session)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        self.assertIsNotNone(ticket, 'Ticket value is empty')
+        self.assertIsNotNone(ticket, "Ticket value is empty")
         self.assertIsNotNone(master_secret, "Can't read master secret")
 
         # # A new connection with the same ticket will receive abbreviated
         # # handshake
 
         hs_abb = TlsHandshake()
-        # hs_abb.sni = 'isocpp.org'
-        # hs_abb.server = '198.199.109.141'
         hs_abb.ticket_data = ticket
-        res = hs_abb.do_12_res(master_secret)
+        res = hs_abb.do_12_res(cached_secrets)
         # ticket = getattr(hs_abb.sock.tls_ctx, 'ticket', None)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # self.assertNotEqual(ticket, None,
@@ -248,7 +244,7 @@ class TlsVhostConfusion(tester.TempestaTest):
         res = hs.do_12()  # Full handshake, not abbreviated
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         ticket = hs.hs.session_ticket
-        
+
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
 

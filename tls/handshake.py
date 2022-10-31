@@ -8,13 +8,28 @@ __copyright__ = "Copyright (C) 2018-2020 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import ssl
-import scapy.layers.tls.crypto.suites as suites
 
+import scapy.layers.tls.crypto.suites as suites
 from scapy.all import *
-from scapy.layers.tls.record import _TLSEncryptedContent
 from scapy.layers.tls.all import *
-from helpers import tf_cfg, dmesg
+from scapy.layers.tls.record import _TLSEncryptedContent
+
+from helpers import dmesg, tf_cfg
 from helpers.error import Error
+
+
+class SessionSecrets:
+    def __init__(self, session):
+        self.master_secret = session.master_secret
+        self.client_random = session.client_random
+        self.server_random = session.server_random
+        self.server_certs = session.server_certs
+
+    def move_to_session(self, session):
+        session.master_secret = self.master_secret
+        session.client_random = self.client_random
+        session.server_random = self.server_random
+        session.server_certs = self.server_certs
 
 
 def x509_check_cn(cert, cn):
@@ -40,20 +55,15 @@ def x509_check_issuer(cert, issuer):
     raise Error("Certificate has no Issuer OrganizationName")
 
 
-
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     def __init__(self, *args, **kwargs):
-        for key, value in kwargs.items():
-            if key == "chunk":
-                self.chunk = value
-                tf_cfg.dbg(3, f"{key} == {value}" )
-        del kwargs["chunk"]
+        self.cached_secrets = kwargs.pop("cached_secrets", None)
+        self.chunk = kwargs.pop("chunk", None)
         self.send_data = []
         self.server_data = []
         self.hs_state = False
         self.hs_final = False
         self.session_ticket = None
-        self.master_secret = None
         TLSClientAutomaton.__init__(self, *args, **kwargs)
 
     def set_data(self, _data):
@@ -106,21 +116,27 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def RECEIVED_RECORDS(self):
-        pass
+        self.raise_on_packet(TLSFinished, self.HANDLED_SERVERFINISHED)
 
     @ATMT.state()
-    def HANDLED_CHANGECIPHERSPEC_AFTER_TICKET(self, get_next_msg=False):
-        s = self.cur_session
-        s.client_session_ticket = self.session_ticket
-        s.master_secret = self.master_secret
-        # tf_cfg.dbg(2, self.cur_pkt.show2())
+    def INIT_TLS_SESSION(self):
+        self.cur_session = tlsSession(connection_end="client")
 
-    @ATMT.condition(HANDLED_CHANGECIPHERSPEC_AFTER_TICKET)
-    def wait_Finished_afterticket(self):
-        tf_cfg.dbg(3, "\n\nTRY TO GET TLSSERVERFINISHED\n\n")
-        self.get_next_msg(0.3, 1)
-        raise self.WAITING_RECORDS()
-        self.raise_on_packet(TLSFinished, self.HANDLED_SERVERFINISHED)
+        s = self.cur_session
+        s.client_certs = self.mycert
+        s.client_key = self.mykey
+        v = self.advertised_tls_version
+        if v:
+            s.advertised_tls_version = v
+        else:
+            default_version = s.advertised_tls_version
+            self.advertised_tls_version = default_version
+
+        # Use cached secrets for session resumption
+        if self.cached_secrets:
+            self.cached_secrets.move_to_session(s)
+
+        raise self.CONNECT()
 
     @ATMT.condition(RECEIVED_RECORDS, prio=1)
     def should_handle_ServerRecords(self):
@@ -131,11 +147,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         if isinstance(p, _TLSEncryptedContent):
             tf_cfg.dbg(2, "_TLSEncryptedContent DETECTED")
             # self.cur_session.show2()
-            tf_cfg.dbg(3, self.cur_session.master_secret)
-        if isinstance(p, TLSChangeCipherSpec):
-            self.raise_on_packet(
-                TLSChangeCipherSpec, self.HANDLED_CHANGECIPHERSPEC_AFTER_TICKET
-            )
         if isinstance(p, TLSApplicationData):
             if self.is_atmt_socket:
                 # Socket mode
@@ -176,6 +187,19 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         if not self.cur_session.prcs.key_exchange.anonymous:
             self.raise_on_packet(TLSCertificate, self.HANDLED_SERVERCERTIFICATE)
         raise self.WAITING_RECORDS()
+
+    @ATMT.state()
+    def HANDLED_SERVERHELLO(self):
+        s = self.cur_session
+        if self.cached_secrets:
+            """
+            Session resumption. Initiate pending conntections state.
+            In full handshake states initializing causes on processing
+            KEYEXCHANGE record, however during session resumption we don't
+            have KEYEXCHANGE, therefore we need to initiate connection
+            states here.
+            """
+            self.cur_session.compute_ms_and_derive_keys()
 
     @ATMT.condition(TLSClientAutomaton.PREPARE_CLIENTFLIGHT1)
     def should_add_ClientHello(self):
@@ -236,10 +260,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             raise self.ADDED_CLIENTDATA()
 
     @ATMT.state()
-    def ADDED_CLIENTDATA(self):
-        pass
-
-    @ATMT.state()
     def RECEIVED_SERVERDATA(self):
         pass
 
@@ -265,10 +285,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         raise self.WAIT_CLIENTDATA()
 
     @ATMT.state()
-    def ADDED_CLIENTDATA(self):
-        pass
-
-    @ATMT.state()
     def CONNECT(self):
         s = socket.socket(self.remote_family, socket.SOCK_STREAM)
         tf_cfg.dbg(2, "Trying to connect on %s:%d" % (self.remote_ip, self.remote_port))
@@ -288,9 +304,33 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.client_cert = self.cur_session.client_certs
         if tf_cfg.v_level() > 1:
             self.vprint_sessioninfo()
-            tf_cfg.dbg(3, self.server_cert[0])
-        tf_cfg.dbg(2, "TLS handshake completed!")
+            if self.server_cert is not None and len(self.server_cert) > 0:
+                tf_cfg.dbg(3, self.server_cert[0])
+        if not self.cached_secrets:
+            tf_cfg.dbg(2, "TLS handshake completed!")
         self.hs_state = True
+
+    @ATMT.condition(HANDLED_SERVERFINISHED)
+    def should_add_ChangeCipherSpec_from_ServerFinished(self):
+        # Do this only for session resumption
+        if self.cached_secrets:
+            self.add_record()
+            self.add_msg(TLSChangeCipherSpec())
+            raise self.ADDED_CHANGECIPHERSPEC()
+
+    @ATMT.condition(TLSClientAutomaton.ADDED_CHANGECIPHERSPEC)
+    def should_add_ClientFinishedd(self):
+        # Do this only for session resumption
+        if self.cached_secrets:
+            self.add_record()
+            self.add_msg(TLSFinished())
+            raise self.ADDED_CLIENTFINISHED()
+
+    @ATMT.state()
+    def ADDED_CLIENTFINISHED(self):
+        # Do this only for session resumption
+        if self.cached_secrets:
+            raise self.WAIT_CLIENTDATA()
 
 
 class TlsHandshake:
@@ -315,9 +355,7 @@ class TlsHandshake:
         ]
         self.ticket_data = None
         # Default extensions value
-        self.ext_ec = TLS_Ext_SupportedEllipticCurves(
-            groups=["x25519", "secp256r1", "secp384r1"]
-        )
+        self.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=["x25519", "secp256r1", "secp384r1"])
         self.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=self.sign_algs)
         self.renegotiation_info = TLS_Ext_RenegotiationInfo("")
 
@@ -365,18 +403,16 @@ class TlsHandshake:
             ticket = TLS_Ext_SessionTicket(ticket=self.ticket_data)
             ext.append(ticket)
 
-        ch = TLSClientHello(
-            gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression
-        )
+        ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
         if tf_cfg.v_level() > 1:
             ch.show()
         return ch
 
-    def do_12_res(self, _master_secret, automaton=ModifiedTLSClientAutomaton):
-        """ TLS Handshake Resumption
+    def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
+        """TLS Handshake Resumption
 
         Args:
-            _master_secret (bytes): _description_
+            cached_secrets (bytes): _description_
             automaton (_type_, optional): _description_. Defaults to ModifiedTLSClientAutomaton.
 
         Returns:
@@ -392,11 +428,11 @@ class TlsHandshake:
             client_hello=c_h,
             server=self.server,
             dport=443,
-            resumption_master_secret=_master_secret,
-            session_ticket_file_out="/home/wh1te/ticketfile",
             chunk=self.chunk,
             debug=self.debug,
+            cached_secrets=cached_secrets,
         )
+
         if self.send_data is not None:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
@@ -405,11 +441,11 @@ class TlsHandshake:
         return self.hs.hs_state
 
     def do_12(self, automaton=ModifiedTLSClientAutomaton):
-        """ Full TLS v1.2 Handshake
+        """Full TLS v1.2 Handshake
 
         Args:
             automaton (ModifiedTLSClientAutomaton, optional):
-            You can pass your own modified automaton. 
+            You can pass your own modified automaton.
             Defaults to ModifiedTLSClientAutomaton.
 
         Returns:
@@ -427,6 +463,7 @@ class TlsHandshake:
             dport=443,
             chunk=self.chunk,
             debug=self.debug,
+            cached_secrets=None,
         )
         if self.send_data is not None:
             self.hs.set_data(self.send_data)
@@ -437,7 +474,6 @@ class TlsHandshake:
         tf_cfg.dbg(2, f"Session_ticket: {type(self.hs.session_ticket)}")
         self.hs.socket.close()
         return self.hs.hs_state
-
 
 
 class TlsHandshakeStandard:
