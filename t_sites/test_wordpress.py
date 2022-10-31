@@ -3,6 +3,7 @@ import re
 import time
 
 from framework import tester
+from framework.mixins import NetfilterMarkMixin
 from framework.curl_client import CurlResponse
 from helpers import tf_cfg
 
@@ -11,7 +12,7 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class BaseWordpressTest(tester.TempestaTest, base=True):
+class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
     """Base class for WordPress tests."""
 
     proto = "https"
@@ -43,10 +44,20 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             proxy_pass wordpress;
         }
 
-        http_chain {
+       http_chain admin_rules {
+            mark == 1 -> $$cache = 0;
+            -> tempesta-tech.com;
+       }
+
+       http_chain {
+            # Access to admin section is restricted by Netfilter mark
+            mark == 1 -> admin_rules;
+            uri == "/wp-admin*" -> block;
+
             cookie "wordpress_logged_in_*" == "*" -> $$cache = 0;
             cookie "wp-postpass_*" == "*" -> $$cache = 0;
             cookie "comment_author_*" == "*" -> $$cache = 0;
+
             -> tempesta-tech.com;
         }
 
@@ -54,6 +65,8 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         cache_fulfill * *;
         cache_methods GET;
         cache_bypass prefix "/wp-admin/";
+        cache_purge;
+        cache_purge_acl ${client_ip};
     """
 
     # Base Curl clients options
@@ -98,6 +111,11 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
                 "Content-Type": "application/x-www-form-urlencoded",
             },
         },
+        {
+            "id": "purge_cache",
+            # Set max-time to prevent hang caused by Tempesta FW #1692
+            "cmd_args": "--request PURGE --max-time 1",
+        },
     ]
 
     def setUp(self):
@@ -118,7 +136,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
-        self.assertTrue(self.wait_all_connections())
+        self.assertTrue(self.wait_all_connections(5))
 
     def get_response(self, client) -> CurlResponse:
         self.restart_client(client)
@@ -143,7 +161,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         client.load_cookies = load_cookies
 
         response = self.get_response(client)
-        self.assertEqual(302, response.status)
+        self.assertEqual(response.status, 302)
         # Login page set multiple cookies
         self.assertGreater(len(response.multi_headers["set-cookie"]), 1)
         self.assertTrue(response.headers["location"].endswith("/wp-admin/"))
@@ -172,7 +190,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             "X-WP-Nonce": nonce,
         }
         response = self.get_response(client)
-        self.assertEqual(201, response.status)
+        self.assertEqual(response.status, 201)
         try:
             post_id = re.search(r"=/wp/v2/posts/(\d+)", response.headers["location"]).group(1)
         except (IndexError, AttributeError):
@@ -190,24 +208,24 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             "&comment_parent=0"
         )
         response = self.post_form(uri="/wp-comments-post.php", data=data, anonymous=anonymous)
-        self.assertEqual(302, response.status, response)
+        self.assertEqual(response.status, 302, response)
         return response
 
     def approve_comment(self, comment_id):
         data = f"id={comment_id}&action=dim-comment&dimClass=unapproved&new=approved"
         response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
-        self.assertEqual(200, response.status, response)
+        self.assertEqual(response.status, 200, response)
 
     def delete_comment(self, comment_id, action_nonce):
         data = f"id={comment_id}" f"&_ajax_nonce={action_nonce}" "&action=delete-comment" "&trash=1"
         response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
-        self.assertEqual(200, response.status, response)
+        self.assertEqual(response.status, 200, response)
 
     def get_page_content(self, uri):
         client = self.get_client("get")
         client.set_uri(uri)
         response = self.get_response(client)
-        self.assertEqual(200, response.status)
+        self.assertEqual(response.status, 200)
         self.assertFalse(response.stderr)
         return response.stdout
 
@@ -221,13 +239,13 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         client = self.get_client("get")
         client.set_uri(f"/?p={post_id}")
         response = self.get_response(client)
-        self.assertEqual(200, response.status)
+        self.assertEqual(response.status, 200)
         return response
 
     def get_nonce(self):
         client = self.get_client("get_nonce")
         response = self.get_response(client)
-        self.assertEqual(200, response.status)
+        self.assertEqual(response.status, 200)
         nonce = response.stdout
         self.assertTrue(nonce)
         return nonce
@@ -236,10 +254,21 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         client = self.get_client("get_authenticated")
         client.set_uri(f"/wp-admin/comment.php?action=editcomment&c={comment_id}")
         response = self.get_response(client)
-        self.assertEqual(200, response.status)
+        self.assertEqual(response.status, 200)
         nonce = re.search(r"action=trashcomment[^']+_wpnonce=([^']+)", response.stdout).group(1)
         self.assertTrue(nonce)
         return nonce
+
+    def purge_cache(self, uri, fetch=False):
+        """
+        Purge the cached resource.
+        Immediately fetch a new version of the resource, if `fetch` is set.
+        """
+        client = self.get_client("purge_cache")
+        client.set_uri(uri)
+        client.headers = {"X-Tempesta-Cache": "get"} if fetch else {}
+        response = self.get_response(client)
+        self.assertEqual(response.status, 200)
 
     def test_get_resource(self):
         self.start_all()
@@ -249,6 +278,7 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             ("/hello.txt", 200),
             ("/images/128.jpg", 200),  # small image
             ("/images/2048.jpg", 200),  # large image
+            ("/", 200),  # index
             ("/?p=1", 200),  # blog post
             ("/?page_id=2", 200),  # page
             ("/generated.php", 200),
@@ -261,16 +291,18 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
                 self.assertFalse(response.stderr)
                 length = response.headers.get("content-length")
                 if length:
-                    self.assertEqual(int(length), len(response.stdout_raw))
+                    self.assertEqual(len(response.stdout_raw), int(length))
+                self.assertNotIn("age", response.headers)
 
     def test_page_cached(self):
+        uri = "/?page_id=2"  # About page
         self.start_all()
         client = self.get_client("get")
-        client.set_uri("/?page_id=2")  # About page
+        client.set_uri(uri)
 
         with self.subTest("First request, expect non-cached response"):
             response = self.get_response(client)
-            self.assertEqual(200, response.status)
+            self.assertEqual(response.status, 200)
             self.assertFalse(
                 self.check_cached_headers(response.headers),
                 f"Response headers: {response.headers}",
@@ -278,8 +310,17 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
 
         with self.subTest("Second request, expect cached response"):
             response = self.get_response(client)
-            self.assertEqual(200, response.status)
+            self.assertEqual(response.status, 200)
             self.assertTrue(
+                self.check_cached_headers(response.headers),
+                f"Response headers: {response.headers}",
+            )
+
+        with self.subTest("Third request, expect non-cached response after cache purge"):
+            self.purge_cache(uri)
+            response = self.get_response(client)
+            self.assertEqual(response.status, 200)
+            self.assertFalse(
                 self.check_cached_headers(response.headers),
                 f"Response headers: {response.headers}",
             )
@@ -290,8 +331,8 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             with self.subTest("Login attempt", i=i, load_cookies=load_cookies):
                 response = self.login(load_cookies=load_cookies)
                 self.assertEqual(
-                    False,
                     self.check_cached_headers(response.headers),
+                    False,
                     f"Response headers: {response.headers}",
                 )
 
@@ -356,6 +397,10 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
             action_nonce=self.get_comment_deletion_nonce(comment_id),
         )
 
+        # Purge cache
+        self.purge_cache(f"/?p={post_id}", fetch=True)
+        self.purge_cache(f"/?feed=comments-rss2", fetch=True)
+
         # Check comment removed from the page
         self.assertNotIn(guest_comment, self.get_post(post_id).stdout)
         self.assertNotIn(guest_comment, self.get_comments_feed())
@@ -369,13 +414,13 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
         for i, cached in enumerate([False, True, True], 1):
             with self.subTest("Get blog post", i=i, expect_cached=cached):
                 response = self.get_response(client)
-                self.assertEqual(200, response.status)
+                self.assertEqual(response.status, 200)
                 self.assertFalse(response.stderr)
                 self.assertTrue(response.stdout.endswith("</html>\n"))
                 self.assertGreater(len(response.stdout), 65000, len(response.stdout))
                 length = response.headers.get("content-length")
                 if length:
-                    self.assertEqual(int(length), len(response.stdout_raw))
+                    self.assertEqual(len(response.stdout_raw), int(length))
                 elif cached:
                     raise Exception("No Content-Length for cached response", response.headers)
                 self.assertIn(
@@ -387,10 +432,25 @@ class BaseWordpressTest(tester.TempestaTest, base=True):
                     response.stdout,
                 )
                 self.assertEqual(
-                    cached,
                     self.check_cached_headers(response.headers),
+                    cached,
                     f"Response headers: {response.headers}",
                 )
+
+    def test_admin_resource_restricted_by_http_rule(self):
+        self.start_all()
+        client = self.get_client("get")
+        client.set_uri("/wp-admin/")
+
+        with self.subTest("Access is blocked if mark not set"):
+            response = self.get_response(client)
+            self.assertFalse(response)
+
+        with self.subTest("Access is allowed if mark set"):
+            self.set_nf_mark(1)
+            response = self.get_response(client)
+            self.assertEqual(response.status, 302)
+            self.assertIn("wp-login.php", response.headers["location"])
 
 
 class TestWordpressSite(BaseWordpressTest):
