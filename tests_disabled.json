@@ -222,6 +222,10 @@
             "reason" : "Disabled by issue #203"
         },
         {
+            "name" : "selftests.test_framework.ExampleTest.test_curl",
+            "reason": "Disable by issue #308"
+        },
+        {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },
