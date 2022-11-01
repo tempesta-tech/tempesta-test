@@ -12,7 +12,7 @@
   for ($i = 0; $i < $n; $i++) {
     $dim = $dimensions[array_rand($dimensions)];
     $ver = uniqid();
-    echo "<img src='images/$dim.jpg?ver=$ver'/ alt='$dim'>";
+    echo "<img src='images/$dim.jpg?ver=$ver' alt='$dim'>";
   }
 ?>
 </body>
