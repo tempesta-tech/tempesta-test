@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import re
+from typing import List
 
 from helpers import remote, tf_cfg
 
@@ -40,3 +41,18 @@ class FreePortsChecker(object):
                     tf_cfg.dbg(2, "Error: port already used %s" % str(portline))
                     msg = "Trying to use already used port: %s" % portline
                     raise Exception(msg)
+
+    def check_ports_established(self, ip: str, ports: List[int]):
+        """Return True if connections are established from Tempesta FW
+        to all the specified ports on the given IP.
+        Can be used to check that server is started.
+        """
+        # Command to output "Address:Port" column
+        # of the list of TCP connections established to IP
+        cmd = f"ss --no-header --tcp --numeric state established dst '{ip}' | awk '{{print $4}}'"
+        addrport, _ = remote.tempesta.run_cmd(cmd)
+
+        expected = {int(port) for port in ports}
+        established = {int(line.split(":")[-1]) for line in addrport.decode().splitlines() if line}
+
+        return expected <= established

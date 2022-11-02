@@ -36,6 +36,7 @@ cmds = {
     remote.server: [
         {"cmd": tf_cfg.cfg.get("Server", "nginx"), "install": "nginx"},
         {"cmd": "netstat", "install": "net-tools"},
+        {"cmd": "docker", "install": "docker.io"},
     ],
 }
 

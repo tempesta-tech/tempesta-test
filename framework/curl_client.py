@@ -67,7 +67,7 @@ class CurlResponse:
             tf_cfg.dbg(1, f"Unexpected headers dump: {self.headers_dump}")
         else:
             message = email.message_from_file(io.StringIO(headers))
-            match = re.match(r"HTTP/([.12]+) (\d+)", response_line)
+            match = re.match(r"HTTP/([.012]+) (\d+)", response_line)
             self.proto = match.group(1)
             self.status = int(match.group(2))
 
@@ -87,7 +87,7 @@ class CurlArguments:
     uri: str = "/"
     cmd_args: str = ""
     data: str = ""
-    headers: dict = None
+    headers: dict = field(default_factory=dict)
     dump_headers: int = True
     disable_output: bool = False
     save_cookies: bool = False
@@ -262,7 +262,8 @@ class CurlClient(CurlArguments, client.Client):
                     stdout_raw=self._read_output() if not self.disable_output else b"",
                     stderr_raw=stderr,
                 )
-                if response.proto and response.proto != ("2" if self.http2 else "1.1"):
+                expected_proto = ("2",) if self.http2 else ("1.0", "1.1")
+                if response.proto and response.proto not in expected_proto:
                     raise Exception(f"Unexpected HTTP version response: {response.proto}")
                 self._responses.append(response)
                 self._statuses[response.status] += 1
