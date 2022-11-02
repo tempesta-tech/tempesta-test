@@ -440,6 +440,19 @@
         {
             "name" : "selftests.test_framework.ExampleTest.test_curl",
             "reason": "Disable by issue #308"
+        },
+        {
+            "name" : "http2_general.test_h2_headers.MissingDateServerWithBodyTest",
+            "reason" : "Disabled by issue #1669"
+        },
+        {
+            "name" : "http2_general.test_h2_headers.MissingDateServerWithLargeBodyTest",
+            "reason" : "Disabled by issue #1704"
+        },
+        {
+            "name" : "http_general.test_headers.BackendSetCoookie",
+            "reason" : "Disabled by issue #1690"
         }
+
     ]
 }

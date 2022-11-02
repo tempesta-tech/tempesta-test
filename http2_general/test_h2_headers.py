@@ -531,3 +531,28 @@ class MissingDateServerWithBodyTest(tester.TempestaTest):
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp)
         self.assertEqual(deproxy_cl.last_response.status, "200")
+
+
+LARGE_CONTENT_LENGTH = 1024 * 8
+
+
+class MissingDateServerWithLargeBodyTest(MissingDateServerWithBodyTest):
+    """
+    Same as `MissingDateServerWithBodyTest`, but with a larger body.
+    Can cause panic, see Tempesta issue #1704
+    """
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                f"Content-Length: {LARGE_CONTENT_LENGTH}\r\n"
+                "\r\n"
+                f"{'1' * LARGE_CONTENT_LENGTH}"
+            ),
+        },
+    ]
