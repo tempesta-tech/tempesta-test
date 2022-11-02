@@ -338,6 +338,14 @@
             "reason": "Disabled by issue #1669"
         },
         {
+            "name": "cache.test_cache.TestChunkedResponse",
+            "reason": "Disabled by issue #1698"
+        },
+        {
+            "name": "cache.test_purge.TestPurgeGet",
+            "reason": "Disabled by issue #1692"
+        },
+        {
             "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_bad_host",
             "reason": "Disabled by issue #286"
         },

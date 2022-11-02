@@ -8,7 +8,7 @@ from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
-from helpers import tf_cfg
+from helpers import dmesg, tf_cfg
 from helpers.deproxy import HttpMessage
 
 
@@ -443,3 +443,139 @@ cache_resp_hdr_del set-cookie;
             cl_msg_served_from_cache=1,
         )
         self.assertEqual(len(srv.requests), 4, "Server has lost requests.")
+
+
+class TestPurgeGet(TempestaTest):
+
+    backends = [
+        # /server-1: default transfer encoding
+        {
+            "id": "default",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "From: /server1\r\n"
+                "Content-length: 9\r\n"
+                "\r\n"
+                "test-data"
+            ),
+        },
+        # /server-2: chunked transfer encoding
+        {
+            "id": "chunked",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "From: /server2\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n"
+                "9\r\n"
+                "test-data\r\n"
+                "0\r\n"
+                "\r\n"
+            ),
+        },
+        # /server-3: keepalive with chunked transfer encoding
+        {
+            "id": "chunked_keepalive",
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "From: /server3\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "Connection: Keep-Alive\r\n"
+                "\r\n"
+                "9\r\n"
+                "test-data\r\n"
+                "0\r\n"
+                "\r\n"
+            ),
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        cache_purge;
+        cache_purge_acl ${client_ip};
+
+        srv_group sg1 { server ${server_ip}:8000; }
+        srv_group sg2 { server ${server_ip}:8001; }
+        srv_group sg3 { server ${server_ip}:8002; }
+
+        vhost server1 { proxy_pass sg1; }
+        vhost server2 { proxy_pass sg2; }
+        vhost server3 { proxy_pass sg3; }
+
+        http_chain {
+          uri == "/server1" -> server1;
+          uri == "/server2" -> server2;
+          uri == "/server3" -> server3;
+        }
+        """
+    }
+    clients = [
+        {"id": "purge", "type": "curl", "cmd_args": "--request PURGE --max-time 2"},
+        {
+            "id": "purge_get",
+            "type": "curl",
+            "headers": {
+                "X-Tempesta-Cache": "get",
+            },
+            "cmd_args": "--request PURGE --max-time 2",
+        },
+    ]
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
+
+    def test_purge_get_success(self):
+        """Test that PURGE+GET request completed with no errors.
+        (see Tempesta issue #1692)
+        """
+        self.start_all()
+        client = self.get_client("purge_get")
+
+        for uri in "/server1", "/server2", "/server3":
+            with self.subTest("PURGE+GET", uri=uri):
+                client.set_uri(uri)
+
+                client.start()
+                self.wait_while_busy(client)
+                client.stop()
+                response = client.last_response
+
+                self.assertEqual(response.status, 200, response)
+                # Response is from expected backend
+                self.assertEqual(response.headers["from"], uri)
+                # Body is truncated
+                self.assertFalse(response.stdout)
+                self.assertEqual(response.headers["content-length"], "0")
+                # Purge is completed with no errors
+                self.assertFalse(response.stderr)
+
+    def test_purge_without_get_completed_with_no_warnings(self):
+        self.start_all()
+        client = self.get_client("purge")
+        client.set_uri("/server1")
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        response = client.last_response
+
+        self.assertEqual(response.status, 200, response)
+        self.assertEqual(
+            self.oops.warn_count(dmesg.WARN_GENERIC),
+            0,
+            f"Warnings: {self.oops.warn_match('Warning: .*')}",
+        )
