@@ -469,4 +469,42 @@ class TestWordpressSiteH2(BaseWordpressTest):
                     "http2": True,
                 }
             )
+        self.clients.append({
+            "id": "nghttp",
+            "type": "external",
+            "binary": "nghttp",
+            "cmd_args": (
+                " --no-verify-peer"
+                " --get-assets"
+                " --null-out"
+                " --header 'Cache-Control: no-cache'"
+                " https://${tempesta_ip}"
+            ),
+        })
         super().setUp()
+
+    def test_get_resource_with_assets(self):
+        self.start_all()
+        client = self.get_client("nghttp")
+        cmd_args = client.options[0]
+
+        for uri in [
+            "/hello.txt",  # small file
+            "/", # index
+            "/?page_id=2",  # page with short text
+            "/?page_id=3",  # page with long text
+            "/?p=1",  # blog post
+            "/?p=100", # blog post with image and comments
+            "/images.html",  # page with one big and 3 small images
+            "/images.php?n=1&max=128",  # page with a single small image
+            "/images.php?n=1&max=2048", # page with a big image
+            "/images.php?n=16&max=128",
+            "/images.php?n=16&max=2048",
+        ]:
+            with self.subTest("GET", uri=uri):
+                client.options = [cmd_args + uri]
+                client.start()
+                self.wait_while_busy(client)
+                client.stop()
+                self.assertNotIn("Some requests were not processed", client.response_msg)
+                self.assertFalse(client.response_msg)

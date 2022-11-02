@@ -91,7 +91,6 @@ class TestFrameworkCfg(object):
                     "keepalive_timeout": "60",
                     "keepalive_requests": "100",
                     "unavaliable_timeout": "300",
-                    "wordpress_port": "8080",
                 },
             }
         )
