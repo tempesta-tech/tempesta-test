@@ -82,7 +82,6 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
             "id": "login",
             "save_cookies": True,
             "uri": "/wp-login.php",
-            "data": "log=admin&pwd=secret",
         },
         {
             "id": "get_nonce",
@@ -124,7 +123,8 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         self.tempesta = {
             "config": self.tempesta_tmpl % (self.proto),
         }
-        for client in self.clients:
+        curl_clients = [client for client in self.clients if not client.get("type")]
+        for client in curl_clients:
             client.update(
                 {
                     "type": "curl",
@@ -132,6 +132,7 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
                 }
             )
         super().setUp()
+        self.get_client("get").clear_cookies()
 
     def start_all(self):
         self.start_all_servers()
@@ -158,13 +159,16 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
 
     def login(self, user="admin", load_cookies=False):
         client = self.get_client("login")
+        client.clear_cookies()
+        client.data = f"log={user}&pwd=secret"
         client.load_cookies = load_cookies
 
         response = self.get_response(client)
         self.assertEqual(response.status, 302)
         # Login page set multiple cookies
         self.assertGreater(len(response.multi_headers["set-cookie"]), 1)
-        self.assertTrue(response.headers["location"].endswith("/wp-admin/"))
+        self.assertIn("/wp-admin/", response.headers["location"])
+        self.assertFalse(self.check_cached_headers(response.headers))
         return response
 
     def post_form(self, uri, data, anonymous=True):
@@ -172,7 +176,9 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         client.load_cookies = not anonymous
         client.set_uri(uri)
         client.data = data
-        return self.get_response(client)
+        response = self.get_response(client)
+        self.assertFalse(self.check_cached_headers(response.headers))
+        return response
 
     def post_blog_post(self, title, nonce):
         client = self.get_client("blog_post")
@@ -191,6 +197,7 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         }
         response = self.get_response(client)
         self.assertEqual(response.status, 201)
+        self.assertFalse(self.check_cached_headers(response.headers))
         try:
             post_id = re.search(r"=/wp/v2/posts/(\d+)", response.headers["location"]).group(1)
         except (IndexError, AttributeError):
@@ -209,17 +216,20 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         )
         response = self.post_form(uri="/wp-comments-post.php", data=data, anonymous=anonymous)
         self.assertEqual(response.status, 302, response)
+        self.assertFalse(self.check_cached_headers(response.headers))
         return response
 
     def approve_comment(self, comment_id):
         data = f"id={comment_id}&action=dim-comment&dimClass=unapproved&new=approved"
         response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
         self.assertEqual(response.status, 200, response)
+        self.assertFalse(self.check_cached_headers(response.headers))
 
     def delete_comment(self, comment_id, action_nonce):
         data = f"id={comment_id}" f"&_ajax_nonce={action_nonce}" "&action=delete-comment" "&trash=1"
         response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
         self.assertEqual(response.status, 200, response)
+        self.assertFalse(self.check_cached_headers(response.headers))
 
     def get_page_content(self, uri):
         client = self.get_client("get")
@@ -248,6 +258,7 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         self.assertEqual(response.status, 200)
         nonce = response.stdout
         self.assertTrue(nonce)
+        self.assertFalse(self.check_cached_headers(response.headers))
         return nonce
 
     def get_comment_deletion_nonce(self, comment_id):
@@ -257,6 +268,7 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         self.assertEqual(response.status, 200)
         nonce = re.search(r"action=trashcomment[^']+_wpnonce=([^']+)", response.stdout).group(1)
         self.assertTrue(nonce)
+        self.assertFalse(self.check_cached_headers(response.headers))
         return nonce
 
     def purge_cache(self, uri, fetch=False):
@@ -327,9 +339,10 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
 
     def test_auth_not_cached(self):
         """Authorisation requests must not be cached."""
-        for i, load_cookies in enumerate((False, True), 1):
+        self.start_all()
+        for i, load_cookies in enumerate((False, True, True), 1):
             with self.subTest("Login attempt", i=i, load_cookies=load_cookies):
-                response = self.login(load_cookies=load_cookies)
+                response = self.login(user="subscriber", load_cookies=load_cookies)
                 self.assertEqual(
                     self.check_cached_headers(response.headers),
                     False,
@@ -340,10 +353,13 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         post_title = f"@{time.time()}_post_title@"
         user_comment = f"@{time.time()}_user_comment@"
         guest_comment = f"@{time.time()}_guest_comment@"
-        self.start_tempesta()
+        self.start_all()
 
         # Check index page
         self.assertNotIn(post_title, self.get_index())
+
+        # Allow access to admin section
+        self.set_nf_mark(1)
 
         # Login
         self.login()
@@ -396,6 +412,9 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
             comment_id=comment_id,
             action_nonce=self.get_comment_deletion_nonce(comment_id),
         )
+        # Check deleted comment still present (cache not purged yet)
+        self.assertIn(guest_comment, self.get_post(post_id).stdout)
+        self.assertIn(guest_comment, self.get_comments_feed())
 
         # Purge cache
         self.purge_cache(f"/?p={post_id}", fetch=True)
@@ -411,6 +430,8 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
 
         client = self.get_client("get")
         client.set_uri(f"/?p={post_id}")
+        # Check that the first response is not from the cache,
+        # and subsequent ones are from the cache
         for i, cached in enumerate([False, True, True], 1):
             with self.subTest("Get blog post", i=i, expect_cached=cached):
                 response = self.get_response(client)
@@ -436,6 +457,19 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
                     cached,
                     f"Response headers: {response.headers}",
                 )
+
+    def test_blog_post_not_cached_for_autheticated_user(self):
+        post_id = "1"  # Use 'Hello world!' post
+        self.start_all()
+        self.login(user="subscriber")
+        client = self.get_client("get_authenticated")
+        client.set_uri(f"/?p={post_id}")
+        for i in range(3):
+            with self.subTest("Get blog post", i=i):
+                response = self.get_response(client)
+                self.assertEqual(response.status, 200)
+                self.assertFalse(response.stderr)
+                self.assertFalse(self.check_cached_headers(response.headers))
 
     def test_admin_resource_restricted_by_http_rule(self):
         self.start_all()
@@ -469,18 +503,20 @@ class TestWordpressSiteH2(BaseWordpressTest):
                     "http2": True,
                 }
             )
-        self.clients.append({
-            "id": "nghttp",
-            "type": "external",
-            "binary": "nghttp",
-            "cmd_args": (
-                " --no-verify-peer"
-                " --get-assets"
-                " --null-out"
-                " --header 'Cache-Control: no-cache'"
-                " https://${tempesta_ip}"
-            ),
-        })
+        self.clients.append(
+            {
+                "id": "nghttp",
+                "type": "external",
+                "binary": "nghttp",
+                "cmd_args": (
+                    " --no-verify-peer"
+                    " --get-assets"
+                    " --null-out"
+                    " --header 'Cache-Control: no-cache'"
+                    " https://${tempesta_ip}"
+                ),
+            }
+        )
         super().setUp()
 
     def test_get_resource_with_assets(self):
@@ -490,14 +526,14 @@ class TestWordpressSiteH2(BaseWordpressTest):
 
         for uri in [
             "/hello.txt",  # small file
-            "/", # index
+            "/",  # index
             "/?page_id=2",  # page with short text
             "/?page_id=3",  # page with long text
             "/?p=1",  # blog post
-            "/?p=100", # blog post with image and comments
+            "/?p=100",  # blog post with image and comments
             "/images.html",  # page with one big and 3 small images
             "/images.php?n=1&max=128",  # page with a single small image
-            "/images.php?n=1&max=2048", # page with a big image
+            "/images.php?n=1&max=2048",  # page with a big image
             "/images.php?n=16&max=128",
             "/images.php?n=16&max=2048",
         ]:
