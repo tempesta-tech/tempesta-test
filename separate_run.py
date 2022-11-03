@@ -15,6 +15,7 @@ for test in out.split("\n")[1:]:
 for group in test_groups:
     _args= ' '.join(sys.argv[1:])
     cmd = ['./run_tests.py', _args, group]
+    print("Run:", ' '.join(cmd))
     proc = Popen(cmd)
     results[group] = proc.wait()
 
