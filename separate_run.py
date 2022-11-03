@@ -14,9 +14,9 @@ for test in out.split("\n")[1:]:
         test_groups.add(test.split(".")[0])
 for group in test_groups:
     _args= ' '.join(sys.argv[1:])
-    cmd = ['./run_tests.py', _args, group]
-    print("Run:", ' '.join(cmd))
-    proc = Popen(cmd)
+    cmd = f'./run_tests.py {_args} {group}'
+    print("Run:", cmd)
+    proc = Popen(cmd, shell=True)
     results[group] = proc.wait()
 
 # If some tests fails
