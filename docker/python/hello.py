@@ -7,7 +7,7 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
 
 
 async def hello(request):
-    return web.Response(text="Hello")
+    return web.CurlResponse(text="Hello")
 
 
 app = web.Application()

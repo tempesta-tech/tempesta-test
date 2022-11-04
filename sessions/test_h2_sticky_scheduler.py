@@ -38,7 +38,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
             tls_match_any_server_name;
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            cache 0;
+            cache 1;
             cache_fulfill * *;
             block_action attack reply;
             http_chain {

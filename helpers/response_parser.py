@@ -7,7 +7,7 @@ We can upgrade it if it needed.
 from typing import Union, Optional
 
 
-class Response(object):
+class CurlResponse(object):
 
     def __init__(
         self,
@@ -16,9 +16,8 @@ class Response(object):
         headers: Optional[dict] = None,
         error: Optional[str] = None,
     ):
-        super().__init__()
         self.http_version = http_version
-        self.status = int(status)
+        self.status = status
         self.headers = headers if headers else {}
         self.error = error if error else ''
 
@@ -33,7 +32,7 @@ class Response(object):
 
 def parse_response(
     string_to_parse: Union[str, bytes], encoding='utf-8',
-) -> Response:
+) -> CurlResponse:
     """
     Parse curl-like response string to dictionary.
 
@@ -51,19 +50,23 @@ def parse_response(
     string_to_parse = string_to_parse.split('\r\n')
 
     # we expect first line such 'HTTP/1.1 200 OK'
-    try:
-        first_line = string_to_parse[0].split()
-    except Exception as exc:
-        return Response(error=str(exc))
+    first_line = string_to_parse[0].split()
 
-    # next lines we expect as list of headers split by semicolon
-    for line in string_to_parse[1:]:
-        if line:
-            line = line.split(':')
-            headers[line[0].strip()] = line[1].strip()
+    if len(string_to_parse) > 1:
+        # next lines we expect as list of headers split by semicolon
+        for line in string_to_parse[1:]:
+            if line:
+                line = line.split(':')
+                if len(line) > 1:
+                    headers[line[0].strip()] = line[1].strip()
 
-    return Response(
-        http_version=first_line[0],
-        status=first_line[1],
-        headers=headers,
-    )
+            return CurlResponse(
+                http_version=first_line[0],
+                status=first_line[1],
+                headers=headers,
+            )
+
+    else:
+        CurlResponse(
+            error='Response format does not feet to expected one.'
+        )
