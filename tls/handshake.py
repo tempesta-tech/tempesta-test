@@ -15,20 +15,22 @@ Debugging can be simplified by enabling verbose in TlsHandshake instance. Or
 by running `tshark -i lo -f 'port 443' -Y ssl -O ssl`
 """
 from __future__ import print_function
-from contextlib import contextmanager
+
 import random
 import socket
-import ssl # OpenSSL based API
+import ssl  # OpenSSL based API
 import struct
+from contextlib import contextmanager
 from time import sleep
 
 from helpers import dmesg, tf_cfg
 from helpers.error import Error
+
 from .scapy_ssl_tls import ssl_tls as tls
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 GOOD_RESP = "HTTP/1.1 200"
@@ -42,7 +44,7 @@ def x509_check_cn(cert, cn):
     matching and have to use substring matching instead.
     """
     for f in cert.tbsCertificate.issuer:
-        if f.rdn[0].type.val == '2.5.4.3':
+        if f.rdn[0].type.val == "2.5.4.3":
             return bytes(f.rdn[0].value).decode().endswith(cn)
     raise Error("Certificate has no CommonName")
 
@@ -52,7 +54,7 @@ def x509_check_issuer(cert, issuer):
     The same as above, but for Issuer OrganizationName (O, OID '2.5.4.10').
     """
     for f in cert.tbsCertificate.issuer:
-        if f.rdn[0].type.val == '2.5.4.10':
+        if f.rdn[0].type.val == "2.5.4.10":
             return bytes(f.rdn[0].value).decode().endswith(issuer)
     raise Error("Certificate has no Issuer OrganizationName")
 
@@ -65,16 +67,16 @@ class TlsHandshake:
     Use higher @io_to values to debug/test Tempesta in debug mode.
     Use True for @verbose to see debug output for the handshake.
     """
-    def __init__(self, addr=None, port=443, io_to=0.5, chunk=None,
-                 sleep_time=0.001, verbose=False):
+
+    def __init__(self, addr=None, port=443, io_to=0.5, chunk=None, sleep_time=0.001, verbose=False):
         if addr:
             self.addr = addr
         else:
-            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
+            self.addr = tf_cfg.cfg.get("Tempesta", "ip")
         self.port = port
-        self.io_to = io_to # seconds, maybe not so small fraction of a second.
+        self.io_to = io_to  # seconds, maybe not so small fraction of a second.
         self.chunk = chunk
-        self.sleep_time = sleep_time if sleep_time >= 0.001 else 0.001;
+        self.sleep_time = sleep_time if sleep_time >= 0.001 else 0.001
         # We should be able to send at least 10KB with 1ms chunk delay for RTO.
         if self.chunk and self.chunk < 10000:
             io_to = 10000 / self.chunk * 0.001
@@ -84,8 +86,8 @@ class TlsHandshake:
         # Service members.
         self.sock = None
         # Additional handshake options.
-        self.sni = ['tempesta-tech.com'] # vhost string names.
-        self.exts = [] # Extra extensions
+        self.sni = ["tempesta-tech.com"]  # vhost string names.
+        self.exts = []  # Extra extensions
         self.sign_algs = []
         self.elliptic_curves = []
         self.ciphers = []
@@ -99,12 +101,12 @@ class TlsHandshake:
         # Server certificate.
         self.cert = None
         # Random session ticket by default.
-        self.set_ticket_data('ticket_data')
+        self.set_ticket_data("ticket_data")
         # Session id, must be filled for resume
-        self.session_id = ''
+        self.session_id = ""
 
     def set_ticket_data(self, data):
-        """ Set session ticket data. Following values are possible:
+        """Set session ticket data. Following values are possible:
         - 'None' - session ticket extension will be disabled;
         - '' (empty string) - empty session ticket extension will be added;
         - '<str>' - arbitrary string will be inserted as session ticket.
@@ -132,8 +134,9 @@ class TlsHandshake:
         # Set large enough send and receive timeouts which will be used by
         # default.
         self.sock.settimeout(self.io_to)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                             struct.pack('ll', int(self.io_to * 1000), 0))
+        self.sock.setsockopt(
+            socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("ll", int(self.io_to * 1000), 0)
+        )
         if self.chunk:
             # Send data immediately w/o coalescing.
             self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -152,14 +155,20 @@ class TlsHandshake:
                 prev_timeout = self.sock.gettimeout()
                 self.sock.settimeout(self.io_to)
                 if self.sock.ctx.must_encrypt:
-                    __s = bytes(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
-                                             self.sock.compress_hook,
-                                             self.sock.pre_encrypt_hook,
-                                             self.sock.encrypt_hook))
+                    __s = bytes(
+                        tls.tls_to_raw(
+                            pkt,
+                            self.sock.tls_ctx,
+                            True,
+                            self.sock.compress_hook,
+                            self.sock.pre_encrypt_hook,
+                            self.sock.encrypt_hook,
+                        )
+                    )
                 else:
                     __s = bytes(pkt)
                 n = self.chunk
-                for chunk in [__s[i:i + n] for i in range(0, len(__s), n)]:
+                for chunk in [__s[i : i + n] for i in range(0, len(__s), n)]:
                     """
                     This is a simple and ugly way to send many TCP segments,
                     but it's the most applicable with other ways - some of
@@ -181,7 +190,7 @@ class TlsHandshake:
                     """
                     self.sock._s.sendall(chunk)
                     sleep(self.sleep_time)
-                self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
+                self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin("out"))
                 self.sock.settimeout(prev_timeout)
             else:
                 self.sock.sendall(pkt, timeout=self.io_to)
@@ -190,11 +199,10 @@ class TlsHandshake:
                 alert = resp[tls.TLSAlert]
                 if alert.level != tls.TLSAlertLevel.WARNING:
                     level = tls.TLS_ALERT_LEVELS.get(alert.level, "unknown")
-                    desc = tls.TLS_ALERT_DESCRIPTIONS.get(alert.description,
-                                                          "unknown description")
-                    raise tls.TLSProtocolError("%s alert returned by server: %s"
-                                               % (level.upper(), desc.upper()),
-                                               pkt, resp)
+                    desc = tls.TLS_ALERT_DESCRIPTIONS.get(alert.description, "unknown description")
+                    raise tls.TLSProtocolError(
+                        "%s alert returned by server: %s" % (level.upper(), desc.upper()), pkt, resp
+                    )
         except socket.error as sock_except:
             raise tls.TLSProtocolError(sock_except, pkt, resp)
         return resp
@@ -214,8 +222,7 @@ class TlsHandshake:
         # Add ServerNameIndication (SNI) extension by specified vhosts.
         if self.sni:
             sns = [tls.TLSServerName(data=sname) for sname in self.sni]
-            self.exts += [tls.TLSExtension() /
-                          tls.TLSExtServerNameIndication(server_names=sns)]
+            self.exts += [tls.TLSExtension() / tls.TLSExtServerNameIndication(server_names=sns)]
         if self.sign_algs:
             self.exts += self.sign_algs
         else:
@@ -227,40 +234,35 @@ class TlsHandshake:
         if self.renegotiation_info:
             self.exts += self.renegotiation_info
         else:
-            self.exts += [tls.TLSExtension() /
-                          tls.TLSExtRenegotiationInfo(data="")]
+            self.exts += [tls.TLSExtension() / tls.TLSExtRenegotiationInfo(data="")]
         # We're must be good with standard, but unsupported options.
         self.exts += [
-            tls.TLSExtension(type=0x3), # TrustedCA, RFC 6066 6.
+            tls.TLSExtension(type=0x3),  # TrustedCA, RFC 6066 6.
             tls.TLSExtension() / tls.TLSExtCertificateStatusRequest(),
-            tls.TLSExtension(type=0xf0), # Bad extension, just skipped
-
-            tls.TLSExtension() /
-            tls.TLSExtALPN(protocol_name_list=[
-                tls.TLSALPNProtocol(data="http/1.1"),
-                tls.TLSALPNProtocol(data="http/2.0")]),
-
-            tls.TLSExtension() /
-            tls.TLSExtMaxFragmentLength(fragment_length=0x04), # 4096 bytes
-
-            tls.TLSExtension() /
-            tls.TLSExtCertificateURL(certificate_urls=[
-                tls.TLSURLAndOptionalHash(url="http://www.tempesta-tech.com")]),
-
-            tls.TLSExtension() /
-            tls.TLSExtHeartbeat(
-                mode=tls.TLSHeartbeatMode.PEER_NOT_ALLOWED_TO_SEND),
+            tls.TLSExtension(type=0xF0),  # Bad extension, just skipped
+            tls.TLSExtension()
+            / tls.TLSExtALPN(
+                protocol_name_list=[
+                    tls.TLSALPNProtocol(data="http/1.1"),
+                    tls.TLSALPNProtocol(data="http/2.0"),
+                ]
+            ),
+            tls.TLSExtension() / tls.TLSExtMaxFragmentLength(fragment_length=0x04),  # 4096 bytes
+            tls.TLSExtension()
+            / tls.TLSExtCertificateURL(
+                certificate_urls=[tls.TLSURLAndOptionalHash(url="http://www.tempesta-tech.com")]
+            ),
+            tls.TLSExtension()
+            / tls.TLSExtHeartbeat(mode=tls.TLSHeartbeatMode.PEER_NOT_ALLOWED_TO_SEND),
         ]
         if self.ticket_data is not None:
-            self.exts += [
-                tls.TLSExtension() /
-                tls.TLSExtSessionTicketTLS(data=self.ticket_data)
-            ]
+            self.exts += [tls.TLSExtension() / tls.TLSExtSessionTicketTLS(data=self.ticket_data)]
         return self.exts
 
     def send_12_alert(self, level, desc):
-        self.sock.sendall(tls.TLSRecord(version='TLS_1_2') /
-                          tls.TLSAlert(level=level, description=desc))
+        self.sock.sendall(
+            tls.TLSRecord(version="TLS_1_2") / tls.TLSAlert(level=level, description=desc)
+        )
 
     def _do_12_hs(self, fuzzer=None):
         """
@@ -277,22 +279,21 @@ class TlsHandshake:
 
         c_h = tls.TLSClientHello(
             gmt_unix_time=0x22222222,
-            random_bytes='\x11' * 28,
+            random_bytes="\x11" * 28,
             session_id=self.session_id,
             session_id_length=len(self.session_id),
-            cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
-                self.ciphers,
-            compression_methods=[tls.TLSCompressionMethod.NULL] +
-                self.compressions,
+            cipher_suites=[tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] + self.ciphers,
+            compression_methods=[tls.TLSCompressionMethod.NULL] + self.compressions,
             # EtM isn't supported - just try to negate an unsupported extension.
             extensions=[
-                tls.TLSExtension(type=0x16), # Encrypt-then-MAC
-                tls.TLSExtension() / tls.TLSExtECPointsFormat()]
-            + self.extra_extensions()
+                tls.TLSExtension(type=0x16),  # Encrypt-then-MAC
+                tls.TLSExtension() / tls.TLSExtECPointsFormat(),
+            ]
+            + self.extra_extensions(),
         )
-        msg1 = tls.TLSRecord(version='TLS_1_2') / \
-               tls.TLSHandshakes(handshakes=[tls.TLSHandshake() / c_h])
+        msg1 = tls.TLSRecord(version="TLS_1_2") / tls.TLSHandshakes(
+            handshakes=[tls.TLSHandshake() / c_h]
+        )
         if self.verbose:
             msg1.show()
 
@@ -308,14 +309,13 @@ class TlsHandshake:
             resp.show()
 
         # Check that before encryption non-critical alerts are just ignored.
-        self.send_12_alert(tls.TLSAlertLevel.WARNING,
-                           tls.TLSAlertDescription.RECORD_OVERFLOW)
+        self.send_12_alert(tls.TLSAlertLevel.WARNING, tls.TLSAlertDescription.RECORD_OVERFLOW)
 
         cke_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        self.sock.tls_ctx.get_client_kex_data(val=0xdeadbabe)])
-        msg1 = tls.TLSRecord(version='TLS_1_2') / cke_h
-        msg2 = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
+            handshakes=[tls.TLSHandshake() / self.sock.tls_ctx.get_client_kex_data(val=0xDEADBABE)]
+        )
+        msg1 = tls.TLSRecord(version="TLS_1_2") / cke_h
+        msg2 = tls.TLSRecord(version="TLS_1_2") / tls.TLSChangeCipherSpec()
         if self.verbose:
             msg1.show()
             msg2.show()
@@ -325,10 +325,11 @@ class TlsHandshake:
         # Now we can calculate the final session checksum, send ClientFinished,
         # and receive ServerFinished.
         cf_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        tls.TLSFinished(
-                            data=self.sock.tls_ctx.get_verify_data())])
-        msg1 = tls.TLSRecord(version='TLS_1_2') / cf_h
+            handshakes=[
+                tls.TLSHandshake() / tls.TLSFinished(data=self.sock.tls_ctx.get_verify_data())
+            ]
+        )
+        msg1 = tls.TLSRecord(version="TLS_1_2") / cf_h
         if self.verbose:
             msg1.show()
 
@@ -352,25 +353,23 @@ class TlsHandshake:
         self.sock.tls_ctx.resume_session(master_secret)
         self.set_ticket_data(ticket)
         # Session must be non-null for resumption.
-        self.session_id = '\x38' * 32
+        self.session_id = "\x38" * 32
 
         c_h = tls.TLSClientHello(
             gmt_unix_time=0x22222222,
-            random_bytes='\x11' * 28,
+            random_bytes="\x11" * 28,
             session_id=self.session_id,
             session_id_length=len(self.session_id),
-            cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
-                self.ciphers,
-                extensions=[
-                    tls.TLSExtension(type=0x16), # Encrypt-then-MAC
-                    tls.TLSExtension() / tls.TLSExtECPointsFormat()]
-                + self.extra_extensions()
+            cipher_suites=[tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] + self.ciphers,
+            extensions=[
+                tls.TLSExtension(type=0x16),  # Encrypt-then-MAC
+                tls.TLSExtension() / tls.TLSExtECPointsFormat(),
+            ]
+            + self.extra_extensions(),
         )
-        msg = tls.TLSRecord(version='TLS_1_2') / \
-            tls.TLSHandshakes(
-                handshakes=[tls.TLSHandshake() / c_h]
-            )
+        msg = tls.TLSRecord(version="TLS_1_2") / tls.TLSHandshakes(
+            handshakes=[tls.TLSHandshake() / c_h]
+        )
         if self.verbose:
             msg.show()
 
@@ -383,17 +382,18 @@ class TlsHandshake:
         if self.verbose:
             resp.show()
 
-        msg = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
+        msg = tls.TLSRecord(version="TLS_1_2") / tls.TLSChangeCipherSpec()
         if self.verbose:
             msg.show()
         self.inject_bad(fuzzer)
         self.sock.sendall(tls.TLS.from_records([msg]))
         # Now we can calculate the final session checksum, send ClientFinished.
         cf_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        tls.TLSFinished(
-                            data=self.sock.tls_ctx.get_verify_data())])
-        msg = tls.TLSRecord(version='TLS_1_2') / cf_h
+            handshakes=[
+                tls.TLSHandshake() / tls.TLSFinished(data=self.sock.tls_ctx.get_verify_data())
+            ]
+        )
+        msg = tls.TLSRecord(version="TLS_1_2") / cf_h
         if self.verbose:
             msg.show()
         self.send_recv(tls.TLS.from_records([msg]))
@@ -407,7 +407,7 @@ class TlsHandshake:
         return "tempesta-tech.com"
 
     def _do_12_req(self, fuzzer=None):
-        """ Send an HTTP request and get a response. """
+        """Send an HTTP request and get a response."""
         self.inject_bad(fuzzer)
         req = "GET / HTTP/1.1\r\nHost: %s\r\n\r\n" % self.__get_host()
         resp = self.send_recv(tls.TLSPlaintext(data=req))
@@ -437,16 +437,18 @@ class TlsHandshake:
                 return False
             return self._do_12_req(fuzzer)
 
+
 class TlsHandshakeStandard:
     """
     This class uses OpenSSL backend, so all its routines less customizable,
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
+
     def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
         if addr:
             self.addr = addr
         else:
-            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
+            self.addr = tf_cfg.cfg.get("Tempesta", "ip")
         self.port = port
         self.io_to = io_to
         self.verbose = verbose

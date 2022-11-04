@@ -3,93 +3,77 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (via sereral HTTP chains). Mark rules and match rules are also tested here
 (in separate tests).
 """
-from helpers import chains, remote
 from framework import tester
+from helpers import chains, remote
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class HttpTablesTest(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 0,
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 0,
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 1,
-            'type' : 'deproxy',
-            'port' : '8001',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 1,
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 2,
-            'type' : 'deproxy',
-            'port' : '8002',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 2,
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 3,
-            'type' : 'deproxy',
-            'port' : '8003',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 3,
+            "type": "deproxy",
+            "port": "8003",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 4,
-            'type' : 'deproxy',
-            'port' : '8004',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 4,
+            "type": "deproxy",
+            "port": "8004",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 5,
-            'type' : 'deproxy',
-            'port' : '8005',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 5,
+            "type": "deproxy",
+            "port": "8005",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 6,
-            'type' : 'deproxy',
-            'port' : '8006',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": 6,
+            "type": "deproxy",
+            "port": "8006",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         },
         {
-            'id' : 7,
-            'type' : 'deproxy',
-            'port' : '8007',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
-        }
+            "id": 7,
+            "type": "deproxy",
+            "port": "8007",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
@@ -175,105 +159,25 @@ class HttpTablesTest(tester.TempestaTest):
     }
 
     clients = [
-        {
-            'id' : 0,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 1,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 2,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 3,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 4,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 5,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 6,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        },
-        {
-            'id' : 7,
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        }
+        {"id": 0, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 1, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 2, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 3, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 4, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 5, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 6, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 7, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
     requests_opt = [
-        (
-            ('/static/index.html'),
-            ('referer'),
-            ('example.com'),
-            False
-        ),
-        (
-            ('/script.php'),
-            ('referer'),
-            ('http://example.com/cgi-bin/show.pl'),
-            False
-        ),
-        (
-            ('/foo/example.com'),
-            ('host'),
-            ('test.app.com'),
-            False
-        ),
-        (
-            ('/bar/index.html'),
-            ('user-agent'),
-            ('Mozilla/60.0'),
-            False
-        ),
-        (
-            ('/static/foo/app/test.php'),
-            ('host'),
-            ('bar.example.com'),
-            False
-        ),
-        (
-            ('/app/hacked.com'),
-            ('referer'),
-            ('http://example.org'),
-            True
-        ),
-        (
-            ('/'),
-            ('host'),
-            ('bad.host.com'),
-            True
-        ),
-                (
-            ('/baz/index.html'),
-            ('cookie'),
-            ('tempesta=test'),
-            False
-        ),
+        (("/static/index.html"), ("referer"), ("example.com"), False),
+        (("/script.php"), ("referer"), ("http://example.com/cgi-bin/show.pl"), False),
+        (("/foo/example.com"), ("host"), ("test.app.com"), False),
+        (("/bar/index.html"), ("user-agent"), ("Mozilla/60.0"), False),
+        (("/static/foo/app/test.php"), ("host"), ("bar.example.com"), False),
+        (("/app/hacked.com"), ("referer"), ("http://example.org"), True),
+        (("/"), ("host"), ("bad.host.com"), True),
+        (("/baz/index.html"), ("cookie"), ("tempesta=test"), False),
     ]
 
     chains = []
@@ -295,7 +199,7 @@ class HttpTablesTest(tester.TempestaTest):
         self.chains.append(ch)
 
     def setUp(self):
-        del(self.chains[:])
+        del self.chains[:]
         count = len(self.requests_opt)
         for i in range(count):
             self.init_chain(self.requests_opt[i])
@@ -333,23 +237,20 @@ class HttpTablesTest(tester.TempestaTest):
         self.start_all()
         count = len(self.chains)
         for i in range(count):
-            self.process(self.get_client(i),
-                         self.get_server(i),
-                         self.chains[i])
+            self.process(self.get_client(i), self.get_server(i), self.chains[i])
+
 
 class HttpTablesTestMarkRules(HttpTablesTest):
 
     match_rules_test = False
 
     def set_nf_mark(self, mark):
-        cmd = 'iptables -t mangle -A PREROUTING -p tcp -j MARK --set-mark %s' \
-              % mark
+        cmd = "iptables -t mangle -A PREROUTING -p tcp -j MARK --set-mark %s" % mark
         remote.tempesta.run_cmd(cmd, timeout=30)
         self.marked = mark
 
     def del_nf_mark(self, mark):
-        cmd = 'iptables -t mangle -D PREROUTING -p tcp -j MARK --set-mark %s' \
-              % mark
+        cmd = "iptables -t mangle -D PREROUTING -p tcp -j MARK --set-mark %s" % mark
         remote.tempesta.run_cmd(cmd, timeout=30)
         self.marked = None
 
@@ -374,16 +275,15 @@ class HttpTablesTestMarkRules(HttpTablesTest):
         for i in range(count):
             mark = i + 1
             self.set_nf_mark(mark)
-            self.process(self.get_client(i),
-                         self.get_server(count - mark),
-                         self.chains[i])
+            self.process(self.get_client(i), self.get_server(count - mark), self.chains[i])
             self.del_nf_mark(mark)
+
 
 TEMPESTA_CONFIG = """
     %s
 
     srv_group default {
-            server 127.0.0.1:8000;
+            server ${server_ip}:8000;
     }
 
     vhost default {
@@ -393,38 +293,26 @@ TEMPESTA_CONFIG = """
     %s
 """
 
+
 class HttpTablesTestBase(tester.TempestaTest, base=True):
 
-    clients = [
-        {
-            'id' : 'client',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        }
-    ]
+    clients = [{"id": "client", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-                'HTTP/1.1 200 OK\r\n'
-                'Content-Length: 0\r\n\r\n'
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         }
     ]
 
-    tempesta = {
-        'config' : TEMPESTA_CONFIG % ("", "")
-    }
+    tempesta = {"config": TEMPESTA_CONFIG % ("", "")}
 
     resp_status = 200
 
-    requests = "GET / HTTP/1.1\r\n" \
-               "Host: tempesta-tech.com\r\n" \
-               "\r\n"
+    requests = "GET / HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"
 
     redirect_location = ""
 
@@ -432,146 +320,174 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
-        srv = self.get_server('0')
+        srv = self.get_server("0")
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
     def test(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('client')
+        deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_requests(self.requests)
-        if (self.resp_status):
+        if self.resp_status:
             self.assertTrue(deproxy_cl.wait_for_response())
             if self.redirect_location:
-                self.assertEqual(deproxy_cl.last_response.headers['location'],
-                                 self.redirect_location)
-            self.assertEqual(int(deproxy_cl.last_response.status),
-                             self.resp_status)
+                self.assertEqual(
+                    deproxy_cl.last_response.headers["location"], self.redirect_location
+                )
+            self.assertEqual(int(deproxy_cl.last_response.status), self.resp_status)
         else:
             self.assertFalse(deproxy_cl.wait_for_response())
 
+
 class HttpTablesTestEmptyMainChainReply(HttpTablesTestBase):
 
-    tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack reply;",
-                                      "http_chain {}")
-    }
+    tempesta = {"config": TEMPESTA_CONFIG % ("block_action attack reply;", "http_chain {}")}
 
     resp_status = 403
 
+
 class HttpTablesTestEmptyMainChainDrop(HttpTablesTestBase):
 
-    tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack drop;",
-                                      "http_chain {}")
-    }
+    tempesta = {"config": TEMPESTA_CONFIG % ("block_action attack drop;", "http_chain {}")}
 
     resp_status = 0
+
 
 class HttpTablesTestEmptyMainChainDefault(HttpTablesTestBase):
 
-    tempesta = {
-        'config' : TEMPESTA_CONFIG % ("", "http_chain {}")
-    }
+    tempesta = {"config": TEMPESTA_CONFIG % ("", "http_chain {}")}
 
     resp_status = 0
+
 
 class HttpTablesTestEmptyChainReply(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack reply;", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "block_action attack reply;",
+            """
 http_chain chain1 {}
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 403
+
 
 class HttpTablesTestEmptyChainDrop(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack drop;", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "block_action attack drop;",
+            """
 http_chain chain1 {}
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 0
+
 
 class HttpTablesTestEmptyChainDefault(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "",
+            """
 http_chain chain1 {}
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 0
+
 
 class HttpTablesTestMixedChainReply(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack reply;", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "block_action attack reply;",
+            """
 http_chain chain1 {
     uri == "/static*" -> default;
 }
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 403
 
+
 class HttpTablesTestMixedChainDrop(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack drop;", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "block_action attack drop;",
+            """
 http_chain chain1 {
     uri == "/static*" -> default;
 }
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 0
+
 
 class HttpTablesTestMixedChainDefault(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "",
+            """
 http_chain chain1 {
     uri == "/static*" -> default;
 }
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 0
 
+
 class HttpTablesTestMixedChainResp(HttpTablesTestBase):
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG % ("block_action attack reply;", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "block_action attack reply;",
+            """
 http_chain chain1 {
     uri == "/static*" -> default;
 }
 http_chain {
     hdr Host == "tempesta-tech.com" -> chain1;
-}""")
+}""",
+        )
     }
 
     resp_status = 200
 
-    requests = "GET /static HTTP/1.1\r\n" \
-               "Host: tempesta-tech.com\r\n" \
-               "\r\n"
+    requests = "GET /static HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"
 
 
 # A block of tests to ensure that configuration variables $host and $request_uri work correctly.
@@ -579,20 +495,23 @@ class HttpTablesTestCustomRedirectCorrectVariables(HttpTablesTestBase):
     host = "tempesta-tech.com"
     request_uri = "/static"
     tempesta = {
-        "config": TEMPESTA_CONFIG % ("", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "",
+            """
 http_chain chain1 {
     uri == "%s*" -> 301 = https://static.$$host$$request_uri;
 
 }
 http_chain {
     hdr Host == "%s" -> chain1;
-}""" % (request_uri, host))
+}"""
+            % (request_uri, host),
+        )
     }
 
     resp_status = 301
-    requests = f"GET {request_uri} HTTP/1.1\r\n" \
-           f"Host: {host}\r\n" \
-           "\r\n"
+    requests = f"GET {request_uri} HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
     redirect_location = f"https://static.{host}{request_uri}"
 
 
@@ -600,19 +519,22 @@ class HttpTablesTestCustomRedirectNonExistentVariables(HttpTablesTestBase):
     host = "tempesta-tech.com"
     request_uri = "/static"
     tempesta = {
-        "config": TEMPESTA_CONFIG % ("", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "",
+            """
 http_chain chain1 {
     uri == "%s*" -> 301 = https://$$urlfoo;
 }
 http_chain {
     hdr Host == "%s" -> chain1;
 
-}""" % (request_uri, host))
+}"""
+            % (request_uri, host),
+        )
     }
     resp_status = 301
-    requests = f"GET {request_uri} HTTP/1.1\r\n" \
-       f"Host: {host}\r\n" \
-       "\r\n"
+    requests = f"GET {request_uri} HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
     redirect_location = "https://$urlfoo"
 
 
@@ -620,20 +542,23 @@ class HttpTablesTestCustomRedirectDifferentResponseStatus(HttpTablesTestBase):
     host = "tempesta-tech.com"
     request_uri = "/blog"
     tempesta = {
-        "config": TEMPESTA_CONFIG % ("", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "",
+            """
 http_chain chain1 {
     uri == "%s" -> 308 = https://$$host$$request_uri/new;
 
 }
 http_chain {
     hdr Host == "%s" -> chain1;
-}""" % (request_uri, host))
+}"""
+            % (request_uri, host),
+        )
     }
 
     resp_status = 308
-    requests = f"GET {request_uri} HTTP/1.1\r\n" \
-           f"Host: {host}\r\n" \
-           "\r\n"
+    requests = f"GET {request_uri} HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
     redirect_location = f"https://{host}{request_uri}/new"
 
 
@@ -641,18 +566,25 @@ class HttpTablesTestCustomRedirectTooManyVariables(tester.TempestaTest):
     """
     More than 8 variables must be rejected on configuration process.
     """
+
     host = "tempesta-tech.com"
     request_uri = "/static"
     tempesta = {
-        "config": TEMPESTA_CONFIG % ("", """
+        "config": TEMPESTA_CONFIG
+        % (
+            "",
+            """
 http_chain chain1 {
     uri == "%s*" -> 301 = https://$$host$$request_uri/$$host$$request_uri/$$host$$request_uri/$$host$$request_uri/$$host;
 
 }
 http_chain {
     hdr Host == "%s" -> chain1;
-}""" % (request_uri, host))
+}"""
+            % (request_uri, host),
+        )
     }
+
     def tearDown(self):
         pass
 
@@ -664,5 +596,88 @@ http_chain {
             started = False
         finally:
             self.assertFalse(started)
+
+
+class H2Redirects(tester.TempestaTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        }
+    ]
+
+    backends = [
+        {
+            "id": "0",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        }
+    ]
+
+    tempesta = {
+        "config": """
+        listen 443 proto=h2;
+        tls_match_any_server_name;
+
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+
+        vhost tempesta-tech.com {
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            proxy_pass default;
+        }
+
+        http_chain redirection_chain {
+            uri == "/moved-permanently" -> 301 = /new-location-301;
+            uri == "/temporary-redirect" -> 307 = /new-location-307;
+            -> tempesta-tech.com;
+        }
+
+        http_chain {
+            host == "tempesta-tech.com" -> redirection_chain;
+        }
+
+        """
+    }
+
+    params = [
+        ("/moved-permanently", "301", "/new-location-301"),
+        ("/temporary-redirect", "307", "/new-location-307"),
+    ]
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.start_all_clients()
+        self.assertTrue(self.wait_all_connections())
+
+    def test(self):
+        self.start_all()
+
+        for uri, status, location in self.params:
+            request = [
+                (":authority", "tempesta-tech.com"),
+                (":path", uri),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ]
+
+            client = self.get_client("deproxy")
+            client.make_request(request)
+
+            got_response = client.wait_for_response()
+            self.assertTrue(got_response)
+            self.assertEqual(client.last_response.status, status)
+            self.assertEqual(client.last_response.headers["location"], location)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

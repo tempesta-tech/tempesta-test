@@ -1,28 +1,28 @@
 """
 TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
-from helpers import tf_cfg
 from framework import tester
+from helpers import tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2019 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class StressTls(tester.TempestaTest):
 
     backends = [
         {
-            'id' : '0',
-            'type' : 'nginx',
-            'check_ports' : [
+            "id": "0",
+            "type": "nginx",
+            "check_ports": [
                 {
-                    "ip" : "${server_ip}",
-                    "port" : "8000",
+                    "ip": "${server_ip}",
+                    "port": "8000",
                 }
             ],
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : """
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
                 pid ${pid};
                 worker_processes    auto;
                 events {
@@ -52,20 +52,20 @@ class StressTls(tester.TempestaTest):
                     }
                 }
             """,
-            }
-        ]
+        }
+    ]
 
     clients = [
         {
-            'id' : '0',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:443",
-            'ssl' : True,
+            "id": "0",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:443",
+            "ssl": True,
         },
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
             listen 443 proto=https;
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
@@ -81,17 +81,16 @@ class StressTls(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
 
-        wrk = self.get_client('0')
+        wrk = self.get_client("0")
         wrk.set_script("foo", content="")
         # Wrk can't handle very big amound of TLS connections.
-        wrk.connections = min(
-            int(tf_cfg.cfg.get('General', 'concurrent_connections')),
-            100)
+        wrk.connections = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 100)
         wrk.start()
         self.wait_while_busy(wrk)
         wrk.stop()
 
         self.assertTrue(200 in wrk.statuses)
         self.assertGreater(wrk.statuses[200], 0)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

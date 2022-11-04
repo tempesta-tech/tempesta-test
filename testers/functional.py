@@ -1,14 +1,16 @@
 from __future__ import print_function
-import unittest
-import copy
+
 import asyncore
-from helpers import dmesg, tf_cfg, control, tempesta, deproxy, stateful, remote
-from helpers import util
+import copy
+import unittest
+
+from helpers import control, deproxy, dmesg, remote, stateful, tempesta, tf_cfg, util
 from helpers.deproxy import ParseError
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 @util.deprecated("tester.TempestaTest")
 class FunctionalTest(unittest.TestCase):
@@ -16,38 +18,36 @@ class FunctionalTest(unittest.TestCase):
     tfw_clnt_msg_otherr = False
 
     def create_client(self):
-        """ Override to set desired list of benchmarks and their options. """
+        """Override to set desired list of benchmarks and their options."""
         self.client = deproxy.Client()
 
     def create_tempesta(self):
-        """ Normally no override is needed.
+        """Normally no override is needed.
         Create controller for TempestaFW and add all servers to default group.
         """
         self.tempesta = control.Tempesta()
 
     def configure_tempesta(self):
-        """ Add all servers to default server group with default scheduler. """
-        sg = tempesta.ServerGroup('default')
+        """Add all servers to default server group with default scheduler."""
+        sg = tempesta.ServerGroup("default")
         for s in self.servers:
             sg.add_server(s.ip, s.port, s.conns_n)
         self.tempesta.config.add_sg(sg)
 
     def create_servers(self):
-        """ Overrirde to create needed amount of upstream servers. """
+        """Overrirde to create needed amount of upstream servers."""
         port = tempesta.upstream_port_start_from()
         self.servers = [deproxy.Server(port=port)]
 
-    def create_servers_helper(self, count, start_port=None, keep_alive=None,
-                              connections=None):
-        """ Helper function to spawn `count` servers in default configuration.
-        """
+    def create_servers_helper(self, count, start_port=None, keep_alive=None, connections=None):
+        """Helper function to spawn `count` servers in default configuration."""
         if start_port is None:
             start_port = tempesta.upstream_port_start_from()
         self.servers = []
         for i in range(count):
-            self.servers.append(deproxy.Server(port=(start_port + i),
-                                               keep_alive=keep_alive,
-                                               conns_n=connections))
+            self.servers.append(
+                deproxy.Server(port=(start_port + i), keep_alive=keep_alive, conns_n=connections)
+            )
 
     def create_tester(self):
         self.tester = deproxy.Deproxy(self.client, self.servers)
@@ -60,8 +60,8 @@ class FunctionalTest(unittest.TestCase):
         self.tempesta = None
         self.servers = []
         self.tester = None
-        tf_cfg.dbg(3) # Step to the next line after name of test case.
-        tf_cfg.dbg(3, '\tInit test case...')
+        tf_cfg.dbg(3)  # Step to the next line after name of test case.
+        tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
         self.create_servers()
@@ -86,8 +86,7 @@ class FunctionalTest(unittest.TestCase):
         try:
             deproxy.finish_all_deproxy()
         except:
-            print ('Unknown exception in stopping deproxy')
-
+            print("Unknown exception in stopping deproxy")
 
     def tearDown(self):
         # Close client connection before stopping the TempestaFW.
@@ -106,12 +105,11 @@ class FunctionalTest(unittest.TestCase):
         try:
             deproxy.finish_all_deproxy()
         except:
-            print ('Unknown exception in stopping deproxy')
+            print("Unknown exception in stopping deproxy")
 
         for proc in [self.client, self.tempesta, self.tester]:
             if proc.state == stateful.STATE_ERROR:
-                raise Exception("Error during stopping %s" %
-                                proc.__class__.__name__)
+                raise Exception("Error during stopping %s" % proc.__class__.__name__)
         for server in self.servers:
             if server.state == stateful.STATE_ERROR:
                 raise Exception("Error during stopping server")
@@ -132,20 +130,16 @@ class FunctionalTest(unittest.TestCase):
         asyncore.close_all()
 
     def assert_tempesta(self):
-        """ Assert that tempesta had no errors during test. """
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0,
-                         msg=(msg % 'responses'))
+        """Assert that tempesta had no errors during test."""
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0, msg=(msg % "responses"))
         if not self.tfw_clnt_msg_otherr:
-            self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                             msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
-                         msg=(msg % 'responses'))
+            self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0, msg=(msg % "responses"))
 
     def generic_test_routine(self, tempesta_defconfig, message_chains):
-        """ Make necessary updates to configs of servers, create tempesta config
+        """Make necessary updates to configs of servers, create tempesta config
         and run the routine in you `test_*()` function.
         """
         if message_chains and message_chains != []:
@@ -172,7 +166,8 @@ class FunctionalTest(unittest.TestCase):
         self.tempesta.get_stats()
         self.assert_tempesta()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

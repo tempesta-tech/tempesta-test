@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-import sys
 import importlib.util
+import sys
 
-modules = ['unittest',
-           'scapy',
-           'Cryptodome',
-           'tinyec',
-           'subprocess',
-           'resource',
-           'getopt',
-           'httplib',
-           're',
-           'json',
-           'configparser',
-           ]
+modules = [
+    "unittest",
+    "scapy",
+    "Cryptodome",
+    "tinyec",
+    "subprocess",
+    "resource",
+    "getopt",
+    "re",
+    "json",
+    "configparser",
+]
 
 modules_apt = [
-            'paramiko',
-            'subprocess32',
-            ]
+    "paramiko",
+    "subprocess32",
+]
 
 
 def make_report_line(name):
     filler_len = max(3, 20 - len(name))
-    return '{} {}'.format(name, '.' * filler_len)
+    return "{} {}".format(name, "." * filler_len)
 
 
 print("\tChecking for required python3 modules:")
@@ -65,7 +65,7 @@ if not all_present:
     for module in absent:
         print("\t\t%s" % module)
     if len(package_list) > 0:
-        print('\n\t\tRun "apt-get install %s"\n' % ' '.join(package_list))
+        print('\n\t\tRun "apt-get install %s"\n' % " ".join(package_list))
     sys.exit(1)
 
 print("\n\tFound all required python modules.\n")

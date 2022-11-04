@@ -12,24 +12,26 @@ import os
 import sys
 from threading import *
 
-__author__ = 'NatSys Lab'
-__copyright__ = 'Copyright (C) 2014 NatSys Lab. (info@natsys-lab.com).'
-__license__ = 'GPL2'
+__author__ = "NatSys Lab"
+__copyright__ = "Copyright (C) 2014 NatSys Lab. (info@natsys-lab.com)."
+__license__ = "GPL2"
 
 _main_thread = current_thread()
 _teardown_hooks = []
 _stderr_write_event = Event()
 
+
 def register(hook_fn, *args, **kwargs):
     """
     Register a hook which is executed when the main thread terminates.
-    
+
     The atexit.register() doesn't work because we terminate all threads
     asynchronously via os._exit(). So this function is a drop-in replacement
     that works in our case.
     """
     entry = (hook_fn, args, kwargs)
     _teardown_hooks.append(entry)
+
 
 def _call_hooks_when_main_exits():
     """
@@ -41,6 +43,7 @@ def _call_hooks_when_main_exits():
         hook_fn(*args, **kwargs)
     os._exit(-1 if _stderr_write_event.is_set() else 0)
 
+
 # Start another thread to catch a moment when the main thread exits.
 # It turns out there is no cleaner solution because the Thread class doesn't
 # provide any way to add exit hooks.
@@ -49,12 +52,13 @@ Thread(target=_call_hooks_when_main_exits).start()
 # Unfortunately, we can't obtain an exit code of a Thread after it exits.
 # So we detect errors by the fact of writing to the stderr stream.
 # We wrap sys.stderr and set the error flag if someone writes a message there.
-class StdstreamWrapper():
+class StdstreamWrapper:
     def __init__(self, stream):
         self.stream = stream
-    
+
     def write(self, data):
         _stderr_write_event.set()
         self.stream.write(data)
+
 
 sys.stderr = StdstreamWrapper(sys.stderr)

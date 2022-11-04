@@ -3,37 +3,38 @@ Redirection marks tests.
 """
 
 import random
-import re, time
+import re
 import string
-from helpers import tf_cfg
+import time
+
 from framework import tester
+from helpers import tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2019 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-DFLT_COOKIE_NAME = '__tfw'
+DFLT_COOKIE_NAME = "__tfw"
+
 
 class BaseRedirectMark(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 'server',
-            'type' : 'deproxy',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' :
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n\r\n'
+            "id": "server",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
         }
     ]
 
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80',
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
         }
     ]
 
@@ -53,31 +54,28 @@ class BaseRedirectMark(tester.TempestaTest):
         return client.responses[-1]
 
     def client_send_custom_req(self, client, uri, cookie):
-        req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
-               "%s"
-               "\r\n" % (uri, ("Cookie: %s=%s\r\n" % cookie) if cookie else ""))
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "%s"
+            "\r\n" % (uri, ("Cookie: %s=%s\r\n" % cookie) if cookie else "")
+        )
         response = self.client_send_req(client, req)
 
-        self.assertEqual(response.status,'302',
-                         "unexpected response status code")
-        c_header = response.headers.get('Set-Cookie', None)
-        self.assertIsNotNone(c_header,
-                             "Set-Cookie header is missing in the response")
-        match = re.search(r'([^;\s]+)=([^;\s]+)', c_header)
-        self.assertIsNotNone(match,
-                             "Cant extract value from Set-Cookie header")
+        self.assertEqual(response.status, "302", "unexpected response status code")
+        c_header = response.headers.get("Set-Cookie", None)
+        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
+        match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
+        self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
         cookie = (match.group(1), match.group(2))
 
         # Checking default path option of cookies
-        match = re.search(r'path=([^;\s]+)', c_header)
-        self.assertIsNotNone(match,
-                             "Cant extract path from Set-Cookie header")
+        match = re.search(r"path=([^;\s]+)", c_header)
+        self.assertIsNotNone(match, "Cant extract path from Set-Cookie header")
         self.assertEqual(match.group(1), "/")
 
-        uri = response.headers.get('Location', None)
-        self.assertIsNotNone(uri,
-                             "Location header is missing in the response")
+        uri = response.headers.get("Location", None)
+        self.assertIsNotNone(uri, "Location header is missing in the response")
         return (uri, cookie)
 
     def client_send_first_req(self, client, uri):
@@ -90,6 +88,7 @@ class BaseRedirectMark(tester.TempestaTest):
         self.deproxy_manager.start()
         self.assertTrue(self.wait_all_connections(1))
 
+
 class RedirectMark(BaseRedirectMark):
     """
     Sticky cookies are not enabled on Tempesta, so all clients may access the
@@ -97,8 +96,7 @@ class RedirectMark(BaseRedirectMark):
     """
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         server ${server_ip}:8000;
 
         sticky {
@@ -113,20 +111,21 @@ class RedirectMark(BaseRedirectMark):
         """
         self.start_all()
 
-        client = self.get_client('deproxy')
-        uri = '/'
+        client = self.get_client("deproxy")
+        uri = "/"
         uri, cookie = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_custom_req(client, uri, cookie)
-        hostname = tf_cfg.cfg.get('Tempesta', 'hostname')
-        self.assertEqual(uri, 'http://%s/' % hostname)
+        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        self.assertEqual(uri, "http://%s/" % hostname)
 
-        req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
-               "Cookie: %s=%s\r\n"
-               "\r\n" % (uri, cookie[0], cookie[1]))
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Cookie: %s=%s\r\n"
+            "\r\n" % (uri, cookie[0], cookie[1])
+        )
         response = self.client_send_req(client, req)
-        self.assertEqual(response.status,'200',
-                         "unexpected response status code")
+        self.assertEqual(response.status, "200", "unexpected response status code")
 
     def test_rmark_wo_or_incorrect_cookie(self):
         """
@@ -136,51 +135,54 @@ class RedirectMark(BaseRedirectMark):
         """
         self.start_all()
 
-        client = self.get_client('deproxy')
-        uri = '/'
+        client = self.get_client("deproxy")
+        uri = "/"
         uri, cookie = self.client_send_first_req(client, uri)
-        cookie = (cookie[0],
-                  ''.join(random.choice(string.hexdigits)
-                          for i in range(len(cookie[1]))))
+        cookie = (
+            cookie[0],
+            "".join(random.choice(string.hexdigits) for i in range(len(cookie[1]))),
+        )
         uri, _ = self.client_send_custom_req(client, uri, cookie)
         uri, cookie = self.client_send_first_req(client, uri)
-        cookie = (cookie[0],
-                  ''.join(random.choice(string.hexdigits)
-                          for i in range(len(cookie[1]))))
+        cookie = (
+            cookie[0],
+            "".join(random.choice(string.hexdigits) for i in range(len(cookie[1]))),
+        )
         uri, _ = self.client_send_custom_req(client, uri, cookie)
         uri, _ = self.client_send_first_req(client, uri)
 
-        req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
-               "\r\n" % uri)
+        req = "GET %s HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" % uri
         self.client_expect_block(client, req)
 
     def test_rmark_invalid(self):
         # Requests w/ incorrect rmark and w/o cookies, must be blocked
         self.start_all()
 
-        client = self.get_client('deproxy')
-        uri = '/'
+        client = self.get_client("deproxy")
+        uri = "/"
         uri, _ = self.client_send_first_req(client, uri)
         m = re.match(r"(.*=)([0-9a-f]*)(/)", uri)
 
-        req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
-               "\r\n" % (m.group(1) +
-                         ''.join(random.choice(string.hexdigits)
-                         for i in range(len(m.group(2)))) +
-                         m.group(3)))
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "\r\n"
+            % (
+                m.group(1)
+                + "".join(random.choice(string.hexdigits) for i in range(len(m.group(2))))
+                + m.group(3)
+            )
+        )
         self.client_expect_block(client, req)
 
 
 class RedirectMarkVhost(RedirectMark):
-    """ Same as RedirectMark, but , but 'sticky' configuration is inherited from
+    """Same as RedirectMark, but , but 'sticky' configuration is inherited from
     updated defaults for a named vhost.
     """
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         srv_group vh_1_srvs {
             server ${server_ip}:8000;
         }
@@ -211,8 +213,7 @@ class RedirectMarkTimeout(BaseRedirectMark):
     """
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         server ${server_ip}:8000;
 
         sticky {
@@ -224,8 +225,8 @@ class RedirectMarkTimeout(BaseRedirectMark):
     def test(self):
         self.start_all()
 
-        client = self.get_client('deproxy')
-        uri = '/'
+        client = self.get_client("deproxy")
+        uri = "/"
         uri, _ = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_first_req(client, uri)
@@ -237,26 +238,26 @@ class RedirectMarkTimeout(BaseRedirectMark):
 
         uri, cookie = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_custom_req(client, uri, cookie)
-        hostname = tf_cfg.cfg.get('Tempesta', 'hostname')
-        self.assertEqual(uri, 'http://%s/' % hostname)
+        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        self.assertEqual(uri, "http://%s/" % hostname)
 
-        req = ("GET %s HTTP/1.1\r\n"
-               "Host: localhost\r\n"
-               "Cookie: %s=%s\r\n"
-               "\r\n" % (uri, cookie[0], cookie[1]))
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Cookie: %s=%s\r\n"
+            "\r\n" % (uri, cookie[0], cookie[1])
+        )
         response = self.client_send_req(client, req)
-        self.assertEqual(response.status,'200',
-                         "unexpected response status code")
+        self.assertEqual(response.status, "200", "unexpected response status code")
 
 
 class RedirectMarkTimeoutVhost(RedirectMarkTimeout):
-    """ Same as RedirectMarkTimeout, but , but 'sticky' configuration is
+    """Same as RedirectMarkTimeout, but , but 'sticky' configuration is
     inherited from updated defaults for a named vhost.
     """
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         srv_group vh_1_srvs {
             server ${server_ip}:8000;
         }

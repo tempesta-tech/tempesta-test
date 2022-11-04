@@ -3,12 +3,14 @@ Test for 'Paired request missing, HTTP Response Splitting attack?' error
 """
 
 from __future__ import print_function
-from helpers import deproxy, tempesta, chains, tf_cfg, dmesg
+
+from helpers import chains, deproxy, dmesg, tempesta, tf_cfg
 from testers import functional
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class PairingTest(functional.FunctionalTest):
 
@@ -22,8 +24,7 @@ class PairingTest(functional.FunctionalTest):
 
     def create_tester(self):
         message_chains = [chains.proxy() for _ in range(self.chains_size)]
-        self.tester = PairingTester(self.client, self.servers,
-                                    message_chains=message_chains)
+        self.tester = PairingTester(self.client, self.servers, message_chains=message_chains)
 
     def prepare(self):
         self.tempesta.config.set_defconfig(self.defconfig)
@@ -43,21 +44,22 @@ class PairingTest(functional.FunctionalTest):
         must be evicted, no 'Paired request missing' messages are allowed.
         """
         self.prepare()
-        self.tester.loop(0.5) # Let handle connects
+        self.tester.loop(0.5)  # Let handle connects
         self.tester.send_reqs(self.send_to_close)
         self.tester.disconnect_clnt()
         self.tester.send_resps()
-        self.assertEqual(self.oops.warn_count(dmesg.WARN_SPLIT_ATTACK), 0,
-                         msg=("Got '%s'" % dmesg.WARN_SPLIT_ATTACK))
+        self.assertEqual(
+            self.oops.warn_count(dmesg.WARN_SPLIT_ATTACK),
+            0,
+            msg=("Got '%s'" % dmesg.WARN_SPLIT_ATTACK),
+        )
 
 
 class PairingTester(deproxy.Deproxy):
-
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         self.pause_srv = True
-        self.message_chains_recv = [deproxy.MessageChain.empty()
-                                    for _ in self.message_chains]
+        self.message_chains_recv = [deproxy.MessageChain.empty() for _ in self.message_chains]
         self.last_resp = 0
         self.last_req = 0
 

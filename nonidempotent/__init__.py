@@ -1,1 +1,1 @@
-__all__ = ['test_nonidempotent']
+__all__ = ["test_nonidempotent"]

@@ -2,12 +2,12 @@
 TLS perf tests - load Tempesta FW with multiple TLS handshakes.
 """
 
-from framework import tester
 import helpers.tf_cfg as tf_cfg
+from framework import tester
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2020 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -63,34 +63,36 @@ vhost default {
 }
 """
 
+
 class TLSPerf(tester.TempestaTest):
     clients = [
         {
-            'id' : 'tls-perf',
-            'type' : 'external',
-            'binary' : 'tls-perf',
-            'cmd_args' : (
-                '-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1000 -t 2 -T %s ${server_ip} 443' % (tf_cfg.cfg.get('General', 'Duration'))
-                )
+            "id": "tls-perf",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1000 -t 2 -T %s ${server_ip} 443"
+                % (tf_cfg.cfg.get("General", "Duration"))
+            ),
         },
     ]
 
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'port' : '8000',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         }
     ]
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG,
+        "config": TEMPESTA_CONFIG,
     }
 
     def test(self):
-        tls_perf = self.get_client('tls-perf')
+        tls_perf = self.get_client("tls-perf")
 
         self.start_all_servers()
         self.start_tempesta()

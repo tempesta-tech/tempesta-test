@@ -16,16 +16,17 @@ time.
 """
 
 import sys
+
 from helpers import tempesta
 from testers import stress
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class BindToServer(stress.StressTest):
-    """ Send requests with the same URI, only one connection (server) should be
+    """Send requests with the same URI, only one connection (server) should be
     loaded, but a few other connections (servers) can get a little bit of the
     load while primary one is in failovering state.
     """
@@ -38,11 +39,10 @@ class BindToServer(stress.StressTest):
             s.config.set_ka(self.ka_requests)
 
     def configure_tempesta(self):
-        """Configure Tempesta to use hash scheduler instead of default one.
-        """
+        """Configure Tempesta to use hash scheduler instead of default one."""
         stress.StressTest.configure_tempesta(self)
         for sg in self.tempesta.config.server_groups:
-            sg.sched = 'hash'
+            sg.sched = "hash"
 
     def assert_servers(self):
         """Assert load distribution between servers. Only one server must pull
@@ -60,11 +60,15 @@ class BindToServer(stress.StressTest):
 
         self.assertTrue(loaded_servers)
         reqs, _ = loaded_servers[0]
-        self.assertAlmostEqual(reqs, reqs_exp, delta=(reqs_exp * 0.2),
-                               msg="Only one server should got most of the load")
+        self.assertAlmostEqual(
+            reqs,
+            reqs_exp,
+            delta=(reqs_exp * 0.2),
+            msg="Only one server should got most of the load",
+        )
 
     def test_hash(self):
-        self.generic_test_routine('cache 0;\n')
+        self.generic_test_routine("cache 0;\n")
 
 
 class BindToServerFailovering(BindToServer):
@@ -78,5 +82,6 @@ class BindToServerFailovering(BindToServer):
     """
 
     ka_requests = 50000
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

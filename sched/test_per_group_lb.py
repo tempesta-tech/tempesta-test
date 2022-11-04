@@ -12,12 +12,12 @@ have a description how the inheriting should work.
 """
 
 from framework import tester
-from helpers.control import servers_get_stats
 from helpers import tf_cfg
+from helpers.control import servers_get_stats
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -105,6 +105,7 @@ http_chain {
 
 """
 
+
 class AllDefaults(tester.TempestaTest):
     """
     No explicit scheduler configuration. All server groups use default
@@ -114,108 +115,108 @@ class AllDefaults(tester.TempestaTest):
     # 10 backend servers, each has unique delay before send response.
     backends = [
         {
-            'id' : 'nginx_8000',
-            'type' : 'nginx',
-            'port' : '8000',
-            'delay' : '0',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8000",
+            "type": "nginx",
+            "port": "8000",
+            "delay": "0",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8001',
-            'type' : 'nginx',
-            'port' : '8001',
-            'delay' : '0.01',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8001",
+            "type": "nginx",
+            "port": "8001",
+            "delay": "0.01",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8002',
-            'type' : 'nginx',
-            'port' : '8002',
-            'delay' : '0.02',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8002",
+            "type": "nginx",
+            "port": "8002",
+            "delay": "0.02",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8003',
-            'type' : 'nginx',
-            'port' : '8003',
-            'delay' : '0.03',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8003",
+            "type": "nginx",
+            "port": "8003",
+            "delay": "0.03",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8004',
-            'type' : 'nginx',
-            'port' : '8004',
-            'delay' : '0.04',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8004",
+            "type": "nginx",
+            "port": "8004",
+            "delay": "0.04",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8005',
-            'type' : 'nginx',
-            'port' : '8005',
-            'delay' : '0.05',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8005",
+            "type": "nginx",
+            "port": "8005",
+            "delay": "0.05",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8006',
-            'type' : 'nginx',
-            'port' : '8006',
-            'delay' : '0.06',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8006",
+            "type": "nginx",
+            "port": "8006",
+            "delay": "0.06",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8007',
-            'type' : 'nginx',
-            'port' : '8007',
-            'delay' : '0.07',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8007",
+            "type": "nginx",
+            "port": "8007",
+            "delay": "0.07",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8008',
-            'type' : 'nginx',
-            'port' : '8008',
-            'delay' : '0.08',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8008",
+            "type": "nginx",
+            "port": "8008",
+            "delay": "0.08",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8009',
-            'type' : 'nginx',
-            'port' : '8009',
-            'delay' : '0.1',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8009",
+            "type": "nginx",
+            "port": "8009",
+            "delay": "0.1",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     clients = [
         {
-            'id' : 'wrk_vhost_1',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            "id": "wrk_vhost_1",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
         {
-            'id' : 'wrk_vhost_2',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            "id": "wrk_vhost_2",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
     ]
 
     tempesta = {
-        'sched_global_opt' : "",
-        'sched_custom_opt' : "",
-        'sched_global_late_opt' : "",
-        'config' : TEMPESTA_CONFIG,
+        "sched_global_opt": "",
+        "sched_custom_opt": "",
+        "sched_global_late_opt": "",
+        "config": TEMPESTA_CONFIG,
     }
 
-    group_scheds = [('custom', 'static'), ('default', 'static')]
+    group_scheds = [("custom", "static"), ("default", "static")]
 
     # Base precision for ratio static.
     precision = 0.005
@@ -225,34 +226,32 @@ class AllDefaults(tester.TempestaTest):
     min_server_weight = 30
 
     def check_static_lb(self, servers, group_name):
-        """ Group of servers use ratio static load balancer. For details
+        """Group of servers use ratio static load balancer. For details
         see test_ratio_static.py .
         """
         exp_reqs = 0
         delta = 0
 
         for srv in servers:
-            tf_cfg.dbg(3,
-                       "Server %s received %d requests"
-                       % (srv.get_name(), srv.requests)
-                      )
+            tf_cfg.dbg(3, "Server %s received %d requests" % (srv.get_name(), srv.requests))
             if not exp_reqs:
                 exp_reqs = srv.requests
                 delta = max(exp_reqs * self.precision, self.min_delta)
                 continue
             self.assertAlmostEqual(
-                srv.requests, exp_reqs, delta=delta,
-                msg=("Server %s received %d requests, but [%d, %d] "
-                     "was expected"
-                     % (srv.get_name(), srv.requests,
-                        exp_reqs - delta, exp_reqs + delta)
-                    )
-                )
-        tf_cfg.dbg(3, "Server group %s uses 'ratio static' scheduler"
-                   % (group_name))
+                srv.requests,
+                exp_reqs,
+                delta=delta,
+                msg=(
+                    "Server %s received %d requests, but [%d, %d] "
+                    "was expected"
+                    % (srv.get_name(), srv.requests, exp_reqs - delta, exp_reqs + delta)
+                ),
+            )
+        tf_cfg.dbg(3, "Server group %s uses 'ratio static' scheduler" % (group_name))
 
     def check_dynamic_lb(self, servers, group_name):
-        """ Group of servers use ratio dynamic load balancer. For details
+        """Group of servers use ratio dynamic load balancer. For details
         see test_ratio_dynamic.py .
         """
         tot_weight = len(servers) * 50  # for weight normalisation.
@@ -260,52 +259,53 @@ class AllDefaults(tester.TempestaTest):
         for srv in servers:
             tot_reqs += srv.requests
 
-        weights = [(srv.get_name(), 1.0 * srv.requests / tot_reqs * tot_weight)
-                   for srv in servers]
+        weights = [(srv.get_name(), 1.0 * srv.requests / tot_reqs * tot_weight) for srv in servers]
         weights.sort()
 
         prev_name, prev_weight = weights[0]
         for name, weight in weights:
             self.assertLessEqual(
-                weight, prev_weight,
-                msg=("Faster server %s got less weight than slower %s"
-                     % (prev_name, name))
-                )
+                weight,
+                prev_weight,
+                msg=("Faster server %s got less weight than slower %s" % (prev_name, name)),
+            )
             if weight <= self.min_server_weight:
                 break
             prev_weight = weight
             prev_name = name
 
-        tf_cfg.dbg(3, "Server group %s uses 'ratio dynamic' scheduler"
-                   % (group_name))
+        tf_cfg.dbg(3, "Server group %s uses 'ratio dynamic' scheduler" % (group_name))
 
     def check_lb(self, group_name, lb_name):
         """
         Choose correct function to validate load distribution between servers.
         """
         group = []
-        if group_name == 'custom':
-            group = [self.get_server('nginx_8000'),
-                     self.get_server('nginx_8001'),
-                     self.get_server('nginx_8002'),
-                     self.get_server('nginx_8003'),
-                     self.get_server('nginx_8004')]
+        if group_name == "custom":
+            group = [
+                self.get_server("nginx_8000"),
+                self.get_server("nginx_8001"),
+                self.get_server("nginx_8002"),
+                self.get_server("nginx_8003"),
+                self.get_server("nginx_8004"),
+            ]
         else:
-            group = [self.get_server('nginx_8005'),
-                     self.get_server('nginx_8006'),
-                     self.get_server('nginx_8007'),
-                     self.get_server('nginx_8008'),
-                     self.get_server('nginx_8009')]
+            group = [
+                self.get_server("nginx_8005"),
+                self.get_server("nginx_8006"),
+                self.get_server("nginx_8007"),
+                self.get_server("nginx_8008"),
+                self.get_server("nginx_8009"),
+            ]
 
-        if lb_name == 'static':
+        if lb_name == "static":
             self.check_static_lb(group, group_name)
         else:
             self.check_dynamic_lb(group, group_name)
 
-
     def test_inherit(self):
-        wrk_h_1 = self.get_client('wrk_vhost_1')
-        wrk_h_2 = self.get_client('wrk_vhost_2')
+        wrk_h_1 = self.get_client("wrk_vhost_1")
+        wrk_h_2 = self.get_client("wrk_vhost_2")
         wrk_h_1.options = ['-H "Host: example.com"']
 
         self.start_all_servers()
@@ -328,13 +328,13 @@ class RedefineGlobalSched(AllDefaults):
     """
 
     tempesta = {
-        'sched_global_opt' : "sched ratio dynamic;",
-        'sched_custom_opt' : "",
-        'sched_global_late_opt' : "",
-        'config' : TEMPESTA_CONFIG,
+        "sched_global_opt": "sched ratio dynamic;",
+        "sched_custom_opt": "",
+        "sched_global_late_opt": "",
+        "config": TEMPESTA_CONFIG,
     }
 
-    group_scheds = [('custom', 'dynamic'), ('default', 'dynamic')]
+    group_scheds = [("custom", "dynamic"), ("default", "dynamic")]
 
 
 class RedefineGroupSched(AllDefaults):
@@ -345,13 +345,13 @@ class RedefineGroupSched(AllDefaults):
     """
 
     tempesta = {
-        'sched_global_opt' : "",
-        'sched_custom_opt' : "sched ratio dynamic;",
-        'sched_global_late_opt' : "",
-        'config' : TEMPESTA_CONFIG,
+        "sched_global_opt": "",
+        "sched_custom_opt": "sched ratio dynamic;",
+        "sched_global_late_opt": "",
+        "config": TEMPESTA_CONFIG,
     }
 
-    group_scheds = [('custom', 'dynamic'), ('default', 'static')]
+    group_scheds = [("custom", "dynamic"), ("default", "static")]
 
 
 class RedefineAllScheds(AllDefaults):
@@ -362,13 +362,13 @@ class RedefineAllScheds(AllDefaults):
     """
 
     tempesta = {
-        'sched_global_opt' : "sched ratio dynamic;",
-        'sched_custom_opt' : "sched ratio static;",
-        'sched_global_late_opt' : "",
-        'config' : TEMPESTA_CONFIG,
+        "sched_global_opt": "sched ratio dynamic;",
+        "sched_custom_opt": "sched ratio static;",
+        "sched_global_late_opt": "",
+        "config": TEMPESTA_CONFIG,
     }
 
-    group_scheds = [('custom', 'static'), ('default', 'dynamic')]
+    group_scheds = [("custom", "static"), ("default", "dynamic")]
 
 
 class LateRedefineGlobalSched(AllDefaults):
@@ -380,10 +380,10 @@ class LateRedefineGlobalSched(AllDefaults):
     """
 
     tempesta = {
-        'sched_global_opt' : "",
-        'sched_custom_opt' : "",
-        'sched_global_late_opt' : "sched ratio dynamic;",
-        'config' : TEMPESTA_CONFIG,
+        "sched_global_opt": "",
+        "sched_custom_opt": "",
+        "sched_global_late_opt": "sched ratio dynamic;",
+        "config": TEMPESTA_CONFIG,
     }
 
-    group_scheds = [('custom', 'static'), ('default', 'dynamic')]
+    group_scheds = [("custom", "static"), ("default", "dynamic")]

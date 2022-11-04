@@ -1,43 +1,49 @@
 """ Testing for missing or wrong body length in request """
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-import unittest
 import os
+import unittest
+
+from helpers import chains, control, deproxy, remote, tempesta, tf_cfg
+from testers import functional
 
 from . import tester
 
-from testers import functional
-from helpers import tf_cfg, control, tempesta, remote, deproxy, chains
 
 def req_body_length(base, length):
-    """ Generate chain with missing or specified body length """
-    for msg in ['request', 'fwd_request']:
+    """Generate chain with missing or specified body length"""
+    for msg in ["request", "fwd_request"]:
         field = getattr(base, msg)
-        field.headers.delete_all('Content-Length')
+        field.headers.delete_all("Content-Length")
         if length != None:
-            field.headers.add('Content-Length', '%i' % length)
+            field.headers.add("Content-Length", "%i" % length)
 
     base.fwd_request.update()
     base.request.build_message()
     return base
 
-def generate_chain(method='GET', expect_400=False):
+
+def generate_chain(method="GET", expect_400=False):
     base = chains.base(method=method)
-    chain = tester.BadLengthMessageChain(request=base.request,
-                                         expected_responses=[base.response],
-                                         forwarded_request=base.fwd_request,
-                                         server_response=base.server_response)
+    chain = tester.BadLengthMessageChain(
+        request=base.request,
+        expected_responses=[base.response],
+        forwarded_request=base.fwd_request,
+        server_response=base.server_response,
+    )
     if expect_400:
-        chain.responses.append(chains.response_400(connection='close'))
+        chain.responses.append(chains.response_400(connection="close"))
     return chain
 
+
 class TesterCorrectBodyLength(tester.BadLengthDeproxy):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain(method='PUT')
+        base = generate_chain(method="PUT")
         return (base, len(base.request.body))
 
     def __init__(self, *args, **kwargs):
@@ -46,44 +52,51 @@ class TesterCorrectBodyLength(tester.BadLengthDeproxy):
         self.message_chains = [req_body_length(base[0], base[1])]
         self.cookies = []
 
+
 class TesterMissingBodyLength(TesterCorrectBodyLength):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain(method='PUT', expect_400=True)
+        base = generate_chain(method="PUT", expect_400=True)
         return (base, None)
 
+
 class TesterSmallBodyLength(TesterCorrectBodyLength):
-    """ Tester """
+    """Tester"""
+
     def create_base(self):
-        base = generate_chain(method='PUT', expect_400=True)
+        base = generate_chain(method="PUT", expect_400=True)
         return (base, len(base.request.body) - 15)
+
 
 class TesterDuplicateBodyLength(deproxy.Deproxy):
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
-        base = chains.base(method='PUT')
-        cl = base.request.headers['Content-Length']
+        base = chains.base(method="PUT")
+        cl = base.request.headers["Content-Length"]
 
-        base.request.headers.add('Content-Length', cl)
+        base.request.headers.add("Content-Length", cl)
         base.request.build_message()
 
         base.fwd_request = None
 
-        base.response = chains.response_400(connection='close')
+        base.response = chains.response_400(connection="close")
 
         self.message_chains = [base]
         self.cookies = []
+
 
 class TesterInvalidBodyLength(deproxy.Deproxy):
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
-        base = chains.base(method='PUT')
-        base.request.headers['Content-Length'] = 'invalid'
+        base = chains.base(method="PUT")
+        base.request.headers["Content-Length"] = "invalid"
         base.request.build_message()
-        base.response = chains.response_400(connection='close')
+        base.response = chains.response_400(connection="close")
         base.fwd_request = None
         self.message_chains = [base]
         self.cookies = []
+
 
 class TesterSecondBodyLength(TesterDuplicateBodyLength):
     def second_length(self, content_length):
@@ -91,15 +104,15 @@ class TesterSecondBodyLength(TesterDuplicateBodyLength):
         return "%i" % (len - 1)
 
     def expected_response(self):
-        return chains.response_400(connection='close')
+        return chains.response_400(connection="close")
 
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
-        base = chains.base(method='PUT')
-        cl = base.request.headers['Content-Length']
+        base = chains.base(method="PUT")
+        cl = base.request.headers["Content-Length"]
 
         duplicate = self.second_length(cl)
-        base.request.headers.add('Content-Length', duplicate)
+        base.request.headers.add("Content-Length", duplicate)
         base.request.build_message()
 
         base.response = self.expected_response()
@@ -111,8 +124,9 @@ class TesterSecondBodyLength(TesterDuplicateBodyLength):
 
 
 class RequestCorrectBodyLength(functional.FunctionalTest):
-    """ Wrong body length """
-    config = 'cache 0;\nblock_action error reply;\nblock_action attack reply;\n'
+    """Wrong body length"""
+
+    config = "cache 0;\nblock_action error reply;\nblock_action attack reply;\n"
 
     def create_client(self):
         self.client = tester.ClientMultipleResponses()
@@ -121,33 +135,33 @@ class RequestCorrectBodyLength(functional.FunctionalTest):
         self.tester = TesterCorrectBodyLength(self.client, self.servers)
 
     def test(self):
-        """ Test """
+        """Test"""
         self.generic_test_routine(self.config, [])
 
+
 class RequestMissingBodyLength(RequestCorrectBodyLength):
-    """ Wrong body length """
+    """Wrong body length"""
 
     def create_tester(self):
         self.tester = TesterMissingBodyLength(self.client, self.servers)
 
     def assert_tempesta(self):
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 1,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0,
-                         msg=(msg % 'responses'))
-        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
-                         msg=(msg % 'responses'))
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 1, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0, msg=(msg % "responses"))
+        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0, msg=(msg % "responses"))
+
 
 class RequestSmallBodyLength(RequestMissingBodyLength):
-    """ Wrong body length """
+    """Wrong body length"""
+
     def create_tester(self):
         self.tester = TesterSmallBodyLength(self.client, self.servers)
 
+
 class RequestDuplicateBodyLength(functional.FunctionalTest):
-    config = 'cache 0;\nblock_action error reply;\nblock_action attack reply;\n'
+    config = "cache 0;\nblock_action error reply;\nblock_action attack reply;\n"
 
     def create_client(self):
         self.client = deproxy.Client()
@@ -156,34 +170,28 @@ class RequestDuplicateBodyLength(functional.FunctionalTest):
         self.tester = TesterDuplicateBodyLength(self.client, self.servers)
 
     def test(self):
-        """ Test """
+        """Test"""
         self.generic_test_routine(self.config, [])
 
     def assert_tempesta(self):
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 1,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0,
-                         msg=(msg % 'responses'))
-        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
-                         msg=(msg % 'responses'))
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 1, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0, msg=(msg % "responses"))
+        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0, msg=(msg % "responses"))
+
 
 class RequestSecondBodyLength(RequestDuplicateBodyLength):
     def create_tester(self):
         self.tester = TesterSecondBodyLength(self.client, self.servers)
 
     def assert_tempesta(self):
-        msg = 'Tempesta have errors in processing HTTP %s.'
-        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 1,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0,
-                         msg=(msg % 'responses'))
-        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0,
-                         msg=(msg % 'requests'))
-        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0,
-                         msg=(msg % 'responses'))
+        msg = "Tempesta have errors in processing HTTP %s."
+        self.assertEqual(self.tempesta.stats.cl_msg_parsing_errors, 1, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_parsing_errors, 0, msg=(msg % "responses"))
+        self.assertEqual(self.tempesta.stats.cl_msg_other_errors, 0, msg=(msg % "requests"))
+        self.assertEqual(self.tempesta.stats.srv_msg_other_errors, 0, msg=(msg % "responses"))
+
 
 class RequestInvalidBodyLength(RequestSecondBodyLength):
     def create_tester(self):

@@ -1,17 +1,15 @@
-from helpers import control, tempesta, tf_cfg
-from testers import stress
-
-from framework import tester
-
 import os
 import unittest
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+from framework import tester
+from helpers import control, tempesta, tf_cfg
+from testers import stress
 
-pipeline_lua = \
-r"""-- example script demonstrating HTTP pipelining
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+pipeline_lua = r"""-- example script demonstrating HTTP pipelining
 
 local_init = function(args)
    local r = {}
@@ -31,8 +29,7 @@ request = function()
 end
 """
 
-lua_real = \
-r"""local_init = function(args)
+lua_real = r"""local_init = function(args)
     local r = {}
     r[1] = wrk.format("GET", "/")
     r[2] = wrk.format("GET", "/", {["Accept"] = "text/plain"})
@@ -47,8 +44,7 @@ request = function()
 end
 """
 
-lua_real2 = \
-r"""wrk.method="GET"
+lua_real2 = r"""wrk.method="GET"
 wrk.path="/get-banana/50379/x25hXoI3ZH2Bkv7h53jFBWLc_banana_20161021_teaser_1_verifiedRent.png/optimize"
 wrk.headers = {
     ["Host"] = "avatars.mds.yandex.net",
@@ -63,8 +59,7 @@ wrk.headers = {
 }
 """
 
-lua_real_pipelined = \
-r"""local r1 = {
+lua_real_pipelined = r"""local r1 = {
     method="GET",
     path="/",
     headers = {
@@ -129,8 +124,7 @@ end
 """
 
 
-lua_get_post = \
-r"""local_init = function(args)
+lua_get_post = r"""local_init = function(args)
     local r = {}
     r[1] = wrk.format("GET", "/")
     r[2] = wrk.format("GET", "/", {["Accept"] = "text/plain"})
@@ -144,8 +138,7 @@ request = function()
     return req
 end"""
 
-lua_head_get = \
-r"""local_init = function(args)
+lua_head_get = r"""local_init = function(args)
         local r = {}
         r[1] = wrk.format("HEAD", "/")
         r[2] = wrk.format("GET", "/")
@@ -157,8 +150,7 @@ request = function()
 end
 """
 
-lua_post_empty = \
-r"""wrk.method  = "POST"
+lua_post_empty = r"""wrk.method  = "POST"
 wrk.path    = "/watch/722545?wmode=7&page-url=https%3A%2F%2Fyandex.ru%2F&charset=utf-8&ut=noindex&exp=Av2_jXAScxmTDQTZg-q1uMSL6TVqJ0Hn&browser-info=ti%3A10%3Aj%3A1%3As%3A1920x1080x24%3Ask%3A1%3Aadb%3A1%3Afpr%3A345015404801%3Acn%3A1%3Aw%3A1905x893%3Az%3A180%3Ai%3A20180109175039%3Aet%3A1515509440%3Aen%3Autf-8%3Av%3A932%3Ac%3A1%3Ala%3Aen-us%3Apv%3A1%3Als%3A853358265090%3Arqn%3A25%3Arn%3A35146689%3Ahid%3A446114216%3Ads%3A0%2C0%2C167%2C10%2C5%2C0%2C0%2C%2C%2C%2C%2C%2C%3Arqnl%3A1%3Ast%3A1515509440%3Au%3A1472643187536716147%3At%3A%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81"
 wrk.headers = {
     ["Host"] = "mc.yandex.ru",
@@ -176,8 +168,7 @@ wrk.headers = {
 }
 """
 
-lua_post_small = \
-r"""local body = "some not very long text\n"
+lua_post_small = r"""local body = "some not very long text\n"
 
 wrk.method  = "POST"
 wrk.headers = {["Content-Type"]="text/plain",
@@ -187,8 +178,7 @@ wrk.body    = body
 """
 
 
-lua_mixed = \
-r"""
+lua_mixed = r"""
 -- example script demonstrating HTTP pipelining
 
 local_init = function(args)
@@ -209,21 +199,20 @@ end
 """
 
 
-
 class MixedRequests(tester.TempestaTest):
 
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'check_ports' : [
+            "id": "nginx",
+            "type": "nginx",
+            "check_ports": [
                 {
-                    "ip" : "${server_ip}",
-                    "port" : "8000",
+                    "ip": "${server_ip}",
+                    "port": "8000",
                 }
             ],
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : """
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
 pid ${pid};
 worker_processes  auto;
 
@@ -268,14 +257,14 @@ http {
 
     clients = [
         {
-            'id' : 'wrk',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            "id": "wrk",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
     ]
 
     tempesta = {
-        'config' : """
+        "config": """
 cache 0;
 server ${server_ip}:8600;
 
@@ -283,7 +272,7 @@ server ${server_ip}:8600;
     }
 
     def routine(self, lua):
-        nginx = self.get_server('nginx')
+        nginx = self.get_server("nginx")
         wrk = self.get_client("wrk")
 
         wrk.set_script("wrk", lua)
@@ -326,15 +315,17 @@ server ${server_ip}:8600;
         # Too big text to put it here explicitly
 
         text = "content " * 8192
-        lua_post_big = "local body = [[\n" + text + "]]\n\n" \
-            "wrk.method  = \"POST\"\n" \
-            "wrk.path = \"/\"\n" \
-            "wrk.headers = {\n" \
-            "   [\"Content-Type\"]=\"text/plain\",\n" \
-            "   [\"Content-Length\"]=string.len(body),\n" \
-            "   [\"Host\"] = \"localhost\"\n" \
-            "}\n" \
+        lua_post_big = (
+            "local body = [[\n" + text + "]]\n\n"
+            'wrk.method  = "POST"\n'
+            'wrk.path = "/"\n'
+            "wrk.headers = {\n"
+            '   ["Content-Type"]="text/plain",\n'
+            '   ["Content-Length"]=string.len(body),\n'
+            '   ["Host"] = "localhost"\n'
+            "}\n"
             "wrk.body    = body"
+        )
 
         self.routine(lua_post_big)
 
@@ -343,11 +334,9 @@ server ${server_ip}:8600;
 
     # nginx always send 405 for TRACE
     def test_trace(self):
-        lua_trace = \
-            "wrk.method = \"TRACE\"\n" \
-            "wrk.uri = \"/\"\n"
+        lua_trace = 'wrk.method = "TRACE"\n' 'wrk.uri = "/"\n'
 
-        nginx = self.get_server('nginx')
+        nginx = self.get_server("nginx")
         wrk = self.get_client("wrk")
 
         wrk.set_script("wrk", lua_trace)
@@ -366,8 +355,6 @@ server ${server_ip}:8600;
         self.assertGreater(wrk.statuses[405], 0)
 
     def test_connect(self):
-        lua_connect = \
-            "wrk.method = \"CONNECT\"\n" \
-            "wrk.uri = \"/\"\n"
+        lua_connect = 'wrk.method = "CONNECT"\n' 'wrk.uri = "/"\n'
 
         self.routine(lua_connect)

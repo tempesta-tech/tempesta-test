@@ -1,10 +1,10 @@
-from framework import tester, deproxy_server
-from helpers import deproxy, tempesta
+from framework import deproxy_server, tester
 from framework.templates import fill_template
+from helpers import deproxy, tempesta
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -83,55 +83,58 @@ http {
 }
 """
 
+
 class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
     """
     Simply drops one request which contains '/drop/' part in URI.
     """
+
     do_drop = True
 
     def receive_request(self, request, connection):
         uri = request.uri
-        r, close = deproxy_server.StaticDeproxyServer.receive_request(self,
-                                                        request, connection)
-        if ('/drop/' in uri and self.do_drop):
+        r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request, connection)
+        if "/drop/" in uri and self.do_drop:
             self.do_drop = False
-            return '', True
+            return "", True
 
         resp = deproxy.Response(r)
         return resp.msg, close
 
 
 def build_deproxy_drop(server, name, tester):
-    port = server['port']
-    if port == 'default':
+    port = server["port"]
+    if port == "default":
         port = tempesta.upstream_port_start_from()
     else:
         port = int(port)
     srv = None
-    rtype = server['response']
+    rtype = server["response"]
 
-    if rtype == 'static':
-        content = fill_template(server['response_content'], server)
+    if rtype == "static":
+        content = fill_template(server["response_content"], server)
         srv = DeproxyDropServer(port=port, response=content)
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
     tester.deproxy_manager.add_server(srv)
     return srv
 
-tester.register_backend('deproxy_drop', build_deproxy_drop)
+
+tester.register_backend("deproxy_drop", build_deproxy_drop)
+
 
 class NonIdempotentH2TestBase(tester.TempestaTest, base=True):
     clients = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy_h2',
-            'addr' : "${tempesta_ip}",
-            'port' : '443',
-            'ssl'  : True,
-            'ssl_hostname' : 'localhost'
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "localhost",
         }
     ]
-    
+
     requests = []
 
     def start_all(self):
@@ -142,36 +145,33 @@ class NonIdempotentH2TestBase(tester.TempestaTest, base=True):
 
     def send_requests(self, req_params, client):
         requests = []
-        headers = [
-            (':authority', 'localhost'),
-            (':scheme', 'https')
-        ]
+        headers = [(":authority", "localhost"), (":scheme", "https")]
 
         for path, method in req_params:
             req_headers = headers.copy()
-            req_headers.append((':method', method))
-            req_headers.append((':path', path))
-            if method == 'POST':
-                req_headers.append(('content-length', '0'))
+            req_headers.append((":method", method))
+            req_headers.append((":path", path))
+            if method == "POST":
+                req_headers.append(("content-length", "0"))
             requests.append(req_headers)
 
         client.make_requests(requests)
 
+
 class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'port' : '8000',
-            'req_id' : '$request_uri',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "req_id": "$request_uri",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         }
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 443 proto=h2;
         server ${server_ip}:8000 conns_n=1 weight=10;
         server ${server_ip}:8001 conns_n=1 weight=9;
@@ -186,7 +186,7 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
         """
     }
 
-    requests = [('/nip/', 'GET'), ('/regular/', 'GET')]
+    requests = [("/nip/", "GET"), ("/regular/", "GET")]
 
     def test(self):
         """
@@ -197,7 +197,7 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
         """
         self.start_all()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
 
         self.send_requests(self.requests, deproxy_cl)
         resp = deproxy_cl.wait_for_response(timeout=5)
@@ -205,29 +205,28 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
         self.assertEqual(2, len(deproxy_cl.responses))
 
         first, second = deproxy_cl.responses
-        first_upstream = first.headers.get('X-Upstream-Id')
-        second_upstream = second.headers.get('X-Upstream-Id')
+        first_upstream = first.headers.get("X-Upstream-Id")
+        second_upstream = second.headers.get("X-Upstream-Id")
         self.assertNotEqual(first_upstream, second_upstream)
+
 
 class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy_drop',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' : 
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n'
-            'Content-Type: text/html\r\n'
-            'Date: 2022-01-02\r\n'
-            'Server: deproxy\r\n\r\n'
+            "id": "deproxy",
+            "type": "deproxy_drop",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Content-Type: text/html\r\n"
+            "Date: 2022-01-02\r\n"
+            "Server: deproxy\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 443 proto=h2;
         server ${server_ip}:8000;
 
@@ -241,7 +240,7 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
         """
     }
 
-    requests = [('/nip/drop/', 'GET'), ('/regular/', 'GET')]
+    requests = [("/nip/drop/", "GET"), ("/regular/", "GET")]
 
     def start_all(self):
         NonIdempotentH2TestBase.start_all(self)
@@ -250,7 +249,7 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
     def test(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
@@ -259,28 +258,28 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
         for response in deproxy_cl.responses:
             self.assertEqual(int(response.status), 200)
 
+
 class RetryNonIdempotentPostH2Test(RetryNonIdempotentH2Test):
-    requests = [('/myform/drop/', 'POST'), ('/regular/', 'GET')]
+    requests = [("/myform/drop/", "POST"), ("/regular/", "GET")]
+
 
 class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy_drop',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' : 
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n'
-            'Content-Type: text/html\r\n'
-            'Date: 2022-01-02\r\n'
-            'Server: deproxy\r\n\r\n'
+            "id": "deproxy",
+            "type": "deproxy_drop",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Content-Type: text/html\r\n"
+            "Date: 2022-01-02\r\n"
+            "Server: deproxy\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 443 proto=h2;
         server ${server_ip}:8000;
 
@@ -293,7 +292,7 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
         """
     }
 
-    requests = [('/nip/drop/', 'GET'), ('/regular/', 'GET')]
+    requests = [("/nip/drop/", "GET"), ("/regular/", "GET")]
 
     def start_all(self):
         NonIdempotentH2TestBase.start_all(self)
@@ -302,7 +301,7 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
     def test(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
@@ -311,23 +310,17 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
         statuses = []
         for response in deproxy_cl.responses:
             statuses.append(int(response.status))
-        self.assertTrue(all(s in statuses for s in [200, 504]),
-                        '200 and 504 must present')
+        self.assertTrue(all(s in statuses for s in [200, 504]), "200 and 504 must present")
+
 
 class NotRetryNonIdempotentPostH2Test(NotRetryNonIdempotentH2Test):
-    requests = [('/myform/drop/', 'POST'), ('/regular/', 'GET')]
+    requests = [("/myform/drop/", "POST"), ("/regular/", "GET")]
+
 
 class NonIdempotentH1TestBase(tester.TempestaTest, base=True):
-    clients = [
-        {
-            'id' : 'deproxy',
-            'type' : 'deproxy',
-            'addr' : "${tempesta_ip}",
-            'port' : '80'
-        }
-    ]
+    clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
 
-    requests = ''
+    requests = ""
 
     def start_all(self):
         self.start_all_servers()
@@ -335,21 +328,21 @@ class NonIdempotentH1TestBase(tester.TempestaTest, base=True):
         self.start_all_clients()
         self.deproxy_manager.start()
 
+
 class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'port' : '8000',
-            'req_id' : '$request_uri',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "req_id": "$request_uri",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         }
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 80;
         server ${server_ip}:8000 conns_n=1 weight=10;
         server ${server_ip}:8001 conns_n=1 weight=9;
@@ -360,12 +353,14 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         """
     }
 
-    requests = 'GET /nip/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n' \
-               'GET /regular/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n'
+    requests = (
+        "GET /nip/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+        "GET /regular/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+    )
 
     def test(self):
         """
@@ -376,36 +371,35 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         """
         self.start_all()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 
         first, second = deproxy_cl.responses
-        first_upstream = first.headers.get('X-Upstream-Id')
-        second_upstream = second.headers.get('X-Upstream-Id')
+        first_upstream = first.headers.get("X-Upstream-Id")
+        second_upstream = second.headers.get("X-Upstream-Id")
         self.assertNotEqual(first_upstream, second_upstream)
+
 
 class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy_drop',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' : 
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n'
-            'Content-Type: text/html\r\n'
-            'Date: 2022-01-02\r\n'
-            'Server: deproxy\r\n\r\n'
+            "id": "deproxy",
+            "type": "deproxy_drop",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Content-Type: text/html\r\n"
+            "Date: 2022-01-02\r\n"
+            "Server: deproxy\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 80;
         server ${server_ip}:8000;
 
@@ -414,12 +408,14 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         """
     }
 
-    requests = 'GET /nip/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n' \
-               'GET /regular/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n'
+    requests = (
+        "GET /nip/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+        "GET /regular/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+    )
 
     def start_all(self):
         NonIdempotentH1TestBase.start_all(self)
@@ -433,7 +429,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         """
         self.start_all()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
@@ -442,19 +438,22 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         for response in deproxy_cl.responses:
             self.assertEqual(int(response.status), 200)
 
+
 class RetryNonIdempotentPostH1Test(RetryNonIdempotentH1Test):
-    requests = 'POST /nonidem/drop/ HTTP/1.1\r\n' \
-               'content-length: 0\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n' \
-               'GET /regular/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n'
+    requests = (
+        "POST /nonidem/drop/ HTTP/1.1\r\n"
+        "content-length: 0\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+        "GET /regular/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+    )
+
 
 class RetryNonIdempotenRevOrderH1Test(RetryNonIdempotentH1Test):
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 80;
         server ${server_ip}:8000;
 
@@ -464,32 +463,33 @@ class RetryNonIdempotenRevOrderH1Test(RetryNonIdempotentH1Test):
         """
     }
 
-    requests = 'GET /regular/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n' \
-               'GET /nip/drop/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n'
+    requests = (
+        "GET /regular/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+        "GET /nip/drop/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+    )
+
 
 class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
     backends = [
         {
-            'id' : 'deproxy',
-            'type' : 'deproxy_drop',
-            'port' : '8000',
-            'response' : 'static',
-            'response_content' : 
-            'HTTP/1.1 200 OK\r\n'
-            'Content-Length: 0\r\n'
-            'Content-Type: text/html\r\n'
-            'Date: 2022-01-02\r\n'
-            'Server: deproxy\r\n\r\n'
+            "id": "deproxy",
+            "type": "deproxy_drop",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Content-Type: text/html\r\n"
+            "Date: 2022-01-02\r\n"
+            "Server: deproxy\r\n\r\n",
         }
     ]
 
     tempesta = {
-        'config' :
-        """
+        "config": """
         listen 80;
         server ${server_ip}:8000;
         nonidempotent GET prefix "/nip/";
@@ -497,12 +497,14 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         """
     }
 
-    requests = 'GET /regular/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n' \
-               'GET /nip/drop/ HTTP/1.1\r\n' \
-               'Host: localhost\r\n' \
-               '\r\n'
+    requests = (
+        "GET /regular/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+        "GET /nip/drop/ HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n"
+    )
 
     def start_all(self):
         NonIdempotentH1TestBase.start_all(self)
@@ -511,7 +513,7 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
     def test(self):
         self.start_all()
 
-        deproxy_cl = self.get_client('deproxy')
+        deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
@@ -520,5 +522,4 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         statuses = []
         for response in deproxy_cl.responses:
             statuses.append(int(response.status))
-        self.assertTrue(all(s in statuses for s in [200, 504]),
-                        '200 and 504 must present')
+        self.assertTrue(all(s in statuses for s in [200, 504]), "200 and 504 must present")
