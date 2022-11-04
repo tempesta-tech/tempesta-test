@@ -120,6 +120,7 @@ listen 81;
 listen 82 proto=https;
 
 srv_group localhost {
+    #server ${server_ip}:8000 conns_n=6;
     server ${server_ip}:8000;
 }
 
@@ -170,6 +171,7 @@ pid ${pid};
 worker_processes  auto;
 
 events {
+    #worker_connections   16;
     worker_connections   1024;
     use epoll;
 }
@@ -354,6 +356,166 @@ class WssPingProxy(WssPing):
         p1.terminate()
         self.get_server("nginx").stop_nginx()
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
+
+
+import time
+
+
+class WS2(WsPing):
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
+
+    tempesta = {
+        "config": TEMPESTA_NGINX_CONFIG % "",
+    }
+
+    clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "81"}]
+
+    def setUp(self):
+        for i in range(30):
+            self.clients.append(
+                {
+                    "id": "deproxy-" + str(i),
+                    "type": "deproxy",
+                    "addr": "${tempesta_ip}",
+                    "port": "81",
+                }
+            )
+        WsPing.setUp(self)
+
+    """
+    Need to cause re-scheduling. Use `server ${server_ip}:8000 conns_n=6;`
+    or something else.
+    """
+
+    def test_ws_resched(self):
+        p1 = Process(target=self.run_ws, args=(8099, 1, True))
+        p1.start()
+
+        request = (
+            "GET /1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+        )
+
+        time.sleep(1)
+        self.start_tempesta()
+        self.deproxy_manager.start()
+
+        for i in range(20):
+            deproxy_cl = self.get_client("deproxy-" + str(i))
+            deproxy_cl.start()
+            deproxy_cl.make_requests(request)
+
+        deproxy_cl.handle_close()
+        deproxy_cl.stop()
+        time.sleep(1)
+        p1.terminate()
+        self.get_server("nginx").stop_nginx()
+        self.tearDown()
+
+    """
+    crash in main
+    """
+
+    def test_ws_stop(self):
+        p1 = Process(target=self.run_ws, args=(8099, 1, True))
+        p1.start()
+
+        request = (
+            "GET /1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+        )
+
+        time.sleep(1)
+        self.start_tempesta()
+        self.deproxy_manager.start()
+
+        for i in range(20):
+            deproxy_cl = self.get_client("deproxy-" + str(i))
+            deproxy_cl.start()
+            deproxy_cl.make_requests(request)
+            if i == 15:
+                self.tearDown()
+
+        deproxy_cl.handle_close()
+        deproxy_cl.stop()
+        time.sleep(1)
+        p1.terminate()
+        self.get_server("nginx").stop_nginx()
+        self.tearDown()
+
+    """
+    Leak connection. On multiple executions can lead to panic.
+    """
+
+    def test_ws_pipelined(self):
+        p1 = Process(target=self.run_ws, args=(8099, 1, True))
+        p1.start()
+
+        request = (
+            "GET /0 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+            "GET /1 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+            "GET /2 HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+        )
+
+        time.sleep(1)
+        self.start_tempesta()
+        self.deproxy_manager.start()
+
+        deproxy_cl = self.get_client("deproxy-" + str(0))
+        deproxy_cl.start()
+        deproxy_cl.make_requests(request)
+        resp = deproxy_cl.wait_for_response(timeout=5)
+        print("See dmesg")
+        p1.terminate()
+        self.get_server("nginx").stop_nginx()
+        self.tearDown()
 
 
 class CacheTest(WssPing):
