@@ -6,10 +6,6 @@
             "reason" : "Problems with stap, see tempesta-test#45"
         },
         {
-            "name" : "sessions.test_sticky_sess_stress.OneClient",
-            "reason" : ""
-        },
-        {
             "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
             "reason" : "Invalid request is parsed as two requests. The second response is not supported by current deproxy architecture."
         },
@@ -90,22 +86,6 @@
             "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
         },
         {
-            "name" : "sessions.test_redir_mark.RedirectMark.test_rmark_wo_or_incorrect_cookie",
-            "reason" : "#861: TCP: reset blocked connections"
-        },
-        {
-            "name" : "sessions.test_redir_mark.RedirectMark.test_rmark_invalid",
-            "reason" : "#861: TCP: reset blocked connections"
-        },
-        {
-            "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_wo_or_incorrect_cookie",
-            "reason" : "#861: TCP: reset blocked connections"
-        },
-        {
-            "name" : "sessions.test_redir_mark.RedirectMarkVhost.test_rmark_invalid",
-            "reason" : "#861: TCP: reset blocked connections"
-        },
-        {
             "name" : "flacky_net",
             "reason" : "Disabled by issue #114"
         },
@@ -176,10 +156,6 @@
         {
             "name" : "selftests.test_deproxy.DeproxyTestH2.test_bodyless_multiplexed",
             "reason" : "Disabled by issue #1669"
-        },
-        {
-            "name" : "sessions",
-            "reason" : "Disabled by issue #37"
         },
         {
             "name" : "tls.test_tls_basic.TlsBasic.test_connection_close",
@@ -460,7 +436,30 @@
         {
             "name" : "http_general.test_headers.BackendSetCoookie",
             "reason" : "Disabled by issue #1690"
+        },
+        {
+            "name" : "sessions.test_cookies",
+            "reason" : "Disabled by issue #923"
+        },
+        {
+            "name" : "sessions.test_js_challenge",
+            "reason" : "Disabled by issue #923"
+        },
+        {
+            "name" : "sessions.test_learn",
+            "reason" : "Disabled by issue #923"
+        },
+        {
+            "name" : "sessions.test_redir_mark",
+            "reason" : "Disabled by issue #923"
+        },
+        {
+            "name" : "sessions.test_sessions",
+            "reason" : "Disabled by issue #923"
+        },
+        {
+            "name" : "sessions.test_sticky_sess_stress",
+            "reason" : "Disabled by issue #923"
         }
-
     ]
 }
