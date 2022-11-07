@@ -1,5 +1,11 @@
 #! /usr/bin/python3
 
+"""
+    Separate runner - script written to avoid bug:
+    filedescriptor out of range in select()
+    https://github.com/secdev/scapy/issues/3696
+"""
+
 import os, sys
 from subprocess import Popen
 

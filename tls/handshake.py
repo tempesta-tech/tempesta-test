@@ -56,6 +56,13 @@ def x509_check_issuer(cert, issuer):
 
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
+    
+    """
+    Our modified TLSClient with overrided states
+    to investingate what happens - run tests with 3x -v
+    for more state change info
+    """
+    
     def __init__(self, *args, **kwargs):
         self.cached_secrets = kwargs.pop("cached_secrets", None)
         self.chunk = kwargs.pop("chunk", None)
@@ -334,6 +341,13 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
 
 class TlsHandshake:
+
+    """
+    TLSHandshake class to manage TLSAutomaton
+    Creates ClientHello and run TLSHandshake
+    Save Status/Packets/Other info about
+    """
+
     def __init__(self, chunk=None, debug=(tf_cfg.v_level() - 1)):
         self.server = "127.0.0.1"
         self.hs_state = False
@@ -409,21 +423,24 @@ class TlsHandshake:
         return ch
 
     def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
+        
         """TLS Handshake Resumption
 
         Args:
-            cached_secrets (bytes): _description_
-            automaton (_type_, optional): _description_. Defaults to ModifiedTLSClientAutomaton.
+            cached_secrets (bytes): Cached secrets to restore session
+            automaton (_type_, optional): Can use modified Automaton. Defaults to ModifiedTLSClientAutomaton.
 
         Returns:
-            _type_: _description_
+            bool: TLSHandshake result
+            Returns true if ServerFinished recieved
         """
+
         c_h = self.create_hello(resumption=True)
         if self.send_data is None:
             self.send_data = [
                 TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n")
             ]
-        # tf_cfg.dbg(2, f'self.data={self.data}')
+
         self.hs = automaton(
             client_hello=c_h,
             server=self.server,
@@ -449,7 +466,8 @@ class TlsHandshake:
             Defaults to ModifiedTLSClientAutomaton.
 
         Returns:
-            bool: Handshake result
+            bool: TLSHandshake result
+            Returns true if ServerFinished recieved
         """
         c_h = self.create_hello()
         if self.send_data is None:
