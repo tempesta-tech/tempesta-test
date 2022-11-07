@@ -3,8 +3,8 @@ import re
 import time
 
 from framework import tester
-from framework.mixins import NetfilterMarkMixin
 from framework.curl_client import CurlResponse
+from framework.mixins import NetfilterMarkMixin
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -539,6 +539,33 @@ class TestWordpressSiteH2(BaseWordpressTest):
         ]:
             with self.subTest("GET", uri=uri):
                 client.options = [cmd_args + uri]
+                client.start()
+                self.wait_while_busy(client)
+                client.stop()
+                self.assertNotIn("Some requests were not processed", client.response_msg)
+                self.assertFalse(client.response_msg)
+
+    def test_get_admin_resource_with_assets(self):
+        self.start_all()
+        client = self.get_client("nghttp")
+        cmd_args = client.options[0]
+
+        # Login with cURL to get authentication cookies
+        self.login()
+        cookie = self.get_client("login").cookie_string
+        self.assertTrue(cookie)
+
+        for uri in [
+            "/wp-admin/index.php",  # Dashboard
+            "/wp-admin/profile.php",
+            "/wp-admin/edit-comments.php",
+            "/wp-admin/edit.php",
+            "/wp-admin/post.php?post=2&action=edit",  # About page
+            "/wp-admin/post.php?post=3&action=edit",  # long text page
+        ]:
+            with self.subTest("GET", uri=uri):
+                # Construct command with the Cookie header
+                client.options = [f"{cmd_args}'{uri}' --header 'Cookie: {cookie}'"]
                 client.start()
                 self.wait_while_busy(client)
                 client.stop()
