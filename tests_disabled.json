@@ -54,6 +54,10 @@
             "reason" : "Disabled by issue #1659"
         },
         {
+            "name" : "long_body.test_response_wrong_length.ResponseMissingEmptyBodyLength",
+            "reason" : "Depricated by merging #1418"
+        },
+        {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
             "reason" : "Too many 502, sometimes no good answers at all"
         },
