@@ -6,11 +6,9 @@ __license__ = "GPL2"
 
 import os
 
-from framework import curl_client
 from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
 from helpers import remote, tf_cfg
-from t_long_body import utils
 from t_stress.test_stress import CustomMtuMixin
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
@@ -78,16 +76,14 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
 
     clients = [
         {
-            "id": "deproxy-http",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
+            "id": "curl-http",
+            "type": "curl",
+            "addr": "${tempesta_ip}:80",
         },
         {
-            "id": "deproxy-https",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "443",
+            "id": "curl-https",
+            "type": "curl",
+            "addr": "${tempesta_ip}:443",
             "ssl": True,
         },
         {
@@ -119,30 +115,17 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
 
-    def _test(self, client_id: str, header: str, body: str):
+    def _test(self, client_id: str, header: str):
         """Send request with long body and check that Tempesta does not crash."""
         self.start_all_services(client=False)
 
         client = self.get_client(client_id)
-        if isinstance(client, curl_client.CurlClient):
-            client.options = [f" --data-binary @'{self.abs_path}'"]
-            client.start()
-            client.wait_for_finish()
-            client.stop()
-        else:
-            client.start()
-            client.send_request(
-                request=(
-                    "POST / HTTP/1.1\r\n"
-                    + "Host: localhost\r\n"
-                    + "Content-type: text/html\r\n"
-                    + f"{header}\r\n"
-                    + "\r\n"
-                    + body
-                ),
-                expected_status_code="200",
-            )
+        client.options = [f" --data-binary @'{self.abs_path}' -H '{header}' -H 'Expect: '"]
+        client.start()
+        client.wait_for_finish()
+        client.stop()
 
+        self.assertEqual(client.last_response.status, 200)
         tempesta = self.get_tempesta()
         tempesta.get_stats()
 
@@ -155,42 +138,22 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         )
 
     def test_http(self):
-        self._test(
-            client_id="deproxy-http", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE
-        )
+        self._test(client_id="curl-http", header=f"Content-Length: {BODY_SIZE}")
 
     def test_https(self):
-        self._test(
-            client_id="deproxy-https", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE
-        )
+        self._test(client_id="curl-https", header=f"Content-Length: {BODY_SIZE}")
 
     def test_h2(self):
-        self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}", body="x" * BODY_SIZE)
-
-    def test_one_big_chunk_in_request_http(self):
-        self._test(
-            client_id="deproxy-http",
-            header="Transfer-Encoding: chunked",
-            body=utils.create_one_big_chunk(BODY_SIZE),
-        )
-
-    def test_one_big_chunk_in_request_https(self):
-        self._test(
-            client_id="deproxy-https",
-            header="Transfer-Encoding: chunked",
-            body=utils.create_one_big_chunk(BODY_SIZE),
-        )
+        self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}")
 
     def test_many_big_chunks_in_request_http(self):
         self._test(
-            client_id="deproxy-http",
+            client_id="curl-http",
             header="Transfer-Encoding: chunked",
-            body=utils.create_many_big_chunks(BODY_SIZE),
         )
 
     def test_many_big_chunks_in_request_https(self):
         self._test(
-            client_id="deproxy-https",
+            client_id="curl-https",
             header="Transfer-Encoding: chunked",
-            body=utils.create_many_big_chunks(BODY_SIZE),
         )

@@ -446,6 +446,10 @@
             "reason": "Disable by issue #1703"
         },
         {
+            "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
+            "reason": "Disable by issue #1714"
+        },
+        {
             "name": "t_stress.test_stress.RequestStress.test_h2_put_request",
             "reason": "Disable by issue #1710"
         },
