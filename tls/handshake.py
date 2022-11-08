@@ -69,9 +69,18 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.send_data = []
         self.server_data = []
         self.hs_state = False
-        self.hs_final = False
         self.session_ticket = None
+        self.verbose = False
+        if tf_cfg.v_level() > 2:
+            self.verbose = True
         TLSClientAutomaton.__init__(self, *args, **kwargs)
+
+    def vprint(self, s=""):
+        if self.verbose:
+            if conf.interactive:
+                log_interactive.info("> %s", s)
+            else:
+                print("> %s" % s)
 
     def set_data(self, _data):
         self.send_data = _data
@@ -255,7 +264,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         # self.socket.shutdown(1)
         tf_cfg.dbg(2, "Closing client socket...")
         self.socket.close()
-        self.hs_final = True
         tf_cfg.dbg(2, "Ending TLS client automaton.")
 
     @ATMT.state()
@@ -290,20 +298,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     def HANDLED_SERVERDATA(self):
         self.master_secret = self.cur_session.master_secret
         raise self.WAIT_CLIENTDATA()
-
-    @ATMT.state()
-    def CONNECT(self):
-        s = socket.socket(self.remote_family, socket.SOCK_STREAM)
-        tf_cfg.dbg(2, "Trying to connect on %s:%d" % (self.remote_ip, self.remote_port))
-        s.connect((self.remote_ip, self.remote_port))
-        self.socket = s
-        self.local_ip, self.local_port = self.socket.getsockname()[:2]
-        if self.cur_session.advertised_tls_version in [0x0200, 0x0002]:
-            raise self.SSLv2_PREPARE_CLIENTHELLO()
-        elif self.cur_session.advertised_tls_version >= 0x0304:
-            raise self.TLS13_START()
-        else:
-            raise self.PREPARE_CLIENTFLIGHT1()
 
     @ATMT.state()
     def HANDLED_SERVERFINISHED(self):
