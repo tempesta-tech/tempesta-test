@@ -127,11 +127,11 @@ class TlsHandshakeTest(tester.TempestaTest):
         """
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.sni = "bad.server.name"
+        hs12.sni = "badservername"
         hs12.do_12()
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
-        self.assertEqual(self.oops.warn_count("requested unknown server name '.server.name'"), 1,
+        self.assertEqual(self.oops.warn_count("requested unknown server name 'badservername'"), 1,
                          "Bad SNI isn't logged")
 
     @dmesg.unlimited_rate_on_tempesta_node
