@@ -70,13 +70,16 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.server_data = []
         self.hs_state = False
         self.session_ticket = None
-        self.verbose = False
-        if tf_cfg.v_level() > 2:
-            self.verbose = True
         TLSClientAutomaton.__init__(self, *args, **kwargs)
 
     def vprint(self, s=""):
-        if self.verbose:
+        """
+        Call output only when verbose level is 3
+
+        Args:
+            s (str, optional):Output string. Defaults to "".
+        """
+        if tf_cfg.v_level() > 2:
             if conf.interactive:
                 log_interactive.info("> %s", s)
             else:
@@ -99,15 +102,10 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         ready.wait()
 
     @ATMT.state()
-    def RECEIVED_SERVERFLIGHT1(self):
-        pass
-
-    @ATMT.state()
     def TLSALERT_RECIEVED(self):
         tf_cfg.dbg(2, "Recieve TLSAlert from the server...")
         self.hs_state = False
         raise TLSAlert
-        raise self.CLOSE_NOTIFY()
 
     @ATMT.state()
     def TLSFINISHED_REC(self):
@@ -115,7 +113,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.hs_state = False
         tf_cfg.dbg(3, "\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n")
 
-    @ATMT.condition(RECEIVED_SERVERFLIGHT1, prio=1)
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT1, prio=1)
     def should_handle_ServerHello(self):
         """
         XXX We should check the ServerHello attributes for discrepancies with
@@ -232,18 +230,14 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         raise self.INIT_TLS_SESSION()
 
     @ATMT.state()
-    def RECEIVED_SERVERFLIGHT2(self):
-        pass
-
-    @ATMT.state()
     def RECEIVED_TICKET(self):
         self.session_ticket = self.cur_pkt
 
-    @ATMT.condition(RECEIVED_SERVERFLIGHT2, prio=2)
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT2, prio=2)
     def should_handle_SessionTicket(self):
         self.raise_on_packet(TLSNewSessionTicket, self.RECEIVED_TICKET)
 
-    @ATMT.condition(RECEIVED_SERVERFLIGHT2)
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT2)
     def should_handle_ChangeCipherSpec(self):
         self.raise_on_packet(TLSChangeCipherSpec, self.HANDLED_CHANGECIPHERSPEC)
 
@@ -273,10 +267,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             self.add_record()
             self.add_msg(msg)
             raise self.ADDED_CLIENTDATA()
-
-    @ATMT.state()
-    def RECEIVED_SERVERDATA(self):
-        pass
 
     def flush_records(self):
 
