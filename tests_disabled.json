@@ -434,28 +434,12 @@
             "reason": "Does not work, issue 1396"
         },
         {
-            "name" : "t_long_body.test_long_response.LongBodyInResponse.test_h2_one_big_chunk",
-            "reason": "Disable by issue #1418"
-        },
-        {
-            "name" : "t_long_body.test_long_response.LongBodyInResponse.test_h2_many_big_chunks",
-            "reason": "Disable by issue #1418"
-        },
-        {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
             "reason": "Disable by issue #1703"
         },
         {
             "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
             "reason": "Disable by issue #1714"
-        },
-        {
-            "name": "t_stress.test_stress.RequestStress.test_h2_put_request",
-            "reason": "Disable by issue #1710"
-        },
-        {
-            "name": "t_wrong_body_length.test_response_wrong_length.ResponseMissingEmptyBodyLength",
-            "reason": "Disable by issue #1418"
         }
     ]
 }
