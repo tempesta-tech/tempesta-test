@@ -78,6 +78,7 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
         client.start()
         self.wait_while_busy(client)
         client.stop()
+        self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
 
 class TlsWordpressStress(BaseWorpressStress):
