@@ -68,6 +68,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.chunk = kwargs.pop("chunk", None)
         self.send_data = []
         self.server_data = []
+        self.full_hs = False
         self.hs_state = False
         self.session_ticket = None
         TLSClientAutomaton.__init__(self, *args, **kwargs)
@@ -195,6 +196,11 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         if not self.cur_session.prcs.key_exchange.anonymous:
             self.raise_on_packet(TLSCertificate, self.HANDLED_SERVERCERTIFICATE)
         raise self.WAITING_RECORDS()
+
+    @ATMT.state()
+    def HANDLED_SERVERCERTIFICATE(self):
+        # If certificate recieved - we suppose its a full handshake
+        self.full_hs = True
 
     @ATMT.state()
     def HANDLED_SERVERHELLO(self):
