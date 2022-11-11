@@ -107,12 +107,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.hs_state = False
         raise TLSAlert
 
-    @ATMT.state()
-    def TLSFINISHED_REC(self):
-        tf_cfg.dbg(2, "Recieve TLSFinished...")
-        self.hs_state = False
-        tf_cfg.dbg(3, "\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n")
-
     @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT1, prio=1)
     def should_handle_ServerHello(self):
         """
@@ -186,13 +180,13 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                 # Socket mode
                 self.oi.tls.send(p.data)
             else:
-                tf_cfg.dbg(2, "> Received: %r" % p.data)
+                tf_cfg.dbg(3, "> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
             self.server_data.append(p)
-            tf_cfg.dbg(2, "> Received: %r" % p)
+            tf_cfg.dbg(3, "> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         else:
-            tf_cfg.dbg(2, "> Received: %r" % p)
+            tf_cfg.dbg(3, "> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
 
