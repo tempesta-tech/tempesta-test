@@ -103,7 +103,6 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         hs12 = TlsHandshake()
         hs12.sni = "a" * 1000
-        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         hs12.do_12()
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
@@ -140,7 +139,6 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12 = TlsHandshake()
         # Generate bad extension mismatching length and actual data.
         hs12.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=[0x0201, 0x0401, 0x0501, 0x0601, 0x0403],len=11)
-        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         hs12.do_12()
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
@@ -151,7 +149,6 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_bad_elliptic_curves(self):
         self.start_all()
         hs12 = TlsHandshake()
-        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         hs12.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=['sect163k1'])
         hs12.do_12()
         self.oops_ignore = ['WARNING']
@@ -165,7 +162,6 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12 = TlsHandshake()
 
         hs12.renegotiation_info = TLS_Ext_RenegotiationInfo(renegotiated_connection="foo", type=65281)
-        # Tempesta must send a TLS alerts raising TLSProtocolError exception.
         hs12.do_12()
         self.oops_ignore = ['WARNING']
         self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
