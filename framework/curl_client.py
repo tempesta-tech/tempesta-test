@@ -5,6 +5,7 @@ import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -203,6 +204,13 @@ class CurlClient(CurlArguments, client.Client):
     def headers_dump_path(self):
         """Path do dump received headers."""
         return Path(self.workdir) / "curl-default.hdr"
+
+    @property
+    def cookie_string(self) -> str:
+        """Saved cookies name-value pairs: 'name1=value; name2=value'."""
+        jar = MozillaCookieJar()
+        jar.load(self.cookie_jar_path, ignore_discard=True, ignore_expires=True)
+        return "; ".join([f"{cookie.name}={cookie.value}" for cookie in jar])
 
     def clear_cookies(self):
         """Delete cookies from previous runs."""
