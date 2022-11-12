@@ -235,10 +235,10 @@ class TlsVhostConfusion(tester.TempestaTest):
         
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
-        # In our case we check abbreviated handshake is failed
         hs_abb = TlsHandshake()
         hs_abb.ticket_data = hs.hs.session_ticket.ticket
         hs_abb.sni = "tempesta.com"
+        hs.send_data = []
         hs_abb.do_12_res(cached_secrets)  # Try abbreviated handshake
         self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
 
@@ -379,14 +379,12 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
 
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
-        hs = TlsHandshake()
-        hs.ticket_data = ticket
-        hs.session_id = "\x39" * 32
-        hs.sni = "tempesta.com"
-        hs.send_data = []
-        # Abbreviated handshake with different SNI must fail
-        res = hs.do_12_res(cached_secrets)
-        self.assertFalse(res, "Wrong handshake with different SNI result: %s" % res)
+        hs_abb = TlsHandshake()
+        hs_abb.ticket_data = ticket
+        hs_abb.sni = "tempesta.com"
+        hs_abb.send_data = []
+        hs_abb.do_12_res(cached_secrets)
+        self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
 
 
 class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):

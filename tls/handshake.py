@@ -204,7 +204,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERHELLO(self):
-        s = self.cur_session
         if self.cached_secrets:
             """
             Session resumption. Initiate pending conntections state.
