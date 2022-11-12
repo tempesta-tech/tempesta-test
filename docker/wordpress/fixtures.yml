@@ -8,8 +8,7 @@
 
 ## Users
 Hellonico\Fixtures\Entity\User:
-  user{1..20}:
-    user_login (unique): <username()> # '(unique)' is required
+  default_user (template):
     user_pass: secret
     user_email: <safeEmail()>
     user_url: <url()>
@@ -17,7 +16,6 @@ Hellonico\Fixtures\Entity\User:
     first_name: <firstName()>
     last_name: <lastName()>
     description: <sentence()>
-    role: <randomElement(['subscriber', 'editor'])>
     meta:
       phone_number: <phoneNumber()>
       address: <streetAddress()>
@@ -26,6 +24,16 @@ Hellonico\Fixtures\Entity\User:
     acf:
       facebook_url: <url()>
       twitter_url: <url()>
+  subscriber (extends default_user):
+    user_login: 'subscriber'
+    role: 'subscriber'
+  editor (extends default_user):
+    user_login: 'editor'
+    role: 'editor'
+  user{1..20} (extends default_user):
+    user_login (unique): <username()> # '(unique)' is required
+    role: <randomElement(['subscriber', 'editor'])>
+
 
 ## Attachments
 Hellonico\Fixtures\Entity\Attachment:

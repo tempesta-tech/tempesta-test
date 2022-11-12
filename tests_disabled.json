@@ -50,6 +50,10 @@
             "reason" : "Disabled by issue #1659"
         },
         {
+            "name" : "long_body.test_response_wrong_length.ResponseMissingEmptyBodyLength",
+            "reason" : "Depricated by merging #1418"
+        },
+        {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
             "reason" : "Too many 502, sometimes no good answers at all"
         },
@@ -458,8 +462,36 @@
             "reason" : "Disabled by issue #923"
         },
         {
-            "name" : "sessions.test_sticky_sess_stress",
-            "reason" : "Disabled by issue #923"
+            "name": "sessions.test_sticky_sess_stress",
+            "reason": "Disabled by issue #923"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_auth_not_cached",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_not_cached_for_autheticated_user",
+            "reason": "Disable by issue #1690"
+        },        
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_auth_not_cached",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_blog_post_flow",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2",
+            "reason": "Disable by issue #1669"
+        },
+        {
+            "name" : "t_stress.test_wordpress.H2WordpressStress",
+            "reason": "Disable by issue #1703 - can cause kernel panic"
         }
     ]
 }

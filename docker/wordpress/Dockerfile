@@ -41,6 +41,13 @@ COPY html "$WORDPRESS_DIR"
 COPY --chown=www-data fixtures.yml /var/www/fixtures.yml
 RUN wp fixtures load --debug --path="${WORDPRESS_DIR}" --file=/var/www/fixtures.yml
 
+# Apply patches
+RUN \
+    ## Prevent 429 TOO_MANY_REQUESTS when posting comments
+    echo "add_filter( 'comment_flood_filter', '__return_false' );"  >> "${WORDPRESS_DIR}/wp-includes/comment.php" ; \
+    ## Disable "/wp-admin/admin-ajax.php" requests referer verification
+    echo "function check_ajax_referer() { return true; }" >> "${WORDPRESS_DIR}/wp-includes/comment.php"
+
 WORKDIR /var/www/html
 ENTRYPOINT ["tt-docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
