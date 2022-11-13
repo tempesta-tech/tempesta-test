@@ -588,7 +588,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         def handshake(sni):
             hs = TlsHandshake()
             hs.sni = sni
-            hs.do_12()
+            self.assertTrue(hs.do_12(), "Wrong handshake result")
 
         san_iter = cycle(
             [
@@ -608,15 +608,6 @@ class TlsCertSelectBySan(tester.TempestaTest):
             self.get_tempesta().reload()
 
             handshake(next(sni_iter))
-            # try:
-            # except tls.TLSProtocolError:
-            #     raise Exception(f"SNI should match to the current certificate [i={i}]")
-
-            # with self.assertRaises(
-            #     tls.TLSProtocolError, msg=f"SNI should not match to the current certificate [i={i}]"
-            # ):
-            #     handshake(next(sni_iter))
-
             next(sni_iter)  # additional shift to alternate the order
 
 
