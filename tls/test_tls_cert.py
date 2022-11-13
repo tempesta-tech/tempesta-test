@@ -460,8 +460,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
         """
         hs = TlsHandshake()
         hs.sni = sni
-        with self.assertRaises(tls.TLSProtocolError):
-            hs.do_12()
+        hs.do_12()
+        self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED", "Alert not recieved")
 
     def test_sni_matched(self):
         """SAN certificate matches the passed SNI."""
