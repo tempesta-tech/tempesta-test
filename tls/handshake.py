@@ -256,7 +256,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         # did not wait for us to shutdown after answering our data query.
         # self.socket.shutdown(1)
         tf_cfg.dbg(2, "Closing client socket...")
-        self.socket.close()
         tf_cfg.dbg(2, "Ending TLS client automaton.")
 
     @ATMT.state()
@@ -266,6 +265,8 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             self.add_record()
             self.add_msg(msg)
             raise self.ADDED_CLIENTDATA()
+        else:
+            raise self.CLOSE_NOTIFY()
 
     def flush_records(self):
 
@@ -437,7 +438,6 @@ class TlsHandshake:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
-        self.hs.socket.close()
         return self.hs.hs_state
 
     def do_12(self, automaton=ModifiedTLSClientAutomaton):
@@ -473,7 +473,6 @@ class TlsHandshake:
         tf_cfg.dbg(2, f"Fin_state: {self.hs.state.state}")
         tf_cfg.dbg(2, f"Server_data: {self.hs.server_data}")
         tf_cfg.dbg(2, f"Session_ticket: {type(self.hs.session_ticket)}")
-        self.hs.socket.close()
         return self.hs.hs_state
 
 

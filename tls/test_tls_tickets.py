@@ -239,8 +239,9 @@ class TlsVhostConfusion(tester.TempestaTest):
         hs_abb.ticket_data = hs.hs.session_ticket.ticket
         hs_abb.sni = "tempesta.com"
         hs.send_data = []
-        hs_abb.do_12_res(cached_secrets)  # Try abbreviated handshake
+        res = hs_abb.do_12_res(cached_secrets)  # Try abbreviated handshake
         self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
+        self.assertFalse(res, "Wrong handshake result")
 
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
@@ -383,8 +384,9 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         hs_abb.ticket_data = ticket
         hs_abb.sni = "tempesta.com"
         hs_abb.send_data = []
-        hs_abb.do_12_res(cached_secrets)
+        res = hs_abb.do_12_res(cached_secrets)
         self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
+        self.assertFalse(res, "Wrong handshake result")
 
 
 class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):
