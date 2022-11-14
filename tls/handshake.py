@@ -104,7 +104,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def TLSALERT_RECIEVED(self):
-        tf_cfg.dbg(2, "Recieve TLSAlert from the server...")
+        tf_cfg.dbg(3, "Recieve TLSAlert from the server...")
         self.hs_state = False
         raise TLSAlert
 
@@ -154,7 +154,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         p = self.buffer_in[0]
         tf_cfg.dbg(3, type(p))
         if isinstance(p, _TLSEncryptedContent):
-            tf_cfg.dbg(2, "_TLSEncryptedContent DETECTED")
+            tf_cfg.dbg(3, "_TLSEncryptedContent DETECTED")
             # self.cur_session.show2()
         if isinstance(p, TLSApplicationData):
             if self.is_atmt_socket:
@@ -225,7 +225,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state(initial=True)
     def INITIAL(self):
-        tf_cfg.dbg(2, "Starting TLS client automaton.")
+        tf_cfg.dbg(3, "Starting TLS client automaton.")
         raise self.INIT_TLS_SESSION()
 
     @ATMT.state()
@@ -255,8 +255,8 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         # We might call shutdown, but it may happen that the server
         # did not wait for us to shutdown after answering our data query.
         # self.socket.shutdown(1)
-        tf_cfg.dbg(2, "Closing client socket...")
-        tf_cfg.dbg(2, "Ending TLS client automaton.")
+        tf_cfg.dbg(3, "Closing client socket...")
+        tf_cfg.dbg(3, "Ending TLS client automaton.")
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
@@ -274,7 +274,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         Send all buffered records and update the session accordingly.
         """
         if self.chunk is not None:
-            tf_cfg.dbg(2, "Trying to send data by chunk")
+            tf_cfg.dbg(3, "Trying to send data by chunk")
             _s = b"".join(p.raw_stateful() for p in self.buffer_out)
             n = self.chunk
             for chunk in [_s[i : i + n] for i in range(0, len(_s), n)]:
@@ -298,7 +298,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             if self.server_cert is not None and len(self.server_cert) > 0:
                 tf_cfg.dbg(3, self.server_cert[0])
         if not self.cached_secrets:
-            tf_cfg.dbg(2, "TLS handshake completed!")
+            tf_cfg.dbg(3, "TLS handshake completed!")
         self.hs_state = True
 
     @ATMT.condition(HANDLED_SERVERFINISHED)
@@ -374,13 +374,13 @@ class TlsHandshake:
             _ciphers = []
             for key in suites._tls_cipher_suites_cls:
                 if key in self.ciphers:
-                    tf_cfg.dbg(2, key, "->", suites._tls_cipher_suites_cls[key])
+                    tf_cfg.dbg(3, key, "->", suites._tls_cipher_suites_cls[key])
                     _ciphers += [suites._tls_cipher_suites_cls[key]]
             self.ciphers = _ciphers
         except KeyError:
             pass
         except AttributeError as e:
-            tf_cfg.dbg(2, "Use default ciphers")
+            tf_cfg.dbg(3, "Use default ciphers")
             self.ciphers = [TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]
             self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
@@ -470,9 +470,9 @@ class TlsHandshake:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
-        tf_cfg.dbg(2, f"Fin_state: {self.hs.state.state}")
-        tf_cfg.dbg(2, f"Server_data: {self.hs.server_data}")
-        tf_cfg.dbg(2, f"Session_ticket: {type(self.hs.session_ticket)}")
+        tf_cfg.dbg(3, f"Fin_state: {self.hs.state.state}")
+        tf_cfg.dbg(3, f"Server_data: {self.hs.server_data}")
+        tf_cfg.dbg(3, f"Session_ticket: {type(self.hs.session_ticket)}")
         return self.hs.hs_state
 
 
