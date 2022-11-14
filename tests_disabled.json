@@ -38,32 +38,12 @@
             "reason" : "Read errors"
         },
         {
-            "name" : "long_body.test_long_response.ResponseTest1M",
-            "reason" : "Disabled by issue #1659"
-        },
-        {
-            "name" : "long_body.test_long_response.ResponseTest1k",
-            "reason" : "Disabled by issue #1659"
-        },
-        {
-            "name" : "long_body.test_long_request.RequestTest1M",
-            "reason" : "Disabled by issue #1659"
-        },
-        {
-            "name" : "long_body.test_long_request.RequestTest1k",
-            "reason" : "Disabled by issue #1659"
-        },
-        {
-            "name" : "long_body.test_response_wrong_length.ResponseMissingEmptyBodyLength",
-            "reason" : "Depricated by merging #1418"
-        },
-        {
             "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
             "reason" : "Too many 502, sometimes no good answers at all"
         },
         {
-            "name" : "long_body.test_response_wrong_length.ResponseSmallBodyLength",
-            "reason" : ""
+            "name" : "t_wrong_body_length.test_response_wrong_length.ResponseSmallBodyLength",
+            "reason" : "Disabled by issue #1752"
         },
         {
             "name" : "sched.test_ratio_dynamic.RatioDynamicMax",
@@ -354,11 +334,19 @@
             "reason": "Disabled by issue #286"
         },
         {
-            "name" : "long_body.test_request_wrong_length.RequestMissingBodyLength",
+            "name" : "t_wrong_body_length.test_request_wrong_length.RequestMissingBodyLength",
             "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
         },
         {
-            "name" : "long_body.test_request_wrong_length.RequestSmallBodyLength",
+            "name" : "t_wrong_body_length.test_request_wrong_length.RequestSmallBodyLength",
+            "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
+        },
+        {
+            "name" : "t_wrong_body_length.test_request_wrong_length.RequestMissingBodyLength",
+            "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
+        },
+        {
+            "name" : "t_wrong_body_length.test_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
         },
         {
@@ -450,6 +438,14 @@
             "reason": "Does not work, issue 1396"
         },
         {
+            "name": "t_long_body.test_long_response.LongBodyInResponse",
+            "reason": "Disable by issue #1703"
+        },
+        {
+            "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
+            "reason": "Disable by issue #1714"
+        },
+        {
             "name" : "selftests.test_framework.ExampleTest.test_curl",
             "reason": "Disable by issue #308"
         },
@@ -493,6 +489,5 @@
             "name" : "t_stress.test_wordpress.H2WordpressStress",
             "reason": "Disable by issue #1703 - can cause kernel panic"
         }
-
     ]
 }
