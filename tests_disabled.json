@@ -43,7 +43,7 @@
         },
         {
             "name" : "t_wrong_body_length.test_response_wrong_length.ResponseSmallBodyLength",
-            "reason" : ""
+            "reason" : "Disabled by issue #1752"
         },
         {
             "name" : "sched.test_ratio_dynamic.RatioDynamicMax",
