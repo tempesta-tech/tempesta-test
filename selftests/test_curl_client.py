@@ -3,7 +3,6 @@ from unittest.mock import ANY, patch
 
 from framework import tester
 from framework.curl_client import CurlArguments, CurlClient, CurlResponse
-from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -21,6 +20,14 @@ date: test\r
 content-length: 2\r
 via: 2.0 tempesta_fw (Tempesta FW pre-0.7.0)\r
 server: Tempesta FW/pre-0.7.0\r
+\r
+"""
+
+HTTP_1_0_RESPONSE = b"""HTTP/1.0 200 OK\r
+Server: SimpleHTTP/0.6 Python/3.10.8\r
+Date: Mon, 24 Oct 2022 10:59:20 GMT\r
+Content-type: text/html; charset=utf-8\r
+Content-Length: 395\r
 \r
 """
 
@@ -50,6 +57,18 @@ class TestCurlClientParsing(unittest.TestCase):
             self.assertEqual(len(client.responses), 2)
             self.assertEqual(client.responses[0].headers["content-length"], "1")
             self.assertEqual(client.responses[1].headers["content-length"], "2")
+
+    def test_http_1_0_response_parsed(self):
+        client = CurlClient(addr="127.0.0.1")
+        with patch(
+            "framework.curl_client.CurlClient._read_headers_dump",
+            return_value=HTTP_1_0_RESPONSE,
+        ):
+            client.dump_headers = True
+            client.parse_out(b"", b"")
+            self.assertEqual(len(client.responses), 1)
+            self.assertEqual(client.responses[0].proto, "1.0")
+            self.assertEqual(client.responses[0].headers["content-length"], "395")
 
 
 class TestCurlClient(tester.TempestaTest):
@@ -258,6 +277,13 @@ class TestCurlClient(tester.TempestaTest):
         request = self.get_server("deproxy").last_request
         self.assertEqual(request.headers["header-sended"], "OK")
         self.assertEqual(response.headers["connection"], "close")
+
+    def test_set_header_after_initialization(self):
+        client = self.get_client("default")
+        client.headers["New-Header"] = "OK"
+        response = self.get_response(client)
+        request = self.get_server("deproxy").last_request
+        self.assertEqual(request.headers["new-header"], "OK")
 
     def test_cmd_args_processed(self):
         client = self.get_client("with_args")

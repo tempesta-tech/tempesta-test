@@ -5,6 +5,7 @@ import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -67,7 +68,7 @@ class CurlResponse:
             tf_cfg.dbg(1, f"Unexpected headers dump: {self.headers_dump}")
         else:
             message = email.message_from_file(io.StringIO(headers))
-            match = re.match(r"HTTP/([.12]+) (\d+)", response_line)
+            match = re.match(r"HTTP/([.012]+) (\d+)", response_line)
             self.proto = match.group(1)
             self.status = int(match.group(2))
 
@@ -87,7 +88,7 @@ class CurlArguments:
     uri: str = "/"
     cmd_args: str = ""
     data: str = ""
-    headers: dict = None
+    headers: dict = field(default_factory=dict)
     dump_headers: int = True
     disable_output: bool = False
     save_cookies: bool = False
@@ -204,6 +205,13 @@ class CurlClient(CurlArguments, client.Client):
         """Path do dump received headers."""
         return Path(self.workdir) / "curl-default.hdr"
 
+    @property
+    def cookie_string(self) -> str:
+        """Saved cookies name-value pairs: 'name1=value; name2=value'."""
+        jar = MozillaCookieJar()
+        jar.load(self.cookie_jar_path, ignore_discard=True, ignore_expires=True)
+        return "; ".join([f"{cookie.name}={cookie.value}" for cookie in jar])
+
     def clear_cookies(self):
         """Delete cookies from previous runs."""
         self.cookie_jar_path.unlink(missing_ok=True)
@@ -262,7 +270,8 @@ class CurlClient(CurlArguments, client.Client):
                     stdout_raw=self._read_output() if not self.disable_output else b"",
                     stderr_raw=stderr,
                 )
-                if response.proto and response.proto != ("2" if self.http2 else "1.1"):
+                expected_proto = ("2",) if self.http2 else ("1.0", "1.1")
+                if response.proto and response.proto not in expected_proto:
                     raise Exception(f"Unexpected HTTP version response: {response.proto}")
                 self._responses.append(response)
                 self._statuses[response.status] += 1

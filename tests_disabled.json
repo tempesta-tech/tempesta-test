@@ -322,6 +322,14 @@
             "reason": "Disabled by issue #1669"
         },
         {
+            "name": "cache.test_cache.TestChunkedResponse",
+            "reason": "Disabled by issue #1698"
+        },
+        {
+            "name": "cache.test_purge.TestPurgeGet",
+            "reason": "Disabled by issue #1692"
+        },
+        {
             "name" : "tls.test_tls_handshake.TlsVhostHandshakeTest.test_bad_host",
             "reason": "Disabled by issue #286"
         },
@@ -344,10 +352,6 @@
         {
             "name" : "cache.test_purge_resp_hch.HeavyChunkedPurgeRespTest.test_1_purge_resp_hch",
             "reason": "Need to investigate"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
         },
         {
             "name" : "http_rules.test_http.HttpRulesBackupServers.test_scheduler",
@@ -440,6 +444,49 @@
         {
             "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
             "reason": "Disable by issue #1714"
+        }
+            "name" : "selftests.test_framework.ExampleTest.test_curl",
+            "reason": "Disable by issue #308"
+        },
+        {
+            "name" : "http2_general.test_h2_headers.MissingDateServerWithBodyTest",
+            "reason" : "Disabled by issue #1669"
+        },
+        {
+            "name" : "http2_general.test_h2_headers.MissingDateServerWithLargeBodyTest",
+            "reason" : "Disabled by issue #1704"
+        },
+        {
+            "name" : "http_general.test_headers.BackendSetCoookie",
+            "reason" : "Disabled by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_auth_not_cached",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_not_cached_for_autheticated_user",
+            "reason": "Disable by issue #1690"
+        },        
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_auth_not_cached",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_blog_post_flow",
+            "reason": "Disable by issue #1690"
+        },
+        {
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2",
+            "reason": "Disable by issue #1669"
+        },
+        {
+            "name" : "t_stress.test_wordpress.H2WordpressStress",
+            "reason": "Disable by issue #1703 - can cause kernel panic"
         }
     ]
 }

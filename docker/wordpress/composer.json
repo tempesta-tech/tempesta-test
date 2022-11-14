@@ -1,0 +1,11 @@
+{
+    "require": {
+        "aaemnnosttv/wp-sqlite-db": "v1.2.0",
+        "wp-cli/wp-cli-bundle": "2.7.1",
+        "fakerphp/faker": "1.19",
+        "hellonico/wp-cli-fixtures": "0.4.0"
+    },
+    "config": {
+        "allow-plugins": true
+    }
+}
