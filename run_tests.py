@@ -64,7 +64,8 @@ disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
 
 TESTS_PRIORITY_FILE_NAME = "/tests_priority"
 priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
-t_priority_out = open(priority_file).readlines().reverse()
+t_priority_out = open(priority_file).readlines()
+t_priority_out.reverse()
 
 disabled_reader = shell.DisabledListLoader(disfile)
 disabled_reader.try_load()
