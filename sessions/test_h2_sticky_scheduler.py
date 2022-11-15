@@ -2,8 +2,6 @@
 import http
 
 from framework import tester
-from helpers import dmesg
-from helpers.response_parser import parse_response
 
 
 class H2StickySchedulerTestCase(tester.TempestaTest):
@@ -11,16 +9,16 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
 
     clients = [
         {
-            'id': 'curl-init',
-            'type': 'curl',
-            'binary': 'curl',
-            'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/',  # noqa:E501
+            "id": "curl-init",
+            "type": "curl",
+            "addr": "${tempesta_ip}:8765",
+            "ssl": True,
+            "http2": True,
         },
     ]
 
     tempesta = {
-        'config': """
+        "config": """
             listen ${tempesta_ip}:8765 proto=h2;
 
             srv_group default {
@@ -50,11 +48,11 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
 
     backends = [
         {
-            'id': 'nginx',
-            'type': 'nginx',
-            'port': '8000',
-            'status_uri': 'http://${server_ip}:8000/nginx_status',
-            'config': """
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
                 pid ${pid};
                 worker_processes  auto;
                 events {
@@ -102,87 +100,37 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         6. tempesta filtering out request
 
         """
-        klog = dmesg.DmesgFinder()
-        curl_init = self.get_client('curl-init')
+        curl = self.get_client("curl")
 
         self.start_all_servers()
         self.start_tempesta()
 
         # perform `init` request
-        curl_init.headers = {
-            "Host": "good.com"
-        }
-        curl_init.start()
-        self.wait_while_busy(curl_init)
-        curl_init.stop()
-        response = curl_init.last_response
+        curl.headers = {"Host": "good.com"}
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
+        response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FOUND)
         self.assertIn("__tfw", response.headers["set-cookie"])
-        #resp_init = curl_init.resq.get(True, 1)[0]
-        #resp_init = parse_response(resp_init, encoding='latin-1')
-        #set_cookie = resp_init.headers.get('set-cookie')
-        #self.assertEqual(
-        #    int(resp_init.status),
-        #    int(http.HTTPStatus.FOUND),
-        #    'Expected http status {0}'.format(http.HTTPStatus.FOUND),
-        #)
-        #self.assertTrue(set_cookie)
-        #curl_init.stop()
 
         # perform `good` request
-        # we expected options length equal to one
-        #initial_curl_cmd = curl_init.options[0]
-        #curl_init.options[0] = '{0} -H "Cookie: {1}"'.format(
-        #    initial_curl_cmd,
-        #    set_cookie,
-        #)
-
-        curl_init.headers = {
+        curl.headers = {
             "Host": "good.com",
             "Cookie": response.headers["set-cookie"],
         }
 
-        curl_init.start()
-        self.wait_while_busy(curl_init)
-        curl_init.stop()
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
 
-        response = curl_init.last_response
+        response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.OK)
-        #resp_good = curl_init.resq.get(True, 1)[0]
-        #resp_good = parse_response(resp_good, encoding='latin-1')
-
-        #self.assertEqual(
-        #    resp_good.status,
-        #    http.HTTPStatus.OK,
-        #    'Expected http status {0}'.format(http.HTTPStatus.OK),
-        #)
-        #curl_init.stop()
 
         # perform `bad` request
-
-        curl_init.headers["Host"] = "bad.com"
-        curl_init.start()
-        self.wait_while_busy(curl_init)
-        curl_init.stop()
-        response = curl_init.last_response
+        curl.headers["Host"] = "bad.com"
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
+        response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
-
-        #good_curl_cmd = curl_init.options[0]
-        #curl_init.options[0] = good_curl_cmd.replace(
-        #    'good.com',
-        #    'bad.com',
-        #)
-
-        #curl_init.start()
-        #self.wait_while_busy(curl_init)
-        #curl_init.resq.get(True, 1),
-        #curl_init.stop()
-
-        # response structure is not standard, check for filtering out
-        #self.assertEqual(
-        #    klog.warn_count(
-        #        'request has been filtered out via http table',
-        #    ),
-        #    1,
-        #    'Expected msg in `dmesg`',
-        #)
