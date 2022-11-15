@@ -12,10 +12,10 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
     clients = [
         {
             'id': 'curl-init',
-            'type': 'external',
+            'type': 'curl',
             'binary': 'curl',
             'ssl': True,
-            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/ -H "Host: good.com"',  # noqa:E501
+            'cmd_args': '-Ikf -v --http2 https://${tempesta_ip}:8765/',  # noqa:E501
         },
     ]
 
@@ -109,56 +109,80 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         self.start_tempesta()
 
         # perform `init` request
+        curl_init.headers = {
+            "Host": "good.com"
+        }
         curl_init.start()
         self.wait_while_busy(curl_init)
-        resp_init = curl_init.resq.get(True, 1)[0]
-        resp_init = parse_response(resp_init, encoding='latin-1')
-        set_cookie = resp_init.headers.get('set-cookie')
-        self.assertEqual(
-            int(resp_init.status),
-            int(http.HTTPStatus.FOUND),
-            'Expected http status {0}'.format(http.HTTPStatus.FOUND),
-        )
-        self.assertTrue(set_cookie)
         curl_init.stop()
+        response = curl_init.last_response
+        self.assertEqual(response.status, http.HTTPStatus.FOUND)
+        self.assertIn("__tfw", response.headers["set-cookie"])
+        #resp_init = curl_init.resq.get(True, 1)[0]
+        #resp_init = parse_response(resp_init, encoding='latin-1')
+        #set_cookie = resp_init.headers.get('set-cookie')
+        #self.assertEqual(
+        #    int(resp_init.status),
+        #    int(http.HTTPStatus.FOUND),
+        #    'Expected http status {0}'.format(http.HTTPStatus.FOUND),
+        #)
+        #self.assertTrue(set_cookie)
+        #curl_init.stop()
 
         # perform `good` request
         # we expected options length equal to one
-        initial_curl_cmd = curl_init.options[0]
-        curl_init.options[0] = '{0} -H "Cookie: {1}"'.format(
-            initial_curl_cmd,
-            set_cookie,
-        )
+        #initial_curl_cmd = curl_init.options[0]
+        #curl_init.options[0] = '{0} -H "Cookie: {1}"'.format(
+        #    initial_curl_cmd,
+        #    set_cookie,
+        #)
+
+        curl_init.headers = {
+            "Host": "good.com",
+            "Cookie": response.headers["set-cookie"],
+        }
 
         curl_init.start()
         self.wait_while_busy(curl_init)
-        resp_good = curl_init.resq.get(True, 1)[0]
-        resp_good = parse_response(resp_good, encoding='latin-1')
-
-        self.assertEqual(
-            resp_good.status,
-            http.HTTPStatus.OK,
-            'Expected http status {0}'.format(http.HTTPStatus.OK),
-        )
         curl_init.stop()
+
+        response = curl_init.last_response
+        self.assertEqual(response.status, http.HTTPStatus.OK)
+        #resp_good = curl_init.resq.get(True, 1)[0]
+        #resp_good = parse_response(resp_good, encoding='latin-1')
+
+        #self.assertEqual(
+        #    resp_good.status,
+        #    http.HTTPStatus.OK,
+        #    'Expected http status {0}'.format(http.HTTPStatus.OK),
+        #)
+        #curl_init.stop()
 
         # perform `bad` request
-        good_curl_cmd = curl_init.options[0]
-        curl_init.options[0] = good_curl_cmd.replace(
-            'good.com',
-            'bad.com',
-        )
 
+        curl_init.headers["Host"] = "bad.com"
         curl_init.start()
         self.wait_while_busy(curl_init)
-        curl_init.resq.get(True, 1),
         curl_init.stop()
+        response = curl_init.last_response
+        self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
+
+        #good_curl_cmd = curl_init.options[0]
+        #curl_init.options[0] = good_curl_cmd.replace(
+        #    'good.com',
+        #    'bad.com',
+        #)
+
+        #curl_init.start()
+        #self.wait_while_busy(curl_init)
+        #curl_init.resq.get(True, 1),
+        #curl_init.stop()
 
         # response structure is not standard, check for filtering out
-        self.assertEqual(
-            klog.warn_count(
-                'request has been filtered out via http table',
-            ),
-            1,
-            'Expected msg in `dmesg`',
-        )
+        #self.assertEqual(
+        #    klog.warn_count(
+        #        'request has been filtered out via http table',
+        #    ),
+        #    1,
+        #    'Expected msg in `dmesg`',
+        #)
