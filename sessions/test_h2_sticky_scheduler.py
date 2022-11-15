@@ -9,11 +9,10 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
 
     clients = [
         {
-            "id": "curl-init",
+            "id": "curl",
             "type": "curl",
-            "addr": "${tempesta_ip}:8765",
-            "ssl": True,
             "http2": True,
+            "addr": "${tempesta_ip}:8765",
         },
     ]
 
@@ -134,3 +133,12 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
+
+        # check request is filtering out
+        self.assertEqual(
+            self.oops.warn_count(
+                "request has been filtered out via http table",
+            ),
+            1,
+            "Filtered request warning is not shown",
+        )

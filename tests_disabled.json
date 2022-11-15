@@ -462,6 +462,10 @@
             "reason": "Disabled by issue #923"
         },
         {
+            "name": "sessions.test_h2_sticky_scheduler",
+            "reason": "Disabled by issues #1748 #261"
+        },
+        {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_auth_not_cached",
             "reason": "Disable by issue #1690"
         },
