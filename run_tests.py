@@ -62,6 +62,10 @@ be resumed manually from any given test.
 DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
 disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
 
+TESTS_PRIORITY_FILE_NAME = "/tests_priority"
+priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
+t_priority_out = open(priority_file).readlines().reverse()
+
 disabled_reader = shell.DisabledListLoader(disfile)
 disabled_reader.try_load()
 
@@ -314,6 +318,13 @@ tests = [
     and (not inclusions or shell.testcase_in(t, inclusions))
     and not shell.testcase_in(t, exclusions)
 ]
+
+# Sort tests by priority
+for p in t_priority_out:
+    for t in tests:
+        if t.id().startswith(p.rstrip()):
+            tests.remove(t)
+            tests.insert(0, t)
 
 #
 # List tests and exit, if requested
