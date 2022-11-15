@@ -56,6 +56,7 @@ class TestFrameworkCfg(object):
                     "stress_large_content_length": "65536",
                     "stress_requests_count": "100",
                     "stress_mtu": "0",
+                    "long_body_size": "500",
                 },
                 "Client": {
                     "ip": "127.0.0.1",

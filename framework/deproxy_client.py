@@ -152,7 +152,8 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if self.segment_size != 0 and not self.selfproxy_present:
             sent = self.send(reqs[self.cur_req_num][: self.segment_size].encode())
         else:
-            sent = self.send(reqs[self.cur_req_num].encode())
+            self.socket.sendall(reqs[self.cur_req_num].encode())
+            sent = len(reqs[self.cur_req_num])
         if sent < 0:
             return
         self.last_segment_time = time.time()
@@ -305,14 +306,10 @@ class DeproxyClient(BaseDeproxyClient):
             time.sleep(0.01)
         return True
 
-    def send_request(self, request: str, expected_status_code: str):
+    def send_request(self, request, expected_status_code: str):
         """
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
-
-        Args:
-            request (str): request as string
-            expected_status_code (str): expected status code
         """
         curr_responses = len(self.responses)
 

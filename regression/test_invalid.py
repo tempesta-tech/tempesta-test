@@ -1,16 +1,30 @@
 """Regression tests for invalid requests and responses."""
 
-from __future__ import print_function
-
-import unittest
-
-from helpers import chains, deproxy, tempesta
-from long_body import test_response_wrong_length
-from testers import functional
-
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+
+from testers import functional
+from helpers import chains, deproxy, tempesta
+
+
+class InvalidResponseServer(deproxy.Server):
+
+    def __stop_server(self):
+        super().__stop_server(self)
+        assert len(self.connections) <= self.conns_n, \
+                ('Too many connections, expect %d, got %d'
+                 % (self.conns_n, len(self.connections)))
+
+    def handle_accept(self):
+        pair = self.accept()
+        if pair is not None:
+            sock, _ = pair
+            handler = deproxy.ServerConnection(self.tester, server=self,
+                                               sock=sock,
+                                               keep_alive=self.keep_alive)
+            self.connections.append(handler)
 
 
 class TesterInvalidResponse(deproxy.Deproxy):
@@ -37,7 +51,7 @@ class TestInvalidResponse(functional.FunctionalTest):
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
-        srv = test_response_wrong_length.InvalidResponseServer(port=port)
+        srv = InvalidResponseServer(port=port)
         self.servers = [srv]
 
     def test_204_with_body(self):

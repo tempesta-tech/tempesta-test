@@ -56,7 +56,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         if response:
             tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
             tf_cfg.dbg(5, response)
-            self.send(response.encode())
+            self.socket.sendall(response.encode())
         else:
             tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Don't have response")
         if self.keep_alive:

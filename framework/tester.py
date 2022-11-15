@@ -380,11 +380,12 @@ class TempestaTest(unittest.TestCase):
                 return False
         return True
 
-    def start_all_services(self) -> None:
+    def start_all_services(self, client: bool = True) -> None:
         """Start all services."""
         self.start_all_servers()
         self.start_tempesta()
-        self.start_all_clients()
+        if client:
+            self.start_all_clients()
 
         if "deproxy" in [element["type"] for element in (self.clients + self.backends)]:
             self.deproxy_manager.start()

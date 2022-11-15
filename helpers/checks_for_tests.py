@@ -53,7 +53,7 @@ def check_tempesta_request_and_response_stats(
 ):
     """Check tempesta request and response stats."""
     tempesta.get_stats()
-    msg = "Tempesta has caching errors in processing HTTP {0}. Received: {1}. Expected: {2}."
+    msg = "Tempesta has errors in processing HTTP {0}. Received: {1}. Expected: {2}."
 
     assert tempesta.stats.cl_msg_received == cl_msg_received, msg.format(
         "requests", tempesta.stats.cl_msg_received, cl_msg_received

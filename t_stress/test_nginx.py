@@ -4,7 +4,7 @@ HTTP Stress tests with NGINX in place of Tempesta FW - to compare results.
 from pathlib import Path
 
 from framework.x509 import CertGenerator
-from t_stress.test_stress import BaseWrkStress, BaseCurlStress
+from t_stress.test_stress import BaseCurlStress, BaseWrkStress
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
