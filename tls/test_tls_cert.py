@@ -610,7 +610,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
             self.assertTrue(handshake(next(sni_iter)), "First handshake should pass")
             self.assertFalse(handshake(next(sni_iter)), "Second handshake should fail")
-
+            next(sni_iter) # additional shift to alternate the order
 
 class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     """Test that no confusion occurs between wildcard certificate
