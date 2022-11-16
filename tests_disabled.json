@@ -434,7 +434,7 @@
             "reason": "Disable by issue #328"
         },
         {
-            "name" : "t_long_body",
+            "name" : "t_long_body.test_long_request",
             "reason": "Disable by issue #328"
         },
         {
