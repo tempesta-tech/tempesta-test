@@ -89,8 +89,9 @@ class TlsHandshakeTest(tester.TempestaTest):
         # first, and there are no such number of distinct ciphers to fill those
         # 758 bytes, it's safe to ignore the remainder. Just making sure
         # Tempesta doesn't crash and doesn't generate an error message.
-        hs12.ciphers = list(range(64,50000)) # Working
-        # hs12.ciphers = list(range(50000)) # Not working
+
+        # Put valid cipher in first 122 values
+        hs12.ciphers = list(range(64,50000))
         # Add some compressions as well. `0` is NULL-compression, so we are
         # good.
         hs12.compressions = list(range(15))

@@ -366,7 +366,7 @@ class TlsCertSelect(tester.TempestaTest):
                 -> block;
             }
         """,
-        "custom_cert": True,
+        "custom_cert": True
     }
 
     # This function can be redefined in subclasses to provide
@@ -399,11 +399,12 @@ class TlsCertSelect(tester.TempestaTest):
         # request Tempesta.
         res = self.get_tls_handshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        # Similarly it must not fail on RSA-only vhost.
+        # Similarly it must fail on RSA-only vhost.
         hs = TlsHandshake()
         hs.sni = 'example.com'
+        hs.ciphers = list(range(49196, 49198)) # EC Ciphers
         res = hs.do_12()
-        self.assertTrue(res, "Wrong handshake result: %s" % res)
+        self.assertFalse(res, "Wrong handshake result: %s" % res)
 
 
 class TlsCertSelectBySan(tester.TempestaTest):
