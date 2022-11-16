@@ -588,7 +588,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         def handshake(sni):
             hs = TlsHandshake()
             hs.sni = sni
-            self.assertTrue(hs.do_12(), "Wrong handshake result")
+            return hs.do_12()
 
         san_iter = cycle(
             [
@@ -607,8 +607,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
             generate_certificate(san=next(san_iter))
             self.get_tempesta().reload()
 
-            handshake(next(sni_iter))
-            next(sni_iter)  # additional shift to alternate the order
+            self.assertTrue(handshake(next(sni_iter)), "First handshake should pass")
+            self.assertFalse(handshake(next(sni_iter)), "Second handshake should fail")
 
 
 class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
