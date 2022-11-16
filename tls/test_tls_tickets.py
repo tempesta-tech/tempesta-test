@@ -61,7 +61,6 @@ class TlsTicketTest(tester.TempestaTest):
         """
         self.start_all()
         hs = TlsHandshake()
-        hs.ticket_data = None
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
@@ -73,31 +72,26 @@ class TlsTicketTest(tester.TempestaTest):
         ticket = ""
         master_secret = ""
         self.start_all()
-
         hs = TlsHandshake()
         hs.ticket_data = ""
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
-        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
+        ticket = hs.hs.session_ticket.ticket
+        cached_secrets = SessionSecrets(hs.hs.cur_session)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        self.assertIsNotNone(
-            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
-        )
+        self.assertIsNotNone(ticket, "Ticket value is empty")
         self.assertIsNotNone(master_secret, "Can't read master secret")
-        if not ticket:
-            return
-        self.assertEqual(len(ticket.ticket), 168)
 
-        # A new connection with the same ticket will receive abbreviated
-        # handshake
+        # # A new connection with the same ticket will receive abbreviated
+        # # handshake
+
         hs_abb = TlsHandshake()
-        hs_abb.set_ticket_data(ticket)
-        res = hs_abb.do_12_resume(master_secret, ticket)
-        ticket = getattr(hs_abb.sock.tls_ctx, "ticket", None)
+        hs_abb.ticket_data = ticket
+        res = hs_abb.do_12_res(cached_secrets)
+        # ticket = getattr(hs_abb.sock.tls_ctx, 'ticket', None)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        self.assertNotEqual(
-            ticket, None, "Ticket value is empty, no NewSessionTicket message " "was found"
-        )
+        # self.assertNotEqual(ticket, None,
+        #                     'Ticket value is empty, no NewSessionTicket message '
+        #                     'was found')
 
     def test_invalid_ticket(self):
         """Session ticket extension has invalid value, Tempesta rejects the
@@ -108,11 +102,11 @@ class TlsTicketTest(tester.TempestaTest):
         # random data is inserted, full handshake is processed
         t_random_data = "asdfghjklqwertyuiozxcvbnmqwertyuiopasdfghjklzxcvbnm"
         hs = TlsHandshake()
-        hs.set_ticket_data(t_random_data)
+        hs.ticket_data = t_random_data
         hs.session_id = "\x38" * 32
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        ticket = hs.hs.session_ticket
         self.assertIsNotNone(
             ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
         )
@@ -128,11 +122,11 @@ class TlsTicketTest(tester.TempestaTest):
         repl = b"a" if t_data[int(index)] != b"a" else b"b"
         t_data = t_data[: int(index)] + repl + t_data[int(index) + 1 :]
         hs = TlsHandshake()
-        hs.set_ticket_data(t_data)
+        hs.ticket_data = t_data
         hs.session_id = "\x39" * 32
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        ticket = hs.hs.session_ticket
         self.assertIsNotNone(
             ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
         )
@@ -222,34 +216,32 @@ class TlsVhostConfusion(tester.TempestaTest):
         """Session established with one vhost must not be resumed with
         another.
         """
-        ticket = ""
+
         master_secret = ""
         self.start_all()
 
         # Obtain a working ticket first
         hs = TlsHandshake()
-        hs.set_ticket_data("")
-        hs.sni = ["tempesta-tech.com"]
+        hs.ticket_data = ""
+        hs.sni = "tempesta-tech.com"
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
-        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
+        cached_secrets = SessionSecrets(hs.hs.cur_session)
+        master_secret = hs.hs.master_secret
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(
-            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
+            hs.hs.session_ticket, "Ticket value is empty, no NewSessionTicket was found"
         )
         self.assertIsNotNone(master_secret, "Can't read master secret")
-        if not ticket:
-            return
-
+        
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
-        hs = TlsHandshake()
-        hs.set_ticket_data(ticket)
-        hs.session_id = "\x39" * 32
-        hs.sni = ["tempesta.com"]
-        res = hs.do_12()  # Full handshake, not abbreviated
-        self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        hs_abb = TlsHandshake()
+        hs_abb.ticket_data = hs.hs.session_ticket.ticket
+        hs_abb.sni = "tempesta.com"
+        hs.send_data = []
+        res = hs_abb.do_12_res(cached_secrets)  # Try abbreviated handshake
+        self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
+        self.assertFalse(res, "Wrong handshake result")
 
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
@@ -347,7 +339,20 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         """,
     }
 
+    @staticmethod
+    def gen_certs(host_name):
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        cert_path = "%s/%s.crt" % (workdir, host_name)
+        key_path = "%s/%s.key" % (workdir, host_name)
+        cgen = CertGenerator(cert_path, key_path)
+        cgen.CN = host_name
+        cgen.generate()
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
     def start_all(self):
+        self.gen_certs("tempesta-tech.com")
+        self.gen_certs("tempesta.com")
         self.start_all_servers()
         self.start_tempesta()
         self.deproxy_manager.start()
@@ -358,35 +363,30 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         """Session established with one vhost must not be resumed with
         another.
         """
-        ticket = ""
-        master_secret = ""
         self.start_all()
 
         # Obtain a working ticket first
         hs = TlsHandshake()
-        hs.set_ticket_data("")
-        hs.sni = ["tempesta-tech.com"]
+        hs.ticket_data = ""
+        hs.sni = "tempesta-tech.com"
         res = hs.do_12()
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
-        master_secret = getattr(hs.sock.tls_ctx, "master_secret", None)
+        cached_secrets = SessionSecrets(hs.hs.cur_session)
+        ticket = hs.hs.session_ticket.ticket
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         self.assertIsNotNone(
-            ticket, "Ticket value is empty, no NewSessionTicket message " "was found"
+            hs.hs.session_ticket, "Ticket value is empty, no NewSessionTicket recieved"
         )
-        self.assertIsNotNone(master_secret, "Can't read master secret")
-        if not ticket:
-            return
+        self.assertIsNotNone(cached_secrets.master_secret, "Can't read master secret")
 
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
-        hs = TlsHandshake()
-        hs.set_ticket_data(ticket)
-        hs.session_id = "\x39" * 32
-        hs.sni = ["tempesta.com"]
-        # Abbreviated handshake with different SNI:
-        res = hs.do_12()  # Full handshake, not abbreviated
-        self.assertTrue(res, "Wrong handshake result: %s" % res)
-        ticket = getattr(hs.sock.tls_ctx, "ticket", None)
+        hs_abb = TlsHandshake()
+        hs_abb.ticket_data = ticket
+        hs_abb.sni = "tempesta.com"
+        hs_abb.send_data = []
+        res = hs_abb.do_12_res(cached_secrets)
+        self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
+        self.assertFalse(res, "Wrong handshake result")
 
 
 class TlsVhostConfusionDfltCertsWithUnknown(TlsVhostConfusionDfltCerts):
