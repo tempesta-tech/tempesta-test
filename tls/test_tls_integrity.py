@@ -157,13 +157,20 @@ class Proxy(TlsIntegrityTester):
         self.common_check(1000000, 1000000)
 
     def test_tcp_segs(self):
+        """
+        This is a functional test for tcp_segmentation
+        you can run in this example we pass 7020 bytes
+        ##############################################
+                    7020        7020+overhead
+            backend -> tempesta -> client
+        ##############################################
+        with mtu it will be splitted into segments and
+        analyze traffic. 
+        Set payload and mtu with -v -v to see what happens
+        
+        """
         self.start_all()
-        self.tcp_flow_check(4096) # works
-        self.tcp_flow_check(4096+2048) # works
-        self.tcp_flow_check(7020, mtu=1500) # works
-        # self.tcp_flow_check(7030, mtu=1500) # not works
-        # self.tcp_flow_check(4096*2, mtu=1700) # not works
-        # self.tcp_flow_check(4096*2, mtu=1800) # works
+        self.tcp_flow_check(7020, mtu=1500)
 
 
 class Cache(TlsIntegrityTester):
