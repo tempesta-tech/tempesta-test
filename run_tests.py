@@ -313,8 +313,6 @@ if state_reader.has_file and not test_resume.from_file:
 for p in t_priority_out:
     for t in tests:
         if t.id().startswith(p.rstrip()):
-            # tests.remove(t)
-            # tests.insert(0, t)
             tests.insert(
                 0,
                 tests.pop(tests.index(t))
