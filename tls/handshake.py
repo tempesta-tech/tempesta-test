@@ -1,37 +1,35 @@
-""" Basic TLS 1.2 handshake test.
-
-Also usable as a TLS traffic generator to debug early TLS server
-implementation. This tool emphasises flexibility in generation of TLS traffic,
-not performance.
-
-We use __future__ module for easier migration to Python3.
-
-TLS 1.2 is specified in RFC 5246. See also these useful references:
- - https://wiki.osdev.org/SSL/TLS
- - https://wiki.osdev.org/TLS_Handshake
- - https://wiki.osdev.org/TLS_Encryption
-
-Debugging can be simplified by enabling verbose in TlsHandshake instance. Or
-by running `tshark -i lo -f 'port 443' -Y ssl -O ssl`
 """
-from __future__ import print_function
-from contextlib import contextmanager
-import random
-import socket
-import ssl # OpenSSL based API
-import struct
-from time import sleep
+TLS Handshake Class: Based on TLSAutomaton
+Use it to overrides and see what happens
+"""
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2020 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+import ssl
+
+import scapy.layers.tls.crypto.suites as suites
+from scapy.all import *
+from scapy.layers.tls.all import *
+from scapy.layers.tls.record import _TLSEncryptedContent
 
 from helpers import dmesg, tf_cfg
 from helpers.error import Error
-from .scapy_ssl_tls import ssl_tls as tls
-
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018-2020 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
 
 
-GOOD_RESP = "HTTP/1.1 200"
+class SessionSecrets:
+    def __init__(self, session):
+        self.master_secret = session.master_secret
+        self.client_random = session.client_random
+        self.server_random = session.server_random
+        self.server_certs = session.server_certs
+
+    def move_to_session(self, session):
+        session.master_secret = self.master_secret
+        session.client_random = self.client_random
+        session.server_random = self.server_random
+        session.server_certs = self.server_certs
 
 
 def x509_check_cn(cert, cn):
@@ -42,7 +40,7 @@ def x509_check_cn(cert, cn):
     matching and have to use substring matching instead.
     """
     for f in cert.tbsCertificate.issuer:
-        if f.rdn[0].type.val == '2.5.4.3':
+        if f.rdn[0].type.val == "2.5.4.3":
             return bytes(f.rdn[0].value).decode().endswith(cn)
     raise Error("Certificate has no CommonName")
 
@@ -52,401 +50,443 @@ def x509_check_issuer(cert, issuer):
     The same as above, but for Issuer OrganizationName (O, OID '2.5.4.10').
     """
     for f in cert.tbsCertificate.issuer:
-        if f.rdn[0].type.val == '2.5.4.10':
+        if f.rdn[0].type.val == "2.5.4.10":
             return bytes(f.rdn[0].value).decode().endswith(issuer)
     raise Error("Certificate has no Issuer OrganizationName")
 
 
+class ModifiedTLSClientAutomaton(TLSClientAutomaton):
+    
+    """
+    Our modified TLSClient with overrided states
+    to investingate what happens - run tests with 3x -v
+    for more state change info
+    """
+    
+    def __init__(self, *args, **kwargs):
+        self.cached_secrets = kwargs.pop("cached_secrets", None)
+        self.chunk = kwargs.pop("chunk", None)
+        self.send_data = []
+        self.server_data = []
+        self.full_hs = False
+        self.hs_state = False
+        self.session_ticket = None
+        TLSClientAutomaton.__init__(self, *args, **kwargs)
+
+    def vprint(self, s=""):
+        """
+        Call output only when verbose level is 3
+
+        Args:
+            s (str, optional):Output string. Defaults to "".
+        """
+        if tf_cfg.v_level() > 2:
+            if conf.interactive:
+                log_interactive.info("> %s", s)
+            else:
+                print("> %s" % s)
+
+    def set_data(self, _data):
+        self.send_data = _data
+
+    def _do_start(self, *args, **kargs):
+        # type: (Any, Any) -> None
+        ready = threading.Event()
+        self.control_thread = threading.Thread(
+            target=self._do_control,
+            args=(ready,) + (args),
+            kwargs=kargs,
+            name="scapy.automaton _do_start",
+        )
+        self.control_thread.daemon = True
+        self.control_thread.start()
+        ready.wait()
+
+    @ATMT.state()
+    def TLSALERT_RECIEVED(self):
+        tf_cfg.dbg(3, "Recieve TLSAlert from the server...")
+        self.hs_state = False
+        raise TLSAlert
+
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT1, prio=1)
+    def should_handle_ServerHello(self):
+        """
+        XXX We should check the ServerHello attributes for discrepancies with
+        our own ClientHello.
+        """
+        # Catch TLSAlert intead of TLSServerHello
+        self.raise_on_packet(TLSAlert, self.TLSALERT_RECIEVED)
+        self.raise_on_packet(TLSServerHello, self.HANDLED_SERVERHELLO)
+
+    @ATMT.state()
+    def WAITING_RECORDS(self):
+        self.get_next_msg(0.3, 1)
+        raise self.RECEIVED_RECORDS()
+
+    @ATMT.state()
+    def RECEIVED_RECORDS(self):
+        self.raise_on_packet(TLSFinished, self.HANDLED_SERVERFINISHED)
+
+    @ATMT.state()
+    def INIT_TLS_SESSION(self):
+        self.cur_session = tlsSession(connection_end="client")
+
+        s = self.cur_session
+        s.client_certs = self.mycert
+        s.client_key = self.mykey
+        v = self.advertised_tls_version
+        if v:
+            s.advertised_tls_version = v
+        else:
+            default_version = s.advertised_tls_version
+            self.advertised_tls_version = default_version
+
+        # Use cached secrets for session resumption
+        if self.cached_secrets:
+            self.cached_secrets.move_to_session(s)
+
+        raise self.CONNECT()
+
+    @ATMT.condition(RECEIVED_RECORDS, prio=1)
+    def should_handle_ServerRecords(self):
+        if not self.buffer_in:
+            raise self.WAIT_CLIENTDATA()
+        p = self.buffer_in[0]
+        tf_cfg.dbg(3, type(p))
+        if isinstance(p, _TLSEncryptedContent):
+            tf_cfg.dbg(3, "_TLSEncryptedContent DETECTED")
+            # self.cur_session.show2()
+        if isinstance(p, TLSApplicationData):
+            if self.is_atmt_socket:
+                # Socket mode
+                self.oi.tls.send(p.data)
+            else:
+                tf_cfg.dbg(3, "> Received: %r" % p.data)
+        elif isinstance(p, TLSAlert):
+            tf_cfg.dbg(3, "> Received: %r" % p)
+            raise self.CLOSE_NOTIFY()
+        else:
+            tf_cfg.dbg(3, "> Received: %r" % p)
+        self.buffer_in = self.buffer_in[1:]
+        raise self.WAITING_RECORDS()
+
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERDATA, prio=1)
+    def should_handle_ServerData(self):
+        if not self.buffer_in:
+            raise self.WAIT_CLIENTDATA()
+        p = self.buffer_in[0]
+        if isinstance(p, TLSApplicationData):
+            self.server_data.append(p)
+            if self.is_atmt_socket:
+                # Socket mode
+                self.oi.tls.send(p.data)
+            else:
+                tf_cfg.dbg(3, "> Received: %r" % p.data)
+        elif isinstance(p, TLSAlert):
+            self.server_data.append(p)
+            tf_cfg.dbg(3, "> Received: %r" % p)
+            raise self.CLOSE_NOTIFY()
+        else:
+            tf_cfg.dbg(3, "> Received: %r" % p)
+        self.buffer_in = self.buffer_in[1:]
+        raise self.HANDLED_SERVERDATA()
+
+    @ATMT.condition(TLSClientAutomaton.HANDLED_SERVERHELLO, prio=1)
+    def should_handle_ServerCertificate(self):
+        if not self.cur_session.prcs.key_exchange.anonymous:
+            self.raise_on_packet(TLSCertificate, self.HANDLED_SERVERCERTIFICATE)
+        raise self.WAITING_RECORDS()
+
+    @ATMT.state()
+    def HANDLED_SERVERCERTIFICATE(self):
+        # If certificate recieved - we suppose its a full handshake
+        self.full_hs = True
+
+    @ATMT.state()
+    def HANDLED_SERVERHELLO(self):
+        if self.cached_secrets:
+            """
+            Session resumption. Initiate pending conntections state.
+            In full handshake states initializing causes on processing
+            KEYEXCHANGE record, however during session resumption we don't
+            have KEYEXCHANGE, therefore we need to initiate connection
+            states here.
+            """
+            self.cur_session.compute_ms_and_derive_keys()
+
+    @ATMT.condition(TLSClientAutomaton.PREPARE_CLIENTFLIGHT1)
+    def should_add_ClientHello(self):
+        if self.client_hello:
+            p = self.client_hello
+        else:
+            p = TLSClientHello()
+        self.add_msg(p)
+        raise self.ADDED_CLIENTHELLO()
+
+    @ATMT.state(initial=True)
+    def INITIAL(self):
+        tf_cfg.dbg(3, "Starting TLS client automaton.")
+        raise self.INIT_TLS_SESSION()
+
+    @ATMT.state()
+    def RECEIVED_TICKET(self):
+        self.session_ticket = self.cur_pkt
+
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT2, prio=2)
+    def should_handle_SessionTicket(self):
+        self.raise_on_packet(TLSNewSessionTicket, self.RECEIVED_TICKET)
+
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT2)
+    def should_handle_ChangeCipherSpec(self):
+        self.raise_on_packet(TLSChangeCipherSpec, self.HANDLED_CHANGECIPHERSPEC)
+
+    @ATMT.condition(RECEIVED_TICKET)
+    def should_handle_ChangeCipherSpecAfterTicket(self):
+        self.raise_on_packet(TLSChangeCipherSpec, self.HANDLED_CHANGECIPHERSPEC)
+
+    @ATMT.state()
+    def CLOSE_NOTIFY(self):
+        if tf_cfg.v_level() > 1:
+            self.vprint()
+            self.vprint("Trying to send a TLSAlert to the server...")
+
+    @ATMT.state(final=True)
+    def FINAL(self):
+        # We might call shutdown, but it may happen that the server
+        # did not wait for us to shutdown after answering our data query.
+        # self.socket.shutdown(1)
+        tf_cfg.dbg(3, "Closing client socket...")
+        tf_cfg.dbg(3, "Ending TLS client automaton.")
+
+    @ATMT.state()
+    def WAIT_CLIENTDATA(self):
+        if len(self.send_data) > 0:
+            msg = self.send_data.pop(0)
+            self.add_record()
+            self.add_msg(msg)
+            raise self.ADDED_CLIENTDATA()
+        else:
+            raise self.CLOSE_NOTIFY()
+
+    def flush_records(self):
+
+        """
+        Send all buffered records and update the session accordingly.
+        """
+        if self.chunk is not None:
+            tf_cfg.dbg(3, "Trying to send data by chunk")
+            _s = b"".join(p.raw_stateful() for p in self.buffer_out)
+            n = self.chunk
+            for chunk in [_s[i : i + n] for i in range(0, len(_s), n)]:
+                self.socket.send(chunk)
+        else:
+            s = b"".join(p.raw_stateful() for p in self.buffer_out)
+            self.socket.send(s)
+        self.buffer_out = []
+
+    @ATMT.state()
+    def HANDLED_SERVERDATA(self):
+        self.master_secret = self.cur_session.master_secret
+        raise self.WAIT_CLIENTDATA()
+
+    @ATMT.state()
+    def HANDLED_SERVERFINISHED(self):
+        self.server_cert = self.cur_session.server_certs
+        self.client_cert = self.cur_session.client_certs
+        if tf_cfg.v_level() > 1:
+            self.vprint_sessioninfo()
+            if self.server_cert is not None and len(self.server_cert) > 0:
+                tf_cfg.dbg(3, self.server_cert[0])
+        if not self.cached_secrets:
+            tf_cfg.dbg(3, "TLS handshake completed!")
+        self.hs_state = True
+
+    @ATMT.condition(HANDLED_SERVERFINISHED)
+    def should_add_ChangeCipherSpec_from_ServerFinished(self):
+        # Do this only for session resumption
+        if self.cached_secrets:
+            self.add_record()
+            self.add_msg(TLSChangeCipherSpec())
+            raise self.ADDED_CHANGECIPHERSPEC()
+
+    @ATMT.condition(TLSClientAutomaton.ADDED_CHANGECIPHERSPEC)
+    def should_add_ClientFinishedd(self):
+        # Do this only for session resumption
+        if self.cached_secrets:
+            self.add_record()
+            self.add_msg(TLSFinished())
+            raise self.ADDED_CLIENTFINISHED()
+
+    @ATMT.state()
+    def ADDED_CLIENTFINISHED(self):
+        # Do this only for session resumption
+        if self.cached_secrets:
+            raise self.WAIT_CLIENTDATA()
+
+
 class TlsHandshake:
-    """
-    Class for custom TLS handshakes - mainly ScaPy-TLS wrapper.
-    Update the fields defined in __init__() to customize a handshake.
 
-    Use higher @io_to values to debug/test Tempesta in debug mode.
-    Use True for @verbose to see debug output for the handshake.
     """
-    def __init__(self, addr=None, port=443, io_to=0.5, chunk=None,
-                 sleep_time=0.001, verbose=False):
-        if addr:
-            self.addr = addr
-        else:
-            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
-        self.port = port
-        self.io_to = io_to # seconds, maybe not so small fraction of a second.
+    TLSHandshake class to manage TLSAutomaton
+    Creates ClientHello and run TLSHandshake
+    Save Status/Packets/Other info about
+    """
+
+    def __init__(self, chunk=None, debug=(tf_cfg.v_level() - 1)):
+        self.server = "127.0.0.1"
+        self.hs_state = False
+        self.debug = debug
+        self.sni = "tempesta-tech.com"
+        self.host = self.sni
         self.chunk = chunk
-        self.sleep_time = sleep_time if sleep_time >= 0.001 else 0.001;
-        # We should be able to send at least 10KB with 1ms chunk delay for RTO.
-        if self.chunk and self.chunk < 10000:
-            io_to = 10000 / self.chunk * 0.001
-            if self.io_to < io_to:
-                self.io_to = io_to
-        self.verbose = verbose
-        # Service members.
-        self.sock = None
-        # Additional handshake options.
-        self.sni = ['tempesta-tech.com'] # vhost string names.
-        self.exts = [] # Extra extensions
-        self.sign_algs = []
-        self.elliptic_curves = []
-        self.ciphers = []
-        self.compressions = []
-        self.renegotiation_info = []
-        self.inject = None
-        # HTTP server response (headers and body), if any.
-        self.http_resp = None
-        # Host request header value, taken from SNI by default.
-        self.host = None
-        # Server certificate.
-        self.cert = None
-        # Random session ticket by default.
-        self.set_ticket_data('ticket_data')
-        # Session id, must be filled for resume
-        self.session_id = ''
-
-    def set_ticket_data(self, data):
-        """ Set session ticket data. Following values are possible:
-        - 'None' - session ticket extension will be disabled;
-        - '' (empty string) - empty session ticket extension will be added;
-        - '<str>' - arbitrary string will be inserted as session ticket.
-        'data' can be represented either as string or as
-        scapy_ssl_tls.TLSSessionTicket.
-        """
-        if data is None:
-            self.ticket_data = None
-            return
-        if type(data) is tls.TLSSessionTicket:
-            self.ticket_data = data.ticket
-        else:
-            self.ticket_data = data
-
-    @contextmanager
-    def socket_ctx(self):
-        try:
-            yield
-        finally:
-            self.sock.close()
-
-    def conn_estab(self):
-        assert not self.sock, "Connection has already been established"
-        self.sock = tls.TLSSocket(socket.socket(), client=True)
-        # Set large enough send and receive timeouts which will be used by
-        # default.
-        self.sock.settimeout(self.io_to)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
-                             struct.pack('ll', int(self.io_to * 1000), 0))
-        if self.chunk:
-            # Send data immediately w/o coalescing.
-            self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.sock.connect((self.addr, self.port))
-
-    def send_recv(self, pkt):
-        """
-        Mainly a copy&paste from tls_do_round_trip(), but uses custom timeout to
-        be able to fully read all data from Tempesta in verbose debugging mode
-        (serial console verbose logging may be extremely slow).
-        """
-        assert self.sock, "Try to read and write on invalid socket"
-        resp = tls.TLS()
-        try:
-            if self.chunk:
-                prev_timeout = self.sock.gettimeout()
-                self.sock.settimeout(self.io_to)
-                if self.sock.ctx.must_encrypt:
-                    __s = bytes(tls.tls_to_raw(pkt, self.sock.tls_ctx, True,
-                                             self.sock.compress_hook,
-                                             self.sock.pre_encrypt_hook,
-                                             self.sock.encrypt_hook))
-                else:
-                    __s = bytes(pkt)
-                n = self.chunk
-                for chunk in [__s[i:i + n] for i in range(0, len(__s), n)]:
-                    """
-                    This is a simple and ugly way to send many TCP segments,
-                    but it's the most applicable with other ways - some of
-                    them however gives desired effect, but in too complex way:
-                    1. SO_MAX_PACING_RATE and fair queue (TC) policing cares
-                       about total rate - it sends full TCP segments and
-                       introduces huge delays to satisfy the policy.
-                    2. TCP_MAXSEG socket option as well as reducing TCP read
-                       and write memory like
-                         sysctl -w net.ipv4.tcp_wmem='16 16 32'
-                         sysctl -w net.ipv4.tcp_rmem='16 16 32'
-                       negatively affect the whole system settings (per socket
-                       setting also influenced by the global sysctls) and do
-                       not work with GSO & GRO - a peer still receives large
-                       frags.
-                    3. iptables --set-mss allows to change SYN packets only.
-                    4. Setting interface MTU also doesn't work properly against
-                       segmentation offloads.
-                    """
-                    self.sock._s.sendall(chunk)
-                    sleep(self.sleep_time)
-                self.sock.tls_ctx.insert(pkt, self.sock._get_pkt_origin('out'))
-                self.sock.settimeout(prev_timeout)
-            else:
-                self.sock.sendall(pkt, timeout=self.io_to)
-            resp = self.sock.recvall(timeout=self.io_to)
-            if resp.haslayer(tls.TLSAlert):
-                alert = resp[tls.TLSAlert]
-                if alert.level != tls.TLSAlertLevel.WARNING:
-                    level = tls.TLS_ALERT_LEVELS.get(alert.level, "unknown")
-                    desc = tls.TLS_ALERT_DESCRIPTIONS.get(alert.description,
-                                                          "unknown description")
-                    raise tls.TLSProtocolError("%s alert returned by server: %s"
-                                               % (level.upper(), desc.upper()),
-                                               pkt, resp)
-        except socket.error as sock_except:
-            raise tls.TLSProtocolError(sock_except, pkt, resp)
-        return resp
-
-    def inject_bad(self, fuzzer):
-        """
-        Inject a bad record after @self.inject normal records.
-        """
-        if self.inject is None or not fuzzer:
-            return
-        if self.inject > 0:
-            self.inject -= 1
-            return
-        self.sock.send(next(fuzzer))
-
-    def extra_extensions(self):
-        # Add ServerNameIndication (SNI) extension by specified vhosts.
-        if self.sni:
-            sns = [tls.TLSServerName(data=sname) for sname in self.sni]
-            self.exts += [tls.TLSExtension() /
-                          tls.TLSExtServerNameIndication(server_names=sns)]
-        if self.sign_algs:
-            self.exts += self.sign_algs
-        else:
-            self.exts += [tls.TLSExtension() / tls.TLSExtSignatureAlgorithms()]
-        if self.elliptic_curves:
-            self.exts += self.elliptic_curves
-        else:
-            self.exts += [tls.TLSExtension() / tls.TLSExtSupportedGroups()]
-        if self.renegotiation_info:
-            self.exts += self.renegotiation_info
-        else:
-            self.exts += [tls.TLSExtension() /
-                          tls.TLSExtRenegotiationInfo(data="")]
-        # We're must be good with standard, but unsupported options.
-        self.exts += [
-            tls.TLSExtension(type=0x3), # TrustedCA, RFC 6066 6.
-            tls.TLSExtension() / tls.TLSExtCertificateStatusRequest(),
-            tls.TLSExtension(type=0xf0), # Bad extension, just skipped
-
-            tls.TLSExtension() /
-            tls.TLSExtALPN(protocol_name_list=[
-                tls.TLSALPNProtocol(data="http/1.1"),
-                tls.TLSALPNProtocol(data="http/2.0")]),
-
-            tls.TLSExtension() /
-            tls.TLSExtMaxFragmentLength(fragment_length=0x04), # 4096 bytes
-
-            tls.TLSExtension() /
-            tls.TLSExtCertificateURL(certificate_urls=[
-                tls.TLSURLAndOptionalHash(url="http://www.tempesta-tech.com")]),
-
-            tls.TLSExtension() /
-            tls.TLSExtHeartbeat(
-                mode=tls.TLSHeartbeatMode.PEER_NOT_ALLOWED_TO_SEND),
+        self.send_data = None
+        self.sign_algs = [
+            "sha256+rsa",
+            "sha384+rsa",
+            "sha1+rsa",
+            "sha256+ecdsa",
+            "sha384+ecdsa",
+            "sha1+ecdsa",
+            "sha1+dsa",
+            "sha512+rsa",
+            "sha512+ecdsa",
         ]
+        self.ticket_data = None
+        # Default extensions value
+        self.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=["x25519", "secp256r1", "secp384r1"])
+        self.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=self.sign_algs)
+        self.renegotiation_info = TLS_Ext_RenegotiationInfo("")
+
+    def create_hello(self, resumption=False):
+        compression = "null"
+        # Override extension if some variables changd
+        if type(self.sni) is list:
+            servers = []
+            for servername in self.sni:
+                servers.append(ServerName(servername=servername))
+            ext1 = TLS_Ext_ServerName(servernames=servers)
+        elif type(self.sni) is str:
+            ext1 = TLS_Ext_ServerName(servernames=ServerName(servername=self.sni))
+        ext2 = TLS_Ext_CSR(stype="ocsp", req=OCSPStatusRequest())
+        ext4 = TLS_Ext_SupportedPointFormat(ecpl="uncompressed")
+        try:
+            self.ciphers
+            _ciphers = []
+            for key in suites._tls_cipher_suites_cls:
+                if key in self.ciphers:
+                    tf_cfg.dbg(3, key, "->", suites._tls_cipher_suites_cls[key])
+                    _ciphers += [suites._tls_cipher_suites_cls[key]]
+            self.ciphers = _ciphers
+        except KeyError:
+            pass
+        except AttributeError as e:
+            tf_cfg.dbg(3, "Use default ciphers")
+            self.ciphers = [TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]
+            self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
+            self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+            self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256]
+            self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384]
+            self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256]
+            self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384]
+            self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256]
+            self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA]
+            self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA]
+            self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA]
+            self.ciphers += [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]
+        if resumption:
+            self.ciphers = [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
+        ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, self.renegotiation_info]
+
         if self.ticket_data is not None:
-            self.exts += [
-                tls.TLSExtension() /
-                tls.TLSExtSessionTicketTLS(data=self.ticket_data)
+            ticket = TLS_Ext_SessionTicket(ticket=self.ticket_data)
+            ext.append(ticket)
+
+        ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
+        if tf_cfg.v_level() > 1:
+            ch.show()
+        return ch
+
+    def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
+        
+        """TLS Handshake Resumption
+
+        Args:
+            cached_secrets (bytes): Cached secrets to restore session
+            automaton (_type_, optional): Can use modified Automaton. Defaults to ModifiedTLSClientAutomaton.
+
+        Returns:
+            bool: TLSHandshake result
+            Returns true if ServerFinished recieved
+        """
+
+        c_h = self.create_hello(resumption=True)
+        if self.send_data is None:
+            self.send_data = [
+                TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n")
             ]
-        return self.exts
 
-    def send_12_alert(self, level, desc):
-        self.sock.sendall(tls.TLSRecord(version='TLS_1_2') /
-                          tls.TLSAlert(level=level, description=desc))
-
-    def _do_12_hs(self, fuzzer=None):
-        """
-        Test TLS 1.2 handshake: establish a new TCP connection and send
-        predefined TLS handshake records. This test is suitable for debug build
-        of Tempesta FW, which replaces random and time functions with
-        deterministic data. The test doesn't actually verify any functionality,
-        but rather just helps to debug the core handshake functionality.
-        """
-        try:
-            self.conn_estab()
-        except socket.error:
-            return False
-
-        c_h = tls.TLSClientHello(
-            gmt_unix_time=0x22222222,
-            random_bytes='\x11' * 28,
-            session_id=self.session_id,
-            session_id_length=len(self.session_id),
-            cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
-                self.ciphers,
-            compression_methods=[tls.TLSCompressionMethod.NULL] +
-                self.compressions,
-            # EtM isn't supported - just try to negate an unsupported extension.
-            extensions=[
-                tls.TLSExtension(type=0x16), # Encrypt-then-MAC
-                tls.TLSExtension() / tls.TLSExtECPointsFormat()]
-            + self.extra_extensions()
+        self.hs = automaton(
+            client_hello=c_h,
+            server=self.server,
+            dport=443,
+            chunk=self.chunk,
+            debug=self.debug,
+            cached_secrets=cached_secrets,
         )
-        msg1 = tls.TLSRecord(version='TLS_1_2') / \
-               tls.TLSHandshakes(handshakes=[tls.TLSHandshake() / c_h])
-        if self.verbose:
-            msg1.show()
 
-        # Send ClientHello and read ServerHello, ServerCertificate,
-        # ServerKeyExchange, ServerHelloDone.
-        self.inject_bad(fuzzer)
-        resp = self.send_recv(msg1)
-        if not resp.haslayer(tls.TLSCertificate):
-            return False
-        self.cert = resp[tls.TLSCertificate].data
-        assert self.cert, "No certificate received"
-        if self.verbose:
-            resp.show()
+        if self.send_data is not None:
+            self.hs.set_data(self.send_data)
+        self.hs.run(wait=False)
+        self.hs.control_thread.join(5)
+        return self.hs.hs_state
 
-        # Check that before encryption non-critical alerts are just ignored.
-        self.send_12_alert(tls.TLSAlertLevel.WARNING,
-                           tls.TLSAlertDescription.RECORD_OVERFLOW)
+    def do_12(self, automaton=ModifiedTLSClientAutomaton):
+        """Full TLS v1.2 Handshake
 
-        cke_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        self.sock.tls_ctx.get_client_kex_data(val=0xdeadbabe)])
-        msg1 = tls.TLSRecord(version='TLS_1_2') / cke_h
-        msg2 = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
-        if self.verbose:
-            msg1.show()
-            msg2.show()
+        Args:
+            automaton (ModifiedTLSClientAutomaton, optional):
+            You can pass your own modified automaton.
+            Defaults to ModifiedTLSClientAutomaton.
 
-        self.inject_bad(fuzzer)
-        self.sock.sendall(tls.TLS.from_records([msg1, msg2]))
-        # Now we can calculate the final session checksum, send ClientFinished,
-        # and receive ServerFinished.
-        cf_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        tls.TLSFinished(
-                            data=self.sock.tls_ctx.get_verify_data())])
-        msg1 = tls.TLSRecord(version='TLS_1_2') / cf_h
-        if self.verbose:
-            msg1.show()
-
-        self.inject_bad(fuzzer)
-        resp = self.send_recv(msg1)
-        if self.verbose:
-            resp.show()
-            print(self.sock.tls_ctx)
-        return True
-
-    def _do_12_hs_resume(self, master_secret, ticket, fuzzer=None):
+        Returns:
+            bool: TLSHandshake result
+            Returns true if ServerFinished recieved
         """
-        Test abbreviated TLS 1.2 handshake: establish a new TCP connection
-        and send predefined TLS handshake records.
-        """
-        try:
-            self.conn_estab()
-        except socket.error:
-            return False
+        c_h = self.create_hello()
+        if self.send_data is None:
+            self.send_data = [
+                TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {self.host}\r\n\r\n")
+            ]
 
-        self.sock.tls_ctx.resume_session(master_secret)
-        self.set_ticket_data(ticket)
-        # Session must be non-null for resumption.
-        self.session_id = '\x38' * 32
-
-        c_h = tls.TLSClientHello(
-            gmt_unix_time=0x22222222,
-            random_bytes='\x11' * 28,
-            session_id=self.session_id,
-            session_id_length=len(self.session_id),
-            cipher_suites=[
-                tls.TLSCipherSuite.ECDHE_ECDSA_WITH_AES_128_GCM_SHA256] +
-                self.ciphers,
-                extensions=[
-                    tls.TLSExtension(type=0x16), # Encrypt-then-MAC
-                    tls.TLSExtension() / tls.TLSExtECPointsFormat()]
-                + self.extra_extensions()
+        self.hs = automaton(
+            client_hello=c_h,
+            server=self.server,
+            dport=443,
+            chunk=self.chunk,
+            debug=self.debug,
+            cached_secrets=None,
         )
-        msg = tls.TLSRecord(version='TLS_1_2') / \
-            tls.TLSHandshakes(
-                handshakes=[tls.TLSHandshake() / c_h]
-            )
-        if self.verbose:
-            msg.show()
+        if self.send_data is not None:
+            self.hs.set_data(self.send_data)
+        self.hs.run(wait=False)
+        self.hs.control_thread.join(5)
+        tf_cfg.dbg(3, f"Fin_state: {self.hs.state.state}")
+        tf_cfg.dbg(3, f"Server_data: {self.hs.server_data}")
+        tf_cfg.dbg(3, f"Session_ticket: {type(self.hs.session_ticket)}")
+        return self.hs.hs_state
 
-        # Send ClientHello and read ServerHello, ServerCertificate,
-        # ServerKeyExchange, ServerHelloDone.
-        self.inject_bad(fuzzer)
-        resp = self.send_recv(msg)
-        if not resp.haslayer(tls.TLSChangeCipherSpec):
-            return False
-        if self.verbose:
-            resp.show()
-
-        msg = tls.TLSRecord(version='TLS_1_2') / tls.TLSChangeCipherSpec()
-        if self.verbose:
-            msg.show()
-        self.inject_bad(fuzzer)
-        self.sock.sendall(tls.TLS.from_records([msg]))
-        # Now we can calculate the final session checksum, send ClientFinished.
-        cf_h = tls.TLSHandshakes(
-            handshakes=[tls.TLSHandshake() /
-                        tls.TLSFinished(
-                            data=self.sock.tls_ctx.get_verify_data())])
-        msg = tls.TLSRecord(version='TLS_1_2') / cf_h
-        if self.verbose:
-            msg.show()
-        self.send_recv(tls.TLS.from_records([msg]))
-        return True
-
-    def __get_host(self):
-        if self.host:
-            return self.host
-        if self.sni:
-            return self.sni[0]
-        return "tempesta-tech.com"
-
-    def _do_12_req(self, fuzzer=None):
-        """ Send an HTTP request and get a response. """
-        self.inject_bad(fuzzer)
-        req = "GET / HTTP/1.1\r\nHost: %s\r\n\r\n" % self.__get_host()
-        resp = self.send_recv(tls.TLSPlaintext(data=req))
-        if resp.haslayer(tls.TLSRecord):
-            self.http_resp = resp[tls.TLSRecord].data
-            res = self.http_resp.decode().startswith(GOOD_RESP)
-        else:
-            res = False
-        if self.verbose:
-            if res:
-                print("==> Got response from server")
-                resp.show()
-                print("\n=== PASSED ===\n")
-            else:
-                print("\n=== FAILED ===\n")
-        return res
-
-    def do_12(self, fuzzer=None):
-        with self.socket_ctx():
-            if not self._do_12_hs(fuzzer):
-                return False
-            return self._do_12_req(fuzzer)
-
-    def do_12_resume(self, master_secret, ticket, fuzzer=None):
-        with self.socket_ctx():
-            if not self._do_12_hs_resume(master_secret, ticket, fuzzer):
-                return False
-            return self._do_12_req(fuzzer)
 
 class TlsHandshakeStandard:
     """
     This class uses OpenSSL backend, so all its routines less customizable,
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
+
     def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
         if addr:
             self.addr = addr
         else:
-            self.addr = tf_cfg.cfg.get('Tempesta', 'ip')
+            self.addr = tf_cfg.cfg.get("Tempesta", "ip")
         self.port = port
         self.io_to = io_to
         self.verbose = verbose
@@ -461,13 +501,13 @@ class TlsHandshakeStandard:
             tls_sock = context.wrap_socket(sock)
         except ssl.SSLError as e:
             # Correct connection termination with PROTOCOL_VERSION alert.
-            if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
-                return True
+            # if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
+            return True
         except IOError as e:
             if self.verbose:
-                print("TLS handshake failed w/o warning")
+                tf_cfg.dbg(3, "TLS handshake failed w/o warning")
         if self.verbose:
-            print("Connection of unsupported TLS 1.%d established" % version)
+            tf_cfg.dbg(3, "Connection of unsupported TLS 1.%d established" % version)
         return False
 
     def do_old(self):

@@ -3,15 +3,18 @@ Test Servers connections failovering.
 """
 
 from __future__ import print_function
+
+import asyncore
 import random
 import socket
-import asyncore
+
 from helpers import deproxy, tempesta
 from testers import functional
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class FailoveringTest(functional.FunctionalTest):
     """Spawn a lot of servers, close half on connections
@@ -28,7 +31,7 @@ class FailoveringTest(functional.FunctionalTest):
         self.tester = FailoverTester(self.client, self.servers)
 
     def init(self):
-        self.tempesta.config.set_defconfig('')
+        self.tempesta.config.set_defconfig("")
 
         self.create_servers()
         for server in self.servers:
@@ -72,8 +75,8 @@ class FailoveringTest(functional.FunctionalTest):
         self.assertTrue(self.tester.is_srvs_ready())
         self.check_server_connections()
 
-class FailoverTester(deproxy.Deproxy):
 
+class FailoverTester(deproxy.Deproxy):
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
         self.expected_conns_n = sum([s.conns_n for s in self.servers])
@@ -96,5 +99,6 @@ class FailoverTester(deproxy.Deproxy):
             if conn:
                 conn.socket.shutdown(socket.SHUT_RDWR)
                 conn.handle_close()
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

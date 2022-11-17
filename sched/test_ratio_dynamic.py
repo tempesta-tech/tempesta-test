@@ -27,13 +27,14 @@ from the ratio static mode.
 """
 
 import unittest
-from framework import tester
-from helpers.control import servers_get_stats
-from helpers import tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+from framework import tester
+from helpers import tf_cfg
+from helpers.control import servers_get_stats
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -109,118 +110,116 @@ class RatioDynamic(tester.TempestaTest):
     # 10 backend servers, each has unique delay before send response.
     backends = [
         {
-            'id' : 'nginx_8000',
-            'type' : 'nginx',
-            'port' : '8000',
-            'delay' : '0',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8000",
+            "type": "nginx",
+            "port": "8000",
+            "delay": "0",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8001',
-            'type' : 'nginx',
-            'port' : '8001',
-            'delay' : '0.005',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8001",
+            "type": "nginx",
+            "port": "8001",
+            "delay": "0.005",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8002',
-            'type' : 'nginx',
-            'port' : '8002',
-            'delay' : '0.01',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8002",
+            "type": "nginx",
+            "port": "8002",
+            "delay": "0.01",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8003',
-            'type' : 'nginx',
-            'port' : '8003',
-            'delay' : '0.015',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8003",
+            "type": "nginx",
+            "port": "8003",
+            "delay": "0.015",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8004',
-            'type' : 'nginx',
-            'port' : '8004',
-            'delay' : '0.02',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8004",
+            "type": "nginx",
+            "port": "8004",
+            "delay": "0.02",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8005',
-            'type' : 'nginx',
-            'port' : '8005',
-            'delay' : '0.025',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8005",
+            "type": "nginx",
+            "port": "8005",
+            "delay": "0.025",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8006',
-            'type' : 'nginx',
-            'port' : '8006',
-            'delay' : '0.03',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8006",
+            "type": "nginx",
+            "port": "8006",
+            "delay": "0.03",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8007',
-            'type' : 'nginx',
-            'port' : '8007',
-            'delay' : '0.035',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8007",
+            "type": "nginx",
+            "port": "8007",
+            "delay": "0.035",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8008',
-            'type' : 'nginx',
-            'port' : '8008',
-            'delay' : '0.04',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8008",
+            "type": "nginx",
+            "port": "8008",
+            "delay": "0.04",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8009',
-            'type' : 'nginx',
-            'port' : '8009',
-            'delay' : '0.1',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8009",
+            "type": "nginx",
+            "port": "8009",
+            "delay": "0.1",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     clients = [
         {
-            'id' : 'wrk',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            "id": "wrk",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
     ]
 
     tempesta = {
-        'sched_opts' : "ratio dynamic",
-        'config' : TEMPESTA_CONFIG,
+        "sched_opts": "ratio dynamic",
+        "config": TEMPESTA_CONFIG,
     }
 
     min_server_weight = 30
     min_duration = 30
 
     def test_load_distribution(self):
-        """ Configure slow and fast servers. The faster server, the more
+        """Configure slow and fast servers. The faster server, the more
         weight it should get.
         """
-        duration = int(tf_cfg.cfg.get('General', 'Duration'))
+        duration = int(tf_cfg.cfg.get("General", "Duration"))
         if duration < self.min_duration:
+            raise unittest.TestCase.skipTest(self, "Test is not stable on short periods")
+        if tf_cfg.cfg.get("Tempesta", "hostname") == tf_cfg.cfg.get("Server", "hostname"):
             raise unittest.TestCase.skipTest(
-                self, "Test is not stable on short periods")
-        if (tf_cfg.cfg.get('Tempesta', 'hostname') ==
-                tf_cfg.cfg.get('Server', 'hostname')):
-            raise unittest.TestCase.skipTest(
-                self, "Test is not stable if Tempesta and Servers " \
-                "are started on the same node.")
+                self, "Test is not stable if Tempesta and Servers " "are started on the same node."
+            )
 
-        wrk = self.get_client('wrk')
+        wrk = self.get_client("wrk")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -235,18 +234,17 @@ class RatioDynamic(tester.TempestaTest):
 
         cl_reqs = tempesta.stats.cl_msg_forwarded
         tot_weight = len(servers) * 50  # for weight normalisation.
-        weights = [(srv.get_name(), 1.0 * srv.requests / cl_reqs * tot_weight)
-                   for srv in servers]
+        weights = [(srv.get_name(), 1.0 * srv.requests / cl_reqs * tot_weight) for srv in servers]
         weights.sort()
         tf_cfg.dbg(3, "Calculated server weights: %s" % weights)
 
         prev_name, prev_weight = weights[0]
         for name, weight in weights:
             self.assertLessEqual(
-                weight, prev_weight,
-                msg=("Faster server %s got less weight than slower %s"
-                     % (prev_name, name))
-                )
+                weight,
+                prev_weight,
+                msg=("Faster server %s got less weight than slower %s" % (prev_name, name)),
+            )
             if weight <= self.min_server_weight:
                 break
             prev_weight = weight
@@ -255,34 +253,22 @@ class RatioDynamic(tester.TempestaTest):
 
 class RatioDynamicMin(RatioDynamic):
 
-    tempesta = {
-        'sched_opts' : "ratio dynamic minimum",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio dynamic minimum", "config": TEMPESTA_CONFIG}
 
 
 class RatioDynamicMax(RatioDynamic):
 
-    tempesta = {
-        'sched_opts' : "ratio dynamic maximum",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio dynamic maximum", "config": TEMPESTA_CONFIG}
 
 
 class RatioDynamicAv(RatioDynamic):
 
-    tempesta = {
-        'sched_opts' : "ratio dynamic average",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio dynamic average", "config": TEMPESTA_CONFIG}
 
 
 class RatioDynamicPerc(RatioDynamic):
 
-    tempesta = {
-        'sched_opts' : "ratio dynamic percentile",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio dynamic percentile", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredict(RatioDynamic):
@@ -296,38 +282,24 @@ class RatioPredict(RatioDynamic):
     # to bigger value to use predicts.
     min_duration = 60
 
-    tempesta = {
-        'sched_opts' : "ratio predict",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio predict", "config": TEMPESTA_CONFIG}
+
 
 class RatioPredictMin(RatioPredict):
 
-    tempesta = {
-        'sched_opts' : "ratio predict minimum",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio predict minimum", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictMax(RatioPredict):
 
-    tempesta = {
-        'sched_opts' : "ratio predict maximum",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio predict maximum", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictAv(RatioPredict):
 
-    tempesta = {
-        'sched_opts' : "ratio predict average",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio predict average", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictPerc(RatioPredict):
 
-    tempesta = {
-        'sched_opts' : "ratio predict percentile",
-        'config' : TEMPESTA_CONFIG
-    }
+    tempesta = {"sched_opts": "ratio predict percentile", "config": TEMPESTA_CONFIG}

@@ -1,22 +1,24 @@
-import queue
-import threading
 import asyncore
+import queue
 import select
+import threading
 
 from helpers import stateful, tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 def finish_all_deproxy():
     asyncore.close_all()
+
 
 def run_deproxy_server(deproxy, exit_event, polling_lock, q):
     tf_cfg.dbg(3, "Running deproxy server manager")
 
     try:
-        if hasattr(select, 'poll'):
+        if hasattr(select, "poll"):
             poll_fun = asyncore.poll2
         else:
             poll_fun = asyncore.poll
@@ -30,8 +32,9 @@ def run_deproxy_server(deproxy, exit_event, polling_lock, q):
         q.put(e)
     tf_cfg.dbg(3, "Finished deproxy manager")
 
+
 class DeproxyManager(stateful.Stateful):
-    """ Class for running and managing
+    """Class for running and managing
     deproxy servers and clients. polling cycle is also here.
     Tests don't need to manually use this class."""
 
@@ -58,9 +61,10 @@ class DeproxyManager(stateful.Stateful):
     def run_start(self):
         tf_cfg.dbg(3, "Running deproxy")
         self.exit_event.clear()
-        self.proc = threading.Thread(target = run_deproxy_server,
-                                    args=(self, self.exit_event,
-                                          self.polling_lock, self.thread_expts))
+        self.proc = threading.Thread(
+            target=run_deproxy_server,
+            args=(self, self.exit_event, self.polling_lock, self.thread_expts),
+        )
         self.proc.start()
 
     def thread_exception(self):

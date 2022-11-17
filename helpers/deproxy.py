@@ -13,34 +13,38 @@ like a wrapper for http message and in some cases we can manually instantiate
 objects of these classes to construct message.
 """
 from __future__ import print_function
+
 import abc
-from io import StringIO
 import asyncore
+import calendar  # for calendar.timegm()
 import errno
+import re
 import select
 import socket
 import ssl
 import sys
 import time
-import calendar # for calendar.timegm()
-from  http.server import BaseHTTPRequestHandler
-from . import error, tf_cfg, tempesta, stateful
-import re
+from http.server import BaseHTTPRequestHandler
+from io import StringIO
 
+from . import error, stateful, tempesta, tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Utils
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 class ParseError(Exception):
     pass
 
+
 class IncompleteMessage(ParseError):
     pass
+
 
 class HeaderCollection(object):
     """
@@ -95,7 +99,12 @@ class HeaderCollection(object):
         return self.iterkeys()
 
     def add(self, name, value):
-        self.headers.append((name, value,))
+        self.headers.append(
+            (
+                name,
+                value,
+            )
+        )
 
     def find_all(self, name):
         name = name.lower()
@@ -105,8 +114,7 @@ class HeaderCollection(object):
 
     def delete_all(self, name):
         lower = name.lower()
-        self.headers = [header for header in self.headers
-                        if header[0].lower() != lower]
+        self.headers = [header for header in self.headers if header[0].lower() != lower]
 
     def iterkeys(self):
         for header in self.headers:
@@ -138,27 +146,27 @@ class HeaderCollection(object):
     def from_stream(rfile, no_crlf=False, is_h2=False):
         headers = HeaderCollection()
         line = rfile.readline()
-        while not (line == '\r\n' or line == '\n'):
+        while not (line == "\r\n" or line == "\n"):
             if no_crlf and not line:
                 break
-            if not line or (line[-1] != '\n'):
-                raise IncompleteMessage('Incomplete headers')
-            line = line.rstrip('\r\n')
+            if not line or (line[-1] != "\n"):
+                raise IncompleteMessage("Incomplete headers")
+            line = line.rstrip("\r\n")
             try:
-                #h2 pseuodo-header
-                if is_h2 and line.startswith(':'):
-                    split = line.split(':', 2)
-                    name, value = ':' + ''.join(split[:2]), ''.join(split[2:])
+                # h2 pseuodo-header
+                if is_h2 and line.startswith(":"):
+                    split = line.split(":", 2)
+                    name, value = ":" + "".join(split[:2]), "".join(split[2:])
                 else:
-                    name, value = line.split(':', 1)
+                    name, value = line.split(":", 1)
             except:
-                raise ParseError('Invalid header format: [%s]' % line)
+                raise ParseError("Invalid header format: [%s]" % line)
             name = name.strip()
             value = value.strip()
             line = rfile.readline()
-            while line.startswith(' ') or line.startswith('\t'):
+            while line.startswith(" ") or line.startswith("\t"):
                 # Continuation lines - see RFC 2616, section 4.2
-                value += ' ' + line.strip()
+                value += " " + line.strip()
                 line = rfile.readline()
             headers.add(name, value)
         return headers
@@ -170,14 +178,16 @@ class HeaderCollection(object):
         return ret
 
     def _has_good_date(self):
-        return len(self.headers.get('date', [])) == 1
+        return len(self.headers.get("date", [])) == 1
 
     _disable_report_wrong_is_expected = False
 
     def _report_wrong_is_expected(self, other):
         if not HeaderCollection._disable_report_wrong_is_expected:
-            error.bug("HeaderCollection: comparing is_expected=(%s, %s)\n" %
-                      (self.is_expected, other.is_expected))
+            error.bug(
+                "HeaderCollection: comparing is_expected=(%s, %s)\n"
+                % (self.is_expected, other.is_expected)
+            )
 
     def __eq__(self, other):
         h_self = self._as_dict_lower()
@@ -193,19 +203,19 @@ class HeaderCollection(object):
 
             # Special-case "Date: " header if both headers have it and it looks OK
             # (i. e. not duplicated):
-            if (len(h_expected.get('date', [])) == 1 and
-                len(h_received.get('date', [])) == 1):
-                ts_expected = HttpMessage.parse_date_time_string(h_expected.pop('date')[0])
-                ts_received = HttpMessage.parse_date_time_string(h_received.pop('date')[0])
-                if not (ts_received >= ts_expected and
-                        ts_received <= ts_expected + self.expected_time_delta):
+            if len(h_expected.get("date", [])) == 1 and len(h_received.get("date", [])) == 1:
+                ts_expected = HttpMessage.parse_date_time_string(h_expected.pop("date")[0])
+                ts_received = HttpMessage.parse_date_time_string(h_received.pop("date")[0])
+                if not (
+                    ts_received >= ts_expected
+                    and ts_received <= ts_expected + self.expected_time_delta
+                ):
                     return False
 
             # Special-case "Age:" header if both headers must have it:
-            if (len(h_expected.get('age', [])) == 1 and
-                len(h_received.get('age', [])) == 1):
-                age_expected = int(h_expected.pop('age')[0])
-                age_received = int(h_received.pop('age')[0])
+            if len(h_expected.get("age", [])) == 1 and len(h_received.get("age", [])) == 1:
+                age_expected = int(h_expected.pop("age")[0])
+                age_received = int(h_received.pop("age")[0])
                 if not (age_expected <= age_received):
                     return False
 
@@ -215,29 +225,29 @@ class HeaderCollection(object):
         return not HeaderCollection.__eq__(self, other)
 
     def __str__(self):
-        return ''.join(['%s: %s\r\n' % (hed, val) for hed, val in self.items()])
+        return "".join(["%s: %s\r\n" % (hed, val) for hed, val in self.items()])
 
     def __repr__(self):
         return repr(self.headers)
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # HTTP Messages
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 class HttpMessage(object, metaclass=abc.ABCMeta):
-    def __init__(self, message_text=None, body_parsing=True, method="GET",
-                       keep_original_data=None):
-        self.msg = ''
+    def __init__(self, message_text=None, body_parsing=True, method="GET", keep_original_data=None):
+        self.msg = ""
         self.original_length = 0
         self.method = method
         self.body_parsing = True
         self.headers = HeaderCollection()
         self.trailer = HeaderCollection()
-        self.body = ''
+        self.body = ""
         self.keep_original_data = keep_original_data
-        self.original_data = ''
-        self.version = "HTTP/0.9" # default version.
+        self.original_data = ""
+        self.version = "HTTP/0.9"  # default version.
         if message_text:
             self.parse_text(message_text, body_parsing)
 
@@ -248,13 +258,13 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         self.build_message()
         self.original_length = stream.tell()
         if self.keep_original_data:
-            self.original_data = message_text[:self.original_length]
+            self.original_data = message_text[: self.original_length]
 
     def __parse(self, stream):
         self.parse_firstline(stream)
         self.parse_headers(stream)
-        self.body = ''
-        if (self.body_parsing):
+        self.body = ""
+        if self.body_parsing:
             self.parse_body(stream)
 
     def build_message(self):
@@ -269,25 +279,25 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         pass
 
     def get_firstline(self):
-        return ''
+        return ""
 
     def parse_headers(self, stream):
         self.headers = HeaderCollection.from_stream(stream)
 
     def read_encoded_body(self, stream, is_req):
-        """ RFC 7230. 3.3.3 #3 """
-        enc = self.headers['Transfer-Encoding']
-        option = enc.split(',')[-1] # take the last option
+        """RFC 7230. 3.3.3 #3"""
+        enc = self.headers["Transfer-Encoding"]
+        option = enc.split(",")[-1]  # take the last option
 
-        if option.strip().lower() == 'chunked':
+        if option.strip().lower() == "chunked":
             self.read_chunked_body(stream)
         else:
             if is_req:
-                raise ParseError('Unlimited body not allowed for requests')
+                raise ParseError("Unlimited body not allowed for requests")
             self.read_rest_body(stream)
 
     def read_rest_body(self, stream):
-        """ RFC 7230. 3.3.3 #7 """
+        """RFC 7230. 3.3.3 #7"""
         self.body = stream.read()
 
     def read_chunked_body(self, stream):
@@ -295,22 +305,22 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             line = stream.readline()
             self.body += line
             try:
-                size = int(line.rstrip('\r\n'), 16)
+                size = int(line.rstrip("\r\n"), 16)
                 assert size >= 0
                 if size == 0:
                     break
                 chunk = stream.readline()
                 self.body += chunk
 
-                chunk_size = len(chunk.rstrip('\r\n'))
+                chunk_size = len(chunk.rstrip("\r\n"))
                 if chunk_size < size:
-                    raise IncompleteMessage('Incomplete chunked body')
+                    raise IncompleteMessage("Incomplete chunked body")
                 assert chunk_size == size
-                assert chunk[-1] == '\n'
+                assert chunk[-1] == "\n"
             except IncompleteMessage:
                 raise
             except:
-                raise ParseError('Error in chunked body')
+                raise ParseError("Error in chunked body")
 
         """
         if trailer is not present don't pass the last CRLF to parse_trailer,
@@ -318,7 +328,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         """
         pos = stream.tell()
         end = stream.read(2)
-        if end and end.rstrip('\r\n') == '':
+        if end and end.rstrip("\r\n") == "":
             self.body += end
             return
 
@@ -327,13 +337,12 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         self.parse_trailer(stream)
 
     def read_sized_body(self, stream):
-        """ RFC 7230. 3.3.3 #5 """
-        size = int(self.headers['Content-Length'])
+        """RFC 7230. 3.3.3 #5"""
+        size = int(self.headers["Content-Length"])
 
         self.body = stream.read(size)
         if len(self.body) > size:
-            raise ParseError(("Wrong body size: expect %d but got %d!"
-                              % (size, len(self.body))))
+            raise ParseError(("Wrong body size: expect %d but got %d!" % (size, len(self.body))))
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
             raise IncompleteMessage()
@@ -343,17 +352,20 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __eq__(self, other):
-        return ((self.headers == other.headers) and
-                (self.body == other.body) and
-                (self.trailer == other.trailer))
+        return (
+            (self.headers == other.headers)
+            and (self.body == other.body)
+            and (self.trailer == other.trailer)
+        )
 
     @abc.abstractmethod
     def __ne__(self, other):
         return not HttpMessage.__eq__(self, other)
 
     def __str__(self):
-        return ''.join([self.get_firstline(), '\r\n', str(self.headers), '\r\n',
-                        self.body, str(self.trailer)])
+        return "".join(
+            [self.get_firstline(), "\r\n", str(self.headers), "\r\n", self.body, str(self.trailer)]
+        )
 
     def update(self):
         self.parse_text(str(self))
@@ -381,30 +393,64 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
     @staticmethod
     def create(first_line, headers, date=None, srv_version=None, body=None):
         if date:
-            date = ''.join(['Date: ', date])
+            date = "".join(["Date: ", date])
             headers.append(date)
         if srv_version:
-            version = ''.join(['Server: ', srv_version])
+            version = "".join(["Server: ", srv_version])
             headers.append(version)
-        end = ['\r\n']
+        end = ["\r\n"]
         if body != None:
-            end = ['', body]
-        return '\r\n'.join([first_line] + headers + end)
+            end = ["", body]
+        return "\r\n".join([first_line] + headers + end)
 
 
 class Request(HttpMessage):
 
     # All methods registered in IANA.
     # https://www.iana.org/assignments/http-methods/http-methods.xhtml
-    methods = ['ACL', 'BASELINE-CONTROL', 'BIND', 'CHECKIN', 'CHECKOUT',
-               'CONNECT', 'COPY', 'DELETE', 'GET', 'HEAD', 'LABEL', 'LINK',
-               'LOCK', 'MERGE', 'MKACTIVITY', 'MKCALENDAR', 'MKCOL',
-               'MKREDIRECTREF', 'MKWORKSPACE', 'MOVE', 'OPTIONS', 'ORDERPATCH',
-               'PATCH', 'POST', 'PRI', 'PROPFIND', 'PROPPATCH', 'PUT', 'REBIND',
-               'REPORT', 'SEARCH', 'TRACE', 'UNBIND', 'UNCHECKOUT', 'UNLINK',
-               'UNLOCK', 'UPDATE', 'UPDATEREDIRECTREF', 'VERSION-CONTROL',
-               # Not RFC methods:
-               'PURGE']
+    methods = [
+        "ACL",
+        "BASELINE-CONTROL",
+        "BIND",
+        "CHECKIN",
+        "CHECKOUT",
+        "CONNECT",
+        "COPY",
+        "DELETE",
+        "GET",
+        "HEAD",
+        "LABEL",
+        "LINK",
+        "LOCK",
+        "MERGE",
+        "MKACTIVITY",
+        "MKCALENDAR",
+        "MKCOL",
+        "MKREDIRECTREF",
+        "MKWORKSPACE",
+        "MOVE",
+        "OPTIONS",
+        "ORDERPATCH",
+        "PATCH",
+        "POST",
+        "PRI",
+        "PROPFIND",
+        "PROPPATCH",
+        "PUT",
+        "REBIND",
+        "REPORT",
+        "SEARCH",
+        "TRACE",
+        "UNBIND",
+        "UNCHECKOUT",
+        "UNLINK",
+        "UNLOCK",
+        "UPDATE",
+        "UPDATEREDIRECTREF",
+        "VERSION-CONTROL",
+        # Not RFC methods:
+        "PURGE",
+    ]
 
     def __init__(self, *args, **kwargs):
         self.method = None
@@ -413,83 +459,60 @@ class Request(HttpMessage):
 
     def parse_firstline(self, stream):
         requestline = stream.readline()
-        if requestline[-1] != '\n':
-            raise IncompleteMessage('Incomplete request line!')
+        if requestline[-1] != "\n":
+            raise IncompleteMessage("Incomplete request line!")
 
         # Skip optional empty lines
-        while re.match('^[\r]?$', requestline) and len(requestline) > 0:
+        while re.match("^[\r]?$", requestline) and len(requestline) > 0:
             requestline = stream.readline()
 
-        words = requestline.rstrip('\r\n').split()
+        words = requestline.rstrip("\r\n").split()
         if len(words) == 3:
             self.method, self.uri, self.version = words
         elif len(words) == 2:
             self.method, self.uri = words
         else:
-            raise ParseError('Invalid request line!')
+            raise ParseError("Invalid request line!")
         if not self.method in self.methods:
-            raise ParseError('Invalid request method!')
+            raise ParseError("Invalid request method!")
 
     def get_firstline(self):
-        return ' '.join([self.method, self.uri, self.version])
+        return " ".join([self.method, self.uri, self.version])
 
     def parse_body(self, stream):
-        """ RFC 7230 3.3.3 """
+        """RFC 7230 3.3.3"""
         # 3.3.3 3
-        if 'Transfer-Encoding' in self.headers:
+        if "Transfer-Encoding" in self.headers:
             self.read_encoded_body(stream, True)
             return
         # 3.3.3 5
-        if 'Content-Length' in self.headers:
+        if "Content-Length" in self.headers:
             self.read_sized_body(stream)
             return
         # 3.3.3 6
-        self.body = ''
+        self.body = ""
 
     def __eq__(self, other):
         if other is None:
             return False
-        return ((self.method == other.method)
-                and (self.version == other.version)
-                and (self.uri == other.uri)
-                and HttpMessage.__eq__(self, other))
+        return (
+            (self.method == other.method)
+            and (self.version == other.version)
+            and (self.uri == other.uri)
+            and HttpMessage.__eq__(self, other)
+        )
 
     def __ne__(self, other):
         return not Request.__eq__(self, other)
 
     @staticmethod
-    def create(method, headers, uri='/', version='HTTP/1.1', date=False,
-               body=None):
-        first_line = ' '.join([method, uri, version])
+    def create(method, headers, uri="/", version="HTTP/1.1", date=False, body=None):
+        first_line = " ".join([method, uri, version])
         msg = HttpMessage.create(first_line, headers, date=date, body=body)
         return Request(msg)
 
-class H2Request(Request):
-
-    def __init__(self, *args, **kwargs):
-        self.version = 'HTTP2'
-        Request.__init__(self, *args, **kwargs)
-
-    def parse_firstline(self, stream):
-        pass
-
-    def get_firstline(self):
-        return ''
-
-    def parse_headers(self, stream):
-        self.headers = HeaderCollection.from_stream(stream, is_h2=True)
-        self.uri = self.headers.get(':path')
-        self.method = self.headers.get(':method')
-
-    @staticmethod
-    def create(method, headers, uri='/', version='HTTP/2', date=False,
-               body=None):
-        first_line = ' '.join([method, uri, version])
-        msg = HttpMessage.create(first_line, headers, date=date, body=body)
-        return Request(msg)
 
 class Response(HttpMessage):
-
     def __init__(self, *args, **kwargs):
         self.status = None  # Status-Code
         self.reason = None  # Reason-Phrase
@@ -497,43 +520,42 @@ class Response(HttpMessage):
 
     def parse_firstline(self, stream):
         statusline = stream.readline()
-        if statusline[-1] != '\n':
-            raise IncompleteMessage('Incomplete Status line!')
+        if statusline[-1] != "\n":
+            raise IncompleteMessage("Incomplete Status line!")
 
-        words = statusline.rstrip('\r\n').split()
+        words = statusline.rstrip("\r\n").split()
         if len(words) >= 3:
             self.version, self.status = words[0:2]
-            self.reason = ' '.join(words[2:])
+            self.reason = " ".join(words[2:])
         elif len(words) == 2:
             self.version, self.status = words
         else:
-            raise ParseError('Invalid Status line!')
+            raise ParseError("Invalid Status line!")
         try:
             status = int(self.status)
             assert status > 100 and status < 600
         except:
-            raise ParseError('Invalid Status code!')
+            raise ParseError("Invalid Status code!")
 
     def parse_body(self, stream):
-        """ RFC 7230 3.3.3 """
+        """RFC 7230 3.3.3"""
         # 3.3.3 1
         if self.method == "HEAD":
             return
         code = int(self.status)
-        if code >= 100 and code <= 199 or \
-            code == 204 or code == 304:
+        if code >= 100 and code <= 199 or code == 204 or code == 304:
             return
         # 3.3.3 2
         if self.method == "CONNECT" and code >= 200 and code <= 299:
-            error.bug('Not implemented!')
+            error.bug("Not implemented!")
             return
         # 3.3.3 3
-        if 'Transfer-Encoding' in self.headers:
+        if "Transfer-Encoding" in self.headers:
             self.read_encoded_body(stream, False)
             return
         # TODO: check 3.3.3 4
         # 3.3.3 5
-        if 'Content-Length' in self.headers:
+        if "Content-Length" in self.headers:
             self.read_sized_body(stream)
             return
         # 3.3.3 7
@@ -542,48 +564,52 @@ class Response(HttpMessage):
     def get_firstline(self):
         status = int(self.status)
         reason = BaseHTTPRequestHandler.responses[status][0]
-        return ' '.join([self.version, self.status, reason])
+        return " ".join([self.version, self.status, reason])
 
     def __eq__(self, other):
         if other is None:
             return False
-        return ((self.status == other.status)
-                and (self.version == other.version)
-                and (self.reason == other.reason)
-                and HttpMessage.__eq__(self, other))
+        return (
+            (self.status == other.status)
+            and (self.version == other.version)
+            and (self.reason == other.reason)
+            and HttpMessage.__eq__(self, other)
+        )
 
     def __ne__(self, other):
         return not Response.__eq__(self, other)
 
     @staticmethod
-    def create(status, headers, version='HTTP/1.1', date=False,
-               srv_version=None, body=None, method='GET'):
+    def create(
+        status, headers, version="HTTP/1.1", date=False, srv_version=None, body=None, method="GET"
+    ):
         reason = BaseHTTPRequestHandler.responses
-        first_line = ' '.join([version, str(status), reason[status][0]])
-        msg = HttpMessage.create(first_line, headers, date=date,
-                                 srv_version=srv_version, body=body)
+        first_line = " ".join([version, str(status), reason[status][0]])
+        msg = HttpMessage.create(first_line, headers, date=date, srv_version=srv_version, body=body)
         return Response(msg, method=method)
 
-class H2Response(Response):
 
+class H2Response(Response):
     def __init__(self, *args, **kwargs):
-        self.version = 'HTTP/2'
+        self.version = "HTTP/2"
         Response.__init__(self, *args, **kwargs)
 
     def parse_firstline(self, stream):
         pass
 
     def get_firstline(self):
-        return ''
+        return ""
 
     def parse_headers(self, stream):
         self.headers = HeaderCollection.from_stream(stream, is_h2=True)
-        self.status = self.headers.get(':status')
+        self.status = self.headers.get(":status")
 
-#-------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------
 # HTTP Client/Server
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 MAX_MESSAGE_SIZE = 65536
+
 
 class TlsClient(asyncore.dispatcher):
     """
@@ -593,11 +619,11 @@ class TlsClient(asyncore.dispatcher):
     about TLS and only need to set ssl constructor argument to employ TLS.
     """
 
-    def __init__(self, is_ssl=False, proto='http/1.1'):
+    def __init__(self, is_ssl=False, proto="http/1.1"):
         asyncore.dispatcher.__init__(self)
         self.ssl = is_ssl
         self.want_read = False
-        self.want_write = True # TLS ClientHello is the first one
+        self.want_write = True  # TLS ClientHello is the first one
         self.server_hostname = None
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.context.check_hostname = False
@@ -614,8 +640,8 @@ class TlsClient(asyncore.dispatcher):
         restore them when TLS handshake is done and we can do application
         logic.
         """
-        assert hasattr(self, 'handle_read'), "TLS: save null handlers"
-        assert not hasattr(self, '__handle_read'), "TLS: double handlers save"
+        assert hasattr(self, "handle_read"), "TLS: save null handlers"
+        assert not hasattr(self, "__handle_read"), "TLS: double handlers save"
         self.__handle_read = self.handle_read
         self.__handle_write = self.handle_write
         self.__readable = self.readable
@@ -652,12 +678,12 @@ class TlsClient(asyncore.dispatcher):
         self.writable = self.tls_handshake_writable
         self.readable = self.tls_handshake_readable
         try:
-            self.socket = self.context.wrap_socket(self.socket,
-                                                   do_handshake_on_connect=False,
-                                                   server_hostname=self.server_hostname)
+            self.socket = self.context.wrap_socket(
+                self.socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
+            )
 
         except IOError as tls_e:
-            tf_cfg.dbg(2, 'Deproxy: cannot establish TLS connection')
+            tf_cfg.dbg(2, "Deproxy: cannot establish TLS connection")
             raise tls_e
 
     def tls_handshake_readable(self):
@@ -684,27 +710,28 @@ class TlsClient(asyncore.dispatcher):
             self.restore_handlers()
 
     def apply_proto_settings(self):
-        if self.proto == 'h2':
+        if self.proto == "h2":
             self.context.set_alpn_protocols(["h2"])
-            #Disable old proto
+            # Disable old proto
             self.context.options |= (
-            ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+                ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
             )
             # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
             # compression.
             self.context.options |= ssl.OP_NO_COMPRESSION
 
-class Client(TlsClient, stateful.Stateful):
 
-    def __init__(self, addr=None, host='Tempesta', port=80, ssl=False, bind_addr=None,
-                 proto='http/1.1'):
+class Client(TlsClient, stateful.Stateful):
+    def __init__(
+        self, addr=None, host="Tempesta", port=80, ssl=False, bind_addr=None, proto="http/1.1"
+    ):
         TlsClient.__init__(self, ssl, proto)
         self.request = None
-        self.request_buffer = ''
-        self.response_buffer = ''
+        self.request_buffer = ""
+        self.response_buffer = ""
         self.tester = None
         if addr is None:
-            addr = tf_cfg.cfg.get(host, 'ip')
+            addr = tf_cfg.cfg.get(host, "ip")
         self.conn_addr = addr
         self.port = port
         self.stop_procedures = [self.__stop_client]
@@ -712,26 +739,25 @@ class Client(TlsClient, stateful.Stateful):
         self.bind_addr = bind_addr
 
     def __stop_client(self):
-        tf_cfg.dbg(4, '\tStop deproxy client')
+        tf_cfg.dbg(4, "\tStop deproxy client")
         self.close()
 
     def run_start(self):
-        tf_cfg.dbg(3, '\tStarting deproxy client')
+        tf_cfg.dbg(3, "\tStarting deproxy client")
 
-        tf_cfg.dbg(4, '\tDeproxy: Client: Connect to %s:%d.'
-                % (self.conn_addr, self.port))
+        tf_cfg.dbg(4, "\tDeproxy: Client: Connect to %s:%d." % (self.conn_addr, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.bind_addr:
             self.bind((self.bind_addr, 0))
         self.connect((self.conn_addr, self.port))
 
     def clear(self):
-        self.request_buffer = ''
+        self.request_buffer = ""
 
     def set_request(self, message_chain):
         if message_chain:
             self.request = message_chain.request
-            self.request_buffer = message_chain.request.msg if message_chain.request else ''
+            self.request_buffer = message_chain.request.msg if message_chain.request else ""
 
     def set_tester(self, tester):
         self.tester = tester
@@ -748,7 +774,7 @@ class Client(TlsClient, stateful.Stateful):
         self.conn_is_closed = True
 
     def handle_read(self):
-        while True: # TLS aware - read as many records as we can
+        while True:  # TLS aware - read as many records as we can
             try:
                 buf = self.recv(MAX_MESSAGE_SIZE).decode()
             except IOError as err:
@@ -759,26 +785,25 @@ class Client(TlsClient, stateful.Stateful):
             self.response_buffer += buf
         if not self.response_buffer:
             return
-        tf_cfg.dbg(4, '\tDeproxy: Client: Receive response from Tempesta.')
+        tf_cfg.dbg(4, "\tDeproxy: Client: Receive response from Tempesta.")
         tf_cfg.dbg(5, self.response_buffer)
         try:
-            response = Response(self.response_buffer,
-                                method=self.request.method)
-            self.response_buffer = self.response_buffer[len(response.msg):]
+            response = Response(self.response_buffer, method=self.request.method)
+            self.response_buffer = self.response_buffer[len(response.msg) :]
         except IncompleteMessage:
             return
         except ParseError:
-            tf_cfg.dbg(4, ('Deproxy: Client: Can\'t parse message\n'
-                           '<<<<<\n%s>>>>>'
-                           % self.response_buffer))
+            tf_cfg.dbg(
+                4,
+                ("Deproxy: Client: Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
+            )
             raise
         if len(self.response_buffer) > 0:
             # TODO: take care about pipelined case
-            raise ParseError('Garbage after response end:\n```\n%s\n```\n' % \
-                             self.response_buffer)
+            raise ParseError("Garbage after response end:\n```\n%s\n```\n" % self.response_buffer)
         if self.tester:
             self.tester.received_response(response)
-        self.response_buffer = ''
+        self.response_buffer = ""
 
     def writable(self):
         if not self.tester:
@@ -786,7 +811,7 @@ class Client(TlsClient, stateful.Stateful):
         return self.tester.is_srvs_ready() and (len(self.request_buffer) > 0)
 
     def handle_write(self):
-        tf_cfg.dbg(4, '\tDeproxy: Client: Send request to Tempesta.')
+        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
         tf_cfg.dbg(5, self.request_buffer)
         sent = self.send(self.request_buffer.encode())
         self.request_buffer = self.request_buffer[sent:]
@@ -799,20 +824,19 @@ class Client(TlsClient, stateful.Stateful):
             # Need to receive more data before decryption can start.
             pass
         else:
-            error.bug('\tDeproxy: Client: %s' % v)
+            error.bug("\tDeproxy: Client: %s" % v)
 
 
 class ServerConnection(asyncore.dispatcher_with_send):
-
     def __init__(self, tester, server, sock=None, keep_alive=None):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.tester = tester
         self.server = server
         self.keep_alive = keep_alive
         self.responses_done = 0
-        self.request_buffer = ''
+        self.request_buffer = ""
         self.tester.register_srv_connection(self)
-        tf_cfg.dbg(6, '\tDeproxy: SrvConnection: New server connection.')
+        tf_cfg.dbg(6, "\tDeproxy: SrvConnection: New server connection.")
 
     def handle_read(self):
         self.request_buffer += self.recv(MAX_MESSAGE_SIZE).decode()
@@ -821,18 +845,22 @@ class ServerConnection(asyncore.dispatcher_with_send):
         except IncompleteMessage:
             return
         except ParseError:
-            tf_cfg.dbg(4, ('Deproxy: SrvConnection: Can\'t parse message\n'
-                           '<<<<<\n%s>>>>>'
-                           % self.request_buffer))
+            tf_cfg.dbg(
+                4,
+                (
+                    "Deproxy: SrvConnection: Can't parse message\n"
+                    "<<<<<\n%s>>>>>" % self.request_buffer
+                ),
+            )
         # Handler will be called even if buffer is empty.
         if not self.request_buffer:
             return
-        tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Receive request from Tempesta.')
+        tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request from Tempesta.")
         tf_cfg.dbg(5, self.request_buffer)
         if not self.tester:
             return
         response = self.tester.received_forwarded_request(request, self)
-        self.request_buffer = ''
+        self.request_buffer = ""
         if not response:
             return
         self.send_response(response)
@@ -844,11 +872,11 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
     def send_response(self, response):
         if response.msg:
-            tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Send response to Tempesta.')
+            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response to Tempesta.")
             tf_cfg.dbg(5, response.msg)
             self.send(response.msg.encode())
         else:
-            tf_cfg.dbg(4, '\tDeproxy: SrvConnection: Try send invalid response.')
+            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Try send invalid response.")
         if self.keep_alive:
             self.responses_done += 1
             if self.responses_done == self.keep_alive:
@@ -856,10 +884,10 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
-        error.bug('\tDeproxy: SrvConnection: %s' % v)
+        error.bug("\tDeproxy: SrvConnection: %s" % v)
 
     def handle_close(self):
-        tf_cfg.dbg(6, '\tDeproxy: SrvConnection: Close connection.')
+        tf_cfg.dbg(6, "\tDeproxy: SrvConnection: Close connection.")
         self.close()
         if self.tester:
             self.tester.remove_srv_connection(self)
@@ -871,7 +899,6 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
 
 class Server(asyncore.dispatcher, stateful.Stateful):
-
     def __init__(self, port, host=None, conns_n=None, keep_alive=None):
         asyncore.dispatcher.__init__(self)
         self.tester = None
@@ -882,20 +909,19 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         self.conns_n = conns_n
         self.keep_alive = keep_alive
         if host is None:
-            host = 'Client'
-        self.ip = tf_cfg.cfg.get('Client', 'ip')
+            host = "Client"
+        self.ip = tf_cfg.cfg.get("Client", "ip")
         self.stop_procedures = [self.__stop_server]
 
     def run_start(self):
-        tf_cfg.dbg(3, '\tDeproxy: Server: Start on %s:%d.' % (self.ip, self.port))
+        tf_cfg.dbg(3, "\tDeproxy: Server: Start on %s:%d." % (self.ip, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((self.ip, self.port))
         self.listen(socket.SOMAXCONN)
 
     def __stop_server(self):
-        tf_cfg.dbg(3, '\tDeproxy: Server: Stop on %s:%d.' % (self.ip,
-                                                             self.port))
+        tf_cfg.dbg(3, "\tDeproxy: Server: Stop on %s:%d." % (self.ip, self.port))
         self.close()
         connections = [conn for conn in self.connections]
         for conn in connections:
@@ -910,8 +936,9 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         pair = self.accept()
         if pair is not None:
             sock, _ = pair
-            handler = ServerConnection(self.tester, server=self, sock=sock,
-                                       keep_alive=self.keep_alive)
+            handler = ServerConnection(
+                self.tester, server=self, sock=sock, keep_alive=self.keep_alive
+            )
             self.connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
@@ -930,22 +957,20 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         if type(v) == AssertionError:
             raise v
         else:
-            raise Exception('\tDeproxy: Server %s:%d: %s' % \
-             (self.ip, self.port, str(v)))
+            raise Exception("\tDeproxy: Server %s:%d: %s" % (self.ip, self.port, str(v)))
 
     def handle_close(self):
         self.close()
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Message Chain
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 TEST_CHAIN_TIMEOUT = 5
 
-class MessageChain(object):
 
-    def __init__(self, request, expected_response, forwarded_request=None,
-                 server_response=None):
+class MessageChain(object):
+    def __init__(self, request, expected_response, forwarded_request=None, server_response=None):
         # Request to be sent from Client.
         self.request = request
         # Response received on the client.
@@ -961,7 +986,6 @@ class MessageChain(object):
 
 
 class Deproxy(stateful.Stateful):
-
     def __init__(self, client, servers, register=True, message_chains=None):
         self.message_chains = message_chains
         self.client = client
@@ -979,10 +1003,10 @@ class Deproxy(stateful.Stateful):
         self.stop_procedures = [self.__stop_deproxy]
 
     def __stop_deproxy(self):
-        tf_cfg.dbg(3, '\tStopping deproxy tester')
+        tf_cfg.dbg(3, "\tStopping deproxy tester")
 
     def run_start(self):
-        tf_cfg.dbg(3, '\tStarting deproxy tester')
+        tf_cfg.dbg(3, "\tStarting deproxy tester")
 
     def register_tester(self):
         self.client.set_tester(self)
@@ -1000,7 +1024,7 @@ class Deproxy(stateful.Stateful):
             eta = time.time() + timeout
             s_map = asyncore.socket_map
 
-            if hasattr(select, 'poll'):
+            if hasattr(select, "poll"):
                 poll_fun = asyncore.poll2
             else:
                 poll_fun = asyncore.poll
@@ -1021,18 +1045,17 @@ class Deproxy(stateful.Stateful):
             self.check_expectations()
 
     def check_expectations(self):
-        for message in ['response', 'fwd_request']:
+        for message in ["response", "fwd_request"]:
             expected = getattr(self.current_chain, message)
             received = getattr(self.received_chain, message)
             if expected:
                 expected.set_expected(expected_time_delta=self.timeout)
-            assert expected == received, \
-                ("Received message (%s) does not suit expected one!\n\n"
-                 "\tReceieved:\n<<<<<|\n%s|>>>>>\n"
-                 "\tExpected:\n<<<<<|\n%s|>>>>>\n"
-                 % (message,
-                    received.msg if received else "",
-                    expected.msg if expected else ""))
+            assert expected == received, (
+                "Received message (%s) does not suit expected one!\n\n"
+                "\tReceieved:\n<<<<<|\n%s|>>>>>\n"
+                "\tExpected:\n<<<<<|\n%s|>>>>>\n"
+                % (message, received.msg if received else "", expected.msg if expected else "")
+            )
 
     def received_response(self, response):
         """Client received response for its request."""
@@ -1044,8 +1067,9 @@ class Deproxy(stateful.Stateful):
         return self.current_chain.server_response
 
     def register_srv_connection(self, connection):
-        assert connection.server in self.servers, \
-            'Register connection, which comes from not registered server!'
+        assert (
+            connection.server in self.servers
+        ), "Register connection, which comes from not registered server!"
         self.srv_connections.append(connection)
 
     def remove_srv_connection(self, connection):
@@ -1058,11 +1082,14 @@ class Deproxy(stateful.Stateful):
 
     def is_srvs_ready(self):
         expected_conns_n = sum([s.conns_n for s in self.servers])
-        assert len(self.srv_connections) <= expected_conns_n, \
-            'Registered more connections that must be!.'
+        assert (
+            len(self.srv_connections) <= expected_conns_n
+        ), "Registered more connections that must be!."
         return expected_conns_n == len(self.srv_connections)
+
 
 def finish_all_deproxy():
     asyncore.close_all()
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -1,6 +1,7 @@
 class AccessLogLine:
-    def __init__(self, ip, vhost, method, uri, version, status,
-                 response_length, referer, user_agent):
+    def __init__(
+        self, ip, vhost, method, uri, version, status, response_length, referer, user_agent
+    ):
         self.ip = ip
         self.vhost = vhost
         self.method = method
@@ -13,22 +14,31 @@ class AccessLogLine:
 
     def __repr__(self):
         data = []
-        for f in ['ip', 'vhost', 'method', 'uri', 'version', 'status',
-                'response_length', 'referer', 'user_agent']:
+        for f in [
+            "ip",
+            "vhost",
+            "method",
+            "uri",
+            "version",
+            "status",
+            "response_length",
+            "referer",
+            "user_agent",
+        ]:
             x = getattr(self, f)
             if x is not None:
                 if isinstance(x, str):
                     data.append('%s => "%s"' % (f, x))
                 else:
-                    data.append('%s => %d' % (f, x))
-        return ', '.join(data)
+                    data.append("%s => %d" % (f, x))
+        return ", ".join(data)
 
     @staticmethod
     def parse(s):
-        prefix = '[tempesta fw] '
-        if s[:len(prefix)] != '[tempesta fw] ':
+        prefix = "[tempesta fw] "
+        if s[: len(prefix)] != "[tempesta fw] ":
             return None
-        fields = list(map(lambda x: x.strip('"'), s[len(prefix):].split(' ')))
+        fields = list(map(lambda x: x.strip('"'), s[len(prefix) :].split(" ")))
         if len(fields) != 9:
             return None
         return AccessLogLine(
@@ -46,7 +56,7 @@ class AccessLogLine:
     @staticmethod
     def from_dmesg(klog):
         klog.update()
-        for line in klog.log.decode().split('\n'):
+        for line in klog.log.decode().split("\n"):
             msg = AccessLogLine.parse(line)
             if msg is not None:
                 return msg

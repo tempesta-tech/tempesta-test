@@ -14,12 +14,12 @@ since it unpredictably affects load distribution.
 """
 
 from framework import tester
-from helpers.control import servers_get_stats
 from helpers import tf_cfg
+from helpers.control import servers_get_stats
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -102,87 +102,87 @@ class Ratio(tester.TempestaTest):
     # 10 backend servers, only difference between them - listen port.
     backends = [
         {
-            'id' : 'nginx_8000',
-            'type' : 'nginx',
-            'port' : '8000',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8000",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8001',
-            'type' : 'nginx',
-            'port' : '8001',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8001",
+            "type": "nginx",
+            "port": "8001",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8002',
-            'type' : 'nginx',
-            'port' : '8002',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8002",
+            "type": "nginx",
+            "port": "8002",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8003',
-            'type' : 'nginx',
-            'port' : '8003',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8003",
+            "type": "nginx",
+            "port": "8003",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8004',
-            'type' : 'nginx',
-            'port' : '8004',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8004",
+            "type": "nginx",
+            "port": "8004",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8005',
-            'type' : 'nginx',
-            'port' : '8005',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8005",
+            "type": "nginx",
+            "port": "8005",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8006',
-            'type' : 'nginx',
-            'port' : '8006',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8006",
+            "type": "nginx",
+            "port": "8006",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8007',
-            'type' : 'nginx',
-            'port' : '8007',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8007",
+            "type": "nginx",
+            "port": "8007",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8008',
-            'type' : 'nginx',
-            'port' : '8008',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8008",
+            "type": "nginx",
+            "port": "8008",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
         {
-            'id' : 'nginx_8009',
-            'type' : 'nginx',
-            'port' : '8009',
-            'status_uri' : 'http://${server_ip}:${port}/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx_8009",
+            "type": "nginx",
+            "port": "8009",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
         },
     ]
 
     clients = [
         {
-            'id' : 'wrk',
-            'type' : 'wrk',
-            'addr' : "${tempesta_ip}:80",
+            "id": "wrk",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
         },
     ]
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG,
+        "config": TEMPESTA_CONFIG,
     }
 
     # Base precision to check the fairness.
@@ -191,9 +191,8 @@ class Ratio(tester.TempestaTest):
     min_delta = 10
 
     def test_load_distribution(self):
-        """ All servers must receive almost the same number of requests.
-        """
-        wrk = self.get_client('wrk')
+        """All servers must receive almost the same number of requests."""
+        wrk = self.get_client("wrk")
 
         self.start_all_servers()
         self.start_tempesta()
@@ -211,28 +210,31 @@ class Ratio(tester.TempestaTest):
         delta = max(self.precision * s_reqs_expected, self.min_delta)
 
         for srv in servers:
-            tf_cfg.dbg(3,
-                       "Server %s received %d requests, [%d, %d] was expected"
-                       % (srv.get_name(), srv.requests,
-                          s_reqs_expected - delta,
-                          s_reqs_expected + delta)
-                       )
+            tf_cfg.dbg(
+                3,
+                "Server %s received %d requests, [%d, %d] was expected"
+                % (srv.get_name(), srv.requests, s_reqs_expected - delta, s_reqs_expected + delta),
+            )
             self.assertAlmostEqual(
-                srv.requests, s_reqs_expected, delta=delta,
-                msg=("Server %s received %d requests, but [%d, %d] "
-                     "was expected"
-                     % (srv.get_name(), srv.requests,
+                srv.requests,
+                s_reqs_expected,
+                delta=delta,
+                msg=(
+                    "Server %s received %d requests, but [%d, %d] "
+                    "was expected"
+                    % (
+                        srv.get_name(),
+                        srv.requests,
                         s_reqs_expected - delta,
-                        s_reqs_expected + delta)
+                        s_reqs_expected + delta,
                     )
-                )
+                ),
+            )
 
 
 class RatioVariableConns(Ratio):
-    """ Same as base test, but now every server has the random number of
+    """Same as base test, but now every server has the random number of
     connections.
     """
 
-    tempesta = {
-        'config' : TEMPESTA_CONFIG_VAR_CONNS
-    }
+    tempesta = {"config": TEMPESTA_CONFIG_VAR_CONNS}

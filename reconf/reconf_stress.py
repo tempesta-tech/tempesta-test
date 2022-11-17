@@ -4,18 +4,19 @@ Live reconfiguration stress test primitive.
 
 from threading import Thread
 from time import sleep
-from helpers import tempesta, control, tf_cfg
+
+from helpers import control, tempesta, tf_cfg
 from testers import stress
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class LiveReconfStress(stress.StressTest):
 
-    defconfig = ''
-    sg_name = 'default'
+    defconfig = ""
+    sg_name = "default"
     auto_vhosts = True
 
     def create_servers(self):
@@ -61,12 +62,12 @@ class LiveReconfStress(stress.StressTest):
         return config
 
     def reconfig(self):
-        sleep(int(tf_cfg.cfg.get('General', 'Duration')) / 2)
+        sleep(int(tf_cfg.cfg.get("General", "Duration")) / 2)
         self.reconfigure_func()
         self.tempesta.reload()
 
     def assert_clients(self):
-        """ Check benchmark result: 502 errors may happen but only for short
+        """Check benchmark result: 502 errors may happen but only for short
         period of time (during reconfig)."""
         for c in self.clients:
             req, err, rate, _ = c.results()
@@ -76,8 +77,7 @@ class LiveReconfStress(stress.StressTest):
             self.assertLess(err, max_err)
 
     def stress_reconfig_generic(self, configure_func, reconfigure_func):
-        """Generic test routinr for reconfig.
-        """
+        """Generic test routinr for reconfig."""
         self.reconfigure_func = reconfigure_func
         control.servers_start(self.servers)
         configure_func()
@@ -96,7 +96,7 @@ class LiveReconfStress(stress.StressTest):
     def tearDown(self):
         # Wait for reconfig thread if it's not finished (exception was thrown
         # during stress_reconfig_generic()
-        if hasattr(self, 'r_thread'):
+        if hasattr(self, "r_thread"):
             self.r_thread.join()
         stress.StressTest.tearDown(self)
 
@@ -119,5 +119,6 @@ class LiveReconfStress(stress.StressTest):
         srvs = self.const_srvs + self.add_srvs
         config = self.make_config(self.sg_name, srvs)
         self.tempesta.config = config
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

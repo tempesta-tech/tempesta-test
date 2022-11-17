@@ -1,19 +1,20 @@
 """ Test template """
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017-2018 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import os
 import re
 import uuid
 
+from helpers import control, error, nginx, remote, stateful, sysnet, tempesta, tf_cfg
 from testers import stress
-from helpers import tf_cfg, control, tempesta, remote, stateful, nginx, error
-from helpers import sysnet
+
 
 class Listener(object):
-    """ Server listner info """
+    """Server listner info"""
+
     port = 80
     ip_listen = "0.0.0.0"
     location = ""
@@ -33,8 +34,8 @@ class Listener(object):
         %s
     }
 """
-    def __init__(self, ip_listen, port, location,
-                 backlog=None, has_status=False):
+
+    def __init__(self, ip_listen, port, location, backlog=None, has_status=False):
         if backlog is None:
             listen_str = "%s:%i" % (ip_listen, port)
         else:
@@ -43,14 +44,17 @@ class Listener(object):
         self.port = port
         self.location = location
         if has_status:
-            self.config = self.config_server_template % \
-                (listen_str, location, self.config_have_status)
+            self.config = self.config_server_template % (
+                listen_str,
+                location,
+                self.config_have_status,
+            )
         else:
-            self.config = self.config_server_template % \
-                (listen_str, location, "")
+            self.config = self.config_server_template % (listen_str, location, "")
+
 
 class ConfigMultiplePorts(object):
-    """ Nginx config file builder. """
+    """Nginx config file builder."""
 
     config_name = ""
     uuid = ""
@@ -58,11 +62,11 @@ class ConfigMultiplePorts(object):
     keepalive_timeout = 65
     keepalive_requests = 100
     pidfile_name = ""
-    worker_processes = 'auto'
+    worker_processes = "auto"
     worker_rlimit_nofile = 1024
     worker_connections = 1024
-    workdir = '/'
-    config = ''
+    workdir = "/"
+    config = ""
     location = "/var/www/html"
     main_template = """
 pid %s;
@@ -107,18 +111,18 @@ events {
         self.set_workers(workers)
         self.set_resourse_location()
         self.config_name = "nginx-%s.conf" % self.uuid
-        self.pidfile_name = '/var/run/nginx-%s.pid' % self.uuid
+        self.pidfile_name = "/var/run/nginx-%s.pid" % self.uuid
 
     def build_config(self):
-        """ Building config file """
+        """Building config file"""
         pidfile = os.path.join(self.workdir, self.pidfile_name)
-        cfg_main = self.main_template % (pidfile,
-                     self.worker_processes, self.worker_rlimit_nofile)
-        cfg_events = self.events_template % \
-             (self.multi_accept, self.worker_connections)
+        cfg_main = self.main_template % (pidfile, self.worker_processes, self.worker_rlimit_nofile)
+        cfg_events = self.events_template % (self.multi_accept, self.worker_connections)
 
-        http_options = self.http_options_template % \
-            (self.keepalive_timeout, self.keepalive_requests)
+        http_options = self.http_options_template % (
+            self.keepalive_timeout,
+            self.keepalive_requests,
+        )
 
         cfg_http = "http {" + http_options + self.http_options_static
 
@@ -129,7 +133,7 @@ events {
         self.config = cfg_main + cfg_events + cfg_http
 
     def add_server(self, ip_listen, port):
-        """ Add new server listener """
+        """Add new server listener"""
         if len(self.listeners) == 0:
             listener = Listener(ip_listen, port, self.location, has_status=True)
         else:
@@ -150,30 +154,31 @@ events {
         self.build_config()
 
     def set_ka(self, req=100, timeout=65):
-        """ Set Keepalive parameters for server. """
+        """Set Keepalive parameters for server."""
         self.keepalive_requests = req
         self.keepalive_timeout = timeout
         self.build_config()
 
-    def set_workers(self, workers='auto'):
-        if workers == 'auto':
-            self.worker_processes = 'auto'
+    def set_workers(self, workers="auto"):
+        if workers == "auto":
+            self.worker_processes = "auto"
             self.build_config()
             return
-        max_workers = int(tf_cfg.cfg.get('Server', 'max_workers'))
+        max_workers = int(tf_cfg.cfg.get("Server", "max_workers"))
         if max_workers <= 0:
             self.worker_processes = workers
             self.build_config()
             return
         nw = int(workers)
         if nw > max_workers:
-            tf_cfg.dbg(1, 'Too much (%i) workers requested. ' \
-                    'Only %i is possible' % (nw, max_workers))
+            tf_cfg.dbg(
+                1, "Too much (%i) workers requested. " "Only %i is possible" % (nw, max_workers)
+            )
             nw = max_workers
         self.worker_processes = str(nw)
         self.build_config()
 
-    def set_worker_rlimit_nofile(self, rlimit='auto'):
+    def set_worker_rlimit_nofile(self, rlimit="auto"):
         self.worker_rlimit_nofile = rlimit
         self.build_config()
 
@@ -182,9 +187,9 @@ events {
         self.workdir = workdir
         self.build_config()
 
-    def set_resourse_location(self, location=''):
+    def set_resourse_location(self, location=""):
         if not location:
-            location = tf_cfg.cfg.get('Server', 'resources')
+            location = tf_cfg.cfg.get("Server", "resources")
         self.location = location
         self.build_config()
 
@@ -200,10 +205,10 @@ class NginxMP(control.Nginx):
         # We don't call costructor of control.Nginx
         self.first_port = listen_port
         self.node = remote.server
-        self.workdir = tf_cfg.cfg.get('Server', 'workdir')
+        self.workdir = tf_cfg.cfg.get("Server", "workdir")
 
         if listen_ip is None:
-            self.ip = tf_cfg.cfg.get('Server', 'ip')
+            self.ip = tf_cfg.cfg.get("Server", "ip")
         else:
             self.ip = listen_ip
 
@@ -220,64 +225,65 @@ class NginxMP(control.Nginx):
         self.stop_procedures = [self.stop_nginx, self.remove_config]
 
     def get_name(self):
-        return ':'.join([self.ip, str(self.first_port)])
+        return ":".join([self.ip, str(self.first_port)])
 
     def get_stats(self):
-        """ Nginx doesn't have counters for every virtual host. Spawn separate
+        """Nginx doesn't have counters for every virtual host. Spawn separate
         instances instead
         """
         self.stats_ask_times += 1
         # In default tests configuration Nginx status available on
         # `nginx_status` page.
-        uri = 'http://%s:%d/nginx_status' % (self.node.host, self.first_port)
-        cmd = 'curl %s' % uri
+        uri = "http://%s:%d/nginx_status" % (self.node.host, self.first_port)
+        cmd = "curl %s" % uri
         out, _ = remote.client.run_cmd(
-            cmd, err_msg=(self.err_msg % ('get stats of', self.get_name())))
-        m = re.search(r'Active connections: (\d+) \n'
-                      r'server accepts handled requests\n \d+ \d+ (\d+)',
-                      out)
+            cmd, err_msg=(self.err_msg % ("get stats of", self.get_name()))
+        )
+        m = re.search(
+            r"Active connections: (\d+) \n" r"server accepts handled requests\n \d+ \d+ (\d+)", out
+        )
         if m:
             # Current request increments active connections for nginx.
             self.active_conns = int(m.group(1)) - 1
             # Get rid of stats requests influence to statistics.
             self.requests = int(m.group(2)) - self.stats_ask_times
 
+
 class MultipleBackends(stress.StressTest):
-    """ Testing for 1M backends """
+    """Testing for 1M backends"""
+
     num_interfaces = 1
     num_listeners_per_interface = 1
 
     interface = None
     base_ip = None
     ips = []
-    config = 'cache 0;\n'
+    config = "cache 0;\n"
 
     base_port = 16384
 
     def create_servers(self):
-        self.interface = tf_cfg.cfg.get('Server', 'aliases_interface')
-        self.base_ip = tf_cfg.cfg.get('Server',   'aliases_base_ip')
-        self.ips = sysnet.create_interfaces(self.interface, self.base_ip,
-                                            self.num_interfaces)
+        self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
+        self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
+        self.ips = sysnet.create_interfaces(self.interface, self.base_ip, self.num_interfaces)
         for ip in self.ips:
-            server = NginxMP(listen_port=self.base_port,
-                           ports_n=self.num_listeners_per_interface,
-                           listen_ip=ip)
+            server = NginxMP(
+                listen_port=self.base_port, ports_n=self.num_listeners_per_interface, listen_ip=ip
+            )
             self.servers.append(server)
 
     def configure_tempesta(self):
-        """ Configure tempesta 1 port in group """
+        """Configure tempesta 1 port in group"""
         sgid = 0
         for server in self.servers:
             for listener in server.config.listeners:
-                server_group = tempesta.ServerGroup('default-%i' % sgid)
-                server_group.add_server(server.ip, listener.port,
-                                        server.conns_n)
+                server_group = tempesta.ServerGroup("default-%i" % sgid)
+                server_group.add_server(server.ip, listener.port, server.conns_n)
                 self.tempesta.config.add_sg(server_group)
                 sgid = sgid + 1
 
     def tearDown(self):
-        """ Stop nginx and tempesta, clear interfaces after this """
+        """Stop nginx and tempesta, clear interfaces after this"""
         has_base_excpt = False
         try:
             super(MultipleBackends, self).tearDown()
@@ -291,5 +297,5 @@ class MultipleBackends(stress.StressTest):
             raise excpt
 
     def test(self):
-        """ Test 1M backends """
+        """Test 1M backends"""
         self.generic_test_routine(self.config)

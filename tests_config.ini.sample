@@ -39,6 +39,32 @@ duration = 10
 #
 concurrent_connections = 10
 
+# Number of threads for HTTP stress tests - number CPU cores to use.
+#
+# ex.: stress_threads = 8 (default 2)
+#
+stress_threads = 2
+
+# Large response content size in stress tests, bytes.
+#
+# ex.: stress_large_content_length = 1048576 (default 65536)
+#
+stress_large_content_length = 65536
+
+# Number of requests to make for stress tasts
+#
+# ex.: stress_requests_count = 1000 (default 100)
+#
+stress_requests_count = 100
+
+
+# MTU value to set for network interfaces for stress tests.
+# 0 - do not change value.
+#
+# ex.: stress_mtu = 80 (default 0)
+#
+stress_mtu = 0
+
 # Absolte or cwd-relative path to a log file to tee (duplicate) tests' stderr to.
 #
 # ex.: log_file = /tmp/log.txt (default tests_log.txt)
@@ -50,6 +76,9 @@ log_file = tests_log.txt
 # ex.: workdir = /tmp/host (default /tmp/host)
 #
 workdir = /tmp/host
+
+# Body size in MB for long body tests.
+long_body_size = 500
 
 
 [Client]
@@ -79,6 +108,17 @@ workdir = /tmp/client
 # ex.: ab = /usr/bin/ab (default ab)
 #
 ab = ab
+
+# cURL binary.
+#
+# ex.: curl = /usr/bin/curl (default curl)
+#
+curl = curl
+
+# cURL version. Set to override runtime version check.
+#
+# curl_version = 7.85.0
+#
 
 # wrk benchmark utility.
 #

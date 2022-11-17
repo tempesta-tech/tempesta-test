@@ -1,23 +1,26 @@
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
-import sys
-import time
-import select
 import asyncore
 import multiprocessing
+import select
+import sys
+import time
 
-from helpers import tempesta, tf_cfg, deproxy, chains, stateful, sysnet
+from helpers import chains, deproxy, stateful, sysnet, tempesta, tf_cfg
 from testers import stress
+
 from . import multi_backend
 
+
 class DeadtimeClient(stateful.Stateful):
-    """ Client for deadtime measuring """
+    """Client for deadtime measuring"""
+
     long_times = 0
     wait = False
 
-    def __init__(self, uri='/', max_deadtime=1, timeout=20):
+    def __init__(self, uri="/", max_deadtime=1, timeout=20):
         self.uri = uri
         self.timeout = timeout
         self.max_deadtime = max_deadtime
@@ -31,8 +34,7 @@ class DeadtimeClient(stateful.Stateful):
         self.long_times = 0
 
     def run_start(self):
-        self.proc = multiprocessing.Process(target=self.run,
-                                            args=(self.finish_event,))
+        self.proc = multiprocessing.Process(target=self.run, args=(self.finish_event,))
         self.proc.start()
 
     def __stop(self):
@@ -50,7 +52,7 @@ class DeadtimeClient(stateful.Stateful):
             eta = time.time() + timeout
             s_map = asyncore.socket_map
 
-            if hasattr(select, 'poll'):
+            if hasattr(select, "poll"):
                 poll_fun = asyncore.poll2
             else:
                 poll_fun = asyncore.poll
@@ -83,8 +85,9 @@ class DeadtimeClient(stateful.Stateful):
         success_time = start_time
         curtime = start_time
         self.client.start()
-        while (curtime - start_time < self.timeout or self.timeout < 0) and \
-              not finish_event.is_set():
+        while (
+            curtime - start_time < self.timeout or self.timeout < 0
+        ) and not finish_event.is_set():
             self.request(self.timeout)
             curtime = time.time()
             delay = curtime - success_time
@@ -117,8 +120,10 @@ class DeadtimeClient(stateful.Stateful):
         self.client.stop()
         sys.exit(long_times)
 
+
 class DontModifyBackend(stress.StressTest):
-    """ 1 backend in server group """
+    """1 backend in server group"""
+
     num_attempts = 10
     max_deadtime = 2
     num_extra_interfaces = 8
@@ -133,10 +138,11 @@ class DontModifyBackend(stress.StressTest):
 
     def setUp(self):
         tf_cfg.dbg(2, "Creating interfaces")
-        self.interface = tf_cfg.cfg.get('Server', 'aliases_interface')
-        self.base_ip = tf_cfg.cfg.get('Server', 'aliases_base_ip')
+        self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
+        self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
         self.ips = sysnet.create_interfaces(
-            self.interface, self.base_ip, self.num_extra_interfaces + 1)
+            self.interface, self.base_ip, self.num_extra_interfaces + 1
+        )
         stress.StressTest.setUp(self)
 
     def tearDown(self):
@@ -160,16 +166,15 @@ class DontModifyBackend(stress.StressTest):
             raise Exception("Error while stopping client")
 
     def configure_tempesta(self):
-        """ Configure tempesta 1 port in group """
-        sg = tempesta.ServerGroup('default')
+        """Configure tempesta 1 port in group"""
+        sg = tempesta.ServerGroup("default")
         server = self.servers[0]
-        sg.add_server(server.ip, server.config.listeners[0].port,
-                      server.conns_n)
+        sg.add_server(server.ip, server.config.listeners[0].port, server.conns_n)
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
 
     def append_server_group(self, id):
-        sg = tempesta.ServerGroup('new-%i' % id)
+        sg = tempesta.ServerGroup("new-%i" % id)
         server = self.servers[1]
         for listener in server.config.listeners:
             sg.add_server(server.ip, listener.port, server.conns_n)
@@ -180,13 +185,13 @@ class DontModifyBackend(stress.StressTest):
         for ifc in range(self.num_extra_interfaces):
             server = self.servers[self.extra_servers_base + ifc]
             for listener in server.config.listeners:
-                sg = tempesta.ServerGroup('extra-%i' % sgid)
+                sg = tempesta.ServerGroup("extra-%i" % sgid)
                 sg.add_server(server.ip, listener.port, server.conns_n)
                 self.tempesta.config.add_sg(sg)
                 sgid += 1
 
     def create_clients(self):
-        """ Override to set desired list of benchmarks and their options. """
+        """Override to set desired list of benchmarks and their options."""
         self.client = DeadtimeClient(timeout=-1)
 
     def setup_nginx_config(self, config):
@@ -208,17 +213,19 @@ class DontModifyBackend(stress.StressTest):
         self.setup_nginx_config(server.config)
         self.servers.append(server)
 
-        server = multi_backend.NginxMP(listen_port=self.base_port,
-                                       ports_n=self.num_attempts,
-                                       listen_ip=self.ips[0])
+        server = multi_backend.NginxMP(
+            listen_port=self.base_port, ports_n=self.num_attempts, listen_ip=self.ips[0]
+        )
         self.setup_nginx_config(server.config)
         self.servers.append(server)
 
         self.extra_servers_base = len(self.servers)
         for ifc in range(self.num_extra_interfaces):
-            server = multi_backend.NginxMP(listen_port=self.base_port,
-                                           ports_n=self.num_extra_ports,
-                                           listen_ip=self.ips[ifc + 1])
+            server = multi_backend.NginxMP(
+                listen_port=self.base_port,
+                ports_n=self.num_extra_ports,
+                listen_ip=self.ips[ifc + 1],
+            )
             self.setup_nginx_config(server.config)
             self.servers.append(server)
 
@@ -236,8 +243,7 @@ class DontModifyBackend(stress.StressTest):
         self.assert_clients()
 
     def assert_clients(self):
-        msg = "Reconfiguration took too long time: " \
-              " server group was unavailable more than 1s"
+        msg = "Reconfiguration took too long time: " " server group was unavailable more than 1s"
         self.assertEqual(self.client.long_times, 0, msg)
 
     def reconfigure_tempesta(self, i):
@@ -249,8 +255,8 @@ class DontModifyBackend(stress.StressTest):
         time.sleep(self.num_attempts * self.max_deadtime)
         self.post_test()
 
-class AddingBackendNewSG(DontModifyBackend):
 
+class AddingBackendNewSG(DontModifyBackend):
     def test(self):
         self.pre_test()
         for i in range(self.num_attempts):
@@ -259,9 +265,10 @@ class AddingBackendNewSG(DontModifyBackend):
             t1 = time.time()
             self.tempesta.reload()
             t2 = time.time()
-            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2-t1))
+            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2 - t1))
             time.sleep(self.max_deadtime)
         self.post_test()
+
 
 class RemovingBackendSG(DontModifyBackend):
     num_attempts = 10
@@ -271,11 +278,10 @@ class RemovingBackendSG(DontModifyBackend):
         self.tempesta.config.remove_sg("new-%i" % id)
 
     def configure_tempesta(self):
-        """ Configure tempesta 1 port in group """
-        sg = tempesta.ServerGroup('default')
+        """Configure tempesta 1 port in group"""
+        sg = tempesta.ServerGroup("default")
         server = self.servers[0]
-        sg.add_server(server.ip, server.config.listeners[0].port,
-                      server.conns_n)
+        sg.add_server(server.ip, server.config.listeners[0].port, server.conns_n)
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
         for i in range(self.num_attempts):
@@ -290,9 +296,10 @@ class RemovingBackendSG(DontModifyBackend):
             t1 = time.time()
             self.tempesta.reload()
             t2 = time.time()
-            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2-t1))
+            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2 - t1))
             time.sleep(self.max_deadtime)
         self.post_test()
+
 
 class ChangingSG(DontModifyBackend):
     num_attempts = 10
@@ -300,12 +307,11 @@ class ChangingSG(DontModifyBackend):
     def_sg = None
 
     def configure_tempesta(self):
-        """ Configure tempesta 1 port in group """
-        sg = tempesta.ServerGroup('default')
+        """Configure tempesta 1 port in group"""
+        sg = tempesta.ServerGroup("default")
         self.def_sg = sg
         server = self.servers[0]
-        sg.add_server(server.ip, server.config.listeners[0].port,
-                      server.conns_n)
+        sg.add_server(server.ip, server.config.listeners[0].port, server.conns_n)
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
         return
@@ -315,11 +321,10 @@ class ChangingSG(DontModifyBackend):
         for i in range(self.num_attempts):
             tf_cfg.dbg(2, "Adding new server to default group")
             server = self.servers[1]
-            self.def_sg.add_server(server.ip, server.config.listeners[i].port,
-                                   server.conns_n)
+            self.def_sg.add_server(server.ip, server.config.listeners[i].port, server.conns_n)
             t1 = time.time()
             self.tempesta.reload()
             t2 = time.time()
-            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2-t1))
+            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2 - t1))
             time.sleep(self.max_deadtime)
         self.post_test()

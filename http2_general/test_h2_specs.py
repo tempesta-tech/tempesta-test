@@ -1,9 +1,9 @@
-from helpers import tf_cfg
 from framework import tester
+from helpers import tf_cfg
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2022 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -63,37 +63,38 @@ cache 0;
 
 """
 
+
 class H2Spec(tester.TempestaTest):
-    '''Tests for h2 proto implementation. Run h2spec utility against Tempesta.
+    """Tests for h2 proto implementation. Run h2spec utility against Tempesta.
     Simply check return code and warnings in system log for test errors.
-    '''
+    """
 
     clients = [
         {
-            'id' : 'h2spec',
-            'type' : 'external',
-            'binary' : 'h2spec',
-            'ssl' : True,
-            'cmd_args' : '-tkh ${tempesta_ip}'
+            "id": "h2spec",
+            "type": "external",
+            "binary": "h2spec",
+            "ssl": True,
+            "cmd_args": "-tkh ${tempesta_ip}",
         },
     ]
 
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'port' : '8000',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         }
     ]
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG,
+        "config": TEMPESTA_CONFIG,
     }
 
     def test_h2_specs(self):
-        h2spec = self.get_client('h2spec')
+        h2spec = self.get_client("h2spec")
         # For different reasons there's still a bunch of `h2spec` tests that fail.
         # To let the vast majority of the remaining passing test to work and help us catch
         # unexpected regressions, we only disable some specific tests. We will enable those
@@ -101,34 +102,35 @@ class H2Spec(tester.TempestaTest):
         # FYI: there are tests that would fail just occasionally, not every time, so please
         # before enabling a test from this list, ensure that it actually passes a decent
         # amount of runs in a row.
-        h2spec.options.extend([
-            "-x generic/2/2",
-            "-x generic/2/3",
-            "-x generic/3.10/2",
-            "-x http2/4.3/3",
-            "-x http2/5.1/5",
-            "-x http2/5.1/6",
-            "-x http2/5.1/11",
-            "-x http2/5.1/12",
-            "-x http2/5.1.1/4",
-            "-x http2/5.3.1/1", # causes dmesg warning
-            "-x http2/5.3.1/2",
-            "-x http2/5.5/2",
-            "-x http2/6.1/2",
-            "-x http2/6.2/2",
-            "-x http2/6.9.1/2",
-            "-x http2/6.9.1/3",
-            "-x http2/8.1/1",
-            "-x http2/8.1.2/1",
-            "-x http2/8.1.2.1/3", # causes dmesg warning
-            "-x http2/8.1.2.2/2",
-            "-x http2/8.1.2.3/5", # causes dmesg warning
-            "-x http2/8.1.2.3/6", # causes dmesg warning
-            "-x http2/8.1.2.3/7", # causes dmesg warning
-            "-x hpack/4.2/1",
-            "-x hpack/5.2/3", # causes dmesg warning
-        ])
-
+        h2spec.options.extend(
+            [
+                "-x generic/2/2",
+                "-x generic/2/3",
+                "-x generic/3.10/2",
+                "-x http2/4.3/3",
+                "-x http2/5.1/5",
+                "-x http2/5.1/6",
+                "-x http2/5.1/11",
+                "-x http2/5.1/12",
+                "-x http2/5.1.1/4",
+                "-x http2/5.3.1/1",  # causes dmesg warning
+                "-x http2/5.3.1/2",
+                "-x http2/5.5/2",
+                "-x http2/6.1/2",
+                "-x http2/6.2/2",
+                "-x http2/6.9.1/2",
+                "-x http2/6.9.1/3",
+                "-x http2/8.1/1",
+                "-x http2/8.1.2/1",
+                "-x http2/8.1.2.1/3",  # causes dmesg warning
+                "-x http2/8.1.2.2/2",
+                "-x http2/8.1.2.3/5",  # causes dmesg warning
+                "-x http2/8.1.2.3/6",  # causes dmesg warning
+                "-x http2/8.1.2.3/7",  # causes dmesg warning
+                "-x hpack/4.2/1",
+                "-x hpack/5.2/3",  # causes dmesg warning
+            ]
+        )
 
         self.start_all_servers()
         self.start_tempesta()
@@ -136,37 +138,38 @@ class H2Spec(tester.TempestaTest):
         self.wait_while_busy(h2spec)
         self.assertEqual(0, h2spec.returncode)
 
+
 class H2Load(tester.TempestaTest):
-    '''Tests for h2 proto implementation. Run h2load utility against Tempesta.
+    """Tests for h2 proto implementation. Run h2load utility against Tempesta.
     Simply check return code and warnings in system log for test errors.
-    '''
+    """
 
     clients = [
         {
-            'id' : 'h2load',
-            'type' : 'external',
-            'binary' : 'h2load',
-            'ssl' : True,
-            'cmd_args' : ' https://${tempesta_ip} -D100'
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": " https://${tempesta_ip} -D100",
         },
     ]
 
     backends = [
         {
-            'id' : 'nginx',
-            'type' : 'nginx',
-            'port' : '8000',
-            'status_uri' : 'http://${server_ip}:8000/nginx_status',
-            'config' : NGINX_CONFIG,
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
         }
     ]
 
     tempesta = {
-        'config' : TEMPESTA_CONFIG,
+        "config": TEMPESTA_CONFIG,
     }
 
     def test_h2_specs(self):
-        h2load = self.get_client('h2load')
+        h2load = self.get_client("h2load")
 
         self.start_all_servers()
         self.start_tempesta()

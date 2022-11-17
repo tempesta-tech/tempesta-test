@@ -1,53 +1,58 @@
 """All sockets must be closed after Tempesta shutdown"""
 
 from __future__ import print_function
+
 import time
-from helpers import control, tempesta, flacky, tf_cfg
+
+from helpers import control, flacky, tempesta, tf_cfg
 from testers import stress
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class CloseOnShutdown(stress.StressTest):
 
     timeout = 180
 
-    config = (
-        'cache 0;\n'
-        '\n')
+    config = "cache 0;\n" "\n"
 
     def check_estab_conns(self, expect_estab=True, expext_failed=False):
         for server in self.servers:
             expected_conns = server.conns_n if expect_estab else 0
-            estab_conns = flacky.get_sock_estab_count(
-                self.tempesta.node, server.get_name())
-            tot_conns = flacky.get_sock_count(
-                self.tempesta.node, server.get_name())
+            estab_conns = flacky.get_sock_estab_count(self.tempesta.node, server.get_name())
+            tot_conns = flacky.get_sock_count(self.tempesta.node, server.get_name())
             failed_conns = tot_conns - estab_conns
 
             self.assertEqual(
-                expected_conns, estab_conns,
-                msg=('Got %d (expected %d) established connections to server %s'
-                     % (estab_conns, expected_conns, server.get_name())))
+                expected_conns,
+                estab_conns,
+                msg=(
+                    "Got %d (expected %d) established connections to server %s"
+                    % (estab_conns, expected_conns, server.get_name())
+                ),
+            )
 
             if expext_failed is None:
                 continue
             failed_conns_exp = server.conns_n if expext_failed else 0
             self.assertEqual(
-                failed_conns, failed_conns_exp,
-                msg=('Got %d (expected %d) opened but not established connections to server %s'
-                     % (failed_conns, failed_conns_exp, server.get_name())))
+                failed_conns,
+                failed_conns_exp,
+                msg=(
+                    "Got %d (expected %d) opened but not established connections to server %s"
+                    % (failed_conns, failed_conns_exp, server.get_name())
+                ),
+            )
 
     def check_before_start(self):
-        tf_cfg.dbg(3, 'Check that there is no opened sockets to servers '
-                      'before start')
+        tf_cfg.dbg(3, "Check that there is no opened sockets to servers " "before start")
         self.check_estab_conns(expect_estab=False, expext_failed=False)
 
     def start_all(self):
-        tf_cfg.dbg(3, 'Start servers and TempestaFW')
-        ka_timeout = 'keepalive_timeout %s;\n' % self.timeout
+        tf_cfg.dbg(3, "Start servers and TempestaFW")
+        ka_timeout = "keepalive_timeout %s;\n" % self.timeout
         self.tempesta.config.set_defconfig(ka_timeout + self.config)
         self.configure_tempesta()
         control.servers_start(self.servers)
@@ -55,12 +60,11 @@ class CloseOnShutdown(stress.StressTest):
 
     def check_after_start(self, allow_conns=True):
         time.sleep(1)
-        tf_cfg.dbg(3, 'All connections must be established or failed.')
-        self.check_estab_conns(expect_estab=allow_conns,
-                               expext_failed=(not allow_conns))
+        tf_cfg.dbg(3, "All connections must be established or failed.")
+        self.check_estab_conns(expect_estab=allow_conns, expext_failed=(not allow_conns))
 
     def check_after_stop(self):
-        tf_cfg.dbg(3, 'All sockets must be closed after Tempesta Shutdown')
+        tf_cfg.dbg(3, "All sockets must be closed after Tempesta Shutdown")
         self.tempesta.stop()
         self.check_estab_conns(expect_estab=False, expext_failed=False)
 
@@ -77,7 +81,7 @@ class CloseOnShutdown(stress.StressTest):
     def tearDown(self):
         if self.filter:
             self.filter.clean_up()
-        if hasattr(self, 'dummy_servers'):
+        if hasattr(self, "dummy_servers"):
             # No need to stop servers.
             if self.tempesta:
                 self.tempesta.stop()
@@ -88,8 +92,9 @@ class CloseOnShutdown(stress.StressTest):
         node = self.servers[0].node
         self.filter = flacky.Filter(node)
         self.filter.init_chains()
-        self.filter_ports = range(tempesta.upstream_port_start_from(),
-                                  self.servers[-1].config.port + 1)
+        self.filter_ports = range(
+            tempesta.upstream_port_start_from(), self.servers[-1].config.port + 1
+        )
 
     def test_reachable(self):
         """All servers are reachable by TempestaFW, all connections will be
@@ -108,10 +113,13 @@ class CloseOnShutdown(stress.StressTest):
         self.check_sockets(allow_conns=False)
 
     def force_reconnects(self):
-        tf_cfg.dbg(3, 'Wait until connections would be reestablished, '
-                      'send some requests and wait for kernel timers.')
+        tf_cfg.dbg(
+            3,
+            "Wait until connections would be reestablished, "
+            "send some requests and wait for kernel timers.",
+        )
         node = self.clients[0].node
-        curl_cmd = 'curl -m %s %s || true' % (self.timeout, self.clients[0].uri)
+        curl_cmd = "curl -m %s %s || true" % (self.timeout, self.clients[0].uri)
         node.run_cmd(curl_cmd)
 
     def test_reachable_then_closed(self):
@@ -150,8 +158,7 @@ class CloseOnShutdown(stress.StressTest):
         self.check_after_stop()
 
     def test_sometimes_available(self):
-        """Start when server behind firewall, switch firewall off and on again.
-        """
+        """Start when server behind firewall, switch firewall off and on again."""
         # Start when server behind firewall
         self.init_filter()
         self.filter.drop_on_ports(self.filter_ports)
@@ -173,5 +180,6 @@ class CloseOnShutdown(stress.StressTest):
         self.check_after_start(False)
 
         self.check_after_stop()
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

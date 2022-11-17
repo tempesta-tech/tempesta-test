@@ -3,11 +3,13 @@ Set of tests to verify HTTP rules processing correctness (in one HTTP chain).
 """
 
 from __future__ import print_function
+
 import asyncore
-from helpers import tempesta, deproxy, tf_cfg, chains, control
+import unittest
+
+from helpers import chains, control, deproxy, tempesta, tf_cfg
 from testers import functional
 
-import unittest
 
 class HttpRules(functional.FunctionalTest):
     """All requests must be forwarded to the right vhosts and
@@ -17,9 +19,9 @@ class HttpRules(functional.FunctionalTest):
     requests_n = 20
 
     config = (
-        'cache 0;\n'
-        '\n'
-        'http_chain {\n'
+        "cache 0;\n"
+        "\n"
+        "http_chain {\n"
         '  uri == "/static*" -> uri_p;\n'
         '  uri == "*.php" -> uri_s;\n'
         '  host == "static.*" -> host_p;\n'
@@ -33,9 +35,10 @@ class HttpRules(functional.FunctionalTest):
         '  hdr referer ==  "http://example.com*" -> hdr_r_p;\n'
         '  hdr From ==  "testuser@example.com" -> hdr_raw_e;\n'
         '  hdr Warning ==  "172 *" -> hdr_raw_p;\n'
-        '  -> default;\n'
-        '}\n'
-        '\n')
+        "  -> default;\n"
+        "}\n"
+        "\n"
+    )
 
     def make_chains(self, uri, extra_header=(None, None)):
         chain = chains.base(uri=uri)
@@ -57,34 +60,32 @@ class HttpRules(functional.FunctionalTest):
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
         server_options = [
-            (('uri_p'), ('/static/index.html'), None, None),
-            (('uri_s'), ('/script.php'), None, None),
-            (('host_p'), ('/'), ('host'), ('static.example.com')),
-            (('host_s'), ('/'), ('host'), ('s.tempesta-tech.com')),
-            (('host_e'), ('/'), ('host'), ('foo.example.com')),
-            (('hdr_h_p'), ('/'), ('host'), ('bar.example.com')),
-            (('hdr_h_s'), ('/'), ('host'), ('test.natsys-lab.com')),
-            (('hdr_h_e'), ('/'), ('host'), ('buzz.natsys-lab.com')),
-            (('hdr_r_e'), ('/'), ('referer'), ('example.com')),
-            (('hdr_r_s'), ('/'), ('referer'), ('http://example.com')),
-            (('hdr_r_p'), ('/'), ('referer'),
-             ('http://example.com/cgi-bin/show.pl')),
-            (('hdr_raw_e'), ('/'), ('from'), ('testuser@example.com')),
-            (('hdr_raw_p'), ('/'), ('warning'), ('172 misc warning')),
-            (('default'), ('/'), None, None)]
+            (("uri_p"), ("/static/index.html"), None, None),
+            (("uri_s"), ("/script.php"), None, None),
+            (("host_p"), ("/"), ("host"), ("static.example.com")),
+            (("host_s"), ("/"), ("host"), ("s.tempesta-tech.com")),
+            (("host_e"), ("/"), ("host"), ("foo.example.com")),
+            (("hdr_h_p"), ("/"), ("host"), ("bar.example.com")),
+            (("hdr_h_s"), ("/"), ("host"), ("test.natsys-lab.com")),
+            (("hdr_h_e"), ("/"), ("host"), ("buzz.natsys-lab.com")),
+            (("hdr_r_e"), ("/"), ("referer"), ("example.com")),
+            (("hdr_r_s"), ("/"), ("referer"), ("http://example.com")),
+            (("hdr_r_p"), ("/"), ("referer"), ("http://example.com/cgi-bin/show.pl")),
+            (("hdr_raw_e"), ("/"), ("from"), ("testuser@example.com")),
+            (("hdr_raw_p"), ("/"), ("warning"), ("172 misc warning")),
+            (("default"), ("/"), None, None),
+        ]
 
         for group, uri, header, value in server_options:
             # Don't need too many connections here.
             server = deproxy.Server(port=port, conns_n=1)
             port += 1
             server.group = group
-            server.chains = self.make_chains(uri=uri,
-                                             extra_header=(header, value))
+            server.chains = self.make_chains(uri=uri, extra_header=(header, value))
             self.servers.append(server)
 
     def configure_tempesta(self):
-        """ Add every server to it's own server group with default scheduler.
-        """
+        """Add every server to it's own server group with default scheduler."""
         for s in self.servers:
             sg = tempesta.ServerGroup(s.group)
             sg.add_server(s.ip, s.port, s.conns_n)
@@ -153,15 +154,16 @@ class HttpRules(functional.FunctionalTest):
 class HttpRulesBackupServers(HttpRules):
 
     config = (
-        'cache 0;\n'
-        '\n'
-        'vhost host {\n'
-        '\tproxy_pass primary backup=backup;\n'
-        '}\n'
-        'http_chain {\n'
-        '\t-> host;\n'
-        '}\n'
-        '\n')
+        "cache 0;\n"
+        "\n"
+        "vhost host {\n"
+        "\tproxy_pass primary backup=backup;\n"
+        "}\n"
+        "http_chain {\n"
+        "\t-> host;\n"
+        "}\n"
+        "\n"
+    )
 
     def create_tempesta(self):
         self.tempesta = control.Tempesta(vhost_auto=False)
@@ -175,8 +177,7 @@ class HttpRulesBackupServers(HttpRules):
         return [chain for _ in range(self.requests_n)]
 
     def create_tempesta(self):
-        """ Disable vhosts auto configuration mode.
-        """
+        """Disable vhosts auto configuration mode."""
         functional.FunctionalTest.create_tempesta(self)
         self.tempesta.config.vhost_auto_mode = False
 
@@ -188,42 +189,37 @@ class HttpRulesBackupServers(HttpRules):
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
-        self.main_server = self.create_server_helper('primary', port)
-        self.backup_server = self.create_server_helper('backup', port + 1)
+        self.main_server = self.create_server_helper("primary", port)
+        self.backup_server = self.create_server_helper("backup", port + 1)
         self.servers.append(self.main_server)
         self.servers.append(self.backup_server)
 
     def test_scheduler(self):
         self.init()
         # Main server is online, backup server must not receive traffic.
-        self.main_server.tester.message_chains = (
-            self.make_chains(empty=False))
-        self.backup_server.tester.message_chains = (
-            self.make_chains(empty=True))
+        self.main_server.tester.message_chains = self.make_chains(empty=False)
+        self.backup_server.tester.message_chains = self.make_chains(empty=True)
         self.routine()
 
         # Shutdown main server, responses must be forwarded to backup.
         self.main_server.tester.client.stop()
         self.main_server.stop()
-        self.main_server.tester.message_chains = (
-            self.make_chains(empty=True))
+        self.main_server.tester.message_chains = self.make_chains(empty=True)
 
-        self.backup_server.tester.message_chains = (
-            self.make_chains(empty=False))
+        self.backup_server.tester.message_chains = self.make_chains(empty=False)
         self.routine()
 
         # Return main server back operational.
         self.testers.remove(self.main_server.tester)
         self.main_server = self.create_server_helper(
-            group=self.main_server.group, port=self.main_server.port)
+            group=self.main_server.group, port=self.main_server.port
+        )
         tester = HttpSchedTester(deproxy.Client(), [self.main_server])
         tester.response_cb = self.response_received
         self.testers.append(tester)
 
-        self.main_server.tester.message_chains = (
-            self.make_chains(empty=False))
-        self.backup_server.tester.message_chains = (
-            self.make_chains(empty=True))
+        self.main_server.tester.message_chains = self.make_chains(empty=False)
+        self.backup_server.tester.message_chains = self.make_chains(empty=True)
 
         self.main_server.start()
         self.main_server.tester.client.start()
@@ -240,7 +236,6 @@ class HttpRulesBackupServers(HttpRules):
 
 
 class HttpSchedTester(deproxy.Deproxy):
-
     def __init__(self, *args, **kwargs):
         deproxy.Deproxy.__init__(self, *args, **kwargs)
 
@@ -259,5 +254,6 @@ class HttpSchedTester(deproxy.Deproxy):
         # instead call the
         self.received_chain.response = response
         self.response_cb()
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

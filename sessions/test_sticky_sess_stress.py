@@ -3,26 +3,30 @@ With sticky sessions each client is pinned to only one server in group.
 """
 
 from __future__ import print_function
+
 import sys
+
 from helpers import control, tempesta, tf_cfg
 from testers import stress
 
-__author__ = 'Tempesta Technologies, Inc.'
-__copyright__ = 'Copyright (C) 2017 Tempesta Technologies, Inc.'
-__license__ = 'GPL2'
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 
 class OneClient(stress.StressTest):
 
     config = (
-        'cache 0;\n'
-        'sticky {\n'
-        '   cookie enforce;\n'
+        "cache 0;\n"
+        "sticky {\n"
+        "   cookie enforce;\n"
         '   secret "f00)9eR59*_/22";\n'
-        '   sticky_sessions;\n'
-        '}\n\n')
+        "   sticky_sessions;\n"
+        "}\n\n"
+    )
 
     def create_clients(self):
-        self.wrk = control.Wrk(threads = 1)
+        self.wrk = control.Wrk(threads=1)
         self.wrk.set_script("cookie-one-client")
         self.clients = [self.wrk]
 
@@ -55,10 +59,11 @@ class OneClient(stress.StressTest):
                 loaded += 1
                 self.assertTrue(
                     s.requests >= exp_min and s.requests <= exp_max,
-                    msg=("Number of requests forwarded to server (%d) "
-                         "doesn't match expected value: [%d, %d]"
-                         % (s.requests, exp_min, exp_max))
-                    )
+                    msg=(
+                        "Number of requests forwarded to server (%d) "
+                        "doesn't match expected value: [%d, %d]" % (s.requests, exp_min, exp_max)
+                    ),
+                )
         self.assertEqual(loaded, 1)
 
     def test(self):
@@ -72,8 +77,7 @@ class OneClient(stress.StressTest):
 class LotOfClients(OneClient):
 
     # Override maximum number of clients
-    clients_num = min(int(tf_cfg.cfg.get('General', 'concurrent_connections')),
-                      1000)
+    clients_num = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 1000)
 
     def create_clients(self):
         # Create one thread per client to set unique User-Agent header for
@@ -85,5 +89,6 @@ class LotOfClients(OneClient):
 
     def assert_servers(self):
         stress.StressTest.assert_servers(self)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
