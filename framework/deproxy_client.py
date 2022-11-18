@@ -406,8 +406,7 @@ class DeproxyClientH2(DeproxyClient):
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
                     self.h2_connection.acknowledge_received_data(
-                        acknowledged_size=event.flow_controlled_length,
-                        stream_id=event.stream_id
+                        acknowledged_size=event.flow_controlled_length, stream_id=event.stream_id
                     )
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
@@ -419,6 +418,8 @@ class DeproxyClientH2(DeproxyClient):
                         return
                     self.receive_response(response)
                     self.nrresp += 1
+                else:
+                    self.handle_read()
 
         except deproxy.IncompleteMessage:
             tf_cfg.dbg(
