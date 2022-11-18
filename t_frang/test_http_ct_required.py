@@ -1,141 +1,38 @@
-from framework import tester
-from helpers import dmesg
+"""Tests for Frang directive `http_ct_required`."""
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-COUNT_WARNINGS_OK = 1
 
-
-ERROR_MSG = "Frang limits warning is not shown"
-
-RESPONSE_CONTENT = """HTTP/1.1 200 OK\r
-Content-Length: 0\r\n
-Connection: keep-alive\r\n\r\n
-"""
-
-TEMPESTA_CONF = """
-cache 0;
-listen 80;
-
-frang_limits {
-    http_ct_required true;
-}
-
-server ${server_ip}:8000;
-"""
-
-WARN_UNKNOWN = "frang: Request authority is unknown"
-
-REQUEST_SUCCESS = """
-POST / HTTP/1.1\r
-Host: tempesta-tech.com\r
-Content-Type: text/html
-\r
-"""
-
-REQUEST_EMPTY_CONTENT_TYPE = """
-POST / HTTP/1.1\r
-Host: tempesta-tech.com
-\r
-"""
-
-
-class FrangHttpCtRequiredTestCase(tester.TempestaTest):
-
-    clients = [
-        {
-            "id": "client",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
-
-    backends = [
-        {
-            "id": "0",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": RESPONSE_CONTENT,
-        },
-    ]
-
-    tempesta = {
-        "config": TEMPESTA_CONF,
-    }
-
-    def setUp(self):
-        """Set up test."""
-        super().setUp()
-        self.klog = dmesg.DmesgFinder(ratelimited=False)
-
-    def start_all(self):
-        """Start all requirements."""
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        srv = self.get_server("0")
-        self.assertTrue(
-            srv.wait_for_connections(timeout=1),
-        )
+class FrangHttpCtRequiredTestCase(FrangTestCase):
+    error = "frang: Content-Type header field for"
 
     def test_content_type_set_ok(self):
-        self.start_all()
+        """Test with valid header `Content-type`."""
+        client = self.base_scenario(
+            frang_config="http_ct_required true;",
+            requests=[
+                "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/html\r\n\r\n",
+                "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type:\r\n\r\n",
+                "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: invalid\r\n\r\n",
+            ],
+        )
+        self.check_response(client, status_code="200", warning_msg=self.error)
 
-        deproxy_cl = self.get_client("client")
-        deproxy_cl.start()
-        deproxy_cl.make_requests(
-            REQUEST_SUCCESS,
+    def test_missing_content_type(self):
+        """Test with missing header `Content-type`."""
+        client = self.base_scenario(
+            frang_config="http_ct_required true;",
+            requests=["POST / HTTP/1.1\r\nHost: localhost\r\n\r\n"],
         )
-        deproxy_cl.wait_for_response()
-        print(list(p.status for p in deproxy_cl.responses))
-        self.assertEqual(
-            1,
-            len(deproxy_cl.responses),
-        )
-        self.assertFalse(
-            deproxy_cl.connection_is_closed(),
-        )
+        self.check_response(client, status_code="403", warning_msg=self.error)
 
-    def test_empty_content_type(self):
-        """Test with empty header `host`."""
-        self._test_base_scenario(
-            request_body=REQUEST_EMPTY_CONTENT_TYPE,
+    def test_default_http_ct_required(self):
+        """Test with default (false) http_ct_required directive."""
+        client = self.base_scenario(
+            frang_config="",
+            requests=["POST / HTTP/1.1\r\nHost: localhost\r\n\r\n"],
         )
-
-    def _test_base_scenario(
-        self,
-        request_body: str,
-        expected_warning: str = WARN_UNKNOWN,
-    ):
-        """
-        Test base scenario for process different requests.
-
-        Args:
-            request_body (str): request body
-            expected_warning (str): expected warning in logs
-        """
-        self.start_all()
-
-        deproxy_cl = self.get_client("client")
-        deproxy_cl.start()
-        deproxy_cl.make_requests(
-            request_body,
-        )
-        deproxy_cl.wait_for_response()
-
-        self.assertEqual(
-            0,
-            len(deproxy_cl.responses),
-        )
-        self.assertTrue(
-            deproxy_cl.connection_is_closed(),
-        )
-        self.assertEqual(
-            self.klog.warn_count(expected_warning),
-            COUNT_WARNINGS_OK,
-            ERROR_MSG,
-        )
+        self.check_response(client, status_code="200", warning_msg=self.error)
