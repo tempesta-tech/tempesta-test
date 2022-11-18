@@ -58,10 +58,12 @@ class TestStateLoader(object):
         """Try to load specified state file"""
         try:
             with open(self.state_file, "r") as st_file:
-                self.state = self.__parse_file(st_file)
-                self.last_id = self.state["last_id"]
-                self.last_completed = self.state["last_completed"]
-                return True
+                state = self.__parse_file(st_file)
+                if state:
+                    self.state = state
+                    self.last_id = self.state["last_id"]
+                    self.last_completed = self.state["last_completed"]
+                    return True
         except IOError as err:
             if err.errno != errno.ENOENT:
                 raise Exception("Error loading tests state")
@@ -71,10 +73,13 @@ class TestStateLoader(object):
 
     @staticmethod
     def __parse_file(st_file):
-        dump = json.load(st_file)
-        # convert lists to sets where needed
-        dump["inclusions"] = set(dump["inclusions"])
-        dump["exclusions"] = set(dump["exclusions"])
+        dump = None
+        data = st_file.read()
+        if data:
+            dump = json.loads(data)
+            # convert lists to sets where needed
+            dump["inclusions"] = set(dump["inclusions"])
+            dump["exclusions"] = set(dump["exclusions"])
         return dump
 
 
