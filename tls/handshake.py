@@ -336,6 +336,7 @@ class TlsHandshake:
         self.server = "127.0.0.1"
         self.hs_state = False
         self.debug = debug
+        self.timeout = 5
         self.sni = "tempesta-tech.com"
         self.host = self.sni
         self.chunk = chunk
@@ -469,7 +470,7 @@ class TlsHandshake:
         if self.send_data is not None:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
-        self.hs.control_thread.join(5)
+        self.hs.control_thread.join(self.timeout)
         tf_cfg.dbg(3, f"Fin_state: {self.hs.state.state}")
         tf_cfg.dbg(3, f"Server_data: {self.hs.server_data}")
         tf_cfg.dbg(3, f"Session_ticket: {type(self.hs.session_ticket)}")
