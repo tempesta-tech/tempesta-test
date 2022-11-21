@@ -7,29 +7,35 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-ERROR_RATE = "Warning: frang: new connections rate exceeded for"
-ERROR_BURST = "Warning: frang: new connections burst exceeded"
+ERROR = "Warning: frang: new connections {0} exceeded for"
+ERROR_TLS = "Warning: frang: new TLS connections {0} exceeded for"
 
 
-class FrangConnectionRateTestCase(FrangTestCase):
+class FrangTlsRateBurstTestCase(FrangTestCase):
+    """Tests for 'tls_connection_burst' and 'tls_connection_rate'."""
 
     clients = [
         {
             "id": "curl-1",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765" -H "Connection: close"',
+            "type": "curl",
+            "ssl": True,
+            "addr": "${tempesta_ip}:443",
+            "cmd_args": "-v",
+            "headers": {
+                "Connection": "close",
+                "Host": "localhost",
+            },
         },
     ]
 
     tempesta = {
         "config": """
             frang_limits {
-                connection_burst 2;
-                connection_rate 4;
+                tls_connection_burst 3;
+                tls_connection_rate 4;
             }
 
-            listen ${server_ip}:8765;
+            listen 443 proto=https;
 
             srv_group default {
                 server ${server_ip}:8000;
@@ -53,139 +59,399 @@ class FrangConnectionRateTestCase(FrangTestCase):
         """,
     }
 
-    def test_connection_rate(self):
-        """Test 'connection_rate'."""
+    burst_warning = ERROR_TLS.format("burst")
+    rate_warning = ERROR_TLS.format("rate")
+
+    def _base_burst_scenario(self, connections: int):
+        """
+        Create several client connections and send request.
+        If number of connections is more than 3 they will be blocked.
+        """
+        curl = self.get_client("curl-1")
+        curl.uri += f"[1-{connections}]"
+        curl.parallel = connections
+
+        self.start_all_services(client=False)
+
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
+
+        warning_count = connections - 3 if connections > 3 else 0  # limit burst 3
+
+        self.assertFrangWarning(warning=self.burst_warning, expected=warning_count)
+
+        if warning_count:
+            self.assertIn("Failed sending HTTP request", curl.last_response.stderr)
+
+        self.assertFrangWarning(warning=self.rate_warning, expected=0)
+
+    def _base_rate_scenario(self, connections: int):
+        """
+        Create several client connections and send request.
+        If number of connections is more than 3m they will be blocked.
+        """
         curl = self.get_client("curl-1")
 
-        self.start_all_servers()
-        self.start_tempesta()
+        self.start_all_services(client=False)
 
-        # connection_rate 4 in Tempesta config increase to get limit
-        connection_rate = 5
-
-        for step in range(connection_rate):
+        for step in range(connections):
             curl.start()
             self.wait_while_busy(curl)
+            curl.stop()
 
-            # delay to split tests for `rate` and `burst`
+            # until rate limit is reached
+            if step < 4:  # rate limit 4
+                self.assertFrangWarning(warning=self.rate_warning, expected=0)
+                self.assertEqual(curl.last_response.status, 200)
+            else:
+                # rate limit is reached
+                self.assertFrangWarning(warning=self.rate_warning, expected=1)
+                self.assertIn("Failed sending HTTP request", curl.last_response.stderr)
+
             time.sleep(DELAY)
 
-            curl.stop()
-
-            # until rate limit is reached
-            if step < connection_rate - 1:
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_RATE),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_RATE),
-                    ),
-                )
-
-        self.assertGreater(
-            self.klog.warn_count(ERROR_RATE),
-            1,
-            self.assert_msg.format(
-                exp="more than {0}".format(1),
-                got=self.klog.warn_count(ERROR_RATE),
-            ),
-        )
+        self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
     def test_connection_burst(self):
-        """Test 'connection_burst'.
-        for some reason, the number of logs in the dmsg may be greater
-        than the expected number, which may cause the test to fail
-        Disabled by issure #1649
+        self._base_burst_scenario(connections=4)
+
+    def test_connection_burst_without_reaching_the_limit(self):
+        self._base_burst_scenario(connections=2)
+
+    def test_connection_burst_on_the_limit(self):
+        self._base_burst_scenario(connections=3)
+
+    def test_connection_rate(self):
+        self._base_rate_scenario(connections=5)
+
+    def test_connection_rate_without_reaching_the_limit(self):
+        self._base_rate_scenario(connections=3)
+
+    def test_connection_rate_on_the_limit(self):
+        self._base_rate_scenario(connections=4)
+
+
+class FrangConnectionRateBurstTestCase(FrangTlsRateBurstTestCase):
+    """Tests for 'connection_burst' and 'connection_rate'."""
+
+    clients = [
+        {
+            "id": "curl-1",
+            "type": "curl",
+            "addr": "${tempesta_ip}:80",
+            "headers": {
+                "Connection": "close",
+                "Host": "localhost",
+            },
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            frang_limits {
+                connection_burst 3;
+                connection_rate 4;
+            }
+            
+            listen 80;
+            
+            server ${server_ip}:8000;
+            
+            cache 0;
+            block_action attack reply;
+        """,
+    }
+
+    burst_warning = ERROR.format("burst")
+    rate_warning = ERROR.format("rate")
+
+
+class FrangConnectionRateDifferentIp(FrangTestCase):
+    clients = [
+        {
+            "id": "deproxy-interface-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
+        {
+            "id": "deproxy-interface-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            frang_limits {
+                connection_rate 2;
+                ip_block on;
+            }
+            listen 80;
+            server ${server_ip}:8000;
+            block_action attack reply;
+        """,
+    }
+
+    request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+
+    error = ERROR.format("rate")
+
+    def test_two_clients_two_ip(self):
         """
-        curl = self.get_client("curl-1")
+        Create 3 client connections for first ip and 2 for second ip.
+        Only first ip will be blocked.
+        """
+        client_1 = self.get_client("deproxy-interface-1")
+        client_2 = self.get_client("deproxy-interface-2")
 
-        self.start_all_servers()
-        self.start_tempesta()
+        self.start_all_services(client=False)
 
-        # connection_burst 2 in Tempesta config increase to get limit
-        connection_burst = 3
+        for _ in range(2):
+            client_1.start()
+            client_2.start()
+            client_1.make_request(self.request)
+            client_2.make_request(self.request)
+            client_2.wait_for_response(0.01)
+            client_1.stop()
+            client_2.stop()
 
-        for step in range(connection_burst):
-            curl.run_start()
-            self.wait_while_busy(curl)
-            curl.stop()
+        client_1.start()
+        client_1.make_request(self.request)
+        client_1.wait_for_response(1)
 
-            # until rate limit is reached
-            if step < connection_burst - 1:
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_BURST),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_BURST),
-                    ),
-                )
-        time.sleep(DELAY)
+        server = self.get_server("deproxy")
+        self.assertTrue(5 > len(server.requests))
 
+        time.sleep(1)
+
+        client_2.start()
+        client_2.make_request(self.request)
+        client_2.wait_for_response(1)
+
+        self.assertIsNotNone(client_2.last_response, "Deproxy client has lost response.")
         self.assertEqual(
-            self.klog.warn_count(ERROR_BURST),
-            1,
-            self.assert_msg.format(
-                exp=1,
-                got=self.klog.warn_count(ERROR_BURST),
-            ),
+            client_2.last_response.status, "200", "HTTP response status codes mismatch."
         )
 
-    def test_connection_burst_limit_1(self):
-        """
-        any request will be blocked by the rate limiter,
-        if connection_burst=1;
-        for some reason, the number of logs always greater
-        than the expected number, which may cause the test to fail
-        """
-        self.tempesta = {
-            "config": """
+        self.assertFrangWarning(warning=self.error, expected=1)
+
+
+class FrangConnectionBurstDifferentIp(FrangConnectionRateDifferentIp):
+    tempesta = {
+        "config": """
             frang_limits {
-                connection_burst 1;
+                connection_burst 2;
+                ip_block on;
             }
-            listen ${server_ip}:8765;
+            listen 80;
+            server ${server_ip}:8000;
+            block_action attack reply;
+        """,
+    }
 
-            srv_group default {
-                server ${server_ip}:8000;
+    error = ERROR.format("burst")
+
+
+class FrangTlsRateDifferentIp(FrangConnectionRateDifferentIp):
+    tempesta = {
+        "config": """
+            frang_limits {
+                tls_connection_rate 2;
+                ip_block on;
             }
 
-            vhost tempesta-cat {
-                proxy_pass default;
-            }
+            listen 443 proto=https;
+
+            server ${server_ip}:8000;
 
             tls_match_any_server_name;
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             cache 0;
-            cache_fulfill * *;
             block_action attack reply;
 
-            http_chain {
-                -> tempesta-cat;
+    """,
+    }
+
+    error = ERROR_TLS.format("rate")
+
+    def setUp(self):
+        for client in self.clients:
+            client["ssl"] = True
+            client["port"] = "443"
+        super().setUp()
+
+
+class FrangTlsBurstDifferentIp(FrangTlsRateDifferentIp):
+    tempesta = {
+        "config": """
+            frang_limits {
+                tls_connection_burst 2;
+                ip_block on;
             }
+
+            listen 443 proto=https;
+
+            server ${server_ip}:8000;
+
+            tls_match_any_server_name;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+            cache 0;
+            block_action attack reply;
+
+    """,
+    }
+
+    error = ERROR_TLS.format("burst")
+
+
+class FrangTlsAndNonTlsRateBurst(FrangTestCase):
+    """Tests for tls and non-tls connections 'tls_connection_burst' and 'tls_connection_rate'"""
+
+    clients = [
+        {
+            "id": "curl-https",
+            "type": "curl",
+            "ssl": True,
+            "addr": "${tempesta_ip}:443",
+            "cmd_args": "-v",
+            "headers": {
+                "Connection": "close",
+                "Host": "localhost",
+            },
+        },
+        {
+            "id": "curl-http",
+            "type": "curl",
+            "addr": "${tempesta_ip}:80",
+            "cmd_args": "-v",
+            "headers": {
+                "Connection": "close",
+                "Host": "localhost",
+            },
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            frang_limits {
+                tls_connection_burst 3;
+                tls_connection_rate 4;
+            }
+            
+            listen 80;
+            listen 443 proto=https;
+
+            server ${server_ip}:8000;
+
+            tls_match_any_server_name;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+            cache 0;
+            block_action attack reply;
         """,
-        }
-        self.setUp()
-        curl = self.get_client("curl-1")
+    }
 
-        self.start_all_servers()
-        self.start_tempesta()
+    base_client_id = "curl-https"
+    optional_client_id = "curl-http"
+    burst_warning = ERROR_TLS.format("burst")
+    rate_warning = ERROR_TLS.format("rate")
 
-        connection_burst = 5
+    def test_burst(self):
+        """
+        Set `tls_connection_burst 3` and create 4 tls and 4 non-tls connections.
+        Only tls connections will be blocked.
+        """
+        base_client = self.get_client(self.base_client_id)
+        optional_client = self.get_client(self.optional_client_id)
 
-        for step in range(connection_burst):
-            curl.run_start()
-            self.wait_while_busy(curl)
-            curl.stop()
+        # burst limit 3
+        limit = 4
 
-        time.sleep(DELAY)
-        self.assertEqual(
-            self.klog.warn_count(ERROR_BURST),
-            5,
-            self.assert_msg.format(
-                exp=5,
-                got=self.klog.warn_count(ERROR_BURST),
-            ),
-        )
+        base_client.uri += f"[1-{limit}]"
+        optional_client.uri += f"[1-{limit}]"
+        base_client.parallel = limit
+        optional_client.parallel = limit
+
+        self.start_all_services()
+
+        self.wait_while_busy(base_client, optional_client)
+        base_client.stop()
+        optional_client.stop()
+
+        self.assertEqual(len(optional_client.stats), limit)
+        for stat in optional_client.stats:
+            self.assertEqual(stat["response_code"], 200)
+        self.assertFrangWarning(warning=self.burst_warning, expected=1)
+
+    def test_rate(self):
+        """
+        Set `tls_connection_rate 4` and create 5 tls and 5 non-tls connections.
+        Only tls connections will be blocked.
+        """
+        base_client = self.get_client(self.base_client_id)
+        optional_client = self.get_client(self.optional_client_id)
+
+        self.start_all_services(client=False)
+
+        # limit rate 4
+        limit = 5
+
+        optional_client.uri += f"[1-{limit}]"
+        optional_client.parallel = limit
+        optional_client.start()
+
+        for step in range(limit):
+            base_client.start()
+            self.wait_while_busy(base_client)
+            base_client.stop()
+
+            time.sleep(DELAY)
+
+        self.wait_while_busy(optional_client)
+        optional_client.stop()
+
+        self.assertEqual(len(optional_client.stats), limit)
+        for stat in optional_client.stats:
+            self.assertEqual(stat["response_code"], 200)
+        self.assertFrangWarning(warning=self.rate_warning, expected=1)
+
+
+class FrangConnectionTlsAndNonTlsRateBurst(FrangTlsAndNonTlsRateBurst):
+    """Tests for tls and non-tls connections 'connection_burst' and 'connection_rate'"""
+
+    tempesta = {
+        "config": """
+            frang_limits {
+                connection_burst 3;
+                connection_rate 4;
+            }
+
+            listen 80;
+            listen 443 proto=https;
+
+            server ${server_ip}:8000;
+
+
+            tls_match_any_server_name;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+            cache 0;
+            block_action attack reply;
+        """,
+    }
+
+    base_client_id = "curl-http"
+    optional_client_id = "curl-https"
+    burst_warning = ERROR.format("burst")
+    rate_warning = ERROR.format("rate")
