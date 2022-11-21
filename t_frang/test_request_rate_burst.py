@@ -1,14 +1,13 @@
 """Tests for Frang directive `request_rate` and 'request_burst'."""
 import time
 
-from t_frang.frang_test_case import FrangTestCase
+from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-DELAY = 0.125
-ERROR_MSG = "Warning: frang: request {0} exceeded for"
+ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
 ERROR_MSG_BURST = "Warning: frang: requests burst exceeded"
 
 
@@ -17,513 +16,201 @@ class FrangRequestRateTestCase(FrangTestCase):
 
     clients = [
         {
-            "id": "curl-1",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-interface-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
+        {
+            "id": "deproxy-interface-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
         },
     ]
 
     tempesta = {
         "config": """
-            frang_limits {
-                request_rate 4;
-            }
-
-            listen ${server_ip}:8765;
-
-            srv_group default {
-                server ${server_ip}:8000;
-            }
-
-            vhost tempesta-cat {
-                proxy_pass default;
-            }
-
-            tls_match_any_server_name;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-
-            cache 0;
-            cache_fulfill * *;
-            block_action attack reply;
-
-            http_chain {
-                -> tempesta-cat;
-            }
-        """,
+frang_limits {
+    request_rate 4;
+    ip_block on;
+}
+listen 80;
+server ${server_ip}:8000;
+block_action attack reply;
+""",
     }
 
-    def test_request_rate(self):
-        """Test 'request_rate'."""
-        curl = self.get_client("curl-1")
+    request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
 
-        self.start_all_servers()
-        self.start_tempesta()
+    error_msg = ERROR_MSG_RATE
 
-        # request_rate 4; in tempesta, increase to catch limit
-        request_rate = 5
+    def get_responses(self, client_1, client_2, rps_1: int, rps_2: int, request_cnt: int):
+        self.start_all_services(client=False)
 
-        for step in range(request_rate):
-            curl.start()
-            self.wait_while_busy(curl)
+        client_1.set_rps(rps_1)
+        client_2.set_rps(rps_2)
 
-            # delay to split tests for `rate` and `burst`
-            time.sleep(DELAY)
+        client_1.start()
+        client_2.start()
 
-            curl.stop()
+        for _ in range(request_cnt):
+            client_1.make_request(self.request)
+            client_2.make_request(self.request)
 
-            # until rate limit is reached
-            if step < request_rate - 1:
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format("rate")),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                    ),
-                )
+        client_1.wait_for_response(3)
+        client_2.wait_for_response(3)
 
-            else:
-                # rate limit is reached
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format("rate")),
-                    1,
-                    self.assert_msg.format(
-                        exp=1,
-                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                    ),
-                )
+    def test_two_clients_two_ip(self):
+        """
+        Set `request_rate 4;` and make requests for two clients with different ip:
+            - 6 requests for client with 4 rps and receive 6 responses with 200 status;
+            - 6 requests for client with rps greater than 4 and get ip block;
+        """
+        client_1 = self.get_client("deproxy-interface-1")
+        client_2 = self.get_client("deproxy-interface-2")
 
-    def test_request_rate_without_reaching_the_limit(self):
-        """Test 'request_rate'."""
-        curl = self.get_client("curl-1")
+        self.get_responses(client_1, client_2, rps_1=4, rps_2=0, request_cnt=6)
 
-        self.start_all_servers()
-        self.start_tempesta()
+        self.assertFalse(client_1.connection_is_closed())
+        self.assertTrue(client_2.connection_is_closed())
 
-        # request_rate 4; in tempesta
-        request_rate = 3
+        for response in client_1.responses:
+            self.assertEqual(response.status, "200")
 
-        for step in range(request_rate):
-            curl.start()
-            self.wait_while_busy(curl)
+        self.assertEqual(4, len(client_2.responses))
 
-            # delay to split tests for `rate` and `burst`
-            time.sleep(DELAY)
+        self.assertFrangWarning(warning="Warning: block client:", expected=1)
+        self.assertFrangWarning(warning=self.error_msg, expected=1)
 
-            curl.stop()
+    def test_two_clients_one_ip(self):
+        """
+        Set `request_rate 4;` and make requests concurrently for two clients with same ip.
+        Clients will be blocked on 5th request.
+        """
+        client_1 = self.get_client("deproxy-1")
+        client_2 = self.get_client("deproxy-2")
 
-            self.assertEqual(
-                self.klog.warn_count(ERROR_MSG.format("rate")),
-                0,
-                self.assert_msg.format(
-                    exp=0,
-                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                ),
-            )
+        self.get_responses(client_1, client_2, rps_1=0, rps_2=0, request_cnt=4)
 
-    def test_request_rate_on_the_limit(self):
-        """Test 'request_rate'."""
-        curl = self.get_client("curl-1")
+        self.assertGreater(5, len(client_2.responses) + len(client_1.responses))
+        self.assertGreater(len(client_1.responses), 0)
+        self.assertGreater(len(client_2.responses), 0)
 
-        self.start_all_servers()
-        self.start_tempesta()
+        self.assertTrue(client_1.connection_is_closed())
+        self.assertTrue(client_2.connection_is_closed())
 
-        # request_rate 4; in tempesta
-        request_rate = 4
-
-        for step in range(request_rate):
-            curl.start()
-            self.wait_while_busy(curl)
-
-            # delay to split tests for `rate` and `burst`
-            time.sleep(DELAY)
-
-            curl.stop()
-
-            self.assertEqual(
-                self.klog.warn_count(ERROR_MSG.format("rate")),
-                0,
-                self.assert_msg.format(
-                    exp=0,
-                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                ),
-            )
+        self.assertFrangWarning(warning="Warning: block client:", expected=1)
+        self.assertFrangWarning(warning=self.error_msg, expected=1)
 
 
-class FrangRequestBurstTestCase(FrangTestCase):
+class FrangRequestBurstTestCase(FrangRequestRateTestCase):
     """Tests for and 'request_burst' directive."""
 
-    clients = [
-        {
-            "id": "curl-1",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
-        },
-    ]
     tempesta = {
         "config": """
-            frang_limits {
-                request_burst 3;
-            }
-
-            listen ${server_ip}:8765;
-
-            srv_group default {
-                server ${server_ip}:8000;
-            }
-
-            vhost tempesta-cat {
-                proxy_pass default;
-            }
-
-            tls_match_any_server_name;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-
-            cache 0;
-            cache_fulfill * *;
-            block_action attack reply;
-
-            http_chain {
-                -> tempesta-cat;
-            }
-        """,
+frang_limits {
+    request_burst 4;
+    ip_block on;
+}
+listen 80;
+server ${server_ip}:8000;
+block_action attack reply;
+""",
     }
 
-    def test_request_burst_reached(self):
-        """Test 'request_burst' is reached.
-        Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        this means that in 125 ms there will be less than 4 requests and the test will not reach the limit
-        """
-        curl = self.get_client("curl-1")
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 3; in tempesta, increase to catch limit
-        request_burst = 4
-
-        for _ in range(request_burst):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG_BURST),
-            1,
-            self.assert_msg.format(
-                exp=1,
-                got=self.klog.warn_count(ERROR_MSG_BURST),
-            ),
-        )
-
-    def test_request_burst_not_reached_timeout(self):
-        """Test 'request_burst' is NOT reached."""
-        curl = self.get_client("curl-1")
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 3; in tempesta,
-        request_burst = 5
-
-        for _ in range(request_burst):
-            time.sleep(0.125)  # the limit works only on an interval of 125 ms
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG_BURST),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG_BURST),
-            ),
-        )
-
-    def test_request_burst_on_the_limit(self):
-        # Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        curl = self.get_client("curl-1")
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 3; in tempesta,
-        request_burst = 3
-
-        for _ in range(request_burst):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG_BURST),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG_BURST),
-            ),
-        )
+    error_msg = ERROR_MSG_BURST
 
 
 class FrangRequestRateBurstTestCase(FrangTestCase):
     """Tests for 'request_rate' and 'request_burst' directive."""
 
-    clients = [
-        {
-            "id": "curl-1",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": '-Ikf -v http://${server_ip}:8765/ -H "Host: tempesta-tech.com:8765"',
-        },
-    ]
-
     tempesta = {
         "config": """
-            frang_limits {
-                request_rate 4;
-                request_burst 3;
-            }
+frang_limits {
+    request_rate 4;
+    request_burst 3;
+}
 
-            listen ${server_ip}:8765;
-
-            srv_group default {
-                server ${server_ip}:8000;
-            }
-
-            vhost tempesta-cat {
-                proxy_pass default;
-            }
-
-            tls_match_any_server_name;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-
-            cache 0;
-            cache_fulfill * *;
-            block_action attack reply;
-
-            http_chain {
-                -> tempesta-cat;
-            }
-        """,
+listen 80;
+server ${server_ip}:8000;
+cache 0;
+block_action attack reply;
+""",
     }
 
-    def test_request_rate_reached(self):
-        """Test 'request_rate'."""
-        curl = self.get_client("curl-1")
+    rate_warning = ERROR_MSG_RATE
+    burst_warning = ERROR_MSG_BURST
 
-        self.start_all_servers()
-        self.start_tempesta()
+    def _base_burst_scenario(self, requests: int):
+        self.start_all_services()
 
-        # request_rate 4; in tempesta, increase to catch limit
-        request_rate = 5
+        client = self.get_client("deproxy-1")
 
-        for step in range(request_rate):
-            curl.start()
-            self.wait_while_busy(curl)
+        for step in range(requests):
+            client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            time.sleep(0.02)
 
-            # delay to split tests for `rate` and `burst`
+        client.wait_for_response()
+
+        if requests > 3:  # burst limit 3
+            self.assertEqual(client.last_response.status, "403")
+            self.assertTrue(client.connection_is_closed())
+            self.assertFrangWarning(warning=self.burst_warning, expected=1)
+        else:
+            # rate limit is reached
+            self.check_response(client, status_code="200", warning_msg=self.burst_warning)
+
+        self.assertFrangWarning(warning=self.rate_warning, expected=0)
+
+    def _base_rate_scenario(self, requests: int):
+        self.start_all_services()
+
+        client = self.get_client("deproxy-1")
+
+        for step in range(requests):
+            client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
             time.sleep(DELAY)
-
-            curl.stop()
-
-            # until rate limit is reached
-            if step < request_rate - 1:
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format("rate")),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                    ),
-                )
-
+            if step < 4:  # rate limit 4
+                self.assertFrangWarning(warning=self.rate_warning, expected=0)
+                self.assertEqual(client.last_response.status, "200")
+                self.assertFalse(client.connection_is_closed())
             else:
                 # rate limit is reached
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG.format("rate")),
-                    1,
-                    self.assert_msg.format(
-                        exp=1,
-                        got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                    ),
-                )
-                self.assertEqual(
-                    self.klog.warn_count(ERROR_MSG_BURST),
-                    0,
-                    self.assert_msg.format(
-                        exp=0,
-                        got=self.klog.warn_count(ERROR_MSG_BURST),
-                    ),
-                )
+                self.assertFrangWarning(warning=self.rate_warning, expected=1)
+                self.assertEqual(client.last_response.status, "403")
+                self.assertTrue(client.connection_is_closed())
+
+        self.assertFrangWarning(warning=self.burst_warning, expected=0)
+
+    def test_request_rate_reached(self):
+        self._base_rate_scenario(requests=5)
 
     def test_request_rate_without_reaching_the_limit(self):
-        """Test 'request_rate'."""
-        curl = self.get_client("curl-1")
-
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_rate 4; in tempesta
-        request_rate = 3
-
-        for step in range(request_rate):
-            curl.start()
-            self.wait_while_busy(curl)
-
-            # delay to split tests for `rate` and `burst`
-            time.sleep(DELAY)
-
-            curl.stop()
-
-            self.assertEqual(
-                self.klog.warn_count(ERROR_MSG.format("rate")),
-                0,
-                self.assert_msg.format(
-                    exp=0,
-                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                ),
-            )
-            self.assertEqual(
-                self.klog.warn_count(ERROR_MSG_BURST),
-                0,
-                self.assert_msg.format(
-                    exp=0,
-                    got=self.klog.warn_count(ERROR_MSG_BURST),
-                ),
-            )
+        self._base_rate_scenario(requests=3)
 
     def test_request_rate_on_the_limit(self):
-        """Test 'request_rate'."""
-        curl = self.get_client("curl-1")
-
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_rate 4; in tempesta
-        request_rate = 4
-
-        for step in range(request_rate):
-            curl.start()
-            self.wait_while_busy(curl)
-
-            # delay to split tests for `rate` and `burst`
-            time.sleep(DELAY)
-
-            curl.stop()
-
-            self.assertEqual(
-                self.klog.warn_count(ERROR_MSG.format("rate")),
-                0,
-                self.assert_msg.format(
-                    exp=0,
-                    got=self.klog.warn_count(ERROR_MSG.format("rate")),
-                ),
-            )
-            self.assertEqual(
-                self.klog.warn_count(ERROR_MSG_BURST),
-                0,
-                self.assert_msg.format(
-                    exp=0,
-                    got=self.klog.warn_count(ERROR_MSG_BURST),
-                ),
-            )
+        self._base_rate_scenario(requests=4)
 
     def test_request_burst_reached(self):
-        """Test 'request_burst' is reached.
-        Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        this means that in 125 ms there will be less than 4 requests and the test will not reach the limit
-        """
-        curl = self.get_client("curl-1")
-        self.start_all_servers()
-        self.start_tempesta()
+        self._base_burst_scenario(requests=4)
 
-        # request_burst 3; in tempesta, increase to catch limit
-        request_burst = 4
-
-        for _ in range(request_burst):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG_BURST),
-            1,
-            self.assert_msg.format(
-                exp=1,
-                got=self.klog.warn_count(ERROR_MSG_BURST),
-            ),
-        )
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format("rate")),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG.format("rate")),
-            ),
-        )
-
-    def test_request_burst_not_reached_timeout(self):
-        """Test 'request_burst' is NOT reached."""
-        curl = self.get_client("curl-1")
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 3; in tempesta,
-        request_burst = 5
-
-        for _ in range(request_burst):
-            time.sleep(DELAY * 2)  # the limit works only on an interval of 125 ms
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG_BURST),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG_BURST),
-            ),
-        )
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format("rate")),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG.format("rate")),
-            ),
-        )
+    def test_request_burst_not_reached_the_limit(self):
+        self._base_burst_scenario(requests=2)
 
     def test_request_burst_on_the_limit(self):
-        # Sometimes the test fails because the curl takes a long time to run and it affects more than 125ms
-        curl = self.get_client("curl-1")
-        self.start_all_servers()
-        self.start_tempesta()
-
-        # request_burst 3; in tempesta,
-        request_burst = 3
-
-        for _ in range(request_burst):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
-
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG_BURST),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG_BURST),
-            ),
-        )
-        self.assertEqual(
-            self.klog.warn_count(ERROR_MSG.format("rate")),
-            0,
-            self.assert_msg.format(
-                exp=0,
-                got=self.klog.warn_count(ERROR_MSG.format("rate")),
-            ),
-        )
+        self._base_burst_scenario(requests=3)
