@@ -36,6 +36,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -f, --failfast                    - Stop tests after first error.
 -r, --resume <id>                 - Continue execution from first test matching
                                     this ID prefix
+-E, --retry                       - Retry failed tests, listed in tests_retry file
 -R, --repeat <N>                  - Repeat every test for N times
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
@@ -67,6 +68,10 @@ priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
 t_priority_out = open(priority_file).readlines()
 t_priority_out.reverse()
 
+BESTOFF_FILE_NAME = "/tests_retry"
+bestoff_file = os.path.dirname(__file__) + BESTOFF_FILE_NAME
+t_bestoff_out = open(bestoff_file).readlines()
+
 disabled_reader = shell.DisabledListLoader(disfile)
 disabled_reader.try_load()
 
@@ -81,12 +86,12 @@ run_disabled = False
 prepare_tcp = True
 n_count = 1
 ignore_errors = False
-
+t_retry = False
 
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:fr:R:a:nl:LCDZpI",
+        "hvdt:fr:ER:a:nl:LCDZpI",
         [
             "help",
             "verbose",
@@ -94,6 +99,7 @@ try:
             "duration=",
             "failfast",
             "resume=",
+            "retry",
             "resume-after=",
             "repeat=",
             "no-resume",
@@ -142,6 +148,8 @@ for opt, arg in options:
         clean_old = True
     elif opt in ("-R", "--repeat"):
         n_count = arg
+    elif opt in ("-E", "--retry"):
+        t_retry = True
     elif opt in ("-D", "--debug-files"):
         remote.DEBUG_FILES = True
     elif opt in ("-Z", "--run-disabled"):
@@ -318,6 +326,15 @@ for p in t_priority_out:
                 tests.pop(tests.index(t))
 )
 
+if t_retry:
+    # Create list of tests which can be retried
+    retry_tests = []
+    for t_bestoff in t_bestoff_out:
+        for t in tests:
+            b_test = t_bestoff
+            if t.id().startswith(b_test.rstrip()):
+                retry_tests.append(t)
+                
 # filter testcases
 resume_filter = test_resume.filter()
 tests = [
@@ -370,6 +387,26 @@ testRunner = unittest.runner.TextTestRunner(
     verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
 )
 result = testRunner.run(testsuite)
+
+if t_retry:
+    print("Run failed tests again")
+    rerun_tests = []
+    for err in result.errors:
+        if err[0] in retry_tests:
+            retry_tests.pop(retry_tests.index(err[0]))
+            rerun_tests.append(err[0])
+    for err in result.failures:
+        if err[0] in retry_tests:
+            retry_tests.pop(retry_tests.index(err[0]))
+            rerun_tests.append(err[0])
+    if len(rerun_tests) > 0:
+        re_testsuite = unittest.TestSuite(rerun_tests)
+        re_testRunner = unittest.runner.TextTestRunner(
+            verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
+        )
+        re_result = re_testRunner.run(re_testsuite)
+        if len(re_result.errors) and len(re_result.failures) == 0:
+            sys.exit(0)
 
 # check if we finished running the tests
 if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
