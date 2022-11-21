@@ -418,6 +418,7 @@ class DeproxyClientH2(DeproxyClient):
                         return
                     self.receive_response(response)
                     self.nrresp += 1
+                # TODO should be changed by issue #358
                 else:
                     self.handle_read()
 
