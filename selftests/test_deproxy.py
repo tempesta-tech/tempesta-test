@@ -236,6 +236,23 @@ class DeproxyTestH2(tester.TempestaTest):
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
+    def test_get_4xx_response(self):
+        self.start_all()
+
+        head = [
+            (":authority", ""),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "GET"),
+        ]
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+        deproxy_cl.make_request(head)
+
+        self.assertTrue(deproxy_cl.wait_for_response(timeout=2))
+        self.assertIsNotNone(deproxy_cl.last_response)
+        self.assertEqual(deproxy_cl.last_response.status, "400")
+
 
 class DeproxyClientTest(tester.TempestaTest):
 
