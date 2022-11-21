@@ -1,228 +1,186 @@
-from framework import tester
-from helpers import dmesg
+"""Functional tests for `concurrent_connections` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+import time
+
+from t_frang.frang_test_case import FrangTestCase
+
 ERROR = "Warning: frang: connections max num. exceeded"
 
 
-class ConcurrentConnectionsBase(tester.TempestaTest):
-    backends = [
-        {
-            "id": "nginx",
-            "type": "nginx",
-            "status_uri": "http://${server_ip}:8000/nginx_status",
-            "config": """
-pid ${pid};
-worker_processes  auto;
-
-events {
-    worker_connections   1024;
-    use epoll;
-}
-
-http {
-    keepalive_timeout ${server_keepalive_timeout};
-    keepalive_requests 10;
-    sendfile         on;
-    tcp_nopush       on;
-    tcp_nodelay      on;
-
-    open_file_cache max=1000;
-    open_file_cache_valid 30s;
-    open_file_cache_min_uses 2;
-    open_file_cache_errors off;
-
-    # [ debug | info | notice | warn | error | crit | alert | emerg ]
-    # Fully disable log errors.
-    error_log /dev/null emerg;
-
-    # Disable access log altogether.
-    access_log off;
-
-    server {
-        listen        ${server_ip}:8000;
-
-        location /uri1 {
-            return 404;
-        }
-        location /uri2 {
-            return 200;
-        }
-        location /uri3 {
-            return 405;
-        }
-        location /nginx_status {
-            stub_status on;
-        }
-    }
-}
-""",
-        }
-    ]
-
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
-            "rps": 6,
-        },
-        {
-            "id": "deproxy2",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
-            "rps": 5,
-        },
-        {
-            "id": "deproxy3",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "rps": 5,
-        },
-        {
-            "id": "deproxy4",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "rps": 5,
-        },
-        {
-            "id": "deproxy5",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "rps": 5,
-        },
-    ]
-
-
-class ConcurrentConnections(ConcurrentConnectionsBase):
-    tempesta = {
+class ConcurrentConnections(FrangTestCase):
+    tempesta_template = {
         "config": """
 server ${server_ip}:8000;
 
 frang_limits {
-    concurrent_connections 2;
+    %(frang_config)s
 }
 
 """,
     }
 
-    def test_three_clients_one_ip(self):
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-3",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-interface-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
+        {
+            "id": "deproxy-interface-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
+        {
+            "id": "deproxy-interface-3",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
+        {
+            "id": "parallel-curl",
+            "type": "curl",
+            "uri": "/[1-2]",
+            "parallel": 2,
+            "headers": {
+                "Connection": "close",
+                "Host": "debian",
+            },
+            "cmd_args": " --verbose",
+        },
+    ]
+
+    def _base_scenario(self, clients: list, responses: int):
+        for client in clients:
+            client.start()
+
+        for client in clients:
+            client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+
+        for client in clients:
+            client.wait_for_response(timeout=2)
+
+        if responses == 0:
+            for client in clients:
+                self.assertEqual(0, len(client.responses))
+                self.assertTrue(client.connection_is_closed())
+        elif responses == 2:
+            self.assertEqual(1, len(clients[0].responses))
+            self.assertEqual(1, len(clients[1].responses))
+            self.assertEqual(0, len(clients[2].responses))
+            self.assertFalse(clients[0].connection_is_closed())
+            self.assertFalse(clients[1].connection_is_closed())
+            self.assertTrue(clients[2].connection_is_closed())
+        elif responses == 3:
+            self.assertEqual(1, len(clients[0].responses))
+            self.assertEqual(1, len(clients[1].responses))
+            self.assertEqual(1, len(clients[2].responses))
+            self.assertFalse(clients[0].connection_is_closed())
+            self.assertFalse(clients[1].connection_is_closed())
+            self.assertFalse(clients[2].connection_is_closed())
+
+    def test_three_clients_same_ip(self):
         """
-        Three clients to be blocked by ip
-
+        For three clients with same IP and concurrent_connections 2, ip_block off:
+            - Tempesta serves only two clients.
         """
-        requests = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
+        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block off;")
 
-        klog = dmesg.DmesgFinder(ratelimited=False)
-        nginx = self.get_server("nginx")
-        nginx.start()
-        self.start_tempesta()
+        self._base_scenario(
+            clients=[
+                self.get_client("deproxy-1"),
+                self.get_client("deproxy-2"),
+                self.get_client("deproxy-3"),
+            ],
+            responses=2,
+        )
 
-        deproxy_cl = self.get_client("deproxy3")
-        deproxy_cl.start()
+        self.assertFrangWarning(warning=ERROR, expected=1)
 
-        deproxy_cl2 = self.get_client("deproxy4")
-        deproxy_cl2.start()
+    def test_three_clients_different_ip(self):
+        """
+        For three clients with different IP and concurrent_connections 2:
+            - Tempesta serves three clients.
+        """
+        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block off;")
+        self._base_scenario(
+            clients=[
+                self.get_client("deproxy-interface-1"),
+                self.get_client("deproxy-interface-2"),
+                self.get_client("deproxy-interface-3"),
+            ],
+            responses=3,
+        )
 
-        deproxy_cl3 = self.get_client("deproxy5")
-        deproxy_cl3.start()
+        self.assertFrangWarning(warning=ERROR, expected=0)
 
-        self.deproxy_manager.start()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
-        self.assertEqual(klog.warn_count(ERROR), 1, "Frang limits warning is not shown")
+    def test_three_clients_same_ip_with_block_ip(self):
+        """
+        For three clients with same IP and concurrent_connections 2, ip_block on:
+            - Tempesta does not serve clients.
+        """
+        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block on;")
+        self._base_scenario(
+            clients=[
+                self.get_client("deproxy-1"),
+                self.get_client("deproxy-2"),
+                self.get_client("deproxy-3"),
+            ],
+            responses=0,
+        )
 
-        deproxy_cl.make_requests(requests)
-        deproxy_cl2.make_requests(requests)
-        deproxy_cl3.make_requests(requests)
+        self.assertFrangWarning(warning=ERROR, expected=1)
 
-        deproxy_cl.wait_for_response(timeout=2)
-        deproxy_cl2.wait_for_response(timeout=2)
-        deproxy_cl3.wait_for_response(timeout=2)
+    def test_clear_client_connection_stats(self):
+        """
+        Establish connections for many clients with same IP, then close them.
+        Check that Tempesta cleared client connection stats and
+        new connections are established.
+        """
+        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block on;")
 
-        self.assertEqual(10, len(deproxy_cl.responses))
-        self.assertEqual(10, len(deproxy_cl2.responses))
-        # for some reason, the last client is not getting responses
-        self.assertEqual(10, len(deproxy_cl3.responses))
+        client = self.get_client("parallel-curl")
 
-        self.assertFalse(deproxy_cl.connection_is_closed())
-        self.assertFalse(deproxy_cl2.connection_is_closed())
-        self.assertFalse(deproxy_cl3.connection_is_closed())
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
 
-    def test_two_clients_two_ip(self):
+        self.assertFrangWarning(warning=ERROR, expected=0)
+        self.assertIn("Closing connection 1", client.last_response.stderr)
+        self.assertIn("Closing connection 0", client.last_response.stderr)
 
-        requests = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
+        time.sleep(1)
 
-        nginx = self.get_server("nginx")
-        nginx.start()
-        self.start_tempesta()
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
 
-        deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-
-        deproxy_cl2 = self.get_client("deproxy2")
-        deproxy_cl2.start()
-
-        self.deproxy_manager.start()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
-
-        deproxy_cl.make_requests(requests)
-        deproxy_cl2.make_requests(requests)
-
-        deproxy_cl.wait_for_response(timeout=2)
-        deproxy_cl2.wait_for_response(timeout=2)
-
-        self.assertEqual(10, len(deproxy_cl.responses))
-        self.assertEqual(10, len(deproxy_cl2.responses))
-
-        self.assertFalse(deproxy_cl.connection_is_closed())
-        self.assertFalse(deproxy_cl2.connection_is_closed())
-
-    def test_three_clients_one_ip_case_freeze(self):
-        self.tempesta = {
-            "config": """
-        server ${server_ip}:8000;
-
-        frang_limits {
-            concurrent_connections 2;
-            ip_block on;
-        }
-        """,
-        }
-        self.setUp()
-        requests = "GET /uri1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
-        requests2 = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" * 10
-
-        klog = dmesg.DmesgFinder(ratelimited=False)
-        nginx = self.get_server("nginx")
-        nginx.start()
-        self.start_tempesta()
-
-        deproxy_cl = self.get_client("deproxy3")
-        deproxy_cl.start()
-
-        deproxy_cl2 = self.get_client("deproxy4")
-        deproxy_cl2.start()
-
-        deproxy_cl3 = self.get_client("deproxy5")
-        deproxy_cl3.start()
-
-        self.deproxy_manager.start()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
-        self.assertEqual(klog.warn_count(ERROR), 1, "Frang limits warning is not shown")
-
-        deproxy_cl.make_requests(requests)
-        deproxy_cl2.make_requests(requests2)
-        deproxy_cl3.make_requests(requests2)
-
-        deproxy_cl.wait_for_response(timeout=2)
-        deproxy_cl2.wait_for_response(timeout=2)
-        deproxy_cl3.wait_for_response(timeout=2)
+        self.assertFrangWarning(warning=ERROR, expected=0)
+        self.assertIn("Closing connection 1", client.last_response.stderr)
+        self.assertIn("Closing connection 0", client.last_response.stderr)
