@@ -389,7 +389,6 @@ testRunner = unittest.runner.TextTestRunner(
 result = testRunner.run(testsuite)
 
 if t_retry:
-    print("Run failed tests again")
     rerun_tests = []
     for err in result.errors:
         if err[0] in retry_tests:
@@ -400,6 +399,7 @@ if t_retry:
             retry_tests.pop(retry_tests.index(err[0]))
             rerun_tests.append(err[0])
     if len(rerun_tests) > 0:
+        print("Run failed tests again")
         re_testsuite = unittest.TestSuite(rerun_tests)
         re_testRunner = unittest.runner.TextTestRunner(
             verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
