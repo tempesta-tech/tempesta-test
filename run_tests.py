@@ -405,8 +405,15 @@ if t_retry:
             verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
         )
         re_result = re_testRunner.run(re_testsuite)
-        if len(re_result.errors) and len(re_result.failures) == 0:
-            sys.exit(0)
+
+        for err in result.errors:
+            if err not in re_result.errors:
+                index = result.errors.index(err)
+                out = result.errors.pop(index)
+        for fail in result.failures:
+            if fail not in re_result.failures:
+                index = result.failures.index(fail)
+                out = result.failures.pop(index)
 
 # check if we finished running the tests
 if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
