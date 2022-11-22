@@ -86,6 +86,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if self.polling_lock != None:
             self.polling_lock.acquire()
 
+        # TODO should be changed by issue #361
         t0 = time.time()
         while True:
             t = time.time()
