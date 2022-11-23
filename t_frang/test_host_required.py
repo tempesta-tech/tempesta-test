@@ -6,8 +6,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-ERROR_MSG = "Frang limits warning is not shown"
-
 WARN_UNKNOWN = "frang: Request authority is unknown"
 WARN_DIFFER = "frang: Request authority in URI differs from host header"
 WARN_IP_ADDR = "frang: Host header field contains IP address"
@@ -205,19 +203,18 @@ class FrangHostRequiredH2TestCase(FrangTestCase):
 
     clients = [
         {
-            "id": "deproxy-h2",
+            "id": "deproxy-1",
             "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
-            "interface": True,
         },
     ]
 
-    tempesta = {
+    tempesta_template = {
         "config": """
 frang_limits {
-    http_host_required true;
+    %(frang_config)s
     ip_block off;
 }
 
@@ -237,10 +234,10 @@ block_action error reply;
 
     def test_h2_header_ok(self):
         """Test with header `host`, success."""
-        self.start_all_services()
-        client = self.get_client("deproxy-h2")
+        self.set_frang_config(frang_config="http_host_required true;")
+        client = self.get_client("deproxy-1")
+        client.start()
         client.parsing = False
-        server = self.get_server("deproxy")
 
         header_list = [
             [(":authority", "localhost"), (":path", "/")],
@@ -262,8 +259,7 @@ block_action error reply;
             client.make_request(head)
             self.assertTrue(client.wait_for_response(1))
 
-        self.assertFalse(client.connection_is_closed())
-        self.assertEqual(len(header_list), len(server.requests))
+        self.check_response(client, status_code="200", warning_msg="frang: ")
 
     def test_h2_empty_host_header(self):
         """Test with empty header `host`."""
@@ -367,63 +363,26 @@ block_action error reply;
         """
         Test base scenario for process different requests.
         """
-        self.start_all_services()
-
-        client = self.get_client("deproxy-h2")
-        client.parsing = False
         head = [
             (":scheme", "https"),
             (":method", "GET"),
         ]
         head.extend(headers)
-        client.make_request(head)
-        client.wait_for_response(1)
 
-        self.assertTrue(client.connection_is_closed())
-        self.assertEqual(client.last_response.status, "403")
-        server = self.get_server("deproxy")
-        self.assertEqual(0, len(server.requests))
-        self.assertEqual(self.klog.warn_count(expected_warning), 1, ERROR_MSG)
+        client = self.base_scenario(frang_config="http_host_required true;", requests=[head])
+        self.check_response(client, status_code="403", warning_msg=expected_warning)
 
     def test_disabled_host_http_required(self):
-        self.tempesta = {
-            "config": """
-        frang_limits {
-            http_host_required false;
-            ip_block off;
-        }
-
-        listen 443 proto=h2;
-        server ${server_ip}:8000;
-
-        tls_match_any_server_name;
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-
-        cache 0;
-        cache_fulfill * *;
-        block_action attack reply;
-        block_action error reply;
-        """,
-        }
-        self.setUp()
-
-        self.start_all_services()
-
-        client = self.get_client("deproxy-h2")
-        client.parsing = False
-        client.make_request(
-            [
-                (":scheme", "https"),
-                (":method", "GET"),
-                (":path", "/"),
-                (":authority", "localhost"),
-                ("host", "host"),
-            ]
+        client = self.base_scenario(
+            frang_config="http_host_required false;",
+            requests=[
+                [
+                    (":scheme", "https"),
+                    (":method", "GET"),
+                    (":path", "/"),
+                    (":authority", "localhost"),
+                    ("host", "host"),
+                ],
+            ],
         )
-        client.wait_for_response(1)
-
-        self.assertFalse(client.connection_is_closed())
-        self.assertEqual(client.last_response.status, "200")
-        server = self.get_server("deproxy")
-        self.assertEqual(1, len(server.requests))
+        self.check_response(client, status_code="200", warning_msg="frang: ")
