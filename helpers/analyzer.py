@@ -150,44 +150,39 @@ class AnalyzerTCPSegmentation(Sniffer):
         self.srv_pkts = []
         self.tfw_pkts = []
 
-    def check_results(self):
+    def check_results(self, client_ip):
+        tls_offset = 5
         res = True
         for p in self.packets:
-            plen = p[IP].len - p[TCP].dataofs
-            if p[TCP].sport == self.tfw_port:
-                self.tfw_pkts += [int(plen)]
-            elif p[TCP].sport == self.srv_port:
-                self.srv_pkts += [int(plen)]
+            if (p.dst or p.src) == client_ip:
+                plen = p[IP].len - p[TCP].dataofs
+                if p[TCP].sport == self.tfw_port:
+                    self.tfw_pkts += [int(plen)]
+                elif p[TCP].sport == self.srv_port:
+                    self.srv_pkts += [int(plen)]
+                tf_cfg.dbg(3, (f'pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id}'))
+        self.srv_pkts.pop(0) # Exclude first ack
+        tls_offset = self.tfw_pkts.index(self.srv_pkts[0]) # Find payload offset
+        self.tfw_pkts.pop(tls_offset+1) # Exclude heades
         (tfw_n, srv_n) = (len(self.tfw_pkts), len(self.srv_pkts))
+        tfw_sent = tfw_n - tls_offset # TLS handshake
+        srv_sent = srv_n # Ack packet
         assert tfw_n and srv_n, "Traffic wasn't captured"
-        assert tfw_n > 3, "Captured the number of packets less than" " the TCP/TLS overhead"
-        if tfw_n > srv_n + 2:
-            tf_cfg.dbg(
-                4,
-                "Tempesta TLS generates more packets (%d) than"
-                " original server (%d) plus the TLS overhead (2 segs)" % (tfw_n, srv_n),
-            )
+        assert tfw_n >= 6, "Captured the number of packets less than" \
+                          " the TCP/TLS overhead"
+        assert srv_sent != 0, "Backend not sent payload"
+        assert tfw_sent != 0, "Tempesta not sent payload"
+        # Tempesta cant generate less payload packets cause we overheaded by TLS
+        # + Header addition. So we check the number of sent packets is equal
+        if tfw_sent != srv_sent:
+            tf_cfg.dbg(2, (f"Tempesta TLS generates more packets ({tfw_sent}) than" \
+                          f" original server ({srv_sent})"))
             res = False
-        # We're good if Tempesta generates less number of packets than
-        # the server. We skip the initial TCP SYN-ACK, and the TLS 1.2
-        # 2-RTT handshake overhead. This may fail for TLS 1.3.
-        for i in range(3, tfw_n):
-            if i - 2 >= srv_n:
-                tf_cfg.dbg(4, "Extra packet %d, size=%d" % (i, self.tfw_pkts[i]))
-                res = False
-            elif self.tfw_pkts[i] < self.srv_pkts[i - 2]:
-                tf_cfg.dbg(
-                    4,
-                    "Tempesta packet %d less than server's"
-                    " (%d < %d)" % (i, self.tfw_pkts[i], self.srv_pkts[i]),
-                )
-                res = False
-        if not res:
-            tf_cfg.dbg(
-                2,
-                "Tempesta segments: %s\nServer segments: %s"
-                % (str(self.tfw_pkts), str(self.srv_pkts)),
-            )
+        tf_cfg.dbg(2, "Tempesta segments len: %s\nServer segments len: %s" % (sum(self.tfw_pkts[tls_offset:]), sum(self.srv_pkts)))
+        tf_cfg.dbg(2, "Tempesta\Server len delta: %s" % (sum(self.tfw_pkts[tls_offset:]) - sum(self.srv_pkts)))
+        tf_cfg.dbg(2, "Tempesta segments: %s\nServer segments: %s"
+                    % (str(self.tfw_pkts[tls_offset:]), str(self.srv_pkts)))
+        self.first_run = False
         return res
 
 

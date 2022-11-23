@@ -143,43 +143,35 @@
         },
         {
             "name" : "tls.test_tls_kernel.TCrypt.test_tcrypt",
-            "reason" : "Disabled by issue #203"
+            "reason" : "Disabled by issue #328"
         },
         {
             "name" : "tls.test_tls_limits.TLSLimits.test_with_deproxy",
-            "reason" : "Disabled by issue #203"
+            "reason" : "Disabled by issue #363"
         },
         {
             "name" : "tls.test_tls_limits.TLSLimits.test_with_tlsperf",
-            "reason" : "Disabled by issue #203"
+            "reason" : "Disabled by issue #363"
         },
         {
             "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_deproxy",
-            "reason" : "Disabled by issue #203"
+            "reason" : "Disabled by issue #363"
         },
         {
             "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_tlsperf",
-            "reason" : "Disabled by issue #203"
+            "reason" : "Disabled by issue #363"
+        },
+        {
+            "name" : "tls.test_tls_limits.TLSLimitsIncomplete.test",
+            "reason" : "Disabled by issue #363"
         },
         {
             "name" : "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_mismatch",
-            "reason" : "Disabled by issue #203"
+            "reason" : "Disabled by issue #363"
         },
         {
             "name" : "health_monitoring",
             "reason" : "Disabled by issue #273"
-        },
-        {
-            "name" : "tls.test_tls_stress.StressTls.test",
-            "reason" : "Disabled by issue #203"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsIncomplete.test",
-            "reason" : "Disabled by issue #203"
-        },
-        {
-            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
-            "reason" : "Disabled by issue #203"
         },
         {
             "name" : "selftests.test_framework.ExampleTest.test_curl",

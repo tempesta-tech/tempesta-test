@@ -34,7 +34,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         num_sent = 0
         num_sent = asyncore.dispatcher.send(
             self,
-            self.out_buffer[: self.server.segment_size if self.server.segment_size > 0 else 4096],
+            self.out_buffer[: self.server.segment_size if self.server.segment_size > 0 else 4096*2],
         )
         self.out_buffer = self.out_buffer[num_sent:]
         self.last_segment_time = time.time()
