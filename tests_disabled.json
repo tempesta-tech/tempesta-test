@@ -426,6 +426,22 @@
             "reason": "Disabled by issue #1751"
         },
         {
+            "name": "t_frang.test_connection_rate_burst.FrangConnectionRateDifferentIp",
+            "reason": "Disabled by issue #1751"
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.FrangConnectionBurstDifferentIp",
+            "reason": "Disabled by issue #1751"
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.FrangTlsRateDifferentIp",
+            "reason": "Disabled by issue #1751"
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.FrangTlsBurstDifferentIp",
+            "reason": "Disabled by issue #1751"
+        },
+        {
             "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_rate",
             "reason": "Disabled by issue #1749"
         },
