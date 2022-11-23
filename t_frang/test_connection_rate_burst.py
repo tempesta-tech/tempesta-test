@@ -77,6 +77,8 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         self.wait_while_busy(curl)
         curl.stop()
 
+        time.sleep(self.timeout)
+
         warning_count = connections - 3 if connections > 3 else 0  # limit burst 3
 
         self.assertFrangWarning(warning=self.burst_warning, expected=warning_count)
@@ -100,16 +102,18 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
             self.wait_while_busy(curl)
             curl.stop()
 
-            # until rate limit is reached
-            if step < 4:  # rate limit 4
-                self.assertFrangWarning(warning=self.rate_warning, expected=0)
-                self.assertEqual(curl.last_response.status, 200)
-            else:
-                # rate limit is reached
-                self.assertFrangWarning(warning=self.rate_warning, expected=1)
-                self.assertIn("Failed sending HTTP request", curl.last_response.stderr)
-
             time.sleep(DELAY)
+
+        time.sleep(self.timeout)
+
+        # until rate limit is reached
+        if connections <= 4:  # rate limit 4
+            self.assertFrangWarning(warning=self.rate_warning, expected=0)
+            self.assertEqual(curl.last_response.status, 200)
+        else:
+            # rate limit is reached
+            self.assertFrangWarning(warning=self.rate_warning, expected=1)
+            self.assertIn("Failed sending HTTP request", curl.last_response.stderr)
 
         self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
@@ -170,14 +174,18 @@ class FrangConnectionRateBurstTestCase(FrangTlsRateBurstTestCase):
 class FrangConnectionRateDifferentIp(FrangTestCase):
     clients = [
         {
-            "id": "deproxy-interface-1",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
+            "id": "curl-1",
+            "type": "curl",
+            "addr": "${tempesta_ip}:80",
+            "uri": "/[1-3]",
+            "parallel": 3,
+            "headers": {
+                "Connection": "close",
+                "Host": "debian",
+            },
         },
         {
-            "id": "deproxy-interface-2",
+            "id": "deproxy-interface-1",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
@@ -203,40 +211,26 @@ class FrangConnectionRateDifferentIp(FrangTestCase):
 
     def test_two_clients_two_ip(self):
         """
-        Create 3 client connections for first ip and 2 for second ip.
+        Create 3 client connections for first ip and 1 for second ip.
         Only first ip will be blocked.
         """
         client_1 = self.get_client("deproxy-interface-1")
-        client_2 = self.get_client("deproxy-interface-2")
+        client_2 = self.get_client("curl-1")
 
         self.start_all_services(client=False)
 
-        for _ in range(2):
-            client_1.start()
-            client_2.start()
-            client_1.make_request(self.request)
-            client_2.make_request(self.request)
-            client_2.wait_for_response(0.01)
-            client_1.stop()
-            client_2.stop()
-
         client_1.start()
-        client_1.make_request(self.request)
-        client_1.wait_for_response(1)
+        client_2.start()
+
+        self.wait_while_busy(client_2)
+        client_2.stop()
+
+        client_1.send_request(self.request, "200")
 
         server = self.get_server("deproxy")
-        self.assertTrue(5 > len(server.requests))
+        self.assertTrue(4 > len(server.requests))
 
-        time.sleep(1)
-
-        client_2.start()
-        client_2.make_request(self.request)
-        client_2.wait_for_response(1)
-
-        self.assertIsNotNone(client_2.last_response, "Deproxy client has lost response.")
-        self.assertEqual(
-            client_2.last_response.status, "200", "HTTP response status codes mismatch."
-        )
+        time.sleep(self.timeout)
 
         self.assertFrangWarning(warning=self.error, expected=1)
 
@@ -258,6 +252,29 @@ class FrangConnectionBurstDifferentIp(FrangConnectionRateDifferentIp):
 
 
 class FrangTlsRateDifferentIp(FrangConnectionRateDifferentIp):
+    clients = [
+        {
+            "id": "curl-1",
+            "type": "curl",
+            "addr": "${tempesta_ip}:443",
+            "uri": "/[1-3]",
+            "parallel": 3,
+            "ssl": True,
+            "headers": {
+                "Connection": "close",
+                "Host": "debian",
+            },
+        },
+        {
+            "id": "deproxy-interface-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "interface": True,
+        },
+    ]
+
     tempesta = {
         "config": """
             frang_limits {
@@ -280,12 +297,6 @@ class FrangTlsRateDifferentIp(FrangConnectionRateDifferentIp):
     }
 
     error = ERROR_TLS.format("rate")
-
-    def setUp(self):
-        for client in self.clients:
-            client["ssl"] = True
-            client["port"] = "443"
-        super().setUp()
 
 
 class FrangTlsBurstDifferentIp(FrangTlsRateDifferentIp):
@@ -340,11 +351,10 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
         },
     ]
 
-    tempesta = {
+    tempesta_template = {
         "config": """
             frang_limits {
-                tls_connection_burst 3;
-                tls_connection_rate 4;
+                %(frang_config)s
             }
             
             listen 80;
@@ -365,12 +375,16 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
     optional_client_id = "curl-http"
     burst_warning = ERROR_TLS.format("burst")
     rate_warning = ERROR_TLS.format("rate")
+    burst_config = "tls_connection_burst 3;"
+    rate_config = "tls_connection_rate 4;"
 
     def test_burst(self):
         """
         Set `tls_connection_burst 3` and create 4 tls and 4 non-tls connections.
         Only tls connections will be blocked.
         """
+        self.set_frang_config(frang_config=self.burst_config)
+
         base_client = self.get_client(self.base_client_id)
         optional_client = self.get_client(self.optional_client_id)
 
@@ -382,15 +396,16 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
         base_client.parallel = limit
         optional_client.parallel = limit
 
-        self.start_all_services()
-
+        base_client.start()
+        optional_client.start()
         self.wait_while_busy(base_client, optional_client)
         base_client.stop()
         optional_client.stop()
 
-        self.assertEqual(len(optional_client.stats), limit)
+        self.assertEqual(len(optional_client.stats), limit, "Client has been unexpectedly blocked.")
         for stat in optional_client.stats:
             self.assertEqual(stat["response_code"], 200)
+        time.sleep(self.timeout)
         self.assertFrangWarning(warning=self.burst_warning, expected=1)
 
     def test_rate(self):
@@ -398,42 +413,39 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
         Set `tls_connection_rate 4` and create 5 tls and 5 non-tls connections.
         Only tls connections will be blocked.
         """
+        self.set_frang_config(frang_config=self.rate_config)
+
         base_client = self.get_client(self.base_client_id)
         optional_client = self.get_client(self.optional_client_id)
-
-        self.start_all_services(client=False)
 
         # limit rate 4
         limit = 5
 
+        base_client.uri += f"[1-{limit}]"
         optional_client.uri += f"[1-{limit}]"
+        base_client.parallel = limit
         optional_client.parallel = limit
+
+        base_client.start()
         optional_client.start()
-
-        for step in range(limit):
-            base_client.start()
-            self.wait_while_busy(base_client)
-            base_client.stop()
-
-            time.sleep(DELAY)
-
-        self.wait_while_busy(optional_client)
+        self.wait_while_busy(base_client, optional_client)
+        base_client.stop()
         optional_client.stop()
 
-        self.assertEqual(len(optional_client.stats), limit)
+        self.assertEqual(len(optional_client.stats), limit, "Client has been unexpectedly blocked.")
         for stat in optional_client.stats:
             self.assertEqual(stat["response_code"], 200)
+        time.sleep(self.timeout)
         self.assertFrangWarning(warning=self.rate_warning, expected=1)
 
 
 class FrangConnectionTlsAndNonTlsRateBurst(FrangTlsAndNonTlsRateBurst):
     """Tests for tls and non-tls connections 'connection_burst' and 'connection_rate'"""
 
-    tempesta = {
+    tempesta_template = {
         "config": """
             frang_limits {
-                connection_burst 3;
-                connection_rate 4;
+                %(frang_config)s
             }
 
             listen 80;
@@ -455,3 +467,5 @@ class FrangConnectionTlsAndNonTlsRateBurst(FrangTlsAndNonTlsRateBurst):
     optional_client_id = "curl-https"
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
+    burst_config = "connection_burst 3;"
+    rate_config = "connection_rate 4;"

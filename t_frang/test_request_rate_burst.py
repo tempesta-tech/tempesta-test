@@ -142,8 +142,8 @@ class FrangRequestRateBurstTestCase(FrangTestCase):
     tempesta = {
         "config": """
 frang_limits {
-    request_rate 4;
-    request_burst 3;
+    request_rate 3;
+    request_burst 2;
 }
 
 listen 80;
@@ -153,27 +153,44 @@ block_action attack reply;
 """,
     }
 
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "curl",
+            "type": "curl",
+            "headers": {
+                "Connection": "keep-alive",
+                "Host": "debian",
+            },
+            "cmd_args": " --verbose",
+        },
+    ]
+
     rate_warning = ERROR_MSG_RATE
     burst_warning = ERROR_MSG_BURST
 
     def _base_burst_scenario(self, requests: int):
-        self.start_all_services()
+        self.start_all_services(client=False)
 
-        client = self.get_client("deproxy-1")
+        client = self.get_client("curl")
+        client.uri += f"[1-{requests}]"
+        client.parallel = requests
 
-        for step in range(requests):
-            client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-            time.sleep(0.02)
+        client.start()
+        client.wait_for_finish()
+        client.stop()
 
-        client.wait_for_response()
+        time.sleep(self.timeout)
 
-        if requests > 3:  # burst limit 3
-            self.assertEqual(client.last_response.status, "403")
-            self.assertTrue(client.connection_is_closed())
+        if requests > 2:  # burst limit 2
             self.assertFrangWarning(warning=self.burst_warning, expected=1)
         else:
-            # rate limit is reached
-            self.check_response(client, status_code="200", warning_msg=self.burst_warning)
+            self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
 
@@ -185,32 +202,32 @@ block_action attack reply;
         for step in range(requests):
             client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
             time.sleep(DELAY)
-            if step < 4:  # rate limit 4
-                self.assertFrangWarning(warning=self.rate_warning, expected=0)
-                self.assertEqual(client.last_response.status, "200")
-                self.assertFalse(client.connection_is_closed())
-            else:
-                # rate limit is reached
-                self.assertFrangWarning(warning=self.rate_warning, expected=1)
-                self.assertEqual(client.last_response.status, "403")
-                self.assertTrue(client.connection_is_closed())
+
+        if requests < 3:  # rate limit 3
+            self.check_response(client, warning_msg=self.rate_warning, status_code="200")
+        else:
+            # rate limit is reached
+            time.sleep(self.timeout)
+            self.assertFrangWarning(warning=self.rate_warning, expected=1)
+            self.assertEqual(client.last_response.status, "403")
+            self.assertTrue(client.connection_is_closed())
 
         self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
     def test_request_rate_reached(self):
-        self._base_rate_scenario(requests=5)
-
-    def test_request_rate_without_reaching_the_limit(self):
-        self._base_rate_scenario(requests=3)
-
-    def test_request_rate_on_the_limit(self):
         self._base_rate_scenario(requests=4)
 
+    def test_request_rate_without_reaching_the_limit(self):
+        self._base_rate_scenario(requests=2)
+
+    def test_request_rate_on_the_limit(self):
+        self._base_rate_scenario(requests=3)
+
     def test_request_burst_reached(self):
-        self._base_burst_scenario(requests=4)
+        self._base_burst_scenario(requests=3)
 
     def test_request_burst_not_reached_the_limit(self):
-        self._base_burst_scenario(requests=2)
+        self._base_burst_scenario(requests=1)
 
     def test_request_burst_on_the_limit(self):
-        self._base_burst_scenario(requests=3)
+        self._base_burst_scenario(requests=2)
