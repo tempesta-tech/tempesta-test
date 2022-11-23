@@ -28,11 +28,10 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         },
     ]
 
-    tempesta = {
+    tempesta_template = {
         "config": """
             frang_limits {
-                tls_connection_burst 3;
-                tls_connection_rate 4;
+                %(frang_config)s
             }
 
             listen 443 proto=https;
@@ -61,6 +60,8 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
 
     burst_warning = ERROR_TLS.format("burst")
     rate_warning = ERROR_TLS.format("rate")
+    burst_config = "tls_connection_burst 5;\n\ttls_connection_rate 20;"
+    rate_config = "tls_connection_burst 2;\n\ttls_connection_rate 4;"
 
     def _base_burst_scenario(self, connections: int):
         """
@@ -71,7 +72,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         curl.uri += f"[1-{connections}]"
         curl.parallel = connections
 
-        self.start_all_services(client=False)
+        self.set_frang_config(self.burst_config)
 
         curl.start()
         self.wait_while_busy(curl)
@@ -79,7 +80,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
 
         time.sleep(self.timeout)
 
-        warning_count = connections - 3 if connections > 3 else 0  # limit burst 3
+        warning_count = connections - 5 if connections > 5 else 0  # limit burst 5
 
         self.assertFrangWarning(warning=self.burst_warning, expected=warning_count)
 
@@ -94,8 +95,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         If number of connections is more than 3m they will be blocked.
         """
         curl = self.get_client("curl-1")
-
-        self.start_all_services(client=False)
+        self.set_frang_config(self.rate_config)
 
         for step in range(connections):
             curl.start()
@@ -118,19 +118,19 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
     def test_connection_burst(self):
-        self._base_burst_scenario(connections=4)
+        self._base_burst_scenario(connections=10)
 
     def test_connection_burst_without_reaching_the_limit(self):
         self._base_burst_scenario(connections=2)
 
     def test_connection_burst_on_the_limit(self):
-        self._base_burst_scenario(connections=3)
+        self._base_burst_scenario(connections=5)
 
     def test_connection_rate(self):
         self._base_rate_scenario(connections=5)
 
     def test_connection_rate_without_reaching_the_limit(self):
-        self._base_rate_scenario(connections=3)
+        self._base_rate_scenario(connections=2)
 
     def test_connection_rate_on_the_limit(self):
         self._base_rate_scenario(connections=4)
@@ -151,11 +151,10 @@ class FrangConnectionRateBurstTestCase(FrangTlsRateBurstTestCase):
         },
     ]
 
-    tempesta = {
+    tempesta_template = {
         "config": """
             frang_limits {
-                connection_burst 3;
-                connection_rate 4;
+                %(frang_config)s
             }
             
             listen 80;
@@ -169,6 +168,8 @@ class FrangConnectionRateBurstTestCase(FrangTlsRateBurstTestCase):
 
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
+    burst_config = "connection_burst 5;\n\tconnection_rate 20;"
+    rate_config = "connection_burst 2;\n\tconnection_rate 4;"
 
 
 class FrangConnectionRateDifferentIp(FrangTestCase):
