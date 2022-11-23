@@ -15,6 +15,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from t_frang.frang_test_case import FrangTestCase
 
 NGINX_CONFIG = {
@@ -94,6 +96,8 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
                 client.make_requests(requests)
                 client.wait_for_response()
 
+                time.sleep(self.timeout)
+
                 self.assertFalse(client.connection_is_closed())
                 self.assertFrangWarning(warning=self.warning, expected=0)
 
@@ -108,6 +112,8 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         client.start()
         client.make_requests(self.request_405 * 3 + self.request_404 * 4)
         client.wait_for_response()
+
+        time.sleep(self.timeout)
 
         self.assertTrue(client.connection_is_closed())
         self.assertFrangWarning(warning=self.warning, expected=1)
@@ -126,6 +132,8 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
             self.request_200 + self.request_404 * 4 + self.request_200 + self.request_405 * 2
         )
         client.wait_for_response()
+
+        time.sleep(self.timeout)
 
         self.assertTrue(client.connection_is_closed())
         self.assertFrangWarning(warning=self.warning, expected=1)
@@ -209,6 +217,8 @@ frang_limits {
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(0, len(deproxy_cl2.responses))
 
+        time.sleep(self.timeout)
+
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertTrue(deproxy_cl2.connection_is_closed())
 
@@ -256,6 +266,8 @@ frang_limits {
 
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
+
+        time.sleep(self.timeout)
 
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertFalse(deproxy_cl2.connection_is_closed())

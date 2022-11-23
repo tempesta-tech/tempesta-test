@@ -1,4 +1,6 @@
 """Tests for Frang directive `ip_block`."""
+import time
+
 from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -82,6 +84,8 @@ block_action attack reply;
         self.assertIsNotNone(client_2.last_response)
         self.assertEqual(client_2.last_response.status, "200")
 
+        time.sleep(self.timeout)
+
         self.assertTrue(client_1.connection_is_closed())
         self.assertFalse(client_2.connection_is_closed())
 
@@ -96,6 +100,8 @@ block_action attack reply;
 
         self.assertIsNone(client_1.last_response)
         self.assertIsNone(client_2.last_response)
+
+        time.sleep(self.timeout)
 
         self.assertTrue(client_1.connection_is_closed())
         self.assertTrue(client_2.connection_is_closed())
@@ -130,6 +136,8 @@ block_action attack reply;
 
         self.assertEqual(client_1.last_response.status, "403")
         self.assertEqual(client_2.last_response.status, "200")
+
+        time.sleep(self.timeout)
 
         self.assertTrue(client_1.connection_is_closed())
         self.assertFalse(client_2.connection_is_closed())
@@ -172,6 +180,8 @@ block_action attack reply;
         self.assertEqual(client_2.last_response.status, "200")
         self.assertEqual(client_2.last_response.status, "200")
 
+        time.sleep(self.timeout)
+
         self.assertFalse(client_1.connection_is_closed())
         self.assertFalse(client_2.connection_is_closed())
 
@@ -186,6 +196,8 @@ block_action attack reply;
 
         self.assertIsNone(client_1.last_response)
         self.assertIsNone(client_2.last_response)
+
+        time.sleep(self.timeout)
 
         self.assertTrue(client_1.connection_is_closed())
         self.assertTrue(client_2.connection_is_closed())
@@ -217,6 +229,8 @@ block_action attack reply;
         self.assertIsNone(client_2.last_response)
 
         self.assertEqual(client_1.last_response.status, "200")
+
+        time.sleep(self.timeout)
 
         self.assertFalse(client_1.connection_is_closed())
         self.assertTrue(client_2.connection_is_closed())

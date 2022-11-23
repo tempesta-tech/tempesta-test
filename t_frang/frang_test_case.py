@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from framework import tester
 from framework.deproxy_client import DeproxyClient
 from helpers import dmesg
@@ -48,6 +50,8 @@ block_action attack reply;
         },
     ]
 
+    timeout = 0.5
+
     def setUp(self):
         super().setUp()
         self.klog = dmesg.DmesgFinder(ratelimited=False)
@@ -72,6 +76,8 @@ block_action attack reply;
         return client
 
     def check_response(self, client, status_code: str, warning_msg: str):
+        time.sleep(self.timeout)
+
         for response in client.responses:
 
             self.assertIsNotNone(response, "Deproxy client has lost response.")

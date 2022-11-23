@@ -68,7 +68,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 MULTIPLE_OVERRIDE,
             ],
         )
-        time.sleep(1)
         self.check_response(client, status_code="200", warning_msg="frang: ")
 
     def test_not_accepted_request_x_http_method_override(self):
@@ -82,7 +81,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 "POST / HTTP/1.1\r\nHost: localhost\r\nX-HTTP-Method-Override: OPTIONS\r\n\r\n"
             ],
         )
-        time.sleep(1)
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)
 
     def test_not_accepted_request_x_method_override(self):
@@ -94,7 +92,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=["POST / HTTP/1.1\r\nHost: localhost\r\nX-Method-Override: OPTIONS\r\n\r\n"],
         )
-        time.sleep(1)
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)
 
     def test_not_accepted_request_x_http_method(self):
@@ -108,7 +105,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 "POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method: OPTIONS\r\n\r\n"
             ],
         )
-        time.sleep(1)
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)
 
     def test_unsafe_override_x_http_method_override(self):
@@ -122,7 +118,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 "GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method-Override: POST\r\n\r\n"
             ],
         )
-        time.sleep(1)
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
     def test_unsafe_override_x_http_method(self):
@@ -134,7 +129,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=["GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method: POST\r\n\r\n"],
         )
-        time.sleep(1)
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
     def test_unsafe_override_x_method_override(self):
@@ -148,7 +142,6 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 "GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-Method-Override: POST\r\n\r\n"
             ],
         )
-        time.sleep(1)
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
     def test_default_http_method_override_allowed(self):
@@ -159,5 +152,4 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 "POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-Method-Override: PUT\r\n\r\n"
             ],
         )
-        time.sleep(1)
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)

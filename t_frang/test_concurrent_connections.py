@@ -86,6 +86,8 @@ frang_limits {
         for client in clients:
             client.wait_for_response(timeout=2)
 
+        time.sleep(self.timeout)
+
         if responses == 0:
             for client in clients:
                 self.assertEqual(0, len(client.responses))
@@ -171,6 +173,8 @@ frang_limits {
         self.wait_while_busy(client)
         client.stop()
 
+        time.sleep(self.timeout)
+
         self.assertFrangWarning(warning=ERROR, expected=0)
         self.assertIn("Closing connection 1", client.last_response.stderr)
         self.assertIn("Closing connection 0", client.last_response.stderr)
@@ -180,6 +184,8 @@ frang_limits {
         client.start()
         self.wait_while_busy(client)
         client.stop()
+
+        time.sleep(self.timeout)
 
         self.assertFrangWarning(warning=ERROR, expected=0)
         self.assertIn("Closing connection 1", client.last_response.stderr)

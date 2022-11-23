@@ -60,13 +60,14 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             self.wait_while_busy(curl)
             curl.stop()
 
-            # until rate limit is reached
-            if step < 4:
-                self.assertFrangWarning(warning=ERROR_INCOMP_CONN, expected=0)
-            else:
-                # rate limit is reached
-                time.sleep(1)
-                self.assertFrangWarning(warning=ERROR_INCOMP_CONN, expected=1)
+        time.sleep(self.timeout)
+
+        # until rate limit is reached
+        if steps <= 4:
+            self.assertFrangWarning(warning=ERROR_INCOMP_CONN, expected=0)
+        else:
+            # rate limit is reached
+            self.assertFrangWarning(warning=ERROR_INCOMP_CONN, expected=1)
 
     def test_tls_incomplete_connection_rate(self):
         self._base_scenario(steps=5)
