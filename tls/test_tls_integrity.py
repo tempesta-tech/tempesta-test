@@ -172,8 +172,8 @@ class Proxy(TlsIntegrityTester):
         ##############################################
         with mtu it will be splitted into segments and
         analyze traffic. 
-        Set payload and mtu with -v -v to see what happens
-        
+        Set payload and mtu in test like code below and
+        run test with -v -v to see what happens
         """
         self.start_all()
         self.tcp_flow_check(7020, mtu=1500)
