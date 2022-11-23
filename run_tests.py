@@ -68,9 +68,9 @@ priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
 t_priority_out = open(priority_file).readlines()
 t_priority_out.reverse()
 
-BESTOFF_FILE_NAME = "/tests_retry"
-bestoff_file = os.path.dirname(__file__) + BESTOFF_FILE_NAME
-t_bestoff_out = open(bestoff_file).readlines()
+RETRY_FILE_NAME = "/tests_retry"
+bestoff_file = os.path.dirname(__file__) + RETRY_FILE_NAME
+t_retry_out = open(bestoff_file).readlines()
 
 disabled_reader = shell.DisabledListLoader(disfile)
 disabled_reader.try_load()
@@ -329,10 +329,9 @@ for p in t_priority_out:
 if t_retry:
     # Create list of tests which can be retried
     retry_tests = []
-    for t_bestoff in t_bestoff_out:
+    for t_ret in t_retry_out:
         for t in tests:
-            b_test = t_bestoff
-            if t.id().startswith(b_test.rstrip()):
+            if t.id().startswith(t_ret.rstrip()):
                 retry_tests.append(t)
                 
 # filter testcases
