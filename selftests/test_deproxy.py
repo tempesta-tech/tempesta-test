@@ -270,6 +270,13 @@ class DeproxyClientTest(tester.TempestaTest):
 
     clients = [
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {
+            "id": "deproxy-interface",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
     ]
 
     tempesta = {
@@ -376,6 +383,23 @@ server ${server_ip}:8000;
             ],
         )
         self.assertIsNone(client.last_response)
+
+    def test_interface(self):
+        """
+        Deproxy client is started on local network several times.
+        We should not receive error.
+        """
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-interface")
+
+        self.start_all_services(client=False)
+
+        for _ in range(5):
+            try:
+                client.start()
+                client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                client.stop()
+            except OSError:
+                raise AssertionError("Deproxy client launch: IP address is not available.")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

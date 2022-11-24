@@ -85,13 +85,33 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.insert_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
-        try:
-            deproxy.Client.run_start(self)
-        except Exception as e:
-            tf_cfg.dbg(2, "Exception while start: %s" % str(e))
-            if self.polling_lock != None:
-                self.polling_lock.release()
-            raise e
+
+        # TODO should be changed by issue #361
+        t0 = time.time()
+        while True:
+            t = time.time()
+            if t - t0 > 5:
+                raise TimeoutError("Deproxy client start failed.")
+
+            try:
+                deproxy.Client.run_start(self)
+                break
+
+            except OSError as e:
+                if e.args == (9, "EBADF"):
+                    continue
+
+                tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+                if self.polling_lock != None:
+                    self.polling_lock.release()
+                raise e
+
+            except Exception as e:
+                tf_cfg.dbg(2, "Exception while start: %s" % str(e))
+                if self.polling_lock != None:
+                    self.polling_lock.release()
+                raise e
+
         if self.polling_lock != None:
             self.polling_lock.release()
 
