@@ -377,7 +377,7 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
     burst_warning = ERROR_TLS.format("burst")
     rate_warning = ERROR_TLS.format("rate")
     burst_config = "tls_connection_burst 3;"
-    rate_config = "tls_connection_rate 4;"
+    rate_config = "tls_connection_rate 3;"
 
     def test_burst(self):
         """
@@ -411,7 +411,7 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
 
     def test_rate(self):
         """
-        Set `tls_connection_rate 4` and create 5 tls and 5 non-tls connections.
+        Set `tls_connection_rate 3` and create 4 tls and 4 non-tls connections.
         Only tls connections will be blocked.
         """
         self.set_frang_config(frang_config=self.rate_config)
@@ -419,8 +419,8 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
         base_client = self.get_client(self.base_client_id)
         optional_client = self.get_client(self.optional_client_id)
 
-        # limit rate 4
-        limit = 5
+        # limit rate 3
+        limit = 4
 
         base_client.uri += f"[1-{limit}]"
         optional_client.uri += f"[1-{limit}]"
@@ -469,4 +469,4 @@ class FrangConnectionTlsAndNonTlsRateBurst(FrangTlsAndNonTlsRateBurst):
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
     burst_config = "connection_burst 3;"
-    rate_config = "connection_rate 4;"
+    rate_config = "connection_rate 3;"
