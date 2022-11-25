@@ -91,12 +91,12 @@ pipeline {
                     cleanWs()
                 }
             }
-            
-        post {
+
+    }
+    
+    post {
             always {
                 sh 'sleep 1; reboot &'
             }
         }
-
-    }
 }
