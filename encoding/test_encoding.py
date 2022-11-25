@@ -1,3 +1,4 @@
+import copy
 import string
 
 from framework import tester
@@ -77,7 +78,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             "ssl_hostname": "localhost",
         }
     ]
-    backends = [
+    backends_template = [
         {
             "id": "backend",
             "type": "deproxy",
@@ -106,6 +107,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
 
     def setUp(self):
         # add a chunked body
+        self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
@@ -235,7 +237,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
     """
 
     clients = [{"id": "client", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
-    backends = [
+    backends_template = [
         {
             "id": "backend",
             "type": "deproxy",
@@ -258,6 +260,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
 
     def setUp(self):
         # add a chunked body
+        self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
@@ -344,7 +347,7 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
             "ssl_hostname": "localhost",
         }
     ]
-    backends = [
+    backends_template = [
         {
             "id": "backend",
             "type": "deproxy",
@@ -370,6 +373,7 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
 
     def setUp(self):
         # add a chunked body
+        self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
@@ -418,7 +422,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
             "ssl_hostname": "localhost",
         }
     ]
-    backends = [
+    backends_template = [
         {
             "id": "backend",
             "type": "deproxy",
@@ -444,6 +448,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
     }
 
     def setUp(self):
+        self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += (
             self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)[:-2]
             + f"Expires: {DATE}\r\n"
