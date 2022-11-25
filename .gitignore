@@ -4,3 +4,6 @@ tests_log.log
 *.pyc
 *~
 .vscode/*
+ECDSA/
+RSA/
+certgen.sh
