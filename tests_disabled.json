@@ -492,6 +492,10 @@
         {
             "name": "t_frang.test_header_cnt",
             "reason": "Disabled by issue #1686"
+        },
+        {
+            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase",
+            "reason": "Disabled by issue #364"
         }
     ]
 }
