@@ -462,6 +462,10 @@
             "reason": "Disabled by issue #1719"
         },
         {
+            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_no_port_in_uri",
+            "reason": "Disabled by issue #1719"
+        },
+        {
             "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_empty_host_header",
             "reason": "Disabled by issue #1630"
         },

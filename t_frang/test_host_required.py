@@ -119,31 +119,24 @@ class FrangHostRequiredTestCase(FrangTestCase):
         self.check_response(client, status_code="403", warning_msg=WARN_HEADER_FORWARDED)
 
     def test_host_header_no_port_in_uri(self):
-        """
-        According to the documentation, if the port is not specified,
-        then by default it is considered as port 80. However, when I
-        specify this port in one of the headers (uri or host) and do
-        not specify in the other, then the request causes a limit.
-        """
+        """Test with default port in uri."""
         client = self.base_scenario(
             frang_config="http_host_required true;",
             requests=[
                 "GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: tempesta-tech.com:80\r\n\r\n"
             ],
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
+        self.check_response(client, status_code="200", warning_msg=WARN_DIFFER)
 
     def test_host_header_no_port_in_host(self):
-        # this test does not work correctly because this request
-        # should pass without error. The request is always expected
-        # from port 80, even if it is not specified. See issue #1719
+        """Test with default port in `Host` header."""
         client = self.base_scenario(
             frang_config="http_host_required true;",
             requests=[
                 "GET http://tempesta-tech.com:80/ HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"
             ],
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
+        self.check_response(client, status_code="200", warning_msg=WARN_DIFFER)
 
     def test_host_header_mismath_port_in_host(self):
         """Test with mismatch port in `Host` header."""
