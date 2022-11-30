@@ -16,7 +16,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
         "POST / HTTP/1.1\r\n"
         "Host: debian\r\n"
         "Content-Type: text/html\r\n"
-        "Connection: close\r\n"
+        "Connection: keep-alive\r\n"
         "Content-Length: 0\r\n\r\n"
     ]
 
