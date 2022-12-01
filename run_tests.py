@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
-import datetime
 import getopt
 import os
 import resource
@@ -9,6 +8,7 @@ import subprocess
 import sys
 import unittest
 
+from framework import tester
 from helpers import control, prepare, remote, shell, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -88,9 +88,6 @@ prepare_tcp = True
 n_count = 1
 ignore_errors = False
 t_retry = False
-save_tcpdump = False
-last_test_id = ""
-build_info = f"{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 try:
     options, remainder = getopt.getopt(
@@ -165,9 +162,9 @@ for opt, arg in options:
     elif opt in ("-I", "--ignore-errors"):
         ignore_errors = True
     elif opt in ("-i", "--identifier"):
-        build_info = arg
+        tester.build_info = arg
     elif opt in ("-s", "--save-tcpdump"):
-        save_tcpdump = True
+        tester.save_tcpdump = True
 
 tf_cfg.cfg.check()
 

@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import datetime
 import os
 import signal
 import socket
@@ -12,7 +13,6 @@ import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
-import run_tests
 from framework.templates import fill_template, populate_properties
 from helpers import control, dmesg, remote, tf_cfg
 
@@ -22,6 +22,9 @@ __license__ = "GPL2"
 
 backend_defs = {}
 tempesta_defs = {}
+save_tcpdump = False
+last_test_id = ""
+build_info = f"{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 
 def register_backend(type_name, factory):
@@ -403,9 +406,9 @@ class TempestaTest(unittest.TestCase):
         Run `tcpdump` before the test if `-s` (--save-tcpdump) option is used.
         Save result in a <name>.pcap file, where <name> is name of test.
         """
-        if run_tests.save_tcpdump and self.__tcpdump is None:
+        if save_tcpdump and self.__tcpdump is None:
             tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
-            dir_path = f"/var/tcpdump/{run_tests.build_info}"
+            dir_path = f"/var/tcpdump/{build_info}"
             test_name = self.__update_tcpdump_filename()
 
             if not os.path.isdir(dir_path):
@@ -432,7 +435,7 @@ class TempestaTest(unittest.TestCase):
         `wait()` always causes `TimeoutExpired` error because `tcpdump` cannot terminate on
         its own. But it requires a timeout to flush data from buffer.
         """
-        if run_tests.save_tcpdump:
+        if save_tcpdump:
             try:
                 self.__tcpdump.send_signal(signal.SIGUSR2)
                 self.__tcpdump.wait(timeout=1)
@@ -444,15 +447,16 @@ class TempestaTest(unittest.TestCase):
 
     def __update_tcpdump_filename(self) -> str:
         """Update tcpdump file name for -R option."""
+        global last_test_id
         test_id = self.id()
-        if test_id in run_tests.last_test_id:
-            test_id_elements = run_tests.last_test_id.split(" ")
+        if test_id in last_test_id:
+            test_id_elements = last_test_id.split(" ")
             if len(test_id_elements) > 1:
                 new_test_id = f"{test_id_elements[0]} {int(test_id_elements[1]) + 1}"
             else:
                 new_test_id = test_id + " 2"
-            run_tests.last_test_id = new_test_id
+            last_test_id = new_test_id
             return new_test_id
         else:
-            run_tests.last_test_id = test_id
+            last_test_id = test_id
             return test_id
