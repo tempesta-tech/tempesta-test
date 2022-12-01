@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
+import datetime
 import getopt
 import os
 import resource
@@ -87,11 +88,14 @@ prepare_tcp = True
 n_count = 1
 ignore_errors = False
 t_retry = False
+save_tcpdump = False
+last_test_id = ""
+build_info = f"{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:fr:ER:a:nl:LCDZpI",
+        "hvdt:fr:ER:a:nl:LCDZpIi:s",
         [
             "help",
             "verbose",
@@ -110,6 +114,8 @@ try:
             "run-disabled",
             "dont-prepare",
             "ignore-errors",
+            "identifier=",
+            "save-tcpdump",
         ],
     )
 
@@ -158,6 +164,10 @@ for opt, arg in options:
         prepare_tcp = False
     elif opt in ("-I", "--ignore-errors"):
         ignore_errors = True
+    elif opt in ("-i", "--identifier"):
+        build_info = arg
+    elif opt in ("-s", "--save-tcpdump"):
+        save_tcpdump = True
 
 tf_cfg.cfg.check()
 
@@ -321,10 +331,7 @@ if state_reader.has_file and not test_resume.from_file:
 for p in t_priority_out:
     for t in tests:
         if t.id().startswith(p.rstrip()):
-            tests.insert(
-                0,
-                tests.pop(tests.index(t))
-)
+            tests.insert(0, tests.pop(tests.index(t)))
 
 if t_retry:
     # Create list of tests which can be retried
@@ -333,7 +340,7 @@ if t_retry:
         for t in tests:
             if t.id().startswith(t_ret.rstrip()):
                 retry_tests.append(t)
-                
+
 # filter testcases
 resume_filter = test_resume.filter()
 tests = [
@@ -398,14 +405,19 @@ if t_retry:
             retry_tests.pop(retry_tests.index(err[0]))
             rerun_tests.append(err[0])
     if len(rerun_tests) > 0:
-        print("""
+        print(
+            """
 ----------------------------------------------------------------------
 Run failed tests again ...
 ----------------------------------------------------------------------
-""")
+"""
+        )
         re_testsuite = unittest.TestSuite(rerun_tests)
         re_testRunner = unittest.runner.TextTestRunner(
-            verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
+            verbosity=v_level,
+            failfast=fail_fast,
+            descriptions=False,
+            resultclass=test_resume.resultclass(),
         )
         re_result = re_testRunner.run(re_testsuite)
 
