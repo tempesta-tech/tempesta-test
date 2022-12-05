@@ -484,10 +484,6 @@
         {
             "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_one_ip",
             "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase",
-            "reason": "Disabled by issue #364"
         }
     ]
 }

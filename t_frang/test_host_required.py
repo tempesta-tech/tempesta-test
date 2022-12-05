@@ -225,6 +225,8 @@ block_action error reply;
 """,
     }
 
+    timeout = 1
+
     def test_h2_header_ok(self):
         """Test with header `host`, success."""
         self.set_frang_config(frang_config="http_host_required true;")

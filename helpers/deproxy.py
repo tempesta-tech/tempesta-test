@@ -818,6 +818,7 @@ class Client(TlsClient, stateful.Stateful):
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
+        self.handle_close()
         if type(v) == ParseError or type(v) == AssertionError:
             raise v
         elif type(v) == ssl.SSLWantReadError:
