@@ -824,6 +824,7 @@ class Client(TlsClient, stateful.Stateful):
             # Need to receive more data before decryption can start.
             pass
         else:
+            self.handle_close()
             error.bug("\tDeproxy: Client: %s" % v)
 
 

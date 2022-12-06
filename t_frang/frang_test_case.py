@@ -77,10 +77,8 @@ block_action attack reply;
 
     def check_response(self, client, status_code: str, warning_msg: str):
         time.sleep(self.timeout)
-
+        self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
         for response in client.responses:
-
-            self.assertIsNotNone(response, "Deproxy client has lost response.")
             self.assertEqual(response.status, status_code, "HTTP response status codes mismatch.")
 
             if status_code == "200":
