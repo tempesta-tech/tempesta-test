@@ -18,10 +18,12 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
     clients = [
         {
             "id": "curl-1",
-            "type": "external",
-            "binary": "curl",
+            "type": "curl",
+            "addr": "${tempesta_ip}:443",
             "ssl": False,
-            "cmd_args": '-If -v https://${tempesta_ip}:443/ -H "Host: tempesta-tech.com:8765"',
+            "headers": {
+                "Host": "tempesta-tech.com:443",
+            },
         }
     ]
 
@@ -51,14 +53,15 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         If number of connections is more than 4 they will be blocked.
         """
         curl = self.get_client("curl-1")
+        curl.uri += f"[1-{steps}]"
+        curl.parallel = steps
+        curl.uri = curl.uri.replace("http", "https")
 
         self.start_all_services(client=False)
 
-        # tls_incomplete_connection_rate 4; increase to catch limit
-        for step in range(steps):
-            curl.run_start()
-            self.wait_while_busy(curl)
-            curl.stop()
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
 
         time.sleep(self.timeout)
 
