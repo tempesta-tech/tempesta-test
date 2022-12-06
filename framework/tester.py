@@ -24,7 +24,7 @@ backend_defs = {}
 tempesta_defs = {}
 save_tcpdump = False
 last_test_id = ""
-build_info = f"{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
+build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 
 def register_backend(type_name, factory):
@@ -408,11 +408,10 @@ class TempestaTest(unittest.TestCase):
         """
         if save_tcpdump and self.__tcpdump is None:
             tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
-            dir_path = f"/var/tcpdump/{build_info}"
             test_name = self.__update_tcpdump_filename()
 
-            if not os.path.isdir(dir_path):
-                os.makedirs(dir_path)
+            if not os.path.isdir(build_path):
+                os.makedirs(build_path)
 
             self.__tcpdump = subprocess.Popen(
                 [
@@ -422,7 +421,7 @@ class TempestaTest(unittest.TestCase):
                     "any",
                     f"ip src {tempesta_ip} and ip dst {tempesta_ip}",
                     "-w",
-                    f"{dir_path}/{test_name}.pcap",
+                    f"{build_path}/{test_name}.pcap",
                 ],
                 shell=False,
                 stdout=subprocess.PIPE,

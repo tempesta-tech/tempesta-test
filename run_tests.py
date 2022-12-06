@@ -162,7 +162,7 @@ for opt, arg in options:
     elif opt in ("-I", "--ignore-errors"):
         ignore_errors = True
     elif opt in ("-i", "--identifier"):
-        tester.build_info = arg
+        tester.build_path = arg
     elif opt in ("-s", "--save-tcpdump"):
         tester.save_tcpdump = True
 
