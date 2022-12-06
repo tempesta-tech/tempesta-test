@@ -1,8 +1,11 @@
 from __future__ import print_function
 
+import datetime
+import os
+import signal
 import socket
 import struct
-import time
+import subprocess
 import unittest
 
 import framework.curl_client as curl_client
@@ -19,6 +22,9 @@ __license__ = "GPL2"
 
 backend_defs = {}
 tempesta_defs = {}
+save_tcpdump = False
+last_test_id = ""
+build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 
 def register_backend(type_name, factory):
@@ -145,6 +151,7 @@ class TempestaTest(unittest.TestCase):
         unittest.TestCase.__init__(self, *args, **kwargs)
         self.__servers = {}
         self.__clients = {}
+        self.__tcpdump: subprocess.Popen = None
         self.__ips = []
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
@@ -329,6 +336,7 @@ class TempestaTest(unittest.TestCase):
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
+        self.__run_tcpdump()
 
     def tearDown(self):
         tf_cfg.dbg(3, "\tTeardown")
@@ -361,6 +369,7 @@ class TempestaTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+        self.__stop_tcpdump()
 
     def wait_while_busy(self, *items):
         if items is None:
@@ -391,3 +400,62 @@ class TempestaTest(unittest.TestCase):
             self.deproxy_manager.start()
 
         self.assertTrue(self.wait_all_connections())
+
+    def __run_tcpdump(self) -> None:
+        """
+        Run `tcpdump` before the test if `-s` (--save-tcpdump) option is used.
+        Save result in a <name>.pcap file, where <name> is name of test.
+        """
+        if save_tcpdump and self.__tcpdump is None:
+            tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
+            test_name = self.__update_tcpdump_filename()
+
+            if not os.path.isdir(build_path):
+                os.makedirs(build_path)
+
+            self.__tcpdump = subprocess.Popen(
+                [
+                    "tcpdump",
+                    "-U",
+                    "-i",
+                    "any",
+                    f"ip src {tempesta_ip} and ip dst {tempesta_ip}",
+                    "-w",
+                    f"{build_path}/{test_name}.pcap",
+                ],
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+    def __stop_tcpdump(self) -> None:
+        """
+        Stop tcpdump.
+        `wait()` always causes `TimeoutExpired` error because `tcpdump` cannot terminate on
+        its own. But it requires a timeout to flush data from buffer.
+        """
+        if save_tcpdump:
+            try:
+                self.__tcpdump.send_signal(signal.SIGUSR2)
+                self.__tcpdump.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.__tcpdump.kill()
+                self.__tcpdump.wait()
+
+            self.__tcpdump = None
+
+    def __update_tcpdump_filename(self) -> str:
+        """Update tcpdump file name for -R option."""
+        global last_test_id
+        test_id = self.id()
+        if test_id in last_test_id:
+            test_id_elements = last_test_id.split(" ")
+            if len(test_id_elements) > 1:
+                new_test_id = f"{test_id_elements[0]} {int(test_id_elements[1]) + 1}"
+            else:
+                new_test_id = test_id + " 2"
+            last_test_id = new_test_id
+            return new_test_id
+        else:
+            last_test_id = test_id
+            return test_id
