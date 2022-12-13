@@ -228,6 +228,7 @@ class HttpRulesBackupServers(HttpRules):
         # Check tempesta for no errors
         self.tempesta.get_stats()
         self.assert_tempesta()
+        self.main_server.stop()
 
     def response_received(self):
         self.responses_received += 1
