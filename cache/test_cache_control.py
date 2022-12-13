@@ -6,7 +6,7 @@ import time
 from framework import tester
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import tf_cfg
+from helpers import deproxy, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -38,16 +38,13 @@ class TestCacheControl(tester.TempestaTest, base=True):
 
     tempesta_template = {"config": TEMPESTA_CONFIG}
 
-    backends_template = [
+    backends = [
         {
             "id": "deproxy",
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n"
-            + "Server-id: deproxy\r\n"
-            + "Content-Length: 0\r\n"
-            + "%(response_headers)s\r\n",
+            "response_content": "",
         },
     ]
 
@@ -79,14 +76,6 @@ class TestCacheControl(tester.TempestaTest, base=True):
         self.tempesta = copy.deepcopy(self.tempesta_template)
         self.tempesta["config"] = self.tempesta["config"] % {
             "tempesta_config": self.tempesta_config or ""
-        }
-        self.backends = copy.deepcopy(self.backends_template)
-        headers = "".join(
-            "{0}: {1}\r\n".format(header, "" if header_value is None else header_value)
-            for header, header_value in self.response_headers.items()
-        )
-        self.backends[0]["response_content"] = self.backends[0]["response_content"] % {
-            "response_headers": headers
         }
         # apply default values for optional fields
         if getattr(self, "cached_headers", None) is None:
@@ -147,6 +136,20 @@ class TestCacheControl(tester.TempestaTest, base=True):
         client: DeproxyClient = self.get_client("deproxy")
         srv: StaticDeproxyServer = self.get_server("deproxy")
 
+        response_template = (
+            "HTTP/1.1 200 OK\r\n"
+            + "Server-id: deproxy\r\n"
+            + "Content-Length: 0\r\n"
+            + "".join(
+                "{0}: {1}\r\n".format(header, "" if header_value is None else header_value)
+                for header, header_value in self.response_headers.items()
+            )
+        )
+
+        srv.set_response(
+            response_template + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n\r\n"
+        )
+
         response = self.client_send_req(client, self.request_headers)
         self.assertEqual(
             response.status,
@@ -158,6 +161,10 @@ class TestCacheControl(tester.TempestaTest, base=True):
 
         if self.sleep_interval:
             time.sleep(self.sleep_interval)
+
+        srv.set_response(
+            response_template + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n\r\n"
+        )
 
         cached_response = self.client_send_req(client, self.second_request_headers)
         self.assertEqual(
@@ -264,10 +271,20 @@ class TestCache2(TestCacheControl, SingleTest):
 #########
 # request
 # max-age
+class RequestMaxAge0NoCache(TestCacheControl, SingleTest):
+    request_headers = {"Cache-control": "max-age=0"}
+    should_be_cached = False
+
+
+class RequestMaxAge0NoCache2(TestCacheControl, SingleTest):
+    second_request_headers = {"Cache-control": "max-age=0"}
+    should_be_cached = False
+
+
 class RequestMaxAgeNoCached(TestCacheControl, SingleTest):
     request_headers = {"Cache-control": "max-age=1"}
     response_headers = {"Cache-control": "max-age=3"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -304,7 +321,7 @@ class RequestMaxStaleCached(TestCacheControl, SingleTest):
 class RequestMinFreshNotCached(TestCacheControl, SingleTest):
     request_headers = {"Cache-control": "min-fresh=2"}
     response_headers = {"Cache-control": "max-age=3"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -364,7 +381,7 @@ class ResponseMustRevalidateNotCached(TestCacheControl, SingleTest):
         """
     request_headers = {}
     response_headers = {"Cache-control": "max-age=1, must-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -374,7 +391,7 @@ class ResponseMustRevalidateStaleNotCached(TestCacheControl, SingleTest):
         """
     request_headers = {"Cache-control": "max-stale=2"}
     response_headers = {"Cache-control": "max-age=1, must-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -410,7 +427,7 @@ class ResponseMustRevalidateIgnore(TestCacheControl, SingleTest):
     # Although must-revalidate is ignored, max-age=1 remains active.
     request_headers = {}
     response_headers = {"Cache-control": "max-age=1, must-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -432,7 +449,7 @@ class ResponseProxyRevalidateNotCached(TestCacheControl, SingleTest):
         """
     request_headers = {}
     response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -442,7 +459,7 @@ class ResponseProxyRevalidateStaleNotCached(TestCacheControl, SingleTest):
         """
     request_headers = {"Cache-control": "max-stale=2"}
     response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -453,7 +470,7 @@ class ResponseProxyRevalidateIgnore(TestCacheControl, SingleTest):
         """
     request_headers = {}
     response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -474,7 +491,7 @@ class ResponseProxyRevalidateStaleIgnore(TestCacheControl, SingleTest):
         """
     request_headers = {"Cache-control": "max-stale=2"}
     response_headers = {"Cache-control": "max-age=1, proxy-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = True
 
 
@@ -487,7 +504,7 @@ class ResponseForAuthorizationUserMustRevalidateNotCached(TestCacheControl, Sing
         """
     request_headers = {"Authorization": "asd"}
     response_headers = {"Cache-control": "max-age=1, must-revalidate"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -519,7 +536,7 @@ class ResponseMaxAgeNotCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {"Cache-control": "max-age=1"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -547,7 +564,7 @@ class ResponseSMaxageNotCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {"Cache-control": "s-maxage=1"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -558,7 +575,7 @@ class ResponseSMaxageNotCached2(TestCacheControl, SingleTest):
         """
     request_headers = {"Cache-control": "max-stale=2"}
     response_headers = {"Cache-control": "s-maxage=1"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
@@ -609,7 +626,7 @@ class ResponseSMaxageMaxAgeNotCached(TestCacheControl, SingleTest):
         cache_control_ignore max-age;
         """
     response_headers = {"Cache-control": "max-age=1, s-maxage=1"}
-    sleep_interval = 1.5
+    sleep_interval = 2
     should_be_cached = False
 
 
