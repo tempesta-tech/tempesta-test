@@ -134,10 +134,6 @@
             "reason" : "Disabled by issue #1669"
         },
         {
-            "name" : "tls.test_tls_kernel.TCrypt.test_tcrypt",
-            "reason" : "Disabled by issue #328"
-        },
-        {
             "name" : "tls.test_tls_limits.TLSLimits.test_with_deproxy",
             "reason" : "Disabled by issue #363"
         },
@@ -234,10 +230,6 @@
             "reason": "Need to investigate"
         },
         {
-            "name" : "http_rules.test_http.HttpRulesBackupServers.test_scheduler",
-            "reason": "Disable by issue #328"
-        },
-        {
             "name": "tls.test_tls_cert.TlsCertSelectBySan",
             "reason": "Disable by issue #1688"
         },
@@ -264,46 +256,6 @@
         {
             "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2Frang",
             "reason": "Disable by issue #1688"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.ChangingSG.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.AddingBackendNewSG.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.DontModifyBackend.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "very_many_backends.test_deadtime_1M.RemovingBackendSG.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "cache.test_cache_control.ResponseMustRevalidateCached.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "cache.test_cache_control.StoringResponsesWithSetCookieHeaderProxyRevalidateCache.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "cache.test_cache_control.RequestOnlyIfCachedCached.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "cache.test_cache_control.StoringResponsesToAuthenticatedRequestsMustRevalidateCache2.test",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "t_long_body.test_long_request",
-            "reason": "Disable by issue #328"
-        },
-        {
-            "name" : "cache.test_cache_control.StoringResponsesWithSetCookieHeaderMustRevalidateCache",
-            "reason": "Disable by issue #328"
         },
         {
             "name" : "http2_general.test_h2_sticky_cookie.H2StickyCookieTestCase",
@@ -488,6 +440,10 @@
         {
             "name": "t_frang.test_client_body_and_header_timeout",
             "reason": "Disabled by issue #1762"
+        },
+        {
+            "name": "cache.test_cache_control",
+            "reason": "Disabled by PR #1765"
         }
     ]
 }
