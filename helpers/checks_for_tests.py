@@ -15,8 +15,7 @@ def check_tempesta_error_stats(
     msg = "Tempesta has errors in processing HTTP {0}. Received: {1}. Expected: {2}."
 
     assert tempesta.stats.cl_msg_parsing_errors == cl_msg_parsing_errors, msg.format(
-        "requests",
-        tempesta.stats.cl_msg_parsing_errors,
+        "requests", tempesta.stats.cl_msg_parsing_errors, cl_msg_parsing_errors
     )
     assert tempesta.stats.srv_msg_parsing_errors == srv_msg_parsing_errors, msg.format(
         "responses", tempesta.stats.srv_msg_parsing_errors, srv_msg_parsing_errors

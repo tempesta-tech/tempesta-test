@@ -149,7 +149,7 @@ class ResponseSecondBodyLength(ResponseContentLengthBase):
         f"Content-length: {len(response_body)}\r\n"
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
-        + "Content-length: {len(response_body)}\r\n"
+        + f"Content-length: {len(response_body)}\r\n"
     )
     keep_alive = None
     expected_response_status = "502"
