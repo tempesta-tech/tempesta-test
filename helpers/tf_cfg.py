@@ -108,8 +108,11 @@ class TestFrameworkCfg(object):
         self.config["General"]["Duration"] = val
         return True
 
-    def get(self, section, opt):
+    def get(self, section, opt) -> str:
         return self.config[section][opt]
+
+    def set_option(self, section: str, opt: str, value: str) -> None:
+        self.config[section][opt] = value
 
     def get_binary(self, section, binary):
         if self.config.has_option(section, binary):

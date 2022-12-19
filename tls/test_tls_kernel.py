@@ -29,8 +29,8 @@ class TCrypt(tester.TempestaTest):
         except Exception as e:
             # modprobe tcrypt always returns non-zero status code.
             # -EAGAIN return code is the successful return code of the module.
-            m = re.findall("Resource temporarily unavailable\n", str(e))
-            self.assertTrue(len(m) == 5)
+            m = re.findall("Resource temporarily unavailable", e.stderr.decode())
+            self.assertEqual(len(m), 5)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -105,6 +105,11 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
     ]
 
     def setUp(self):
+        self.verbose = tf_cfg.cfg.get("General", "verbose")
+        if int(self.verbose) < 2:
+            print(f"\n{self.id()}")
+            tf_cfg.cfg.set_option("General", "verbose", "2")
+
         location = tf_cfg.cfg.get("Client", "workdir")
         self.abs_path = os.path.join(location, "long_body.bin")
         remote.client.copy_file(self.abs_path, "x" * BODY_SIZE)
@@ -112,6 +117,9 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
 
     def tearDown(self):
         super().tearDown()
+
+        tf_cfg.cfg.set_option("General", "verbose", self.verbose)
+
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
 
