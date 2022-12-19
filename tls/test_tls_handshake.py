@@ -439,10 +439,13 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     def test_bad_host(self):
         self.init()
+        klog = dmesg.DmesgFinder(ratelimited=False)
         hs12 = TlsHandshake()
         hs12.sni = ["vhost1.net", "vhost2.net"]
         hs12.host = "bad.host.com"
-        self.assertFalse(hs12.do_12(), "Bad Host successfully processed")
+        self.assertTrue(hs12.do_12(), "Bad Host successfully processed")
+        self.assertEqual(klog.warn_count("request has been filtered out via http table"), 1, "No frang")
+        self.assertEqual(len(hs12.hs.server_data), 0, "Got unexpected response after Errno 104")
 
 
 class TlsCertReconfig(tester.TempestaTest):
