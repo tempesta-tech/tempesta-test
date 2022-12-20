@@ -442,7 +442,6 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         sniffer = analyzer.AnalyzerTCPSegmentation(
             remote.tempesta, "Tempesta", timeout=5, ports=(443, 8000)
         )
-        print("Start sniffer")
         sniffer.start()
         hs12 = TlsHandshake()
         hs12.sni = ["vhost1.net", "vhost2.net"]
