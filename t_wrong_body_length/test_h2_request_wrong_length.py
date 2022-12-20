@@ -70,17 +70,15 @@ class RequestEmptyBodyLength(H2RequestContentLengthBase, t.RequestEmptyBodyLengt
 class RequestSmallBodyLength(H2RequestContentLengthBase, t.RequestSmallBodyLength):
     request_headers = [("content-length", "10")]
     expected_requests_to_server = 0
-    expected_response_status = "500"
-    cl_msg_parsing_errors = 0
-    cl_msg_other_errors = 1
+    expected_response_status = "400"
+    cl_msg_parsing_errors = 1
 
 
 class RequestLongBodyLength(H2RequestContentLengthBase):
     request_headers = [("content-length", "40")]
     expected_requests_to_server = 0
-    expected_response_status = "500"
-    cl_msg_parsing_errors = 0
-    cl_msg_other_errors = 1
+    expected_response_status = "400"
+    cl_msg_parsing_errors = 1
 
     def test_post_request(self):
         self.request_method = "POST"
