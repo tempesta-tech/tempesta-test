@@ -7,3 +7,4 @@ tests_log.log
 ECDSA/
 RSA/
 certgen.sh
+secrets.bin

@@ -626,6 +626,7 @@ class TlsClient(asyncore.dispatcher):
         self.want_write = True  # TLS ClientHello is the first one
         self.server_hostname = None
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self.context.keylog_filename = "secrets.bin"
         self.context.check_hostname = False
         self.context.verify_mode = ssl.CERT_NONE
         self.proto = proto
