@@ -5,7 +5,7 @@ handshake messages.
 from time import sleep
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import dmesg, remote, tf_cfg, util
+from helpers import dmesg, remote, tf_cfg, util, analyzer
 
 from .fuzzer import tls_record_fuzzer
 from .handshake import *
@@ -439,13 +439,18 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     def test_bad_host(self):
         self.init()
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        sniffer = analyzer.AnalyzerTCPSegmentation(
+            remote.tempesta, "Tempesta", timeout=5, ports=(443, 8000)
+        )
+        print("Start sniffer")
+        sniffer.start()
         hs12 = TlsHandshake()
         hs12.sni = ["vhost1.net", "vhost2.net"]
         hs12.host = "bad.host.com"
         self.assertTrue(hs12.do_12(), "Bad Host successfully processed")
-        self.assertEqual(klog.warn_count("request has been filtered out via http table"), 1, "No frang")
         self.assertEqual(len(hs12.hs.server_data), 0, "Got unexpected response after Errno 104")
+        sniffer.stop()
+        self.assertEqual(sniffer.packets[-1].sprintf('%TCP.flags%'), "RA", "No Connection reset recieved")
 
 
 class TlsCertReconfig(tester.TempestaTest):
