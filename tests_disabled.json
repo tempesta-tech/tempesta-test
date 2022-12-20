@@ -440,10 +440,6 @@
         {
             "name": "t_frang.test_client_body_and_header_timeout",
             "reason": "Disabled by issue #1762"
-        },
-        {
-            "name": "cache.test_cache_control",
-            "reason": "Disabled by PR #1765"
         }
     ]
 }
