@@ -102,10 +102,6 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "http2_general",
-            "reason" : "Disabled by issue #261"
-        },
-        {
             "name" : "access_log",
             "reason" : "Disabled by issue #261"
         },
@@ -440,6 +436,22 @@
         {
             "name": "t_frang.test_client_body_and_header_timeout",
             "reason": "Disabled by issue #1762"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_data_framing",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_empty_last_data_frame",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_tcp_framing_for_request_headers",
+            "reason": "Disabled by issue #1743"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_tcp_framing_for_request",
+            "reason": "Disabled by issue #1743"
         }
     ]
 }
