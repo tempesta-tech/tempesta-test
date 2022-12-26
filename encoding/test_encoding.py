@@ -148,6 +148,55 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         self.assertEqual(len(server.requests), 1, "The response has to be served from cache")
 
 
+class TestH1ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
+    """
+    Responses from backend that don't contain Content-Length header
+    and in same time have Transfer-Encoding header with chunked encoding
+    as not the last encoding - response must not be cached because we
+    cannot dechunking.
+    """
+
+    clients = [
+        {"id": "client-1", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": "client-2", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+    ]
+    backends = [
+        {
+            "id": "backend",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-type: text/html\r\n"
+            f"Last-Modified: {DATE}\r\n"
+            f"Date: {DATE}\r\n"
+            "Server: Deproxy Server\r\n"
+            "Transfer-Encoding: chunked, gzip\r\n\r\n"
+            "3\r\n123\r\n0\r\n\r\n",
+        }
+    ]
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+        cache 2;
+        cache_fulfill * *;
+        """
+    }
+
+    def test(self):
+        self.start_all()
+        client_1 = self.get_client("client-1")
+        client_2 = self.get_client("client-2")
+        server = self.get_server("backend")
+        request = "GET / HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip, br, chunked\r\n\r\n"
+
+        client_1.send_request(request, "200")
+
+        #  second request
+        client_2.send_request(request, "200")
+        self.assertEqual(len(server.requests), 2, "The response has to be server from cache")
+
+
 class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
     """
     Responses from backend that don't contain Content-Length header
