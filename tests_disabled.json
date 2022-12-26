@@ -452,6 +452,14 @@
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_tcp_framing_for_request",
             "reason": "Disabled by issue #1743"
+        },
+        {
+            "name": "http2_general.test_h2_headers",
+            "reason": "Disabled by issue #261"
+        },
+        {
+            "name": "http2_general.test_h2_ping",
+            "reason": "Disabled by issue #261"
         }
     ]
 }
