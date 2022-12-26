@@ -101,6 +101,16 @@ class H2ResponseMissingEmptyBodyLength(H2Config, ResponseMissingEmptyBodyLength)
 
     request_headers = []
 
+    def test(self):
+        """Call test from base class"""
+        self._test()
+        response = self.get_client("deproxy").last_response
+        self.assertEqual(
+            self.expected_body_length,
+            len(response.body),
+            "Tempesta forwarded body of unexpected length.",
+        )
+
 
 class ResponseSmallBodyLength(ResponseContentLengthBase):
     """
