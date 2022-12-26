@@ -439,11 +439,11 @@
         },
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_data_framing",
-            "reason": "Disabled by issue #"
+            "reason": "Disabled by issue #1669"
         },
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_empty_last_data_frame",
-            "reason": "Disabled by issue #"
+            "reason": "Disabled by issue #1775"
         },
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_tcp_framing_for_request_headers",
