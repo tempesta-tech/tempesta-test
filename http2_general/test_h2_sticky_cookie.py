@@ -6,13 +6,12 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-nginx_backend = (
-    {
-        "id": "nginx",
-        "type": "nginx",
-        "port": "8000",
-        "status_uri": "http://${server_ip}:8000/nginx_status",
-        "config": """
+nginx_backend = {
+    "id": "nginx",
+    "type": "nginx",
+    "port": "8000",
+    "status_uri": "http://${server_ip}:8000/nginx_status",
+    "config": """
         pid ${pid};
         worker_processes  auto;
         events {
@@ -42,8 +41,7 @@ nginx_backend = (
             }
         }
     """,
-    },
-)
+}
 
 
 class H2StickyCookieBaseTestCase(tester.TempestaTest):
@@ -97,8 +95,9 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
 
         curl.start()
         self.wait_while_busy(curl)
+        curl.stop()
 
-        response = curl.resq.get(True, 1)[0].decode()
+        response = curl.response_msg
         self.assertIn(
             "set-cookie",
             response,
@@ -110,8 +109,6 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
             response,
             "Expected cookie name in response",
         )
-
-        curl.stop()
 
 
 class H2StickyCookieTestCase(tester.TempestaTest):
