@@ -253,6 +253,22 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertIsNotNone(deproxy_cl.last_response)
         self.assertEqual(deproxy_cl.last_response.status, "400")
 
+    def test_disable_huffman_encoding(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.make_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            end_stream=True,
+            huffman=False,
+        )
+        self.assertIn(b"example.com", client.request_buffers[0])
+
 
 class DeproxyClientTest(tester.TempestaTest):
 
