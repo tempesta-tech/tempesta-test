@@ -77,3 +77,28 @@ class TestHpack(tester.TempestaTest):
             ],
             expected_status_code="200",
         )
+
+    def test_disable_huffman(self):
+        """
+        Send request without Huffman encoder. Huffman is enabled by default for H2Connection.
+        Client should receive response with 200 status.
+        """
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client = self.get_client("deproxy")
+        client.make_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("host", "example.com"),
+            ],
+            end_stream=True,
+            huffman=False,
+        )
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
