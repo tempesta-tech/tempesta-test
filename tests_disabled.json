@@ -436,6 +436,18 @@
         {
             "name": "t_frang.test_client_body_and_header_timeout",
             "reason": "Disabled by issue #1762"
+        },
+        {
+            "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
+            "reason": "Disabled by issue #1771"
+        },
+        {
+            "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestLongBodyLength",
+            "reason": "Disabled by issue #1771"
+        },
+        {
+            "name": "encoding.test_encoding.TestH1ChunkedIsNotLast",
+            "reason": "Disabled by issue #1773"
         }
     ]
 }

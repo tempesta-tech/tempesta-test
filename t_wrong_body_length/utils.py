@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.deproxy_client import DeproxyClient
+from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
 from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
@@ -54,7 +54,7 @@ class TestContentLengthBase(TempestaTest, base=True):
     # request params
     request_method: str
     uri: str
-    request_headers: str
+    request_headers: str or list
     request_body: str
 
     # response params
@@ -85,20 +85,31 @@ class TestContentLengthBase(TempestaTest, base=True):
 
         response = (
             f"HTTP/1.1 {self.response_status}\r\n"
-            + "Connection: keep-alive\r\n"
             + "Server: Deproxy Server\r\n"
             + f"{self.response_headers}\r\n"
             + f"{self.response_body}"
         )
         srv.set_response(response)
 
-        client.send_request(
-            request=(
+        if isinstance(client, DeproxyClientH2):
+            headers = [
+                (":authority", "localhost"),
+                (":path", self.uri),
+                (":scheme", "https"),
+                (":method", self.request_method),
+            ]
+            headers.extend(self.request_headers)
+            request = (headers, self.request_body)
+        elif isinstance(client, DeproxyClient):
+            request = (
                 f"{self.request_method} {self.uri} HTTP/1.1\r\n"
                 + f'Host: {tf_cfg.cfg.get("Client", "hostname")}\r\n'
                 + f"{self.request_headers}\r\n"
                 + f"{self.request_body}"
-            ),
+            )
+
+        client.send_request(
+            request=request,
             expected_status_code=self.expected_response_status,
         )
 
@@ -114,3 +125,31 @@ class TestContentLengthBase(TempestaTest, base=True):
             len(srv.requests),
             "Server received unexpected number of requests.",
         )
+
+
+class H2Config:
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+
+            server ${server_ip}:8000;
+            
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            
+            cache 0;
+            block_action error reply;
+            block_action attack reply;
+            """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
