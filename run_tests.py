@@ -8,6 +8,7 @@ import subprocess
 import sys
 import unittest
 
+import run_config
 from framework import tester
 from helpers import control, prepare, remote, shell, tf_cfg
 
@@ -92,7 +93,7 @@ t_retry = False
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:fr:ER:a:nl:LCDZpIi:s",
+        "hvdt:fr:ER:a:nl:LCDZpIi:sS",
         [
             "help",
             "verbose",
@@ -113,6 +114,7 @@ try:
             "ignore-errors",
             "identifier=",
             "save-tcpdump",
+            "save-secrets",
         ],
     )
 
@@ -165,6 +167,9 @@ for opt, arg in options:
         tester.build_path = arg
     elif opt in ("-s", "--save-tcpdump"):
         tester.save_tcpdump = True
+        run_config.SAVE_SECRETS = True
+    elif opt in ("-S", "--save-secrets"):
+        run_config.SAVE_SECRETS = True
 
 tf_cfg.cfg.check()
 

@@ -35,7 +35,7 @@ class CommonUtils:
             if not request
             else request
         )
-        client.make_requests(request)
+        client.make_request(request)
         got_response = client.wait_for_response(timeout=5)
         return got_response
 
@@ -128,6 +128,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
+        self.assertEqual(response.status, "200")
         self.assertFalse(
             "Transfer-Encoding" in response.headers,
             "The response should not have Transfer-Encoding",
@@ -143,16 +144,64 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         got_response = client.wait_for_response(timeout=5)
 
         self.assertTrue(got_response, "Got no response")
+        self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.requests), 1, "The response has to be served from cache")
+
+
+class TestH1ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
+    """
+    Responses from backend that don't contain Content-Length header
+    and in same time have Transfer-Encoding header with chunked encoding
+    as not the last encoding - response must not be cached because we
+    cannot dechunking.
+    """
+
+    clients = [
+        {"id": "client-1", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": "client-2", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+    ]
+    backends = [
+        {
+            "id": "backend",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-type: text/html\r\n"
+            f"Last-Modified: {DATE}\r\n"
+            f"Date: {DATE}\r\n"
+            "Server: Deproxy Server\r\n"
+            "Transfer-Encoding: chunked, gzip\r\n\r\n"
+            "3\r\n123\r\n0\r\n\r\n",
+        }
+    ]
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+        cache 2;
+        cache_fulfill * *;
+        """
+    }
+
+    def test(self):
+        self.start_all()
+        client_1 = self.get_client("client-1")
+        client_2 = self.get_client("client-2")
+        server = self.get_server("backend")
+        request = "GET / HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip, br, chunked\r\n\r\n"
+
+        client_1.send_request(request, "200")
+
+        #  second request
+        client_2.send_request(request, "200")
+        self.assertEqual(len(server.requests), 2, "The response has to be server from cache")
 
 
 class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
     """
     Responses from backend that don't contain Content-Length header
     and in same time have Transfer-Encoding header with chunked encoding
-    as not the last encoding must not be placed into the cache.
-    Tempesta must add Content-Length to such responses determining length
-    of the body by closing the connection by backend.
+    as not the last encoding - must be blocked with 502 response.
     """
 
     clients = [
@@ -177,7 +226,7 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
             f"Date: {DATE}\r\n"
             "Server: Deproxy Server\r\n"
             "Transfer-Encoding: chunked, gzip\r\n\r\n"
-            "the body does not actually matter",
+            "3\r\n123\r\n0\r\n\r\n",
         }
     ]
     tempesta = {
@@ -197,7 +246,6 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
         self.start_all()
 
         client = self.get_client("client")
-        server = self.get_server("backend")
 
         request = [
             (":authority", "localhost"),
@@ -210,25 +258,7 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
         response1 = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
-        self.assertFalse(
-            "Transfer-Encoding" in response1.headers,
-            "The response should not have Transfer-Encoding",
-        )
-        cl = response1.headers.get("Content-Length", None)
-        self.assertTrue(cl, "The response should have Content-Length")
-
-        # repeat the response to ensure it wasn't cached
-        client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
-        response2 = client.responses[-1] if len(client.responses) else None
-
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(len(server.requests), 2, "The response must not be served from the cache")
-        self.assertEqual(
-            response1.headers.get("Content-Length"),
-            response2.headers.get("Content-Length"),
-            "Requests Content-Length headers mismatch",
-        )
+        self.assertEqual(response1.status, "502")
 
 
 class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
@@ -274,6 +304,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "There should be a response")
+        self.assertEqual(response.status, "200")
         self.assertEqual(
             response.headers.get("Transfer-Encoding"), "chunked", "Wrong response Transfer-Encoding"
         )
@@ -283,6 +314,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "There should be a response")
+        self.assertEqual(response.status, "200")
         self.assertEqual(len(server.requests), 2, "The response has to be server from cache")
 
 
@@ -393,6 +425,7 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
+        self.assertEqual(response.status, "200")
         self.assertFalse(
             "Transfer-Encoding" in response.headers,
             "The response should not have Transfer-Encoding",
@@ -472,6 +505,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
+        self.assertEqual(response.status, "200")
         self.assertEqual(
             response.headers.get("Expires"),
             str(DATE),
@@ -545,6 +579,7 @@ class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
+        self.assertEqual(response.status, "200")
         self.assertEqual(response.body, "some data", "Wrong response body value")
 
 
@@ -573,16 +608,17 @@ class TestRequestTEAndCL(tester.TempestaTest, CommonUtils):
         self.start_all()
 
         client = self.get_client("client")
+        client.parsing = False
         request = (
             "GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "Transfer-Encoding: chunked\r\n"
             "Content-Length: 33\r\n\r\n"
-            "the body does not actually matter",
+            "the body does not actually matter"
         )
 
         self.send_req(client, request)
-        self.assertFalse(len(client.responses), "The request was not blocked")
+        self.assertEqual(client.last_response.status, "400")
 
 
 class TestRequestChunkedNotLast(tester.TempestaTest, CommonUtils):
@@ -610,12 +646,13 @@ class TestRequestChunkedNotLast(tester.TempestaTest, CommonUtils):
         self.start_all()
 
         client = self.get_client("client")
+        client.parsing = False
         request = (
             "GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
-            "Transfer-Encoding: chunked, gzip\r\n"
-            "the body does not actually matter",
+            "Transfer-Encoding: chunked, gzip\r\n\r\n"
+            "the body does not actually matter"
         )
 
         self.send_req(client, request)
-        self.assertFalse(len(client.responses), "The request was not blocked")
+        self.assertEqual(client.last_response.status, "400")

@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from t_wrong_body_length.utils import TestContentLengthBase
+from t_wrong_body_length.utils import H2Config, TestContentLengthBase
 
 
 class ResponseContentLengthBase(TestContentLengthBase, base=True):
@@ -78,8 +78,7 @@ class ResponseCorrectEmptyBodyLength(ResponseContentLengthBase):
 class ResponseMissingEmptyBodyLength(ResponseContentLengthBase):
     """
     Send request to server. Wait for the server response.
-    Check that Tempesta has forwarded server response without body and without Content-Length
-    header.
+    Check that Tempesta has forwarded server response without Content-Length header.
     """
 
     response_status = "200 OK"
@@ -92,6 +91,25 @@ class ResponseMissingEmptyBodyLength(ResponseContentLengthBase):
     expected_body_length = len(response_body)
     srv_msg_other_errors = 0
     srv_msg_parsing_errors = 0
+
+
+class H2ResponseMissingEmptyBodyLength(H2Config, ResponseMissingEmptyBodyLength):
+    """
+    Send request to server. Wait for the server response.
+    Check that Tempesta has forwarded server response without Content-Length header.
+    """
+
+    request_headers = []
+
+    def test(self):
+        """Call test from base class"""
+        self._test()
+        response = self.get_client("deproxy").last_response
+        self.assertEqual(
+            self.expected_body_length,
+            len(response.body),
+            "Tempesta forwarded body of unexpected length.",
+        )
 
 
 class ResponseSmallBodyLength(ResponseContentLengthBase):
@@ -149,7 +167,7 @@ class ResponseSecondBodyLength(ResponseContentLengthBase):
         f"Content-length: {len(response_body)}\r\n"
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
-        + "Content-length: {len(response_body)}\r\n"
+        + f"Content-length: {len(response_body)}\r\n"
     )
     keep_alive = None
     expected_response_status = "502"

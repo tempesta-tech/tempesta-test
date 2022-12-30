@@ -27,6 +27,8 @@ import time
 from http.server import BaseHTTPRequestHandler
 from io import StringIO
 
+import run_config
+
 from . import error, stateful, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -626,6 +628,8 @@ class TlsClient(asyncore.dispatcher):
         self.want_write = True  # TLS ClientHello is the first one
         self.server_hostname = None
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        if run_config.SAVE_SECRETS:
+            self.context.keylog_filename = "secrets.txt"
         self.context.check_hostname = False
         self.context.verify_mode = ssl.CERT_NONE
         self.proto = proto

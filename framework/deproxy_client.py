@@ -282,6 +282,8 @@ class DeproxyClient(BaseDeproxyClient):
             self.request_buffers.extend(request_buffers)
             self.valid_req_num += valid_req_num
             self.nrreq += len(self.methods)
+        else:
+            raise TypeError("Use list or str for request.")
 
     def make_request(self, request: str) -> None:
         """Send one HTTP request"""
