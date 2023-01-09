@@ -99,7 +99,7 @@ class TestContentLengthBase(TempestaTest, base=True):
                 (":method", self.request_method),
             ]
             headers.extend(self.request_headers)
-            request = (headers, self.request_body)
+            request = (headers, self.request_body) if self.request_body else headers
         elif isinstance(client, DeproxyClient):
             request = (
                 f"{self.request_method} {self.uri} HTTP/1.1\r\n"

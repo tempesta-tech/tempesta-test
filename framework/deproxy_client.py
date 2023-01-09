@@ -358,40 +358,49 @@ class DeproxyClientH2(DeproxyClient):
         for request in requests:
             self.make_request(request)
 
-    def make_request(self, request: tuple or list):
-        self._clear_request_stats()
-
-        if isinstance(request, tuple):
-            headers, body = request
-        elif isinstance(request, list):
-            headers = request
-            body = ""
-
+    def make_request(self, request: tuple or list or str, end_stream=True):
+        """
+        Args:
+            request:
+                str - send data frame;
+                list - send headers frame;
+                tuple - send headers and data frame in one TCP-packet;
+            end_stream (bool) - set END_STREAM flag for frame.
+        """
         if self.h2_connection is None:
             self.h2_connection = h2.connection.H2Connection()
             self.h2_connection.initiate_connection()
             if self.selfproxy_present:
                 self.update_selfproxy()
 
-        for header in headers:
-            if header[0] == ":method":
-                self.methods.append(header[1])
-
         if not self.parsing:
             self.h2_connection.config.normalize_outbound_headers = False
             self.h2_connection.config.validate_inbound_headers = False
             self.h2_connection.config.validate_outbound_headers = False
 
-        if body != "":
+        headers = []
+        if isinstance(request, tuple):
+            self._clear_request_stats()
+            headers, body = request
             self.h2_connection.send_headers(self.stream_id, headers)
-            self.h2_connection.send_data(self.stream_id, body.encode(), True)
-        else:
-            self.h2_connection.send_headers(self.stream_id, headers, True)
+            self.h2_connection.send_data(self.stream_id, body.encode(), end_stream)
+        elif isinstance(request, list):
+            self._clear_request_stats()
+            headers = request
+            self.h2_connection.send_headers(self.stream_id, headers, end_stream)
+        elif isinstance(request, str):
+            self.h2_connection.send_data(self.stream_id, request.encode(), end_stream)
 
-        self.stream_id += 2
+        if headers:
+            for header in headers:
+                if header[0] == ":method":
+                    self.methods.append(header[1])
+
         self.request_buffers.append(self.h2_connection.data_to_send())
-        self.valid_req_num += 1
         self.nrreq += 1
+        if end_stream:
+            self.stream_id += 2
+            self.valid_req_num += 1
 
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
@@ -464,12 +473,25 @@ class DeproxyClientH2(DeproxyClient):
         reqs = self.request_buffers
         tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
-
-        sent = self.send(reqs[self.cur_req_num])
+        if self.segment_size != 0:
+            for chunk in [
+                reqs[self.cur_req_num][i : (i + self.segment_size)]
+                for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
+            ]:
+                sent = self.send(chunk)
+        else:
+            sent = self.send(reqs[self.cur_req_num])
         if sent < 0:
             return
 
         self.cur_req_num += 1
+
+    def handle_connect(self):
+        deproxy.Client.handle_connect(self)
+        self.start_time = time.time()
+
+    def insert_selfproxy(self):
+        tf_cfg.dbg(4, "\tDeproxy: Client: h2 client does not need selfproxy for chunking requests.")
 
     def __headers_to_string(self, headers):
         return "".join(["%s: %s\r\n" % (h, v) for h, v in headers])
