@@ -4,9 +4,14 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from hpack import HeaderTuple, NeverIndexedHeaderTuple
+import time
+from ssl import SSLWantWriteError
 
-from framework import tester
+from h2.exceptions import ProtocolError
+from hpack import HeaderTuple, NeverIndexedHeaderTuple
+from hyperframe.frame import HeadersFrame
+
+from framework import deproxy_client, tester
 
 
 class TestHpack(tester.TempestaTest):
@@ -102,3 +107,52 @@ class TestHpack(tester.TempestaTest):
         )
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
+
+    def test_hpack_bomb(self):
+        """
+        A HPACK bomb request causes the connection to be torn down with the
+        error code ENHANCE_YOUR_CALM.
+        """
+        self.start_all_services(client=False)
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client.parsing = False
+
+        # Send 4096 byte header and save in dynamic table.
+        # Max table size 4096 bytes, see RFC 7540 6.5.2
+        for bomb_size in [(2**8), (2**14 - 9)]:
+            with self.subTest(bomb_size=bomb_size):
+                client.stop()
+                client.start()
+                client.make_request(
+                    request=[
+                        HeaderTuple(":authority", "example.com"),
+                        HeaderTuple(":path", "/"),
+                        HeaderTuple(":scheme", "https"),
+                        HeaderTuple(":method", "POST"),
+                        HeaderTuple(b"a", b"a" * 4063),
+                    ],
+                    end_stream=False,
+                )
+
+                # wait for tempesta to save header in dynamic table
+                time.sleep(0.5)
+
+                # Generate and send attack frames. It repeatedly refers to the first entry for 16kB.
+                now = time.time()
+                while now + 10 > time.time():
+                    client.stream_id += 2
+                    attack_frame = HeadersFrame(
+                        stream_id=client.stream_id,
+                        data=b"\xbe" * bomb_size,  # max window size 16384
+                    )
+                    attack_frame.flags.add("END_HEADERS")
+
+                    try:
+                        client.send(attack_frame.serialize())
+                    except SSLWantWriteError:
+                        continue
+
+                # Make sure connection is closed by Tempesta.
+                with self.assertRaises(ProtocolError):
+                    client.stream_id = 1
+                    client.make_request(request="asd", end_stream=True)
