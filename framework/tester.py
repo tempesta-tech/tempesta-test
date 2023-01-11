@@ -396,7 +396,9 @@ class TempestaTest(unittest.TestCase):
         if client:
             self.start_all_clients()
 
-        if "deproxy" in [element["type"] for element in (self.clients + self.backends)]:
+        if "deproxy" or "deproxy_h2" in [
+            element["type"] for element in (self.clients + self.backends)
+        ]:
             self.deproxy_manager.start()
 
         self.assertTrue(self.wait_all_connections())

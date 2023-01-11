@@ -102,10 +102,6 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "access_log",
-            "reason" : "Disabled by issue #261"
-        },
-        {
             "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
             "reason" : "Disabled by issue #73"
         },
@@ -450,14 +446,6 @@
             "reason": "Disabled by issue #1743"
         },
         {
-            "name": "http2_general.test_h2_headers",
-            "reason": "Disabled by issue #261"
-        },
-        {
-            "name": "http2_general.test_h2_ping",
-            "reason": "Disabled by issue #261"
-        },
-        {
             "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1771"
         },
@@ -468,6 +456,14 @@
         {
             "name": "encoding.test_encoding.TestH1ChunkedIsNotLast",
             "reason": "Disabled by issue #1773"
+        },
+        {
+            "name": "http2_general.test_h2_headers.HeadersParsing.test_capitalized_header_in_request",
+            "reason": "Disabled by issue #1729"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_hpack_bomb",
+            "reason": "Disabled by issue #1780"
         }
     ]
 }

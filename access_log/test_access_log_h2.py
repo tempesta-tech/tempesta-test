@@ -112,7 +112,9 @@ class CurlTestBase(tester.TempestaTest):
         self.start_all_clients()
         self.wait_while_busy(curl)
         self.assertEqual(
-            0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
+            0,
+            curl.returncode,
+            msg=("Curl return code is not 0. Received - {0}.".format(curl.returncode)),
         )
         curl.stop()
 
