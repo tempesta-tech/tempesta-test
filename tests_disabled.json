@@ -410,10 +410,6 @@
             "reason": "Disabled by issue #1630"
         },
         {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_double_different_forwarded_headers",
-            "reason": "Disabled by issue #1718"
-        },
-        {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
             "reason": "Disabled by issue #1740"
         },
