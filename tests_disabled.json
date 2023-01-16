@@ -270,10 +270,6 @@
             "reason" : "Disabled by issue #1704"
         },
         {
-            "name" : "http_general.test_headers.BackendSetCoookie",
-            "reason" : "Disabled by issue #1690"
-        },
-        {
             "name" : "sessions.test_cookies",
             "reason" : "Disabled by issue #923"
         },
@@ -302,28 +298,12 @@
             "reason": "Disabled by issues #1748 #261"
         },
         {
-            "name" : "t_sites.test_wordpress.TestWordpressSite.test_auth_not_cached",
-            "reason": "Disable by issue #1690"
-        },
-        {
-            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_not_cached_for_autheticated_user",
-            "reason": "Disable by issue #1690"
-        },
-        {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
-            "reason": "Disable by issue #1690"
-        },
-        {
-            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_auth_not_cached",
-            "reason": "Disable by issue #1690"
-        },
-        {
-            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_blog_post_flow",
-            "reason": "Disable by issue #1690"
+            "reason": "Disabled by issue #384"
         },
         {
             "name" : "t_sites.test_wordpress.TestWordpressSiteH2",
-            "reason": "Disable by issue #1669"
+            "reason": "Disabled by issue #384 #1669"
         },
         {
             "name" : "t_stress.test_wordpress.H2WordpressStress",
