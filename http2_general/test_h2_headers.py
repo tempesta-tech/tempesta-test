@@ -292,6 +292,7 @@ return 200;
         for line in lines:
             if line.startswith("< set-cookie:"):
                 setcookie_count += 1
+                self.assertTrue(len(line.split(','))==1, "Wrong separator")
         self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
 
 
