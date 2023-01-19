@@ -5,6 +5,7 @@ from io import StringIO
 
 import h2.connection
 from h2.events import DataReceived, ResponseReceived, StreamEnded, TrailersReceived
+from hpack import Encoder
 
 from helpers import deproxy, selfproxy, stateful, tf_cfg
 
@@ -345,11 +346,21 @@ class DeproxyClient(BaseDeproxyClient):
         )
 
 
+class HuffmanEncoder(Encoder):
+    """Override method to disable Huffman encoding. Encoding is enabled by default."""
+
+    huffman: bool
+
+    def encode(self, headers, huffman=True):
+        return super().encode(headers=headers, huffman=self.huffman)
+
+
 class DeproxyClientH2(DeproxyClient):
     last_response: deproxy.H2Response
 
     def __init__(self, *args, **kwargs):
         DeproxyClient.__init__(self, *args, **kwargs)
+        self.encoder = HuffmanEncoder()
         self.h2_connection = None
         self.stream_id = 1
         self.active_responses = {}
@@ -358,20 +369,24 @@ class DeproxyClientH2(DeproxyClient):
         for request in requests:
             self.make_request(request)
 
-    def make_request(self, request: tuple or list or str, end_stream=True):
+    def make_request(self, request: tuple or list or str, end_stream=True, huffman=True):
         """
         Args:
             request:
                 str - send data frame;
                 list - send headers frame;
                 tuple - send headers and data frame in one TCP-packet;
-            end_stream (bool) - set END_STREAM flag for frame.
+            end_stream (bool) - set END_STREAM flag for frame;
+            huffman (bool) - enable or disable Huffman encoding;
         """
         if self.h2_connection is None:
             self.h2_connection = h2.connection.H2Connection()
+            self.h2_connection.encoder = self.encoder
             self.h2_connection.initiate_connection()
             if self.selfproxy_present:
                 self.update_selfproxy()
+
+        self.h2_connection.encoder.huffman = huffman
 
         if not self.parsing:
             self.h2_connection.config.normalize_outbound_headers = False

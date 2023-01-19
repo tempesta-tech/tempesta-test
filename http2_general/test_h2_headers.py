@@ -83,26 +83,23 @@ vhost default {
 
 
 class HeadersParsing(tester.TempestaTest):
-    """Ask curl to make an h2 request, test failed if return code is not 0."""
-
     clients = [
         {
-            "id": "curl",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": (
-                "-kf " "https://${tempesta_ip}/ "  # Set non-null return code on 4xx-5xx responses.
-            ),
-        },
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
     ]
 
     backends = [
         {
-            "id": "nginx",
-            "type": "nginx",
+            "id": "deproxy",
+            "type": "deproxy",
             "port": "8000",
-            "status_uri": "http://${server_ip}:8000/nginx_status",
-            "config": NGINX_CONFIG % "root ${server_resources};",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
         }
     ]
 
@@ -110,17 +107,64 @@ class HeadersParsing(tester.TempestaTest):
         "config": TEMPESTA_CONFIG % "",
     }
 
-    def test_random_header(self):
-        curl = self.get_client("curl")
-        # In tempesta-tech/tempesta#1412 an arbitrary header not known by
-        # Tempesta and shorter than 4 characters caused request blocking,
-        # check everything is fine.
-        curl.options.append('-H "dnt: 1"')
+    def test_small_header_in_request(self):
+        """Request with small header name length completes successfully."""
+        self.start_all_services()
 
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.wait_while_busy(curl)
+        client = self.get_client("deproxy")
+        client.parsing = False
+        for length in range(1, 5):
+            header = "x" * length
+            client.send_request(
+                [
+                    (":authority", "localhost"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "GET"),
+                    (header, "test"),
+                ],
+                "200",
+            )
+
+    def test_capitalized_header_in_request(self):
+        """The request must be treated as malformed. RFC 7540 8.1.2"""
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.parsing = False
+        client.send_request(
+            (
+                [
+                    (":authority", "localhost"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "POST"),
+                    ("Content-Length", "3"),
+                ],
+                "123",
+            ),
+            "400",
+        )
+
+    def test_chunked_header_in_request(self):
+        """The request must be treated as malformed. RFC 7540 8.2.2"""
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.parsing = False
+        client.send_request(
+            (
+                [
+                    (":authority", "localhost"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "POST"),
+                    ("transfer-encoding", "chunked"),
+                ],
+                "3\r\n123\r\n0\r\n\r\n",
+            ),
+            "400",
+        )
 
 
 class CurlTestBase(tester.TempestaTest):
@@ -130,9 +174,7 @@ class CurlTestBase(tester.TempestaTest):
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": (
-                "-kf " "https://${tempesta_ip}/ "  # Set non-null return code on 4xx-5xx responses.
-            ),
+            "cmd_args": ("-kfv " "https://${tempesta_ip}/ "),
         },
     ]
 
@@ -144,16 +186,13 @@ class CurlTestBase(tester.TempestaTest):
 
         self.start_all_clients()
         self.wait_while_busy(curl)
-        self.assertEqual(
-            0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
-        )
         curl.stop()
+        self.assertIn("200", curl.response_msg)
 
         self.start_all_clients()
         self.wait_while_busy(curl)
-        self.assertEqual(
-            0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
-        )
+        curl.stop()
+        self.assertIn("200", curl.response_msg)
 
         nginx = self.get_server("nginx")
         nginx.get_stats()
@@ -174,16 +213,13 @@ class CurlTestBase(tester.TempestaTest):
         self.assertTrue(self.wait_all_connections())
 
         self.wait_while_busy(curl)
-        self.assertEqual(
-            0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
-        )
         curl.stop()
+        self.assertIn("200", curl.response_msg)
 
         self.start_all_clients()
         self.wait_while_busy(curl)
-        self.assertEqual(
-            0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
-        )
+        curl.stop()
+        self.assertIn("200", curl.response_msg)
 
         srv = self.get_server("deproxy")
         self.assertEqual(
