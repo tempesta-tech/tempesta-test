@@ -247,11 +247,11 @@ return 200;
     ]
 
     tempesta = {
-        "config": TEMPESTA_CONFIG % "",
+        "config": TEMPESTA_CONFIG % "cache_fulfill * *;",
     }
 
     def test(self):
-        CurlTestBase.run_test(self)
+        CurlTestBase.run_test(self, True)
 
 
 class AddBackendShortHeadersCache(CurlTestBase):
