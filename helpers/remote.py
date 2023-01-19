@@ -27,7 +27,7 @@ __license__ = "GPL2"
 # Don't remove files from remote node. Helpful for tests development.
 DEBUG_FILES = False
 # Default timeout for SSH sessions and command processing.
-DEFAULT_TIMEOUT = 5
+DEFAULT_TIMEOUT = 10
 
 
 class Node(object, metaclass=abc.ABCMeta):
