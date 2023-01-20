@@ -308,7 +308,7 @@
         {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_not_cached_for_autheticated_user",
             "reason": "Disable by issue #1690"
-        },        
+        },
         {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
             "reason": "Disable by issue #1690"
