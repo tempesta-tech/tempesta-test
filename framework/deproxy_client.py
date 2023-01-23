@@ -4,13 +4,21 @@ import time
 from io import StringIO
 
 import h2.connection
-from h2.events import DataReceived, ResponseReceived, StreamEnded, TrailersReceived
+from h2.events import (
+    DataReceived,
+    ResponseReceived,
+    SettingsAcknowledged,
+    StreamEnded,
+    TrailersReceived,
+)
+from h2.settings import SettingCodes, Settings
 from hpack import Encoder
+from hyperframe.frame import SettingsFrame
 
 from helpers import deproxy, selfproxy, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -364,6 +372,7 @@ class DeproxyClientH2(DeproxyClient):
         self.h2_connection = None
         self.stream_id = 1
         self.active_responses = {}
+        self.ack_settings = False
 
     def make_requests(self, requests):
         for request in requests:
@@ -383,8 +392,8 @@ class DeproxyClientH2(DeproxyClient):
             self.h2_connection = h2.connection.H2Connection()
             self.h2_connection.encoder = self.encoder
             self.h2_connection.initiate_connection()
-            if self.selfproxy_present:
-                self.update_selfproxy()
+        if self.selfproxy_present:
+            self.update_selfproxy()
 
         self.h2_connection.encoder.huffman = huffman
 
@@ -417,6 +426,75 @@ class DeproxyClientH2(DeproxyClient):
             self.stream_id += 2
             self.valid_req_num += 1
 
+    def update_initiate_settings(
+        self,
+        header_table_size: int = None,
+        enable_push: int = None,
+        max_concurrent_stream: int = None,
+        initial_window_size: int = None,
+        max_frame_size: int = None,
+        max_header_list_size: int = None,
+    ) -> None:
+        """Update initial SETTINGS frame and add preamble + SETTINGS frame in `data_to_send`."""
+        if not self.h2_connection:
+            self.h2_connection = h2.connection.H2Connection()
+            self.h2_connection.encoder = self.encoder
+
+            new_settings = self.__generate_new_settings(
+                header_table_size,
+                enable_push,
+                max_concurrent_stream,
+                initial_window_size,
+                max_frame_size,
+                max_header_list_size,
+            )
+
+            # if settings is empty, we should not change them
+            if new_settings:
+                self.h2_connection.local_settings = Settings(initial_values=new_settings)
+
+            self.h2_connection.initiate_connection()
+
+    def send_settings_frame(
+        self,
+        header_table_size: int = None,
+        enable_push: int = None,
+        max_concurrent_stream: int = None,
+        initial_window_size: int = None,
+        max_frame_size: int = None,
+        max_header_list_size: int = None,
+    ) -> None:
+        self.ack_settings = False
+
+        new_settings = self.__generate_new_settings(
+            header_table_size,
+            enable_push,
+            max_concurrent_stream,
+            initial_window_size,
+            max_frame_size,
+            max_header_list_size,
+        )
+
+        f = SettingsFrame(0)
+        for setting, value in Settings(initial_values=new_settings).items():
+            f.settings[setting] = value
+
+        self.request_buffers.append(f.serialize())
+        self.nrreq += 1
+
+    def wait_for_ack_settings(self, timeout=5):
+        """Wait SETTINGS frame with ack flag."""
+        if self.state != stateful.STATE_STARTED:
+            return False
+
+        t0 = time.time()
+        while not self.ack_settings:
+            t = time.time()
+            if t - t0 > timeout:
+                return False
+            time.sleep(0.01)
+        return True
+
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
@@ -426,10 +504,10 @@ class DeproxyClientH2(DeproxyClient):
         tf_cfg.dbg(5, self.response_buffer)
 
         try:
-            method = self.methods[self.nrresp]
             events = self.h2_connection.receive_data(self.response_buffer)
             for event in events:
                 if isinstance(event, ResponseReceived):
+                    method = self.methods[self.nrresp]
                     headers = self.__binary_headers_to_string(event.headers)
 
                     response = self.active_responses.get(event.stream_id)
@@ -464,6 +542,10 @@ class DeproxyClientH2(DeproxyClient):
                         return
                     self.receive_response(response)
                     self.nrresp += 1
+                elif isinstance(event, SettingsAcknowledged):
+                    self.ack_settings = True
+                    # TODO should be changed by issue #358
+                    self.handle_read()
                 # TODO should be changed by issue #358
                 else:
                     self.handle_read()
@@ -513,3 +595,27 @@ class DeproxyClientH2(DeproxyClient):
 
     def __binary_headers_to_string(self, headers):
         return "".join(["%s: %s\r\n" % (h.decode(), v.decode()) for h, v in headers])
+
+    @staticmethod
+    def __generate_new_settings(
+        header_table_size: int = None,
+        enable_push: int = None,
+        max_concurrent_stream: int = None,
+        initial_window_size: int = None,
+        max_frame_size: int = None,
+        max_header_list_size: int = None,
+    ) -> dict:
+        new_settings = dict()
+        if header_table_size is not None:
+            new_settings[SettingCodes.HEADER_TABLE_SIZE] = header_table_size
+        if enable_push is not None:
+            new_settings[SettingCodes.ENABLE_PUSH] = header_table_size
+        if max_concurrent_stream is not None:
+            new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = max_concurrent_stream
+        if initial_window_size is not None:
+            new_settings[SettingCodes.INITIAL_WINDOW_SIZE] = initial_window_size
+        if max_frame_size is not None:
+            new_settings[SettingCodes.MAX_FRAME_SIZE] = max_frame_size
+        if max_header_list_size is not None:
+            new_settings[SettingCodes.MAX_HEADER_LIST_SIZE] = max_header_list_size
+        return new_settings
