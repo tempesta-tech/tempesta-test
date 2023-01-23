@@ -111,6 +111,56 @@ class TestHpack(tester.TempestaTest):
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
 
+    def test_settings_header_table_size(self):
+        """
+        Client sets non-default value for SETTINGS_HEADER_TABLE_SIZE.
+        Tempesta must not encode headers larger than set size.
+        """
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        new_table_size = 512
+        client.update_initiate_settings(header_table_size=new_table_size)
+
+        header = "x" * new_table_size * 2
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: test\r\n"
+            f"x: {header}\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+        )
+
+        client.request_buffers.append(client.h2_connection.data_to_send())
+        client.nrreq += 1
+
+        client.wait_for_ack_settings()
+
+        headers = [
+            HeaderTuple(":authority", "example.com"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "POST"),
+        ]
+
+        # Tempesta must not save large header in dynamic table.
+        client.send_request(request=headers, expected_status_code="200")
+
+        # Client received large header as plain text.
+        client.send_request(request=headers, expected_status_code="200")
+        self.assertNotIn(
+            b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)",
+            client.response_buffer,
+            "Tempesta does not encode via header as expected.",
+        )
+        self.assertIn(
+            header.encode(),
+            client.response_buffer,
+            "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
+        )
+
     def test_updating_dynamic_table(self):
         """
         "Before a new entry is added to the dynamic table, entries are evicted
