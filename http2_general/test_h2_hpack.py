@@ -7,11 +7,14 @@ __license__ = "GPL2"
 import time
 from ssl import SSLWantWriteError
 
+import h2.connection
+from h2.connection import AllowedStreamIDs
 from h2.exceptions import ProtocolError
+from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 from hyperframe.frame import HeadersFrame
 
-from framework import deproxy_client, tester
+from framework import deproxy_client, deproxy_server, tester
 
 
 class TestHpack(tester.TempestaTest):
@@ -107,6 +110,159 @@ class TestHpack(tester.TempestaTest):
         )
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
+
+    def test_updating_dynamic_table(self):
+        """
+        "Before a new entry is added to the dynamic table, entries are evicted
+        from the end of the dynamic table until the size of the dynamic table
+        is less than or equal to (maximum size - new entry size) or until the
+        table is empty."
+        RFC 7541 4.4
+        """
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client.parsing = False
+
+        headers = [
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "POST"),
+        ]
+        # send request with max size header in dynamic table
+        # Tempesta MUST write header to table
+        first_indexed_header = [HeaderTuple("a", "a" * 4063)]
+        client.send_request(
+            request=(
+                headers
+                + [NeverIndexedHeaderTuple(":authority", "localhost")]
+                + first_indexed_header
+            ),
+            expected_status_code="200",
+        )
+        # send request with new incremental header
+        # Tempesta MUST rewrite header to dynamic table.
+        # Dynamic table does not have header from first request.
+        second_indexed_header = [HeaderTuple("x", "x")]
+        client.send_request(
+            request=(
+                headers
+                + [NeverIndexedHeaderTuple(":authority", "localhost")]
+                + second_indexed_header
+            ),
+            expected_status_code="200",
+        )
+
+        # We generate new stream with link to first index in dynamic table
+        stream_id = 5
+        stream = client.h2_connection._begin_new_stream(
+            stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        client.methods.append("POST")
+        client.request_buffers.append(
+            # \xbe - link to first index in dynamic table
+            b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe"
+        )
+        # increment counter to call handle_write method
+        client.nrreq += 1
+        client.valid_req_num += 1
+        self.assertTrue(client.wait_for_response())
+
+        # Last forwarded request from Tempesta MUST have second indexed header
+        server = self.get_server("deproxy")
+        self.assertEqual(3, len(server.requests))
+        self.assertIn(second_indexed_header[0], server.last_request.headers.items())
+        self.assertNotIn(first_indexed_header[0], server.last_request.headers.items())
+
+    def test_clearing_dynamic_table(self):
+        """
+        "an attempt to add an entry larger than the maximum size causes the table
+        to be emptied of all existing entries and results in an empty table."
+        RFC 7541 4.4
+        """
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client.parsing = False
+
+        headers = [
+            HeaderTuple(":authority", "example.com"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "GET"),
+        ]
+        client.send_request(
+            # Tempesta save header with 1k bytes in dynamic table.
+            request=(headers + [HeaderTuple("a", "a" * 1000)]),
+            expected_status_code="200",
+        )
+
+        client.send_request(
+            # Tempesta MUST clear dynamic table
+            # because new indexed header is larger than 4096 bytes
+            request=(headers + [HeaderTuple("a", "a" * 6000)]),
+            expected_status_code="200",
+        )
+
+        # We generate new stream with link to first index in dynamic table
+        stream_id = 5
+        stream = client.h2_connection._begin_new_stream(
+            stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        client.methods.append("POST")
+        client.request_buffers.append(
+            # \xbe - link to first index in table
+            b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe"
+        )
+        # increment counter to call handle_write method
+        client.nrreq += 1
+        client.valid_req_num += 1
+
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "400", "HTTP response status codes mismatch.")
+
+    def test_clearing_dynamic_table_with_settings_frame(self):
+        """
+        "A change in the maximum size of the dynamic table is signaled via
+        a dynamic table size update.
+        This mechanism can be used to completely clear entries from the dynamic table by setting
+        a maximum size of 0, which can subsequently be restored."
+        RFC 7541 4.2
+        """
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        headers = [
+            HeaderTuple(":authority", "example.com"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "POST"),
+        ]
+
+        # Tempesta forwards response with via header and saves it in dynamic table.
+        client.send_request(request=headers, expected_status_code="200")
+        self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+
+        # Tempesta forwards header from dynamic table. Via header is indexed.
+        client.send_request(request=headers, expected_status_code="200")
+        self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+
+        # Tempesta MUST clear dynamic table when receive SETTINGS_HEADER_TABLE_SIZE = 0
+        client.send_settings_frame(header_table_size=0)
+        self.assertTrue(client.wait_for_ack_settings())
+
+        client.send_settings_frame(header_table_size=4096)
+        self.assertTrue(client.wait_for_ack_settings())
+
+        # Tempesta MUST saves via header in dynamic table again. Via header is indexed again.
+        client.send_request(request=headers, expected_status_code="200")
+        self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+
+        # Tempesta forwards header from dynamic table again.
+        client.send_request(request=headers, expected_status_code="200")
+        self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
     def test_hpack_bomb(self):
         """
