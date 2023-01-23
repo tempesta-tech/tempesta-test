@@ -4,9 +4,22 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import socket
+import ssl
+import time
 
-from framework import tester
+import h2.connection
+import h2.settings
+from h2.events import (
+    RemoteSettingsChanged,
+    ResponseReceived,
+    SettingsAcknowledged,
+    StreamEnded,
+)
+
+from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
+from helpers import tf_cfg
 
 
 class TestH2Frame(tester.TempestaTest):
@@ -123,6 +136,36 @@ class TestH2Frame(tester.TempestaTest):
                     request_body=request_body,
                     request_number=chunk_sizes.index(chunk_size) + 1,
                 )
+
+    def test_settings_frame(self):
+        """
+        Create tls connection and send preamble + correct settings frame.
+        Tempesta must accept settings and return settings + ack settings frames.
+        Then client send ack settings frame and Tempesta must correctly accept it.
+        """
+        self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.h2_connection = h2.connection.H2Connection()
+        # initiate_connection() generates preamble + settings frame with default variables
+        client.h2_connection.initiate_connection()
+
+        # send preamble + settings frame
+        client.request_buffers.append(client.h2_connection.data_to_send())
+        client.nrreq += 1
+        client.h2_connection.clear_outbound_data_buffer()
+
+        self.assertTrue(client.wait_for_ack_settings())
+
+        # send empty setting frame with ack flag.
+        client.request_buffers.append(client.h2_connection.data_to_send())
+        client.nrreq += 1
+        client.h2_connection.clear_outbound_data_buffer()
+
+        # send header frame after exchanging settings and make sure
+        # that connection is open.
+        client.send_request(self.request_headers, "200")
 
     def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
