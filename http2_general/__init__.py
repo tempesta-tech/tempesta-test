@@ -5,6 +5,9 @@ __all__ = [
     "test_h2_frame",
     "test_h2_hpack",
     "test_flow_control_window",
+    "test_h2_streams",
+    "test_h2_headers",
+    "test_h2_sticky_cookie",
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

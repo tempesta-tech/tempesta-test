@@ -1,25 +1,14 @@
 """Functional tests for h2 frames."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
-
-import socket
-import ssl
-import time
 
 import h2.connection
 import h2.settings
-from h2.events import (
-    RemoteSettingsChanged,
-    ResponseReceived,
-    SettingsAcknowledged,
-    StreamEnded,
-)
 
 from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
-from helpers import tf_cfg
 
 
 class TestH2Frame(tester.TempestaTest):
