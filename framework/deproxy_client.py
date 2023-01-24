@@ -475,9 +475,7 @@ class DeproxyClientH2(DeproxyClient):
             max_header_list_size,
         )
 
-        f = SettingsFrame(0)
-        for setting, value in Settings(initial_values=new_settings).items():
-            f.settings[setting] = value
+        f = SettingsFrame(stream_id=0, settings=new_settings)
 
         self.request_buffers.append(f.serialize())
         self.nrreq += 1
