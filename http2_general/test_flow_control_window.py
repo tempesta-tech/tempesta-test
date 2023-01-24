@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.exceptions import FlowControlError
+
 from framework import tester
 
 
@@ -62,10 +64,13 @@ class TestFlowControl(tester.TempestaTest):
 
         client.update_initiate_settings(initial_window_size=1000)
         client.make_request(self.request_headers)
+        client.wait_for_response(3)
 
-        self.assertTrue(
-            client.wait_for_response(), "Tempesta ignored flow control window for stream."
+        self.assertNotIn(
+            FlowControlError, client.error_codes, "Tempesta ignored flow control window for stream."
         )
+        self.assertFalse(client.connection_is_closed())
+        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
         )

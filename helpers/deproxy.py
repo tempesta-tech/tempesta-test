@@ -32,7 +32,7 @@ import run_config
 from . import error, stateful, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # -------------------------------------------------------------------------------
@@ -741,6 +741,7 @@ class Client(TlsClient, stateful.Stateful):
         self.stop_procedures = [self.__stop_client]
         self.conn_is_closed = True
         self.bind_addr = bind_addr
+        self.error_codes = []
 
     def __stop_client(self):
         tf_cfg.dbg(4, "\tStop deproxy client")
@@ -821,7 +822,8 @@ class Client(TlsClient, stateful.Stateful):
         self.request_buffer = self.request_buffer[sent:]
 
     def handle_error(self):
-        _, v, _ = sys.exc_info()
+        type_error, v, _ = sys.exc_info()
+        self.error_codes.append(type_error)
         if type(v) == ParseError or type(v) == AssertionError:
             raise v
         elif type(v) == ssl.SSLWantReadError:
