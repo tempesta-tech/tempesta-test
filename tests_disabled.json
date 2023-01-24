@@ -451,7 +451,11 @@
         },
         {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
-            "reason": "Disabled by issue #1394"
+            "reason": "Disabled by issue #1346"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_clearing_dynamic_table_with_settings_frame",
+            "reason": "Disabled by issue #1793"
         }
     ]
 }
