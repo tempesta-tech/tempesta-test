@@ -5,6 +5,7 @@ from io import StringIO
 
 import h2.connection
 from h2.events import (
+    ConnectionTerminated,
     DataReceived,
     ResponseReceived,
     SettingsAcknowledged,
@@ -13,7 +14,6 @@ from h2.events import (
 )
 from h2.settings import SettingCodes, Settings
 from hpack import Encoder
-from hyperframe.frame import SettingsFrame
 
 from helpers import deproxy, selfproxy, stateful, tf_cfg
 
@@ -365,6 +365,7 @@ class HuffmanEncoder(Encoder):
 
 class DeproxyClientH2(DeproxyClient):
     last_response: deproxy.H2Response
+    h2_connection: h2.connection.H2Connection
 
     def __init__(self, *args, **kwargs):
         DeproxyClient.__init__(self, *args, **kwargs)
@@ -475,10 +476,10 @@ class DeproxyClientH2(DeproxyClient):
             max_header_list_size,
         )
 
-        f = SettingsFrame(stream_id=0, settings=new_settings)
+        self.h2_connection.update_settings(new_settings)
 
-        self.request_buffers.append(f.serialize())
-        self.nrreq += 1
+        self.send_bytes(data=self.h2_connection.data_to_send())
+        self.h2_connection.clear_outbound_data_buffer()
 
     def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
@@ -492,6 +493,12 @@ class DeproxyClientH2(DeproxyClient):
                 return False
             time.sleep(0.01)
         return True
+
+    def send_bytes(self, data: bytes, expect_response=False):
+        self.request_buffers.append(data)
+        self.nrreq += 1
+        if expect_response:
+            self.valid_req_num += 1
 
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
@@ -540,6 +547,9 @@ class DeproxyClientH2(DeproxyClient):
                         return
                     self.receive_response(response)
                     self.nrresp += 1
+                elif isinstance(event, ConnectionTerminated):
+                    self.error_codes.append(event.error_code)
+                    self.handle_close()
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
                     # TODO should be changed by issue #358
