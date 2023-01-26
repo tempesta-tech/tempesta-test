@@ -58,8 +58,32 @@
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name": "reconf.test_stress_grace",
-            "reason": "See tempesta-tech/tempesta#1043 and tempesta-tech/tempesta#1044"
+            "name" : "reconf.test_stress_grace",
+            "reason" : "See tempesta-tech/tempesta#1043 and tempesta-tech/tempesta#1044 and #988"
+        },
+        {
+            "name" : "reconf.reconf_stress",
+            "reason" : "#988"
+        },
+        {
+            "name" : "reconf.test_stress_sched_ratio",
+            "reason" : "#988"
+        },
+        {
+            "name" : "reconf.test_stress_health_monitor",
+            "reason" : "#988"
+        },
+        {
+            "name" : "reconf.test_stress_sticky",
+            "reason" : "#988"
+        },
+        {
+            "name" : "reconf.test_stress_sched_hash",
+            "reason" : "#988"
+        },
+        {
+            "name" : "reconf.test_stress_sched_http",
+            "reason" : "#988"
         },
         {
             "name": "malformed.test_malformed_headers.MalformedRequestsTest",
@@ -80,10 +104,6 @@
         {
             "name" : "pipelining",
             "reason" : "Disabled by issue #963"
-        },
-        {
-            "name" : "reconf",
-            "reason" : "Disabled by issue #988"
         },
         {
             "name" : "sched",
