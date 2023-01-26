@@ -246,10 +246,6 @@
             "reason": "Disable by issue #1688"
         },
         {
-            "name" : "http2_general.test_h2_sticky_cookie.H2StickyCookieTestCase",
-            "reason": "Does not work, issue 1396"
-        },
-        {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
             "reason": "Disable by issue #1703"
         },
@@ -295,7 +291,7 @@
         },
         {
             "name": "sessions.test_h2_sticky_scheduler",
-            "reason": "Disabled by issues #1748 #261"
+            "reason": "Disabled by issues #1794"
         },
         {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",

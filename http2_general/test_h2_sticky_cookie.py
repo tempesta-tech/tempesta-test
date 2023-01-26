@@ -2,7 +2,7 @@
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -169,12 +169,30 @@ class H2StickyCookieTestCase(tester.TempestaTest):
 
         curl.start()
         self.wait_while_busy(curl)
-
-        response = curl.resq.get(True, 1)[0].decode()
-
-        # TODO connection after request did not closed, error
-
         curl.stop()
+
+        response = curl.response_msg
+        self.assertIn(
+            "https",
+            response,
+            "Expected `https` schema in response",
+        )
+        self.assertIn(
+            "HTTP/2 302",
+            response,
+            "Expected status `302` and sticky cookie",
+        )
+        self.assertIn(
+            "set-cookie",
+            response,
+            "Expected header `set-cookie` in response",
+        )
+        # cookie name `__test` set up in settings
+        self.assertIn(
+            "__test",
+            response,
+            "Expected cookie name in response",
+        )
 
     def test_h2_no_cookie_enforce(self):
         """Send request with no `Cookie` headers and enforced option."""
@@ -185,9 +203,27 @@ class H2StickyCookieTestCase(tester.TempestaTest):
 
         curl.start()
         self.wait_while_busy(curl)
-
-        response = curl.resq.get(True, 1)[0].decode()
-
-        # TODO connection after request did not closed, error
-
         curl.stop()
+
+        response = curl.response_msg
+        self.assertIn(
+            "https",
+            response,
+            "Expected `https` schema in response",
+        )
+        self.assertIn(
+            "HTTP/2 302",
+            response,
+            "Expected status `302` and sticky cookie",
+        )
+        self.assertIn(
+            "set-cookie",
+            response,
+            "Expected header `set-cookie` in response",
+        )
+        # cookie name `__test` set up in settings
+        self.assertIn(
+            "__test",
+            response,
+            "Expected cookie name in response",
+        )
