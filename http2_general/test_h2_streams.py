@@ -8,48 +8,11 @@ from h2.connection import AllowedStreamIDs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 
-from framework import deproxy_client, tester
+from framework import deproxy_client
+from http2_general.helpers import H2Base
 
 
-class TestH2Stream(tester.TempestaTest):
-
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
-        }
-    ]
-
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-    ]
-
-    tempesta = {
-        "config": """
-            listen 443 proto=h2;
-            server ${server_ip}:8000;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-        """
-    }
-
-    request_headers = [
-        (":authority", "debian"),
-        (":path", "/"),
-        (":scheme", "https"),
-        (":method", "POST"),
-    ]
-
+class TestH2Stream(H2Base):
     def test_max_concurrent_stream(self):
         """
         An endpoint that receives a HEADERS frame that causes its advertised concurrent
@@ -64,10 +27,10 @@ class TestH2Stream(tester.TempestaTest):
         max_streams = 128
 
         for _ in range(max_streams):
-            client.make_request(request=self.request_headers, end_stream=False)
+            client.make_request(request=self.post_request, end_stream=False)
             client.stream_id += 2
 
-        client.make_request(request=self.request_headers, end_stream=True)
+        client.make_request(request=self.post_request, end_stream=True)
         client.wait_for_response(1)
 
         self.assertIn(ErrorCodes.PROTOCOL_ERROR or ErrorCodes.REFUSED_STREAM, client.error_codes)
@@ -82,10 +45,10 @@ class TestH2Stream(tester.TempestaTest):
         """
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        self.__initiate_h2_connection(client)
+        self.initiate_h2_connection(client)
 
         # send headers frame with stream_id = 1
-        client.send_request(self.request_headers, "200")
+        client.send_request(self.post_request, "200")
         # send headers frame with stream_id = 1 again.
         client.send_bytes(
             data=b"\x00\x00\n\x01\x05\x00\x00\x00\x01A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
@@ -93,7 +56,7 @@ class TestH2Stream(tester.TempestaTest):
         )
         client.wait_for_response(1)
 
-        client.send_request(self.request_headers, "200")
+        client.send_request(self.post_request, "200")
 
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
 
@@ -109,7 +72,7 @@ class TestH2Stream(tester.TempestaTest):
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         # add preamble + settings frame with default variable into data_to_send
-        self.__initiate_h2_connection(client)
+        self.initiate_h2_connection(client)
         # send headers frame with stream_id = 0.
         client.send_bytes(
             b"\x00\x00\n\x01\x05\x00\x00\x00\x00A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
@@ -129,7 +92,7 @@ class TestH2Stream(tester.TempestaTest):
         """
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        self.__initiate_h2_connection(client)
+        self.initiate_h2_connection(client)
         # send headers frame with stream_id = 2.
         client.send_bytes(
             b"\x00\x00\n\x01\x05\x00\x00\x00\x02A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
@@ -149,7 +112,7 @@ class TestH2Stream(tester.TempestaTest):
         """
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        self.__initiate_h2_connection(client)
+        self.initiate_h2_connection(client)
 
         # Create stream that H2Connection object does not raise error.
         # We are creating stream with id = 2 ** 31 - 1 because Tempesta must return response
@@ -168,11 +131,3 @@ class TestH2Stream(tester.TempestaTest):
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
-
-    @staticmethod
-    def __initiate_h2_connection(client: deproxy_client.DeproxyClientH2):
-        # add preamble + settings frame with default variable into data_to_send
-        client.update_initiate_settings()
-        # send preamble + settings frame to Tempesta
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()

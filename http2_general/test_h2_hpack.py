@@ -7,47 +7,17 @@ __license__ = "GPL2"
 import time
 from ssl import SSLWantWriteError
 
-import h2.connection
 from h2.connection import AllowedStreamIDs
 from h2.exceptions import ProtocolError
 from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 from hyperframe.frame import HeadersFrame
 
-from framework import deproxy_client, deproxy_server, tester
+from framework import deproxy_client
+from http2_general.helpers import H2Base
 
 
-class TestHpack(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
-        }
-    ]
-
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-    ]
-
-    tempesta = {
-        "config": """
-            listen 443 proto=h2;
-            server ${server_ip}:8000;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-        """
-    }
-
+class TestHpack(H2Base):
     def test_static_table(self):
         """
         Send request with headers from static table.
@@ -98,13 +68,7 @@ class TestHpack(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         client.make_request(
-            [
-                (":authority", "example.com"),
-                (":path", "/"),
-                (":scheme", "https"),
-                (":method", "GET"),
-                ("host", "example.com"),
-            ],
+            self.post_request + [("host", "example.com")],
             end_stream=True,
             huffman=False,
         )
@@ -138,18 +102,11 @@ class TestHpack(tester.TempestaTest):
 
         client.wait_for_ack_settings()
 
-        headers = [
-            HeaderTuple(":authority", "example.com"),
-            HeaderTuple(":path", "/"),
-            HeaderTuple(":scheme", "https"),
-            HeaderTuple(":method", "POST"),
-        ]
-
         # Tempesta must not save large header in dynamic table.
-        client.send_request(request=headers, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
 
         # Client received large header as plain text.
-        client.send_request(request=headers, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
         self.assertNotIn(
             b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)",
             client.response_buffer,
@@ -235,22 +192,16 @@ class TestHpack(tester.TempestaTest):
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
-        headers = [
-            HeaderTuple(":authority", "example.com"),
-            HeaderTuple(":path", "/"),
-            HeaderTuple(":scheme", "https"),
-            HeaderTuple(":method", "GET"),
-        ]
         client.send_request(
             # Tempesta save header with 1k bytes in dynamic table.
-            request=(headers + [HeaderTuple("a", "a" * 1000)]),
+            request=(self.get_request + [HeaderTuple("a", "a" * 1000)]),
             expected_status_code="200",
         )
 
         client.send_request(
             # Tempesta MUST clear dynamic table
             # because new indexed header is larger than 4096 bytes
-            request=(headers + [HeaderTuple("a", "a" * 6000)]),
+            request=(self.get_request + [HeaderTuple("a", "a" * 6000)]),
             expected_status_code="200",
         )
 
@@ -284,19 +235,12 @@ class TestHpack(tester.TempestaTest):
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
-        headers = [
-            HeaderTuple(":authority", "example.com"),
-            HeaderTuple(":path", "/"),
-            HeaderTuple(":scheme", "https"),
-            HeaderTuple(":method", "POST"),
-        ]
-
         # Tempesta forwards response with via header and saves it in dynamic table.
-        client.send_request(request=headers, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
         self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
         # Tempesta forwards header from dynamic table. Via header is indexed.
-        client.send_request(request=headers, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
         self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
         # Tempesta MUST clear dynamic table when receive SETTINGS_HEADER_TABLE_SIZE = 0
@@ -307,11 +251,11 @@ class TestHpack(tester.TempestaTest):
         self.assertTrue(client.wait_for_ack_settings())
 
         # Tempesta MUST saves via header in dynamic table again. Via header is indexed again.
-        client.send_request(request=headers, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
         self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
         # Tempesta forwards header from dynamic table again.
-        client.send_request(request=headers, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
         self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
     def test_hpack_bomb(self):
@@ -330,13 +274,7 @@ class TestHpack(tester.TempestaTest):
                 client.stop()
                 client.start()
                 client.make_request(
-                    request=[
-                        HeaderTuple(":authority", "example.com"),
-                        HeaderTuple(":path", "/"),
-                        HeaderTuple(":scheme", "https"),
-                        HeaderTuple(":method", "POST"),
-                        HeaderTuple(b"a", b"a" * 4063),
-                    ],
+                    request=self.post_request + [HeaderTuple(b"a", b"a" * 4063)],
                     end_stream=False,
                 )
 

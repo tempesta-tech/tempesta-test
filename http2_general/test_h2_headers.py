@@ -5,6 +5,7 @@ analises its return code.
 """
 
 from framework import tester
+from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
@@ -82,31 +83,7 @@ vhost default {
 """
 
 
-class HeadersParsing(tester.TempestaTest):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
-
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
-        }
-    ]
-
-    tempesta = {
-        "config": TEMPESTA_CONFIG % "",
-    }
-
+class HeadersParsing(H2Base):
     def test_small_header_in_request(self):
         """Request with small header name length completes successfully."""
         self.start_all_services()
@@ -116,13 +93,7 @@ class HeadersParsing(tester.TempestaTest):
         for length in range(1, 5):
             header = "x" * length
             client.send_request(
-                [
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "GET"),
-                    (header, "test"),
-                ],
+                self.get_request + [(header, "test")],
                 "200",
             )
 
@@ -134,13 +105,7 @@ class HeadersParsing(tester.TempestaTest):
         client.parsing = False
         client.send_request(
             (
-                [
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "POST"),
-                    ("Content-Length", "3"),
-                ],
+                self.post_request + [("Content-Length", "3")],
                 "123",
             ),
             "400",
@@ -154,13 +119,7 @@ class HeadersParsing(tester.TempestaTest):
         client.parsing = False
         client.send_request(
             (
-                [
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "POST"),
-                    ("transfer-encoding", "chunked"),
-                ],
+                self.post_request + [("transfer-encoding", "chunked")],
                 "3\r\n123\r\n0\r\n\r\n",
             ),
             "400",
@@ -328,7 +287,7 @@ return 200;
         for line in lines:
             if line.startswith("< set-cookie:"):
                 setcookie_count += 1
-                self.assertTrue(len(line.split(','))==1, "Wrong separator")
+                self.assertTrue(len(line.split(",")) == 1, "Wrong separator")
         self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
 
 
