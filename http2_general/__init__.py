@@ -8,6 +8,7 @@ __all__ = [
     "test_h2_streams",
     "test_h2_headers",
     "test_h2_sticky_cookie",
+    "test_h2_max_frame_size",
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
