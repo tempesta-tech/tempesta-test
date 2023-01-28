@@ -107,6 +107,47 @@ class TestH2Frame(H2Base):
         # that connection is open.
         client.send_request(self.post_request, "200")
 
+    def test_window_update_frame(self):
+        """Tempesta must handle WindowUpdate frame."""
+        self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        # add preamble + settings frame with SETTING_INITIAL_WINDOW_SIZE = 65535
+        client.update_initiate_settings()
+
+        # send preamble + settings frame
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(client.wait_for_ack_settings())
+
+        # send WindowUpdate frame with window size increment = 5000
+        client.h2_connection.increment_flow_control_window(5000)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        # send header frame after sending WindowUpdate and make sure
+        # that connection is working correctly.
+        client.send_request(self.get_request, "200")
+        self.assertFalse(client.connection_is_closed())
+
+    def test_continuation_frame(self):
+        """Tempesta must handle CONTINUATION frame."""
+        self.start_all_services()
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.update_initiate_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        client.send_request(
+            request=self.get_request + [("qwerty", "x" * 5000) for _ in range(4)],
+            expected_status_code="200",
+        )
+
+        self.assertFalse(client.connection_is_closed())
+
     def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
 
