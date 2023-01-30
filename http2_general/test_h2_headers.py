@@ -126,6 +126,56 @@ class HeadersParsing(H2Base):
         )
 
 
+class TestPseudoHeaders(H2Base):
+    def test_invalid_pseudo_header(self):
+        """
+        Endpoints MUST NOT generate pseudo-header fields other than those defined in this document.
+        RFC 9113 8.3
+        """
+        self.__test([(":content-length", "0")])
+
+    def test_duplicate_pseudo_header(self):
+        """
+        The same pseudo-header field name MUST NOT appear more than once in a field block.
+        A field block for an HTTP request or response that contains a repeated pseudo-header
+        field name MUST be treated as malformed.
+        RFC 9113 8.3
+        """
+        self.__test([(":path", "/")])
+
+    def test_status_header_in_request(self):
+        """
+        Pseudo-header fields defined for responses MUST NOT appear in requests.
+        RFC 9113 8.3
+        """
+        self.__test([(":status", "200")])
+
+    def test_regular_header_before_pseudo_header(self):
+        """
+        All pseudo-header fields MUST appear in a field block before all regular field lines.
+        RFC 9113 8.3
+        """
+        self.post_request = [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+        ]
+        self.__test([("content-length", "0"), (":method", "POST")])
+
+    def __test(self, optional_header: list[tuple]):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            self.post_request + optional_header,
+            "400",
+        )
+
+        self.assertTrue(client.connection_is_closed())
+
+
 class CurlTestBase(tester.TempestaTest):
 
     clients = [
