@@ -7,7 +7,8 @@ __license__ = "GPL2"
 import time
 from ssl import SSLWantWriteError
 
-from h2.connection import AllowedStreamIDs
+from h2.connection import AllowedStreamIDs, ConnectionInputs
+from h2.errors import ErrorCodes
 from h2.exceptions import ProtocolError
 from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
@@ -118,7 +119,7 @@ class TestHpack(H2Base):
             "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
         )
 
-    def test_updating_dynamic_table(self):
+    def test_rewrite_dynamic_table_for_request(self):
         """
         "Before a new entry is added to the dynamic table, entries are evicted
         from the end of the dynamic table until the size of the dynamic table
@@ -300,3 +301,85 @@ class TestHpack(H2Base):
                 with self.assertRaises(ProtocolError):
                     client.stream_id = 1
                     client.make_request(request="asd", end_stream=True)
+
+
+class TestFramePayloadLength(H2Base):
+    """
+    Additionally, an endpoint MAY use any applicable error code when it detects
+    an error condition; a generic error code (such as PROTOCOL_ERROR or INTERNAL_ERROR)
+    can always be used in place of more specific error codes.
+    RFC 9113 5.4
+    """
+
+    @staticmethod
+    def __make_request(client, data: bytes):
+        # Create stream for H2Connection to escape error
+        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream.state_machine.process_input(StreamInputs.SEND_END_STREAM)
+
+        # add method in list to escape IndexError
+        client.methods.append("POST")
+        client.send_bytes(data, True)
+        client.wait_for_response(1)
+
+    def test_small_frame_payload_length(self):
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        # Tempesta and deproxy must save headers in dynamic table.
+        client.send_request(self.get_request + [("asd", "qwe")], "200")
+
+        # Tempesta return 200 response because extra bytes will be ignored.
+        self.__make_request(
+            client,
+            # header count - 5, headers - 8.
+            b"\x00\x00\x05\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe\xbe\xbe\xbe",
+        )
+
+        client.stream_id += 2
+        client.make_request(self.get_request)
+        client.wait_for_response(0.5)
+
+        # Client will be blocked because Tempesta received extra bytes
+        self.assertTrue(client.connection_is_closed())
+        self.assertIn(ErrorCodes.FRAME_SIZE_ERROR, client.error_codes)
+
+    def test_large_frame_payload_length(self):
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        # Tempesta and deproxy must save headers in dynamic table.
+        client.send_request(self.get_request + [("asd", "qwe")], "200")
+
+        # Tempesta does not return response because it does not receive all bytes.
+        # Therefore, client must not wait for response.
+        client.valid_req_num = 0
+        self.__make_request(
+            client,
+            # header count - 7, headers - 5.
+            b"\x00\x00\x07\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe",
+        )
+
+        client.stream_id += 2
+        client.send_request(self.get_request, "400")
+
+        self.assertTrue(client.connection_is_closed())
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
+    def test_invalid_data(self):
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.update_initiate_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+
+        # send headers frame with stream_id = 1, header count = 3
+        # and headers bytes - \x09\x02\x00 (invalid bytes)
+        self.__make_request(client, b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00")
+
+        self.assertEqual(client.last_response.status, "400")
+        self.assertTrue(client.connection_is_closed())

@@ -141,6 +141,8 @@ class TestH2Frame(H2Base):
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
 
+        # H2Connection separates headers to HEADERS + CONTINUATION frames
+        # if they are larger than 16384 bytes
         client.send_request(
             request=self.get_request + [("qwerty", "x" * 5000) for _ in range(4)],
             expected_status_code="200",
