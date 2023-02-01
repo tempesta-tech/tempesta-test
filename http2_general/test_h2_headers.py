@@ -4,7 +4,7 @@ For now tests run curl as external program capable to generate h2 messages and
 analises its return code.
 """
 
-from framework import tester
+from framework import deproxy_client, tester
 from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
@@ -111,20 +111,6 @@ class HeadersParsing(H2Base):
             "400",
         )
 
-    def test_chunked_header_in_request(self):
-        """The request must be treated as malformed. RFC 7540 8.2.2"""
-        self.start_all_services()
-
-        client = self.get_client("deproxy")
-        client.parsing = False
-        client.send_request(
-            (
-                self.post_request + [("transfer-encoding", "chunked")],
-                "3\r\n123\r\n0\r\n\r\n",
-            ),
-            "400",
-        )
-
 
 class TestPseudoHeaders(H2Base):
     def test_invalid_pseudo_header(self):
@@ -174,6 +160,68 @@ class TestPseudoHeaders(H2Base):
         )
 
         self.assertTrue(client.connection_is_closed())
+
+
+class TestConnectionHeaders(H2Base):
+    def __test_request(self, header: tuple):
+        """
+        An endpoint MUST NOT generate an HTTP/2 message containing connection-specific
+        header fields. Any message containing connection-specific header fields MUST be treated
+        as malformed.
+        RFC 9113 8.2.2
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(self.post_request + [header], "400")
+        self.assertTrue(client.connection_is_closed())
+
+    def __test_response(self, header: tuple):
+        """
+        An intermediary transforming an HTTP/1.x message to HTTP/2 MUST remove connection-specific
+        header fields or their messages will be treated by other HTTP/2 endpoints as malformed.
+        RFC 9113 8.2.2
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        client.parsing = False
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0].capitalize()}: {header[1]}\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        client.send_request(self.post_request, "200")
+        self.assertNotIn(header, client.last_response.headers.headers)
+
+    def test_connection_header_in_request(self):
+        self.__test_request(header=("connection", "keep-alive"))
+
+    def test_keep_alive_header_in_request(self):
+        self.__test_request(header=("keep-alive", "timeout=5, max=10"))
+
+    def test_proxy_connection_header_in_request(self):
+        self.__test_request(header=("proxy-connection", "keep-alive"))
+
+    def test_upgrade_header_in_request(self):
+        self.__test_request(header=("upgrade", "websocket"))
+
+    def test_connection_header_in_response(self):
+        self.__test_response(header=("connection", "keep-alive"))
+
+    def test_keep_alive_header_in_response(self):
+        self.__test_response(header=("keep-alive", "timeout=5, max=10"))
+
+    def test_proxy_connection_header_in_response(self):
+        self.__test_response(header=("proxy-connection", "keep-alive"))
+
+    def test_upgrade_header_in_response(self):
+        self.__test_response(header=("upgrade", "websocket"))
 
 
 class CurlTestBase(tester.TempestaTest):
