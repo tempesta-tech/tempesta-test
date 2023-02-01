@@ -453,6 +453,7 @@ class DeproxyClientH2(DeproxyClient):
             # if settings is empty, we should not change them
             if new_settings:
                 self.h2_connection.local_settings = Settings(initial_values=new_settings)
+                self.h2_connection.local_settings.update(new_settings)
 
             self.h2_connection.initiate_connection()
 
