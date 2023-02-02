@@ -6,6 +6,7 @@ import ssl
 from multiprocessing import Process
 from random import randint
 
+import time
 import requests
 import websockets
 
@@ -253,7 +254,7 @@ class WsPing(tester.TempestaTest):
         host = hostname
         for i in range(n):
             async with websockets.connect(f"ws://{host}:{port}") as websocket:
-                await websocket.send(ping_message)
+                await websocket.send(f"{ping_message}_{i}")
                 await websocket.recv()
                 await websocket.close()
 
@@ -280,7 +281,7 @@ class WsPing(tester.TempestaTest):
             asyncio.ensure_future(websockets.serve(self.handler, hostname, port + i))
         loop.run_forever()
 
-    def test_ping_websockets(self):
+    def test(self):
         p1 = Process(target=self.run_ws, args=(8099,))
         p2 = Process(target=self.run_test, args=(81, 4))
         p1.start()
@@ -312,7 +313,7 @@ class WssPing(WsPing):
     def run_test(self, port, n):
         asyncio.run(self.wss_ping_test(port, n))
 
-    def test_ping_websockets(self):
+    def test(self):
         p1 = Process(target=self.run_ws, args=(8099,))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
@@ -344,7 +345,7 @@ class WssPingProxy(WssPing):
         "config": TEMPESTA_NGINX_CONFIG % "",
     }
 
-    def test_ping_websockets(self):
+    def test(self):
         p1 = Process(target=self.run_ws, args=(8099, 1, True))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
@@ -391,7 +392,7 @@ class CacheTest(WssPing):
         if r.status_code not in expected_status:
             self.fail("Test failed cause recieved invalid status_code")
 
-    def test_ping_websockets(self):
+    def test(self):
         p1 = Process(target=self.run_ws, args=(8099,))
         p1.start()
         self.start_tempesta()
@@ -422,7 +423,7 @@ class WssStress(WssPing):
     def run_test(self, port, n):
         asyncio.run(self.stress_ping_test(port, n))
 
-    def test_ping_websockets(self):
+    def test(self):
         p1 = Process(target=self.run_ws, args=(8099, 50))
         p2 = Process(target=self.run_test, args=(82, 4000))
         p1.start()
@@ -446,3 +447,167 @@ class WssStress(WssPing):
                 await websocket.send(ping_message)
                 await websocket.recv()
                 await websocket.close()
+
+
+class WsPipelining(WssPing):
+
+    """
+    We sent 3 pipelined requests against websocket.
+    Expected - 101, 502, 502 response codes
+    Current - Kernel panic
+    """
+
+    clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "81"}]
+
+    tempesta = {
+        "config": TEMPESTA_CONFIG % "",
+    }
+
+    request = (
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+            "\r\n"
+        )
+
+    async def handler(self, websocket, path):
+        pass
+
+    def test(self):
+        p1 = Process(target=self.run_ws, args=(8099,))
+        p1.start()
+        self.start_tempesta()
+        time.sleep(5)
+
+        self.deproxy_manager.start()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.start()
+        deproxy_cl.make_requests(self.request)
+        deproxy_cl.wait_for_response(timeout=5)
+        for resp in deproxy_cl.responses:
+            print(resp)
+        
+        p1.terminate()
+        
+        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
+
+class WsScheduler(WsPing):
+    
+    """
+    Create 4 connections against 1 backend ws
+    Make 256 async client ws connections, ensure 
+    all ping messages recieved
+    """
+    
+    tempesta = {
+        "config": """
+            listen 81;
+
+            srv_group localhost {
+                server ${server_ip}:8099 conns_n=4;
+            }
+
+            vhost localhost {
+                proxy_pass localhost;
+            }
+
+            http_chain {
+                -> localhost;
+            }
+        """,
+    }
+
+    async def handler(self, websocket, path):
+        global ping_message
+        data = await websocket.recv()
+        reply = f"{data}"
+        print(data)
+        await websocket.send(reply)
+    
+    def test(self):
+        p1 = Process(target=self.run_ws, args=(8099, 1))
+        p2 = Process(target=self.run_test, args=(81, 256))
+        p1.start()
+        self.start_tempesta()
+        p2.start()
+        p2.join()
+        p1.terminate()
+        p2.terminate()
+
+
+class RestartOnUpgrade(WssPing):
+
+    """
+    Test case - we never cache 101 responses
+    First: Send upgrade HTTP connection and - get 101
+    Second: Terminate websocket, call HTTP upgrade again - get 502
+    """
+
+    tempesta = {
+        "config": TEMPESTA_CONFIG % "",
+    }
+
+    async def handler(self, websocket, path):
+        pass
+
+    def call_upgrade(self, port, expected_status):
+        headers_ = {
+            "Host": hostname,
+            "Connection": "Upgrade",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36",
+            "Upgrade": "websocket",
+            "Origin": "null",
+            "Sec-WebSocket-Version": "13",
+            "Accept-Encoding": "gzip, deflate",
+            "Sec-WebSocket-Key": "V4wPm2Z/oOIUvp+uaX3CFQ==",
+            "Sec-WebSocket-Accept": "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+            "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
+        }
+
+        r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
+        if r.status_code not in expected_status:
+            self.fail("Test failed cause recieved invalid status_code")
+
+    def fibo(self, n):
+        fib = [0, 1]
+        for i in range(n):
+            fib.append(fib[-2] + fib[-1])
+            if fib[-1] > n:
+                break
+        return fib
+
+    def test(self):
+        p1 = Process(target=self.run_ws, args=(8099,))
+        p1.start()
+        self.start_tempesta()
+        for i in range(1500):
+            if i in self.fibo(1500):
+                self.get_tempesta().restart()
+            self.call_upgrade(81, [101])
+        p1.terminate()
+        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
