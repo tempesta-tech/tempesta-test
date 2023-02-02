@@ -254,7 +254,7 @@ class WsPing(tester.TempestaTest):
         host = hostname
         for i in range(n):
             async with websockets.connect(f"ws://{host}:{port}") as websocket:
-                await websocket.send(f"{ping_message}_{i}")
+                await websocket.send(ping_message)
                 await websocket.recv()
                 await websocket.close()
 
