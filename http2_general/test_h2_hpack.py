@@ -183,6 +183,46 @@ class TestHpack(H2Base):
         self.assertIn(second_indexed_header[0], server.last_request.headers.items())
         self.assertNotIn(first_indexed_header[0], server.last_request.headers.items())
 
+    def test_rewrite_dynamic_table_for_response(self):
+        """
+        "Before a new entry is added to the dynamic table, entries are evicted
+        from the end of the dynamic table until the size of the dynamic table
+        is less than or equal to (maximum size - new entry size) or until the
+        table is empty."
+        RFC 7541 4.4
+        """
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        client.parsing = False
+
+        # Tempesta rewrites headers in dynamic table and saves 4064 bytes header last.
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            f"qwerty: {'x' * 4058}\r\n"
+            "Content-Length: 0\r\n"
+            "Date: test\r\n"
+            "\r\n"
+        )
+
+        client.send_request(request=self.get_request, expected_status_code="200")
+
+        # Second request must contain all response headers as new indexed field
+        # because they will be rewritten in table in cycle.
+        client.send_request(request=self.get_request, expected_status_code="200")
+
+        for header in (
+            b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)",  # Via header
+            b"Tempesta FW/pre-0.7.0",  # Server header
+            b"test",  # Date header
+            b"x" * 4058,  # optional header
+        ):
+            self.assertIn(
+                header,
+                client.response_buffer,
+                "Tempesta does not encode via header as expected.",
+            )
+
     def test_clearing_dynamic_table(self):
         """
         "an attempt to add an entry larger than the maximum size causes the table
