@@ -444,6 +444,14 @@
         {
             "name": "access_log.test_access_log_h2.FrangTest",
             "reason": "Disabled by issue #1781"
+        },
+        {
+            "name": "ws.test_ws_ping.WsScheduler.test",
+            "reason": "Disabled by issue #XXXX"
+        },
+        {
+            "name": "ws.test_ws_ping.RestartOnUpgrade.test",
+            "reason": "Disabled by issue #XXXX"
         }
     ]
 }

@@ -140,7 +140,6 @@ http_chain {
 
 TEMPESTA_CACHE_CONFIG = """
 listen 81;
-listen 82 proto=https;
 
 srv_group localhost {
 
@@ -148,11 +147,7 @@ srv_group localhost {
 }
 
 vhost localhost {
-    tls_certificate /tmp/cert.pem;
-    tls_certificate_key /tmp/key.pem;
-
     proxy_pass localhost;
-
 }
 
 access_log on;
@@ -261,7 +256,7 @@ class WsPing(tester.TempestaTest):
     async def wss_ping_test(self, port, n):
         global ping_message
         host = hostname
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         ssl_context.load_verify_locations("/tmp/cert.pem")
         for _ in range(n):
             async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
@@ -270,10 +265,9 @@ class WsPing(tester.TempestaTest):
                 await websocket.close()
 
     def run_ws(self, port, count=1, proxy=False):
-        gen_cert(hostname)
-        ssl._create_default_https_context = ssl._create_unverified_context
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
+        # ssl._create_default_https_context = ssl._create_unverified_context
+        # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        # ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
         if proxy:
             self.start_all_servers()
         loop = asyncio.get_event_loop()
@@ -313,8 +307,21 @@ class WssPing(WsPing):
     def run_test(self, port, n):
         asyncio.run(self.wss_ping_test(port, n))
 
+    def run_wss(self, port, count=1, proxy=False):
+        ssl._create_default_https_context = ssl._create_unverified_context
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
+        if proxy:
+            self.start_all_servers()
+        loop = asyncio.get_event_loop()
+        for i in range(count):
+            asyncio.ensure_future(websockets.serve(self.handler, hostname, port + i))
+        loop.run_forever()
+
+
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099,))
+        gen_cert(hostname)
+        p1 = Process(target=self.run_wss, args=(8099,))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
         self.start_tempesta()
@@ -346,7 +353,8 @@ class WssPingProxy(WssPing):
     }
 
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099, 1, True))
+        gen_cert(hostname)
+        p1 = Process(target=self.run_wss, args=(8099, 1, True))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
         self.start_tempesta()
@@ -357,7 +365,7 @@ class WssPingProxy(WssPing):
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
-class CacheTest(WssPing):
+class CacheTest(WsPing):
 
     """
     Test case - we never cache 101 responses
@@ -399,7 +407,6 @@ class CacheTest(WssPing):
         self.call_upgrade(81, [101])
         p1.terminate()
         self.call_upgrade(81, [502, 504])
-        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class WssStress(WssPing):
@@ -424,6 +431,7 @@ class WssStress(WssPing):
         asyncio.run(self.stress_ping_test(port, n))
 
     def test(self):
+        gen_cert(hostname)
         p1 = Process(target=self.run_ws, args=(8099, 50))
         p2 = Process(target=self.run_test, args=(82, 4000))
         p1.start()
@@ -449,12 +457,11 @@ class WssStress(WssPing):
                 await websocket.close()
 
 
-class WsPipelining(WssPing):
+class WsPipelining(WsPing):
 
     """
     We sent 3 pipelined requests against websocket.
     Expected - 101, 502, 502 response codes
-    Current - Kernel panic
     """
 
     clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "81"}]
@@ -509,17 +516,16 @@ class WsPipelining(WssPing):
         deproxy_cl.wait_for_response(timeout=5)
         for resp in deproxy_cl.responses:
             print(resp)
-        
         p1.terminate()
-        
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 class WsScheduler(WsPing):
     
     """
     Create 4 connections against 1 backend ws
-    Make 256 async client ws connections, ensure 
-    all ping messages recieved
+    Make 256 async client ws connections
+    Expected result - All ping messages recieved
+    Current result - Kernel panic 
     """
     
     tempesta = {
@@ -561,9 +567,10 @@ class WsScheduler(WsPing):
 class RestartOnUpgrade(WssPing):
 
     """
-    Test case - we never cache 101 responses
-    First: Send upgrade HTTP connection and - get 101
-    Second: Terminate websocket, call HTTP upgrade again - get 502
+    Asyncly create many Upgrade requests
+    against WS during tempesta-fw restart.
+    Expected - 101 response code
+    Current result - Kernel panic
     """
 
     tempesta = {
@@ -573,7 +580,7 @@ class RestartOnUpgrade(WssPing):
     async def handler(self, websocket, path):
         pass
 
-    def call_upgrade(self, port, expected_status):
+    async def call_upgrade(self, port, expected_status):
         headers_ = {
             "Host": hostname,
             "Connection": "Upgrade",
@@ -591,23 +598,29 @@ class RestartOnUpgrade(WssPing):
 
         r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
-            self.fail("Test failed cause recieved invalid status_code")
+           self.fail(f"Recieved invalid status_code {r.status_code}")
 
     def fibo(self, n):
         fib = [0, 1]
-        for i in range(n):
+        for _ in range(n):
             fib.append(fib[-2] + fib[-1])
             if fib[-1] > n:
                 break
         return fib
 
+    def run_test(self, port, n):
+        for i in range(1500):
+            asyncio.run(self.call_upgrade(port, n))
+            if i in self.fibo(1500):
+                print(n)
+                self.get_tempesta().restart()
+
     def test(self):
         p1 = Process(target=self.run_ws, args=(8099,))
+        p2 = Process(target=self.run_test, args=(81, [101]))
         p1.start()
         self.start_tempesta()
-        for i in range(1500):
-            if i in self.fibo(1500):
-                self.get_tempesta().restart()
-            self.call_upgrade(81, [101])
-        p1.terminate()
+        time.sleep(2)
+        p2.start()
+        p2.join()
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
