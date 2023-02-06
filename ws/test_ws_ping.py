@@ -4,7 +4,7 @@ import asyncio
 import os
 import ssl
 from multiprocessing import Process
-from random import randint
+from helpers import dmesg, tf_cfg
 
 import time
 import requests
@@ -514,8 +514,9 @@ class WsPipelining(WsPing):
         deproxy_cl.start()
         deproxy_cl.make_requests(self.request)
         deproxy_cl.wait_for_response(timeout=5)
+        
         for resp in deproxy_cl.responses:
-            print(resp)
+            tf_cfg.dbg(3, resp)
         p1.terminate()
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
@@ -550,7 +551,6 @@ class WsScheduler(WsPing):
         global ping_message
         data = await websocket.recv()
         reply = f"{data}"
-        print(data)
         await websocket.send(reply)
     
     def test(self):
@@ -612,7 +612,6 @@ class RestartOnUpgrade(WssPing):
         for i in range(1500):
             asyncio.run(self.call_upgrade(port, n))
             if i in self.fibo(1500):
-                print(n)
                 self.get_tempesta().restart()
 
     def test(self):
