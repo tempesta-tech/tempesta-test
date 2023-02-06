@@ -148,7 +148,7 @@ class TestPseudoHeaders(H2Base):
         ]
         self.__test([("content-length", "0"), (":method", "POST")])
 
-    def __test(self, optional_header: list[tuple]):
+    def __test(self, optional_header: list):
         self.start_all_services()
 
         client = self.get_client("deproxy")

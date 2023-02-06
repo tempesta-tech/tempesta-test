@@ -476,6 +476,26 @@
         {
             "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_upgrade_header_in_response",
             "reason": "Disabled by issue #1805"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_rewrite_dynamic_table_for_response",
+            "reason": "Disabled by issue #1792"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_size",
+            "reason": "Disabled by PR #1798"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_stress",
+            "reason": "Disabled by issue #1792"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
+            "reason": "Disabled by PR #1798"
+        },
+        {
+            "name": "http2_general.test_h2_max_frame_size.TestMaxFrameSize.test_large_headers_frame_in_response",
+            "reason": "Disabled by issue #1103"
         }
     ]
 }

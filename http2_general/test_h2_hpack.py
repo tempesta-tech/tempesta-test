@@ -299,6 +299,33 @@ class TestHpack(H2Base):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
+    def test_settings_header_table_stress(self):
+        client, server = self.__setup_settings_header_table_tests()
+
+        for new_table_size in range(128, 0, -1):
+            header = "x" * new_table_size * 2
+            server.set_response(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: Debian\r\n"
+                "Date: test\r\n"
+                f"x: {header}\r\n"
+                "Content-Length: 0\r\n"
+                "\r\n"
+            )
+            self.__change_header_table_size_and_send_request(client, new_table_size, header)
+
+        for new_table_size in range(0, 128, 1):
+            header = "x" * new_table_size * 2
+            server.set_response(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: Debian\r\n"
+                "Date: test\r\n"
+                f"x: {header}\r\n"
+                "Content-Length: 0\r\n"
+                "\r\n"
+            )
+            self.__change_header_table_size_and_send_request(client, new_table_size, header)
+
     def test_hpack_bomb(self):
         """
         A HPACK bomb request causes the connection to be torn down with the
@@ -341,6 +368,30 @@ class TestHpack(H2Base):
                 with self.assertRaises(ProtocolError):
                     client.stream_id = 1
                     client.make_request(request="asd", end_stream=True)
+
+    def __setup_settings_header_table_tests(self):
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initiate_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        return client, server
+
+    def __change_header_table_size_and_send_request(self, client, new_table_size, header):
+        client.send_settings_frame(header_table_size=new_table_size)
+        client.wait_for_ack_settings()
+
+        client.send_request(request=self.post_request, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
+
+        self.assertIn(
+            header.encode(),
+            client.response_buffer,
+            "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
+        )
 
 
 class TestFramePayloadLength(H2Base):
