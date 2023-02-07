@@ -448,10 +448,6 @@
         {
             "name": "ws.test_ws_ping.WsScheduler.test",
             "reason": "Disabled by issue #XXXX"
-        },
-        {
-            "name": "ws.test_ws_ping.RestartOnUpgrade.test",
-            "reason": "Disabled by issue #XXXX"
         }
     ]
 }

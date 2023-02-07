@@ -256,7 +256,7 @@ class WsPing(tester.TempestaTest):
     async def wss_ping_test(self, port, n):
         global ping_message
         host = hostname
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
         for _ in range(n):
             async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
@@ -286,10 +286,6 @@ class WsPing(tester.TempestaTest):
         p2.terminate()
 
     # Backend
-
-    def remove_certs(self, cert_files_):
-        for cert in cert_files_:
-            os.remove(cert)
 
     async def handler(self, websocket, path):
         global ping_message
@@ -564,7 +560,7 @@ class WsScheduler(WsPing):
         p2.terminate()
 
 
-class RestartOnUpgrade(WssPing):
+class RestartOnUpgrade(WsPing):
 
     """
     Asyncly create many Upgrade requests
@@ -622,4 +618,5 @@ class RestartOnUpgrade(WssPing):
         time.sleep(2)
         p2.start()
         p2.join()
-        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
+        p1.terminate()
+        p2.terminate()
