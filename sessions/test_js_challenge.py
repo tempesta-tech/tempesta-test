@@ -6,7 +6,7 @@ import abc
 import re
 import time
 
-from framework import tester
+from framework import deproxy_client, tester
 from framework.templates import fill_template, populate_properties
 from helpers import remote, tempesta, tf_cfg
 
@@ -18,7 +18,7 @@ __license__ = "GPL2"
 class BaseJSChallenge(tester.TempestaTest):
     def client_send_req(self, client, req):
         curr_responses = len(client.responses)
-        client.make_requests(req)
+        client.make_request(req)
         client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses))
 
@@ -26,7 +26,7 @@ class BaseJSChallenge(tester.TempestaTest):
 
     def client_expect_block(self, client, req):
         curr_responses = len(client.responses)
-        client.make_requests(req)
+        client.make_request(req)
         client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses, len(client.responses))
         self.assertTrue(client.connection_is_closed())
@@ -74,7 +74,18 @@ class BaseJSChallenge(tester.TempestaTest):
         enlarge delay limit to not recommended values to make it possible to
         hardcode the JS challenge.
         """
-        req = "GET / HTTP/1.1\r\n" "Host: %s\r\n" "Accept: text/html\r\n" "\r\n" % (host)
+
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", host),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("accept", "text/html"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = "GET / HTTP/1.1\r\nHost: %s\r\nAccept: text/html\r\n\r\n" % host
+
         resp = self.client_send_req(client, req)
         self.assertEqual(resp.status, "%d" % status_code, "unexpected response status code")
         c_header = resp.headers.get("Set-Cookie", None)
@@ -100,13 +111,24 @@ class BaseJSChallenge(tester.TempestaTest):
         if req_delay:
             time.sleep(req_delay)
 
-        req = (
-            "GET / HTTP/1.1\r\n"
-            "Host: %s\r\n"
-            "Accept: text/html\r\n"
-            "Cookie: %s=%s\r\n"
-            "\r\n" % (host, cookie[0], cookie[1])
-        )
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", host),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("accept", "text/html"),
+                ("cookie", f"{cookie[0]}={cookie[1]}"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = (
+                "GET / HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Accept: text/html\r\n"
+                "Cookie: %s=%s\r\n"
+                "\r\n" % (host, cookie[0], cookie[1])
+            )
+
         if not expect_pass:
             if restart_on_fail:
                 self.expect_restart(client, req, status_code, cookie)
@@ -133,7 +155,12 @@ class JSChallenge(BaseJSChallenge):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: deproxy\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
         },
     ]
 
@@ -222,7 +249,17 @@ class JSChallenge(BaseJSChallenge):
         client = self.get_client("client-1")
 
         # Client can accept JS code in responses.
-        req = "GET / HTTP/1.1\r\n" "Host: vh1.com\r\n" "Accept: text/html\r\n" "\r\n"
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", "vh1.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("accept", "text/html"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = "GET / HTTP/1.1\r\nHost: vh1.com\r\nAccept: text/html\r\n\r\n"
+
         resp = self.client_send_req(client, req)
         self.assertEqual(resp.status, "503", "Unexpected response status code")
         self.assertIsNotNone(
@@ -231,12 +268,34 @@ class JSChallenge(BaseJSChallenge):
         match = re.search(r"(location\.replace)", resp.body)
         self.assertIsNotNone(match, "Can't extract redirect target from response body")
 
-        req = "GET / HTTP/1.1\r\n" "Host: vh1.com\r\n" "Accept: */*\r\n" "\r\n"
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", "vh1.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("accept", "*/*"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = "GET / HTTP/1.1\r\nHost: vh1.com\r\nAccept: */*\r\n\r\n"
+
+        client = self.get_client("client-2")
         self.client_expect_block(client, req)
 
         # Resource is not challengable, request will be blocked and the
         # connection will be reset.
-        req = "GET / HTTP/1.1\r\n" "Host: vh1.com\r\n" "Accept: text/plain\r\n" "\r\n"
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", "vh1.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("accept", "text/plain"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = "GET / HTTP/1.1\r\nHost: vh1.com\r\nAccept: text/plain\r\n\r\n"
+
+        client = self.get_client("client-3")
         self.client_expect_block(client, req)
 
     def test_pass_challenge(self):
@@ -361,12 +420,21 @@ class JSChallenge(BaseJSChallenge):
     def client_send_custom_req(self, client, uri, cookie, host=None):
         if not host:
             host = "localhost"
-        req = (
-            "GET %s HTTP/1.1\r\n"
-            "Host: %s\r\n"
-            "%s"
-            "\r\n" % (uri, host, ("Cookie: %s=%s\r\n" % cookie) if cookie else "")
-        )
+
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", host),
+                (":path", uri),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = (
+                "GET %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "%s"
+                "\r\n" % (uri, host, ("Cookie: %s=%s\r\n" % cookie) if cookie else "")
+            )
         response = self.client_send_req(client, req)
 
         self.assertEqual(response.status, "302", "unexpected response status code")
@@ -407,14 +475,62 @@ class JSChallenge(BaseJSChallenge):
         vhost = "vh1.com"
         uri, cookie = self.client_send_first_req(client, uri, host=vhost)
 
-        req = (
-            "GET %s HTTP/1.1\r\n"
-            "Host: %s\r\n"
-            "Cookie: %s=%s\r\n"
-            "\r\n" % (uri, vhost, cookie[0], cookie[1])
-        )
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", vhost),
+                (":path", uri.split("https:/")[1]),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("cookie", f"{cookie[0]}={cookie[1]}"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = (
+                "GET %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Cookie: %s=%s\r\n"
+                "\r\n" % (uri, vhost, cookie[0], cookie[1])
+            )
+
         response = self.client_send_req(client, req)
         self.assertEqual(response.status, "200", "unexpected response status code")
+
+
+class JSChallengeH2(JSChallenge):
+    tempesta = {
+        "config": (
+            "listen 443 proto=h2;\n"
+            + JSChallenge.tempesta["config"]
+            + """
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            """
+        )
+    }
+
+    clients = [
+        {
+            "id": "client-1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "client-2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "client-3",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
 
 
 class JSChallengeVhost(JSChallenge):
