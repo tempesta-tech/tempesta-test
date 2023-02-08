@@ -242,32 +242,28 @@ class WsPing(tester.TempestaTest):
     # Client
 
     def run_test(self, port, n):
-        asyncio.run(self.ws_ping_test(port, n))
+        for _ in range(n):
+            asyncio.run(self.ws_ping_test(port))
 
-    async def ws_ping_test(self, port, n):
+    async def ws_ping_test(self, port):
         global ping_message
         host = hostname
-        for i in range(n):
-            async with websockets.connect(f"ws://{host}:{port}") as websocket:
-                await websocket.send(ping_message)
-                await websocket.recv()
-                await websocket.close()
+        async with websockets.connect(f"ws://{host}:{port}") as websocket:
+            await websocket.send(ping_message)
+            await websocket.recv()
+            await websocket.close()
 
-    async def wss_ping_test(self, port, n):
+    async def wss_ping_test(self, port):
         global ping_message
         host = hostname
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
-        for _ in range(n):
-            async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
-                await websocket.send(ping_message)
-                await websocket.recv()
-                await websocket.close()
+        async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
+            await websocket.send(ping_message)
+            await websocket.recv()
+            await websocket.close()
 
     def run_ws(self, port, count=1, proxy=False):
-        # ssl._create_default_https_context = ssl._create_unverified_context
-        # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        # ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
         if proxy:
             self.start_all_servers()
         loop = asyncio.get_event_loop()
@@ -301,7 +297,8 @@ class WssPing(WsPing):
     """Ping test for websocket wss scheme."""
 
     def run_test(self, port, n):
-        asyncio.run(self.wss_ping_test(port, n))
+        for _ in range(n):
+            asyncio.run(self.wss_ping_test(port))
 
     def run_wss(self, port, count=1, proxy=False):
         ssl._create_default_https_context = ssl._create_unverified_context
@@ -424,7 +421,12 @@ class WssStress(WssPing):
         return fib
 
     def run_test(self, port, n):
-        asyncio.run(self.stress_ping_test(port, n))
+        count = 0
+        for _ in range(n):
+            count += 1
+            asyncio.run(self.stress_ping_test(port))
+        if (4000 - count) in self.fibo(4000):
+            self.get_tempesta().restart()
 
     def test(self):
         gen_cert(hostname)
@@ -437,20 +439,15 @@ class WssStress(WssPing):
         p1.terminate()
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
-    async def stress_ping_test(self, port, n):
+    async def stress_ping_test(self, port):
         host = hostname
         global ping_message
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations("/tmp/cert.pem")
-        count = 0
-        for _ in range(n):
-            count += 1
-            if (4000 - count) in self.fibo(4000):
-                self.get_tempesta().restart()
-            async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
-                await websocket.send(ping_message)
-                await websocket.recv()
-                await websocket.close()
+        async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
+            await websocket.send(ping_message)
+            await websocket.recv()
+            await websocket.close()
 
 
 class WsPipelining(WsPing):
@@ -516,6 +513,7 @@ class WsPipelining(WsPing):
         p1.terminate()
         remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
+
 class WsScheduler(WsPing):
     
     """
@@ -530,7 +528,7 @@ class WsScheduler(WsPing):
             listen 81;
 
             srv_group localhost {
-                server ${server_ip}:8099 conns_n=4;
+                server ${server_ip}:8099 conns_n=16;
             }
 
             vhost localhost {
@@ -547,11 +545,13 @@ class WsScheduler(WsPing):
         global ping_message
         data = await websocket.recv()
         reply = f"{data}"
+        if data != ping_message:
+            self.fail("Wrong Ping Message")
         await websocket.send(reply)
-    
+
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099, 1))
-        p2 = Process(target=self.run_test, args=(81, 256))
+        p1 = Process(target=self.run_ws, args=(8099, 4))
+        p2 = Process(target=self.run_test, args=(81, 1500))
         p1.start()
         self.start_tempesta()
         p2.start()
