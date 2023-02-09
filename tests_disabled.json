@@ -282,28 +282,16 @@
             "reason" : "Disabled by issue #1704"
         },
         {
-            "name" : "sessions.test_cookies",
-            "reason" : "Disabled by issue #923"
+            "name" : "sessions.test_sticky_sess_stress.OneClient",
+            "reason" : "Disabled by issue #398"
         },
         {
-            "name" : "sessions.test_js_challenge",
-            "reason" : "Disabled by issue #923"
-        },
-        {
-            "name" : "sessions.test_learn",
-            "reason" : "Disabled by issue #923"
+            "name" : "sessions.test_js_challenge.JSChallengeH2",
+            "reason" : "Disabled by issue #1812"
         },
         {
             "name" : "sessions.test_redir_mark",
-            "reason" : "Disabled by issue #923"
-        },
-        {
-            "name" : "sessions.test_sessions",
-            "reason" : "Disabled by issue #923"
-        },
-        {
-            "name": "sessions.test_sticky_sess_stress",
-            "reason": "Disabled by issue #923"
+            "reason" : "Disabled by issue #399"
         },
         {
             "name": "sessions.test_h2_sticky_scheduler",
