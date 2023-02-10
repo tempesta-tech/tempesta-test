@@ -360,11 +360,11 @@ class TempestaTest(unittest.TestCase):
         self.__ips = []
 
         self.oops.update()
-        print(self.oops.log.decode())
         for err in ["Oops", "WARNING", "ERROR"]:
             if err in self.oops_ignore:
                 continue
             if self.oops._warn_count(err) > 0:
+                print(self.oops.log.decode())
                 self.oops_ignore = []
                 raise Exception("%s happened during test on Tempesta" % err)
         # Drop the list of ignored errors to allow set different errors masks
