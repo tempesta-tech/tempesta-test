@@ -360,6 +360,7 @@ class TempestaTest(unittest.TestCase):
         self.__ips = []
 
         self.oops.update()
+        print(self.oops.log.decode())
         for err in ["Oops", "WARNING", "ERROR"]:
             if err in self.oops_ignore:
                 continue
