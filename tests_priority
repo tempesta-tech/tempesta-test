@@ -1,2 +1,3 @@
 tls
 http2_general
+selftests.test_docker_server
