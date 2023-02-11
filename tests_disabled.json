@@ -438,10 +438,6 @@
             "reason": "Disabled by issue #1780"
         },
         {
-            "name": "access_log.test_access_log_h2.FrangTest",
-            "reason": "Disabled by issue #1781"
-        },
-        {
             "name": "http2_general.test_flow_control_window",
             "reason": "Disabled by issue #1394"
         },
