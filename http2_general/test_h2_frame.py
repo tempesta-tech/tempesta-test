@@ -1,53 +1,15 @@
 """Functional tests for h2 frames."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-
-from framework import tester
+from framework import deproxy_client
 from helpers import checks_for_tests as checks
+from http2_general.helpers import H2Base
 
 
-class TestH2Frame(tester.TempestaTest):
-
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
-        }
-    ]
-
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-    ]
-
-    tempesta = {
-        "config": """
-            listen 443 proto=h2;
-            server ${server_ip}:8000;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-        """
-    }
-
-    request_headers = [
-        (":authority", "debian"),
-        (":path", "/"),
-        (":scheme", "https"),
-        (":method", "POST"),
-    ]
-
+class TestH2Frame(H2Base):
     def test_data_framing(self):
         """Send many 1 byte frames in request."""
         self.start_all_services()
@@ -55,7 +17,7 @@ class TestH2Frame(tester.TempestaTest):
         deproxy_cl.parsing = False
         request_body = "x" * 100
 
-        deproxy_cl.make_request(request=self.request_headers, end_stream=False)
+        deproxy_cl.make_request(request=self.post_request, end_stream=False)
         for byte in request_body[:-1]:
             deproxy_cl.make_request(request=byte, end_stream=False)
         deproxy_cl.make_request(request=request_body[-1], end_stream=True)
@@ -71,7 +33,7 @@ class TestH2Frame(tester.TempestaTest):
         deproxy_cl.parsing = False
         request_body = "123"
 
-        deproxy_cl.make_request(request=self.request_headers, end_stream=False)
+        deproxy_cl.make_request(request=self.post_request, end_stream=False)
         deproxy_cl.make_request(request=request_body, end_stream=False)
         deproxy_cl.make_request(request="", end_stream=True)
 
@@ -86,7 +48,7 @@ class TestH2Frame(tester.TempestaTest):
         deproxy_cl.parsing = False
         request_body = "123"
 
-        deproxy_cl.make_request(request=self.request_headers, end_stream=False)
+        deproxy_cl.make_request(request=self.post_request, end_stream=False)
         deproxy_cl.make_request(request="", end_stream=False)
         deproxy_cl.make_request(request=request_body, end_stream=True)
 
@@ -99,7 +61,7 @@ class TestH2Frame(tester.TempestaTest):
         self.start_all_services()
         client.parsing = False
 
-        client.make_request(self.request_headers)
+        client.make_request(self.post_request)
 
         self.__assert_test(client=client, request_body="", request_number=1)
 
@@ -113,7 +75,7 @@ class TestH2Frame(tester.TempestaTest):
         for chunk_size in chunk_sizes:
             with self.subTest(chunk_size=chunk_size):
                 client.segment_size = chunk_size
-                client.make_request(self.request_headers, False)
+                client.make_request(self.post_request, False)
 
                 request_body = "0123456789"
                 client.make_request(request_body, True)
@@ -123,6 +85,70 @@ class TestH2Frame(tester.TempestaTest):
                     request_body=request_body,
                     request_number=chunk_sizes.index(chunk_size) + 1,
                 )
+
+    def test_settings_frame(self):
+        """
+        Create tls connection and send preamble + correct settings frame.
+        Tempesta must accept settings and return settings + ack settings frames.
+        Then client send ack settings frame and Tempesta must correctly accept it.
+        """
+        self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        # initiate_connection() generates preamble + settings frame with default variables
+        self.initiate_h2_connection(client)
+
+        # send empty setting frame with ack flag.
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        # send header frame after exchanging settings and make sure
+        # that connection is open.
+        client.send_request(self.post_request, "200")
+
+    def test_window_update_frame(self):
+        """Tempesta must handle WindowUpdate frame."""
+        self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        # add preamble + settings frame with SETTING_INITIAL_WINDOW_SIZE = 65535
+        client.update_initial_settings()
+
+        # send preamble + settings frame
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(client.wait_for_ack_settings())
+
+        # send WindowUpdate frame with window size increment = 5000
+        client.h2_connection.increment_flow_control_window(5000)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        # send header frame after sending WindowUpdate and make sure
+        # that connection is working correctly.
+        client.send_request(self.get_request, "200")
+        self.assertFalse(client.connection_is_closed())
+
+    def test_continuation_frame(self):
+        """Tempesta must handle CONTINUATION frame."""
+        self.start_all_services()
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        # H2Connection separates headers to HEADERS + CONTINUATION frames
+        # if they are larger than 16384 bytes
+        client.send_request(
+            request=self.get_request + [("qwerty", "x" * 5000) for _ in range(4)],
+            expected_status_code="200",
+        )
+
+        self.assertFalse(client.connection_is_closed())
 
     def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
@@ -138,7 +164,7 @@ class TestH2Frame(tester.TempestaTest):
             srv_msg_forwarded=request_number,
         )
         error_msg = "Malformed request from Tempesta."
-        self.assertEqual(server.last_request.method, self.request_headers[3][1], error_msg)
-        self.assertEqual(server.last_request.headers["host"], self.request_headers[0][1], error_msg)
-        self.assertEqual(server.last_request.uri, self.request_headers[1][1], error_msg)
+        self.assertEqual(server.last_request.method, self.post_request[3][1], error_msg)
+        self.assertEqual(server.last_request.headers["host"], self.post_request[0][1], error_msg)
+        self.assertEqual(server.last_request.uri, self.post_request[1][1], error_msg)
         self.assertEqual(server.last_request.body, request_body)

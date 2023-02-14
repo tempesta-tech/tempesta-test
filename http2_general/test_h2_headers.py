@@ -4,7 +4,8 @@ For now tests run curl as external program capable to generate h2 messages and
 analises its return code.
 """
 
-from framework import tester
+from framework import deproxy_client, tester
+from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
@@ -82,31 +83,7 @@ vhost default {
 """
 
 
-class HeadersParsing(tester.TempestaTest):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
-
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
-        }
-    ]
-
-    tempesta = {
-        "config": TEMPESTA_CONFIG % "",
-    }
-
+class HeadersParsing(H2Base):
     def test_small_header_in_request(self):
         """Request with small header name length completes successfully."""
         self.start_all_services()
@@ -116,13 +93,7 @@ class HeadersParsing(tester.TempestaTest):
         for length in range(1, 5):
             header = "x" * length
             client.send_request(
-                [
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "GET"),
-                    (header, "test"),
-                ],
+                self.get_request + [(header, "test")],
                 "200",
             )
 
@@ -134,37 +105,123 @@ class HeadersParsing(tester.TempestaTest):
         client.parsing = False
         client.send_request(
             (
-                [
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "POST"),
-                    ("Content-Length", "3"),
-                ],
+                self.post_request + [("Content-Length", "3")],
                 "123",
             ),
             "400",
         )
 
-    def test_chunked_header_in_request(self):
-        """The request must be treated as malformed. RFC 7540 8.2.2"""
+
+class TestPseudoHeaders(H2Base):
+    def test_invalid_pseudo_header(self):
+        """
+        Endpoints MUST NOT generate pseudo-header fields other than those defined in this document.
+        RFC 9113 8.3
+        """
+        self.__test([(":content-length", "0")])
+
+    def test_duplicate_pseudo_header(self):
+        """
+        The same pseudo-header field name MUST NOT appear more than once in a field block.
+        A field block for an HTTP request or response that contains a repeated pseudo-header
+        field name MUST be treated as malformed.
+        RFC 9113 8.3
+        """
+        self.__test([(":path", "/")])
+
+    def test_status_header_in_request(self):
+        """
+        Pseudo-header fields defined for responses MUST NOT appear in requests.
+        RFC 9113 8.3
+        """
+        self.__test([(":status", "200")])
+
+    def test_regular_header_before_pseudo_header(self):
+        """
+        All pseudo-header fields MUST appear in a field block before all regular field lines.
+        RFC 9113 8.3
+        """
+        self.post_request = [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+        ]
+        self.__test([("content-length", "0"), (":method", "POST")])
+
+    def __test(self, optional_header: list):
         self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
+
         client.send_request(
-            (
-                [
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "POST"),
-                    ("transfer-encoding", "chunked"),
-                ],
-                "3\r\n123\r\n0\r\n\r\n",
-            ),
+            self.post_request + optional_header,
             "400",
         )
+
+        self.assertTrue(client.connection_is_closed())
+
+
+class TestConnectionHeaders(H2Base):
+    def __test_request(self, header: tuple):
+        """
+        An endpoint MUST NOT generate an HTTP/2 message containing connection-specific
+        header fields. Any message containing connection-specific header fields MUST be treated
+        as malformed.
+        RFC 9113 8.2.2
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(self.post_request + [header], "400")
+        self.assertTrue(client.connection_is_closed())
+
+    def __test_response(self, header: tuple):
+        """
+        An intermediary transforming an HTTP/1.x message to HTTP/2 MUST remove connection-specific
+        header fields or their messages will be treated by other HTTP/2 endpoints as malformed.
+        RFC 9113 8.2.2
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        client.parsing = False
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0].capitalize()}: {header[1]}\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        client.send_request(self.post_request, "200")
+        self.assertNotIn(header, client.last_response.headers.headers)
+
+    def test_connection_header_in_request(self):
+        self.__test_request(header=("connection", "keep-alive"))
+
+    def test_keep_alive_header_in_request(self):
+        self.__test_request(header=("keep-alive", "timeout=5, max=10"))
+
+    def test_proxy_connection_header_in_request(self):
+        self.__test_request(header=("proxy-connection", "keep-alive"))
+
+    def test_upgrade_header_in_request(self):
+        self.__test_request(header=("upgrade", "websocket"))
+
+    def test_connection_header_in_response(self):
+        self.__test_response(header=("connection", "keep-alive"))
+
+    def test_keep_alive_header_in_response(self):
+        self.__test_response(header=("keep-alive", "timeout=5, max=10"))
+
+    def test_proxy_connection_header_in_response(self):
+        self.__test_response(header=("proxy-connection", "keep-alive"))
+
+    def test_upgrade_header_in_response(self):
+        self.__test_response(header=("upgrade", "websocket"))
 
 
 class CurlTestBase(tester.TempestaTest):
@@ -328,7 +385,7 @@ return 200;
         for line in lines:
             if line.startswith("< set-cookie:"):
                 setcookie_count += 1
-                self.assertTrue(len(line.split(','))==1, "Wrong separator")
+                self.assertTrue(len(line.split(",")) == 1, "Wrong separator")
         self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
 
 
