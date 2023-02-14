@@ -16,7 +16,7 @@ class TestMaxFrameSize(H2Base):
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
 
-        client.update_initiate_settings(max_frame_size=16384)
+        client.update_initial_settings(max_frame_size=16384)
 
         response_body = "x" * 20000
         server.set_response(
@@ -40,7 +40,7 @@ class TestMaxFrameSize(H2Base):
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
 
-        client.update_initiate_settings(max_frame_size=16384)
+        client.update_initial_settings(max_frame_size=16384)
 
         large_header = ("qwerty", "x" * 17000)
         server.set_response(
@@ -69,7 +69,7 @@ class TestMaxFrameSize(H2Base):
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
-        client.update_initiate_settings()
+        client.update_initial_settings()
         # We set SETTINGS_MAX_FRAME_SIZE = 20000 that H2Connection does not raise error,
         # but Tempesta has default SETTINGS_MAX_FRAME_SIZE = 16384.
         client.h2_connection.max_outbound_frame_size = 20000
@@ -91,7 +91,7 @@ class TestMaxFrameSize(H2Base):
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
-        client.update_initiate_settings()
+        client.update_initial_settings()
         # We set SETTINGS_MAX_FRAME_SIZE = 20000 that H2Connection does not raise error,
         # but Tempesta has default SETTINGS_MAX_FRAME_SIZE = 16384.
         client.h2_connection.max_outbound_frame_size = 20000

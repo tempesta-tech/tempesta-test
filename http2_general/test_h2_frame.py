@@ -114,7 +114,7 @@ class TestH2Frame(H2Base):
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
         # add preamble + settings frame with SETTING_INITIAL_WINDOW_SIZE = 65535
-        client.update_initiate_settings()
+        client.update_initial_settings()
 
         # send preamble + settings frame
         client.send_bytes(client.h2_connection.data_to_send())
@@ -137,7 +137,7 @@ class TestH2Frame(H2Base):
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
-        client.update_initiate_settings()
+        client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
 

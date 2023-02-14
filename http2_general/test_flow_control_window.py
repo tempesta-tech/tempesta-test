@@ -27,7 +27,7 @@ class TestFlowControl(H2Base):
             + ("x" * 2000)
         )
 
-        client.update_initiate_settings(initial_window_size=1000)
+        client.update_initial_settings(initial_window_size=1000)
         client.make_request(self.post_request)
         client.wait_for_response(3)
 

@@ -393,8 +393,6 @@ class DeproxyClientH2(DeproxyClient):
             self.h2_connection = h2.connection.H2Connection()
             self.h2_connection.encoder = self.encoder
             self.h2_connection.initiate_connection()
-        if self.selfproxy_present:
-            self.update_selfproxy()
 
         self.h2_connection.encoder.huffman = huffman
 
@@ -427,7 +425,7 @@ class DeproxyClientH2(DeproxyClient):
             self.stream_id += 2
             self.valid_req_num += 1
 
-    def update_initiate_settings(
+    def update_initial_settings(
         self,
         header_table_size: int = None,
         enable_push: int = None,
@@ -549,7 +547,6 @@ class DeproxyClientH2(DeproxyClient):
                     self.nrresp += 1
                 elif isinstance(event, ConnectionTerminated):
                     self.error_codes.append(event.error_code)
-                    self.handle_close()
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
                     # TODO should be changed by issue #358

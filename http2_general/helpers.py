@@ -60,7 +60,7 @@ class H2Base(tester.TempestaTest):
 
     def initiate_h2_connection(self, client: deproxy_client.DeproxyClientH2):
         # add preamble + settings frame with default variable into data_to_send
-        client.update_initiate_settings()
+        client.update_initial_settings()
         # send preamble + settings frame to Tempesta
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()

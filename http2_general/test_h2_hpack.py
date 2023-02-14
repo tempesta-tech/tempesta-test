@@ -86,7 +86,7 @@ class TestHpack(H2Base):
         server = self.get_server("deproxy")
 
         new_table_size = 512
-        client.update_initiate_settings(header_table_size=new_table_size)
+        client.update_initial_settings(header_table_size=new_table_size)
 
         header = "x" * new_table_size * 2
         server.set_response(
@@ -374,7 +374,7 @@ class TestHpack(H2Base):
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.update_initiate_settings()
+        client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
 
@@ -465,7 +465,7 @@ class TestFramePayloadLength(H2Base):
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
-        client.update_initiate_settings()
+        client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
 
         # send headers frame with stream_id = 1, header count = 3
