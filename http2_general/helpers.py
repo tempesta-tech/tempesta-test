@@ -24,13 +24,22 @@ class H2Base(tester.TempestaTest):
     tempesta = {
         "config": """
             listen 443 proto=h2;
-            server ${server_ip}:8000;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost good {
+                proxy_pass default;
+            }
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             
             block_action attack reply;
             block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
         """
     }
 
