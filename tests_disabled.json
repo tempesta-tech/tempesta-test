@@ -450,10 +450,6 @@
             "reason": "Disabled by issue #1346"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_clearing_dynamic_table_with_settings_frame",
-            "reason": "Disabled by issue #1793"
-        },
-        {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_reuse_stream_id",
             "reason": "Disabled by issue #1800"
         },
@@ -474,20 +470,8 @@
             "reason": "Disabled by issue #1805"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_rewrite_dynamic_table_for_response",
-            "reason": "Disabled by issue #1792"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_size",
-            "reason": "Disabled by PR #1798"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_stress",
-            "reason": "Disabled by issue #1792"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
-            "reason": "Disabled by PR #1798"
+            "reason": "Disabled by issue #1819"
         },
         {
             "name": "http2_general.test_h2_max_frame_size.TestMaxFrameSize.test_large_headers_frame_in_response",
@@ -498,15 +482,15 @@
             "reason": "Disabled by issue #1819"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_bytes_of_table_size_in_header_frame_1",
-            "reason": "Disabled by PR #1804"
-        },
-        {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_double_header_frame_in_single_stream",
             "reason": "Disabled by issue #1823"
         },
         {
             "name": "http2_general.test_h2_streams.TestMultiplexing",
+            "reason": "Disabled by PR #1820"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_after_setting_header_table_size",
             "reason": "Disabled by PR #1820"
         }
     ]

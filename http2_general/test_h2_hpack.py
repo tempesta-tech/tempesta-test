@@ -18,7 +18,36 @@ from framework import deproxy_client
 from http2_general.helpers import H2Base
 
 
-class TestHpack(H2Base):
+class TestHpackBase(H2Base):
+    def change_header_table_size(self, client, new_table_size):
+        client.send_settings_frame(header_table_size=new_table_size)
+        client.wait_for_ack_settings()
+
+    def setup_settings_header_table_tests(self):
+        self.start_all_services()
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        return client, server
+
+    def change_header_table_size_and_send_request(self, client, new_table_size, header):
+        self.change_header_table_size(client, new_table_size)
+
+        client.send_request(request=self.post_request, expected_status_code="200")
+        client.send_request(request=self.post_request, expected_status_code="200")
+
+        self.assertIn(
+            header.encode(),
+            client.response_buffer,
+            "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
+        )
+
+
+class TestHpack(TestHpackBase):
     def test_static_table(self):
         """
         Send request with headers from static table.
@@ -300,7 +329,7 @@ class TestHpack(H2Base):
         self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
 
     def test_settings_header_table_stress(self):
-        client, server = self.__setup_settings_header_table_tests()
+        client, server = self.setup_settings_header_table_tests()
 
         for new_table_size in range(128, 0, -1):
             header = "x" * new_table_size * 2
@@ -312,7 +341,7 @@ class TestHpack(H2Base):
                 "Content-Length: 0\r\n"
                 "\r\n"
             )
-            self.__change_header_table_size_and_send_request(client, new_table_size, header)
+            self.change_header_table_size_and_send_request(client, new_table_size, header)
 
         for new_table_size in range(0, 128, 1):
             header = "x" * new_table_size * 2
@@ -324,7 +353,7 @@ class TestHpack(H2Base):
                 "Content-Length: 0\r\n"
                 "\r\n"
             )
-            self.__change_header_table_size_and_send_request(client, new_table_size, header)
+            self.change_header_table_size_and_send_request(client, new_table_size, header)
 
     def test_hpack_bomb(self):
         """
@@ -416,29 +445,180 @@ class TestHpack(H2Base):
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
-    def __setup_settings_header_table_tests(self):
-        self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        server = self.get_server("deproxy")
+    def test_send_invalid_request_after_setting_header_table_size(self):
+        """
+        This dynamic table size update MUST occur at the beginning of the first header
+        block following the change to the dynamic table size.
+        RFC 7541 4.2
+        """
 
-        client.update_initial_settings()
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        client, server = self.setup_settings_header_table_tests()
 
-        return client, server
-
-    def __change_header_table_size_and_send_request(self, client, new_table_size, header):
-        client.send_settings_frame(header_table_size=new_table_size)
-        client.wait_for_ack_settings()
-
-        client.send_request(request=self.post_request, expected_status_code="200")
-        client.send_request(request=self.post_request, expected_status_code="200")
-
-        self.assertIn(
-            header.encode(),
-            client.response_buffer,
-            "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
+        # This test checks RFC 7541 4.2 for response on invalid request.
+        self.change_header_table_size(client, 2048)
+        client.send_request(
+            request=[
+                HeaderTuple(":authority", "bad.com"),
+                HeaderTuple(":path", "/"),
+                HeaderTuple(":scheme", "https"),
+                HeaderTuple(":method", "GET"),
+            ],
+            expected_status_code="403",
         )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
+
+    def test_http_headers_code_charater_is_invalid_in_header(self):
+        """
+        This test checks that '1' is invalid character for http header data.
+        It is necessary, because we lead on this fact in tempesta code, when
+        we determine that skb contains headers.
+        """
+        client, server = self.setup_settings_header_table_tests()
+
+        self.change_header_table_size(client, 2048)
+        header = ("qwerty", chr(1) * 100)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: test\r\n"
+            f"{header[0]}: {header[1]}\r\n"
+            "Content-Length: 0\r\n\r\n"
+        )
+
+        client.send_request(request=self.post_request, expected_status_code="502")
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
+
+    def test_big_header_after_setting_header_table_size(self):
+        """
+        This test checks RFC 7541 4.2 for a large header. This case
+        needs a special test, since we split skb with large header.
+        """
+        client, server = self.setup_settings_header_table_tests()
+
+        self.change_header_table_size(client, 2048)
+        header = ("qwerty", "x" * 50000)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: test\r\n"
+            f"{header[0]}: {header[1]}\r\n"
+            "Content-Length: 0\r\n\r\n"
+        )
+
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertIsNotNone(client.last_response.headers.get(header[0]))
+        self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
+
+
+class TestHpackStickyCookie(TestHpackBase):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost v_good {
+                proxy_pass default;
+                sticky {
+                    sticky_sessions;
+                    cookie enforce;
+                    secret "f00)9eR59*_/22";
+                }
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            cache 1;
+            cache_fulfill * *;
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                host == "example.com" -> v_good;
+            }
+        """
+    }
+
+    def test_h2_cookie_after_setting_header_table_size(self):
+        """
+        This dynamic table size update MUST occur at the beginning of the first header
+        block following the change to the dynamic table size.
+        RFC 7541 4.2
+        """
+        client, server = self.setup_settings_header_table_tests()
+
+        # This test checks RFC 7541 4.2 for response with cookie.
+        self.change_header_table_size(client, 2048)
+        client.send_request(request=self.post_request, expected_status_code="302")
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
+
+        self.post_request.append(HeaderTuple("Cookie", client.last_response.headers["set-cookie"]))
+        client.send_request(request=self.post_request, expected_status_code="200")
+
+
+class TestHpackCache(TestHpackBase):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost v_good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            cache 1;
+            cache_fulfill * *;
+            cache_methods GET;
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                host == "example.com" -> v_good;
+            }
+        """
+    }
+
+    def test_h2_cache_304_after_setting_header_table_size(self):
+        self.__test_h2_cache_after_setting_header_table_size("Mon, 12 Dec 2024 13:59:39 GMT", "304")
+
+    def test_h2_cache_200_after_setting_header_table_size(self):
+        self.__test_h2_cache_after_setting_header_table_size("Mon, 12 Dec 2020 13:59:39 GMT", "200")
+
+    def __test_h2_cache_after_setting_header_table_size(self, date, status_code):
+        """
+        This dynamic table size update MUST occur at the beginning of the first header
+        block following the change to the dynamic table size.
+        RFC 7541 4.2
+        """
+        client, server = self.setup_settings_header_table_tests()
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: Mon, 12 Dec 2021 13:59:39 GMT\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+        )
+
+        headers = [
+            HeaderTuple(":authority", "example.com"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "GET"),
+        ]
+
+        client.send_request(request=headers, expected_status_code="200")
+
+        # This test checks RFC 7541 4.2 for responses from cache with
+        # different stus codes.
+        self.change_header_table_size(client, 1024)
+        headers.append(HeaderTuple("if-modified-since", date))
+        client.send_request(request=headers, expected_status_code=status_code)
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
 
 class TestFramePayloadLength(H2Base):
