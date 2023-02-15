@@ -496,6 +496,14 @@
         {
             "name": "http2_general.test_h2_max_frame_size.TestMaxFrameSize.test_large_headers_frame_in_response",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_rst_frame_in_response",
+            "reason": "Disabled by issue #1819"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_bytes_of_table_size_in_header_frame_1",
+            "reason": "Disabled by PR #1804"
         }
     ]
 }
