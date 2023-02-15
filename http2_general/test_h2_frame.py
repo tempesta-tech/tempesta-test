@@ -4,6 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.errors import ErrorCodes
+from h2.exceptions import StreamClosedError
+
 from framework import deproxy_client
 from helpers import checks_for_tests as checks
 from http2_general.helpers import H2Base
@@ -149,6 +152,164 @@ class TestH2Frame(H2Base):
         )
 
         self.assertFalse(client.connection_is_closed())
+
+    def test_rst_frame_in_request(self):
+        """
+        Tempesta must handle RST_STREAM frame and close stream but other streams MUST work.
+        """
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        # client opens streams with id 1, 3 and does not close them
+        client.make_request(request=self.post_request, end_stream=False)
+        client.stream_id = 3
+        client.make_request(request=self.post_request, end_stream=False)
+
+        # client send RST_STREAM frame with NO_ERROR code in stream 1 and
+        # Tempesta closes it for itself.
+        client.h2_connection.reset_stream(stream_id=1, error_code=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(client.wait_for_ack_settings())
+
+        # Client send DATA frame in stream 3 and it MUST receive response
+        client.send_request("qwe", "200")
+
+        # Tempesta allows creating new streams.
+        client.stream_id = 5
+        client.send_request(self.post_request, "200")
+
+        self.assertFalse(
+            client.connection_is_closed(), "Tempesta closed connection after receiving RST_STREAM."
+        )
+
+    def test_rst_frame_in_response(self):
+        """
+        When Tempesta returns RST_STREAM:
+         - open streams must not be closed;
+         - new streams must be accepted.
+        """
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        # client opens stream with id 1 and does not close it
+        client.make_request(request=self.post_request, end_stream=False)
+
+        # client send invalid request and Tempesta returns RST_STREAM
+        stream_with_rst = 3
+        client.stream_id = stream_with_rst
+        client.send_request((self.get_request + [("host", "")], "asd"), "400")
+
+        # client open new stream
+        client.make_request(self.get_request, end_stream=True)
+        client.wait_for_response(3)
+
+        # client send DATA frame in stream 1 and it must be open.
+        client.stream_id = 1
+        client.make_request("body", end_stream=True)
+        client.wait_for_response(3)
+
+        self.assertRaises(
+            StreamClosedError, client.h2_connection._get_stream_by_id, stream_with_rst
+        )
+        self.assertFalse(
+            client.connection_is_closed(), "Tempesta closed connection after sending RST_STREAM."
+        )
+
+    def test_rst_stream_with_id_0(self):
+        """
+        RST_STREAM frames MUST be associated with a stream. If a RST_STREAM frame
+        is received with a stream identifier of 0x00, the recipient MUST treat this
+        as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
+        RFC 9113 6.4
+        """
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        # send RST_STREAM with id 0
+        client.send_bytes(b"\x00\x00\x04\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+
+        self.assertTrue(
+            client.wait_for_connection_close(1),
+            "Tempesta did not close connection after receiving RST_STREAM with id 0.",
+        )
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
+    def test_goaway_frame_in_response(self):
+        """
+        Tempesta must:
+         - close all streams for connection error (GOAWAY);
+         - return last_stream_id.
+
+        There is an inherent race condition between an endpoint starting new streams
+        and the remote peer sending a GOAWAY frame. To deal with this case, the GOAWAY
+        contains the stream identifier of the last peer-initiated stream that was or
+        might be processed on the sending endpoint in this connection. For instance,
+        if the server sends a GOAWAY frame, the identified stream is the highest-numbered
+        stream initiated by the client.
+        RFC 9113 6.8
+        """
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        # Client opens many streams and does not close them
+        for stream_id in range(1, 6, 2):
+            client.stream_id = stream_id
+            client.make_request(request=self.post_request, end_stream=False)
+
+        # Client send DATA frame with stream id 0.
+        # Tempesta MUST return GOAWAY frame with PROTOCOL_ERROR
+        client.send_bytes(b"\x00\x00\x03\x00\x01\x00\x00\x00\x00asd")
+
+        self.assertTrue(client.wait_for_connection_close(3), "Tempesta did not send GOAWAY frame.")
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        self.assertEqual(
+            client.last_stream_id,
+            stream_id,
+            "Tempesta returned invalid last_stream_id in GOAWAY frame.",
+        )
+
+    def test_goaway_frame_in_request(self):
+        """
+        Tempesta must not close connection after receiving GOAWAY frame.
+
+        GOAWAY allows an endpoint to gracefully stop accepting new streams while still
+        finishing processing of previously established streams.
+        RFC 9113 6.8
+        """
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        # Client opens many streams and does not close them
+        for stream_id in range(1, 6, 2):
+            client.stream_id = stream_id
+            client.make_request(request=self.post_request, end_stream=False)
+
+        # Client send GOAWAY frame with PROTOCOL_ERROR as bytes
+        # because `_terminate_connection` method changes state machine to closed
+        client.send_bytes(b"\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x01")
+
+        # Client sends frames in already open streams.
+        # Tempesta must handle these frames and must not close streams,
+        # because sender closes connection, but not receiver.
+        for stream_id in range(1, 6, 2):
+            client.stream_id = stream_id
+            client.make_request(request="asd", end_stream=True)
+
+        self.assertTrue(
+            client.wait_for_response(), "Tempesta closed connection after receiving GOAWAY frame."
+        )
 
     def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
