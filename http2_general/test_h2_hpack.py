@@ -385,12 +385,14 @@ class TestHpack(H2Base):
         client.update_initial_settings(header_table_size=1024)
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertIn(b"\x3f\xe1\x07", client.response_buffer, error_msg.format(1024))
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
         # and we expect \x3f\xe1\x07 bytes in first header frame
         client.send_settings_frame(header_table_size=12288)
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertIn(b"\x3f\xe1\x1f", client.response_buffer, error_msg.format(4096))
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
     def test_bytes_of_table_size_in_header_frame_2(self):
         """
@@ -412,6 +414,7 @@ class TestHpack(H2Base):
             client.response_buffer,
             "Tempesta added dynamic table size (4096) before first header block.",
         )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
     def __setup_settings_header_table_tests(self):
         self.start_all_services()
