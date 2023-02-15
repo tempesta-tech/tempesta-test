@@ -369,6 +369,50 @@ class TestHpack(H2Base):
                     client.stream_id = 1
                     client.make_request(request="asd", end_stream=True)
 
+    def test_bytes_of_table_size_in_header_frame_1(self):
+        """
+        This dynamic table size update MUST occur at the beginning of the first header
+        block following the change to the dynamic table size.
+        RFC 7541 4.2
+        """
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        error_msg = "Tempesta did not add dynamic table size ({0}) before first header block."
+
+        # Client set HEADER_TABLE_SIZE = 1024 bytes and expected \x3f\xe1\x07
+        # bytes in first header frame
+        client.update_initial_settings(header_table_size=1024)
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertIn(b"\x3f\xe1\x07", client.response_buffer, error_msg.format(1024))
+
+        # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
+        # and we expect \x3f\xe1\x07 bytes in first header frame
+        client.send_settings_frame(header_table_size=12288)
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertIn(b"\x3f\xe1\x1f", client.response_buffer, error_msg.format(4096))
+
+    def test_bytes_of_table_size_in_header_frame_2(self):
+        """
+        This dynamic table size update MUST occur at the beginning of the first header
+        block following the change to the dynamic table size.
+        RFC 7541 4.2
+        """
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+
+        # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
+        # and this default value for table size.
+        # Therefore Tempesta does not return bytes of table size in header frame.
+        client.update_initial_settings(header_table_size=12288)
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertNotIn(
+            b"\x3f\xe1\x1f",
+            client.response_buffer,
+            "Tempesta added dynamic table size (4096) before first header block.",
+        )
+
     def __setup_settings_header_table_tests(self):
         self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
