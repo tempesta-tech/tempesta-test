@@ -11,6 +11,7 @@ from h2.events import (
     SettingsAcknowledged,
     StreamEnded,
     TrailersReceived,
+    WindowUpdated,
 )
 from h2.settings import SettingCodes, Settings
 from hpack import Encoder
@@ -198,6 +199,15 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def make_request(self, request):
         raise NotImplementedError("Not implemented 'make_request()'")
 
+    def wait_for_connection_close(self, timeout=5):
+        t0 = time.time()
+        while not self.connection_is_closed():
+            t = time.time()
+            if t - t0 > timeout:
+                return False
+            time.sleep(0.01)
+        return True
+
     @abc.abstractmethod
     def receive_response(self, response):
         raise NotImplementedError("Not implemented 'receive_response()'")
@@ -374,6 +384,7 @@ class DeproxyClientH2(DeproxyClient):
         self.stream_id = 1
         self.active_responses = {}
         self.ack_settings = False
+        self.last_stream_id = None
 
     def make_requests(self, requests):
         for request in requests:
@@ -547,10 +558,13 @@ class DeproxyClientH2(DeproxyClient):
                     self.nrresp += 1
                 elif isinstance(event, ConnectionTerminated):
                     self.error_codes.append(event.error_code)
+                    self.last_stream_id = event.last_stream_id
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
                     # TODO should be changed by issue #358
                     self.handle_read()
+                elif isinstance(event, WindowUpdated):
+                    continue
                 # TODO should be changed by issue #358
                 else:
                     self.handle_read()
