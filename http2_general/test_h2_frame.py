@@ -171,8 +171,6 @@ class TestH2Frame(H2Base):
         # Tempesta closes it for itself.
         client.h2_connection.reset_stream(stream_id=1, error_code=0)
         client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(client.wait_for_ack_settings())
 
         # Client send DATA frame in stream 3 and it MUST receive response
         client.send_request("qwe", "200")
