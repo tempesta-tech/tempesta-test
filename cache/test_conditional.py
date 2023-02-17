@@ -53,6 +53,8 @@ cache_methods GET;
         self,
         etag: str,
         expected_status_code: str,
+        expected_etag_200: str = None,
+        expected_etag_304: str = None,
         if_none_match: str = None,
         if_modified_since: str = None,
     ):
@@ -77,6 +79,11 @@ cache_methods GET;
             + "<html></html>\r\n",
         )
 
+        if not expected_etag_200:
+            expected_etag_200 = etag
+        if not expected_etag_304:
+            expected_etag_304 = etag
+
         client.send_request(
             request=(
                 "GET /page.html HTTP/1.1\r\n"
@@ -87,7 +94,7 @@ cache_methods GET;
             ),
             expected_status_code="200",
         )
-        self.assertIn(etag, str(client.last_response))
+        self.assertIn(expected_etag_200, str(client.last_response))
 
         if if_none_match and if_modified_since:
             option_header = (
@@ -112,7 +119,8 @@ cache_methods GET;
             ),
             expected_status_code=expected_status_code,
         )
-        self.assertIn(etag, client.last_response.headers["etag"])
+
+        self.assertIn(expected_etag_304, client.last_response.headers["etag"])
         self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
 
     def test_none_match(self):
@@ -121,6 +129,56 @@ cache_methods GET;
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match='"asdfqwerty"',
+            if_modified_since=None,
+        )
+
+    def test_none_match_no_quotes_etag(self):
+        """Same as test_none_match(), but etag isn't enclosed in double quotes."""
+        self._test(
+            etag="asdfqwerty",
+            expected_status_code="304",
+            if_none_match='"asdfqwerty"',
+            if_modified_since=None,
+        )
+
+    def test_none_match_no_quotes_etag_with_extra_spaces(self):
+        """Same as test_none_match(), but etag isn't enclosed in double quotes."""
+        self._test(
+            etag="asdfqwerty   ",
+            expected_etag_200="asdfqwerty",
+            expected_etag_304='"asdfqwerty"',
+            expected_status_code="304",
+            if_none_match='"asdfqwerty"',
+            if_modified_since=None,
+        )
+
+    def test_none_match_empty_etag(self):
+        """Same as test_none_match(), but etag isn't enclosed in double quotes and empty."""
+        self._test(
+            etag='""',
+            expected_status_code="304",
+            if_none_match='""',
+            if_modified_since=None,
+        )
+
+    def test_none_match_no_quotes_empty_etag(self):
+        """Same as test_none_match(), but etag isn't enclosed in double quotes and empty."""
+        self._test(
+            etag="",
+            expected_etag_200="",
+            expected_etag_304='""',
+            expected_status_code="304",
+            if_none_match='""',
+            if_modified_since=None,
+        )
+
+    def test_none_match_no_quotes_empty_etag_with_extra_spaces(self):
+        self._test(
+            etag="  ",
+            expected_status_code="304",
+            expected_etag_200=" ",
+            expected_etag_304='""',
+            if_none_match='""',
             if_modified_since=None,
         )
 
