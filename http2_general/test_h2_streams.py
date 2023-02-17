@@ -8,7 +8,8 @@ from h2.connection import AllowedStreamIDs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 
-from framework import deproxy_client
+from framework import deproxy_client, tester
+from helpers import tf_cfg
 from http2_general.helpers import H2Base
 
 
@@ -131,3 +132,133 @@ class TestH2Stream(H2Base):
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
+
+
+class TestMultiplexing(tester.TempestaTest):
+    clients = [
+        {
+            "id": "curl-1",
+            "type": "curl",
+            "cmd_args": f" --max-time 10",
+            "http2": True,
+        },
+        {
+            "id": "curl-2",
+            "type": "curl",
+            "cmd_args": f" --max-time 10",
+            "http2": True,
+        },
+        {
+            "id": "curl-3",
+            "type": "curl",
+            "cmd_args": f" --max-time 10",
+            "http2": True,
+        },
+    ]
+
+    backends = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "",
+        },
+        {
+            "id": "deproxy-3",
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": "",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            
+            srv_group srv_1 {
+                server ${server_ip}:8000;
+            }
+            srv_group srv_2 {
+                server ${server_ip}:8001;
+            }
+            srv_group srv_3 {
+                server ${server_ip}:8002;
+            }
+            vhost v_1 {
+                proxy_pass srv_1;
+            }
+            vhost v_2 {
+                proxy_pass srv_2;
+            }
+            vhost v_3 {
+                proxy_pass srv_3;
+            }
+            
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            
+            block_action attack reply;
+            block_action error reply;
+            
+            http_chain {
+                host == "client1" -> v_1;
+                host == "client2" -> v_2;
+                host == "client3" -> v_3;
+            }
+         """
+    }
+
+    def test_base_multiplexing(self):
+        """Exchange of different frames in responses and requests"""
+        self.start_all_services(client=False)
+        clients = self.get_clients()
+        servers = list(self.get_servers())
+        requests = int(tf_cfg.cfg.get("General", "stress_requests_count"))
+
+        step = 1
+        for client, server in list(zip(clients, servers)):
+            server.set_response(
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + f"Large_header: {'12345' * 4000}\r\n"
+                + f"Content-Length: {step}\r\n\r\n"
+                + f"{'x' * step}"
+            )
+
+            client.uri += f"[1-{requests}]"
+            client.dump_headers = False
+            client.parallel = tf_cfg.cfg.get("General", "concurrent_connections")
+            client.headers = {"Host": f"client{step}"}
+            header = f" -H '{step * 10}: {'asdfg' * 5000}' "
+            client.options = [f" {header} --data 'request body {step}' "]
+
+            step += 1
+
+        for client in clients:
+            client.start()
+        self.wait_while_busy(*clients)
+        for client in clients:
+            client.stop()
+
+        step = 1
+        for client, server in list(zip(clients, servers)):
+            self.assertEqual(len(client.stats), requests)
+            self.assertEqual(len(server.requests), requests)
+
+            for response, request in list(zip(client.stats, server.requests)):
+                self.assertEqual(response["http_code"], 200)
+                self.assertEqual(int(response["size_download"]), step)
+                self.assertEqual(request.headers["Host"], f"client{step}")
+
+            step += 1

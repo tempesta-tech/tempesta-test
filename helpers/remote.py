@@ -85,6 +85,7 @@ class LocalNode(Node):
         env_full = {}
         env_full.update(os.environ)
         env_full.update(env)
+        env_full["SSLKEYLOGFILE"] = "./secrets.txt"
         with subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=stderr_pipe, env=env_full
         ) as p:
