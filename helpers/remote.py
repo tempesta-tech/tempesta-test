@@ -18,6 +18,8 @@ from typing import Union  # TODO: use | instead when we move to python3.10
 
 import paramiko
 
+import run_config
+
 from . import error, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -85,7 +87,9 @@ class LocalNode(Node):
         env_full = {}
         env_full.update(os.environ)
         env_full.update(env)
-        env_full["SSLKEYLOGFILE"] = "./secrets.txt"
+        if run_config.SAVE_SECRETS and "curl" in cmd:
+            env_full["SSLKEYLOGFILE"] = "./secrets.txt"
+
         with subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=stderr_pipe, env=env_full
         ) as p:
