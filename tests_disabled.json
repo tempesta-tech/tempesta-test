@@ -142,10 +142,6 @@
             "reason" : "Disabled by issue #73"
         },
         {
-            "name" : "selftests.test_deproxy.DeproxyTestH2.test_bodyless_multiplexed",
-            "reason" : "Disabled by issue #1669"
-        },
-        {
             "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
         },
@@ -207,7 +203,7 @@
         },
         {
             "name": "cache.test_cache.H2Cache",
-            "reason": "Disabled by issue #1669"
+            "reason": "Disabled by issue #1669 *1669 may not relates to current test*"
         },
         {
             "name": "cache.test_cache.TestChunkedResponse",
@@ -276,14 +272,6 @@
         {
             "name" : "selftests.test_framework.ExampleTest.test_curl",
             "reason": "Disable by issue #308"
-        },
-        {
-            "name" : "http2_general.test_h2_headers.MissingDateServerWithBodyTest",
-            "reason" : "Disabled by issue #1669"
-        },
-        {
-            "name" : "http2_general.test_h2_headers.MissingDateServerWithLargeBodyTest",
-            "reason" : "Disabled by issue #1704"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
@@ -402,20 +390,8 @@
             "reason": "Disabled by issue #1762"
         },
         {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_data_framing",
-            "reason": "Disabled by issue #1669"
-        },
-        {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_empty_last_data_frame",
             "reason": "Disabled by issue #1775"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_tcp_framing_for_request_headers",
-            "reason": "Disabled by issue #1743"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_tcp_framing_for_request",
-            "reason": "Disabled by issue #1743"
         },
         {
             "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
@@ -470,10 +446,6 @@
             "reason": "Disabled by issue #1819"
         },
         {
-            "name": "http2_general.test_h2_max_frame_size.TestMaxFrameSize.test_large_headers_frame_in_response",
-            "reason": "Disabled by issue #1103"
-        },
-        {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_rst_frame_in_response",
             "reason": "Disabled by issue #1819"
         },
@@ -482,12 +454,8 @@
             "reason": "Disabled by issue #1823"
         },
         {
-            "name": "http2_general.test_h2_streams.TestMultiplexing",
-            "reason": "Disabled by PR #1820"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_after_setting_header_table_size",
-            "reason": "Disabled by PR #1820"
+            "reason": "Disabled by PR #1845"
         },
         {
             "name": "t_http_rules.test_h2_http_tables.HttpTablesTestCustomRedirectCorrectVariablesAuthorityH2",
@@ -499,15 +467,15 @@
         },
         {
             "name": "t_stress.test_stress.WrkStressMTU80",
-            "reason": "Disabled by PR #1820, 1842, 1845"
+            "reason": "Disabled by PR #1842, 1845"
         },
         {
             "name": "t_stress.test_stress.TlsWrkStressMTU80",
-            "reason": "Disabled by PR #1820, 1842, 1845"
+            "reason": "Disabled by PR #1842, 1845"
         },
         {
             "name": "t_stress.test_stress.H2LoadStressMTU80",
-            "reason": "Disabled by PR #1820, 1842, 1845"
+            "reason": "Disabled by PR #1842, 1845"
         }
     ]
 }

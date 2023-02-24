@@ -14,8 +14,8 @@ class H2RequestContentLengthBase(H2Config, TestContentLengthBase, base=True):
     request_body = "PUT / HTTP/1.1\r\nHost: localhost\r\n"
 
     # response params
-    response_status = "200 OK"
-    response_headers = "Content-Length: 0\r\n"
+    response_status = "204 No Content"
+    response_headers = ""
     response_body = ""
     keep_alive = None
 
@@ -33,13 +33,13 @@ class H2RequestContentLengthBase(H2Config, TestContentLengthBase, base=True):
 
 class RequestCorrectBodyLength(H2RequestContentLengthBase, t.RequestCorrectBodyLength):
     request_headers = [("content-length", "33")]
-    expected_response_status = "200"
+    expected_response_status = "204"
 
 
 class RequestMissingBodyLength(H2RequestContentLengthBase, t.RequestMissingBodyLength):
     request_headers = []
     expected_requests_to_server = 1
-    expected_response_status = "200"
+    expected_response_status = "204"
     cl_msg_parsing_errors = 0
 
 
