@@ -76,7 +76,7 @@ class Client(object, metaclass=abc.ABCMeta):
             self.node.remove_file(f)
 
     def copy_files(self):
-        for (name, content) in self.files:
+        for name, content in self.files:
             self.node.copy_file(name, content)
 
     @abc.abstractmethod
@@ -315,6 +315,7 @@ class Tempesta(stateful.Stateful):
         self.node = remote.tempesta
         self.workdir = self.node.workdir
         self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        self.tmp_config_name = os.path.join(self.workdir, tf_cfg.cfg.get("Tempesta", "tmp_config"))
         self.config_name = os.path.join(self.workdir, tf_cfg.cfg.get("Tempesta", "config"))
         self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
@@ -327,7 +328,7 @@ class Tempesta(stateful.Stateful):
         self.stats.clear()
         self.node.copy_file(self.config_name, self.config.get_config())
         cmd = "%s/scripts/tempesta.sh --start" % self.srcdir
-        env = {"TFW_CFG_PATH": self.config_name}
+        env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
         self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "start"))
 
     def stop_tempesta(self):
@@ -337,13 +338,14 @@ class Tempesta(stateful.Stateful):
 
     def remove_config(self):
         self.node.remove_file(self.config_name)
+        self.node.remove_file(self.tmp_config_name)
 
     def reload(self):
         """Live reconfiguration"""
         tf_cfg.dbg(3, "\tReconfiguring TempestaFW on %s" % self.host)
         self.node.copy_file(self.config_name, self.config.get_config())
         cmd = "%s/scripts/tempesta.sh --reload" % self.srcdir
-        env = {"TFW_CFG_PATH": self.config_name}
+        env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
         self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "reload"))
 
     def get_stats(self):
