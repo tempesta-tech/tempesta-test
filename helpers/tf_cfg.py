@@ -18,7 +18,6 @@ class ConfigError(Exception):
 
 
 class TestFrameworkCfg(object):
-
     kvs = {}
 
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
@@ -76,6 +75,7 @@ class TestFrameworkCfg(object):
                     "srcdir": "/root/tempesta",
                     "workdir": "/tmp/tempesta",
                     "config": "tempesta.conf",
+                    "tmp_config": "tempesta_tmp.conf",
                     "unavaliable_timeout": "300",
                 },
                 "Server": {
