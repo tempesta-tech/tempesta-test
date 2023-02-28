@@ -1,5 +1,4 @@
 from framework import tester
-from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -59,6 +58,8 @@ vhost default {
     proxy_pass default;
 }
 
+block_action attack reply;
+block_action error reply;
 cache 0;
 
 """
@@ -104,31 +105,25 @@ class H2Spec(tester.TempestaTest):
         # amount of runs in a row.
         h2spec.options.extend(
             [
-                "-x generic/2/2",
-                "-x generic/2/3",
-                "-x generic/3.10/2",
-                "-x http2/4.3/3",
-                "-x http2/5.1/5",
-                "-x http2/5.1/6",
-                "-x http2/5.1/11",
-                "-x http2/5.1/12",
-                "-x http2/5.1.1/4",
-                "-x http2/5.3.1/1",  # causes dmesg warning
-                "-x http2/5.3.1/2",
-                "-x http2/5.5/2",
-                "-x http2/6.1/2",
-                "-x http2/6.2/2",
-                "-x http2/6.9.1/2",
-                "-x http2/6.9.1/3",
-                "-x http2/8.1/1",
-                "-x http2/8.1.2/1",
-                "-x http2/8.1.2.1/3",  # causes dmesg warning
-                "-x http2/8.1.2.2/2",
-                "-x http2/8.1.2.3/5",  # causes dmesg warning
-                "-x http2/8.1.2.3/6",  # causes dmesg warning
-                "-x http2/8.1.2.3/7",  # causes dmesg warning
-                "-x hpack/4.2/1",
-                "-x hpack/5.2/3",  # causes dmesg warning
+                "-x generic/2/2",  # disabled by issue 1394
+                "-x generic/2/3",  # disabled by issue 1196
+                "-x http2/4.3/3",  # disabled by issue 1823
+                "-x http2/5.1/5",  # disabled by issue 1828
+                "-x http2/5.1/6",  # disabled by issue 1828
+                "-x http2/5.1/11",  # disabled by issue 1828
+                "-x http2/5.1/12",  # disabled by issue 1828
+                "-x http2/5.1.1/3",  # disabled by issue 1800
+                "-x http2/5.3.1/1",  # disabled by issue 1196
+                "-x http2/5.3.1/2",  # disabled by issue 1196
+                "-x http2/5.5/2",  # disabled by issue 1824
+                "-x http2/6.1/2",  # disabled by issue 1828
+                "-x http2/6.2/2",  # disabled by issue 1823
+                "-x http2/6.9.1/2",  # disabled by issue 1394
+                "-x http2/6.9.1/3",  # disabled by issue 1394
+                "-x http2/8.1.2/1",  # disabled by issue 1729
+                "-x http2/8.1.2.2/2",  # disabled by issue #1819
+                "-x hpack/4.2/1",  # disabled by issue #1825
+                "-x hpack/5.2/3",  # disabled by issue #1827
             ]
         )
 
@@ -136,4 +131,6 @@ class H2Spec(tester.TempestaTest):
         self.start_tempesta()
         self.start_all_clients()
         self.wait_while_busy(h2spec)
+        h2spec.stop()
         self.assertEqual(0, h2spec.returncode)
+        assert "0 failed" in h2spec.response_msg, h2spec.response_msg

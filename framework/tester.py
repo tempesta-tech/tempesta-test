@@ -273,6 +273,9 @@ class TempestaTest(unittest.TestCase):
             return None
         return self.__clients[cid]
 
+    def get_clients(self) -> list:
+        return list(self.__clients.values())
+
     def get_clients_id(self):
         """Return list of registered clients id"""
         return self.__clients.keys()
