@@ -112,7 +112,11 @@ class HeadersParsing(H2Base):
         )
 
     def test_transfer_encoding_header_in_request(self):
-        """The request must be treated as malformed. RFC 7540 8.1.2"""
+        """
+        The only exception to this is the TE header field, which MAY be present in an HTTP/2
+        request; when it is, it MUST NOT contain any value other than "trailers".
+        RFC 9113 8.2.2
+        """
         self.start_all_services()
 
         client = self.get_client("deproxy")
