@@ -1,5 +1,5 @@
 """
-Testing for memory t_leaks
+Testing for memory leaks
 """
 
 __author__ = "Tempesta Technologies, Inc."
@@ -174,7 +174,7 @@ tls_match_any_server_name;
         backend.stop()
 
     def test_kmemleak(self):
-        """Detecting t_leaks with kmemleak"""
+        """Detecting leaks with kmemleak"""
         if not has_kmemleak():
             return unittest.TestCase.skipTest(self, "No kmemleak")
 
@@ -188,7 +188,7 @@ tls_match_any_server_name;
         self.assertEqual(kml1, kml2)
 
     def test_slab_memory(self):
-        """Detecting t_leaks with slab memory measure"""
+        """Detecting leaks with slab memory measure"""
         if not has_meminfo():
             return unittest.TestCase.skipTest(self, "No meminfo")
 
@@ -203,7 +203,7 @@ tls_match_any_server_name;
         self.assertLess(used2 - used1, self.memory_leak_thresold)
 
     def test_used_memory(self):
-        """Detecting t_leaks with total used memory measure"""
+        """Detecting leaks with total used memory measure"""
         if not has_meminfo():
             return unittest.TestCase.skipTest(self, "No meminfo")
 
