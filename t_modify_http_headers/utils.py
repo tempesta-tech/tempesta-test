@@ -65,11 +65,15 @@ tls_match_any_server_name;
 
             for header in expected_headers:
                 if self.directive in ["req_hdr_set", "req_hdr_add"]:
-                    self.assertIn(header, server.last_request.headers.items())
-                    self.assertNotIn(header, client.last_response.headers.items())
+                    self.assertIn(header[1], list(server.last_request.headers.find_all(header[0])))
+                    self.assertNotIn(
+                        header[1], list(client.last_response.headers.find_all(header[0]))
+                    )
                 else:
-                    self.assertIn(header, client.last_response.headers.items())
-                    self.assertNotIn(header, server.last_request.headers.items())
+                    self.assertIn(header[1], list(client.last_response.headers.find_all(header[0])))
+                    self.assertNotIn(
+                        header[1], list(server.last_request.headers.find_all(header[0]))
+                    )
 
         return client, server
 
@@ -85,7 +89,7 @@ class H2Config:
         },
     ]
     request = [
-        (":authority", "example.com"),
+        (":authority", "localhost"),
         (":path", "/"),
         (":scheme", "https"),
         (":method", "GET"),
