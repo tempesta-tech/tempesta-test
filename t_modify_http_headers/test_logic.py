@@ -102,6 +102,42 @@ class TestReqHeader(AddHeaderBase):
             expected_headers=[("x-my-hdr", "original text, original text")],
         )
 
+    def test_add_large_header(self):
+        self.directive = f"{self.directive}_hdr_set"
+        self.base_scenario(
+            config=f'{self.directive} x-my-hdr "{"12345" * 2000}";\n',
+            expected_headers=[("x-my-hdr", "12345" * 2000)],
+        )
+
+    def test_multiple_appending_same_header(self):
+        """All headers must be added in request/response as list."""
+        self.directive = f"{self.directive}_hdr_add"
+        self.base_scenario(
+            config=(
+                f'{self.directive} x-my-hdr-2 "first text";\n'
+                f'{self.directive} x-my-hdr-2 "second text";\n'
+                f'{self.directive} x-my-hdr-2 "third text";\n'
+            ),
+            expected_headers=[("x-my-hdr-2", "first text, second text, third text")],
+        )
+
+    def test_multiple_replacing_same_header(self):
+        """Only last header must be added in request/response."""
+        self.directive = f"{self.directive}_hdr_set"
+        client, server = self.base_scenario(
+            config=(
+                f'{self.directive} x-my-hdr-2 "first text";\n'
+                f'{self.directive} x-my-hdr-2 "second text";\n'
+                f'{self.directive} x-my-hdr-2 "third text";\n'
+            ),
+            expected_headers=[("x-my-hdr-2", "third text")],
+        )
+
+        if self.directive == "req_hdr_set":
+            self.assertEqual(1, len(list(server.last_request.headers.find_all("x-my-hdr-2"))))
+        else:
+            self.assertEqual(1, len(list(client.last_response.headers.find_all("x-my-hdr-2"))))
+
 
 class TestRespHeader(TestReqHeader):
     backends = [
@@ -160,7 +196,30 @@ class TestReqHeaderH2(H2Config, TestReqHeader):
 
 
 class TestRespHeaderH2(H2Config, TestRespHeader):
-    pass
+    def test_add_header_from_static_table(self):
+        """Tempesta must add header from static table as byte."""
+        self.directive = f"{self.directive}_hdr_add"
+        client, server = self.base_scenario(
+            config=f'{self.directive} cache-control "no-cache";\n',
+            expected_headers=[("cache-control", "no-cache")],
+        )
+
+        self.assertIn(b"X/08no-cache", client.response_buffer)
+
+    def test_add_header_from_dynamic_table(self):
+        """Tempesta must add header from dynamic table for second response."""
+        self.directive = f"{self.directive}_hdr_add"
+        self.update_tempesta_config(config=f'{self.directive} x-my-hdr-3 "text";\n')
+        self.start_all_services()
+
+        client = self.get_client("deproxy-1")
+
+        client.send_request(self.request, "200")
+        self.assertIn(b"@\nx-my-hdr-3\x04text", client.response_buffer)
+
+        client.send_request(self.request, "200")
+        self.assertNotIn(b"@\nx-my-hdr-3\x04text", client.response_buffer)
+        self.assertIn(b"\xbe", client.response_buffer)
 
 
 class TestCachedRespHeaderH2(H2Config, TestCachedRespHeader):
