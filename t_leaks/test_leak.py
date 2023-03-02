@@ -3,7 +3,7 @@ Testing for memory leaks
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os.path
@@ -12,8 +12,17 @@ import unittest
 from time import sleep
 
 from framework import tester
-from helpers import control, remote, tempesta, tf_cfg
-from testers import stress
+from helpers import remote, tf_cfg
+
+# Number of open connections
+CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
+# Number of threads to use for wrk and h2load tests
+THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
+
+# Number of requests to make
+REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
+# Time to wait for single request completion
+DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 
 def drop_caches():
@@ -134,7 +143,7 @@ http {
 
     clients = [
         {
-            "id": "wrk",
+            "id": "client-1",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
         },
@@ -142,9 +151,15 @@ http {
 
     tempesta = {
         "config": """
+listen 80;
+listen 443 proto=h2;
+
 cache 0;
 server ${server_ip}:8000;
 
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 """,
     }
 
@@ -164,10 +179,10 @@ server ${server_ip}:8000;
             return unittest.TestCase.skipTest(self, "No kmemleak")
 
         nginx = self.get_server("nginx")
-        wrk = self.get_client("wrk")
+        client = self.get_client("client-1")
 
         kml1 = read_kmemleaks()
-        self.run_routine(nginx, wrk)
+        self.run_routine(nginx, client)
         kml2 = read_kmemleaks()
 
         self.assertEqual(kml1, kml2)
@@ -178,10 +193,10 @@ server ${server_ip}:8000;
             return unittest.TestCase.skipTest(self, "No meminfo")
 
         nginx = self.get_server("nginx")
-        wrk = self.get_client("wrk")
+        client = self.get_client("client-1")
 
         used1 = slab_memory()
-        self.run_routine(nginx, wrk)
+        self.run_routine(nginx, client)
         used2 = slab_memory()
 
         tf_cfg.dbg(2, "used %i kib of slab memory=%s kib - %s kib" % (used2 - used1, used2, used1))
@@ -193,10 +208,10 @@ server ${server_ip}:8000;
             return unittest.TestCase.skipTest(self, "No meminfo")
 
         nginx = self.get_server("nginx")
-        wrk = self.get_client("wrk")
+        client = self.get_client("client-1")
 
         free_and_cached1 = free_and_cached_memory()
-        self.run_routine(nginx, wrk)
+        self.run_routine(nginx, client)
         free_and_cached2 = free_and_cached_memory()
 
         used = free_and_cached1 - free_and_cached2
@@ -205,3 +220,23 @@ server ${server_ip}:8000;
             "used %i kib of memory = %s kib - %s kib" % (used, free_and_cached1, free_and_cached2),
         )
         self.assertLess(used, self.memory_leak_thresold)
+
+
+class LeakTestH2(LeakTest):
+    """Leaks testing for H2."""
+
+    clients = [
+        {
+            "id": "client-1",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {CONCURRENT_CONNECTIONS}"
+                f" --duration {DURATION}"
+            ),
+        },
+    ]

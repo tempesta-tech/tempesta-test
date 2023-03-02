@@ -498,6 +498,10 @@
             "reason": "Disabled by PR #1804"
         },
         {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_double_header_frame_in_single_stream",
+            "reason": "Disabled by issue #1823"
+        },
+        {
             "name": "http2_general.test_h2_streams.TestMultiplexing",
             "reason": "Disabled by PR #1820"
         }

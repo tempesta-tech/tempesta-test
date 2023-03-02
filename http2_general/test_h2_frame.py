@@ -309,6 +309,18 @@ class TestH2Frame(H2Base):
             client.wait_for_response(), "Tempesta closed connection after receiving GOAWAY frame."
         )
 
+    def test_double_header_frame_in_single_stream(self):
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        client.make_request(self.post_request, end_stream=False)
+        client.make_request([("header1", "header value1")], end_stream=True)
+
+        self.assertTrue(client.wait_for_connection_close())
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
     def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
 
