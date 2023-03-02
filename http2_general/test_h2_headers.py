@@ -111,6 +111,24 @@ class HeadersParsing(H2Base):
             "400",
         )
 
+    def test_transfer_encoding_header_in_request(self):
+        """
+        The only exception to this is the TE header field, which MAY be present in an HTTP/2
+        request; when it is, it MUST NOT contain any value other than "trailers".
+        RFC 9113 8.2.2
+        """
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.parsing = False
+        client.send_request(
+            (
+                self.post_request + [("transfer-encoding", "chunked")],
+                "123",
+            ),
+            "400",
+        )
+
 
 class TestPseudoHeaders(H2Base):
     def test_invalid_pseudo_header(self):

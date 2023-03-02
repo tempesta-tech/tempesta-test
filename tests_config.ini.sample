@@ -189,6 +189,13 @@ workdir = /tmp/tempesta
 #
 config = tempesta.conf
 
+# Workdir-relative path to the temporary TempestaFW template config
+# (created during testing).
+#
+# ex.: tmp_config = etc/tempesta_tmp_test.conf (default tempesta_tmp.conf)
+#
+tmp_config = tempesta.conf
+
 # Timeout to wait if node is unavaliable
 # ex.: unavaliable_timeout = 300 (default 300)
 unavaliable_timeout = 300
