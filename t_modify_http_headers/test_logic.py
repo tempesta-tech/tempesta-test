@@ -83,26 +83,34 @@ class TestReqHeader(AddHeaderBase):
         self.assertNotIn("tempesta", list(server.last_request.headers.find_all("host")))
 
     def test_overwrite_non_singular_header(self):
-        """New value for header must be added to old value as list."""
+        """New value for header must not be added."""
         self.directive = f"{self.directive}_hdr_add"
         client, server = self.base_scenario(
             config=f'{self.directive} Content-Encoding "br";\n',
-            expected_headers=[("content-encoding", "gzip, br")],
+            expected_headers=[("content-encoding", "gzip")],
         )
         if self.directive == "req_hdr_add":
-            self.assertNotIn("gzip", list(server.last_request.headers.find_all("content-encoding")))
+            self.assertNotIn("br", list(server.last_request.headers.find_all("content-encoding")))
         else:
-            self.assertNotIn("gzip", list(client.last_response.headers.items("content-encoding")))
+            self.assertNotIn("br", list(client.last_response.headers.find_all("content-encoding")))
 
     def test_add_exist_header(self):
         """Header will be modified if 'header-value' is in base request/response."""
         self.directive = f"{self.directive}_hdr_add"
-        self.base_scenario(
+        client, server = self.base_scenario(
             config=f'{self.directive} x-my-hdr "original text";\n',
             expected_headers=[("x-my-hdr", "original text, original text")],
         )
+        if self.directive == "req_hdr_add":
+            self.assertNotIn(
+                "original text", list(server.last_request.headers.find_all("x-my-hdr"))
+            )
+        else:
+            self.assertNotIn(
+                "original text", list(client.last_response.headers.find_all("x-my-hdr"))
+            )
 
-    def test_add_large_header(self):
+    def test_set_large_header(self):
         self.directive = f"{self.directive}_hdr_set"
         self.base_scenario(
             config=f'{self.directive} x-my-hdr "{"12345" * 2000}";\n',
@@ -176,6 +184,7 @@ class TestRespHeader(TestReqHeader):
         )
 
         self.assertNotIn('"asd"', list(client.last_response.headers.find_all("Etag")))
+        self.assertNotIn("asd", list(client.last_response.headers.find_all("Etag")))
         self.assertNotIn('"qwe", "asd"', list(client.last_response.headers.find_all("Etag")))
 
 
@@ -189,6 +198,7 @@ class TestReqHeaderH2(H2Config, TestReqHeader):
         (":path", "/"),
         (":scheme", "https"),
         (":method", "GET"),
+        ("host", "localhost"),
         ("x-my-hdr", "original text"),
         ("x-my-hdr", "original text"),
         ("content-encoding", "gzip"),
@@ -222,5 +232,5 @@ class TestRespHeaderH2(H2Config, TestRespHeader):
         self.assertIn(b"\xbe", client.response_buffer)
 
 
-class TestCachedRespHeaderH2(H2Config, TestCachedRespHeader):
-    pass
+class TestCachedRespHeaderH2(TestRespHeaderH2):
+    cache = True
