@@ -203,7 +203,7 @@
         },
         {
             "name": "cache.test_cache.H2Cache",
-            "reason": "Disabled by issue #1669 *1669 may not relates to current test*"
+            "reason": "Disabled by issue #416"
         },
         {
             "name": "cache.test_cache.TestChunkedResponse",
