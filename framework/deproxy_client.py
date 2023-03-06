@@ -504,6 +504,19 @@ class DeproxyClientH2(DeproxyClient):
             time.sleep(0.01)
         return True
 
+    def wait_for_reset_stream(self, stream_id: int, timeout=5):
+        """Wait RST_STREAM frame for stream."""
+        if self.state != stateful.STATE_STARTED:
+            return False
+
+        t0 = time.time()
+        while not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id):
+            t = time.time()
+            if t - t0 > timeout:
+                return False
+            time.sleep(0.01)
+        return True
+
     def send_bytes(self, data: bytes, expect_response=False):
         self.request_buffers.append(data)
         self.nrreq += 1
