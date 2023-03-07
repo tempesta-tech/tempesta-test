@@ -159,12 +159,20 @@ class TempestaTest(unittest.TestCase):
     def __create_client_deproxy(self, client, ssl, bind_addr):
         addr = fill_template(client["addr"], client)
         port = int(fill_template(client["port"], client))
+        socket_family = client.get("socket_family", "ipv4")
         if client["type"] == "deproxy_h2":
             clt = deproxy_client.DeproxyClientH2(
-                addr=addr, port=port, ssl=ssl, bind_addr=bind_addr, proto="h2"
+                addr=addr,
+                port=port,
+                ssl=ssl,
+                bind_addr=bind_addr,
+                proto="h2",
+                socket_family=socket_family,
             )
         else:
-            clt = deproxy_client.DeproxyClient(addr=addr, port=port, ssl=ssl, bind_addr=bind_addr)
+            clt = deproxy_client.DeproxyClient(
+                addr=addr, port=port, ssl=ssl, bind_addr=bind_addr, socket_family=socket_family
+            )
         if ssl and "ssl_hostname" in client:
             # Don't set SNI by default, do this only if it was specified in
             # the client configuration.

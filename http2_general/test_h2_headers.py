@@ -242,8 +242,63 @@ class TestConnectionHeaders(H2Base):
         self.__test_response(header=("upgrade", "websocket"))
 
 
-class CurlTestBase(tester.TempestaTest):
+class TestIPv6(H2Base):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ipv6}",
+            "port": "443",
+            "ssl": True,
+            "socket_family": "ipv6",
+        },
+    ]
 
+    tempesta = {
+        "config": """
+            listen [${tempesta_ipv6}]:443 proto=h2;
+            server ${server_ip}:8000;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+        """
+    }
+
+    def test_request_with_some_data(self):
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.start_all_services()
+
+        data_size = 5000
+        response_header = ("x-my-hdr", "x" * data_size)
+        response_body = "x" * data_size
+        request_header = ("x-my-hdr", "z" * data_size)
+        request_body = "z" * data_size
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + f"{response_header[0]}: {response_header[1]}\r\n"
+            + f"Content-Length: {len(response_body)}\r\n\r\n"
+            + response_body
+        )
+        client.send_request(
+            request=(self.post_request + [request_header], request_body),
+            expected_status_code="200",
+        )
+
+        self.assertEqual(request_body, server.last_request.body)
+        self.assertEqual(response_body, client.last_response.body)
+        self.assertIn(request_header, server.last_request.headers.headers)
+        self.assertIn(response_header, client.last_response.headers.headers)
+
+
+class CurlTestBase(tester.TempestaTest):
     clients = [
         {
             "id": "curl",

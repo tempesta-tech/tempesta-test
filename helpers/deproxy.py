@@ -407,7 +407,6 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
 
 
 class Request(HttpMessage):
-
     # All methods registered in IANA.
     # https://www.iana.org/assignments/http-methods/http-methods.xhtml
     methods = [
@@ -727,7 +726,14 @@ class TlsClient(asyncore.dispatcher):
 
 class Client(TlsClient, stateful.Stateful):
     def __init__(
-        self, addr=None, host="Tempesta", port=80, ssl=False, bind_addr=None, proto="http/1.1"
+        self,
+        addr=None,
+        host="Tempesta",
+        port=80,
+        ssl=False,
+        bind_addr=None,
+        proto="http/1.1",
+        socket_family="ipv4",
     ):
         TlsClient.__init__(self, ssl, proto)
         self.request = None
@@ -742,6 +748,7 @@ class Client(TlsClient, stateful.Stateful):
         self.conn_is_closed = True
         self.bind_addr = bind_addr
         self.error_codes = []
+        self.socket_family = socket_family
 
     def __stop_client(self):
         tf_cfg.dbg(4, "\tStop deproxy client")
@@ -751,7 +758,9 @@ class Client(TlsClient, stateful.Stateful):
         tf_cfg.dbg(3, "\tStarting deproxy client")
 
         tf_cfg.dbg(4, "\tDeproxy: Client: Connect to %s:%d." % (self.conn_addr, self.port))
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.create_socket(
+            socket.AF_INET if self.socket_family == "ipv4" else socket.AF_INET6, socket.SOCK_STREAM
+        )
         if self.bind_addr:
             self.bind((self.bind_addr, 0))
         self.connect((self.conn_addr, self.port))
@@ -769,6 +778,17 @@ class Client(TlsClient, stateful.Stateful):
 
     def connection_is_closed(self):
         return self.conn_is_closed
+
+    @property
+    def socket_family(self) -> str:
+        return self.__socket_family
+
+    @socket_family.setter
+    def socket_family(self, socket_family: str) -> None:
+        if socket_family in ("ipv4", "ipv6"):
+            self.__socket_family = socket_family
+        else:
+            raise Exception("Unexpected socket family.")
 
     def handle_connect(self):
         TlsClient.handle_connect(self)

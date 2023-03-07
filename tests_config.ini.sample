@@ -1,13 +1,14 @@
 [General]
 # This section refer to testing framework itself.
 
-# IPv4/IPv6 address of the host that runs the testing framework.
+# IPv4 and IPv6 addresses of the host that runs the testing framework.
 # This is the address deproxy's server will be listening at.
 # This value will be used internally, in command lines and configuration files.
 #
 # ex.: ip = 192.168.11.6 (default 127.0.0.1)
 #
 ip = 127.0.0.1
+ipv6 = ::1
 
 # Verbose level:
 # 0 - quiet mode, result of each test is shown by symbols:
@@ -86,13 +87,14 @@ long_body_size = 500
 # Note: in some tests, HTTP servers are also ran locally using this configuration
 # (disregarding [Server] section).
 
-# IPv4/IPv6 address of this host in the test network, as reachable from the host
+# IPv4 and IPv6 addresses of this host in the test network, as reachable from the host
 # running TempestaFW.
 # This value will be used internally, in command lines and configuration files.
 #
 # ex.: ip = 192.168.11.6 (default 127.0.0.1)
 #
 ip = 127.0.0.1
+ipv6 = ::1
 
 # Absolute path to the working (temporary) directory on this host.
 #
@@ -149,13 +151,14 @@ tls-perf = tls-perf
 # Configuration for the host running TempestaFW. It may be configured to run
 # locally or remotely (using SSH). Refer to README.md for more information.
 
-# IPv4/IPv6 address of the host running TempestaFW in the test network,
+# IPv4 and IPv6 addresses of the host running TempestaFW in the test network,
 # as reachable from this host.
 # This value will be used internally, in command lines and configuration files.
 #
 # ex.: ip = 192.168.11.6 (default 127.0.0.1)
 #
 ip = 127.0.0.1
+ipv6 = ::1
 
 # Target host description. These values will be used to SSH into the remote host.
 # If hostname is 'localhost', TempestaFW will be ran locally.
@@ -204,12 +207,13 @@ unavaliable_timeout = 300
 # Configuration for the host running HTTP servers. They may be configured to run
 # locally or remotely (using SSH). Refer to README.md for more information.
 
-# IPv4/IPv6 address of the host running HTTP servers in the test network,
+# IPv4 and IPv6 addresses of the host running HTTP servers in the test network,
 # as reachable from the host running TempestaFW.
 #
 # ex.: ip = 192.168.11.7 (default 127.0.0.1)
 #
 ip = 127.0.0.1
+ipv6 = ::1
 
 # Target host description. These values will be used to SSH into the remote host.
 # If hostname is 'localhost', HTTP servers will be ran locally.

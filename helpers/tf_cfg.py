@@ -46,6 +46,7 @@ class TestFrameworkCfg(object):
             {
                 "General": {
                     "ip": "127.0.0.1",
+                    "ipv6": "::1",
                     "verbose": "0",
                     "workdir": "/tmp/host",
                     "duration": "10",
@@ -59,6 +60,7 @@ class TestFrameworkCfg(object):
                 },
                 "Client": {
                     "ip": "127.0.0.1",
+                    "ipv6": "::1",
                     "hostname": "localhost",
                     "ab": "ab",
                     "wrk": "wrk",
@@ -69,6 +71,7 @@ class TestFrameworkCfg(object):
                 },
                 "Tempesta": {
                     "ip": "127.0.0.1",
+                    "ipv6": "::1",
                     "hostname": "localhost",
                     "user": "root",
                     "port": "22",
@@ -80,6 +83,7 @@ class TestFrameworkCfg(object):
                 },
                 "Server": {
                     "ip": "127.0.0.1",
+                    "ipv6": "::1",
                     "hostname": "localhost",
                     "user": "root",
                     "port": "22",
