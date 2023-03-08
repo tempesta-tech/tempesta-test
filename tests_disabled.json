@@ -146,6 +146,10 @@
             "reason" : "Disabled by issue #1669"
         },
         {
+            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
+            "reason" : "Disabled by issue #1836"
+        },
+        {
             "name" : "tls.test_tls_limits.TLSLimits.test_with_deproxy",
             "reason" : "Disabled by issue #363"
         },
