@@ -1,10 +1,10 @@
 """Functional tests for `http_header_chunk_cnt` and `http_body_chunk_cnt`  directive"""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from t_frang.frang_test_case import FrangTestCase
+from t_frang.frang_test_case import FrangTestCase, H2Config
 
 
 class HttpHeaderChunkCnt(FrangTestCase):
@@ -57,3 +57,30 @@ class HttpBodyChunkCnt(FrangTestCase):
         """Set up `http_body_chunk_cnt 3;` and make request with 4 body chunk"""
         client = self.base_scenario(frang_config="http_body_chunk_cnt 3;", requests=self.requests)
         self.check_response(client, "403", self.error)
+
+
+class HttpHeaderChunkCntH2(H2Config, HttpHeaderChunkCnt):
+    requests = [
+        [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "POST"),
+            ("big-header1", "12345" * 5000),  # CONTINUATION frame 1
+            ("big-header2", "54321" * 5000),  # CONTINUATION frame 2
+        ]
+    ]
+
+
+class HttpBodyChunkCntH2(H2Config, HttpBodyChunkCnt):
+    requests = [
+        (
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "POST"),
+            ],
+            "12345" * 12000,  # DATA frames x4
+        ),
+    ]
