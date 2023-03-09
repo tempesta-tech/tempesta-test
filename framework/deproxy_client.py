@@ -196,7 +196,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         raise NotImplementedError("Not implemented 'make_requests()'")
 
     @abc.abstractmethod
-    def make_request(self, request):
+    def make_request(self, request, **kwargs):
         raise NotImplementedError("Not implemented 'make_request()'")
 
     def wait_for_connection_close(self, timeout=5):
@@ -304,7 +304,7 @@ class DeproxyClient(BaseDeproxyClient):
         else:
             raise TypeError("Use list or str for request.")
 
-    def make_request(self, request: str) -> None:
+    def make_request(self, request: str, **kwargs) -> None:
         """Send one HTTP request"""
         self._clear_request_stats()
         self.update_selfproxy()
@@ -367,7 +367,7 @@ class DeproxyClient(BaseDeproxyClient):
 class HuffmanEncoder(Encoder):
     """Override method to disable Huffman encoding. Encoding is enabled by default."""
 
-    huffman: bool
+    huffman: bool = True
 
     def encode(self, headers, huffman=True):
         return super().encode(headers=headers, huffman=self.huffman)
@@ -417,13 +417,13 @@ class DeproxyClientH2(DeproxyClient):
             self._clear_request_stats()
             headers, body = request
             self.h2_connection.send_headers(self.stream_id, headers)
-            self.h2_connection.send_data(self.stream_id, body.encode(), end_stream)
+            self.__prepare_data_frames(data=body, end_stream=end_stream)
         elif isinstance(request, list):
             self._clear_request_stats()
             headers = request
             self.h2_connection.send_headers(self.stream_id, headers, end_stream)
         elif isinstance(request, str):
-            self.h2_connection.send_data(self.stream_id, request.encode(), end_stream)
+            self.__prepare_data_frames(data=request, end_stream=end_stream)
 
         if headers:
             for header in headers:
@@ -577,7 +577,11 @@ class DeproxyClientH2(DeproxyClient):
                     # TODO should be changed by issue #358
                     self.handle_read()
                 elif isinstance(event, WindowUpdated):
-                    continue
+                    if event == events[-1]:
+                        # TODO should be changed by issue #358
+                        self.handle_read()
+                    else:
+                        continue
                 # TODO should be changed by issue #358
                 else:
                     self.handle_read()
@@ -651,3 +655,18 @@ class DeproxyClientH2(DeproxyClient):
         if max_header_list_size is not None:
             new_settings[SettingCodes.MAX_HEADER_LIST_SIZE] = max_header_list_size
         return new_settings
+
+    def __prepare_data_frames(self, data: str, end_stream: bool) -> None:
+        while len(data) > self.h2_connection.max_outbound_frame_size:
+            self.h2_connection.send_data(
+                stream_id=self.stream_id,
+                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
+                end_stream=False,
+            )
+            data = data[self.h2_connection.max_outbound_frame_size :]
+        else:
+            self.h2_connection.send_data(
+                stream_id=self.stream_id,
+                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
+                end_stream=end_stream,
+            )
