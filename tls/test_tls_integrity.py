@@ -31,19 +31,25 @@ class TlsIntegrityTester(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "dummy",
-        }
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: test\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
     ]
 
-    def start_all(self):
+    def start(self):
         deproxy_srv = self.get_server("deproxy")
         deproxy_srv.start()
         self.start_tempesta()
-        self.start_all_clients()
         self.deproxy_manager.start()
         self.assertTrue(
             deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
         )
+
+    def start_all(self):
+        self.start()
+        self.start_all_clients()
 
     @staticmethod
     def make_resp(body):
@@ -87,24 +93,115 @@ class TlsIntegrityTester(tester.TempestaTest):
         finally:
             sysnet.change_mtu(node, dev, mtu)
 
-    def get_tso_state(self, dev):
-        cmd = f"ethtool --show-features {dev} | grep tcp-segmentation-offload"
+    def _get_state(self, dev, what):
+        cmd = f"ethtool --show-features {dev} | grep {what}"
         out = remote.client.run_cmd(cmd)
-        tso_state = out[0].decode("utf-8").split(" ")[-1].strip('\n')
-        if tso_state == 'on':
+        return out[0].decode("utf-8").split(" ")[-1].strip("\n")
+
+    def get_tso_state(self, dev):
+        tso_state = self._get_state(dev, "tcp-segmentation-offload")
+        if tso_state == "on":
             self.tso_state = True
         else:
             self.tso_state = False
 
-    def change_tso(self, dev, on=True):
-        if on:
-            cmd = f"ethtool -K {dev} tso on"
+    def get_gro_state(self, dev):
+        gro_state = self._get_state(dev, "generic-receive-offload")
+        if gro_state == "on":
+            self.gro_state = True
         else:
-            cmd = f"ethtool -K {dev} tso off"
+            self.gro_state = False
+
+    def get_gso_state(self, dev):
+        gso_state = self._get_state(dev, "generic-segmentation-offload")
+        if gso_state == "on":
+            self.gso_state = True
+        else:
+            self.gso_state = False
+
+    def _set_state(self, dev, what, on=True):
+        if on:
+            cmd = f"ethtool -K {dev} {what} on"
+        else:
+            cmd = f"ethtool -K {dev} {what} off"
         out = remote.client.run_cmd(cmd)
 
+    def change_tso(self, dev, on=True):
+        self._set_state(dev, "tso", on)
+
+    def change_gro(self, dev, on=True):
+        self._set_state(dev, "gro", on)
+
+    def change_gso(self, dev, on=True):
+        self._set_state(dev, "gso", on)
+
+    def _tcp_off_tso_gro_gso(self, client, addr, funtion, mtu):
+        try:
+            # Deproxy client and server run on the same node and network
+            # interface, so, regardless where the Tempesta node resides, we can
+            # change MTU on the local interface only to get the same MTU for
+            # both the client and server connections.
+            dev = sysnet.route_dst_ip(remote.client, addr)
+            prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
+        except Error as err:
+            self.fail(err)
+        try:
+            self.get_tso_state(dev)
+            self.get_gro_state(dev)
+            self.get_gso_state(dev)
+            self.change_tso(dev, False)
+            self.change_gro(dev, False)
+            self.change_gso(dev, False)
+
+            funtion(client)
+        finally:
+            self.change_tso(dev, self.tso_state)
+            self.change_gro(dev, self.gro_state)
+            self.change_gso(dev, self.gro_state)
+            sysnet.change_mtu(remote.client, dev, prev_mtu)
+
+    def _simple_tcp_off_tso_gro_gso(self, client):
+        server = self.get_server("deproxy")
+
+        header = ("qwerty", "x" * 10000)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: test\r\n"
+            f"{header[0]}: {header[1]}\r\n"
+            "Content-Length: 0\r\n\r\n"
+        )
+
+        client.send_settings_frame(header_table_size=2048)
+        client.wait_for_ack_settings()
+
+        client.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "POST"),
+            ],
+            expected_status_code="200",
+        )
+        self.assertIsNotNone(client.last_response.headers.get(header[0]))
+        self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
+
+    def _stress_tcp_off_tso_gro_gso(self, client):
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        self.assertEqual(client.returncode, 0)
+        self.assertNotIn(" 0 2xx, ", client.response_msg)
+
+    def tcp_off_tso_gro_gso(self, client, mtu):
+        self._tcp_off_tso_gro_gso(client, client.addr[0], self._simple_tcp_off_tso_gro_gso, mtu)
+
+    def tcp_off_tso_gro_gso_stress(self, client, mtu):
+        self._tcp_off_tso_gro_gso(client, "127.0.0.1", self._stress_tcp_off_tso_gro_gso, mtu)
+
     def tcp_flow_check(self, resp_len, mtu=1500):
-        """ Check how Tempesta generates TCP segments for TLS records. """
+        """Check how Tempesta generates TCP segments for TLS records."""
         # Run the sniffer first to let it start in separate thread.
         sniffer = analyzer.AnalyzerTCPSegmentation(
             remote.tempesta, "Tempesta", timeout=3, ports=(443, 8000)
@@ -139,6 +236,56 @@ class TlsIntegrityTester(tester.TempestaTest):
             self.change_tso(dev, self.tso_state)
             sysnet.change_mtu(remote.client, dev, prev_mtu)
 
+
+class NetSettings(TlsIntegrityTester):
+
+    clients = [
+        {
+            "id": "deproxy_h2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (" https://${tempesta_ip}" " -c100" " -t2" " -m100" " -D10"),
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            cache 0;
+            listen 443 proto=h2;
+            tls_certificate ${general_workdir}/tempesta.crt;
+            tls_certificate_key ${general_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
+
+    def test_off_tso_gro_gso(self):
+        self.start()
+
+        client = self.get_client("deproxy_h2")
+        client.start()
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        self.tcp_off_tso_gro_gso(client, mtu=1500)
+
+    def test_off_tso_gro_gso_stress(self):
+        self.start()
+
+        client = self.get_client("h2load")
+        client.start()
+
+        self.tcp_off_tso_gro_gso_stress(client, mtu=1500)
+
+
 class Proxy(TlsIntegrityTester):
 
     tempesta = {
@@ -171,7 +318,7 @@ class Proxy(TlsIntegrityTester):
             backend -> tempesta -> client
         ##############################################
         with mtu it will be splitted into segments and
-        analyze traffic. 
+        analyze traffic.
         Set payload and mtu in test like code below and
         run test with -v -v to see what happens
         """
