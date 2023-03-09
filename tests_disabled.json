@@ -286,10 +286,6 @@
             "reason" : "Disabled by issue #399"
         },
         {
-            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
-            "reason": "Disabled by issue #384"
-        },
-        {
             "name" : "t_sites.test_wordpress.TestWordpressSiteH2",
             "reason": "Disabled by issue #384 #1669"
         },

@@ -403,6 +403,10 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         client = self.get_client("post_admin_form")
         self.approve_comment(comment_id)
 
+        # Purge cache
+        self.purge_cache(f"/?p={post_id}", fetch=True)
+        self.purge_cache(f"/?feed=comments-rss2", fetch=True)
+
         # Check anonymous commend present
         self.assertIn(guest_comment, self.get_post(post_id).stdout)
         self.assertIn(guest_comment, self.get_comments_feed())
@@ -412,6 +416,10 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
             comment_id=comment_id,
             action_nonce=self.get_comment_deletion_nonce(comment_id),
         )
+
+        # Further we no need admin access mark, however it disable caching
+        self.del_nf_mark(1)
+
         # Check deleted comment still present (cache not purged yet)
         self.assertIn(guest_comment, self.get_post(post_id).stdout)
         self.assertIn(guest_comment, self.get_comments_feed())
@@ -488,12 +496,10 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
 
 
 class TestWordpressSite(BaseWordpressTest):
-
     proto = "https"
 
 
 class TestWordpressSiteH2(BaseWordpressTest):
-
     proto = "h2"
 
     def setUp(self):
