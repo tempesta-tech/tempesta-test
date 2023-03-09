@@ -1,7 +1,7 @@
 """Functional tests for `concurrent_connections` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019-2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -86,19 +86,17 @@ frang_limits {
         for client in clients:
             client.wait_for_response(timeout=2)
 
-        time.sleep(self.timeout)
-
         if responses == 0:
             for client in clients:
                 self.assertEqual(0, len(client.responses))
-                self.assertTrue(client.connection_is_closed())
+                self.assertTrue(client.wait_for_connection_close(self.timeout))
         elif responses == 2:
             self.assertEqual(1, len(clients[0].responses))
             self.assertEqual(1, len(clients[1].responses))
             self.assertEqual(0, len(clients[2].responses))
+            self.assertTrue(clients[2].wait_for_connection_close(self.timeout))
             self.assertFalse(clients[0].connection_is_closed())
             self.assertFalse(clients[1].connection_is_closed())
-            self.assertTrue(clients[2].connection_is_closed())
         elif responses == 3:
             self.assertEqual(1, len(clients[0].responses))
             self.assertEqual(1, len(clients[1].responses))

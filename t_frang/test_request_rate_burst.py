@@ -4,7 +4,7 @@ import time
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
@@ -207,10 +207,9 @@ block_action attack reply;
             self.check_response(client, warning_msg=self.rate_warning, status_code="200")
         else:
             # rate limit is reached
-            time.sleep(self.timeout)
+            self.assertTrue(client.wait_for_connection_close(self.timeout))
             self.assertFrangWarning(warning=self.rate_warning, expected=1)
             self.assertEqual(client.last_response.status, "403")
-            self.assertTrue(client.connection_is_closed())
 
         self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
