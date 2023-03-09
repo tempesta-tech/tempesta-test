@@ -1,8 +1,8 @@
 """Tests for Frang  length related directives."""
-from t_frang.frang_test_case import FrangTestCase
+from t_frang.frang_test_case import FrangTestCase, H2Config
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -142,6 +142,136 @@ class FrangLengthTestCase(FrangTestCase):
             requests=[
                 f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 10\r\n\r\n{'x' * 10}"
             ],
+        )
+        self.check_response(
+            client, status_code="200", warning_msg="frang: HTTP body length exceeded for"
+        )
+
+
+class FrangLengthH2(H2Config, FrangLengthTestCase):
+    def test_uri_len(self):
+        """
+        Set up `http_uri_len 5;` and make request with uri greater length
+        """
+        client = self.base_scenario(
+            frang_config="http_uri_len 5;",
+            requests=[
+                [
+                    (":authority", "example.com"),
+                    (":path", "/123456789"),
+                    (":scheme", "https"),
+                    (":method", "POST"),
+                ]
+            ],
+        )
+        self.check_response(
+            client, status_code="403", warning_msg="frang: HTTP URI length exceeded for"
+        )
+
+    def test_uri_len_without_reaching_the_limit(self):
+        """
+        Set up `http_uri_len 5;` and make request with uri 3 length
+        """
+        request = [
+            (":authority", "example.com"),
+            (":path", "/12"),
+            (":scheme", "https"),
+            (":method", "POST"),
+        ]
+        client = self.base_scenario(
+            frang_config="http_uri_len 5;",
+            requests=[request, request],  # as string and as byte
+        )
+        self.check_response(
+            client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
+        )
+
+    def test_uri_len_on_the_limit(self):
+        """
+        Set up `http_uri_len 5;` and make request with uri 5 length
+        """
+        client = self.base_scenario(
+            frang_config="http_uri_len 5;",
+            requests=[
+                [
+                    (":authority", "example.com"),
+                    (":path", "/1234"),
+                    (":scheme", "https"),
+                    (":method", "POST"),
+                ]
+            ],
+        )
+        self.check_response(
+            client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
+        )
+
+    def test_field_len(self):
+        """
+        Set up `http_field_len 300;` and make request with header greater length
+        """
+        client = self.base_scenario(
+            frang_config="http_field_len 300;",
+            requests=[self.post_request + [("header", "x" * 320)]],
+        )
+        self.check_response(
+            client, status_code="403", warning_msg="frang: HTTP field length exceeded for"
+        )
+
+    def test_field_without_reaching_the_limit(self):
+        """
+        Set up `http_field_len 300; and make request with header 200 length
+        """
+        client = self.base_scenario(
+            frang_config="http_field_len 300;",
+            requests=[self.post_request + [("header", "x" * 200)]],
+        )
+        self.check_response(
+            client, status_code="200", warning_msg="frang: HTTP field length exceeded for"
+        )
+
+    def test_field_without_reaching_the_limit_2(self):
+        """
+        Set up `http_field_len 300; and make request with header 300 length
+        """
+        client = self.base_scenario(
+            frang_config="http_field_len 300;",
+            requests=[self.post_request + [("header", "x" * 294)]],
+        )
+        self.check_response(
+            client, status_code="200", warning_msg="frang: HTTP field length exceeded for"
+        )
+
+    def test_body_len(self):
+        """
+        Set up `http_body_len 10;` and make request with body greater length
+        """
+        client = self.base_scenario(
+            frang_config="http_body_len 10;",
+            requests=[(self.post_request, "x" * 20)],
+        )
+        self.check_response(
+            client, status_code="403", warning_msg="frang: HTTP body length exceeded for"
+        )
+
+    def test_body_len_without_reaching_the_limit_zero_len(self):
+        """
+        Set up `http_body_len 10;` and make request with body 0 length
+        """
+        client = self.base_scenario(
+            frang_config="http_body_len 10;",
+            requests=[self.post_request],
+        )
+        self.check_response(
+            client, status_code="200", warning_msg="frang: HTTP body length exceeded for"
+        )
+
+    def test_body_len_without_reaching_the_limit(self):
+        """
+        Set up `http_body_len 10;` and make request with body shorter length
+        """
+        client = self.base_scenario(
+            frang_config="http_body_len 10;",
+            requests=[(self.post_request, "x" * 10)],
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP body length exceeded for"
