@@ -442,10 +442,6 @@
             "reason": "Disabled by issue #1780"
         },
         {
-            "name": "http2_general.test_flow_control_window",
-            "reason": "Disabled by issue #1394"
-        },
-        {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
             "reason": "Disabled by issue #1346"
         },

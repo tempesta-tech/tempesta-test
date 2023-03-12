@@ -10,15 +10,42 @@ from http2_general.helpers import H2Base
 
 
 class TestFlowControl(H2Base):
+    def test_flow_control_window_with_long_headers_and_body_FOR_1820(self):
+        """
+        Chnaging of SETTINGS_INITIAL_WINDOW_SIZE doesn't affect
+        forwarding of HEADERS frames.
+        """
+        client, server = self.__setup_settings_header_table_tests(65535)
+
+        large_header = ("qwerty", "x" * 1000000)
+        body_len = 400000
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
+            f"{large_header[0]}: {large_header[1]}\r\n"
+            + f"Content-Length: {body_len}\r\n\r\n"
+            + ("x" * body_len)
+        )
+
+        client.make_request(self.post_request)
+        client.wait_for_response(3)
+
+        self.assertNotIn(
+            FlowControlError, client.error_codes, "Tempesta ignored flow control window for stream."
+        )
+        self.assertFalse(client.connection_is_closed())
+        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
+        self.assertIsNotNone(client.last_response.headers.get(large_header[0]))
+        self.assertEqual(
+            len(client.last_response.headers.get(large_header[0])), len(large_header[1])
+        )
+
     def test_flow_control_window_for_stream(self):
         """
         Client sets SETTINGS_INITIAL_WINDOW_SIZE = 1k bytes and backend returns response
         with 2k bytes body.
         Tempesta must forward DATA frame with 1k bytes and wait WindowUpdate from client.
         """
-        self.start_all_services()
-        client = self.get_client("deproxy")
-        server = self.get_server("deproxy")
+        client, server = self.__setup_settings_header_table_tests(1000)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Date: test\r\n"
@@ -27,7 +54,6 @@ class TestFlowControl(H2Base):
             + ("x" * 2000)
         )
 
-        client.update_initial_settings(initial_window_size=1000)
         client.make_request(self.post_request)
         client.wait_for_response(3)
 
@@ -39,3 +65,14 @@ class TestFlowControl(H2Base):
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
         )
+
+    def __setup_settings_header_table_tests(self, initial_window_size):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initial_settings(initial_window_size=initial_window_size)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        return client, server

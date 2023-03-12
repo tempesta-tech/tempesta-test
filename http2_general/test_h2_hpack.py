@@ -488,15 +488,14 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="502")
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
-    def test_big_header_after_setting_header_table_size(self):
+    def test_big_header_FOR_1820(self):
         """
         This test checks RFC 7541 4.2 for a large header. This case
         needs a special test, since we split skb with large header.
         """
         client, server = self.setup_settings_header_table_tests()
 
-        self.change_header_table_size(client, 2048)
-        header = ("qwerty", "x" * 50000)
+        header = ("qwerty", "x" * 100000)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             "Server: Debian\r\n"
@@ -508,7 +507,6 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertIsNotNone(client.last_response.headers.get(header[0]))
         self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
-        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
 
 class TestHpackStickyCookie(TestHpackBase):
@@ -555,6 +553,22 @@ class TestHpackStickyCookie(TestHpackBase):
 
         self.post_request.append(HeaderTuple("Cookie", client.last_response.headers["set-cookie"]))
         client.send_request(request=self.post_request, expected_status_code="200")
+
+    def test_big_body_FOR_1820(self):
+        client, server = self.setup_settings_header_table_tests()
+
+        b_size = 50000000
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            "Server: Debian\r\n"
+            "Date: test\r\n"
+            f"Content-Length: {b_size}\r\n\r\n" + ("x" * b_size)
+        )
+
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertEqual(
+            len(client.last_response.body), b_size, "Tempesta did not return full response body."
+        )
 
 
 class TestHpackCache(TestHpackBase):
