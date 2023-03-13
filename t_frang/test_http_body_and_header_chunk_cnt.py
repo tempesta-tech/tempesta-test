@@ -59,20 +59,45 @@ class HttpBodyChunkCnt(FrangTestCase):
         self.check_response(client, "403", self.error)
 
 
-class HttpHeaderChunkCntH2(H2Config, HttpHeaderChunkCnt):
+class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
+    segment_size: int
+
+    def base_scenario(self, frang_config: str, requests: list):
+        self.set_frang_config(frang_config)
+
+        client = self.get_client("deproxy-1")
+        client.parsing = False
+        client.start()
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+        client.h2_connection.clear_outbound_data_buffer()
+
+        client.segment_size = self.segment_size
+        client.make_request(requests[0], huffman=False)
+        client.wait_for_response(3)
+        return client
+
+
+class HttpHeaderChunkCntH2(HttpHeaderChunkCntH2Base, HttpHeaderChunkCnt):
     requests = [
         [
-            (":authority", "example.com"),
+            (":authority", "localhost"),
             (":path", "/"),
             (":scheme", "https"),
             (":method", "POST"),
-            ("big-header1", "12345" * 5000),  # CONTINUATION frame 1
-            ("big-header2", "54321" * 5000),  # CONTINUATION frame 2
+            ("12345", "x" * 5),
         ]
     ]
+    #
+    # header frame = 9 header bytes + 27 header block bytes, headers are in 2-4 chunks
+    segment_size = 9  # headers - 27 bytes (3 chunks)
 
 
-class HttpBodyChunkCntH2(H2Config, HttpBodyChunkCnt):
+class HttpBodyChunkCntH2(HttpHeaderChunkCntH2Base, HttpBodyChunkCnt):
+    """Tempesta counts only bytes of body."""
+
     requests = [
         (
             [
@@ -81,6 +106,7 @@ class HttpBodyChunkCntH2(H2Config, HttpBodyChunkCnt):
                 (":scheme", "https"),
                 (":method", "POST"),
             ],
-            "12345" * 12000,  # DATA frames x4
+            "x" * 4,
         ),
     ]
+    segment_size = 1  # request body - 4 bytes (4 chunks)

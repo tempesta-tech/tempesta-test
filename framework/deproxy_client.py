@@ -412,7 +412,6 @@ class DeproxyClientH2(DeproxyClient):
             self.h2_connection.config.validate_inbound_headers = False
             self.h2_connection.config.validate_outbound_headers = False
 
-        headers = []
         if isinstance(request, tuple):
             self._clear_request_stats()
             headers, body = request
@@ -424,11 +423,6 @@ class DeproxyClientH2(DeproxyClient):
             self.h2_connection.send_headers(self.stream_id, headers, end_stream)
         elif isinstance(request, str):
             self.__prepare_data_frames(data=request, end_stream=end_stream)
-
-        if headers:
-            for header in headers:
-                if header[0] == ":method":
-                    self.methods.append(header[1])
 
         self.request_buffers.append(self.h2_connection.data_to_send())
         self.nrreq += 1
@@ -545,7 +539,7 @@ class DeproxyClientH2(DeproxyClient):
                     else:
                         response = deproxy.H2Response(
                             headers + "\r\n",
-                            method=self.methods[self.nrresp],
+                            method="",
                             body_parsing=False,
                             keep_original_data=self.keep_original_data,
                         )

@@ -99,11 +99,15 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         )
         stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
 
-    def send_request_with_sleep(self, sleep: float):
+    def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
         client = self.get_client("deproxy-1")
         client.start()
+        client.parsing = False
 
         self.__setup_connection_and_create_stream(client)
+
+        # timeout counter is created for each stream.
+        client.send_request(self.get_request, "200")
 
         header_frame = HeadersFrame(
             client.stream_id, client.encoder.encode(self.request_segment_1), flags={"END_STREAM"}
@@ -113,6 +117,10 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
             client.stream_id, client.encoder.encode(self.request_segment_2), flags={"END_HEADERS"}
         )
 
+        # sleep after TLS handshake and exchange SETTINGS frame
+        if timeout_before_send:
+            time.sleep(TIMEOUT + 1)
+
         client.send_bytes(header_frame.serialize())
         if sleep < TIMEOUT:
             time.sleep(sleep)
@@ -120,3 +128,11 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
 
         client.valid_req_num = 1
         client.wait_for_response(sleep + 1)
+
+    def test_starting_timeout_counter(self):
+        """
+        Timeout counter starts when first header in current stream is received.
+        """
+        self.set_frang_config(frang_config=self.frang_config)
+        self.send_request_with_sleep(sleep=TIMEOUT / 2, timeout_before_send=True)
+        self.check_response(self.get_client("deproxy-1"), "200", self.error)

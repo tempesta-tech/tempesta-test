@@ -190,16 +190,15 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         """
         Set up `http_uri_len 5;` and make request with uri 5 length
         """
+        request = [
+            (":authority", "example.com"),
+            (":path", "/1234"),
+            (":scheme", "https"),
+            (":method", "POST"),
+        ]
         client = self.base_scenario(
             frang_config="http_uri_len 5;",
-            requests=[
-                [
-                    (":authority", "example.com"),
-                    (":path", "/1234"),
-                    (":scheme", "https"),
-                    (":method", "POST"),
-                ]
-            ],
+            requests=[request, request],
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
