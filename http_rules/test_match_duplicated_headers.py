@@ -6,12 +6,11 @@ from framework import tester
 from helpers import chains, remote
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class DuplicatedHeadersMatchTest(tester.TempestaTest):
-
     backends = [
         {
             "id": 0,
@@ -24,6 +23,13 @@ class DuplicatedHeadersMatchTest(tester.TempestaTest):
 
     tempesta = {
         "config": """
+        listen 80;
+        listen 443 proto=h2;
+        
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        
         block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
@@ -94,6 +100,56 @@ class DuplicatedHeadersMatchTest(tester.TempestaTest):
         ch.request.headers.add(self.header_name, "1.2.3.4")
         ch.request.update()
         self.send_request(self.get_client(0), ch, self.fail_response_status)
+
+
+class DuplicatedHeadersMatchH2Test(DuplicatedHeadersMatchTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    request = [
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+    ]
+
+    def test_match_success(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        for header in self.headers_val:
+            client.send_request(
+                request=(
+                    self.request
+                    + [
+                        ("x-forwarded-for", header[0]),
+                        ("x-forwarded-for", header[1]),
+                        ("x-forwarded-for", header[2]),
+                    ]
+                ),
+                expected_status_code="200",
+            )
+
+    def test_match_fail(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=(
+                self.request
+                + [
+                    ("x-forwarded-for", "1.2.3.4"),
+                ]
+            ),
+            expected_status_code="403",
+        )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
