@@ -7,9 +7,11 @@ __license__ = "GPL2"
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 
-from framework import deproxy_client
+from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
 from http2_general.helpers import H2Base
+from helpers.networker import NetWorker
+from hpack import HeaderTuple
 
 
 class TestH2Frame(H2Base):
@@ -339,3 +341,273 @@ class TestH2Frame(H2Base):
         self.assertEqual(server.last_request.headers["host"], self.post_request[0][1], error_msg)
         self.assertEqual(server.last_request.uri, self.post_request[1][1], error_msg)
         self.assertEqual(server.last_request.body, request_body)
+
+
+class TestH2FrameEnabledDisabledTsoGroGsoBase(H2Base):
+    def setup_tests(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initial_settings(header_table_size=512)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        return client, server
+
+
+DEFAULT_MTU = 1500
+
+
+class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
+    def test_headers_frame_with_continuation(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_with_continuation, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_with_continuation, DEFAULT_MTU
+        )
+
+    def test_headers_frame_without_continuation(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_without_continuation, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_without_continuation, DEFAULT_MTU
+        )
+
+    def test_data_frame(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(client, server, self._test_data_frame, DEFAULT_MTU)
+        self.run_test_tso_gro_gso_enabled(client, server, self._test_data_frame, DEFAULT_MTU)
+
+    def test_headers_frame_for_local_resp_invalid_req_d(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_invalid_req, DEFAULT_MTU
+        )
+
+    def test_headers_frame_for_local_resp_invalid_req_e(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_invalid_req, DEFAULT_MTU
+        )
+
+    def _test_headers_frame_for_local_resp_invalid_req(self, client, server):
+        client.send_request(
+            request=[
+                HeaderTuple(":authority", "bad.com"),
+                HeaderTuple(":path", "/"),
+                HeaderTuple(":scheme", "https"),
+                HeaderTuple(":method", "GET"),
+            ],
+            expected_status_code="403",
+        )
+
+    def _test_data_frame(self, client, server):
+        self._test_headers_data_frames(client, server, 50000, 100000)
+
+    def _test_headers_frame_with_continuation(self, client, server):
+        self._test_headers_data_frames(client, server, 50000, 0)
+
+    def _test_headers_frame_without_continuation(self, client, server):
+        self._test_headers_data_frames(client, server, 1000, 0)
+
+    def _test_headers_data_frames(self, client, server, header_len, body_len):
+        header = ("qwerty", "x" * header_len)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
+            f"{header[0]}: {header[1]}\r\n"
+            + f"Content-Length: {body_len}\r\n\r\n"
+            + ("x" * body_len)
+        )
+
+        client.make_request(self.post_request)
+        client.wait_for_response(3)
+
+        self.assertFalse(client.connection_is_closed())
+        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
+        self.assertIsNotNone(client.last_response.headers.get(header[0]))
+        self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
+        self.assertEqual(
+            len(client.last_response.body), body_len, "Tempesta did not return full response body."
+        )
+
+
+class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
+    TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker
+):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost v_good {
+                proxy_pass default;
+                sticky {
+                    sticky_sessions;
+                    cookie enforce;
+                    secret "f00)9eR59*_/22";
+                }
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            cache 1;
+            cache_fulfill * *;
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                host == "example.com" -> v_good;
+            }
+        """
+    }
+
+    def test_headers_frame_for_local_resp_sticky_cookie_short(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_short, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_short, DEFAULT_MTU
+        )
+
+    def test_headers_frame_for_local_resp_sticky_cookie_long(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_long, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_long, DEFAULT_MTU
+        )
+
+    def _test_headers_frame_for_local_resp_sticky_cookie_short(self, client, server):
+        self._test_headers_frame_for_local_resp_sticky_cookie(client, server, 1000, 0)
+
+    def _test_headers_frame_for_local_resp_sticky_cookie_long(self, client, server):
+        self._test_headers_frame_for_local_resp_sticky_cookie(client, server, 50000, 50000)
+
+    def _test_headers_frame_for_local_resp_sticky_cookie(
+        self, client, server, header_len, body_len
+    ):
+        header = ("qwerty", "x" * header_len)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
+            f"{header[0]}: {header[1]}\r\n"
+            + f"Content-Length: {body_len}\r\n\r\n"
+            + ("x" * body_len)
+        )
+
+        client.send_request(request=self.post_request, expected_status_code="302")
+        self.post_request.append(HeaderTuple("Cookie", client.last_response.headers["set-cookie"]))
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.post_request.pop()
+
+
+class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost v_good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            cache 1;
+            cache_fulfill * *;
+            cache_methods GET;
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                host == "example.com" -> v_good;
+            }
+        """
+    }
+
+    def test_headers_frame_for_local_resp_cache_304_short(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_304_short, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_304_short, DEFAULT_MTU
+        )
+
+    def test_headers_frame_for_local_resp_cache_200_short(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_200_short, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_200_short, DEFAULT_MTU
+        )
+
+    def test_headers_frame_for_local_resp_cache_304_long(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_304_long, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_304_long, DEFAULT_MTU
+        )
+
+    def test_headers_frame_for_local_resp_cache_200_long(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_200_long, DEFAULT_MTU
+        )
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_headers_frame_for_local_resp_cache_200_long, DEFAULT_MTU
+        )
+
+    def _test_headers_frame_for_local_resp_cache_304_short(self, client, server):
+        self._test_headers_frame_for_local_resp_cache(
+            client, server, 1000, 0, "Mon, 12 Dec 2024 13:59:39 GMT", "304"
+        )
+
+    def _test_headers_frame_for_local_resp_cache_200_short(self, client, server):
+        self._test_headers_frame_for_local_resp_cache(
+            client, server, 1000, 0, "Mon, 12 Dec 2020 13:59:39 GMT", "200"
+        )
+
+    def _test_headers_frame_for_local_resp_cache_304_long(self, client, server):
+        self._test_headers_frame_for_local_resp_cache(
+            client, server, 50000, 100000, "Mon, 12 Dec 2024 13:59:39 GMT", "304"
+        )
+
+    def _test_headers_frame_for_local_resp_cache_200_long(self, client, server):
+        self._test_headers_frame_for_local_resp_cache(
+            client, server, 50000, 100000, "Mon, 12 Dec 2020 13:59:39 GMT", "200"
+        )
+
+    def _test_headers_frame_for_local_resp_cache(
+        self, client, server, header_len, body_len, date, status_code
+    ):
+        header = ("qwerty", "x" * header_len)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
+            f"{header[0]}: {header[1]}\r\n"
+            + f"Content-Length: {body_len}\r\n\r\n"
+            + ("x" * body_len)
+        )
+
+        headers = [
+            HeaderTuple(":authority", "example.com"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "GET"),
+        ]
+
+        client.send_request(request=headers, expected_status_code="200")
+
+        headers.append(HeaderTuple("if-modified-since", date))
+        client.send_request(request=headers, expected_status_code=status_code)
