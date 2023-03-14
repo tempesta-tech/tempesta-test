@@ -12,6 +12,7 @@ __all__ = [
     "prepare",
     "util",
     "selfproxy",
+    "networker"
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

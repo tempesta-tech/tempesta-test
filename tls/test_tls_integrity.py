@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from framework import tester
 from helpers import analyzer, remote, sysnet, tf_cfg
 from helpers.error import Error
+from helpers.networker import NetWorker
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
@@ -27,7 +28,7 @@ class H2Base:
         )
 
 
-class TlsIntegrityTester(tester.TempestaTest):
+class TlsIntegrityTester(tester.TempestaTest, NetWorker):
     clients = [
         {
             "id": "deproxy",
@@ -94,28 +95,6 @@ class TlsIntegrityTester(tester.TempestaTest):
             self.assertTrue(hash1 == hash2, "Bad response checksum")
 
     @contextmanager
-    def mtu_ctx(self, node, dev, mtu):
-        try:
-            yield
-        finally:
-            sysnet.change_mtu(node, dev, mtu)
-
-    def get_tso_state(self, dev):
-        cmd = f"ethtool --show-features {dev} | grep tcp-segmentation-offload"
-        out = remote.client.run_cmd(cmd)
-        tso_state = out[0].decode("utf-8").split(" ")[-1].strip("\n")
-        if tso_state == "on":
-            self.tso_state = True
-        else:
-            self.tso_state = False
-
-    def change_tso(self, dev, on=True):
-        if on:
-            cmd = f"ethtool -K {dev} tso on"
-        else:
-            cmd = f"ethtool -K {dev} tso off"
-        out = remote.client.run_cmd(cmd)
-
     def tcp_flow_check(self, resp_len, mtu=1500):
         """Check how Tempesta generates TCP segments for TLS records."""
         # Run the sniffer first to let it start in separate thread.
