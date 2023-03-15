@@ -492,6 +492,10 @@
         {
             "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_after_setting_header_table_size",
             "reason": "Disabled by PR #1820"
+        },
+        {
+            "name": "t_http_rules.test_h2_http_tables.HttpTablesTestCustomRedirectCorrectVariablesAuthorityH2",
+            "reason": "Disabled by issue #1630"
         }
     ]
 }

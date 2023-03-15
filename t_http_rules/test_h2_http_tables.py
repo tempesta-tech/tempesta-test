@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import copy
+
 from framework import tester
 from t_http_rules import test_http_tables
 
@@ -15,6 +17,7 @@ class TestHttpTablesH2(test_http_tables.HttpTablesTest):
     ]
 
     def setUp(self):
+        self.clients = copy.deepcopy(self.clients)
         for client in self.clients:
             client["port"] = "443"
             client["type"] = "deproxy_h2"
@@ -35,12 +38,12 @@ class TestHttpTablesH2(test_http_tables.HttpTablesTest):
             expected_status_code="403" if option[3] else "200",
         )
 
-        if self.match_rules_test and option[3]:
-            self.assertIsNone(server.last_request)
-            self.assertTrue(client.wait_for_connection_close())
-        else:
+        if client.last_response.status == "200":
             self.assertIsNotNone(server.last_request)
             self.assertIn((option[1], option[2]), server.last_request.headers.items())
+        else:
+            self.assertIsNone(server.last_request)
+            self.assertTrue(client.wait_for_connection_close())
 
 
 class HttpTablesTestMarkRulesH2(TestHttpTablesH2, test_http_tables.HttpTablesTestMarkRules):
@@ -110,10 +113,10 @@ class HttpTablesTestMixedChainDefaultH2(H2Config, test_http_tables.HttpTablesTes
 
 class HttpTablesTestMixedChainRespH2(H2Config, test_http_tables.HttpTablesTestMixedChainResp):
     requests = [
-        (":authority", "tempesta-tech.com"),
         (":path", "/static"),
         (":scheme", "https"),
         (":method", "POST"),
+        ("host", "tempesta-tech.com"),
     ]
 
 
@@ -143,10 +146,10 @@ class HttpTablesTestCustomRedirectNonExistentVariablesH2(
     H2Config, test_http_tables.HttpTablesTestCustomRedirectNonExistentVariables
 ):
     requests = [
-        (":authority", test_http_tables.HttpTablesTestCustomRedirectNonExistentVariables.host),
         (":path", test_http_tables.HttpTablesTestCustomRedirectNonExistentVariables.request_uri),
         (":scheme", "https"),
         (":method", "GET"),
+        ("host", test_http_tables.HttpTablesTestCustomRedirectNonExistentVariables.host),
     ]
 
 
@@ -154,10 +157,10 @@ class HttpTablesTestCustomRedirectDifferentResponseStatusH2(
     H2Config, test_http_tables.HttpTablesTestCustomRedirectDifferentResponseStatus
 ):
     requests = [
-        (":authority", test_http_tables.HttpTablesTestCustomRedirectDifferentResponseStatus.host),
         (":path", test_http_tables.HttpTablesTestCustomRedirectDifferentResponseStatus.request_uri),
         (":scheme", "https"),
         (":method", "GET"),
+        ("host", test_http_tables.HttpTablesTestCustomRedirectDifferentResponseStatus.host),
     ]
 
 

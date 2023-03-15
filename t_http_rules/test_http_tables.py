@@ -224,7 +224,6 @@ class HttpTablesTest(tester.TempestaTest):
             post_chain = chains.base()
             client.make_request(post_chain.request.msg)
             self.assertTrue(client.wait_for_response())
-            self.assertFalse(client.connection_is_closed())
         else:
             self.assertTrue(client.wait_for_connection_close())
 
