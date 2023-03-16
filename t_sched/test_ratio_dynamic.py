@@ -252,22 +252,18 @@ class RatioDynamic(tester.TempestaTest):
 
 
 class RatioDynamicMin(RatioDynamic):
-
     tempesta = {"sched_opts": "ratio dynamic minimum", "config": TEMPESTA_CONFIG}
 
 
 class RatioDynamicMax(RatioDynamic):
-
     tempesta = {"sched_opts": "ratio dynamic maximum", "config": TEMPESTA_CONFIG}
 
 
 class RatioDynamicAv(RatioDynamic):
-
     tempesta = {"sched_opts": "ratio dynamic average", "config": TEMPESTA_CONFIG}
 
 
 class RatioDynamicPerc(RatioDynamic):
-
     tempesta = {"sched_opts": "ratio dynamic percentile", "config": TEMPESTA_CONFIG}
 
 
@@ -286,20 +282,16 @@ class RatioPredict(RatioDynamic):
 
 
 class RatioPredictMin(RatioPredict):
-
     tempesta = {"sched_opts": "ratio predict minimum", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictMax(RatioPredict):
-
     tempesta = {"sched_opts": "ratio predict maximum", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictAv(RatioPredict):
-
     tempesta = {"sched_opts": "ratio predict average", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictPerc(RatioPredict):
-
     tempesta = {"sched_opts": "ratio predict percentile", "config": TEMPESTA_CONFIG}

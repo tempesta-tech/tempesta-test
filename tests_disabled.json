@@ -42,19 +42,19 @@
             "reason" : "Disabled by issue #1752"
         },
         {
-            "name" : "sched.test_ratio_dynamic.RatioDynamicMax",
+            "name" : "t_sched.test_ratio_dynamic.RatioDynamicMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "sched.test_ratio_dynamic.RatioPredictMax",
+            "name" : "t_sched.test_ratio_dynamic.RatioPredictMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamicMax",
+            "name" : "t_sched.test_ratio_dynamic_recalc.RatioDynamicMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "sched.test_ratio_dynamic_recalc.RatioPredictMax",
+            "name" : "t_sched.test_ratio_dynamic_recalc.RatioPredictMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
@@ -106,7 +106,7 @@
             "reason" : "Disabled by issue #963"
         },
         {
-            "name" : "sched",
+            "name" : "t_sched",
             "reason" : "Disabled by issue #702"
         },
         {
