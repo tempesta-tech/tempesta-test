@@ -496,6 +496,10 @@
         {
             "name": "t_http_rules.test_h2_http_tables.HttpTablesTestCustomRedirectCorrectVariablesAuthorityH2",
             "reason": "Disabled by issue #1630"
+        },
+        {
+            "name": "t_http_rules.test_h2_http_tables.HttpTablesTestMarkRulesH2",
+            "reason": "Disabled by issue #1841"
         }
     ]
 }
