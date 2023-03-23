@@ -177,7 +177,7 @@ class TestPseudoHeaders(H2Base):
             "400",
         )
 
-        self.assertTrue(client.connection_is_closed())
+        self.assertTrue(client.wait_for_connection_close())
 
 
 class TestConnectionHeaders(H2Base):
@@ -193,7 +193,7 @@ class TestConnectionHeaders(H2Base):
         client.parsing = False
 
         client.send_request(self.post_request + [header], "400")
-        self.assertTrue(client.connection_is_closed())
+        self.assertTrue(client.wait_for_connection_close())
 
     def __test_response(self, header: tuple):
         """
