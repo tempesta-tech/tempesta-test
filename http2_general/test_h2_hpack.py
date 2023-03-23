@@ -510,6 +510,30 @@ class TestHpack(TestHpackBase):
         self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
+    def test_get_method_as_string(self):
+        """
+        Client send request with method GET as string value.
+        Request must be processed as usual.
+        """
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+        client.encoder.huffman = False
+
+        client.methods.append("GET")
+        client.h2_connection.send_headers(stream_id=1, headers=self.get_request,
+                                          end_stream=True)
+        client.send_bytes(
+            data=b"\x00\x00\x14\x01\x05\x00\x00\x00\x01A\x0bexample.com\x84\x87B\x03GET",
+            expect_response=True,
+        )
+
+        self.assertTrue(client.wait_for_response(3))
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(server.last_request.method, "GET")
+
 
 class TestHpackStickyCookie(TestHpackBase):
     tempesta = {
