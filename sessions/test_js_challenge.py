@@ -29,7 +29,7 @@ class BaseJSChallenge(tester.TempestaTest):
         client.make_request(req)
         client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses, len(client.responses))
-        self.assertTrue(client.connection_is_closed())
+        self.assertTrue(client.wait_for_connection_close())
 
     @abc.abstractmethod
     def prepare_js_templates(self):

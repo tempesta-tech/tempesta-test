@@ -523,8 +523,7 @@ class TestHpack(TestHpackBase):
         client.encoder.huffman = False
 
         client.methods.append("GET")
-        client.h2_connection.send_headers(stream_id=1, headers=self.get_request,
-                                          end_stream=True)
+        client.h2_connection.send_headers(stream_id=1, headers=self.get_request, end_stream=True)
         client.send_bytes(
             data=b"\x00\x00\x14\x01\x05\x00\x00\x00\x01A\x0bexample.com\x84\x87B\x03GET",
             expect_response=True,
@@ -684,10 +683,9 @@ class TestFramePayloadLength(H2Base):
 
         client.stream_id += 2
         client.make_request(self.get_request)
-        client.wait_for_response(0.5)
 
         # Client will be blocked because Tempesta received extra bytes
-        self.assertTrue(client.connection_is_closed())
+        self.assertTrue(client.wait_for_connection_close())
         self.assertIn(ErrorCodes.FRAME_SIZE_ERROR, client.error_codes)
 
     def test_large_frame_payload_length(self):
@@ -709,7 +707,7 @@ class TestFramePayloadLength(H2Base):
         client.stream_id += 2
         client.send_request(self.get_request, "400")
 
-        self.assertTrue(client.connection_is_closed())
+        self.assertTrue(client.wait_for_connection_close())
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
 
     def test_invalid_data(self):
@@ -724,4 +722,4 @@ class TestFramePayloadLength(H2Base):
         self.__make_request(client, b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00")
 
         self.assertEqual(client.last_response.status, "400")
-        self.assertTrue(client.connection_is_closed())
+        self.assertTrue(client.wait_for_connection_close())
