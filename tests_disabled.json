@@ -290,10 +290,6 @@
             "reason" : "Disabled by issue #398"
         },
         {
-            "name" : "sessions.test_js_challenge.JSChallengeH2",
-            "reason" : "Disabled by issue #1812"
-        },
-        {
             "name" : "sessions.test_redir_mark",
             "reason" : "Disabled by issue #399"
         },
