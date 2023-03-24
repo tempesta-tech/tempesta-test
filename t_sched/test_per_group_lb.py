@@ -12,11 +12,12 @@ have a description how the inheriting should work.
 """
 
 from framework import tester
+from framework.wrk_client import Wrk
 from helpers import tf_cfg
 from helpers.control import servers_get_stats
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -68,6 +69,13 @@ http {
 """
 
 TEMPESTA_CONFIG = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 cache 0;
 
 ${sched_global_opt}
@@ -198,12 +206,12 @@ class AllDefaults(tester.TempestaTest):
 
     clients = [
         {
-            "id": "wrk_vhost_1",
+            "id": "client_vhost_1",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
         },
         {
-            "id": "wrk_vhost_2",
+            "id": "client_vhost_2",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
         },
@@ -304,18 +312,24 @@ class AllDefaults(tester.TempestaTest):
             self.check_dynamic_lb(group, group_name)
 
     def test_inherit(self):
-        wrk_h_1 = self.get_client("wrk_vhost_1")
-        wrk_h_2 = self.get_client("wrk_vhost_2")
-        wrk_h_1.options = ['-H "Host: example.com"']
+        client_1 = self.get_client("client_vhost_1")
+        client_2 = self.get_client("client_vhost_2")
+
+        if isinstance(client_1, Wrk):
+            client_1.options = ['-H "Host: example.com"']
+        else:
+            client_1.options[0] += ' -H "Host: example.com"'
 
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(wrk_h_1)
-        self.wait_while_busy(wrk_h_2)
+        self.wait_while_busy(client_1, client_2)
 
         servers = self.get_servers()
         servers_get_stats(servers)
+
+        for srv in servers:
+            print(srv.requests)
 
         for group, lb_type in self.group_scheds:
             self.check_lb(group, lb_type)
