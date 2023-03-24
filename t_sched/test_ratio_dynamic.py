@@ -26,15 +26,15 @@ from the ratio static mode.
 
 """
 
-import unittest
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 from framework import tester
+from framework.wrk_client import Wrk
 from helpers import tf_cfg
 from helpers.control import servers_get_stats
-
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
-__license__ = "GPL2"
+from run_config import DURATION
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -85,6 +85,13 @@ http {
 """
 
 TEMPESTA_CONFIG = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 cache 0;
 
 sched ${sched_opts};
@@ -113,7 +120,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8000",
             "type": "nginx",
             "port": "8000",
-            "delay": "0",
+            "delay": "0.1",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -121,7 +128,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8001",
             "type": "nginx",
             "port": "8001",
-            "delay": "0.005",
+            "delay": "0.2",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -129,7 +136,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8002",
             "type": "nginx",
             "port": "8002",
-            "delay": "0.01",
+            "delay": "0.3",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -137,7 +144,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8003",
             "type": "nginx",
             "port": "8003",
-            "delay": "0.015",
+            "delay": "0.4",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -145,7 +152,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8004",
             "type": "nginx",
             "port": "8004",
-            "delay": "0.02",
+            "delay": "0.5",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -153,7 +160,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8005",
             "type": "nginx",
             "port": "8005",
-            "delay": "0.025",
+            "delay": "0.6",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -161,7 +168,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8006",
             "type": "nginx",
             "port": "8006",
-            "delay": "0.03",
+            "delay": "0.7",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -169,7 +176,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8007",
             "type": "nginx",
             "port": "8007",
-            "delay": "0.035",
+            "delay": "0.8",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -177,7 +184,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8008",
             "type": "nginx",
             "port": "8008",
-            "delay": "0.04",
+            "delay": "0.9",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -185,7 +192,7 @@ class RatioDynamic(tester.TempestaTest):
             "id": "nginx_8009",
             "type": "nginx",
             "port": "8009",
-            "delay": "0.1",
+            "delay": "1",
             "status_uri": "http://${server_ip}:${port}/nginx_status",
             "config": NGINX_CONFIG,
         },
@@ -193,7 +200,7 @@ class RatioDynamic(tester.TempestaTest):
 
     clients = [
         {
-            "id": "wrk",
+            "id": "client",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
         },
@@ -205,27 +212,25 @@ class RatioDynamic(tester.TempestaTest):
     }
 
     min_server_weight = 30
-    min_duration = 30
+    min_duration = max(DURATION, 30)
 
     def test_load_distribution(self):
         """Configure slow and fast servers. The faster server, the more
         weight it should get.
         """
-        duration = int(tf_cfg.cfg.get("General", "Duration"))
-        if duration < self.min_duration:
-            raise unittest.TestCase.skipTest(self, "Test is not stable on short periods")
-        if tf_cfg.cfg.get("Tempesta", "hostname") == tf_cfg.cfg.get("Server", "hostname"):
-            raise unittest.TestCase.skipTest(
-                self, "Test is not stable if Tempesta and Servers " "are started on the same node."
-            )
+        client = self.get_client("client")
 
-        wrk = self.get_client("wrk")
+        if isinstance(client, Wrk):
+            client.duration = self.min_duration
+        else:
+            client.options[0] += f" --duration {self.min_duration}"
 
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
 
-        self.wait_while_busy(wrk)
+        self.wait_while_busy(client)
+        client.stop()
 
         tempesta = self.get_tempesta()
         servers = self.get_servers()
@@ -243,7 +248,8 @@ class RatioDynamic(tester.TempestaTest):
             self.assertLessEqual(
                 weight,
                 prev_weight,
-                msg=("Faster server %s got less weight than slower %s" % (prev_name, name)),
+                "Faster server %s got less weight than slower %s" % (prev_name, name)
+                + f"Servers weights: {weights}",
             )
             if weight <= self.min_server_weight:
                 break
@@ -276,7 +282,7 @@ class RatioPredict(RatioDynamic):
 
     # Prediction timeouts are 30/15 by default. Enforce minimum test duration
     # to bigger value to use predicts.
-    min_duration = 60
+    min_duration = max(DURATION, 60)
 
     tempesta = {"sched_opts": "ratio predict", "config": TEMPESTA_CONFIG}
 

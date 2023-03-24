@@ -5,15 +5,15 @@ Difference from test_ratio_dynamic.py: server latency changes in time,
 so  it should get higher or lower weight.
 """
 
-import unittest
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import helpers.tf_cfg as tf_cfg
 from framework import tester
+from framework.wrk_client import Wrk
 from helpers.control import servers_get_stats
-
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
-__license__ = "GPL2"
+from run_config import DURATION
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -64,6 +64,13 @@ http {
 """
 
 TEMPESTA_CONFIG = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 cache 0;
 
 sched ${sched_opts};
@@ -120,7 +127,7 @@ class RatioDynamic(tester.TempestaTest):
 
     clients = [
         {
-            "id": "wrk",
+            "id": "client",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
         },
@@ -135,7 +142,7 @@ class RatioDynamic(tester.TempestaTest):
     # balancing is possible
     initial_fairness = 0.2
 
-    min_duration = 30
+    min_duration = max(DURATION, 30)
 
     def run_test(self, srv_const, srv_dyn, new_server_name=None):
         """Run wrk and get performance statistics from backends and Tempesta.
@@ -147,10 +154,15 @@ class RatioDynamic(tester.TempestaTest):
             srv_dyn = self.get_server(new_server_name)
             srv_dyn.start()
 
-        wrk = self.get_client("wrk")
-        self.start_all_clients()
-        self.wait_while_busy(wrk)
-        wrk.stop()
+        client = self.get_client("client")
+        if isinstance(client, Wrk):
+            client.duration = self.min_duration
+        else:
+            client.options[0] += f" --duration {self.min_duration}"
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
 
         return (srv_const, srv_dyn)
 
@@ -191,14 +203,6 @@ class RatioDynamic(tester.TempestaTest):
         """Configure slow and fast servers. The faster server is the more
         weight it should get.
         """
-        duration = int(tf_cfg.cfg.get("General", "Duration"))
-        if duration < self.min_duration:
-            raise unittest.TestCase.skipTest(self, "Test is not stable on short periods")
-        if tf_cfg.cfg.get("Tempesta", "hostname") == tf_cfg.cfg.get("Server", "hostname"):
-            raise unittest.TestCase.skipTest(
-                self, "Test is not stable if Tempesta and Servers " "are started on the same node."
-            )
-
         srv_const = self.get_server("nginx_constant")
         srv_dyn = self.get_server("nginx_dynamic")
         srv_const.start()
@@ -260,7 +264,7 @@ class RatioPredict(RatioDynamic):
 
     # Prediction timeouts are 30/15 by default. Enforce minimum test duration
     # to bigger value to use predicts.
-    min_duration = 60
+    min_duration = max(DURATION, 60)
 
     tempesta = {"sched_opts": "ratio predict", "config": TEMPESTA_CONFIG}
 
