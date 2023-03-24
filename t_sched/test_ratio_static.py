@@ -18,7 +18,7 @@ from helpers import tf_cfg
 from helpers.control import servers_get_stats
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -63,6 +63,13 @@ http {
 """
 
 TEMPESTA_CONFIG = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 cache 0;
 server ${server_ip}:8000;
 server ${server_ip}:8001;
@@ -79,6 +86,13 @@ server ${server_ip}:8009;
 
 # Random number of connections for each server.
 TEMPESTA_CONFIG_VAR_CONNS = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 cache 0;
 server ${server_ip}:8000;
 server ${server_ip}:8001 conns_n=5;
@@ -175,7 +189,7 @@ class Ratio(tester.TempestaTest):
 
     clients = [
         {
-            "id": "wrk",
+            "id": "client",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
         },
@@ -192,12 +206,12 @@ class Ratio(tester.TempestaTest):
 
     def test_load_distribution(self):
         """All servers must receive almost the same number of requests."""
-        wrk = self.get_client("wrk")
+        client = self.get_client("client")
 
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(wrk)
+        self.wait_while_busy(client)
 
         tempesta = self.get_tempesta()
         servers = self.get_servers()
@@ -238,3 +252,6 @@ class RatioVariableConns(Ratio):
     """
 
     tempesta = {"config": TEMPESTA_CONFIG_VAR_CONNS}
+
+    def test_load_distribution(self):
+        super(RatioVariableConns, self).test_load_distribution()
