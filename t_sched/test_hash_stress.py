@@ -1,6 +1,6 @@
 """
 Test for Hash scheduler under heavy load. Uri should be pinned to a single
-server connection. Server owning that connection connection should get all the
+server connection. Server owning that connection should get all the
 requests. But when the connection is down, the load will be distributed to
 another connection. Once primary connection is back online it should again
 get all the load.
@@ -15,64 +15,148 @@ following checks:
 time.
 """
 
-import sys
-
-from helpers import tempesta
-from testers import stress
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import copy
 
-class BindToServer(stress.StressTest):
-    """Send requests with the same URI, only one connection (server) should be
-    loaded, but a few other connections (servers) can get a little bit of the
-    load while primary one is in failovering state.
+from framework import tester
+
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests %s;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:${port};
+
+        location / {
+            return 200;
+        }
+
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+
+class BindToServer(tester.TempestaTest):
+    backends_count = 30
+
+    ka_requests = 1000000000
+
+    tempesta = {
+        "config": """
+    listen 80;
+    listen 443 proto=h2;
+
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
+
+    sched hash;
+    cache 0;
     """
+        + "".join(
+            "server ${server_ip}:80%s;\n" % (step if step > 9 else f"0{step}")
+            for step in range(backends_count)
+        )
+    }
 
-    ka_requests = sys.maxsize
+    backends = [
+        {
+            "id": f"nginx_{step}",
+            "type": "nginx",
+            "port": f"80{step}" if step > 9 else f"800{step}",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+        for step in range(backends_count)
+    ]
 
-    def create_servers(self):
-        self.create_servers_helper(tempesta.servers_in_group())
-        for s in self.servers:
-            s.config.set_ka(self.ka_requests)
+    clients = [
+        {
+            "id": "client",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
+        },
+    ]
 
-    def configure_tempesta(self):
-        """Configure Tempesta to use hash scheduler instead of default one."""
-        stress.StressTest.configure_tempesta(self)
-        for sg in self.tempesta.config.server_groups:
-            sg.sched = "hash"
+    def setUp(self):
+        self.backends = copy.deepcopy(self.backends)
+        for backend in self.backends:
+            backend["config"] = backend["config"] % self.ka_requests
+        super(BindToServer, self).setUp()
 
-    def assert_servers(self):
-        """Assert load distribution between servers. Only one server must pull
-        mostly all the load. Other servers may also receive some requests while
-        primary connection is not live.
+    def test_hash(self):
         """
-        reqs_exp = self.tempesta.stats.cl_msg_received
-        self.servers_get_stats()
+        Send requests with the same URI, only one connection (server) should be
+        loaded, but a few other connections (servers) can get a little bit of the
+        load while primary one is in failovering state.
+        """
+        client = self.get_client("client")
+
+        self.start_all_services()
+        self.wait_while_busy(client)
+        client.stop()
+
+        self.__check_load_distribution_between_servers()
+
+    def __check_load_distribution_between_servers(self):
+        """
+        Only one server must pull mostly all the load. Other servers may also receive
+        some requests while primary connection is not live.
+        """
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+
+        for server in self.get_servers():
+            server.get_stats()
 
         loaded_servers = []
-        for srv in self.servers:
+        for srv in self.get_servers():
             if srv.requests:
-                loaded_servers.append((srv.requests, srv.get_name()))
+                loaded_servers.append(srv.requests)
         loaded_servers.sort(reverse=True)
 
         self.assertTrue(loaded_servers)
-        reqs, _ = loaded_servers[0]
         self.assertAlmostEqual(
-            reqs,
-            reqs_exp,
-            delta=(reqs_exp * 0.2),
+            loaded_servers[0],
+            tempesta.stats.cl_msg_received,
+            delta=(tempesta.stats.cl_msg_received * 0.2),
             msg="Only one server should got most of the load",
         )
 
-    def test_hash(self):
-        self.generic_test_routine("cache 0;\n")
-
 
 class BindToServerFailovering(BindToServer):
-    """Server closes connections time to time, but not very frequently. So
+    """
+    Server closes connections time to time, but not very frequently. So
     it will still get most of the load. Frequent connection closing will make
     hash scheduler to spread the load between multiple connections. Such
     situation can't be asserted automatically.
@@ -83,5 +167,5 @@ class BindToServerFailovering(BindToServer):
 
     ka_requests = 50000
 
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+    def test_hash(self):
+        super(BindToServerFailovering, self).test_hash()

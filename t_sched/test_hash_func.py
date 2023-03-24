@@ -4,64 +4,77 @@ server connection, thus repeated request to the same URI will go to the same
 server connection.
 """
 
-from __future__ import print_function
-
-from helpers import chains, deproxy
-from testers import functional
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework import tester
 
-class HashSchedulerTest(functional.FunctionalTest):
-    """Check that the same server connection is used for the same resource."""
+
+class HashScheduler(tester.TempestaTest):
+    backends_count = 5
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+sched hash;
+cache 0;
+"""
+        + "".join("server ${server_ip}:800%s;\n" % step for step in range(backends_count))
+    }
+
+    backends = [
+        {
+            "id": f"deproxy-{step}",
+            "type": "deproxy",
+            "port": f"800{step}",
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\nContent-Length: 0\r\nServer: deproxy\r\n\r\n"),
+        }
+        for step in range(backends_count)
+    ]
+
+    clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
 
     # Total number of requests
     messages = 100
     # Number of different Uris
     uri_n = 10
 
-    def configure_tempesta(self):
-        functional.FunctionalTest.configure_tempesta(self)
-        for sg in self.tempesta.config.server_groups:
-            sg.sched = "hash"
-
-    def create_tester(self):
-        self.tester = HashTester(self.client, self.servers)
-
-    def create_servers(self):
-        """Create more than one server for better testing."""
-        self.create_servers_helper(5)
-
-    def chains(self):
-        uris = ["/resource-%d" % (i % self.uri_n) for i in range(self.messages)]
-        msg_chains = [chains.base(uri=uris[i]) for i in range(self.messages)]
-        return msg_chains
-
     def test_hash_scheduler(self):
-        self.generic_test_routine("cache 0;\n", self.chains())
+        """Check that the same server connection is used for the same resource."""
+        client = self.get_client("deproxy")
 
+        self.start_all_services()
 
-class HashTester(deproxy.Deproxy):
-    def __init__(self, *args, **kwargs):
-        deproxy.Deproxy.__init__(self, *args, **kwargs)
-        self.used_connections = {}
+        for _ in range(self.messages):
+            for uri in range(self.uri_n):
+                client.make_request(self._generate_request(uri))
 
-    def run(self):
-        # Run loop to setup all the connections
-        self.loop(0.1)
-        self.used_connections = {}
-        deproxy.Deproxy.run(self)
+        client.wait_for_response()
 
-    def received_forwarded_request(self, request, connection):
-        if request.uri not in self.used_connections:
-            self.used_connections[request.uri] = connection
-        else:
-            assert (
-                self.used_connections[request.uri] is connection
-            ), "URI-to-srv_conn pinning is broken in hash scheduler"
-        return deproxy.Deproxy.received_forwarded_request(self, request, connection)
+        self.__check_distribution_of_requests()
 
+    @staticmethod
+    def _generate_request(uri):
+        return f"GET /resource-{uri} HTTP/1.1\r\nHost: localhost\r\n\r\n"
 
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+    def __check_distribution_of_requests(self):
+        uri_list = list()
+        for step in range(self.backends_count):
+            server = self.get_server(f"deproxy-{step}")
+            requests_uri = set()
+            for request in server.requests:
+                requests_uri.add(request.uri[-1])
+            uri_list.extend(requests_uri)
+
+        for uri in range(self.uri_n):
+            self.assertEqual(
+                uri_list.count(str(uri)), 1, "Tempesta sent request to another backends."
+            )
