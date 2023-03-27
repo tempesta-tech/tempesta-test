@@ -52,7 +52,6 @@ class ChunkingTestIterator(object):
 
 
 class ChunkingExampleTest(tester.TempestaTest, ChunkingTestIterator):
-
     backends = [
         {
             "id": "deproxy",

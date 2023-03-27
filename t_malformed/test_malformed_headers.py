@@ -874,7 +874,6 @@ server ${general_ip}:8000;
 
 
 class EtagAlphabetBrangeTest(EtagAlphabetTest):
-
     tempesta = {
         "config": """
 cache 0;
