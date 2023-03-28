@@ -99,7 +99,7 @@
         },
         {
             "name" : "malformed",
-            "reason" : "Disabled by issue #187"
+            "reason" : "Disabled by issue #427"
         },
         {
             "name" : "pipelining",
