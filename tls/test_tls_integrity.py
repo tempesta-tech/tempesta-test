@@ -295,6 +295,78 @@ class CacheH2(H2Base, Cache):
     }
 
 
+class ManyClients(Cache):
+    clients_n = 10
+
+    clients = [
+        {
+            "id": f"clnt{step}",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
+        for step in range(clients_n)
+    ]
+
+    tempesta = {
+        "config": """
+            cache 0;
+            listen 443 proto=https;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
+
+    def common_check(self, req_len, resp_len):
+        resp_body = "x" * resp_len
+        hash1 = hashlib.md5(resp_body.encode()).digest()
+
+        self.get_server("deproxy").set_response(self.make_resp(resp_body))
+
+        clients = [self.get_client(client["id"]) for client in self.clients]
+
+        for client in clients:
+            client.responses = []
+            client.valid_req_num = 0
+            client.make_request(self.make_req(req_len))
+
+        for client in clients:
+            self.assertTrue(
+                client.wait_for_response(timeout=5),
+                "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len),
+            )
+
+        for client in clients:
+            for response in client.responses:
+                hash2 = hashlib.md5(response.body.encode()).digest()
+                self.assertTrue(hash1 == hash2, "Bad response checksum")
+
+
+class ManyClientsH2(H2Base, ManyClients):
+    clients = [
+        {
+            "id": f"clnt{step}",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
+        for step in range(ManyClients.clients_n)
+    ]
+
+    tempesta = {
+        "config": """
+            cache 0;
+            listen 443 proto=h2;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            server ${server_ip}:8000;
+        """
+    }
+
+
 class CloseConnection(tester.TempestaTest):
     clients = [
         {
