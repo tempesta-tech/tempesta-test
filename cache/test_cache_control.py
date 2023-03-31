@@ -884,9 +884,9 @@ class HttpChainCacheActionBypass(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 0;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
@@ -900,9 +900,9 @@ class HttpChainCacheActionOverrideBypass(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 1;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable = 0;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
@@ -916,9 +916,9 @@ class HttpChainCacheActionOverrideCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 1;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable = 0;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
@@ -932,15 +932,148 @@ class HttpChainCacheActionCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 1;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable = 0;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
     request_headers = {"Cookie": "comment_author_name=john"}
     response_headers = {}
     should_be_cached = True
+
+
+# cache_ttl related tests
+class CacheTtlGlobalApplied(TestCacheControl, SingleTest):
+    """
+    This test ensures that global cache_ttl setting is working
+    by setting it to the value above sleep interval and ensuring that
+    the response had been cached.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 3;
+        """
+    request_headers = {}
+    response_headers = {}
+    sleep_interval = 2
+    should_be_cached = True
+
+
+# ensure that global cache_ttl is applied part 2:
+#   wait for a longer period than global cache_ttl
+class CacheTtlGlobalApplied2(TestCacheControl, SingleTest):
+    """
+    This test ensures that global cache_ttl setting is working
+    by setting it to the value below sleep interval and ensuring that
+    the response had not been cached.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 2;
+        """
+    request_headers = {}
+    response_headers = {}
+    sleep_interval = 3
+    should_be_cached = False
+
+
+class CacheTtlGlobalHonourMaxAge(TestCacheControl, SingleTest):
+    """
+    This test ensures that Cache-Control: max-age is preferred over
+    cache_ttl directive by setting max-age above sleep_interval and
+    checking that response had been cached.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 2;
+        """
+    request_headers = {}
+    response_headers = {"Cache-Control": "max-age=10"}
+    sleep_interval = 3
+    should_be_cached = True
+
+
+class CacheTtlGlobalHonourMaxAge2(TestCacheControl, SingleTest):
+    """
+    This test ensures that Cache-Control: max-age is preferred over
+    cache_ttl directive by setting max-age below sleep_interval and
+    checking that response had not been cached.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 10;
+        """
+    request_headers = {}
+    response_headers = {"Cache-Control": "max-age=2"}
+    sleep_interval = 3
+    should_be_cached = False
+
+
+class CacheTtlHttpChainOverride(TestCacheControl, SingleTest):
+    """
+    This test ensures cache_ttl action from HTTP tables overrides global
+    cache_ttl value assuming that these two parameters are working correctly
+    on their own.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 5;
+        http_chain {
+            cookie "comment_author_*" == "*" -> cache_ttl = 1;
+            -> vh1;
+        }
+        """
+    request_headers = {"Cookie": "comment_author_name=john"}
+    response_headers = {}
+    sleep_interval = 2
+    should_be_cached = False
+
+
+class CacheTtlHttpChainHonourMaxAge(TestCacheControl, SingleTest):
+    """
+    This test ensures that cache ttl supplied by client (by max-age for example)
+    takes precedence over HTTP-tables cache_ttl, assuming that
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 2;
+        http_chain {
+            cookie "comment_author_*" == "*" -> cache_ttl = 1;
+            -> vh1;
+        }
+        """
+    request_headers = {"Cookie": "comment_author_name=john"}
+    response_headers = {"Cache-Control": "max-age=10"}
+    sleep_interval = 4
+    should_be_cached = True
+
+
+class CacheTtlHonourNoCache(TestCacheControl, SingleTest):
+    """
+    This test ensures that no-cache from upstream efficiently ignores
+    both global and HTTP tables cache_ttl, assuming both these settings
+    are working correctly on their own.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 10;
+        http_chain {
+            cookie "comment_author_*" == "*" -> cache_ttl = 10;
+            -> vh1;
+        }
+        """
+    request_headers = {"Cookie": "comment_author_name=john"}
+    response_headers = {"Cache-Control": "no-cache"}
+    sleep_interval = 2
+    should_be_cached = False
 
 
 class CacheLocationBase(TestCacheControl, SingleTest, base=True):
