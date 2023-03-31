@@ -884,9 +884,9 @@ class HttpChainCacheActionBypass(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 0;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
@@ -900,9 +900,9 @@ class HttpChainCacheActionOverrideBypass(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 1;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable = 0;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
@@ -916,9 +916,9 @@ class HttpChainCacheActionOverrideCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 1;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable = 0;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """
@@ -932,9 +932,9 @@ class HttpChainCacheActionCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
         http_chain {
-            cookie "foo_items_in_cart" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 1;
-            cookie "wordpress_logged_in*" == "*" -> $$cache = 0;
+            cookie "foo_items_in_cart" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable = 0;
+            cookie "wordpress_logged_in*" == "*" -> cache_disable;
             -> vh1;
         }
         """

@@ -45,7 +45,7 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
         }
 
        http_chain admin_rules {
-            mark == 1 -> $$cache = 0;
+            mark == 1 -> cache_disable;
             -> tempesta-tech.com;
        }
 
@@ -54,9 +54,9 @@ class BaseWordpressTest(NetfilterMarkMixin, tester.TempestaTest, base=True):
             mark == 1 -> admin_rules;
             uri == "/wp-admin*" -> block;
 
-            cookie "wordpress_logged_in_*" == "*" -> $$cache = 0;
-            cookie "wp-postpass_*" == "*" -> $$cache = 0;
-            cookie "comment_author_*" == "*" -> $$cache = 0;
+            cookie "wordpress_logged_in_*" == "*" -> cache_disable;
+            cookie "wp-postpass_*" == "*" -> cache_disable;
+            cookie "comment_author_*" == "*" -> cache_disable;
 
             -> tempesta-tech.com;
         }
