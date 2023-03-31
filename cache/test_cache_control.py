@@ -943,6 +943,92 @@ class HttpChainCacheActionCached(TestCacheControl, SingleTest):
     should_be_cached = True
 
 
+# cache_ttl related tests
+# ensure that global cache_ttl is applied part 1:
+#   wait for a shorter period than global cache_ttl
+class CacheTtlGlobalApplied(TestCacheControl, SingleTest):
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 3;
+        """
+    request_headers = {}
+    response_headers = {}
+    sleep_interval = 2
+    should_be_cached = True
+
+
+# ensure that global cache_ttl is applied part 2:
+#   wait for a longer period than global cache_ttl
+class CacheTtlGlobalApplied2(TestCacheControl, SingleTest):
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 2;
+        """
+    request_headers = {}
+    response_headers = {}
+    sleep_interval = 3
+    should_be_cached = False
+
+
+# ensure that global cache_ttl is not applied to for responses that
+# specify max-age on their own.
+class CacheTtlGlobalHonourMaxAge(TestCacheControl, SingleTest):
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 2;
+        """
+    request_headers = {}
+    response_headers = {"Cache-Control": "max-age=10"}
+    sleep_interval = 3
+    should_be_cached = True
+
+
+# ensure that global cache_ttl is not applied to for responses that
+# specify max-age on their own (part 2)
+class CacheTtlGlobalHonourMaxAge2(TestCacheControl, SingleTest):
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 10;
+        """
+    request_headers = {}
+    response_headers = {"Cache-Control": "max-age=2"}
+    sleep_interval = 3
+    should_be_cached = False
+
+
+# ensure that cache_ttl global rule is overriden by HTTP chains cache_ttl action
+class CacheTtlHttpChainOverride(TestCacheControl, SingleTest):
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 5;
+        http_chain {
+            cookie "comment_author_*" == "*" -> cache_ttl = 1;
+            -> vh1;
+        }
+        """
+    request_headers = {"Cookie": "comment_author_name=john"}
+    response_headers = {}
+    sleep_interval = 2
+    should_be_cached = False
+
+
+# ensure that bot global and HTTP tables cache_ttl honors max-age supplied
+# by upstrean
+class CacheTtlHttpChainHonourMaxAge(TestCacheControl, SingleTest):
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 2;
+        http_chain {
+            cookie "comment_author_*" == "*" -> cache_ttl = 1;
+            -> vh1;
+        }
+        """
+    request_headers = {"Cookie": "comment_author_name=john"}
+    response_headers = {"Cache-Control": "max-age=10"}
+    sleep_interval = 4
+    should_be_cached = True
+
+
 class CacheLocationBase(TestCacheControl, SingleTest, base=True):
 
     tempesta_config_sample = """
