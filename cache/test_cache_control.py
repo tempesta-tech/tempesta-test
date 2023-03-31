@@ -944,9 +944,13 @@ class HttpChainCacheActionCached(TestCacheControl, SingleTest):
 
 
 # cache_ttl related tests
-# ensure that global cache_ttl is applied part 1:
-#   wait for a shorter period than global cache_ttl
 class CacheTtlGlobalApplied(TestCacheControl, SingleTest):
+    """
+    This test ensures that global cache_ttl setting is working
+    by setting it to the value above sleep interval and ensuring that
+    the response had been cached.
+    """
+
     tempesta_config = """
         cache_fulfill * *;
         cache_ttl 3;
@@ -960,6 +964,12 @@ class CacheTtlGlobalApplied(TestCacheControl, SingleTest):
 # ensure that global cache_ttl is applied part 2:
 #   wait for a longer period than global cache_ttl
 class CacheTtlGlobalApplied2(TestCacheControl, SingleTest):
+    """
+    This test ensures that global cache_ttl setting is working
+    by setting it to the value below sleep interval and ensuring that
+    the response had not been cached.
+    """
+
     tempesta_config = """
         cache_fulfill * *;
         cache_ttl 2;
@@ -970,9 +980,13 @@ class CacheTtlGlobalApplied2(TestCacheControl, SingleTest):
     should_be_cached = False
 
 
-# ensure that global cache_ttl is not applied to for responses that
-# specify max-age on their own.
 class CacheTtlGlobalHonourMaxAge(TestCacheControl, SingleTest):
+    """
+    This test ensures that Cache-Control: max-age is preferred over
+    cache_ttl directive by setting max-age above sleep_interval and
+    checking that response had been cached.
+    """
+
     tempesta_config = """
         cache_fulfill * *;
         cache_ttl 2;
@@ -983,9 +997,13 @@ class CacheTtlGlobalHonourMaxAge(TestCacheControl, SingleTest):
     should_be_cached = True
 
 
-# ensure that global cache_ttl is not applied to for responses that
-# specify max-age on their own (part 2)
 class CacheTtlGlobalHonourMaxAge2(TestCacheControl, SingleTest):
+    """
+    This test ensures that Cache-Control: max-age is preferred over
+    cache_ttl directive by setting max-age below sleep_interval and
+    checking that response had not been cached.
+    """
+
     tempesta_config = """
         cache_fulfill * *;
         cache_ttl 10;
@@ -996,8 +1014,13 @@ class CacheTtlGlobalHonourMaxAge2(TestCacheControl, SingleTest):
     should_be_cached = False
 
 
-# ensure that cache_ttl global rule is overriden by HTTP chains cache_ttl action
 class CacheTtlHttpChainOverride(TestCacheControl, SingleTest):
+    """
+    This test ensures cache_ttl action from HTTP tables overrides global
+    cache_ttl value assuming that these two parameters are working correctly
+    on their own.
+    """
+
     tempesta_config = """
         cache_fulfill * *;
         cache_ttl 5;
@@ -1012,9 +1035,12 @@ class CacheTtlHttpChainOverride(TestCacheControl, SingleTest):
     should_be_cached = False
 
 
-# ensure that bot global and HTTP tables cache_ttl honors max-age supplied
-# by upstrean
 class CacheTtlHttpChainHonourMaxAge(TestCacheControl, SingleTest):
+    """
+    This test ensures that cache ttl supplied by client (by max-age for example)
+    takes precedence over HTTP-tables cache_ttl, assuming that
+    """
+
     tempesta_config = """
         cache_fulfill * *;
         cache_ttl 2;
@@ -1027,6 +1053,27 @@ class CacheTtlHttpChainHonourMaxAge(TestCacheControl, SingleTest):
     response_headers = {"Cache-Control": "max-age=10"}
     sleep_interval = 4
     should_be_cached = True
+
+
+class CacheTtlHonourNoCache(TestCacheControl, SingleTest):
+    """
+    This test ensures that no-cache from upstream efficiently ignores
+    both global and HTTP tables cache_ttl, assuming both these settings
+    are working correctly on their own.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        cache_ttl 10;
+        http_chain {
+            cookie "comment_author_*" == "*" -> cache_ttl = 10;
+            -> vh1;
+        }
+        """
+    request_headers = {"Cookie": "comment_author_name=john"}
+    response_headers = {"Cache-Control": "no-cache"}
+    sleep_interval = 2
+    should_be_cached = False
 
 
 class CacheLocationBase(TestCacheControl, SingleTest, base=True):
