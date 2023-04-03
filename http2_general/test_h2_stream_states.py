@@ -48,7 +48,7 @@ class TestClosedStreamState(H2Base):
         self.__base_scenario(PriorityFrame(stream_id=1))
 
 
-class TestHalfClosedStreamState(H2Base):
+class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
     def __base_scenario(self, frame: Frame):
         """
         If an endpoint receives additional frames, other than WINDOW_UPDATE, PRIORITY,
@@ -90,3 +90,43 @@ class TestHalfClosedStreamState(H2Base):
 
     def test_window_update_frame_in_half_closed_state(self):
         self.__base_scenario(frame=WindowUpdateFrame(stream_id=1))
+
+
+class TestHalfClosedStreamStateWindowUpdate(H2Base):
+    def test_window_update_frame_in_half_closed_state(self):
+        """
+        An endpoint should receive and accept WINDOW_UPDATE frame
+        on half-closed (remote) stream.
+
+        Tempesta must accept WINDOW_UPDATE frame on half-closed
+        (remote) stream and continue to send pending data.
+        """
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 2000\r\n\r\n"
+            + ("x" * 2000)
+        )
+
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        client.make_request(self.post_request)
+        self.assertFalse(client.wait_for_response(2))
+
+        client.h2_connection.increment_flow_control_window(2000)
+        client.h2_connection.increment_flow_control_window(2000, stream_id=1)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        self.assertTrue(client.wait_for_response(2))
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            len(client.last_response.body), 2000, "Tempesta did not return full response body."
+        )
