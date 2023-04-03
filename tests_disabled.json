@@ -301,11 +301,7 @@
             "name" : "t_stress.test_wordpress.H2WordpressStress",
             "reason": "Disable by issue #1703 - can cause kernel panic"
         },
-	{
-            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_get_resource_with_assets",
-            "reason": "Disable by issue #1394"
-        },
-	{
+        {
             "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_get_admin_resource_with_assets",
             "reason": "Disable by issue #1841"
         },
@@ -434,10 +430,6 @@
             "reason": "Disabled by issue #1780"
         },
         {
-            "name": "http2_general.test_flow_control_window",
-            "reason": "Disabled by issue #1394"
-        },
-        {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
             "reason": "Disabled by issue #1346"
         },
@@ -474,10 +466,6 @@
             "reason": "Disabled by issue #1823"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_after_setting_header_table_size",
-            "reason": "Disabled by PR #1845"
-        },
-        {
             "name": "t_http_rules.test_h2_http_tables.HttpTablesTestCustomRedirectCorrectVariablesAuthorityH2",
             "reason": "Disabled by issue #1630"
         },
@@ -487,27 +475,15 @@
         },
         {
             "name": "t_stress.test_stress.WrkStressMTU80",
-            "reason": "Disabled by PR #1842, 1845"
+            "reason": "Disabled by issue #1867"
         },
         {
             "name": "t_stress.test_stress.TlsWrkStressMTU80",
-            "reason": "Disabled by PR #1842, 1845"
+            "reason": "Disabled by issue #1867"
         },
         {
             "name": "t_stress.test_stress.H2LoadStressMTU80",
-            "reason": "Disabled by PR #1842, 1845"
-        },
-	{
-            "name": "http2_general.test_h2_hpack.TestHpack.test_bytes_of_table_size_in_header_frame_1",
-            "reason": "Disabled by PR #1842, 1845"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_size",
-            "reason": "Disabled by PR #1845"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_stress",
-            "reason": "Disabled by PR #1845"
+            "reason": "Disabled by issue #1867"
         },
         {
             "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_settings_max_header_list_size",
@@ -556,18 +532,6 @@
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
-            "reason": "Disabled by PR1845"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
-            "reason": "Disabled by PR1845"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
-            "reason": "Disabled by PR1845"
         },
 		{
 			"name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_disabled_host_http_required",

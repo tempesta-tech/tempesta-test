@@ -28,6 +28,9 @@ class TestFlowControl(H2Base):
         )
 
         client.update_initial_settings(initial_window_size=1000)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
         client.make_request(self.post_request)
         client.wait_for_response(3)
 
