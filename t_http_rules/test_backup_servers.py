@@ -67,7 +67,7 @@ http_chain {
         },
     ]
 
-    request = f"GET / HTTP/1.1\r\n" + "Host: debian\r\n\r\n"
+    request = "GET / HTTP/1.1\r\nHost: debian\r\n\r\n"
 
     def test_scheduler(self):
         """
