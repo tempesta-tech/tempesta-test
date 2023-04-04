@@ -7,12 +7,11 @@ from framework import tester
 from helpers import chains, remote
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class HttpTablesTest(tester.TempestaTest):
-
     backends = [
         {
             "id": 0,
@@ -74,6 +73,13 @@ class HttpTablesTest(tester.TempestaTest):
 
     tempesta = {
         "config": """
+        listen 80;
+        listen 443 proto=h2;
+        
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        
         block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
@@ -205,14 +211,7 @@ class HttpTablesTest(tester.TempestaTest):
             self.init_chain(self.requests_opt[i])
         tester.TempestaTest.setUp(self)
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
-    def process(self, client, server, chain):
+    def process(self, client, server, chain, step):
         client.make_request(chain.request.msg)
         client.wait_for_response()
         if chain.fwd_request:
@@ -221,12 +220,12 @@ class HttpTablesTest(tester.TempestaTest):
         # Check if the connection alive (general case) or
         # not (case of 'block' rule matching) after the main
         # message processing. Response 404 is enough here.
-        post_chain = chains.base()
-        client.make_request(post_chain.request.msg)
         if chain.fwd_request:
+            post_chain = chains.base()
+            client.make_request(post_chain.request.msg)
             self.assertTrue(client.wait_for_response())
         else:
-            self.assertFalse(client.wait_for_response())
+            self.assertTrue(client.wait_for_connection_close())
 
     def test_chains(self):
         """Test for matching rules in HTTP chains: according to
@@ -234,14 +233,13 @@ class HttpTablesTest(tester.TempestaTest):
         forwarded to the right vhosts according to it's
         headers content.
         """
-        self.start_all()
+        self.start_all_services()
         count = len(self.chains)
         for i in range(count):
-            self.process(self.get_client(i), self.get_server(i), self.chains[i])
+            self.process(self.get_client(i), self.get_server(i), self.chains[i], step=i)
 
 
 class HttpTablesTestMarkRules(HttpTablesTest):
-
     match_rules_test = False
 
     def set_nf_mark(self, mark):
@@ -270,18 +268,25 @@ class HttpTablesTestMarkRules(HttpTablesTest):
         configuration for current test - in @tempesta
         class variable).
         """
-        self.start_all()
+        self.start_all_services()
         count = len(self.chains)
         for i in range(count):
             mark = i + 1
             self.set_nf_mark(mark)
-            self.process(self.get_client(i), self.get_server(count - mark), self.chains[i])
+            self.process(self.get_client(i), self.get_server(count - mark), self.chains[i], step=i)
             self.del_nf_mark(mark)
 
 
 TEMPESTA_CONFIG = """
     %s
-
+    
+    listen 80;
+    listen 443 proto=h2;
+    
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
+    
     srv_group default {
             server ${server_ip}:8000;
     }
@@ -295,7 +300,6 @@ TEMPESTA_CONFIG = """
 
 
 class HttpTablesTestBase(tester.TempestaTest, base=True):
-
     clients = [{"id": "client", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
 
     backends = [
@@ -316,19 +320,12 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
 
     redirect_location = ""
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        srv = self.get_server("0")
-        self.assertTrue(srv.wait_for_connections(timeout=1))
-
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         deproxy_cl = self.get_client("client")
         deproxy_cl.start()
-        deproxy_cl.make_requests(self.requests)
+        deproxy_cl.make_request(self.requests)
         if self.resp_status:
             self.assertTrue(deproxy_cl.wait_for_response())
             if self.redirect_location:
@@ -337,32 +334,29 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
                 )
             self.assertEqual(int(deproxy_cl.last_response.status), self.resp_status)
         else:
-            self.assertFalse(deproxy_cl.wait_for_response())
+            self.assertFalse(deproxy_cl.wait_for_response(0.5))
+            self.assertTrue(deproxy_cl.wait_for_connection_close())
 
 
 class HttpTablesTestEmptyMainChainReply(HttpTablesTestBase):
-
     tempesta = {"config": TEMPESTA_CONFIG % ("block_action attack reply;", "http_chain {}")}
 
     resp_status = 403
 
 
 class HttpTablesTestEmptyMainChainDrop(HttpTablesTestBase):
-
     tempesta = {"config": TEMPESTA_CONFIG % ("block_action attack drop;", "http_chain {}")}
 
     resp_status = 0
 
 
 class HttpTablesTestEmptyMainChainDefault(HttpTablesTestBase):
-
     tempesta = {"config": TEMPESTA_CONFIG % ("", "http_chain {}")}
 
     resp_status = 0
 
 
 class HttpTablesTestEmptyChainReply(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -379,7 +373,6 @@ http_chain {
 
 
 class HttpTablesTestEmptyChainDrop(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -396,7 +389,6 @@ http_chain {
 
 
 class HttpTablesTestEmptyChainDefault(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -413,7 +405,6 @@ http_chain {
 
 
 class HttpTablesTestMixedChainReply(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -432,7 +423,6 @@ http_chain {
 
 
 class HttpTablesTestMixedChainDrop(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -451,7 +441,6 @@ http_chain {
 
 
 class HttpTablesTestMixedChainDefault(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -470,7 +459,6 @@ http_chain {
 
 
 class HttpTablesTestMixedChainResp(HttpTablesTestBase):
-
     tempesta = {
         "config": TEMPESTA_CONFIG
         % (
@@ -596,88 +584,6 @@ http_chain {
             started = False
         finally:
             self.assertFalse(started)
-
-
-class H2Redirects(tester.TempestaTest):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-            "ssl_hostname": "tempesta-tech.com",
-        }
-    ]
-
-    backends = [
-        {
-            "id": "0",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
-        }
-    ]
-
-    tempesta = {
-        "config": """
-        listen 443 proto=h2;
-        tls_match_any_server_name;
-
-        srv_group default {
-            server ${server_ip}:8000;
-        }
-
-        vhost tempesta-tech.com {
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            proxy_pass default;
-        }
-
-        http_chain redirection_chain {
-            uri == "/moved-permanently" -> 301 = /new-location-301;
-            uri == "/temporary-redirect" -> 307 = /new-location-307;
-            -> tempesta-tech.com;
-        }
-
-        http_chain {
-            host == "tempesta-tech.com" -> redirection_chain;
-        }
-
-        """
-    }
-
-    params = [
-        ("/moved-permanently", "301", "/new-location-301"),
-        ("/temporary-redirect", "307", "/new-location-307"),
-    ]
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
-    def test(self):
-        self.start_all()
-
-        for uri, status, location in self.params:
-            request = [
-                (":authority", "tempesta-tech.com"),
-                (":path", uri),
-                (":scheme", "https"),
-                (":method", "GET"),
-            ]
-
-            client = self.get_client("deproxy")
-            client.make_request(request)
-
-            got_response = client.wait_for_response()
-            self.assertTrue(got_response)
-            self.assertEqual(client.last_response.status, status)
-            self.assertEqual(client.last_response.headers["location"], location)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
