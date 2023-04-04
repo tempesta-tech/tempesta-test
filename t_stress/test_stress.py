@@ -160,6 +160,10 @@ class LargePageNginxBackendMixin:
 class CustomMtuMixin:
     """Mixin to set interfaces MTU values before test is started."""
 
+    tempesta_to_client_mtu = TEMPESTA_TO_CLIENT_MTU
+    tempesta_to_server_mtu = TEMPESTA_TO_SERVER_MTU
+    server_to_tempesta_mtu = SERVER_TO_TEMPESTA_MTU
+
     def setUp(self):
         if self._base:
             self.skipTest("This is an abstract class")
@@ -168,17 +172,17 @@ class CustomMtuMixin:
         self.set_mtu(
             node=remote.tempesta,
             destination_ip=tf_cfg.cfg.get("Client", "ip"),
-            mtu=TEMPESTA_TO_CLIENT_MTU,
+            mtu=self.tempesta_to_client_mtu,
         )
         self.set_mtu(
             node=remote.tempesta,
             destination_ip=tf_cfg.cfg.get("Server", "ip"),
-            mtu=TEMPESTA_TO_SERVER_MTU,
+            mtu=self.tempesta_to_server_mtu,
         )
         self.set_mtu(
             node=remote.server,
             destination_ip=tf_cfg.cfg.get("Tempesta", "ip"),
-            mtu=SERVER_TO_TEMPESTA_MTU,
+            mtu=self.server_to_tempesta_mtu,
         )
 
     def tearDown(self):
@@ -455,6 +459,12 @@ class H2LoadStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTe
         client.stop()
         self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)
+
+
+class H2LoadStressMTU80(H2LoadStress):
+    tempesta_to_client_mtu = 80
+    tempesta_to_server_mtu = 80
+    server_to_tempesta_mtu = 80
 
 
 class RequestStress(CustomMtuMixin, tester.TempestaTest):

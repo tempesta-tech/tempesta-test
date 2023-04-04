@@ -496,6 +496,10 @@
         {
             "name": "t_http_rules.test_h2_http_tables.HttpTablesTestMarkRulesH2",
             "reason": "Disabled by issue #1841"
+        },
+        {
+            "name": "t_stress.test_stress.H2LoadStressMTU80",
+            "reason": "Disabled by PR #1820, 1842, 1845"
         }
     ]
 }
