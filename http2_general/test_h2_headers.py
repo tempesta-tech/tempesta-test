@@ -130,6 +130,51 @@ class HeadersParsing(H2Base):
         )
 
 
+class DuplicateSingularHeader(H2Base):
+    def test_two_header_as_bytes_from_dynamic_table(self):
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        self.start_all_services()
+
+        # save "referer" header into dynamic table
+        client.send_request(self.get_request + [("referer", "test1")], "200")
+        # send two "referer" headers as bytes (\xbe, 62 index) from dynamic table
+        client.send_request(self.get_request + [("referer", "test1"), ("referer", "test1")], "400")
+
+    def test_header_as_string_value(self):
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        self.start_all_services()
+
+        # save "referer" header into dynamic table
+        client.send_request(self.get_request + [("referer", "test1")], "200")
+
+        client.h2_connection.send_headers(stream_id=3, headers=self.get_request, end_stream=True)
+        client.methods.append("GET")
+        # send two "referer" headers:
+        # first as byte (\xbe, 62 index) from dynamic table
+        # second as string value
+        client.send_bytes(
+            data=b"\x00\x00\x14\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe@\x07referer\x05test1",
+            expect_response=True,
+        )
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "400")
+
+    def test_header_from_static_table_and_dynamic_table(self):
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        self.start_all_services()
+
+        # save two "referer" header:
+        # first as byte from static table (key) and value as string
+        # second as byte from dynamic table
+        client.send_request(self.get_request + [("referer", "test1"), ("referer", "test1")], "400")
+
+
 class TestPseudoHeaders(H2Base):
     def test_invalid_pseudo_header(self):
         """
