@@ -476,6 +476,18 @@
         {
             "name": "t_stress.test_stress.H2LoadStressMTU80",
             "reason": "Disabled by PR #1842, 1845"
+        },
+	{
+            "name": "http2_general.test_h2_hpack.TestHpack.test_bytes_of_table_size_in_header_frame_1",
+            "reason": "Disabled by PR #1842, 1845"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_size",
+            "reason": "Disabled by PR #1845"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_stress",
+            "reason": "Disabled by PR #1845"
         }
     ]
 }
