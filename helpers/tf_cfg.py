@@ -55,7 +55,7 @@ class TestFrameworkCfg(object):
                     "stress_threads": "2",
                     "stress_large_content_length": "65536",
                     "stress_requests_count": "100",
-                    "stress_mtu": "0",
+                    "stress_mtu": "1500",
                     "long_body_size": "500",
                 },
                 "Client": {
