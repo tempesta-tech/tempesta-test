@@ -386,6 +386,10 @@
             "reason": "Disabled by issue #1751"
         },
         {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_one_ip",
+            "reason": "Disabled by issue #1751"
+        },
+        {
             "name": "t_frang.test_client_body_and_header_timeout",
             "reason": "Disabled by issue #1762"
         },
@@ -488,6 +492,18 @@
         {
             "name": "http2_general.test_h2_hpack.TestHpack.test_settings_header_table_stress",
             "reason": "Disabled by PR #1845"
+        },
+        {
+            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_settings_max_header_list_size",
+            "reason": "Disabled by issue #1838"
+        },
+        {
+            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_hpack_bomb",
+            "reason": "Disabled by issue #1780 and 1838"
+        },
+        {
+            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_reaching_limit_headers_as_bytes",
+            "reason": "Disabled by issue #1838"
         }
     ]
 }

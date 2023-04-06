@@ -1,10 +1,10 @@
 """Functional tests for `http_header_chunk_cnt` and `http_body_chunk_cnt`  directive"""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from t_frang.frang_test_case import FrangTestCase
+from t_frang.frang_test_case import FrangTestCase, H2Config
 
 
 class HttpHeaderChunkCnt(FrangTestCase):
@@ -57,3 +57,56 @@ class HttpBodyChunkCnt(FrangTestCase):
         """Set up `http_body_chunk_cnt 3;` and make request with 4 body chunk"""
         client = self.base_scenario(frang_config="http_body_chunk_cnt 3;", requests=self.requests)
         self.check_response(client, "403", self.error)
+
+
+class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
+    segment_size: int
+
+    def base_scenario(self, frang_config: str, requests: list):
+        self.set_frang_config(frang_config)
+
+        client = self.get_client("deproxy-1")
+        client.parsing = False
+        client.start()
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+        client.h2_connection.clear_outbound_data_buffer()
+
+        client.segment_size = self.segment_size
+        client.make_request(requests[0], huffman=False)
+        client.wait_for_response(3)
+        return client
+
+
+class HttpHeaderChunkCntH2(HttpHeaderChunkCntH2Base, HttpHeaderChunkCnt):
+    requests = [
+        [
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "POST"),
+            ("12345", "x" * 5),
+        ]
+    ]
+    #
+    # header frame = 9 header bytes + 27 header block bytes, headers are in 2-4 chunks
+    segment_size = 9  # headers - 27 bytes (3 chunks)
+
+
+class HttpBodyChunkCntH2(HttpHeaderChunkCntH2Base, HttpBodyChunkCnt):
+    """Tempesta counts only bytes of body."""
+
+    requests = [
+        (
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "POST"),
+            ],
+            "x" * 4,
+        ),
+    ]
+    segment_size = 1  # request body - 4 bytes (4 chunks)

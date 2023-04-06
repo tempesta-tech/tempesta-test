@@ -4,7 +4,7 @@ import time
 from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -84,9 +84,7 @@ block_action attack reply;
         self.assertIsNotNone(client_2.last_response)
         self.assertEqual(client_2.last_response.status, "200")
 
-        time.sleep(self.timeout)
-
-        self.assertTrue(client_1.connection_is_closed())
+        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
         self.assertFalse(client_2.connection_is_closed())
 
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
@@ -101,10 +99,8 @@ block_action attack reply;
         self.assertIsNone(client_1.last_response)
         self.assertIsNone(client_2.last_response)
 
-        time.sleep(self.timeout)
-
-        self.assertTrue(client_1.connection_is_closed())
-        self.assertTrue(client_2.connection_is_closed())
+        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
+        self.assertTrue(client_2.wait_for_connection_close(self.timeout))
 
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
@@ -137,9 +133,7 @@ block_action attack reply;
         self.assertEqual(client_1.last_response.status, "403")
         self.assertEqual(client_2.last_response.status, "200")
 
-        time.sleep(self.timeout)
-
-        self.assertTrue(client_1.connection_is_closed())
+        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
         self.assertFalse(client_2.connection_is_closed())
 
         self.assertFrangWarning(warning="Warning: block client:", expected=0)
@@ -197,10 +191,8 @@ block_action attack reply;
         self.assertIsNone(client_1.last_response)
         self.assertIsNone(client_2.last_response)
 
-        time.sleep(self.timeout)
-
-        self.assertTrue(client_1.connection_is_closed())
-        self.assertTrue(client_2.connection_is_closed())
+        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
+        self.assertTrue(client_2.wait_for_connection_close(self.timeout))
 
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)
@@ -230,10 +222,8 @@ block_action attack reply;
 
         self.assertEqual(client_1.last_response.status, "200")
 
-        time.sleep(self.timeout)
-
+        self.assertTrue(client_2.wait_for_connection_close(self.timeout))
         self.assertFalse(client_1.connection_is_closed())
-        self.assertTrue(client_2.connection_is_closed())
 
         self.assertFrangWarning(warning="Warning: block client:", expected=0)
         self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)

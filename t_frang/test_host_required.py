@@ -234,16 +234,25 @@ block_action error reply;
         client.start()
         client.parsing = False
 
+        first_headers = [(":authority", "localhost"), (":path", "/")]
+        second_headers = [(":path", "/"), ("host", "localhost")]
+        third_headers = [(":authority", "localhost"), (":path", "/"), ("host", "localhost")]
+        fourth_headers = [
+            (":authority", "tempesta-tech.com"),
+            (":path", "/"),
+            ("forwarded", "host=tempesta-tech.com"),
+            ("forwarded", "for=tempesta.com"),
+        ]
+
         header_list = [
-            [(":authority", "localhost"), (":path", "/")],
-            [(":path", "/"), ("host", "localhost")],
-            [(":authority", "localhost"), (":path", "/"), ("host", "localhost")],
-            [
-                (":authority", "tempesta-tech.com"),
-                (":path", "/"),
-                ("forwarded", "host=tempesta-tech.com"),
-                ("forwarded", "for=tempesta.com"),
-            ],
+            first_headers,
+            first_headers,  # as byte
+            second_headers,
+            second_headers,  # as byte
+            third_headers,
+            third_headers,  # as byte
+            fourth_headers,
+            fourth_headers,  # as byte
         ]
         for header in header_list:
             head = [

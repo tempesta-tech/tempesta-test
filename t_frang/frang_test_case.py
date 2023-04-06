@@ -1,10 +1,9 @@
 """Basic file for frang functional tests."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
 
 from framework import tester
 from framework.deproxy_client import DeproxyClient
@@ -29,11 +28,17 @@ class FrangTestCase(tester.TempestaTest):
         "config": """
 cache 0;
 listen 80;
+listen 443 proto=h2;
 frang_limits {
     %(frang_config)s
     ip_block off;
 }
 server ${server_ip}:8000;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 block_action attack reply;
 """,
     }
@@ -70,13 +75,11 @@ block_action attack reply;
         client = self.get_client("deproxy-1")
         client.parsing = False
         client.start()
-        for request in requests:
-            client.make_request(request)
-        client.wait_for_response(1)
+        client.make_requests(requests)
+        client.wait_for_response(3)
         return client
 
     def check_response(self, client, status_code: str, warning_msg: str):
-        time.sleep(self.timeout)
         self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
         for response in client.responses:
             self.assertEqual(response.status, status_code, "HTTP response status codes mismatch.")
@@ -85,7 +88,7 @@ block_action attack reply;
                 self.assertFalse(client.connection_is_closed())
                 self.assertFrangWarning(warning=warning_msg, expected=0)
             else:
-                self.assertTrue(client.connection_is_closed())
+                self.assertTrue(client.wait_for_connection_close(self.timeout))
                 self.assertFrangWarning(warning=warning_msg, expected=1)
 
     def assertFrangWarning(self, warning: str, expected: int):
@@ -93,3 +96,29 @@ block_action attack reply;
         self.assertEqual(
             warning_count, expected, self.assert_msg.format(exp=expected, got=warning_count)
         )
+
+
+class H2Config:
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    post_request = [
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+    ]
+
+    get_request = [
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
+    ]

@@ -1,19 +1,23 @@
 """Functional tests for `client_body_timeout` and `client_header_timeout` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
 
-from t_frang.frang_test_case import FrangTestCase
+from h2.connection import AllowedStreamIDs
+from h2.stream import StreamInputs
+from hyperframe.frame import ContinuationFrame, HeadersFrame
+
+from t_frang.frang_test_case import FrangTestCase, H2Config
 
 TIMEOUT = 1
 
 
 class TestTimeoutBase(FrangTestCase):
-    request_segment_1: str
-    request_segment_2: str
+    request_segment_1: str or list
+    request_segment_2: str or list
     error: str
     frang_config: str
 
@@ -22,16 +26,15 @@ class TestTimeoutBase(FrangTestCase):
         client.parsing = False
         client.start()
 
-        client.make_request(self.request_segment_1)
+        client.make_request(request=self.request_segment_1, end_stream=False)
         if sleep < TIMEOUT:
             time.sleep(sleep)
             client.make_request(self.request_segment_2)
-            client.valid_req_num = 1
+        client.valid_req_num = 1
         client.wait_for_response(sleep + 1)
 
 
 class ClientBodyTimeout(TestTimeoutBase):
-
     request_segment_1 = (
         "POST / HTTP/1.1\r\n"
         "Host: debian\r\n"
@@ -60,3 +63,76 @@ class ClientHeaderTimeout(ClientBodyTimeout):
     request_segment_2 = "Content-Type: text/html\r\nContent-Length: 0\r\n\r\n"
     error = "Warning: frang: client header timeout exceeded"
     frang_config = f"client_header_timeout {TIMEOUT};"
+
+
+class ClientBodyTimeoutH2(H2Config, ClientBodyTimeout):
+    request_segment_1 = (
+        [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "POST"),
+        ],
+        "request ",
+    )
+
+    request_segment_2 = "body."
+
+
+class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
+    request_segment_1 = [
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+    ]
+
+    request_segment_2 = [("header", "header_value")]
+
+    @staticmethod
+    def __setup_connection_and_create_stream(client):
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+    def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
+        client = self.get_client("deproxy-1")
+        client.start()
+        client.parsing = False
+
+        self.__setup_connection_and_create_stream(client)
+
+        # timeout counter is created for each stream.
+        client.send_request(self.get_request, "200")
+
+        header_frame = HeadersFrame(
+            client.stream_id, client.encoder.encode(self.request_segment_1), flags={"END_STREAM"}
+        )
+
+        cont_frame = ContinuationFrame(
+            client.stream_id, client.encoder.encode(self.request_segment_2), flags={"END_HEADERS"}
+        )
+
+        # sleep after TLS handshake and exchange SETTINGS frame
+        if timeout_before_send:
+            time.sleep(TIMEOUT + 1)
+
+        client.send_bytes(header_frame.serialize())
+        if sleep < TIMEOUT:
+            time.sleep(sleep)
+            client.send_bytes(cont_frame.serialize())
+
+        client.valid_req_num = 1
+        client.wait_for_response(sleep + 1)
+
+    def test_starting_timeout_counter(self):
+        """
+        Timeout counter starts when first header in current stream is received.
+        """
+        self.set_frang_config(frang_config=self.frang_config)
+        self.send_request_with_sleep(sleep=TIMEOUT / 2, timeout_before_send=True)
+        self.check_response(self.get_client("deproxy-1"), "200", self.error)
