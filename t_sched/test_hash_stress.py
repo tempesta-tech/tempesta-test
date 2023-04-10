@@ -89,7 +89,7 @@ class BindToServer(tester.TempestaTest):
         )
     }
 
-    backends = [
+    backends_template = [
         {
             "id": f"nginx_{step}",
             "type": "nginx",
@@ -109,7 +109,7 @@ class BindToServer(tester.TempestaTest):
     ]
 
     def setUp(self):
-        self.backends = copy.deepcopy(self.backends)
+        self.backends = copy.deepcopy(self.backends_template)
         for backend in self.backends:
             backend["config"] = backend["config"] % self.ka_requests
         super(BindToServer, self).setUp()

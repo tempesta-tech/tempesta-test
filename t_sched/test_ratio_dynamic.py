@@ -212,7 +212,7 @@ class RatioDynamic(tester.TempestaTest):
     }
 
     min_server_weight = 30
-    min_duration = max(DURATION, 30)
+    min_duration = max(DURATION, 5)
 
     def test_load_distribution(self):
         """Configure slow and fast servers. The faster server, the more
@@ -280,24 +280,24 @@ class RatioPredict(RatioDynamic):
     close to ratio dynamic. But predict scheduler better smooths load spikes.
     """
 
-    # Prediction timeouts are 30/15 by default. Enforce minimum test duration
+    # Prediction timeouts are 5/2. Enforce minimum test duration
     # to bigger value to use predicts.
-    min_duration = max(DURATION, 60)
+    min_duration = max(DURATION, 15)
 
-    tempesta = {"sched_opts": "ratio predict", "config": TEMPESTA_CONFIG}
+    tempesta = {"sched_opts": "ratio predict past=5 ahead=2", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictMin(RatioPredict):
-    tempesta = {"sched_opts": "ratio predict minimum", "config": TEMPESTA_CONFIG}
+    tempesta = {"sched_opts": "ratio predict minimum past=5 ahead=2", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictMax(RatioPredict):
-    tempesta = {"sched_opts": "ratio predict maximum", "config": TEMPESTA_CONFIG}
+    tempesta = {"sched_opts": "ratio predict maximum past=5 ahead=2", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictAv(RatioPredict):
-    tempesta = {"sched_opts": "ratio predict average", "config": TEMPESTA_CONFIG}
+    tempesta = {"sched_opts": "ratio predict average past=5 ahead=2", "config": TEMPESTA_CONFIG}
 
 
 class RatioPredictPerc(RatioPredict):
-    tempesta = {"sched_opts": "ratio predict percentile", "config": TEMPESTA_CONFIG}
+    tempesta = {"sched_opts": "ratio predict percentile past=5 ahead=2", "config": TEMPESTA_CONFIG}

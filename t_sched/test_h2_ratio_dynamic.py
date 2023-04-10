@@ -68,6 +68,6 @@ class RatioPredictAvH2(RatioDynamicH2, test_ratio_dynamic.RatioPredictAv):
         super(RatioPredictAvH2, self).test_load_distribution()
 
 
-class RatioPredictPerc(RatioDynamicH2, test_ratio_dynamic.RatioPredictPerc):
+class RatioPredictPercH2(RatioDynamicH2, test_ratio_dynamic.RatioPredictPerc):
     def test_load_distribution(self):
-        super(RatioPredictPerc, self).test_load_distribution()
+        super(RatioPredictPercH2, self).test_load_distribution()

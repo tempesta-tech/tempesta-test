@@ -328,9 +328,6 @@ class AllDefaults(tester.TempestaTest):
         servers = self.get_servers()
         servers_get_stats(servers)
 
-        for srv in servers:
-            print(srv.requests)
-
         for group, lb_type in self.group_scheds:
             self.check_lb(group, lb_type)
 
