@@ -508,6 +508,10 @@
         {
             "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_reaching_limit_headers_as_bytes",
             "reason": "Disabled by issue #1838"
+        },
+        {
+            "name": "ws.test_ws_ping.WsPipelining",
+            "reason": "Disabled by issue #1866"
         }
     ]
 }

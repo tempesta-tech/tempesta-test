@@ -371,7 +371,7 @@ class TempestaTest(unittest.TestCase):
         self.__ips = []
 
         self.oops.update()
-        for err in ["Oops", "WARNING", "ERROR"]:
+        for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue
             if self.oops._warn_count(err) > 0:
