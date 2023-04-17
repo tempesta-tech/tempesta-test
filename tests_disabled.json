@@ -512,6 +512,18 @@
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
+            "reason": "Disabled by PR1845"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
+            "reason": "Disabled by PR1845"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
+            "reason": "Disabled by PR1845"
         }
     ]
 }

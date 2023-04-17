@@ -12,6 +12,9 @@ __license__ = "GPL2"
 DATE = deproxy.HttpMessage.date_time_string()
 CHUNK_SIZE = 16
 BODY_PAYLOAD = string.ascii_letters
+LARGE_BODY_PAYLOAD = 100000 * "x"
+LARGE_BODY_CHUNK_SIZE_1 = 1000
+LARGE_BODY_CHUNK_SIZE_2 = 10
 
 
 class CommonUtils:
@@ -105,10 +108,13 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         """
     }
 
+    body = BODY_PAYLOAD
+    chunk_size = CHUNK_SIZE
+
     def setUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
-        self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
+        self.backends[0]["response_content"] += self.encode_chunked(self.body, self.chunk_size)
         super().setUp()
 
     def test(self):
@@ -136,7 +142,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         cl = response.headers.get("Content-Length", None)
         self.assertTrue(cl, "The response should have Content-Length")
         self.assertEqual(
-            response.body, BODY_PAYLOAD, "Dechunked body does not match the original payload"
+            response.body, self.body, "Dechunked body does not match the original payload"
         )
 
         # from now on the response is cached
@@ -146,6 +152,34 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         self.assertTrue(got_response, "Got no response")
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.requests), 1, "The response has to be served from cache")
+
+
+class TestH2LargeResponseBodyDechunking(TestH2BodyDechunking):
+    """
+    Same as "TestH2BodyDechunking", but with large body
+    and with a lot of chunks. That should cause SKB
+    fragmentation.
+    """
+
+    body = LARGE_BODY_PAYLOAD
+    chunk_size = LARGE_BODY_CHUNK_SIZE_1
+
+
+class TestH2LargeResponseBodyDechunking2(TestH2BodyDechunking):
+    """
+    Same as "TestH2BodyDechunking", but with large body
+    and with a lot of chunks. That should cause SKB
+    fragmentation.
+    """
+
+    body = LARGE_BODY_PAYLOAD
+    chunk_size = LARGE_BODY_CHUNK_SIZE_2
+
+
+class TestH2EmptyResponseBodyDechunking(TestH2BodyDechunking):
+    """Same as "TestH2BodyDechunking", but with empty body."""
+
+    body = ""
 
 
 class TestH1ChunkedIsNotLast(tester.TempestaTest, CommonUtils):

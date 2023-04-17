@@ -510,6 +510,55 @@ class TestHpack(TestHpackBase):
         self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
+    def test_big_header_in_response(self):
+        """Tempesta must forward header response with header > 64 KB."""
+        header_size = 500000
+        header = ("qwerty", "x" * header_size)
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.start_all_services()
+        client.update_initial_settings(max_header_list_size=header_size * 2)
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Server: Debian\r\n"
+            + "Date: test\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        client.send_request(request=self.post_request, expected_status_code="200")
+
+        self.assertIsNotNone(client.last_response.headers.get(header[0]))
+        self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
+
+    def test_big_header_and_body_in_response(self):
+        """Tempesta must forward response with header and body > 64 KB."""
+        size = 500000
+        header = ("qwerty", "x" * size)
+        response_body = "a" * 100000
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.start_all_services()
+        client.update_initial_settings(max_header_list_size=size * 2)
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Server: Debian\r\n"
+            + "Date: test\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
+            + f"Content-Length: {len(response_body)}\r\n\r\n"
+            + response_body
+        )
+
+        client.send_request(request=self.post_request, expected_status_code="200")
+
+        self.assertIsNotNone(client.last_response.headers.get(header[0]))
+        self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
+        self.assertEqual(client.last_response.body, response_body)
+
     def test_get_method_as_string(self):
         """
         Client send request with method GET as string value.
