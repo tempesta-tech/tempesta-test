@@ -19,6 +19,7 @@ __license__ = "GPL2"
 class ServerConnection(asyncore.dispatcher_with_send):
     def __init__(self, server, sock=None, keep_alive=None):
         asyncore.dispatcher_with_send.__init__(self, sock)
+        self.out_buffer = b""
         self.server = server
         self.keep_alive = keep_alive
         self.last_segment_time = 0
@@ -31,18 +32,21 @@ class ServerConnection(asyncore.dispatcher_with_send):
         data with too small chunks of 512 bytes.
         However if server.segment_size is set (!=0), use this value.
         """
-        num_sent = 0
-        num_sent = asyncore.dispatcher.send(
-            self,
-            self.out_buffer[: self.server.segment_size if self.server.segment_size > 0 else 4096*2],
-        )
-        self.out_buffer = self.out_buffer[num_sent:]
-        self.last_segment_time = time.time()
+        data_to_send = self.out_buffer
+        self.out_buffer = b""
 
-    def send_pending_and_close(self):
-        while len(self.out_buffer):
-            self.initiate_send()
-        self.handle_close()
+        if self.server.segment_size:
+            while data_to_send:
+                sent = asyncore.dispatcher.send(self, data_to_send[: self.server.segment_size])
+                data_to_send = data_to_send[sent:]
+        else:
+            self.socket.sendall(data_to_send)
+
+        self.last_segment_time = time.time()
+        self.responses_done += 1
+
+        if self.responses_done == self.keep_alive and self.keep_alive:
+            self.handle_close()
 
     def writable(self):
         if (
@@ -51,18 +55,6 @@ class ServerConnection(asyncore.dispatcher_with_send):
         ):
             return False
         return asyncore.dispatcher_with_send.writable(self)
-
-    def send_response(self, response):
-        if response:
-            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
-            tf_cfg.dbg(5, response)
-            self.socket.sendall(response.encode())
-        else:
-            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Don't have response")
-        if self.keep_alive:
-            self.responses_done += 1
-            if self.responses_done == self.keep_alive:
-                self.send_pending_and_close()
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
@@ -98,10 +90,13 @@ class ServerConnection(asyncore.dispatcher_with_send):
             return
         tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request.")
         tf_cfg.dbg(5, self.request_buffer)
-        response, need_close = self.server.receive_request(request, self)
+        response, need_close = self.server.receive_request(request)
         self.request_buffer = ""
         if response:
-            self.send_response(response)
+            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
+            tf_cfg.dbg(5, response)
+            self.out_buffer += response.encode()
+            self.initiate_send()
         if need_close:
             self.close()
 
@@ -186,7 +181,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         return True
 
     @abc.abstractmethod
-    def receive_request(self, request, connection):
+    def receive_request(self, request, connection=None):
         raise NotImplementedError("Not implemented 'receive_request()'")
 
 
@@ -205,7 +200,7 @@ class StaticDeproxyServer(BaseDeproxyServer):
     def set_response(self, response):
         self.response = response
 
-    def receive_request(self, request, connection):
+    def receive_request(self, request, connection=None):
         self.requests.append(request)
         self.last_request = request
         return self.response, False
