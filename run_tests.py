@@ -49,6 +49,16 @@ key, not password. `ssh-copy-id` can be used for that.
 -D, --debug-files                 - Don't remove generated config files
 -Z, --run-disabled                - Run only tests from list of disabled
 -I, --ignore-errors               - Don't exit on import/syntax errors in tests
+-s, --save-tcpdump                - Enable tcpdump for test. Results is saved to 
+                                    file with name of test. Works with -R option.
+                                    Default path: /var/tcpdump/<date>/<time>/<test_name>.pcap [number].
+                                    For -i option - /<identifier>/<test_id>.pcap [number]
+-i, --identifier <id>             - Path to tcpdump results folder. Workspace path 
+                                    and build tag on CI or other.
+-S, --save-secrets                - Save TLS secrets for deproxy and curl client to 
+                                    secrets.txt in main directory.
+-T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
+                                    deproxy client and server.
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -93,7 +103,7 @@ t_retry = False
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:fr:ER:a:nl:LCDZpIi:sS",
+        "hvdt:T:fr:ER:a:nl:LCDZpIi:sS",
         [
             "help",
             "verbose",
@@ -115,6 +125,7 @@ try:
             "identifier=",
             "save-tcpdump",
             "save-secrets",
+            "--tcp-segmentation=",
         ],
     )
 
@@ -170,6 +181,11 @@ for opt, arg in options:
         run_config.SAVE_SECRETS = True
     elif opt in ("-S", "--save-secrets"):
         run_config.SAVE_SECRETS = True
+    elif opt in ("-T", "--tcp-segmentation"):
+        if int(arg) > 0:
+            run_config.TCP_SEGMENTATION = int(arg)
+        else:
+            raise ValueError("tcp-segmentation argument must be greater than 0.")
 
 tf_cfg.cfg.check()
 

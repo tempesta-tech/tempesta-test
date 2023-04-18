@@ -7,6 +7,7 @@ import time
 
 import framework.port_checks as port_checks
 import framework.tester
+import run_config
 from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg
 
 from .templates import fill_template
@@ -34,6 +35,9 @@ class ServerConnection(asyncore.dispatcher_with_send):
         """
         data_to_send = self.out_buffer
         self.out_buffer = b""
+
+        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
+            self.server.segment_size = run_config.TCP_SEGMENTATION
 
         if self.server.segment_size:
             while data_to_send:

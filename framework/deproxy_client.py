@@ -17,6 +17,7 @@ from h2.settings import SettingCodes, Settings
 from hpack import Encoder
 from hyperframe.frame import WindowUpdateFrame
 
+import run_config
 from helpers import deproxy, selfproxy, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -180,6 +181,10 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         reqs = self.request_buffers
         tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
+
+        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
+            self.segment_size = run_config.TCP_SEGMENTATION
+
         if self.segment_size != 0 and not self.selfproxy_present:
             sent = self.send(reqs[self.cur_req_num][: self.segment_size].encode())
         else:
@@ -602,6 +607,10 @@ class DeproxyClientH2(DeproxyClient):
         reqs = self.request_buffers
         tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
+
+        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
+            self.segment_size = run_config.TCP_SEGMENTATION
+
         if self.segment_size != 0:
             for chunk in [
                 reqs[self.cur_req_num][i : (i + self.segment_size)]
