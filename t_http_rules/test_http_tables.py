@@ -492,7 +492,7 @@ http_chain chain1 {
 
 }
 http_chain {
-    hdr Host == "%s" -> chain1;
+    host == "%s" -> chain1;
 }"""
             % (request_uri, host),
         )
