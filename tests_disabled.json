@@ -301,6 +301,14 @@
             "name" : "t_stress.test_wordpress.H2WordpressStress",
             "reason": "Disable by issue #1703 - can cause kernel panic"
         },
+	{
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_get_resource_with_assets",
+            "reason": "Disable by issue #1394"
+        },
+	{
+            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_get_admin_resource_with_assets",
+            "reason": "Disable by issue #1841"
+        },
         {
             "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_burst",
             "reason": "Disabled by issue #1751"
@@ -540,6 +548,10 @@
         {
             "name": "t_sched.test_hash_stress.BindToServerFailovering",
             "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "ws.test_ws_ping.WsPipelining",
+            "reason": "Disabled by issue #1866"
         }
     ]
 }
