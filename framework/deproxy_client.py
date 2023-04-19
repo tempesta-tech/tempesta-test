@@ -553,6 +553,10 @@ class DeproxyClientH2(DeproxyClient):
                     self.h2_connection.acknowledge_received_data(
                         acknowledged_size=event.flow_controlled_length, stream_id=event.stream_id
                     )
+                    data = self.h2_connection.data_to_send()
+                    if data is not None:
+                        self.send_bytes(data)
+                        self.h2_connection.clear_outbound_data_buffer()
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
