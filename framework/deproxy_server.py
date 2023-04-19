@@ -185,7 +185,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         return True
 
     @abc.abstractmethod
-    def receive_request(self, request, connection=None):
+    def receive_request(self, request):
         raise NotImplementedError("Not implemented 'receive_request()'")
 
 
@@ -204,7 +204,7 @@ class StaticDeproxyServer(BaseDeproxyServer):
     def set_response(self, response):
         self.response = response
 
-    def receive_request(self, request, connection=None):
+    def receive_request(self, request):
         self.requests.append(request)
         self.last_request = request
         return self.response, False

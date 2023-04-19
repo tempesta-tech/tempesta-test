@@ -9,7 +9,7 @@ from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers import checks_for_tests as checks
-from helpers import tf_cfg
+from helpers import deproxy, tf_cfg
 from helpers.control import Tempesta
 
 MIXED_CONFIG = (
@@ -71,7 +71,7 @@ vhost default {
             + "Content-Length: 13\r\n"
             + "Content-Type: text/html\r\n"
             + "\r\n"
-            + "<html></html>\r\n",
+            + "<html></html>"
         )
 
         client: DeproxyClient = self.get_client("deproxy")
@@ -399,7 +399,6 @@ class H2Cache(tester.TempestaTest):
 
 
 class TestChunkedResponse(tester.TempestaTest):
-
     backends = [
         {
             "id": "chunked",
