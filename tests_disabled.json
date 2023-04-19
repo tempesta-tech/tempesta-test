@@ -42,19 +42,35 @@
             "reason" : "Disabled by issue #1752"
         },
         {
-            "name" : "sched.test_ratio_dynamic.RatioDynamicMax",
+            "name" : "t_sched.test_ratio_dynamic.RatioDynamicMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "sched.test_ratio_dynamic.RatioPredictMax",
+            "name" : "t_sched.test_ratio_dynamic.RatioPredictMax",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "sched.test_ratio_dynamic_recalc.RatioDynamicMax",
+            "name" : "t_sched.test_h2_ratio_dynamic.RatioDynamicMaxH2",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "sched.test_ratio_dynamic_recalc.RatioPredictMax",
+            "name" : "t_sched.test_h2_ratio_dynamic.RatioPredictMaxH2",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "t_sched.test_ratio_dynamic_recalc.RatioDynamicMax",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "t_sched.test_ratio_dynamic_recalc.RatioPredictMax",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+                {
+            "name" : "t_sched.test_h2_ratio_dynamic_recalc.RatioDynamicMaxH2",
+            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
+        },
+        {
+            "name" : "t_sched.test_h2_ratio_dynamic_recalc.RatioPredictMaxH2",
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
@@ -104,10 +120,6 @@
         {
             "name" : "pipelining",
             "reason" : "Disabled by issue #963"
-        },
-        {
-            "name" : "sched",
-            "reason" : "Disabled by issue #702"
         },
         {
             "name" : "selftests.test_deproxy.DeproxyChunkedTest.test_deproxy_one_chain",
@@ -508,6 +520,34 @@
         {
             "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_reaching_limit_headers_as_bytes",
             "reason": "Disabled by issue #1838"
+        },
+        {
+            "name": "t_sched.test_per_group_lb",
+            "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "t_sched.test_h2_per_group_lb",
+            "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "t_sched.test_ratio_dynamic",
+            "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "t_sched.test_h2_ratio_dynamic",
+            "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "t_sched.test_ratio_dynamic_recalc",
+            "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "t_sched.test_h2_ratio_dynamic_recalc",
+            "reason": "Disabled by issue #702"
+        },
+        {
+            "name": "t_sched.test_hash_stress.BindToServerFailovering",
+            "reason": "Disabled by issue #702"
         },
         {
             "name": "ws.test_ws_ping.WsPipelining",
