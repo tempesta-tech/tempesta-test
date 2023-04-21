@@ -15,6 +15,7 @@ from h2.events import (
 )
 from h2.settings import SettingCodes, Settings
 from hpack import Encoder
+from hyperframe.frame import WindowUpdateFrame
 
 from helpers import deproxy, selfproxy, stateful, tf_cfg
 
@@ -553,10 +554,7 @@ class DeproxyClientH2(DeproxyClient):
                     self.h2_connection.acknowledge_received_data(
                         acknowledged_size=event.flow_controlled_length, stream_id=event.stream_id
                     )
-                    data = self.h2_connection.data_to_send()
-                    if data is not None:
-                        self.send_bytes(data)
-                        self.h2_connection.clear_outbound_data_buffer()
+                    self.send_bytes(data=self.__generate_window_update_frame(event))
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
@@ -668,3 +666,14 @@ class DeproxyClientH2(DeproxyClient):
                 data=data[: self.h2_connection.max_outbound_frame_size].encode(),
                 end_stream=end_stream,
             )
+
+    @staticmethod
+    def __generate_window_update_frame(event: DataReceived) -> bytes:
+        window_frame = WindowUpdateFrame(
+            stream_id=0, window_increment=event.flow_controlled_length
+        ).serialize()
+        if event.stream_ended is None:
+            window_frame += WindowUpdateFrame(
+                stream_id=event.stream_id, window_increment=event.flow_controlled_length
+            ).serialize()
+        return window_frame
