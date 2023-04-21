@@ -550,6 +550,10 @@
             "reason": "Disabled by issue #702"
         },
         {
+            "name": "t_sched.test_h2_hash_stress.BindToServerFailoveringH2",
+            "reason": "Disabled by issue #702"
+        },
+        {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
         },
