@@ -33,18 +33,23 @@ class ServerConnection(asyncore.dispatcher_with_send):
         data with too small chunks of 512 bytes.
         However if server.segment_size is set (!=0), use this value.
         """
-        data_to_send = self.out_buffer
-        self.out_buffer = b""
-
         if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
             self.server.segment_size = run_config.TCP_SEGMENTATION
 
         if self.server.segment_size:
-            while data_to_send:
-                sent = asyncore.dispatcher.send(self, data_to_send[: self.server.segment_size])
-                data_to_send = data_to_send[sent:]
+            for chunk in [
+                self.out_buffer[i : (i + self.server.segment_size)]
+                for i in range(0, len(self.out_buffer), self.server.segment_size)
+            ]:
+                try:
+                    self.socket.send(chunk)
+                except ConnectionResetError as e:
+                    tf_cfg.dbg(4, f"\tDeproxy: Server: Connection: Received error - {e}")
+                    break
         else:
-            self.socket.sendall(data_to_send)
+            self.socket.sendall(self.out_buffer)
+
+        self.out_buffer = b""
 
         self.last_segment_time = time.time()
         self.responses_done += 1

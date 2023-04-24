@@ -78,56 +78,56 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_h2_streams.TestMultiplexing",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamState",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "tls.test_tls_integrity.CloseConnection.test8",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "access_log.test_access_log.AccessLogTest.test_uri_truncate",
-            "reason": "Disabled by issue #1864 (1 byte)"
+            "reason": "Disabled by issue #1864"
         },
         {
             "name": "cache.test_cache",
-            "reason": "Disabled by issue 1"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "cache.test_cache_methods.TestMultipleMethods",
-            "reason": "Disabled by issue #1864 (1 byte) and 1"
+            "reason": "Disabled by issue #1864 and #1868"
         },
         {
             "name": "cache.test_conditional",
-            "reason": "Disabled by issue #1864 (1 byte) and 1"
+            "reason": "Disabled by issue #1864 and #1868"
         },
         {
             "name": "cache.test_purge",
-            "reason": "Disabled by issue 1"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "cache.test_purge_hch",
-            "reason": "Disabled by issue 1"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "cache.test_purge_resp_hch",
-            "reason": "Disabled by issue 1"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "tls.test_tls_integrity.Cache",
-            "reason": "Disabled by issue 1"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "tls.test_tls_integrity.CacheH2",
-            "reason": "Disabled by issue 1"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_http_headers_code_charater_is_invalid_in_header",
-            "reason": "Disabled by issue 2"
-        },
-        {
-            "name": "encoding.test_encoding.TestH1BothTEAndCE",
-            "reason": "Disabled by issue 2"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "tls.test_tls_integrity.ManyClientsH2",
-            "reason": "Disabled by issue 2"
-        },
-        {
-            "name": "tls.test_tls_integrity.CloseConnection",
-            "reason": "Disabled by issue 2"
+            "reason": "Disabled by PR 1714"
         },
         {
             "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
@@ -146,16 +146,16 @@
             "reason": "Disabled by issue 1864"
         },
         {
-            "name": "encoding.test_encoding.TestH2ChunkedIsNotLast",
-            "reason": "Disabled by issue 2"
+            "name": "t_wrong_body_length.test_response_wrong_length.ResponseMissingEmptyBodyLength",
+            "reason": "Disabled by issue 1864"
         },
         {
-            "name": "selftests.test_curl_client.TestCurlClient.test_options_added",
-            "reason": "Disabled by issue 2"
+            "name": "t_wrong_body_length.test_response_wrong_length.ResponseCorrectBodyLength",
+            "reason": "Disabled by issue 1864"
         },
         {
-            "name": "t_wrong_body_length.test_response_wrong_length",
-            "reason": "Disabled by issue 2"
+            "name": "t_wrong_body_length.test_response_wrong_length.ResponseCorrectEmptyBodyLength",
+            "reason": "Disabled by issue 1864"
         },
         {
             "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
@@ -167,59 +167,11 @@
         },
         {
             "name": "forwarding.test_match_host_forwarded.TestMatchHost",
-            "reason": "Disabled by issue 3"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_goaway_frame_in_response",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_rst_stream_with_id_0",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_invalid_pseudo_header",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_keep_alive_header_in_request",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_connection_header_in_request",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_headers.DuplicateSingularHeader.test_header_as_string_value",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_headers.HeadersParsing.test_transfer_encoding_header_in_request",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamState",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_streams.TestH2Stream.test_headers_frame_with_zero_stream_id",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_streams.TestH2Stream.test_request_with_even_numbered_stream_id",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_small_frame_payload_length",
-            "reason": "Disabled by issue 4"
-        },
-        {
-            "name": "t_wrong_body_length.test_h2_request_wrong_length",
-            "reason": "Disabled by issue 4"
+            "reason": "Disabled by issue 1873"
         },
         {
             "name": "http2_general.test_h2_hpack.TestHpackStickyCookie.test_h2_cookie_after_setting_header_table_size",
-            "reason": "Disabled by issue 5"
+            "reason": "Disabled by issue 1871"
         },
         {
             "name": "regression",
@@ -263,7 +215,7 @@
         },
         {
             "name": "sessions.test_js_challenge.JSChallengeH2.test_get_challenge",
-            "reason": "Disabled by issue 6"
+            "reason": "Disabled by issue 1871"
         },
         {
             "name": "t_frang.test_header_cnt.FrangHttpHeaderCountTestCase.test_default_http_header_cnt",
@@ -283,11 +235,11 @@
         },
         {
             "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_host_header_as_ipv6",
-            "reason": "Disabled by issue 7"
+            "reason": "Disabled by issue 1871"
         },
         {
             "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_authority_header_as_ipv6",
-            "reason": "Disabled by issue 7"
+            "reason": "Disabled by issue 1871"
         },
         {
             "name": "t_frang.test_http_ct_required.FrangHttpCtRequiredTestCase.test_content_type_set_ok",
@@ -311,15 +263,15 @@
         },
         {
             "name": "t_frang.test_http_method_override_allowed.FrangHttpMethodsOverrideTestCase",
-            "reason": "Disabled by issue 8"
+            "reason": "Disabled by issue 1872"
         },
         {
             "name": "t_frang.test_http_methods.FrangHttpMethodsTestCase.test_accepted_request",
-            "reason": "Disabled by issue 8"
+            "reason": "Disabled by issue 1872"
         },
         {
             "name": "t_frang.test_http_methods.FrangHttpMethodsTestCase.test_not_accepted_request_zero_byte",
-            "reason": "Disabled by issue 8"
+            "reason": "Disabled by issue 1872"
         },
         {
             "name": "t_frang.test_http_trailer_split_allowed",
@@ -357,14 +309,13 @@
             "name": "tls.test_tls_integrity.ManyClients",
             "reason": "Disabled by issue #1864"
         },
-
         {
             "name": "t_http_rules.test_h2_http_rules.HttpRulesH2.test_scheduler",
-            "reason": "Disabled by issue 9"
+            "reason": "Disabled by issue 1871"
         },
         {
             "name": "tls.test_tls_integrity.ProxyH2",
-            "reason": "Disabled by issue #1864"
+            "reason": "Disabled by issue #1714"
         },
         {
             "name": "tls.test_tls_handshake.TlsVhostHandshakeTest",

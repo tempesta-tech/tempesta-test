@@ -612,11 +612,14 @@ class DeproxyClientH2(DeproxyClient):
             self.segment_size = run_config.TCP_SEGMENTATION
 
         if self.segment_size != 0:
-            for chunk in [
-                reqs[self.cur_req_num][i : (i + self.segment_size)]
-                for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
-            ]:
-                sent = self.send(chunk)
+            try:
+                for chunk in [
+                    reqs[self.cur_req_num][i : (i + self.segment_size)]
+                    for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
+                ]:
+                    sent = self.socket.send(chunk)
+            except BrokenPipeError as e:
+                tf_cfg.dbg(4, f"\tDeproxy: Client: Received error - {e}.")
         else:
             sent = self.send(reqs[self.cur_req_num])
         if sent < 0:
