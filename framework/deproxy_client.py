@@ -551,10 +551,14 @@ class DeproxyClientH2(DeproxyClient):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
-                    self.h2_connection.acknowledge_received_data(
-                        acknowledged_size=event.flow_controlled_length, stream_id=event.stream_id
+                    self.h2_connection.increment_flow_control_window(
+                        increment=event.flow_controlled_length, stream_id=None
                     )
-                    self.send_bytes(data=self.__generate_window_update_frame(event))
+                    if event.stream_ended is None:
+                        self.h2_connection.increment_flow_control_window(
+                            increment=event.flow_controlled_length, stream_id=event.stream_id
+                        )
+                    self.send_bytes(self.h2_connection.data_to_send())
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
@@ -666,14 +670,3 @@ class DeproxyClientH2(DeproxyClient):
                 data=data[: self.h2_connection.max_outbound_frame_size].encode(),
                 end_stream=end_stream,
             )
-
-    @staticmethod
-    def __generate_window_update_frame(event: DataReceived) -> bytes:
-        window_frame = WindowUpdateFrame(
-            stream_id=0, window_increment=event.flow_controlled_length
-        ).serialize()
-        if event.stream_ended is None:
-            window_frame += WindowUpdateFrame(
-                stream_id=event.stream_id, window_increment=event.flow_controlled_length
-            ).serialize()
-        return window_frame
