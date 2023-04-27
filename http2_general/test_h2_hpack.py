@@ -42,7 +42,7 @@ class TestHpackBase(H2Base):
 
         self.assertIn(
             header.encode(),
-            client.response_buffer,
+            client.last_response_buffer,
             "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
         )
 
@@ -139,12 +139,12 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertNotIn(
             b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)",
-            client.response_buffer,
+            client.last_response_buffer,
             "Tempesta does not encode via header as expected.",
         )
         self.assertIn(
             header.encode(),
-            client.response_buffer,
+            client.last_response_buffer,
             "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
         )
 
@@ -248,7 +248,7 @@ class TestHpack(TestHpackBase):
         ):
             self.assertIn(
                 header,
-                client.response_buffer,
+                client.last_response_buffer,
                 "Tempesta does not encode via header as expected.",
             )
 
@@ -307,11 +307,11 @@ class TestHpack(TestHpackBase):
 
         # Tempesta forwards response with via header and saves it in dynamic table.
         client.send_request(request=self.post_request, expected_status_code="200")
-        self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+        self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.last_response_buffer)
 
         # Tempesta forwards header from dynamic table. Via header is indexed.
         client.send_request(request=self.post_request, expected_status_code="200")
-        self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+        self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.last_response_buffer)
 
         # Tempesta MUST clear dynamic table when receive SETTINGS_HEADER_TABLE_SIZE = 0
         client.send_settings_frame(header_table_size=0)
@@ -322,11 +322,11 @@ class TestHpack(TestHpackBase):
 
         # Tempesta MUST saves via header in dynamic table again. Via header is indexed again.
         client.send_request(request=self.post_request, expected_status_code="200")
-        self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+        self.assertIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.last_response_buffer)
 
         # Tempesta forwards header from dynamic table again.
         client.send_request(request=self.post_request, expected_status_code="200")
-        self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.response_buffer)
+        self.assertNotIn(b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)", client.last_response_buffer)
 
     def test_settings_header_table_stress(self):
         client, server = self.setup_settings_header_table_tests()
@@ -413,14 +413,14 @@ class TestHpack(TestHpackBase):
         # bytes in first header frame
         client.update_initial_settings(header_table_size=1024)
         client.send_request(request=self.post_request, expected_status_code="200")
-        self.assertIn(b"\x3f\xe1\x07", client.response_buffer, error_msg.format(1024))
+        self.assertIn(b"\x3f\xe1\x07", client.last_response_buffer, error_msg.format(1024))
         self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
         # and we expect \x3f\xe1\x07 bytes in first header frame
         client.send_settings_frame(header_table_size=12288)
         client.send_request(request=self.post_request, expected_status_code="200")
-        self.assertIn(b"\x3f\xe1\x1f", client.response_buffer, error_msg.format(4096))
+        self.assertIn(b"\x3f\xe1\x1f", client.last_response_buffer, error_msg.format(4096))
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
     def test_bytes_of_table_size_in_header_frame_2(self):
@@ -440,7 +440,7 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertNotIn(
             b"\x3f\xe1\x1f",
-            client.response_buffer,
+            client.last_response_buffer,
             "Tempesta added dynamic table size (4096) before first header block.",
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)

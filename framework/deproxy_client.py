@@ -340,6 +340,7 @@ class DeproxyClient(BaseDeproxyClient):
     def receive_response(self, response):
         self.responses.append(response)
         self.last_response = response
+        self.clear_last_response_buffer = True
 
     def wait_for_response(self, timeout=5):
         if self.state != stateful.STATE_STARTED:
@@ -391,6 +392,8 @@ class DeproxyClientH2(DeproxyClient):
         self.active_responses = {}
         self.ack_settings = False
         self.last_stream_id = None
+        self.last_response_buffer = bytes()
+        self.clear_last_response_buffer = False
 
     def make_requests(self, requests):
         for request in requests:
@@ -531,6 +534,11 @@ class DeproxyClientH2(DeproxyClient):
         tf_cfg.dbg(4, "\tDeproxy: Client: Receive data.")
         tf_cfg.dbg(5, f"\t\t{self.response_buffer}")
 
+        if self.clear_last_response_buffer:
+            self.clear_last_response_buffer = False
+            self.last_response_buffer = bytes()
+
+        self.last_response_buffer += self.response_buffer
         try:
             events = self.h2_connection.receive_data(self.response_buffer)
 
