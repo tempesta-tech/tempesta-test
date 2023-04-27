@@ -7,10 +7,11 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 WARN_UNKNOWN = "frang: Request authority is unknown"
-WARN_DIFFER = "frang: Request authority in URI differs from host header"
+WARN_DIFFER = "frang: Request host from absolute URI differs from Host header for"
 WARN_IP_ADDR = "frang: Host header field contains IP address"
-WARN_HEADER_FORWARDED = "Request authority in URI differs from forwarded"
-WARN_HEADER_FORWARDED2 = "frang: Request authority differs from forwarded"
+WARN_HEADER_FORWARDED = "frang: Request authority differs from forwarded for"
+WARN_HEADER_HOST = "frang: Request :authority differs from Host for"
+WARN_INVALID_AUTHORITY = "Invalid authority"
 
 
 class FrangHostRequiredTestCase(FrangTestCase):
@@ -42,14 +43,14 @@ class FrangHostRequiredTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_host_required true;", requests=["GET / HTTP/1.1\r\nHost: \r\n\r\n"]
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_UNKNOWN)
+        self.check_response(client, status_code="400", warning_msg=WARN_INVALID_AUTHORITY)
 
     def test_host_header_missing(self):
         """Test with missing header `host`."""
         client = self.base_scenario(
             frang_config="http_host_required true;", requests=["GET / HTTP/1.1\r\n\r\n"]
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_UNKNOWN)
+        self.check_response(client, status_code="400", warning_msg=WARN_INVALID_AUTHORITY)
 
     def test_host_header_with_old_proto(self):
         """
@@ -87,7 +88,7 @@ class FrangHostRequiredTestCase(FrangTestCase):
             frang_config="http_host_required true;",
             requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: \r\n\r\n"],
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_UNKNOWN)
+        self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
 
     def test_host_header_forwarded(self):
         """Test with invalid host in `Forwarded` header."""
@@ -179,7 +180,8 @@ class FrangHostRequiredTestCase(FrangTestCase):
     def test_disabled_host_http_required(self):
         """Test disable `http_host_required`."""
         client = self.base_scenario(
-            frang_config="http_host_required false;", requests=["GET / HTTP/1.1\r\n\r\n"]
+            frang_config="http_host_required false;",
+            requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"],
         )
         self.check_response(client, status_code="200", warning_msg="frang: ")
 
@@ -291,7 +293,8 @@ block_action error reply;
             headers=[
                 (":path", "/"),
             ],
-            expected_warning="frang: Request authority is unknown for",
+            expected_warning=WARN_INVALID_AUTHORITY,
+            status_code="400",
         )
 
     def test_h2_host_header_as_ip(self):
@@ -338,7 +341,7 @@ block_action error reply;
         """Test with missmath header `forwarded`."""
         self._test(
             headers=[(":path", "/"), (":authority", "localhost"), ("forwarded", "host=qwerty")],
-            expected_warning=WARN_HEADER_FORWARDED2,
+            expected_warning=WARN_HEADER_FORWARDED,
         )
 
     def test_h2_double_different_forwarded_headers(self):
@@ -350,19 +353,20 @@ block_action error reply;
                 ("forwarded", "host=tempesta.com"),
                 ("forwarded", "host=tempesta-tech.com"),
             ],
-            expected_warning=WARN_HEADER_FORWARDED2,
+            expected_warning=WARN_HEADER_FORWARDED,
         )
 
     def test_h2_different_host_and_authority_header(self):
         self._test(
             headers=[(":path", "/"), (":authority", "localhost"), ("host", "host")],
-            expected_warning="frang: Request authority differs between headers for",
+            expected_warning=WARN_HEADER_HOST,
         )
 
     def _test(
         self,
         headers: list,
         expected_warning: str = WARN_UNKNOWN,
+        status_code: str = "403",
     ):
         """
         Test base scenario for process different requests.
@@ -374,7 +378,7 @@ block_action error reply;
         head.extend(headers)
 
         client = self.base_scenario(frang_config="http_host_required true;", requests=[head])
-        self.check_response(client, status_code="403", warning_msg=expected_warning)
+        self.check_response(client, status_code=status_code, warning_msg=expected_warning)
 
     def test_disabled_host_http_required(self):
         client = self.base_scenario(

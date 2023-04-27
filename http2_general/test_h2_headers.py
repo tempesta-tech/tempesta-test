@@ -343,6 +343,105 @@ class TestIPv6(H2Base):
         self.assertIn(response_header, client.last_response.headers.headers)
 
 
+class TestH2Host(H2Base):
+    def test_host_missing(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            expected_status_code="400",
+        )
+
+    def test_empty_authority_header(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[(":path", "/"), (":scheme", "https"), (":method", "GET"), (":authority", "")],
+            expected_status_code="400",
+        )
+
+    def test_empty_host_header(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[(":path", "/"), (":scheme", "https"), (":method", "GET"), ("host", "")],
+            expected_status_code="400",
+        )
+
+    def test_host_authority_ok(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                (":authority", "localhost"),
+            ],
+            expected_status_code="200",
+        )
+
+    def test_host_header_ok(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("host", "localhost"),
+            ],
+            expected_status_code="200",
+        )
+
+    def test_different_host_and_authority_headers(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                (":authority", "deproxy"),
+                ("host", "localhost"),
+            ],
+            expected_status_code="200",
+        )
+
+    def test_forwarded_and_empty_host_header(self):
+        """Host header must be present. Forwarded header does not set host header."""
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.send_request(
+            request=[
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("host", ""),
+                ("forwarded", "host=localhost"),
+            ],
+            expected_status_code="400",
+        )
+
+
 class CurlTestBase(tester.TempestaTest):
     clients = [
         {

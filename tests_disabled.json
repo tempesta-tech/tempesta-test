@@ -374,14 +374,6 @@
             "reason": "Disabled by issue #1719"
         },
         {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_empty_host_header",
-            "reason": "Disabled by issue #1630"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_empty_authority_header",
-            "reason": "Disabled by issue #1630"
-        },
-        {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
             "reason": "Disabled by issue #1740"
         },
@@ -464,10 +456,6 @@
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_double_header_frame_in_single_stream",
             "reason": "Disabled by issue #1823"
-        },
-        {
-            "name": "t_http_rules.test_h2_http_tables.HttpTablesTestCustomRedirectCorrectVariablesAuthorityH2",
-            "reason": "Disabled by issue #1630"
         },
         {
             "name": "t_http_rules.test_h2_http_tables.HttpTablesTestMarkRulesH2",
