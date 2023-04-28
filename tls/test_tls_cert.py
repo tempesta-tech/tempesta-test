@@ -940,12 +940,12 @@ class TlsSniWithHttpTable(BaseTlsSniWithHttpTable):
 
 class TlsSniWithHttpTableFrang(BaseTlsSniWithHttpTable):
     """
-    Same as TlsSniWithHttpTable, with `http_host_required` enabled.
+    Same as TlsSniWithHttpTable, with `http_strict_host_checking` enabled.
     """
 
     frang_limits = """
             frang_limits {
-                http_host_required;
+                http_strict_host_checking;
             }
     """
 
@@ -1095,12 +1095,12 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
 
 class TlsSniWithHttpTableMultiFrang(TlsSniWithHttpTableMulti):
     """
-    Same as TlsSniWithHttpTableMulti, with `http_host_required` enabled.
+    Same as TlsSniWithHttpTableMulti, with `http_strict_host_checking` enabled.
     """
 
     frang_limits = """
             frang_limits {
-                http_host_required;
+                http_strict_host_checking;
             }
     """
 
@@ -1139,11 +1139,11 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 
 class TlsSniWithHttpTableMultiH2Frang(TlsSniWithHttpTableMultiH2):
     """
-    Same as TlsSniWithHttpTableMultiH2, with `http_host_required` enabled.
+    Same as TlsSniWithHttpTableMultiH2, with `http_strict_host_checking` enabled.
     """
 
     frang_limits = """
             frang_limits {
-                http_host_required;
+                http_strict_host_checking;
             }
     """

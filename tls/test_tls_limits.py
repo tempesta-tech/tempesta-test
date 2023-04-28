@@ -471,7 +471,7 @@ class TLSMatchHostSni(tester.TempestaTest):
             listen 444 proto=https;
 
             frang_limits {
-                http_host_required;
+                http_strict_host_checking;
             }
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
@@ -501,7 +501,7 @@ class TLSMatchHostSni(tester.TempestaTest):
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
     def test_host_sni_mismatch(self):
-        """With the `http_host_required` limit, the host header and SNI name
+        """With the `http_strict_host_checking` limit, the host header and SNI name
         must be identical. Otherwise request will be filtered. After client
         send a request that doesnt match his SNI, t is blocked
         """
