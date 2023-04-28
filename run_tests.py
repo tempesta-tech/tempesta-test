@@ -76,8 +76,8 @@ DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
 disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
 
 # this file is needed for tests with TCP segmentation
-DISABLED_TESTS_FILE_NAME_2 = "/tests_disabled_2.json"
-disfile_2 = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_2
+DISABLED_TESTS_FILE_NAME_TCP_SEG = "/tests_disabled_tcpseg.json"
+disfile_tcp_seg = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_TCP_SEG
 
 TESTS_PRIORITY_FILE_NAME = "/tests_priority"
 priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
@@ -91,8 +91,8 @@ t_retry_out = open(bestoff_file).readlines()
 disabled_reader = shell.DisabledListLoader(disfile)
 disabled_reader.try_load()
 
-disabled_reader_2 = shell.DisabledListLoader(disfile_2)
-disabled_reader_2.try_load()
+disabled_reader_tcp_seg = shell.DisabledListLoader(disfile_tcp_seg)
+disabled_reader_tcp_seg.try_load()
 
 state_reader = shell.TestState()
 state_reader.load()
@@ -301,8 +301,8 @@ use_tests = []
 inclusions = []
 exclusions = []
 
-if run_config.TCP_SEGMENTATION and disabled_reader_2.disable:
-    disabled_reader.disabled.extend(disabled_reader_2.disabled)
+if run_config.TCP_SEGMENTATION and disabled_reader_tcp_seg.disable:
+    disabled_reader.disabled.extend(disabled_reader_tcp_seg.disabled)
 
 if not run_disabled:
     # remove empty arguments
