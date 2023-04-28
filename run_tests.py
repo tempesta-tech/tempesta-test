@@ -361,14 +361,6 @@ for p in t_priority_out:
         if t.id().startswith(p.rstrip()):
             tests.insert(0, tests.pop(tests.index(t)))
 
-if t_retry:
-    # Create list of tests which can be retried
-    retry_tests = []
-    for t_ret in t_retry_out:
-        for t in tests:
-            if t.id().startswith(t_ret.rstrip()):
-                retry_tests.append(t)
-
 # filter testcases
 resume_filter = test_resume.filter()
 tests = [
@@ -380,6 +372,13 @@ tests = [
     and not shell.testcase_in(t, exclusions)
 ]
 
+if t_retry:
+    # Create list of tests which can be retried
+    retry_tests = []
+    for t_ret in t_retry_out:
+        for t in tests:
+            if t.id().startswith(t_ret.rstrip()):
+                retry_tests.append(t)
 
 #
 # List tests and exit, if requested
@@ -447,17 +446,26 @@ Run failed tests again ...
             descriptions=False,
             resultclass=test_resume.resultclass(),
         )
-        re_result = re_testRunner.run(re_testsuite)
+        retry_result = re_testRunner.run(re_testsuite)
 
-        for err in result.errors:
-            if err not in re_result.errors:
-                index = result.errors.index(err)
-                out = result.errors.pop(index)
-        for fail in result.failures:
-            if fail not in re_result.failures:
-                index = result.failures.index(fail)
-                out = result.failures.pop(index)
-
+        # Get only sucessfully tests from retry
+        for t in retry_result.errors:
+            index = rerun_tests.index(t[0])
+            out = rerun_tests.pop(index)
+        for t in retry_result.failures:
+            index = rerun_tests.index(t[0])
+            out = rerun_tests.pop(index)
+        
+        print(f"Sucessfully retried: {rerun_tests}")
+        
+        # Exclude all successfully retried tests from original errors and fails
+        for t in rerun_tests:
+            index = result.errors[0].index(t)
+            out = result.errors.pop(index)
+        for t in retry_result.failures:
+            index = result.failures[0].index(t)
+            out = result.failures.pop(index)
+        
 # check if we finished running the tests
 if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
     state_reader.drop()
