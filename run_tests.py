@@ -49,6 +49,16 @@ key, not password. `ssh-copy-id` can be used for that.
 -D, --debug-files                 - Don't remove generated config files
 -Z, --run-disabled                - Run only tests from list of disabled
 -I, --ignore-errors               - Don't exit on import/syntax errors in tests
+-s, --save-tcpdump                - Enable tcpdump for test. Results is saved to 
+                                    file with name of test. Works with -R option.
+                                    Default path: /var/tcpdump/<date>/<time>/<test_name>.pcap [number].
+                                    For -i option - /<identifier>/<test_id>.pcap [number]
+-i, --identifier <id>             - Path to tcpdump results folder. Workspace path 
+                                    and build tag on CI or other.
+-S, --save-secrets                - Save TLS secrets for deproxy and curl client to 
+                                    secrets.txt in main directory.
+-T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
+                                    deproxy client and server.
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -65,6 +75,10 @@ be resumed manually from any given test.
 DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
 disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
 
+# this file is needed for tests with TCP segmentation
+DISABLED_TESTS_FILE_NAME_TCP_SEG = "/tests_disabled_tcpseg.json"
+disfile_tcp_seg = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_TCP_SEG
+
 TESTS_PRIORITY_FILE_NAME = "/tests_priority"
 priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
 t_priority_out = open(priority_file).readlines()
@@ -76,6 +90,9 @@ t_retry_out = open(bestoff_file).readlines()
 
 disabled_reader = shell.DisabledListLoader(disfile)
 disabled_reader.try_load()
+
+disabled_reader_tcp_seg = shell.DisabledListLoader(disfile_tcp_seg)
+disabled_reader_tcp_seg.try_load()
 
 state_reader = shell.TestState()
 state_reader.load()
@@ -93,7 +110,7 @@ t_retry = False
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:fr:ER:a:nl:LCDZpIi:sS",
+        "hvdt:T:fr:ER:a:nl:LCDZpIi:sS",
         [
             "help",
             "verbose",
@@ -115,6 +132,7 @@ try:
             "identifier=",
             "save-tcpdump",
             "save-secrets",
+            "--tcp-segmentation=",
         ],
     )
 
@@ -170,6 +188,11 @@ for opt, arg in options:
         run_config.SAVE_SECRETS = True
     elif opt in ("-S", "--save-secrets"):
         run_config.SAVE_SECRETS = True
+    elif opt in ("-T", "--tcp-segmentation"):
+        if int(arg) > 0:
+            run_config.TCP_SEGMENTATION = int(arg)
+        else:
+            raise ValueError("tcp-segmentation argument must be greater than 0.")
 
 tf_cfg.cfg.check()
 
@@ -277,6 +300,9 @@ if clean_old:
 use_tests = []
 inclusions = []
 exclusions = []
+
+if run_config.TCP_SEGMENTATION and disabled_reader_tcp_seg.disable:
+    disabled_reader.disabled.extend(disabled_reader_tcp_seg.disabled)
 
 if not run_disabled:
     # remove empty arguments

@@ -10,9 +10,9 @@ __license__ = "GPL2"
 
 
 class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
-    def receive_request(self, request, connection):
+    def receive_request(self, request):
         id = request.uri
-        r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request, connection)
+        r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request)
         resp = deproxy.Response(r)
         resp.body = id
         resp.headers["Content-Length"] = len(resp.body)
@@ -32,10 +32,10 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
         self.nka = 0
         DeproxyEchoServer.run_start(self)
 
-    def receive_request(self, request, connection):
+    def receive_request(self, request):
         self.nka += 1
         tf_cfg.dbg(5, "\trequests = %i of %i" % (self.nka, self.ka))
-        r, close = DeproxyEchoServer.receive_request(self, request, connection)
+        r, close = DeproxyEchoServer.receive_request(self, request)
         if self.nka < self.ka and not close:
             return r, False
         resp = deproxy.Response(r)
@@ -93,7 +93,6 @@ tester.register_tempesta("tempesta_fi", build_tempesta_fault)
 
 
 class PipeliningTest(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -261,7 +260,6 @@ server ${general_ip}:8000;
 
 
 class PipeliningTestFI(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -386,7 +384,6 @@ server ${general_ip}:8000;
 
 
 class H2MultiplexedTest(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",

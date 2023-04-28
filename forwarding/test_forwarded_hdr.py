@@ -10,7 +10,6 @@ __license__ = "GPL2"
 
 
 class TestForwardedBase(tester.TempestaTest, base=True):
-
     backends = [
         {
             "id": "backend1",
@@ -59,7 +58,7 @@ class TestForwardedBase(tester.TempestaTest, base=True):
     def client_send_req(self, client, req):
         curr_responses = len(client.responses)
         client.make_requests(req)
-        client.wait_for_response(timeout=1)
+        client.wait_for_response(timeout=3)
         self.assertEqual(curr_responses + 1, len(client.responses))
 
         return client.last_response

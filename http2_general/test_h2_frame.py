@@ -59,38 +59,6 @@ class TestH2Frame(H2Base):
 
         self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
 
-    def test_tcp_framing_for_request_headers(self):
-        """Client sends PRI+SETTING+HEADERS frames by 1-byte chunks."""
-        client = self.get_client("deproxy")
-        client.segment_size = 1
-        self.start_all_services()
-        client.parsing = False
-
-        client.make_request(self.post_request)
-
-        self.__assert_test(client=client, request_body="", request_number=1)
-
-    def test_tcp_framing_for_request(self):
-        """Client sends request by n-byte chunks."""
-        client = self.get_client("deproxy")
-        self.start_all_services()
-        client.parsing = False
-
-        chunk_sizes = [1, 2, 3, 4, 8, 16]
-        for chunk_size in chunk_sizes:
-            with self.subTest(chunk_size=chunk_size):
-                client.segment_size = chunk_size
-                client.make_request(self.post_request, False)
-
-                request_body = "0123456789"
-                client.make_request(request_body, True)
-
-                self.__assert_test(
-                    client=client,
-                    request_body=request_body,
-                    request_number=chunk_sizes.index(chunk_size) + 1,
-                )
-
     def test_settings_frame(self):
         """
         Create tls connection and send preamble + correct settings frame.

@@ -10,3 +10,5 @@ THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
 REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
+
+TCP_SEGMENTATION = 0

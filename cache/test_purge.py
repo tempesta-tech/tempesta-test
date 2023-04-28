@@ -49,7 +49,7 @@ cache_resp_hdr_del set-cookie;
                 + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
                 + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "\r\n"
-                + "<html></html>\r\n"
+                + "<html></html>"
             ),
         },
     ]
@@ -116,10 +116,7 @@ cache_resp_hdr_del set-cookie;
         self.assertIn("age", client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
-            self.get_tempesta(),
-            cache_hits=4,
-            cache_misses=4,
-            cl_msg_served_from_cache=4
+            self.get_tempesta(), cache_hits=4, cache_misses=4, cl_msg_served_from_cache=4
         )
         self.assertEqual(len(self.get_server("deproxy").requests), 4)
 
@@ -421,7 +418,7 @@ cache_resp_hdr_del set-cookie;
             + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Cache-Control: private\r\n"
             + "\r\n"
-            + "<html></html>\r\n",
+            + "<html></html>"
         )
 
         client.send_request(
@@ -446,7 +443,6 @@ cache_resp_hdr_del set-cookie;
 
 
 class TestPurgeGet(TempestaTest):
-
     backends = [
         # /server-1: default transfer encoding
         {

@@ -283,7 +283,7 @@ class TestMultipleMethods(TempestaTest):
                 + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
                 + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "\r\n"
-                + "<html><>/html\r\n"
+                + "<html><>/html"
             ),
         },
     ]
