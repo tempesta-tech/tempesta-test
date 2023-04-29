@@ -693,3 +693,47 @@ class DeproxyClientH2(DeproxyClient):
                 data=data[: self.h2_connection.max_outbound_frame_size].encode(),
                 end_stream=end_stream,
             )
+
+    def __calculate_frame_length(self, pos):
+        #: The type byte defined for CONTINUATION frames.
+        continuation_type = 0x09
+
+        frame_type = self.last_response_buffer[pos + 3]
+        if frame_type != continuation_type:
+            return -1
+        # TCP/IP use big endian
+        return int.from_bytes(self.last_response_buffer[pos : pos + 3], "big")
+
+    def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
+        if len(header) == 0:
+            return True
+        if len(header) > len(self.last_response_buffer):
+            return False
+        for bpos in range(0, len(self.last_response_buffer) - len(header) + 1):
+            if self.last_response_buffer[bpos] == header[0]:
+                equal = True
+                hpos = 0
+                skip = 0
+                while hpos < len(header):
+                    if self.last_response_buffer[bpos + hpos + skip] != header[hpos]:
+                        part_len = self.__calculate_frame_length(bpos + hpos + skip)
+                        if part_len < 0:
+                            equal = False
+                            break
+                        if part_len > len(header) - hpos:
+                            part_len = len(header) - hpos
+                        # Skip frame size
+                        skip += 9
+                        for t in range(0, part_len):
+                            if self.last_response_buffer[bpos + hpos + skip] != header[hpos]:
+                                equal = False
+                                break
+                            hpos += 1
+                        if not equal:
+                            break
+                        else:
+                            continue
+                    hpos += 1
+                if equal:
+                    return True
+        return False
