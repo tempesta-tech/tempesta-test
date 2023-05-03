@@ -35,13 +35,16 @@ class FrangHostRequiredTestCase(FrangTestCase):
                 "Forwarded: host=tempesta1-tech.com\r\n\r\n"
             ),
         ]
-        client = self.base_scenario(frang_config="http_strict_host_checking true;", requests=requests)
+        client = self.base_scenario(
+            frang_config="http_strict_host_checking true;", requests=requests
+        )
         self.check_response(client, status_code="200", warning_msg="frang: ")
 
     def test_empty_host_header(self):
         """Test with empty header `host`."""
         client = self.base_scenario(
-            frang_config="http_strict_host_checking true;", requests=["GET / HTTP/1.1\r\nHost: \r\n\r\n"]
+            frang_config="http_strict_host_checking true;",
+            requests=["GET / HTTP/1.1\r\nHost: \r\n\r\n"],
         )
         self.check_response(client, status_code="400", warning_msg=WARN_INVALID_AUTHORITY)
 

@@ -366,11 +366,11 @@
             "reason": "Disabled by issue #1716"
         },
         {
-            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
+            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
             "reason": "Disabled by issue #1719"
         },
         {
-            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_no_port_in_uri",
+            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_uri",
             "reason": "Disabled by issue #1719"
         },
         {
@@ -520,30 +520,6 @@
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
-        },
-		{
-			"name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_disabled_host_http_required",
-			"reason": "Disabled by issue 441 of tempesta-test"
-		},
-		{
-			"name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_different_host_and_authority_header",
-			"reason": "Disabled by issue 441 of tempesta-test"
-		},
-		{
-			"name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_disabled_host_http_required",
-			"reason": "Disabled by issue 441 of tempesta-test"
-		},
-		{
-			"name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_missing",
-			"reason": "Disabled by issue 441 of tempesta-test"
-		},
-		{
-			"name": "t_http_rules.test_h2_http_rules.HttpRulesH2.test_scheduler",
-			"reason": "Disabled by issue 441 of tempesta-test"
-		},
-		{
-			"name": "cache.test_cache.TestCacheVhost",
-			"reason": "Disabled by issue #1630"
-		}
+        }
     ]
 }

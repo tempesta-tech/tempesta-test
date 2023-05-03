@@ -100,7 +100,7 @@ class BackendSetCoookie(tester.TempestaTest):
             "wordpress-login",  # WordPress response with multiple Set-Cookie headers
         ):
             with self.subTest("GET cookies", path=path):
-                client.make_request(f"GET /{path} HTTP/1.1\r\n\r\n")
+                client.make_request(f"GET /{path} HTTP/1.1\r\nHost: deproxy\r\n\r\n")
                 self.assertTrue(client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
 
@@ -151,7 +151,7 @@ class RepeatedHeaderCache(tester.TempestaTest):
         self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.make_request("GET / HTTP/1.1\r\n\r\n")
+        client.make_request("GET / HTTP/1.1\r\nHost: deproxy\r\n\r\n")
 
         self.assertTrue(client.wait_for_response(timeout=1))
         self.assertEqual(client.last_response.status, "200")
@@ -194,7 +194,7 @@ class TestSmallHeader(tester.TempestaTest):
             header = "X" * length
             client.start()
             with self.subTest(header=header):
-                client.make_request("GET / HTTP/1.1\r\n" f"{header}: test\r\n" "\r\n")
+                client.make_request(f"GET / HTTP/1.1\r\nHost: deproxy\r\n{header}: test\r\n\r\n")
                 self.assertTrue(client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
             client.stop()
