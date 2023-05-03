@@ -400,6 +400,18 @@
         {
             "name": "forwarding.test_forwarded_hdr.TestForwardedBaseAllowed",
             "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "http_general.test_headers.TestHost.test_host_header_ok",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "http_general.test_headers.TestHost.test_different_host_in_uri_and_headers",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "t_http_rules.test_http_rules.TestHost",
+            "reason": "Disabled by issue #1864"
         }
     ]
 }
