@@ -478,4 +478,148 @@ class TestChunkedResponse(tester.TempestaTest):
             self.assertEqual(response.stdout, "test-data")
 
 
+class TestCacheVhost(tester.TempestaTest):
+    # clients = [
+    #     {
+    #         "id": "deproxy",
+    #         "type": "deproxy",
+    #         "addr": "${tempesta_ip}",
+    #         "port": "443",
+    #         "ssl": True,
+    #         "ssl_hostname": "tempesta-tech.com",
+    #     }
+    # ]
+    clients = [
+        {
+            "id": "front-1",
+            "type": "curl",
+            "ssl": True,
+            "cmd_args": (
+                " -vk"
+                # Prevent hang on invalid response
+                " --max-time 1"
+                " --http2"
+                " -H 'Host: frontend'"
+            ),
+        },
+        {
+            "id": "front-2",
+            "type": "curl",
+            "ssl": True,
+            "cmd_args": (
+                " -vk"
+                # Prevent hang on invalid response
+                " --max-time 1"
+                " -H 'Host: frontend'"
+            ),
+        },
+        {
+            "id": "debian-1",
+            "type": "curl",
+            "ssl": True,
+            "cmd_args": (
+                " -vk"
+                # Prevent hang on invalid response
+                " --max-time 1"
+                #" -H 'Host: debian'"
+            ),
+        },
+    ]
+
+    backends = [
+        {
+            "id": "srv_main",
+            "type": "deproxy",
+            "port": "8080",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 3\r\n\r\nfoo",
+        },
+        {
+            "id": "srv_front",
+            "type": "deproxy",
+            "port": "8081",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 3\r\n\r\nbar",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 443 proto=h2;
+        listen 80;
+
+        srv_group main {
+                server ${server_ip}:8080;
+        }
+
+        srv_group front {
+                server ${server_ip}:8081;
+        }
+
+        vhost debian {
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
+                proxy_pass main;
+        }
+
+        vhost frontend {
+                proxy_pass front;
+        }
+
+        http_chain {
+                host == "frontend" -> frontend;
+                host == "debian" -> debian;
+                -> block;
+        }
+
+        cache_fulfill * *;
+        """
+    }
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections())
+
+    def get_response(self, client) -> CurlResponse:
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        return client.last_response
+
+    def test(self):
+        self.start_all()
+
+        with self.subTest("Get non-cached response for front"):
+            srv = self.get_server("srv_front")
+            client = self.get_client("front-1")
+            response = self.get_response(client)
+            self.assertEqual(len(srv.requests), 1,
+                    "Request should be taken from srv_front")
+            self.assertEqual(response.status, 200, response)
+            self.assertNotIn("age", response.headers)
+            self.assertEqual(response.stdout, "bar")
+
+        with self.subTest("Get cached response for front"):
+            srv = self.get_server("srv_front")
+            client = self.get_client("front-2")
+            response = self.get_response(client)
+            self.assertEqual(len(srv.requests), 1,
+                    "Request should be taken from cache")
+            self.assertEqual(response.status, 200, response)
+            self.assertIn("age", response.headers)
+            self.assertEqual(response.stdout, "bar")
+
+        with self.subTest("Get non-cached response for debian"):
+            srv = self.get_server("srv_main")
+            client = self.get_client("debian-1")
+            response = self.get_response(client)
+            self.assertEqual(len(srv.requests), 1,
+                    "Request should be taken from srv_main")
+            self.assertEqual(response.status, 200, response)
+            self.assertNotIn("age", response.headers)
+            self.assertEqual(response.stdout, "foo")
+
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
