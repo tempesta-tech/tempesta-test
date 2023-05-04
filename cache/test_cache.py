@@ -479,49 +479,40 @@ class TestChunkedResponse(tester.TempestaTest):
 
 
 class TestCacheVhost(tester.TempestaTest):
-    # clients = [
-    #     {
-    #         "id": "deproxy",
-    #         "type": "deproxy",
-    #         "addr": "${tempesta_ip}",
-    #         "port": "443",
-    #         "ssl": True,
-    #         "ssl_hostname": "tempesta-tech.com",
-    #     }
-    # ]
     clients = [
         {
             "id": "front-1",
-            "type": "curl",
-            "ssl": True,
+            "type": "external",
+            "binary": "curl",
             "cmd_args": (
-                " -vk"
-                # Prevent hang on invalid response
+                " -k"
                 " --max-time 1"
-                " --http2"
                 " -H 'Host: frontend'"
+                " --connect-to tempesta-tech.com:443:${tempesta_ip}:443"
+                " https://tempesta-tech.com/file.html"
             ),
         },
         {
             "id": "front-2",
-            "type": "curl",
-            "ssl": True,
+            "type": "external",
+            "binary": "curl",
             "cmd_args": (
-                " -vk"
-                # Prevent hang on invalid response
+                " -k"
                 " --max-time 1"
                 " -H 'Host: frontend'"
+                " --connect-to tempesta-tech.com:443:${tempesta_ip}:443"
+                " https://tempesta-tech.com/file.html"
             ),
         },
         {
             "id": "debian-1",
-            "type": "curl",
-            "ssl": True,
+            "type": "external",
+            "binary": "curl",
             "cmd_args": (
-                " -vk"
-                # Prevent hang on invalid response
+                " -k"
                 " --max-time 1"
-                #" -H 'Host: debian'"
+                " --connect-to tempesta-tech.com:443:${tempesta_ip}:443"
+                " https://tempesta-tech.com/file.html"
             ),
         },
     ]
@@ -556,7 +547,7 @@ class TestCacheVhost(tester.TempestaTest):
                 server ${server_ip}:8081;
         }
 
-        vhost debian {
+        vhost tempesta-tech.com {
                 tls_certificate ${tempesta_workdir}/tempesta.crt;
                 tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 proxy_pass main;
@@ -568,7 +559,7 @@ class TestCacheVhost(tester.TempestaTest):
 
         http_chain {
                 host == "frontend" -> frontend;
-                host == "debian" -> debian;
+                host == "tempesta-tech.com" -> tempesta-tech.com;
                 -> block;
         }
 
@@ -586,7 +577,7 @@ class TestCacheVhost(tester.TempestaTest):
         client.start()
         self.wait_while_busy(client)
         client.stop()
-        return client.last_response
+        return client.response_msg
 
     def test(self):
         self.start_all()
@@ -597,9 +588,7 @@ class TestCacheVhost(tester.TempestaTest):
             response = self.get_response(client)
             self.assertEqual(len(srv.requests), 1,
                     "Request should be taken from srv_front")
-            self.assertEqual(response.status, 200, response)
-            self.assertNotIn("age", response.headers)
-            self.assertEqual(response.stdout, "bar")
+            self.assertEqual(response, "bar")
 
         with self.subTest("Get cached response for front"):
             srv = self.get_server("srv_front")
@@ -607,9 +596,7 @@ class TestCacheVhost(tester.TempestaTest):
             response = self.get_response(client)
             self.assertEqual(len(srv.requests), 1,
                     "Request should be taken from cache")
-            self.assertEqual(response.status, 200, response)
-            self.assertIn("age", response.headers)
-            self.assertEqual(response.stdout, "bar")
+            self.assertEqual(response, "bar")
 
         with self.subTest("Get non-cached response for debian"):
             srv = self.get_server("srv_main")
@@ -617,9 +604,7 @@ class TestCacheVhost(tester.TempestaTest):
             response = self.get_response(client)
             self.assertEqual(len(srv.requests), 1,
                     "Request should be taken from srv_main")
-            self.assertEqual(response.status, 200, response)
-            self.assertNotIn("age", response.headers)
-            self.assertEqual(response.stdout, "foo")
+            self.assertEqual(response, "foo")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
