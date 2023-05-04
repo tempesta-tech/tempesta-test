@@ -277,7 +277,8 @@ block_action error reply;
                 (":path", "/"),
                 ("host", ""),
             ],
-            expected_warning=WARN_UNKNOWN,
+            expected_warning=WARN_INVALID_AUTHORITY,
+            status_code="400",
         )
 
     def test_h2_empty_authority_header(self):
@@ -287,7 +288,8 @@ block_action error reply;
                 (":path", "/"),
                 (":authority", ""),
             ],
-            expected_warning=WARN_UNKNOWN,
+            expected_warning=WARN_INVALID_AUTHORITY,
+            status_code="400",
         )
 
     def test_h2_host_and_authority_headers_missing(self):
