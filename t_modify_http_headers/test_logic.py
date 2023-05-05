@@ -133,7 +133,6 @@ class TestLogicBase(tester.TempestaTest, base=True):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-
         client, server = self.base_scenario(
             config=f"{self.directive}_hdr_set x-my-hdr;\n",
             optional_headers=[("x-my-hdr", "original header")],
@@ -142,14 +141,15 @@ class TestLogicBase(tester.TempestaTest, base=True):
 
         if self.directive == "req":
             self.assertNotIn("x-my-hdr", server.last_request.headers.keys())
+            self.assertIn("x-my-hdr", client.last_response.headers.keys())
         else:
             self.assertNotIn("x-my-hdr", client.last_response.headers.keys())
+            self.assertIn("x-my-hdr", server.last_request.headers.keys())
 
     def test_delete_many_headers(self):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-
         client, server = self.base_scenario(
             config=f"{self.directive}_hdr_set x-my-hdr;\n",
             optional_headers=[("x-my-hdr", "original header"), ("x-my-hdr", "original header")],
@@ -158,23 +158,48 @@ class TestLogicBase(tester.TempestaTest, base=True):
 
         if self.directive == "req":
             self.assertNotIn("x-my-hdr", server.last_request.headers.keys())
+            self.assertIn("x-my-hdr", client.last_response.headers.keys())
         else:
             self.assertNotIn("x-my-hdr", client.last_response.headers.keys())
+            self.assertIn("x-my-hdr", server.last_request.headers.keys())
 
     def test_delete_special_headers(self):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
+        header_name = "set-cookie" if self.directive == "resp" else "if-match"
+        header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
         client, server = self.base_scenario(
-            config=f"{self.directive}_hdr_set Etag;\n",
-            optional_headers=[("Erag", '"qwe"')],
+            config=f"{self.directive}_hdr_set {header_name};\n",
+            optional_headers=[(header_name, header_value)],
             expected_headers=[],
         )
 
         if self.directive == "req":
-            self.assertNotIn("etag", server.last_request.headers.keys())
+            self.assertNotIn(header_name, server.last_request.headers.keys())
+            self.assertIn(header_name, client.last_response.headers.keys())
         else:
-            self.assertNotIn("etag", client.last_response.headers.keys())
+            self.assertNotIn(header_name, client.last_response.headers.keys())
+            self.assertIn(header_name, server.last_request.headers.keys())
+
+    def test_delete_many_special_headers(self):
+        """
+        Headers must be removed from base request/response if header is in base request/response.
+        """
+        header_name = "set-cookie" if self.directive == "resp" else "if-match"
+        header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
+        client, server = self.base_scenario(
+            config=f"{self.directive}_hdr_set {header_name};\n",
+            optional_headers=[(header_name, header_value), (header_name, header_value)],
+            expected_headers=[],
+        )
+
+        if self.directive == "req":
+            self.assertNotIn(header_name, server.last_request.headers.keys())
+            self.assertIn(header_name, client.last_response.headers.keys())
+        else:
+            self.assertNotIn(header_name, client.last_response.headers.keys())
+            self.assertIn(header_name, server.last_request.headers.keys())
 
     def test_delete_non_exist_header(self):
         """Request/response does not modify if header is missing from base request/response."""
