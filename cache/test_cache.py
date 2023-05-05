@@ -567,12 +567,6 @@ class TestCacheVhost(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
     def get_response(self, client) -> CurlResponse:
         client.start()
         self.wait_while_busy(client)
@@ -580,7 +574,7 @@ class TestCacheVhost(tester.TempestaTest):
         return client.response_msg
 
     def test(self):
-        self.start_all()
+        self.start_all_services(client=False)
 
         # Fetch response from the backend
         srv = self.get_server("srv_front")
