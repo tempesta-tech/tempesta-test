@@ -43,7 +43,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
             ]:
                 try:
                     self.socket.send(chunk)
-                except ConnectionResetError as e:
+                except ConnectionError as e:
                     tf_cfg.dbg(4, f"\tDeproxy: Server: Connection: Received error - {e}")
                     break
         else:
