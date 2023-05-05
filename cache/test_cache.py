@@ -582,29 +582,30 @@ class TestCacheVhost(tester.TempestaTest):
     def test(self):
         self.start_all()
 
-        with self.subTest("Get non-cached response for front"):
-            srv = self.get_server("srv_front")
-            client = self.get_client("front-1")
-            response = self.get_response(client)
-            self.assertEqual(len(srv.requests), 1,
-                    "Request should be taken from srv_front")
-            self.assertEqual(response, "bar")
+        # Fetch response from the backend
+        srv = self.get_server("srv_front")
+        client = self.get_client("front-1")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1,
+                "Request should be taken from srv_front")
+        self.assertEqual(response, "bar")
 
-        with self.subTest("Get cached response for front"):
-            srv = self.get_server("srv_front")
-            client = self.get_client("front-2")
-            response = self.get_response(client)
-            self.assertEqual(len(srv.requests), 1,
-                    "Request should be taken from cache")
-            self.assertEqual(response, "bar")
+        # Make sure it was cached
+        srv = self.get_server("srv_front")
+        client = self.get_client("front-2")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1,
+                "Request should be taken from cache")
+        self.assertEqual(response, "bar")
 
-        with self.subTest("Get non-cached response for debian"):
-            srv = self.get_server("srv_main")
-            client = self.get_client("debian-1")
-            response = self.get_response(client)
-            self.assertEqual(len(srv.requests), 1,
-                    "Request should be taken from srv_main")
-            self.assertEqual(response, "foo")
+        # Send request to the different vhost. Make sure that
+        # we're not geting cached response for the first vhost
+        srv = self.get_server("srv_main")
+        client = self.get_client("debian-1")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1,
+                "Request should be taken from srv_main")
+        self.assertEqual(response, "foo")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
