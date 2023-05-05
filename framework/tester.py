@@ -371,6 +371,16 @@ class TempestaTest(unittest.TestCase):
         self.__ips = []
 
         self.oops.update()
+
+        tf_cfg.dbg(
+            4,
+            (
+                "----------------------dmesg---------------------\n"
+                + self.oops.log.decode()
+                + "-------------------end dmesg--------------------"
+            ),
+        )
+
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue

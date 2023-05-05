@@ -528,11 +528,14 @@ class DeproxyClientH2(DeproxyClient):
         if not self.response_buffer:
             return
 
-        tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
-        tf_cfg.dbg(5, self.response_buffer)
+        tf_cfg.dbg(4, "\tDeproxy: Client: Receive data.")
+        tf_cfg.dbg(5, f"\t\t{self.response_buffer}")
 
         try:
             events = self.h2_connection.receive_data(self.response_buffer)
+
+            tf_cfg.dbg(4, "\tDeproxy: Client: Receive 'h2_connection' events.")
+            tf_cfg.dbg(5, f"\t\t{events}")
             for event in events:
                 if isinstance(event, ResponseReceived):
                     headers = self.__binary_headers_to_string(event.headers)
@@ -622,7 +625,7 @@ class DeproxyClientH2(DeproxyClient):
                     for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
                 ]:
                     sent = self.socket.send(chunk)
-            except BrokenPipeError as e:
+            except ConnectionError as e:
                 tf_cfg.dbg(4, f"\tDeproxy: Client: Received error - {e}.")
         else:
             sent = self.send(reqs[self.cur_req_num])

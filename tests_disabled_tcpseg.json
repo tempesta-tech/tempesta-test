@@ -82,11 +82,23 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamState",
+            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
             "name": "tls.test_tls_integrity.CloseConnection.test8",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
@@ -344,6 +356,50 @@
         {
             "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_disabled_host_http_required",
             "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_in_response",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2EmptyResponseBodyDechunking",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
+            "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2FrameEnabledDisabledTsoGroGsoStickyCookie",
+            "reason": "Disabled by PR #1874"
+        },
+        {
+            "name": "t_wrong_body_length.test_response_wrong_length",
+            "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "t_wrong_body_length.test_h2_request_wrong_length",
+            "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestConnectionHeaders",
+            "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "http2_general.test_h2_headers.HeadersParsing",
+            "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "forwarding.test_forwarded_hdr.TestForwardedBaseAllowed",
+            "reason": "Disabled by issue #450"
         }
     ]
 }
