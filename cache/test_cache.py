@@ -478,4 +478,128 @@ class TestChunkedResponse(tester.TempestaTest):
             self.assertEqual(response.stdout, "test-data")
 
 
+class TestCacheVhost(tester.TempestaTest):
+    clients = [
+        {
+            "id": "front-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": (
+                " -k"
+                " --max-time 1"
+                " -H 'Host: frontend'"
+                " --connect-to tempesta-tech.com:443:${tempesta_ip}:443"
+                " https://tempesta-tech.com/file.html"
+            ),
+        },
+        {
+            "id": "front-2",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": (
+                " -k"
+                " --max-time 1"
+                " -H 'Host: frontend'"
+                " --connect-to tempesta-tech.com:443:${tempesta_ip}:443"
+                " https://tempesta-tech.com/file.html"
+            ),
+        },
+        {
+            "id": "debian-1",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": (
+                " -k"
+                " --max-time 1"
+                " --connect-to tempesta-tech.com:443:${tempesta_ip}:443"
+                " https://tempesta-tech.com/file.html"
+            ),
+        },
+    ]
+
+    backends = [
+        {
+            "id": "srv_main",
+            "type": "deproxy",
+            "port": "8080",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 3\r\n\r\nfoo",
+        },
+        {
+            "id": "srv_front",
+            "type": "deproxy",
+            "port": "8081",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 3\r\n\r\nbar",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 443 proto=h2;
+        listen 80;
+
+        srv_group main {
+                server ${server_ip}:8080;
+        }
+
+        srv_group front {
+                server ${server_ip}:8081;
+        }
+
+        vhost tempesta-tech.com {
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
+                proxy_pass main;
+        }
+
+        vhost frontend {
+                proxy_pass front;
+        }
+
+        http_chain {
+                host == "frontend" -> frontend;
+                host == "tempesta-tech.com" -> tempesta-tech.com;
+                -> block;
+        }
+
+        cache_fulfill * *;
+        """
+    }
+
+    def get_response(self, client) -> CurlResponse:
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        return client.response_msg
+
+    def test(self):
+        self.start_all_services(client=False)
+
+        # Fetch response from the backend
+        srv = self.get_server("srv_front")
+        client = self.get_client("front-1")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1,
+                "Request should be taken from srv_front")
+        self.assertEqual(response, "bar")
+
+        # Make sure it was cached
+        srv = self.get_server("srv_front")
+        client = self.get_client("front-2")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1,
+                "Request should be taken from cache")
+        self.assertEqual(response, "bar")
+
+        # Send request to the different vhost. Make sure that
+        # we're not geting cached response for the first vhost
+        srv = self.get_server("srv_main")
+        client = self.get_client("debian-1")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1,
+                "Request should be taken from srv_main")
+        self.assertEqual(response, "foo")
+
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -552,6 +552,10 @@
 		{
 			"name": "t_http_rules.test_h2_http_rules.HttpRulesH2.test_scheduler",
 			"reason": "Disabled by issue 441 of tempesta-test"
+		},
+		{
+			"name": "cache.test_cache.TestCacheVhost",
+			"reason": "Disabled by issue #1630"
 		}
     ]
 }
