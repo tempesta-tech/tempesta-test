@@ -5,12 +5,14 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import tester
+from helpers.deproxy import H2Response, HttpMessage, Request, Response
 
 
 def generate_http1_request(optional_headers=[]) -> str:
     return (
         f"GET / HTTP/1.1\r\n"
         + "Host: localhost\r\n"
+        + "Connection: keep-alive\r\n"
         + "".join(f"{header[0]}: {header[1]}\r\n" for header in optional_headers)
         + "\r\n"
     )
@@ -19,8 +21,8 @@ def generate_http1_request(optional_headers=[]) -> str:
 def generate_response(optional_headers=[]) -> str:
     return (
         "HTTP/1.1 200 OK\r\n"
-        + "Date: test\r\n"
-        + "Server: debian\r\n"
+        + f"Date: {HttpMessage.date_time_string()}\r\n"
+        + "Server: Tempesta FW/pre-0.7.0\r\n"
         + "".join(f"{header[0]}: {header[1]}\r\n" for header in optional_headers)
         + "Content-Length: 0\r\n\r\n"
     )
@@ -96,18 +98,71 @@ class TestLogicBase(tester.TempestaTest, base=True):
                 "200",
             )
 
-        self.check_response_and_request(expected_headers, client, server)
+        expected_response = self.check_response(optional_headers, expected_headers, client)
+        expected_request = self.get_expected_request(optional_headers, expected_headers, client)
+
+        self.assertEqual(expected_response, client.last_response)
+        self.assertEqual(expected_request, server.last_request)
 
         return client, server
 
-    def check_response_and_request(self, expected_headers: list, client, server):
-        for header in expected_headers:
-            if self.directive == "req":
-                self.assertIn(header[1], list(server.last_request.headers.find_all(header[0])))
-                self.assertNotIn(header[1], list(client.last_response.headers.find_all(header[0])))
-            else:
-                self.assertIn(header[1], list(client.last_response.headers.find_all(header[0])))
-                self.assertNotIn(header[1], list(server.last_request.headers.find_all(header[0])))
+    def check_response(
+        self, optional_headers: list, expected_headers: list, client
+    ) -> Response or H2Response:
+        if client.proto == "h2":
+            tempesta_headers = [
+                ("via", "2.0 tempesta_fw (Tempesta FW pre-0.7.0)"),
+            ]
+        else:
+            tempesta_headers = [
+                ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
+                ("Connection", "keep-alive"),
+            ]
+
+        if self.cache:
+            tempesta_headers.append(("age", client.last_response.headers["age"]))
+
+        if self.directive == "req":
+            expected_response = generate_response(
+                optional_headers=tempesta_headers + optional_headers
+            )
+        else:
+            expected_response = generate_response(
+                optional_headers=tempesta_headers + expected_headers
+            )
+
+        if client.proto == "h2":
+            expected_response = H2Response(
+                expected_response.replace("HTTP/1.1 200 OK", ":status: 200")
+            )
+        else:
+            expected_response = Response(expected_response)
+        expected_response.set_expected()
+        return expected_response
+
+    def get_expected_request(
+        self, optional_headers: list, expected_headers: list, client
+    ) -> Request:
+        tempesta_headers = [
+            ("X-Forwarded-For", "127.0.0.1"),
+            ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
+        ]
+        if self.directive == "req":
+            expected_request = generate_http1_request(
+                optional_headers=tempesta_headers + expected_headers
+            )
+        else:
+            expected_request = generate_http1_request(
+                optional_headers=tempesta_headers + optional_headers
+            )
+
+        if client.proto == "h2":
+            expected_request = expected_request.replace("Connection: keep-alive\r\n", "")
+
+        expected_request = Request(expected_request)
+        expected_request.set_expected()
+
+        return expected_request
 
     def test_set_non_exist_header(self):
         """
