@@ -115,7 +115,7 @@ class TestMatchHost(tester.TempestaTest):
             "uri": "/foo",
             "headers": [
                 ("Host", "testwiki.com"),  # <--must be matched by "host eq"
-                ("Forwarded", "host=testapp.com"),
+                ("Forwarded", "host=forwarded.host.ignored"),
             ],
             "block": False,
             "sid": 1,
@@ -123,8 +123,8 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "/foo",
             "headers": [
-                ("Host", "unkhost.com"),
-                ("Forwarded", "host=testapp.com"),  # <--must be matched by "host eq"
+                ("Host", "TesTaPp.cOm"),  # <--must be matched by "host eq"
+                ("Forwarded", "HoSt=forwarded.host.ignored"),
             ],
             "block": False,
             "sid": 2,
@@ -132,27 +132,18 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "/foo",
             "headers": [
-                ("Host", "unkhost.com"),
-                ("Forwarded", "HoSt=TesTaPp.cOm"),  # <--must be matched by "host eq"
-            ],
-            "block": False,
-            "sid": 2,
-        },
-        {
-            "uri": "/foo",
-            "headers": [
-                ("Host", "unkhost.com"),
+                ("Host", "[fd80::1cb2:ad12:ca16:98ef]:8080"), # <--must be matched by "host eq"
                 (
                     "Forwarded",
-                    'host="[fd80::1cb2:ad12:ca16:98ef]:8080"',
-                ),  # <--must be matched by "host eq"
+                    'host="forwarded.host.ignored"',
+                ),  
             ],
             "block": False,
             "sid": 2,
         },
         {
             "uri": "/foo",
-            "headers": [("Host", "badhost.com"), ("Forwarded", "host=testapp.com")],
+            "headers": [("Host", "badhost.com"), ("Forwarded", "host=forwarded.host.ignored")],
             "block": True,
             "sid": 0,
         },

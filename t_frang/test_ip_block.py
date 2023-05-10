@@ -55,7 +55,7 @@ class FrangIpBlockBase(FrangTestCase, base=True):
 
 class FrangIpBlockMessageLimits(FrangIpBlockBase):
     """
-    For `http_host_required true` and `block_action attack reply`:
+    For `http_strict_host_checking true` and `block_action attack reply`:
     Create two client connections, then send invalid and valid requests and receive:
         - for different ip and ip_block on - RST and 200 response;
         - for single ip and ip_block on - RST and RST;
@@ -65,7 +65,7 @@ class FrangIpBlockMessageLimits(FrangIpBlockBase):
     tempesta = {
         "config": """
 frang_limits {
-    http_host_required true;
+    http_strict_host_checking true;
     ip_block on;
 }
 listen 80;
@@ -109,7 +109,7 @@ block_action attack reply;
         self.tempesta = {
             "config": """
 frang_limits {
-    http_host_required true;
+    http_strict_host_checking true;
     ip_block off;
 }
 
@@ -152,7 +152,7 @@ class FrangIpBlockConnectionLimits(FrangIpBlockBase):
     tempesta = {
         "config": """
 frang_limits {
-    http_host_required false;
+    http_strict_host_checking false;
     connection_rate 1;
     ip_block on;
 }
@@ -201,7 +201,7 @@ block_action attack reply;
         self.tempesta = {
             "config": """
 frang_limits {
-    http_host_required false;
+    http_strict_host_checking false;
     connection_rate 1;
     ip_block off;
 }

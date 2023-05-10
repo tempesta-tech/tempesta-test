@@ -31,7 +31,6 @@ Content-Type: text/html; charset=UTF-8
 
 
 class BackendSetCoookie(tester.TempestaTest):
-
     backends = [
         {
             "id": "set-cookie-1",
@@ -101,13 +100,12 @@ class BackendSetCoookie(tester.TempestaTest):
             "wordpress-login",  # WordPress response with multiple Set-Cookie headers
         ):
             with self.subTest("GET cookies", path=path):
-                client.make_request(f"GET /{path} HTTP/1.1\r\n\r\n")
+                client.make_request(f"GET /{path} HTTP/1.1\r\nHost: deproxy\r\n\r\n")
                 self.assertTrue(client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
 
 
 class RepeatedHeaderCache(tester.TempestaTest):
-
     backends = [
         {
             "id": "headers",
@@ -153,7 +151,7 @@ class RepeatedHeaderCache(tester.TempestaTest):
         self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.make_request("GET / HTTP/1.1\r\n\r\n")
+        client.make_request("GET / HTTP/1.1\r\nHost: deproxy\r\n\r\n")
 
         self.assertTrue(client.wait_for_response(timeout=1))
         self.assertEqual(client.last_response.status, "200")
@@ -196,7 +194,100 @@ class TestSmallHeader(tester.TempestaTest):
             header = "X" * length
             client.start()
             with self.subTest(header=header):
-                client.make_request("GET / HTTP/1.1\r\n" f"{header}: test\r\n" "\r\n")
+                client.make_request(f"GET / HTTP/1.1\r\nHost: deproxy\r\n{header}: test\r\n\r\n")
                 self.assertTrue(client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
             client.stop()
+
+
+class TestHost(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+            
+            block_action attack reply;
+            block_action error reply;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def test_host_missing(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\n\r\n",
+            expected_status_code="400",
+        )
+
+    def test_host_header_empty(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
+            expected_status_code="400",
+        )
+
+    def test_host_header_ok(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            expected_status_code="200",
+        )
+
+    def test_host_in_uri_without_host_header(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\n\r\n",
+            expected_status_code="400",
+        )
+
+    def test_different_host_in_uri_and_headers(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            expected_status_code="200",
+        )
+
+    def test_forwarded_and_empty_host_header(self):
+        """Host header must be present. Forwarded header does not set host header."""
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=(
+                f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nForwarded: host=localhost\r\n\r\n"
+            ),
+            expected_status_code="400",
+        )

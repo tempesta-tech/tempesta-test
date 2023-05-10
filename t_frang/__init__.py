@@ -1,7 +1,7 @@
 __all__ = [
     "test_connection_rate_burst",
     "test_header_cnt",
-    "test_host_required",
+    "test_http_strict_host_checking",
     "test_http_resp_code_block",
     "test_ip_block",
     "test_length",
