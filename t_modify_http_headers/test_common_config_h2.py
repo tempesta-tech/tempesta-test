@@ -5,22 +5,44 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from t_modify_http_headers import test_common_config
-from t_modify_http_headers.utils import H2Config
+
+
+class H2Config:
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+    request = [
+        (":authority", "localhost"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
+    ]
 
 
 class TestReqAddHeaderH2(H2Config, test_common_config.TestReqAddHeader):
-    pass
+    cache = False
+    directive = "req_hdr_add"
 
 
-class TestRespAddHeaderH2(H2Config, test_common_config.TestRespAddHeader):
-    pass
+class TestRespAddHeaderH2(H2Config, test_common_config.TestReqAddHeader):
+    cache = False
+    directive = "resp_hdr_add"
 
 
-class TestCachedRespAddHeaderH2(H2Config, test_common_config.TestCachedRespAddHeader):
-    pass
+class TestCachedRespAddHeaderH2(H2Config, test_common_config.TestReqAddHeader):
+    cache = True
+    directive = "resp_hdr_add"
 
 
 class TestReqSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
+    cache = False
+    directive = "req_hdr_set"
     request = [
         (":authority", "example.com"),
         (":path", "/"),
@@ -31,9 +53,11 @@ class TestReqSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
     ]
 
 
-class TestRespSetHeaderH2(H2Config, test_common_config.TestRespSetHeader):
-    pass
+class TestRespSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
+    cache = False
+    directive = "resp_hdr_set"
 
 
-class TestCachedRespSetHeaderH2(H2Config, test_common_config.TestCachedRespSetHeader):
-    pass
+class TestCachedRespSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
+    cache = True
+    directive = "resp_hdr_set"
