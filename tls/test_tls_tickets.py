@@ -48,7 +48,20 @@ class TlsTicketTest(tester.TempestaTest):
         """
     }
 
+    @staticmethod
+    def gen_cert(host_name):
+        workdir = tf_cfg.cfg.get("General", "workdir")
+        cert_path = "%s/%s.crt" % (workdir, host_name)
+        key_path = "%s/%s.key" % (workdir, host_name)
+        cgen = CertGenerator(cert_path, key_path)
+        cgen.CN = host_name + ".net"
+        cgen.generate()
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
+
     def start_all(self):
+        self.gen_cert("tempesta.com")
         deproxy_srv = self.get_server("0")
         deproxy_srv.start()
         self.start_tempesta()
