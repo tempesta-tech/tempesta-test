@@ -98,7 +98,7 @@ class TestLogicBase(tester.TempestaTest, base=True):
                 "200",
             )
 
-        expected_response = self.check_response(optional_headers, expected_headers, client)
+        expected_response = self.get_expected_response(optional_headers, expected_headers, client)
         expected_request = self.get_expected_request(optional_headers, expected_headers, client)
 
         self.assertEqual(expected_response, client.last_response)
@@ -106,7 +106,7 @@ class TestLogicBase(tester.TempestaTest, base=True):
 
         return client, server
 
-    def check_response(
+    def get_expected_response(
         self, optional_headers: list, expected_headers: list, client
     ) -> Response or H2Response:
         if client.proto == "h2":
@@ -222,7 +222,7 @@ class TestLogicBase(tester.TempestaTest, base=True):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-        header_name = "set-cookie" if self.directive == "resp" else "if-match"
+        header_name = "set-cookie" if self.directive == "resp" else "if-none-match"
         header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
         client, server = self.base_scenario(
             config=f"{self.directive}_hdr_set {header_name};\n",

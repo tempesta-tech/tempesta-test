@@ -53,11 +53,11 @@ class TestReqSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
     ]
 
 
-class TestRespSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
+class TestRespSetHeaderH2(H2Config, test_common_config.TestRespSetHeader):
     cache = False
     directive = "resp_hdr_set"
 
 
-class TestCachedRespSetHeaderH2(H2Config, test_common_config.TestReqSetHeader):
+class TestCachedRespSetHeaderH2(H2Config, test_common_config.TestRespSetHeader):
     cache = True
     directive = "resp_hdr_set"

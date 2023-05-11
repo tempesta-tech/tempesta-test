@@ -97,13 +97,6 @@ class TestReqAddHeader(AddHeaderBase):
         + "\r\n"
     )
 
-    def test_add_one_hdr(self):
-        client, server = self.base_scenario(
-            config=f'{self.directive} x-my-hdr "some text";\n',
-            expected_headers=[("x-my-hdr", "some text")],
-        )
-        return client, server
-
     def test_add_some_hdrs(self):
         client, server = self.base_scenario(
             config=(
@@ -190,76 +183,48 @@ class TestReqSetHeader(TestReqAddHeader):
         }
     ]
 
-    def test_add_one_hdr(self):
-        client, server = super(TestReqSetHeader, self).test_add_one_hdr()
+    def header_not_in(self, header):
+        server = self.get_server("deproxy")
+        self.assertNotIn(header, server.last_request.headers.items())
 
-        if self.directive == "req_hdr_set":
-            self.assertNotIn(("x-my-hdr", "original text"), server.last_request.headers.items())
-        else:
-            self.assertNotIn(("x-my-hdr", "original text"), client.last_response.headers.items())
+    def header_in(self, header):
+        server = self.get_server("deproxy")
+        self.assertIn(header, server.last_request.headers.items())
 
     def test_add_some_hdrs(self):
-        client, server = super(TestReqSetHeader, self).test_add_some_hdrs()
-
-        if self.directive == "req_hdr_set":
-            self.assertNotIn(("x-my-hdr", "original text"), server.last_request.headers.items())
-            self.assertNotIn(
-                ("x-my-hdr-2", "other original text"), server.last_request.headers.items()
-            )
-        else:
-            self.assertNotIn(("x-my-hdr", "original text"), client.last_response.headers.items())
-            self.assertNotIn(
-                ("x-my-hdr-2", "other original text"), client.last_response.headers.items()
-            )
+        super(TestReqSetHeader, self).test_add_some_hdrs()
+        self.header_not_in(("x-my-hdr", "original text"))
+        self.header_not_in(("x-my-hdr-2", "other original text"))
 
     def test_add_some_hdrs_custom_location(self):
-        client, server = super(TestReqSetHeader, self).test_add_some_hdrs_custom_location()
-
-        if self.directive == "req_hdr_set":
-            self.assertNotIn(("x-my-hdr", "original text"), server.last_request.headers.items())
-            self.assertNotIn(
-                ("x-my-hdr-2", "other original text"), server.last_request.headers.items()
-            )
-        else:
-            self.assertNotIn(("x-my-hdr", "original text"), client.last_response.headers.items())
-            self.assertNotIn(
-                ("x-my-hdr-2", "other original text"), client.last_response.headers.items()
-            )
+        super(TestReqSetHeader, self).test_add_some_hdrs_custom_location()
+        self.header_not_in(("x-my-hdr", "original text"))
+        self.header_not_in(("x-my-hdr-2", "other original text"))
 
     def test_add_hdrs_derive_config(self):
-        client, server = super(TestReqSetHeader, self).test_add_hdrs_derive_config()
-
-        if self.directive == "req_hdr_set":
-            self.assertNotIn(("x-my-hdr", "original text"), server.last_request.headers.items())
-            self.assertIn(
-                ("x-my-hdr-2", "other original text"), server.last_request.headers.items()
-            )
-        else:
-            self.assertNotIn(("x-my-hdr", "original text"), client.last_response.headers.items())
-            self.assertIn(
-                ("x-my-hdr-2", "other original text"), client.last_response.headers.items()
-            )
+        super(TestReqSetHeader, self).test_add_hdrs_derive_config()
+        self.header_not_in(("x-my-hdr", "original text"))
+        self.header_in(("x-my-hdr-2", "other original text"))
 
     def test_add_hdrs_override_config(self):
-        client, server = super(TestReqSetHeader, self).test_add_hdrs_override_config()
-
-        if self.directive == "req_hdr_set":
-            self.assertIn(("x-my-hdr", "original text"), server.last_request.headers.items())
-            self.assertNotIn(
-                ("x-my-hdr-2", "other original text"), server.last_request.headers.items()
-            )
-        else:
-            self.assertIn(("x-my-hdr", "original text"), client.last_response.headers.items())
-            self.assertNotIn(
-                ("x-my-hdr-2", "other original text"), client.last_response.headers.items()
-            )
+        super(TestReqSetHeader, self).test_add_hdrs_override_config()
+        self.header_in(("x-my-hdr", "original text"))
+        self.header_not_in(("x-my-hdr-2", "other original text"))
 
 
 class TestRespSetHeader(TestReqSetHeader):
     directive = "resp_hdr_set"
     cache = False
 
+    def header_in(self, header):
+        client = self.get_client("deproxy-1")
+        self.assertIn(header, client.last_response.headers.items())
 
-class TestCachedRespSetHeader(TestReqSetHeader):
+    def header_not_in(self, header):
+        client = self.get_client("deproxy-1")
+        self.assertNotIn(header, client.last_response.headers.items())
+
+
+class TestCachedRespSetHeader(TestRespSetHeader):
     cache = True
     directive = "resp_hdr_set"
