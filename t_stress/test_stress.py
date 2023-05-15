@@ -299,6 +299,7 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "single",
             "type": "curl",
             "uri": f"/1",
+            "addr": "${general_ip}:443",
             "headers": {
                 "Connection": "close",
             },
@@ -310,6 +311,7 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "sequential",
             "type": "curl",
             "uri": f"/[1-{REQUESTS_COUNT}]",
+            "addr": "${general_ip}:443",
             "headers": {
                 "Connection": "close",
             },
@@ -321,6 +323,7 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "pipelined",
             "type": "curl",
             "uri": f"/[1-{REQUESTS_COUNT}]",
+            "addr": "${general_ip}:443",
             "cmd_args": (f" --max-time {DURATION}"),
             "disable_output": True,
         },
@@ -329,6 +332,7 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "concurrent",
             "type": "curl",
             "uri": f"/[1-{REQUESTS_COUNT}]",
+            "addr": "${general_ip}:443",
             "parallel": CONCURRENT_CONNECTIONS,
             "cmd_args": (f" --max-time {DURATION}"),
             "disable_output": True,
