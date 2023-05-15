@@ -80,34 +80,40 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
     def handle_read(self):
         self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
-        try:
-            request = deproxy.Request(
-                self.request_buffer, keep_original_data=self.server.keep_original_data
-            )
-        except deproxy.IncompleteMessage:
-            return
-        except deproxy.ParseError:
-            tf_cfg.dbg(
-                4,
-                (
-                    "Deproxy: SrvConnection: Can't parse message\n"
-                    "<<<<<\n%s>>>>>" % self.request_buffer
-                ),
-            )
-        # Handler will be called even if buffer is empty.
-        if not self.request_buffer:
-            return
-        tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request.")
+
+        tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive data.")
         tf_cfg.dbg(5, self.request_buffer)
-        response, need_close = self.server.receive_request(request)
-        self.request_buffer = ""
-        if response:
-            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
-            tf_cfg.dbg(5, response)
-            self.out_buffer += response.encode()
-            self.initiate_send()
-        if need_close:
-            self.close()
+
+        while self.request_buffer:
+            try:
+                request = deproxy.Request(
+                    self.request_buffer, keep_original_data=self.server.keep_original_data
+                )
+            except deproxy.IncompleteMessage:
+                return None
+            except deproxy.ParseError as e:
+                tf_cfg.dbg(
+                    4,
+                    (
+                        "Deproxy: SrvConnection: Can't parse message\n"
+                        "<<<<<\n%s>>>>>" % self.request_buffer
+                    ),
+                )
+
+            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request.")
+            tf_cfg.dbg(5, request)
+            response, need_close = self.server.receive_request(request)
+            if response:
+                tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
+                tf_cfg.dbg(5, response)
+                self.out_buffer += response.encode()
+                self.initiate_send()
+            if need_close:
+                self.close()
+            self.request_buffer = self.request_buffer[request.original_length :]
+        # Handler will be called even if buffer is empty.
+        else:
+            return None
 
 
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
