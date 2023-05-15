@@ -94,7 +94,7 @@ class NginxWrkStress(NginxProxyMixin, BaseWrkStress):
         {
             "id": "wrk",
             "type": "wrk",
-            "addr": "${tempesta_ip}:80/1",
+            "addr": "${general_ip}:80/1",
         },
     ]
 
@@ -107,7 +107,7 @@ class NginxTlsWrkStress(NginxProxyMixin, BaseWrkStress):
             "id": "wrk",
             "type": "wrk",
             "ssl": True,
-            "addr": "${tempesta_ip}:443",
+            "addr": "${general_ip}:443",
         },
     ]
 
