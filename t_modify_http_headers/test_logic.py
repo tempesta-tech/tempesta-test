@@ -37,6 +37,65 @@ def generate_h2_request(optional_headers=[]) -> list:
     ] + optional_headers
 
 
+def get_expected_response(
+    optional_headers: list, expected_headers: list, client, cache: bool, directive: str
+) -> Response or H2Response:
+    if client.proto == "h2":
+        tempesta_headers = [
+            ("via", "2.0 tempesta_fw (Tempesta FW pre-0.7.0)"),
+        ]
+    else:
+        tempesta_headers = [
+            ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
+            ("Connection", "keep-alive"),
+        ]
+
+    if cache:
+        tempesta_headers.append(("age", client.last_response.headers["age"]))
+
+    if directive == "req":
+        expected_response = generate_response(optional_headers=tempesta_headers + optional_headers)
+    else:
+        expected_response = generate_response(optional_headers=tempesta_headers + expected_headers)
+
+    if client.proto == "h2":
+        expected_response = H2Response(expected_response.replace("HTTP/1.1 200 OK", ":status: 200"))
+    else:
+        expected_response = Response(expected_response)
+    expected_response.set_expected()
+    return expected_response
+
+
+def get_expected_request(
+    optional_headers: list, expected_headers: list, client, directive: str
+) -> Request:
+    tempesta_headers = [
+        ("X-Forwarded-For", "127.0.0.1"),
+        ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
+    ]
+    if directive == "req":
+        expected_request = generate_http1_request(
+            optional_headers=tempesta_headers + expected_headers
+        )
+    else:
+        expected_request = generate_http1_request(
+            optional_headers=tempesta_headers + optional_headers
+        )
+
+    if client.proto == "h2":
+        expected_request = expected_request.replace("Connection: keep-alive\r\n", "")
+
+    expected_request = Request(expected_request)
+    expected_request.set_expected()
+
+    return expected_request
+
+
+def update_tempesta_config(tempesta, config: str, cache: bool):
+    cache = "cache 2;\ncache_fulfill * *;\n" if cache else "cache 0;"
+    tempesta.config.defconfig += config + "\n" + cache
+
+
 class TestLogicBase(tester.TempestaTest, base=True):
     tempesta = {
         "config": """
@@ -75,13 +134,8 @@ class TestLogicBase(tester.TempestaTest, base=True):
     directive: str
     h2: bool
 
-    def update_tempesta_config(self, config: str):
-        tempesta = self.get_tempesta()
-        cache = "cache 2;\ncache_fulfill * *;\n" if self.cache else "cache 0;"
-        tempesta.config.defconfig += config + "\n" + cache
-
     def base_scenario(self, config: str, optional_headers: list, expected_headers: list):
-        self.update_tempesta_config(config=config)
+        update_tempesta_config(tempesta=self.get_tempesta(), config=config, cache=self.cache)
         self.start_all_services()
 
         server = self.get_server("deproxy")
@@ -98,71 +152,19 @@ class TestLogicBase(tester.TempestaTest, base=True):
                 "200",
             )
 
-        expected_response = self.get_expected_response(optional_headers, expected_headers, client)
-        expected_request = self.get_expected_request(optional_headers, expected_headers, client)
+        expected_response = get_expected_response(
+            optional_headers, expected_headers, client, self.cache, self.directive
+        )
+        expected_request = get_expected_request(
+            optional_headers, expected_headers, client, self.directive
+        )
 
+        client.last_response.headers.delete_all("Date")
+        expected_response.headers.delete_all("Date")
         self.assertEqual(expected_response, client.last_response)
         self.assertEqual(expected_request, server.last_request)
 
         return client, server
-
-    def get_expected_response(
-        self, optional_headers: list, expected_headers: list, client
-    ) -> Response or H2Response:
-        if client.proto == "h2":
-            tempesta_headers = [
-                ("via", "2.0 tempesta_fw (Tempesta FW pre-0.7.0)"),
-            ]
-        else:
-            tempesta_headers = [
-                ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
-                ("Connection", "keep-alive"),
-            ]
-
-        if self.cache:
-            tempesta_headers.append(("age", client.last_response.headers["age"]))
-
-        if self.directive == "req":
-            expected_response = generate_response(
-                optional_headers=tempesta_headers + optional_headers
-            )
-        else:
-            expected_response = generate_response(
-                optional_headers=tempesta_headers + expected_headers
-            )
-
-        if client.proto == "h2":
-            expected_response = H2Response(
-                expected_response.replace("HTTP/1.1 200 OK", ":status: 200")
-            )
-        else:
-            expected_response = Response(expected_response)
-        expected_response.set_expected()
-        return expected_response
-
-    def get_expected_request(
-        self, optional_headers: list, expected_headers: list, client
-    ) -> Request:
-        tempesta_headers = [
-            ("X-Forwarded-For", "127.0.0.1"),
-            ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
-        ]
-        if self.directive == "req":
-            expected_request = generate_http1_request(
-                optional_headers=tempesta_headers + expected_headers
-            )
-        else:
-            expected_request = generate_http1_request(
-                optional_headers=tempesta_headers + optional_headers
-            )
-
-        if client.proto == "h2":
-            expected_request = expected_request.replace("Connection: keep-alive\r\n", "")
-
-        expected_request = Request(expected_request)
-        expected_request.set_expected()
-
-        return expected_request
 
     def test_set_non_exist_header(self):
         """
@@ -172,6 +174,24 @@ class TestLogicBase(tester.TempestaTest, base=True):
             config=f'{self.directive}_hdr_set non-exist-header "qwe";\n',
             optional_headers=[],
             expected_headers=[("non-exist-header", "qwe")],
+        )
+
+    def test_set_exist_header(self):
+        self.base_scenario(
+            config=f'{self.directive}_hdr_set exist-header "qwe";\n',
+            optional_headers=[("exist-header", "123")],
+            expected_headers=[("exist-header", "qwe")],
+        )
+
+    def test_set_exist_special_header(self):
+        header_name = "set-cookie" if self.directive == "resp" else "if-none-match"
+        header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
+        new_hdr_value = '"test=cookie2"' if self.directive == "resp" else r'"\"asd\""'
+        expected_new_hdr_value = "test=cookie2" if self.directive == "resp" else r'"asd"'
+        self.base_scenario(
+            config=f"{self.directive}_hdr_set {header_name} {new_hdr_value};\n",
+            optional_headers=[(header_name, header_value)],
+            expected_headers=[(header_name, expected_new_hdr_value)],
         )
 
     def test_add_non_exist_header(self):
@@ -241,7 +261,7 @@ class TestLogicBase(tester.TempestaTest, base=True):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-        header_name = "set-cookie" if self.directive == "resp" else "if-match"
+        header_name = "set-cookie" if self.directive == "resp" else "if-none-match"
         header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
         client, server = self.base_scenario(
             config=f"{self.directive}_hdr_set {header_name};\n",
@@ -305,6 +325,67 @@ class TestCachedRespHeader(TestLogicBase):
     h2 = False
 
 
+class TestManyRequestHeaders(tester.TempestaTest):
+    tempesta = TestLogicBase.tempesta
+
+    clients = TestLogicBase.clients
+
+    backends = TestLogicBase.backends
+
+    cache = False
+    directive = "req"
+    h2 = False
+    requests_n = 1
+    __max_headers = 64
+    __headers_n = 64 // 4
+
+    def test_many_headers(self):
+        set_headers = [(f"set-header-{step}", str(step) * 2000) for step in range(self.__headers_n)]
+        add_headers = [(f"add-header-{step}", str(step) * 2000) for step in range(self.__headers_n)]
+        exist_header = [
+            (f"exist-header-{step}", str(step) * 1000) for step in range(self.__headers_n)
+        ]
+        changed_headers = [
+            (f"changed-header-{step}", f"{step}a") for step in range(self.__headers_n)
+        ]
+        expected_changed_header = [
+            (header[0], header[1].replace("a", "")) for header in changed_headers
+        ]
+
+        config = [
+            f'{self.directive}_hdr_set {header[0]} "{header[1]}";\n' for header in set_headers
+        ]
+        config.extend(
+            f'{self.directive}_hdr_add {header[0]} "{header[1]}";\n' for header in add_headers
+        )
+        config.extend(f"{self.directive}_hdr_set {header[0]};\n" for header in exist_header)
+        config.extend(
+            f'{self.directive}_hdr_set {header[0]} "{header[1]}";\n'
+            for header in expected_changed_header
+        )
+
+        TestLogicBase.base_scenario(
+            self,
+            config="".join(config),
+            optional_headers=exist_header + changed_headers,
+            expected_headers=set_headers + add_headers + expected_changed_header,
+        )
+
+
+class TestManyResponseHeaders(TestManyRequestHeaders):
+    cache = False
+    directive = "resp"
+    h2 = False
+    requests_n = 1
+
+
+class TestManyCachedResponseHeaders(TestManyRequestHeaders):
+    cache = True
+    directive = "resp"
+    h2 = False
+    requests_n = 2
+
+
 class TestReqHeaderH2(H2Config, TestLogicBase):
     directive = "req"
     cache = False
@@ -330,7 +411,11 @@ class TestRespHeaderH2(H2Config, TestLogicBase):
 
     def test_add_header_from_dynamic_table(self):
         """Tempesta must add header from dynamic table for second response."""
-        self.update_tempesta_config(config=f'{self.directive}_hdr_set x-my-hdr "text";\n')
+        update_tempesta_config(
+            tempesta=self.get_tempesta(),
+            config=f'{self.directive}_hdr_set x-my-hdr "text";\n',
+            cache=self.cache,
+        )
         self.start_all_services()
 
         optional_headers = [("x-my-hdr", "text")]
@@ -353,3 +438,24 @@ class TestCachedRespHeaderH2(H2Config, TestLogicBase):
     cache = True
     requests_n = 2
     h2 = True
+
+
+class TestManyRequestHeadersH2(H2Config, TestManyRequestHeaders):
+    cache = False
+    directive = "req"
+    h2 = True
+    requests_n = 2
+
+
+class TestManyResponseHeadersH2(H2Config, TestManyRequestHeaders):
+    cache = False
+    directive = "resp"
+    h2 = True
+    requests_n = 2
+
+
+class TestManyCachedResponseHeadersH2(H2Config, TestManyRequestHeaders):
+    cache = True
+    directive = "resp"
+    h2 = True
+    requests_n = 2
