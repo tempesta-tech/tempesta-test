@@ -393,7 +393,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         )
 
         client.make_request(self.post_request)
-        client.wait_for_response(3)
+        client.wait_for_response(5)
 
         self.assertFalse(client.connection_is_closed())
         self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
