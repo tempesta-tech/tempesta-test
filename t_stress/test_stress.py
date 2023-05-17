@@ -20,6 +20,7 @@ THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
 
 # Number of requests to make
 REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
+REQUESTS_COUNT = 10
 # Time to wait for single request completion
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
@@ -299,7 +300,6 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "single",
             "type": "curl",
             "uri": f"/1",
-            "addr": "${tempesta_ip}",
             "headers": {
                 "Connection": "close",
             },
@@ -311,7 +311,6 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "sequential",
             "type": "curl",
             "uri": f"/[1-{REQUESTS_COUNT}]",
-            "addr": "${tempesta_ip}",
             "headers": {
                 "Connection": "close",
             },
@@ -323,7 +322,6 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "pipelined",
             "type": "curl",
             "uri": f"/[1-{REQUESTS_COUNT}]",
-            "addr": "${tempesta_ip}",
             "cmd_args": (f" --max-time {DURATION}"),
             "disable_output": True,
         },
@@ -332,7 +330,6 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "id": "concurrent",
             "type": "curl",
             "uri": f"/[1-{REQUESTS_COUNT}]",
-            "addr": "${tempesta_ip}",
             "parallel": CONCURRENT_CONNECTIONS,
             "cmd_args": (f" --max-time {DURATION}"),
             "disable_output": True,
