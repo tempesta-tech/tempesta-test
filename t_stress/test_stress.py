@@ -20,7 +20,6 @@ THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
 
 # Number of requests to make
 REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
-REQUESTS_COUNT = 100
 # Time to wait for single request completion
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
