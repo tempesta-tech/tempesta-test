@@ -1,4 +1,9 @@
+import h2.frame_buffer
+
 from helpers import tf_cfg
+
+# This is necessary for tests when response headers exceed 64 CONTINUATION frames.
+h2.frame_buffer.CONTINUATION_BACKLOG = 100000
 
 SAVE_SECRETS = False
 
