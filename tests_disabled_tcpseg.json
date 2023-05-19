@@ -102,6 +102,22 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_in_response",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
+            "reason": "Disabled by issue #1819"
+        },
+        {
+            "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
+            "reason": "Disabled by issue #1884"
+        },
+        {
             "name": "cache.test_cache",
             "reason": "Disabled by issue #1868"
         },
@@ -138,10 +154,6 @@
             "reason": "Disabled by PR 1714"
         },
         {
-            "name": "forwarding.test_match_host_forwarded.TestMatchHost",
-            "reason": "Disabled by issue 1873"
-        },
-        {
             "name": "regression",
             "reason": "Disabled by issue #56"
         },
@@ -160,10 +172,6 @@
         {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2FrameEnabledDisabledTsoGroGsoStickyCookie",
-            "reason": "Disabled by PR #1874"
         },
         {
             "name": "t_wrong_body_length.test_response_wrong_length",
