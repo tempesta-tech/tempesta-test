@@ -142,20 +142,8 @@
             "reason": "Disabled by issue 1873"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestHpackStickyCookie.test_h2_cookie_after_setting_header_table_size",
-            "reason": "Disabled by issue 1871"
-        },
-        {
             "name": "regression",
             "reason": "Disabled by issue #56"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_host_header_as_ipv6",
-            "reason": "Disabled by issue 1871"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_authority_header_as_ipv6",
-            "reason": "Disabled by issue 1871"
         },
         {
             "name": "t_frang.test_http_method_override_allowed.FrangHttpMethodsOverrideTestCase",
@@ -168,10 +156,6 @@
         {
             "name": "t_frang.test_http_methods.FrangHttpMethodsTestCase.test_not_accepted_request_zero_byte",
             "reason": "Disabled by issue 1872"
-        },
-        {
-            "name": "t_http_rules.test_h2_http_rules.HttpRulesH2.test_scheduler",
-            "reason": "Disabled by issue 1871"
         },
         {
             "name": "tls.test_tls_integrity.ProxyH2",
