@@ -182,10 +182,6 @@
             "reason" : "Disabled by issue #363"
         },
         {
-            "name" : "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_mismatch",
-            "reason" : "Disabled by issue #363"
-        },
-        {
             "name" : "health_monitoring",
             "reason" : "Disabled by issue #273"
         },
