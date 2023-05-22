@@ -4,8 +4,12 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import unittest
+
 from framework import tester
 from helpers.deproxy import H2Response, HttpMessage, Request, Response
+
+MAX_HEADER_NAME = 1024  # See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN
 
 
 def generate_http1_request(optional_headers=[]) -> str:
@@ -261,8 +265,8 @@ class TestLogicBase(tester.TempestaTest, base=True):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-        header_name = "set-cookie" if self.directive == "resp" else "if-none-match"
-        header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
+        header_name = "set-cookie" if self.directive == "resp" else "forwarded"
+        header_value = "test=cookie" if self.directive == "resp" else "for=tempesta.com"
         client, server = self.base_scenario(
             config=f"{self.directive}_hdr_set {header_name};\n",
             optional_headers=[(header_name, header_value), (header_name, header_value)],
@@ -289,6 +293,44 @@ class TestLogicBase(tester.TempestaTest, base=True):
             config=f'{self.directive}_hdr_set x-my-hdr "{"12" * 2000}";\n',
             optional_headers=[],
             expected_headers=[("x-my-hdr", "12" * 2000)],
+        )
+
+    def test_set_header_name_greater_than_1024(self):
+        self.base_scenario(
+            config=f'{self.directive}_hdr_set {"a" * (MAX_HEADER_NAME + 10)} "value";\n',
+            optional_headers=[],
+            expected_headers=[("a" * (MAX_HEADER_NAME + 10), "value")],
+        )
+
+    def test_set_long_header_name(self):
+        self.base_scenario(
+            config=(
+                f'{self.directive}_hdr_set {"a" * MAX_HEADER_NAME} "value";\n'
+                f'{self.directive}_hdr_set {"b" * MAX_HEADER_NAME} "value";\n'
+                f'{self.directive}_hdr_set {"c" * MAX_HEADER_NAME} "value";\n'
+                f'{self.directive}_hdr_set {"d" * MAX_HEADER_NAME} "value";\n'
+            ),
+            optional_headers=[],
+            expected_headers=[
+                ("a" * MAX_HEADER_NAME, "value"),
+                ("b" * MAX_HEADER_NAME, "value"),
+                ("c" * MAX_HEADER_NAME, "value"),
+                ("d" * MAX_HEADER_NAME, "value"),
+            ],
+        )
+
+    def test_long_header_name(self):
+        self.base_scenario(
+            config=f'{self.directive}_hdr_set {"a" * MAX_HEADER_NAME} "value1";\n',
+            optional_headers=[
+                ("a" * MAX_HEADER_NAME, "value"),
+                ("a" * MAX_HEADER_NAME, "value"),
+                ("a" * MAX_HEADER_NAME, "value"),
+                ("a" * MAX_HEADER_NAME, "value"),
+            ],
+            expected_headers=[
+                ("a" * MAX_HEADER_NAME, "value1"),
+            ],
         )
 
 
@@ -407,7 +449,7 @@ class TestRespHeaderH2(H2Config, TestLogicBase):
             expected_headers=[("cache-control", "no-cache")],
         )
 
-        self.assertIn(b"\x08no-cache", client.response_buffer)
+        self.assertIn(b"\x08no-cache", client.last_response_buffer)
 
     def test_add_header_from_dynamic_table(self):
         """Tempesta must add header from dynamic table for second response."""
@@ -426,11 +468,11 @@ class TestRespHeaderH2(H2Config, TestLogicBase):
         server.set_response(generate_response(optional_headers))
 
         client.send_request(request, "200")
-        self.assertIn(b"\x08x-my-hdr\x04text", client.response_buffer)
+        self.assertIn(b"\x08x-my-hdr\x04text", client.last_response_buffer)
 
         client.send_request(request, "200")
-        self.assertNotIn(b"\nx-my-hdr\x04text", client.response_buffer)
-        self.assertIn(b"\xbe", client.response_buffer)
+        self.assertNotIn(b"x-my-hdr\x04text", client.last_response_buffer)
+        self.assertIn(b"\xbe", client.last_response_buffer)
 
 
 class TestCachedRespHeaderH2(H2Config, TestLogicBase):
@@ -438,6 +480,9 @@ class TestCachedRespHeaderH2(H2Config, TestLogicBase):
     cache = True
     requests_n = 2
     h2 = True
+
+    def test_add_header_from_static_table(self):
+        TestRespHeaderH2.test_add_header_from_static_table(self)
 
 
 class TestManyRequestHeadersH2(H2Config, TestManyRequestHeaders):
