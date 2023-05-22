@@ -246,34 +246,6 @@
             "reason": "Need to investigate"
         },
         {
-            "name": "tls.test_tls_cert.TlsCertSelectBySan",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTable",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableFrang",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiFrang",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2Frang",
-            "reason": "Disable by issue #1688"
-        },
-        {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
             "reason": "Disable by issue #1703"
         },
