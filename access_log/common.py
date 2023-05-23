@@ -38,9 +38,20 @@ class AccessLogLine:
         prefix = "[tempesta fw] "
         if s[: len(prefix)] != "[tempesta fw] ":
             return None
-        fields = list(map(lambda x: x.strip('"'), s[len(prefix) :].split(" ")))
+        fields = s[len(prefix) :].split(" ")
         if len(fields) != 9:
             return None
+        # Heuristics: vhost is enclosed with quotes
+        host = fields[1]
+        if len(host) < 2 or host[0] != '"' or host[-1] != '"':
+            return None
+        # Heuristics: request line starts with quotes and
+        # is not shorter than 4 symbols ("GET)
+        line = fields[2]
+        if len(line) < 4 or line[0] != '"':
+            return None
+        fields = list(map(lambda x: x.strip('"'), fields))
+        print(fields)
         return AccessLogLine(
             ip=fields[0],
             vhost=fields[1],
