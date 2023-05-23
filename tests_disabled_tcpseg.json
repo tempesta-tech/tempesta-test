@@ -436,6 +436,10 @@
         {
             "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_authority_header_as_ipv6",
             "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
+            "reason": "Disabled by issue #1864"
         }
     ]
 }
