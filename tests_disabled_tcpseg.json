@@ -440,6 +440,10 @@
         {
             "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
             "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "selftests.test_deproxy.DeproxyClientTest.test_pipeline_request",
+            "reason": "Disabled by issue #1864"
         }
     ]
 }
