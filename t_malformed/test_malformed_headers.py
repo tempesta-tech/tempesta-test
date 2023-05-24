@@ -24,8 +24,13 @@ class MalformedRequestsBase(tester.TempestaTest):
         "config": """
 cache 0;
 listen 80;
+listen 443 proto=h2;
 
-server ${general_ip}:8000;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+server ${server_ip}:8000;
 
 """,
     }
@@ -34,12 +39,25 @@ server ${general_ip}:8000;
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def common_check(self, request):
+    def common_check(self, headers: tuple, method="GET"):
         self.start_all_services()
 
         clnt = self.get_client("deproxy")
         clnt.parsing = False
-        clnt.send_request(request, "400")
+        clnt.send_request(self.generate_request(headers, method), "400")
+
+    @staticmethod
+    def generate_request(headers: tuple, method="GET"):
+        first_line = "GET / HTTP/1.1\r\n" if method == "GET" else "POST / HTTP/1.1\r\n"
+        if headers[0] == "Host":
+            new_headers = f"{headers[0]}: {headers[1]}\r\n"
+        else:
+            new_headers = f"Host: localhost\r\n{headers[0]}: {headers[1]}\r\n"
+
+        if method == "POST":
+            new_headers += "Content-length: 0\r\n"
+
+        return first_line + new_headers + "\r\n"
 
 
 class MalformedRequestsTest(MalformedRequestsBase):
@@ -49,8 +67,7 @@ class MalformedRequestsTest(MalformedRequestsBase):
         Don't mix it up with http2 pseudo headers, starting with ':' since
         SP after ':' is required.
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" ": invalid header\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("", "invalid header"))
 
     def test_accept(self):
         """
@@ -64,8 +81,7 @@ class MalformedRequestsTest(MalformedRequestsBase):
         accept-params  = weight *( accept-ext )
         accept-ext = OWS ";" OWS token [ "=" ( token / quoted-string ) ]
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Accept", "invalid"))
 
     # Authorization
     # https://tools.ietf.org/html/rfc7235#section-4.2
@@ -84,8 +100,7 @@ class MalformedRequestsTest(MalformedRequestsBase):
         undefined for the target URI, then a client MUST send a Host header
         field with an empty field-value.
         """
-        request = "GET / HTTP/1.1\r\n" "Host: http://\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Host", "http://"))
 
     def test_if_none_match(self):
         """
@@ -93,21 +108,12 @@ class MalformedRequestsTest(MalformedRequestsBase):
         https://tools.ietf.org/html/rfc7232#section-3.2
         Same as If-Match
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "If-None-Match: quotes\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("If-None-Match", "quotes"))
 
     # Proxy-Authorization
     # https://tools.ietf.org/html/rfc7235#section-4.4
     #
     # Proxy-Authorization = credentials
-
-    def test_referer(self):
-        """
-        https://tools.ietf.org/html/rfc7231#section-5.5.2
-        Referer = absolute-URI / partial-URI
-        """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Referer: not a uri\r\n" "\r\n"
-        self.common_check(request)
 
     def test_transfer_encoding(self):
         """
@@ -128,10 +134,7 @@ class MalformedRequestsTest(MalformedRequestsBase):
                           / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
                           / DIGIT / ALPHA
         """
-        request = (
-            "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Transfer-Encoding: not a token\r\n" "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Transfer-Encoding", "nottoken"))
 
 
 @unittest.expectedFailure
@@ -140,6 +143,13 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
     Not all malformed requests are actually harmful, so we easily spend resources
     on the headers validation  and do not seriously improve the application security.
     """
+
+    def test_referer(self):
+        """
+        https://tools.ietf.org/html/rfc7231#section-5.5.2
+        Referer = absolute-URI / partial-URI
+        """
+        self.common_check(headers=("Referer", "invalid"))
 
     def test_accept_charset(self):
         """
@@ -151,8 +161,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         registry (<http://www.iana.org/assignments/character-sets>) according
         to the procedures defined in [RFC2978].
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept-Charset: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Accept-Charset", "invalid"))
 
     def test_accept_encoding(self):
         """
@@ -162,8 +171,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         registered within the "HTTP Content Coding Registry", as defined in
         Section 8.4.
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept-Encoding: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Accept-Encoding", "invalid"))
 
     def test_accept_language(self):
         """
@@ -172,8 +180,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         language-range   = (1*8ALPHA *("-" 1*8alphanum)) / "*"
         alphanum         = ALPHA / DIGIT
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept-Language: 123456789\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Accept-Language", "123456789"))
 
     def test_content_encoding(self):
         """
@@ -186,14 +193,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         registered within the "HTTP Content Coding Registry", as defined in
         Section 8.4.
         """
-        request = (
-            "POST / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Content-Encoding: invalid\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Content-Encoding", "invalid"))
 
     def test_content_language(self):
         """
@@ -202,28 +202,14 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         language-range   = (1*8ALPHA *("-" 1*8alphanum)) / "*"
         alphanum         = ALPHA / DIGIT
         """
-        request = (
-            "POST / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Content-Language: 123456789\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Content-Language", "123456789"))
 
     def test_content_location(self):
         """
         https://tools.ietf.org/html/rfc7231#section-3.1.4.2
         Content-Location = absolute-URI / partial-URI
         """
-        request = (
-            "POST / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Content-Location: not a uri\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Content-Location", "invalid"))
 
     def test_content_range(self):
         """
@@ -244,14 +230,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         other-content-range = other-range-unit SP other-range-resp
         other-range-resp    = *CHAR
         """
-        request = (
-            "POST / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Content-Range: invalid\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Content-Type", "invalid"), method="POST")
 
     def test_content_type(self):
         """
@@ -261,22 +240,14 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         type       = token
         subtype    = token
         """
-        request = (
-            "POST / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Content-Type: invalid\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Content-Type", "invalid"), method="POST")
 
     def test_date(self):
         """
         https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         "invalid" doesn't match neither current date format RFC5322 neither obsolete RFC850
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Date: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Date", "invalid"))
 
     def test_expect1(self):
         """
@@ -286,8 +257,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         MAY respond with a 417 (Expectation Failed) status code to indicate
         that the unexpected expectation cannot be met.
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Expect: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Expect", "invalid"))
 
     def test_expect2(self):
         """
@@ -296,8 +266,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         A client MUST NOT generate a 100-continue expectation in a request
         that does not include a message body.
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Expect: 100-continue\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Expect", "100-continue"))
 
     def test_from(self):
         """
@@ -307,8 +276,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
 
         "not a email" is not a email address
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "From: not a email\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("From", "invalid"))
 
     def test_if_match(self):
         """
@@ -322,8 +290,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         etagc      = %x21 / %x23-7E / obs-text
         ; VCHAR except double quotes, plus obs-text
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "If-Match: quotes\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("If-Match", "quotes"))
 
     def test_if_modified_since(self):
         """
@@ -331,8 +298,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
 
         "invalid" is not a date
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "If-Modified-Since: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("If-Modified-Since", "invalid"))
 
     def test_if_range(self):
         """
@@ -341,8 +307,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
 
         Same as If-Match
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "If-Range: not in quotes\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("If-Range", "quotes"))
 
     def test_if_unmodified_since(self):
         """
@@ -350,32 +315,21 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
 
         "invalid" is not a date
         """
-        request = (
-            "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "If-Unmodified-Since: invalid\r\n" "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("If-Unmodified-Since", "invalid"))
 
     def test_last_modified(self):
         """
         https://tools.ietf.org/html/rfc7232#section-2.2
         "invalid" is not a date
         """
-        request = (
-            "POST / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Last-Modified: invalid\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Last-Modified", "invalid"))
 
     def test_max_forwards(self):
         """
         https://tools.ietf.org/html/rfc7231#section-5.1.2
         Max-Forwards = 1*DIGIT
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Max-Forwards: not a number\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Max-Forwards", "number"))
 
     def test_pragma(self):
         """
@@ -392,8 +346,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
                           / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
                           / DIGIT / ALPHA
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Pragma: not a token\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Pragma", "invalid"))
 
     def test_range(self):
         """
@@ -403,8 +356,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         other-ranges-specifier = other-range-unit "=" other-range-set
         other-range-set = 1*VCHAR
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Range: invalid\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Range", "invalid"))
 
     def test_te(self):
         """
@@ -416,16 +368,14 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         rank      = ( "0" [ "." 0*3DIGIT ] )
                     / ( "1" [ "." 0*3("0") ] )
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "TE: invalid te\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("TE", "invalid"))
 
     def test_trailer(self):
         """
         https://tools.ietf.org/html/rfc7230#section-4.4
         Trailer = 1#field-name
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Trailer: bad field name\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Trailer", "invalid"))
 
     def test_upgrade(self):
         """
@@ -444,8 +394,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
                           / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
                           / DIGIT / ALPHA
         """
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Upgrade: not a token\r\n" "\r\n"
-        self.common_check(request)
+        self.common_check(headers=("Upgrade", "invalid"))
 
     def test_user_agent(self):
         """
@@ -463,10 +412,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
                           / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
                           / DIGIT / ALPHA
         """
-        request = (
-            "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "User-Agent: (bad user agent\r\n" "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("User-Agent", "(invalid"))
 
     def test_via(self):
         """
@@ -489,13 +435,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
                           / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
                           / DIGIT / ALPHA
         """
-        request = (
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "User-Agent: (bad_protocol_version\r\n"
-            "\r\n"
-        )
-        self.common_check(request)
+        self.common_check(headers=("Via", "(invalid"))
 
 
 class MalformedResponseBase(tester.TempestaTest):
@@ -511,8 +451,15 @@ class MalformedResponseBase(tester.TempestaTest):
 
     tempesta = {
         "config": """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
 cache 0;
-server ${general_ip}:8000;
+server ${server_ip}:8000;
 
 """,
     }
@@ -548,7 +495,7 @@ class MalformedResponsesTest(MalformedResponseBase):
         https://tools.ietf.org/html/rfc7234#section-5.1
         Age = delta-seconds
         """
-        response = "HTTP/1.1 200 OK\r\n" "Age: not a number\r\n" "Content-Length: 0\r\n" "\r\n"
+        response = "HTTP/1.1 200 OK\r\n" "Age: invalid\r\n" "Content-Length: 0\r\n" "\r\n"
         self.common_check(response, self.request)
 
     def test_cache_control1(self):
@@ -805,93 +752,54 @@ class MalformedResponseWithoutStrictParsingTest(MalformedResponseBase):
     # WWW-Authenticate = 1#challenge
 
 
-class EtagAlphabetTest(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "dummy",
-        },
-    ]
-
-    tempesta = {
-        "config": """
-cache 0;
-listen 80;
-
-server ${general_ip}:8000;
-
-""",
-    }
-
-    clients = [
-        {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
-    ]
-
-    def common_check(self, response, resp_status):
-        srv = self.get_server("deproxy")
-        srv.set_response(response)
-        srv.start()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(srv.wait_for_connections(timeout=1))
-        clnt = self.get_client("deproxy")
-        clnt.start()
-        clnt.make_request("GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n")
-        has_resp = clnt.wait_for_response(timeout=5)
-        self.assertTrue(has_resp, "Response not received")
-        status = clnt.last_response.status
-        self.assertEqual(int(status), resp_status, "Wrong status: %s" % status)
-
+class EtagAlphabetTest(MalformedResponseBase):
     def test_etag_with_x00(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x000123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 502)
+        self.common_check(response, self.request)
 
     def test_etag_with_x09(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x090123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 502)
+        self.common_check(response, self.request)
 
     def test_etag_with_x20(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x200123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 502)
+        self.common_check(response, self.request)
 
     def test_etag_with_x21(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x210123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 200)
+        self.common_check(response, self.request, "200")
 
     def test_etag_with_x22(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x220123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 502)
+        self.common_check(response, self.request)
 
     def test_etag_with_x23(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x230123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 200)
+        self.common_check(response, self.request, "200")
 
     def test_etag_with_x7f(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x7f0123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 502)
+        self.common_check(response, self.request)
 
     def test_etag_with_xf7(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\xf70123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 200)
+        self.common_check(response, self.request, "200")
 
 
 class EtagAlphabetBrangeTest(EtagAlphabetTest):
@@ -899,8 +807,13 @@ class EtagAlphabetBrangeTest(EtagAlphabetTest):
         "config": """
 cache 0;
 listen 80;
+listen 443 proto=h2;
 
-server ${general_ip}:8000;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+server ${server_ip}:8000;
 http_etag_brange 0x09 0x20-0x21 0x23-0x7e 0x80-0xff;
 """,
     }
@@ -909,10 +822,10 @@ http_etag_brange 0x09 0x20-0x21 0x23-0x7e 0x80-0xff;
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x090123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 200)
+        self.common_check(response, self.request, "200")
 
     def test_etag_with_x20(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x200123456789"\r\n' "\r\n"
         )
-        self.common_check(response, 200)
+        self.common_check(response, self.request, "200")
