@@ -976,6 +976,9 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
     tempesta_tmpl = """
             cache 0;
             listen 443 proto=%s;
+            frang_limits {
+                http_strict_host_checking;
+            }
 
             # Optional Frang section
             %s
@@ -1084,18 +1087,6 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
         self.run_alterative_access()
 
 
-class TlsSniWithHttpTableMultiFrang(TlsSniWithHttpTableMulti):
-    """
-    Same as TlsSniWithHttpTableMulti, with `http_strict_host_checking` enabled.
-    """
-
-    frang_limits = """
-            frang_limits {
-                http_strict_host_checking;
-            }
-    """
-
-
 class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
 
     proto = "h2"
@@ -1126,15 +1117,3 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
         # Ignore 'BUG tfw_stream_cache Tainted'
         self.oops_ignore = ["WARNING"]
         self.run_alterative_access()
-
-
-class TlsSniWithHttpTableMultiH2Frang(TlsSniWithHttpTableMultiH2):
-    """
-    Same as TlsSniWithHttpTableMultiH2, with `http_strict_host_checking` enabled.
-    """
-
-    frang_limits = """
-            frang_limits {
-                http_strict_host_checking;
-            }
-    """
