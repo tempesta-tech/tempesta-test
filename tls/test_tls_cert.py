@@ -941,18 +941,6 @@ class TlsSniWithHttpTable(BaseTlsSniWithHttpTable):
     frang_limits = ""
 
 
-class TlsSniWithHttpTableFrang(BaseTlsSniWithHttpTable):
-    """
-    Same as TlsSniWithHttpTable, with `http_strict_host_checking` enabled.
-    """
-
-    frang_limits = """
-            frang_limits {
-                http_strict_host_checking;
-            }
-    """
-
-
 class BaseTlsMultiTest(tester.TempestaTest, base=True):
     """Base class to test multiplexed (pipelided) requests."""
 
