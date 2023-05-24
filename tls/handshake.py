@@ -14,6 +14,7 @@ from scapy.all import *
 from scapy.layers.tls.all import *
 from scapy.layers.tls.record import _TLSEncryptedContent
 
+import run_config
 from helpers import dmesg, tf_cfg
 from helpers.error import Error
 
@@ -56,13 +57,13 @@ def x509_check_issuer(cert, issuer):
 
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
-    
+
     """
     Our modified TLSClient with overrided states
     to investingate what happens - run tests with 3x -v
     for more state change info
     """
-    
+
     def __init__(self, *args, **kwargs):
         self.cached_secrets = kwargs.pop("cached_secrets", None)
         self.chunk = kwargs.pop("chunk", None)
@@ -269,10 +270,12 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             raise self.CLOSE_NOTIFY()
 
     def flush_records(self):
-
         """
         Send all buffered records and update the session accordingly.
         """
+        if run_config.TCP_SEGMENTATION and self.chunk == 0:
+            self.chunk = run_config.TCP_SEGMENTATION
+
         if self.chunk is not None:
             tf_cfg.dbg(3, "Trying to send data by chunk")
             _s = b"".join(p.raw_stateful() for p in self.buffer_out)
@@ -408,7 +411,6 @@ class TlsHandshake:
         return ch
 
     def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
-        
         """TLS Handshake Resumption
 
         Args:
