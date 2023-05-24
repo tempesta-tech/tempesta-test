@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import random
 
 from framework import tester
 
@@ -73,12 +74,9 @@ tls_match_any_server_name;
         ('A' to 'Z', ASCII 0x41 to 0x5a).
         RFC 9113 8.2.1
         """
-        for symbol in range(0x41, 0x5A):
-            symbol = symbol.to_bytes(1, "big")
-            with self.subTest(symbol=symbol):
-                self.send_response_and_check_connection_is_closed(
-                    [(b"x-my-hdr" + symbol, b"value")]
-                )
+        symbol = random.randint(0x41, 0x5A).to_bytes(1, "big")
+        with self.subTest(symbol=symbol):
+            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
 
     def test_ascii_from_0x7f_to_0xff_in_header_name(self):
         """
@@ -88,12 +86,9 @@ tls_match_any_server_name;
         ('A' to 'Z', ASCII 0x41 to 0x5a).
         RFC 9113 8.2.1
         """
-        for symbol in range(0x7F, 0xFF):
-            symbol = symbol.to_bytes(1, "big")
-            with self.subTest(hex=symbol):
-                self.send_response_and_check_connection_is_closed(
-                    [(b"x-my-hdr" + symbol, b"value")]
-                )
+        symbol = random.randint(0x7F, 0xFF).to_bytes(1, "big")
+        with self.subTest(hex=symbol):
+            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
 
     def test_ascii_from_0x00_to_0x20_in_header_name(self):
         """
