@@ -439,7 +439,7 @@
         },
         {
             "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
-            "reason": "Disabled by issue #1864"
+            "reason": "Disabled by issue #450"
         }
     ]
 }
