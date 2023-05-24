@@ -51,7 +51,6 @@ class AccessLogLine:
         if len(line) < 4 or line[0] != '"':
             return None
         fields = list(map(lambda x: x.strip('"'), fields))
-        print(fields)
         return AccessLogLine(
             ip=fields[0],
             vhost=fields[1],
