@@ -106,7 +106,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
             if response:
                 tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
                 tf_cfg.dbg(5, response)
-                self.out_buffer += response.encode()
+                self.out_buffer += response
                 self.initiate_send()
             if need_close:
                 self.close()
@@ -201,8 +201,10 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
 
 class StaticDeproxyServer(BaseDeproxyServer):
+    __response: str or bytes
+
     def __init__(self, *args, **kwargs):
-        self.response = kwargs["response"]
+        self.set_response(kwargs["response"])
         kwargs.pop("response", None)
         BaseDeproxyServer.__init__(self, *args, **kwargs)
         self.last_request = None
@@ -212,13 +214,24 @@ class StaticDeproxyServer(BaseDeproxyServer):
         self.requests = []
         BaseDeproxyServer.run_start(self)
 
-    def set_response(self, response):
-        self.response = response
+    @property
+    def response(self) -> str:
+        return self.__response.decode(errors="ignore")
+
+    @response.setter
+    def response(self, response: str or bytes) -> None:
+        self.set_response(response)
+
+    def set_response(self, response: str or bytes) -> None:
+        if isinstance(response, str):
+            self.__response = response.encode()
+        elif isinstance(response, bytes):
+            self.__response = response
 
     def receive_request(self, request):
         self.requests.append(request)
         self.last_request = request
-        return self.response, False
+        return self.__response, False
 
 
 def deproxy_srv_factory(server, name, tester):

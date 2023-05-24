@@ -98,8 +98,8 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
             self.do_drop = False
             return "", True
 
-        resp = deproxy.Response(r)
-        return resp.msg, close
+        resp = deproxy.Response(r.decode())
+        return resp.msg.encode(), close
 
 
 def build_deproxy_drop(server, name, tester):

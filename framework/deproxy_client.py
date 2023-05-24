@@ -347,6 +347,10 @@ class DeproxyClientH2(DeproxyClient):
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer = False
 
+    def run_start(self):
+        super(DeproxyClientH2, self).run_start()
+        self.h2_connection = None
+
     def make_requests(self, requests, *args, **kwargs):
         for request in requests:
             self.make_request(request)

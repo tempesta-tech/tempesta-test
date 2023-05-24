@@ -797,6 +797,7 @@ class Client(TlsClient, stateful.Stateful):
     def handle_close(self):
         self.close()
         self.conn_is_closed = True
+        self.state = stateful.STATE_STOPPED
 
     def handle_read(self):
         while True:  # TLS aware - read as many records as we can
@@ -988,6 +989,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
 
     def handle_close(self):
         self.close()
+        self.state = stateful.STATE_STOPPED
 
 
 # -------------------------------------------------------------------------------
