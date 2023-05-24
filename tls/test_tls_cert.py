@@ -813,6 +813,9 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     tempesta_tmpl = """
             cache 0;
             listen 443 proto=https;
+            frang_limits {
+                http_strict_host_checking;
+            }
 
             # Optional Frang section
             %s
@@ -901,7 +904,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: localhost
         """
-        generate_certificate(cn="random-name", san=["example.com"])
+        generate_certificate(cn="random-name", san=["example.com"], cert_name="example")
         self.start_all()
         self.expect_request_fail("localhost")
 
