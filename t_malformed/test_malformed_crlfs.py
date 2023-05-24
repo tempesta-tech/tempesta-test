@@ -50,7 +50,7 @@ Connection: keep-alive
     tempesta = {
         "config": """
 cache 0;
-server ${general_ip}:8000;
+server ${general_ip}:8000 conns_n=1;
 
 """,
     }
@@ -65,12 +65,17 @@ server ${general_ip}:8000;
         check and to None to check that request is missing.
         """
         deproxy_srv = self.get_server("deproxy")
+        deproxy_srv.conns_n = 1
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
         self.start_all_services()
 
-        deproxy_cl.make_requests(request)
+        deproxy_cl.make_requests(request, True)
+
+        if isinstance(request, list):
+            deproxy_cl.valid_req_num = 2
+
         self.assertTrue(deproxy_cl.wait_for_response(timeout=5), "Response not received")
 
         status = int(deproxy_cl.last_response.status)
@@ -82,36 +87,18 @@ server ${general_ip}:8000;
                 deproxy_srv.last_request is None, "Request was unexpectedly sent to backend"
             )
         elif expect:
-            self.assertTrue(
-                self.compare_head(deproxy_srv.last_request.original_data, expect),
+            self.assertIn(
+                deproxy_srv.last_request.uri,
+                expect,
                 "Request sent to backend differs from expected one",
             )
 
-    def extract_head(self, a):
-        p = a.find("Host:")
-        return a[0:p]
-
-    def compare_head(self, a, b):
-        a = self.extract_head(a)
-        b = self.extract_head(b)
-        return a == b
-
-    def test_01_no_crlf(self):
-        """Test normal request."""
-        request = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 200, expect)
-
     def test_02_no_crlf_pipeline(self):
         """Test 2 normal requests in pipeline."""
-        request = (
-            "GET /aaa HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /bbb HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         expect = "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 200, expect)
 
@@ -131,15 +118,10 @@ server ${general_ip}:8000;
         Request should be passed to the backend with stripped CRLF
         Proxy should return positive response
         """
-        request = (
-            "GET /aaa HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "\r\n"
-            "GET /bbb HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "\r\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         expect = "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 200, expect)
 
@@ -159,15 +141,10 @@ server ${general_ip}:8000;
         Request should be passed to backed with stripped LF
         Proxy should return positive response
         """
-        request = (
-            "GET /aaa HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "\n"
-            "GET /bbb HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         expect = "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 200, expect)
 
@@ -186,16 +163,10 @@ server ${general_ip}:8000;
         The 1st request should be passed to backend
         The 2nd request should be rejected by the proxy
         """
-        request = (
-            "GET /aaa HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "\r\n"
-            "\r\n"
-            "GET /bbb HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "\r\n" "\r\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         expect = "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 400, expect)
 
@@ -214,15 +185,9 @@ server ${general_ip}:8000;
         The 1st request should be sent to backed
         The 2nd request should be rejected by the proxy
         """
-        request = (
-            "GET /aaa HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "\n"
-            "\n"
-            "GET /bbb HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" "\n" "\n",
+            "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         expect = "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 400, expect)

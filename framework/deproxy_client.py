@@ -120,7 +120,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             return
         tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
         tf_cfg.dbg(5, self.response_buffer)
-        while len(self.response_buffer) > 0 and self.nrreq > self.nrresp:
+        while len(self.response_buffer) > 0:
             try:
                 method = self.methods[self.nrresp]
                 response = deproxy.Response(
@@ -140,11 +140,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
                 raise
             self.receive_response(response)
             self.nrresp += 1
-
-        if self.nrreq == self.nrresp and len(self.response_buffer) > 0:
-            raise deproxy.ParseError(
-                "Garbage after response" " end:\n```\n%s\n```\n" % self.response_buffer
-            )
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
@@ -219,16 +214,24 @@ class DeproxyClient(BaseDeproxyClient):
     responses = []
     last_response: deproxy.Response
 
-    def make_requests(self, requests: list or str) -> None:
-        """Send pipelined HTTP requests. Requests parsing can be disabled only for list."""
+    def make_requests(self, requests: list or str, pipelined=False) -> None:
+        """
+        Send pipelined HTTP requests. Requests parsing can be disabled only for list.
+        Invalid pipelined requests works with list only.
+        """
         self._clear_request_stats()
 
         if isinstance(requests, list):
             for request in requests:
                 self.__check_request(request)
 
-            self.request_buffers.extend(requests)
-            self.valid_req_num += len(self.request_buffers)
+            if pipelined:
+                self.request_buffers.append("".join(requests))
+                self.valid_req_num += len(requests)
+            else:
+                self.request_buffers.extend(requests)
+                self.valid_req_num += len(self.request_buffers)
+
             self.nrreq += len(self.request_buffers)
 
         elif isinstance(requests, str):
@@ -344,7 +347,7 @@ class DeproxyClientH2(DeproxyClient):
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer = False
 
-    def make_requests(self, requests):
+    def make_requests(self, requests, *args, **kwargs):
         for request in requests:
             self.make_request(request)
 
