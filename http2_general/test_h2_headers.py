@@ -345,7 +345,7 @@ class TestConnectionHeaders(H2Base):
         self.assertNotIn(header, client.last_response.headers.headers)
 
     def test_TE_header_in_request(self):
-        self.__test_request(header=("TE", "gzip"))
+        self.__test_request(header=("te", "gzip"))
 
     def test_connection_header_in_request(self):
         self.__test_request(header=("connection", "keep-alive"))
@@ -372,7 +372,7 @@ class TestConnectionHeaders(H2Base):
         self.__test_response(header=("upgrade", "websocket"))
 
     def test_TE_header_in_response(self):
-        self.__test_response(header=("TE", "gzip"))
+        self.__test_response(header=("te", "gzip"))
 
 
 class TestSplitCookies(H2Base):

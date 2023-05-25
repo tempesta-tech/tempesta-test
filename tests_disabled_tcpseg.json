@@ -444,6 +444,10 @@
         {
             "name": "selftests.test_deproxy.DeproxyClientTest.test_pipeline_request",
             "reason": "Disabled by issue #1864"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_from_0x00_to_0x20_in_header_name",
+            "reason": "Disabled by issue #450"
         }
     ]
 }
