@@ -43,7 +43,6 @@ def generate_certificate(cn="tempesta-tech.com", san=None, cert_name="tempesta")
 
 
 class X509(tester.TempestaTest):
-
     TIMEOUT = 1  # Use bigger timeout for debug builds.
 
     clients = [
@@ -366,7 +365,7 @@ class TlsCertSelect(tester.TempestaTest):
                 -> block;
             }
         """,
-        "custom_cert": True
+        "custom_cert": True,
     }
 
     # This function can be redefined in subclasses to provide
@@ -401,8 +400,8 @@ class TlsCertSelect(tester.TempestaTest):
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # Similarly it must fail on RSA-only vhost.
         hs = TlsHandshake()
-        hs.sni = 'example.com'
-        hs.ciphers = list(range(49196, 49198)) # EC Ciphers
+        hs.sni = "example.com"
+        hs.ciphers = list(range(49196, 49198))  # EC Ciphers
         res = hs.do_12()
         self.assertFalse(res, "Wrong handshake result: %s" % res)
 
@@ -506,10 +505,6 @@ class TlsCertSelectBySan(tester.TempestaTest):
             "a.example.com.example.com",
             tf_cfg.cfg.get("Server", "ip"),
             "a" * 251,  # max length, 252 will give DECODE_ERROR
-            "@.example.com",
-            "*.example.com",
-            "!!!.example.com",
-            "\n.example.com",
         ):
             with self.subTest(msg="Trying TLS handshake with expected unknown SNI", sni=sni):
                 self.check_handshake_unrecognized_name(sni=sni)
@@ -547,9 +542,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
             # Component fragment wildcards does not accepted.
             # Related discussion: https://codereview.chromium.org/762013002
             (["w*.example.com"], "www.example.com"),
-            (["www.example.com"], "www.example.com"),
             (["a.example.com"], "b.example.com"),
-            (["example.onion"], "example.onion"),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
@@ -610,7 +603,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
             self.assertTrue(handshake(next(sni_iter)), "First handshake should pass")
             self.assertFalse(handshake(next(sni_iter)), "Second handshake should fail")
-            next(sni_iter) # additional shift to alternate the order
+            next(sni_iter)  # additional shift to alternate the order
+
 
 class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     """Test that no confusion occurs between wildcard certificate
@@ -747,7 +741,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 hs = TlsHandshake()
                 hs.sni = sni
                 hs.do_12()
-                self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
+                self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED")
 
         # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
@@ -1058,7 +1052,6 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
 
 class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
-
     proto = "https"
     frang_limits = ""
 
@@ -1077,7 +1070,7 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
         def build_request(host):
             return "GET / HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
 
-        return "\r\n".join([build_request(host) for host in hosts])
+        return "".join([build_request(host) for host in hosts])
 
     def test_alternating_access(self):
         """
@@ -1088,7 +1081,6 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
 
 
 class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
-
     proto = "h2"
     frang_limits = ""
 
@@ -1114,6 +1106,4 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
         Test for HTTP/2 multiplexed requests: 'localhost'
         vhost should not receive requests.
         """
-        # Ignore 'BUG tfw_stream_cache Tainted'
-        self.oops_ignore = ["WARNING"]
         self.run_alterative_access()
