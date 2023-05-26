@@ -430,22 +430,6 @@
             "reason": "Disabled by issue #1800"
         },
         {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_proxy_connection_header_in_request",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_upgrade_header_in_request",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_proxy_connection_header_in_response",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_upgrade_header_in_response",
-            "reason": "Disabled by issue #1805"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
             "reason": "Disabled by issue #1819"
         },
