@@ -75,8 +75,12 @@ tls_match_any_server_name;
         RFC 9113 8.2.1
         """
         symbol = random.randint(0x41, 0x5A).to_bytes(1, "big")
-        with self.subTest(symbol=symbol):
+        with self.subTest(symbol=symbol, msg="Subtest with one random symbols."):
             self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+
+        symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x41, 0x5A)])
+        with self.subTest(msg="Subtest with symbols from 0x41 to 0x5a"):
+            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
 
     def test_ascii_from_0x7f_to_0xff_in_header_name(self):
         """
@@ -87,8 +91,12 @@ tls_match_any_server_name;
         RFC 9113 8.2.1
         """
         symbol = random.randint(0x7F, 0xFF).to_bytes(1, "big")
-        with self.subTest(hex=symbol):
+        with self.subTest(hex=symbol, msg="Subtest with one random symbols."):
             self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+
+        symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x7F, 0xFF)])
+        with self.subTest(msg="Subtest with symbols from 0x7f to 0xff"):
+            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
 
     def test_ascii_from_0x00_to_0x20_in_header_name(self):
         """
@@ -98,12 +106,13 @@ tls_match_any_server_name;
         ('A' to 'Z', ASCII 0x41 to 0x5a).
         RFC 9113 8.2.1
         """
-        for symbol in range(0x00, 0x20):
-            symbol = symbol.to_bytes(1, "big")
-            with self.subTest(hex=symbol):
-                self.send_response_and_check_connection_is_closed(
-                    [(b"x-my-hdr" + symbol, b"value")]
-                )
+        symbol = random.randint(0x00, 0x20).to_bytes(1, "big")
+        with self.subTest(hex=symbol, msg="Subtest with one random symbols."):
+            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+
+        symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x00, 0x20)])
+        with self.subTest(msg="Subtest with symbols from 0x7f to 0xff"):
+            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
 
     def test_ascii_0x00_0x0a_0x0d_in_header_value(self):
         """
