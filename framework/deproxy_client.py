@@ -24,6 +24,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+def adjust_timeout_for_tcp_segmentation(timeout):
+    if run_config.TCP_SEGMENTATION and timeout < 30:
+        timeout = 30
+    return timeout
 
 class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def __init__(self, *args, **kwargs):
@@ -206,6 +210,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         raise NotImplementedError("Not implemented 'make_request()'")
 
     def wait_for_connection_close(self, timeout=5):
+        timeout = adjust_timeout_for_tcp_segmentation(timeout)
         t0 = time.time()
         while not self.connection_is_closed():
             t = time.time()
@@ -343,6 +348,7 @@ class DeproxyClient(BaseDeproxyClient):
         self.clear_last_response_buffer = True
 
     def wait_for_response(self, timeout=5):
+        timeout = adjust_timeout_for_tcp_segmentation(timeout)
         if self.state != stateful.STATE_STARTED:
             return False
 
