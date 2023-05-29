@@ -150,10 +150,6 @@
             "reason": "Disabled by issue #1868"
         },
         {
-            "name": "tls.test_tls_integrity.ManyClientsH2",
-            "reason": "Disabled by PR 1714"
-        },
-        {
             "name": "regression",
             "reason": "Disabled by issue #56"
         },
