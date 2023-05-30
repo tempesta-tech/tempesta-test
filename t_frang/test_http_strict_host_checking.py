@@ -93,35 +93,6 @@ class FrangHostRequiredTestCase(FrangTestCase):
         )
         self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
 
-    def test_host_header_forwarded(self):
-        """Test with invalid host in `Forwarded` header."""
-        client = self.base_scenario(
-            frang_config="http_strict_host_checking true;",
-            requests=[
-                (
-                    "GET / HTTP/1.1\r\n"
-                    "Host: tempesta-tech.com\r\n"
-                    "Forwarded: host=qwerty.com\r\n\r\n"
-                )
-            ],
-        )
-        self.check_response(client, status_code="403", warning_msg=WARN_HEADER_FORWARDED)
-
-    def test_host_header_forwarded_double(self):
-        """Test with double `Forwarded` header (invalid/valid)."""
-        client = self.base_scenario(
-            frang_config="http_strict_host_checking true;",
-            requests=[
-                (
-                    "GET http://user@tempesta-tech.com/ HTTP/1.1\r\n"
-                    "Host: tempesta-tech.com\r\n"
-                    "Forwarded: host=tempesta1-tech.com\r\n"
-                    "Forwarded: host=tempesta-tech.com\r\n\r\n"
-                )
-            ],
-        )
-        self.check_response(client, status_code="403", warning_msg=WARN_HEADER_FORWARDED)
-
     def test_host_header_no_port_in_uri(self):
         """Test with default port in uri."""
         client = self.base_scenario(

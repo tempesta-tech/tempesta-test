@@ -73,7 +73,7 @@ block_action attack reply;
         self.set_frang_config(
             "\n".join(
                 [frang_config]
-                + ["http_strict_host_checking false;"] if disable_hshc else []
+                + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
         )
 

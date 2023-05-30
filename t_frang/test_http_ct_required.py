@@ -26,6 +26,7 @@ class FrangHttpCtRequiredTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_ct_required true;",
             requests=["POST / HTTP/1.1\r\nHost: localhost\r\n\r\n"],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 

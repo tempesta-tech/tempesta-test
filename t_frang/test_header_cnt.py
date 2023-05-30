@@ -43,7 +43,11 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
         We set up for Tempesta `http_header_cnt 2` and
         made request with 4 headers
         """
-        client = self.base_scenario(frang_config="http_header_cnt 2;", requests=self.requests)
+        client = self.base_scenario(
+            frang_config="http_header_cnt 2;",
+            requests=self.requests,
+            disable_hshc=True,
+        )
         self.check_response(client, status_code="403", warning_msg=ERROR)
 
     def test_not_reaching_the_limit(self):

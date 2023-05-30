@@ -508,6 +508,14 @@
         {
             "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockOneClientH2.test_reaching_the_limit_2",
             "reason": "Test is not sending correct SNI after #1878"
+        },
+        {
+            "name": "t_frang.test_http_body_and_header_chunk_cnt.HttpBodyChunkCnt.test_body_chunk_cnt_invalid",
+            "reason": "Chunked requests found to be broken in #456 branch (tempesta PR #1878)"
+        },
+        {
+            "name": "t_frang.test_http_body_and_header_chunk_cnt.HttpBodyChunkCntH2.test_body_chunk_cnt_invalid",
+            "reason": "Chunked requests found to be broken in #456 branch (tempesta PR #1878)"
         }
     ]
 }

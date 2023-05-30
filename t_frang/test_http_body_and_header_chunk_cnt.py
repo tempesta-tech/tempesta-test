@@ -36,7 +36,11 @@ class HttpHeaderChunkCnt(FrangTestCase):
 
     def test_header_chunk_cnt_invalid(self):
         """Set up `http_header_chunk_cnt 2;` and make request with 3 header chunk"""
-        client = self.base_scenario(frang_config="http_header_chunk_cnt 2;", requests=self.requests)
+        client = self.base_scenario(
+            frang_config="http_header_chunk_cnt 2;",
+            requests=self.requests,
+            disable_hshc=True
+        )
         self.check_response(client, "403", self.error)
 
 
@@ -74,7 +78,7 @@ class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
         self.set_frang_config(
             "\n".join(
                 [frang_config]
-                + ["http_strict_host_checking false;"] if disable_hshc else []
+                + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
         )
 

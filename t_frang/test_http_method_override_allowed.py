@@ -65,6 +65,7 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
                 DOUBLE_OVERRIDE,
                 MULTIPLE_OVERRIDE,
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg="frang: ")
 
@@ -115,6 +116,7 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
             requests=[
                 "GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method-Override: POST\r\n\r\n"
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
@@ -126,6 +128,7 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=["GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method: POST\r\n\r\n"],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
@@ -139,6 +142,7 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
             requests=[
                 "GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-Method-Override: POST\r\n\r\n"
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 

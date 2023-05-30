@@ -98,7 +98,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         self.set_frang_config(
             "\n".join(
                 [self.rate_config]
-                + ["http_strict_host_checking false;"] if disable_hshc else []
+                + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
         )
 
@@ -383,6 +383,7 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
     rate_warning = ERROR_TLS.format("rate")
     burst_config = "tls_connection_burst 3;"
     rate_config = "tls_connection_rate 3;"
+    no_shc_config = "http_strict_host_checking false;"
 
     def test_burst(self):
         """
@@ -419,7 +420,7 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
         Set `tls_connection_rate 3` and create 4 tls and 4 non-tls connections.
         Only tls connections will be blocked.
         """
-        self.set_frang_config(frang_config=self.rate_config)
+        self.set_frang_config(frang_config=self.rate_config + self.no_shc_config)
 
         base_client = self.get_client(self.base_client_id)
         optional_client = self.get_client(self.optional_client_id)

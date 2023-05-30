@@ -79,6 +79,10 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
 
     warning = "frang: http_resp_code_block limit exceeded for"
 
+    def set_frang_config_no_shc(self, frang_config: str):
+        self.set_frang_config(frang_config
+                              + "\nhttp_strict_host_checking false;")
+
     def test_not_reaching_the_limit(self):
         client = self.get_client("deproxy-1")
 
@@ -102,7 +106,7 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         Client send 7 requests. It receives 3 404 responses and 4 404 responses.
         Client will be blocked.
         """
-        self.set_frang_config("http_resp_code_block 404 405 6 2;")
+        self.set_frang_config_no_shc("http_resp_code_block 404 405 6 2;")
 
         client = self.get_client("deproxy-1")
         client.start()
