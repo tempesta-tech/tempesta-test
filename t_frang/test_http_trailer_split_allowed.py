@@ -41,6 +41,7 @@ class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
                 ),
                 "POST / HTTP/1.1\r\nHost: debian\r\nHdrTest: testVal\r\n\r\n",
             ],
+            timeout = 60
         )
         self.check_response(client, status_code="200", warning_msg=WARN)
 

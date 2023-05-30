@@ -69,14 +69,14 @@ block_action attack reply;
         self.setUp()
         self.start_all_services(client=False)
 
-    def base_scenario(self, frang_config: str, requests: list) -> DeproxyClient:
+    def base_scenario(self, frang_config: str, requests: list, timeout: int = 3) -> DeproxyClient:
         self.set_frang_config(frang_config)
 
         client = self.get_client("deproxy-1")
         client.parsing = False
         client.start()
         client.make_requests(requests)
-        client.wait_for_response(3)
+        client.wait_for_response(timeout)
         return client
 
     def check_response(self, client, status_code: str, warning_msg: str):
