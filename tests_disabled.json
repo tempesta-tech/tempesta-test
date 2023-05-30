@@ -516,6 +516,10 @@
         {
             "name": "t_frang.test_http_body_and_header_chunk_cnt.HttpBodyChunkCntH2.test_body_chunk_cnt_invalid",
             "reason": "Chunked requests found to be broken in #456 branch (tempesta PR #1878)"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsCertSelectBySanwitMultipleSections.test",
+            "reason": "Can't run this test (tempesta PR #1878)"
         }
     ]
 }
