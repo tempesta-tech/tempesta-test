@@ -492,6 +492,22 @@
         {
             "name": "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_bypass_check",
             "reason": "Status unknown after #1878"
+        },
+        {
+            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_double_different_forwarded_headers",
+            "reason": "Test is not sending correct SNI after #1878"
+        },
+        {
+            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_missmatch_forwarded_header",
+            "reason": "Test is not sending correct SNI after #1878"
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockOneClientH2.test_not_reaching_the_limit",
+            "reason": "Test is not sending correct SNI after #1878"
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockOneClientH2.test_reaching_the_limit_2",
+            "reason": "Test is not sending correct SNI after #1878"
         }
     ]
 }

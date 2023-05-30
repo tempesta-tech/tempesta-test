@@ -62,6 +62,7 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         client = self.base_scenario(
             frang_config="http_methods get post put;",
             requests=[self.get_request, self.post_request, put_request, put_request],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 

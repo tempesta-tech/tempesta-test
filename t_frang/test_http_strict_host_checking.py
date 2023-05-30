@@ -372,6 +372,7 @@ block_action error reply;
         headers: list,
         expected_warning: str = WARN_UNKNOWN,
         status_code: str = "403",
+        disable_hshc: bool = False
     ):
         """
         Test base scenario for process different requests.
@@ -382,7 +383,11 @@ block_action error reply;
         ]
         head.extend(headers)
 
-        client = self.base_scenario(frang_config="http_strict_host_checking true;", requests=[head])
+        client = self.base_scenario(
+            frang_config="http_strict_host_checking true;",
+            requests=[head],
+            disable_hshc=disable_hshc
+        )
         self.check_response(client, status_code=status_code, warning_msg=expected_warning)
 
     def test_disabled_host_http_required(self):

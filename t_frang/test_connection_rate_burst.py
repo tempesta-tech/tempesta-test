@@ -89,13 +89,18 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
 
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
 
-    def _base_rate_scenario(self, connections: int):
+    def _base_rate_scenario(self, connections: int, disable_hshc: bool = False):
         """
         Create several client connections and send request.
         If number of connections is more than 3m they will be blocked.
         """
         curl = self.get_client("curl-1")
-        self.set_frang_config(self.rate_config)
+        self.set_frang_config(
+            "\n".join(
+                [self.rate_config]
+                + ["http_strict_host_checking false;"] if disable_hshc else []
+            )
+        )
 
         for step in range(connections):
             curl.start()
@@ -130,7 +135,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         self._base_rate_scenario(connections=5)
 
     def test_connection_rate_without_reaching_the_limit(self):
-        self._base_rate_scenario(connections=2)
+        self._base_rate_scenario(connections=2, disable_hshc=True)
 
     def test_connection_rate_on_the_limit(self):
         self._base_rate_scenario(connections=4)

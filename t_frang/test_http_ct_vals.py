@@ -80,6 +80,7 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
                 self.post_request + [("content-type", "text/html")],
                 self.post_request + [("content-type", "text/html")],  # as byte
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 
@@ -93,6 +94,7 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
                 self.post_request + [("content-type", "text/plain")],
                 self.post_request + [("content-type", "text/plain")],  # as byte
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 
@@ -104,6 +106,7 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
                 self.post_request + [("content-type", "text/plain")],
                 self.post_request + [("content-type", "text/plain")],  # as byte
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -115,6 +118,7 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
                 self.post_request + [("content-type", "text/html")],
                 self.post_request + [("content-type", "text/html")],  # as byte
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -123,6 +127,7 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
         client = self.base_scenario(
             frang_config="http_ct_vals text/html;",
             requests=[self.post_request],
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="403", warning_msg="frang: Content-Type header field for"
@@ -136,5 +141,6 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
                 self.post_request + [("content-type", "text/html")],
                 self.post_request + [("content-type", "text/html")],  # as byte
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)

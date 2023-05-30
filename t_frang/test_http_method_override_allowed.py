@@ -185,6 +185,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
                     ("x-method-override", "GET"),
                 ],
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg="frang: ")
 
@@ -196,6 +197,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=[self.post_request + [("x-http-method-override", "OPTIONS")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)
 
@@ -207,6 +209,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=[self.post_request + [("x-method-override", "OPTIONS")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)
 
@@ -218,6 +221,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=[self.post_request + [("x-http-method", "OPTIONS")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)
 
@@ -229,6 +233,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=[self.get_request + [("x-http-method-override", "POST")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
@@ -240,6 +245,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=[self.get_request + [("x-http-method", "POST")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
@@ -251,6 +257,7 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
             requests=[self.get_request + [("x-method-override", "POST")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="400", warning_msg=WARN_UNSAFE)
 
@@ -259,5 +266,6 @@ class FrangHttpMethodsOverrideH2(H2Config, FrangHttpMethodsOverrideTestCase):
         client = self.base_scenario(
             frang_config="http_methods post put get;",
             requests=[self.post_request + [("x-method-override", "PUT")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=WARN_ERROR)

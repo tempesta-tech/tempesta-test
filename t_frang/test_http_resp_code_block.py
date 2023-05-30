@@ -281,6 +281,7 @@ class HttpRespCodeBlockH2(HttpRespCodeBlock):
     server ${server_ip}:8000;
 
     frang_limits {
+        http_strict_host_checking false;
         http_resp_code_block 404 405 5 2;
         ip_block on;
     }
