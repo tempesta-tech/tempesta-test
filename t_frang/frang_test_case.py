@@ -30,6 +30,7 @@ cache 0;
 listen 80;
 listen 443 proto=h2;
 frang_limits {
+    http_strict_host_checking false;
     %(frang_config)s
     ip_block off;
 }

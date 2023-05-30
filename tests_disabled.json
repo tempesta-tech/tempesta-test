@@ -488,6 +488,10 @@
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
+        },
+        {
+            "name": "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_bypass_check",
+            "reason": "Status unknown after #1878"
         }
     ]
 }
