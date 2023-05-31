@@ -192,6 +192,10 @@
         {
             "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
             "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "t_frang.test_http_trailer_split_allowed",
+            "reason": "Disabled by issue #464"
         }
     ]
 }
