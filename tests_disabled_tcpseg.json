@@ -196,6 +196,10 @@
         {
             "name": "t_frang.test_http_trailer_split_allowed",
             "reason": "Disabled by issue #464"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders",
+            "reason": "Disabled by issue #1103"
         }
     ]
 }

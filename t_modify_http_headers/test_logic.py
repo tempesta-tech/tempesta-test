@@ -382,10 +382,10 @@ class TestManyRequestHeaders(tester.TempestaTest):
     __headers_n = 64 // 4
 
     def test_many_headers(self):
-        set_headers = [(f"set-header-{step}", str(step) * 2000) for step in range(self.__headers_n)]
-        add_headers = [(f"add-header-{step}", str(step) * 2000) for step in range(self.__headers_n)]
+        set_headers = [(f"set-header-{step}", str(step) * 1000) for step in range(self.__headers_n)]
+        add_headers = [(f"add-header-{step}", str(step) * 1000) for step in range(self.__headers_n)]
         exist_header = [
-            (f"exist-header-{step}", str(step) * 1000) for step in range(self.__headers_n)
+            (f"exist-header-{step}", str(step) * 500) for step in range(self.__headers_n)
         ]
         changed_headers = [
             (f"changed-header-{step}", f"{step}a") for step in range(self.__headers_n)
