@@ -84,6 +84,7 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
 
         for clnt in self.clients:
             client = self.get_client(clnt["id"])
+            client.server_hostname = "tempesta-tech.com"
             client.make_request(self.make_req(req_len))
             res = client.wait_for_response(timeout=5)
             self.assertTrue(
@@ -410,6 +411,7 @@ class CloseConnection(tester.TempestaTest):
         self.get_server("deproxy").set_response(self.make_resp(resp_body))
 
         client = self.get_client(self.clients[0]["id"])
+        client.server_hostname = "tempesta-tech.com"
         client.make_request(self.make_req(req_len))
         res = client.wait_for_response(timeout=5)
         self.assertTrue(
