@@ -21,7 +21,7 @@ class TLSLimits(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 11  --tickets off ${server_ip} 443"
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 11  --tickets off ${tempesta_ip} 443"
             ),
         },
         {
@@ -29,7 +29,7 @@ class TLSLimits(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 20  --tickets on ${server_ip} 443"
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1 -t 1 -n 20  --tickets on ${tempesta_ip} 443"
             ),
         },
         {
