@@ -61,7 +61,7 @@ http {
         listen        0.0.0.0:8000;
 
         location / {
-            root $server_resources;
+            return 200;
         }
         location /nginx_status {
             stub_status on;
@@ -272,7 +272,7 @@ server ${server_ip}:8000;
         curl.stop()
 
         self.assertIn(
-            "403",
+            "200",
             curl.response_msg,
             "HTTP response status codes mismatch",
         )
