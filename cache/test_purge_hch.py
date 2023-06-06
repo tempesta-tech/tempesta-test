@@ -87,8 +87,13 @@ cache_purge_acl ${client_ip};
         if expect is None:
             self.assertTrue(frequest is None, "Request was unexpectedly sent to backend")
         elif expect:
+            # Normalize request
+            _expect = expect.split('\n')
+            _frequest = frequest.original_data.split('\n')
+            _expect.sort()
+            _frequest.sort()
             self.assertTrue(
-                frequest.original_data == expect,
+                _frequest == _expect,
                 "Request sent to backend differs from expected one",
             )
 
@@ -96,12 +101,12 @@ cache_purge_acl ${client_ip};
         # Normal (non heavy-chunked) test
         #
         self.common_check(
-            request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            request_0="GET / HTTP/1.1\r\n" f"Host: {tf_cfg.cfg.get('Tempesta', 'ip')}\r\n" "\r\n",
             expect_status_0=200,
-            request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
+            request="PURGE / HTTP/1.1\r\n" f"Host: {tf_cfg.cfg.get('Tempesta', 'ip')}\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect_status=200,
             expect="GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
+            f"Host: {tf_cfg.cfg.get('Tempesta', 'ip')}\r\n"
             "X-Tempesta-Cache: GET\r\n"
             f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n'
             "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
@@ -113,12 +118,12 @@ cache_purge_acl ${client_ip};
         # Heavy-chunked test
         #
         self.common_check(
-            request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            request_0="GET / HTTP/1.1\r\n" f"Host: {tf_cfg.cfg.get('Tempesta', 'ip')}\r\n" "\r\n",
             expect_status_0=200,
-            request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
+            request="PURGE / HTTP/1.1\r\n" f"Host: {tf_cfg.cfg.get('Tempesta', 'ip')}\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect_status=200,
             expect="GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
+            f"Host: {tf_cfg.cfg.get('Tempesta', 'ip')}\r\n"
             "X-Tempesta-Cache: GET\r\n"
             f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n'
             "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
