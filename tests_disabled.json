@@ -516,6 +516,18 @@
         {
             "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
             "reason": "Disabled by issue #1736"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyCachedResponseHeaders",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
+            "reason": "Disabled by issue #1103"
         }
     ]
 }

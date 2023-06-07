@@ -129,6 +129,32 @@ class HeadersParsing(H2Base):
             "400",
         )
 
+    def test_long_header_name_in_request(self):
+        """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
+        for length, status_code in ((1023, "200"), (1024, "200"), (1025, "400")):
+            with self.subTest(length=length, status_code=status_code):
+                self.start_all_services()
+
+                client = self.get_client("deproxy")
+                client.send_request(self.post_request + [("a" * length, "text")], status_code)
+
+    def test_long_header_name_in_response(self):
+        """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
+        for length, status_code in ((1023, "200"), (1024, "200"), (1025, "502")):
+            with self.subTest(length=length, status_code=status_code):
+                self.start_all_services()
+
+                client = self.get_client("deproxy")
+                server = self.get_server("deproxy")
+                server.set_response(
+                    "HTTP/1.1 200 OK\r\n"
+                    + "Date: test\r\n"
+                    + "Server: debian\r\n"
+                    + f"{'a' * length}: text\r\n"
+                    + "Content-Length: 0\r\n\r\n"
+                )
+                client.send_request(self.post_request, status_code)
+
 
 class DuplicateSingularHeader(H2Base):
     def test_two_header_as_bytes_from_dynamic_table(self):
