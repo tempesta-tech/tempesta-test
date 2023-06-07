@@ -454,10 +454,6 @@
             "reason": "Disabled by issue #1841"
         },
         {
-            "name": "t_stress.test_stress.WrkStressMTU80",
-            "reason": "Disabled by issue #1867"
-        },
-        {
             "name": "t_stress.test_stress.TlsWrkStressMTU80",
             "reason": "Disabled by issue #1867"
         },
