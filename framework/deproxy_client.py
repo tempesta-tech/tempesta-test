@@ -24,10 +24,12 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+
 def adjust_timeout_for_tcp_segmentation(timeout):
     if run_config.TCP_SEGMENTATION and timeout < 30:
         timeout = 30
     return timeout
+
 
 class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def __init__(self, *args, **kwargs):
@@ -349,13 +351,11 @@ class DeproxyClient(BaseDeproxyClient):
 
     def wait_for_response(self, timeout=5):
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
-        if self.state != stateful.STATE_STARTED:
-            return False
 
         t0 = time.time()
         while len(self.responses) < self.valid_req_num:
             t = time.time()
-            if t - t0 > timeout:
+            if t - t0 > timeout or self.state != stateful.STATE_STARTED:
                 return False
             time.sleep(0.01)
         return True
