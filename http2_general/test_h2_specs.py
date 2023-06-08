@@ -1,4 +1,5 @@
 from framework import tester
+import os
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -128,7 +129,9 @@ class H2Spec(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
+        os.system("sysctl -w net.tempesta.errinj=\"ERRINJ_WARN_ON_PREPARE_XMIT_ERROR=1\"")
         self.wait_while_busy(h2spec)
         h2spec.stop()
+        os.system("sysctl -w net.tempesta.errinj=\"ERRINJ_WARN_ON_PREPARE_XMIT_ERROR=0\"")
         self.assertEqual(0, h2spec.returncode)
         assert "0 failed" in h2spec.response_msg, h2spec.response_msg
