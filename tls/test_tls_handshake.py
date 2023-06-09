@@ -116,7 +116,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         hs12 = TlsHandshake()
         hs12.sni = ''
-        self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
+        self.assertFalse(hs12.do_12(), "Empty SNI accepted by default")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sni(self):
@@ -270,15 +270,9 @@ class TlsMissingDefaultKey(tester.TempestaTest):
             }
 
             vhost tempesta-tech.com {
-                proxy_pass be1;
                 tls_certificate ${general_workdir}/tempesta.crt;
                 tls_certificate_key ${general_workdir}/tempesta.key;
-            }
-
-            http_chain {
-                host == "tempesta-tech.com" -> tempesta-tech.com;
-                host == "example.com" -> example.com;
-                -> block;
+                proxy_pass be1;
             }
         """,
     }
@@ -291,8 +285,10 @@ class TlsMissingDefaultKey(tester.TempestaTest):
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
-        # tempesta.com => ok
-        res = TlsHandshake().do_12()
+        # tempesta-tech.com => ok
+        hs = TlsHandshake()
+        hs.sni = 'tempesta-tech.com'
+        res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
         # example.com => internal error
@@ -306,7 +302,9 @@ class TlsMissingDefaultKey(tester.TempestaTest):
         hs.sni = ''
         hs.do_12()
         self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
-        self.assertEqual(self.oops.warn_count("requested misconfigured vhost"), 2,
+        self.assertEqual(self.oops.warn_count(" requested unknown server name"), 1,
+                         "Bad SNI isn't logged")
+        self.assertEqual(self.oops.warn_count("requested missing server name"), 1,
                          "Bad SNI isn't logged")
 
 
@@ -409,32 +407,27 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_empty_sni_default(self):
-        """When a client doesn't send a SNI identifier, the global certificates
-        will be used. The request is processed well, if it follows the
-        http_chain rules by the host header.
+        """
+        When a client doesn't send an ampty SNI identifier, handshake will not be established
+        And ensure the sni==vhost2.net provided will route to vhost2.net
         """
         self.init()
         vhs = TlsHandshake()
         vhs.sni = ''
         vhs.host = 'vhost1.net'
-        vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: vhost1.net\r\n\r\n")]
+        vhs.send_data = []
         res = vhs.do_12()
-        self.assertTrue(res, "Bad handshake: %s" % res)
-        resp = vhs.hs.server_data[0].data.decode("utf-8")
-        self.assertTrue(resp.endswith("be1"),
-                        "Bad response from vhost1: [%s]" % resp)
-        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
-                        "Wrong certificate received for vhost1")
+        self.assertFalse(res, "Handshake successfull with empty sni: %s" % res)
 
         vhs = TlsHandshake()
-        vhs.sni = ''
-        vhs.host = "vhost2.net"
+        vhs.sni = 'vhost2.net'
+        vhs.host = 'vhost2.net'
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
         resp = vhs.hs.server_data[0].data.decode("utf-8")
         self.assertTrue(resp.endswith("be2"),
                         "Bad response from vhost2: [%s]" % resp)
-        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
+        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost2.net"),
                         "Wrong certificate received for vhost1")
 
     def test_bad_host(self):
