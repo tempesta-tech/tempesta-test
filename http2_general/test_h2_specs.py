@@ -1,3 +1,4 @@
+import os
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -128,7 +129,11 @@ class H2Spec(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
+        os.system("echo tfw_prepare_xmit_fail >> /sys/kernel/debug/tracing/set_event")
         self.wait_while_busy(h2spec)
         h2spec.stop()
+        rc = os.WEXITSTATUS(os.system("rc=`cat /sys/kernel/tracing/trace | grep tfw_prepare_xmit_fail | wc -l`; return $rc"))
+        os.system("echo '!tfw_prepare_xmit_fail' >> /sys/kernel/debug/tracing/set_event")
         self.assertEqual(0, h2spec.returncode)
+        self.assertEqual(0, rc)
         assert "0 failed" in h2spec.response_msg, h2spec.response_msg
