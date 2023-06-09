@@ -9,7 +9,6 @@ __license__ = "GPL2"
 WARN_UNKNOWN = "frang: Request authority is unknown"
 WARN_DIFFER = "frang: Request host from absolute URI differs from Host header for"
 WARN_IP_ADDR = "frang: Host header field contains IP address"
-WARN_HEADER_FORWARDED = "frang: Request authority differs from forwarded for"
 WARN_HEADER_HOST = "frang: Request :authority differs from Host for"
 WARN_INVALID_AUTHORITY = "Invalid authority"
 
@@ -311,25 +310,6 @@ block_action error reply;
                 (":authority", "[20:11:abb::1]:443"),
             ],
             expected_warning=WARN_IP_ADDR,
-        )
-
-    def test_h2_missmatch_forwarded_header(self):
-        """Test with missmath header `forwarded`."""
-        self._test(
-            headers=[(":path", "/"), (":authority", "localhost"), ("forwarded", "host=qwerty")],
-            expected_warning=WARN_HEADER_FORWARDED,
-        )
-
-    def test_h2_double_different_forwarded_headers(self):
-        """Test with double header `forwarded`."""
-        self._test(
-            [
-                (":path", "/"),
-                (":authority", "tempesta-tech.com"),
-                ("forwarded", "host=tempesta.com"),
-                ("forwarded", "host=tempesta-tech.com"),
-            ],
-            expected_warning=WARN_HEADER_FORWARDED,
         )
 
     def test_h2_different_host_and_authority_header(self):

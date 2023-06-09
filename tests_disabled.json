@@ -186,10 +186,6 @@
             "reason" : "Disabled by issue #273"
         },
         {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
-        },
-        {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },
@@ -252,10 +248,6 @@
         {
             "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
             "reason": "Disable by issue #1714"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
@@ -520,6 +512,22 @@
         {
             "name": "tls.test_tls_cert.TlsCertSelectBySanwitMultipleSections.test",
             "reason": "Can't run this test (tempesta PR #1878)"
+		},
+		{
+            "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
+            "reason": "Disabled by issue #1736"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyCachedResponseHeaders",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
+            "reason": "Disabled by issue #1103"
         }
     ]
 }

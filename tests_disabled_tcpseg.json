@@ -102,8 +102,20 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "access_log.test_access_log.AccessLogTest.test_uri_truncate",
-            "reason": "Disabled by issue #1864"
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_in_response",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
+            "reason": "Disabled by issue #1819"
+        },
+        {
+            "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
+            "reason": "Disabled by issue #1884"
         },
         {
             "name": "cache.test_cache",
@@ -111,11 +123,11 @@
         },
         {
             "name": "cache.test_cache_methods.TestMultipleMethods",
-            "reason": "Disabled by issue #1864 and #1868"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "cache.test_conditional",
-            "reason": "Disabled by issue #1864 and #1868"
+            "reason": "Disabled by issue #1868"
         },
         {
             "name": "cache.test_purge",
@@ -138,140 +150,8 @@
             "reason": "Disabled by issue #1868"
         },
         {
-            "name": "tls.test_tls_integrity.ManyClientsH2",
-            "reason": "Disabled by PR 1714"
-        },
-        {
-            "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2BodyDechunking",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2ChunkedExtensionRemoved",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "selftests.test_curl_client",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "t_wrong_body_length.test_response_wrong_length.ResponseMissingEmptyBodyLength",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "t_wrong_body_length.test_response_wrong_length.ResponseCorrectBodyLength",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "t_wrong_body_length.test_response_wrong_length.ResponseCorrectEmptyBodyLength",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2TEMovedToCE",
-            "reason": "Disabled by issue 1864"
-        },
-        {
-            "name": "forwarding.test_match_host_forwarded.TestMatchHost",
-            "reason": "Disabled by issue 1873"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpackStickyCookie.test_h2_cookie_after_setting_header_table_size",
-            "reason": "Disabled by issue 1871"
-        },
-        {
             "name": "regression",
             "reason": "Disabled by issue #56"
-        },
-        {
-            "name": "selftests.test_deproxy.DeproxyClientTest.test_many_make_request",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "selftests.test_deproxy.DeproxyClientTest.test_make_requests",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "selftests.test_deproxy.DeproxyClientTest.test_make_request",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "selftests.test_deproxy.DeproxyTestH2.test_get_4xx_response",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeVhost.test_pass_challenge",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallenge.test_pass_challenge",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeVhost.test_js_overriden_together_with_cookie",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeVhost.test_disable_challenge_on_reload",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallenge.test_disable_challenge_on_reload",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeH2.test_get_challenge",
-            "reason": "Disabled by issue 1871"
-        },
-        {
-            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountTestCase.test_default_http_header_cnt",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_set_ok",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_forwarded_double",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_host_header_forwarded",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_host_header_as_ipv6",
-            "reason": "Disabled by issue 1871"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredH2TestCase.test_h2_authority_header_as_ipv6",
-            "reason": "Disabled by issue 1871"
-        },
-        {
-            "name": "t_frang.test_http_ct_required.FrangHttpCtRequiredTestCase.test_content_type_set_ok",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_ct_required.FrangHttpCtRequiredTestCase.test_default_http_ct_required",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_ct_vals.FrangHttpCtValsTestCase.test_content_vals_set_ok",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_ct_vals.FrangHttpCtValsTestCase.test_content_vals_set_ok_conf2",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_ct_vals.FrangHttpCtValsTestCase.test_default_http_ct_vals",
-            "reason": "Disabled by issue #1864"
         },
         {
             "name": "t_frang.test_http_method_override_allowed.FrangHttpMethodsOverrideTestCase",
@@ -286,100 +166,8 @@
             "reason": "Disabled by issue 1872"
         },
         {
-            "name": "t_frang.test_http_trailer_split_allowed",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_ip_block",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_length.FrangLengthTestCase",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_http_rules.test_match_duplicated_headers.DuplicatedHeadersMatchTest.test_match_success",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_http_rules.test_http_rules.HttpRules.test_scheduler",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_http_rules.test_backup_servers.HttpRulesBackupServers.test_scheduler",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_wrong_body_length.test_request_wrong_length.RequestCorrectBodyLength",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "tls.test_tls_integrity.Proxy",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "tls.test_tls_integrity.ManyClients",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_http_rules.test_h2_http_rules.HttpRulesH2.test_scheduler",
-            "reason": "Disabled by issue 1871"
-        },
-        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
-        },
-        {
-            "name": "tls.test_tls_handshake.TlsVhostHandshakeTest",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "tls.test_tls_cert",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "nonidempotent.test_nonidempotent.RetryNonIdempotentPostH1Test",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "nonidempotent.test_nonidempotent.RetryNonIdempotenRevOrderH1Test",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "nonidempotent.test_nonidempotent.RetryNonIdempotentH1Test",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "nonidempotent.test_nonidempotent.NotRetryNonIdempotentH1Test",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_host_required.FrangHostRequiredTestCase.test_disabled_host_http_required",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_in_response",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2EmptyResponseBodyDechunking",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2FrameEnabledDisabledTsoGroGsoStickyCookie",
-            "reason": "Disabled by PR #1874"
         },
         {
             "name": "t_wrong_body_length.test_response_wrong_length",
@@ -402,44 +190,16 @@
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "http_general.test_headers.TestHost.test_host_header_ok",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "http_general.test_headers.TestHost.test_different_host_in_uri_and_headers",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_http_rules.test_http_rules.TestHost",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_set_ok",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_forwarded_double",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_forwarded",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_disabled_host_http_required",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_host_header_as_ipv6",
-            "reason": "Disabled by issue #1864"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_authority_header_as_ipv6",
-            "reason": "Disabled by issue #1864"
-        },
-        {
             "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
             "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "t_frang.test_http_trailer_split_allowed",
+            "reason": "Disabled by issue #464"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders",
+            "reason": "Disabled by issue #1103"
         }
     ]
 }

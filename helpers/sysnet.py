@@ -8,7 +8,7 @@ from helpers import remote, tf_cfg
 from helpers.error import Error
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -45,11 +45,12 @@ def create_interface(iface_id, base_iface_name, base_ip):
 def remove_interface(interface_name, iface_ip):
     """Remove interface"""
     template = "LANG=C ip address del %s/24 dev %s"
-    try:
-        tf_cfg.dbg(3, "Removing ip %s" % iface_ip)
-        remote.server.run_cmd(template % (iface_ip, interface_name))
-    except:
-        tf_cfg.dbg(3, "Interface alias already removed")
+    if iface_ip != tf_cfg.cfg.get("Server", "aliases_base_ip"):
+        try:
+            tf_cfg.dbg(3, "Removing ip %s" % iface_ip)
+            remote.server.run_cmd(template % (iface_ip, interface_name))
+        except:
+            tf_cfg.dbg(3, "Interface alias already removed")
 
 
 def create_interfaces(base_interface_name, base_interface_ip, number_of_ip):
@@ -97,3 +98,31 @@ def change_mtu(node, dev, mtu):
     if mtu != get_mtu(node, dev):
         raise Error("Cannot set MTU %d for device %s" % (mtu, dev))
     return prev_mtu
+
+
+def create_route(base_iface_name, ip, gateway_ip):
+    """Create route"""
+    command = "LANG=C ip route add %s via %s dev %s" % (ip, gateway_ip, base_iface_name)
+    try:
+        tf_cfg.dbg(3, "Adding route for %s" % ip)
+        remote.tempesta.run_cmd(command)
+    except:
+        tf_cfg.dbg(3, "Route already added")
+
+    return
+
+
+def remove_route(interface_name, ip):
+    """Remove route"""
+    template = "LANG=C ip route del %s dev %s"
+    try:
+        tf_cfg.dbg(3, "Removing route for %s" % ip)
+        remote.tempesta.run_cmd(template % (ip, interface_name))
+    except:
+        tf_cfg.dbg(3, "Route already removed")
+
+
+def remove_routes(base_interface_name, ips):
+    """Remove previously created routes"""
+    for ip in ips:
+        remove_route(base_interface_name, ip)

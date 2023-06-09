@@ -129,6 +129,32 @@ class HeadersParsing(H2Base):
             "400",
         )
 
+    def test_long_header_name_in_request(self):
+        """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
+        for length, status_code in ((1023, "200"), (1024, "200"), (1025, "400")):
+            with self.subTest(length=length, status_code=status_code):
+                self.start_all_services()
+
+                client = self.get_client("deproxy")
+                client.send_request(self.post_request + [("a" * length, "text")], status_code)
+
+    def test_long_header_name_in_response(self):
+        """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
+        for length, status_code in ((1023, "200"), (1024, "200"), (1025, "502")):
+            with self.subTest(length=length, status_code=status_code):
+                self.start_all_services()
+
+                client = self.get_client("deproxy")
+                server = self.get_server("deproxy")
+                server.set_response(
+                    "HTTP/1.1 200 OK\r\n"
+                    + "Date: test\r\n"
+                    + "Server: debian\r\n"
+                    + f"{'a' * length}: text\r\n"
+                    + "Content-Length: 0\r\n\r\n"
+                )
+                client.send_request(self.post_request, status_code)
+
 
 class DuplicateSingularHeader(H2Base):
     def test_two_header_as_bytes_from_dynamic_table(self):
@@ -285,6 +311,30 @@ class TestConnectionHeaders(H2Base):
 
     def test_upgrade_header_in_response(self):
         self.__test_response(header=("upgrade", "websocket"))
+
+
+class TestSplitCookies(H2Base):
+    """
+    Ensure that multiple cookie headers values are merged
+    into single header when proxying to backend
+    """
+    def test_split_cookies(self):
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        self.start_all_services()
+
+        cookies = {"foo": "bar", "bar": "baz"}
+        client.send_request(self.get_request + [("cookie", f"{name}={val}") for name, val in cookies.items()], "200")
+
+        cookie_hdrs = list(self.get_server("deproxy").last_request.headers.find_all("cookie"))
+        self.assertEqual(len(cookie_hdrs), 1, "Cookie headers are not merged together")
+
+        received_cookies = {}
+        for val in cookie_hdrs[0].split("; "):
+            cookie = val.split("=")
+            received_cookies[cookie[0]] = cookie[1]
+        self.assertEqual(cookies, received_cookies, "Sent and received cookies are not equal")
 
 
 class TestIPv6(H2Base):

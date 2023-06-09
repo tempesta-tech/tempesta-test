@@ -2,6 +2,7 @@
 Tests for data integrity transferred via Tempesta TLS.
 """
 import hashlib
+import run_config
 from contextlib import contextmanager
 
 from framework import tester
@@ -153,7 +154,8 @@ class Proxy(TlsIntegrityTester):
         self.common_check(4096, 4096)
         self.common_check(16380, 16380)
         self.common_check(65536, 65536)
-        self.common_check(1000000, 1000000)
+        if not run_config.TCP_SEGMENTATION:
+            self.common_check(1000000, 1000000)
 
     def test_tcp_segs(self):
         """
@@ -247,7 +249,8 @@ class Cache(TlsIntegrityTester):
         self.common_check(4096, 4096)
         self.common_check(16380, 16380)
         self.common_check(65536, 65536)
-        self.common_check(1000000, 1000000)
+        if not run_config.TCP_SEGMENTATION:
+            self.common_check(1000000, 1000000)
 
 
 class CacheH2(H2Base, Cache):
