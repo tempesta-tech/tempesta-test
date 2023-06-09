@@ -7,7 +7,7 @@ __license__ = "GPL2"
 import os
 
 from framework.x509 import CertGenerator
-from helpers import dmesg
+from helpers import dmesg, tf_cfg, remote
 
 from .common import AccessLogLine
 
@@ -72,8 +72,8 @@ def tempesta(extra=""):
            %s
 
             server ${server_ip}:8000;
-            tls_certificate ${tempesta_workdir}/cert.pem;
-            tls_certificate_key ${tempesta_workdir}/key.pem;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
            """
         % extra
@@ -91,12 +91,25 @@ def clients(uri="/"):
     ]
 
 
-def gen_cert(host_name):
-    cert_path = "/tmp/tempesta/cert.pem"
-    key_path = "/tmp/tempesta/key.pem"
-    cgen = CertGenerator(cert_path, key_path)
-    cgen.CN = host_name
+def generate_certificate(cn="tempesta-tech.com", san=None, cert_name="tempesta"):
+    """Generate and upload certificate with given
+    common name and  list of Subject Alternative Names.
+    Name generated files as `cert_name`.crt and `cert_name`.key.
+    """
+    workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+
+    cgen = CertGenerator(
+        cert_path=f"{workdir}/{cert_name}.crt", key_path=f"{workdir}/{cert_name}.key"
+    )
+    cgen.CN = cn
+    cgen.san = san
     cgen.generate()
+
+    cert_path, key_path = cgen.get_file_paths()
+    remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+    remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
+    return cgen
 
 
 def remove_certs(cert_files_):
@@ -125,7 +138,7 @@ class CurlTestBase(tester.TempestaTest):
         user_agent = "http2-user-agent-%d" % status_code
         curl.options.append('-e "%s"' % referer)
         curl.options.append('-A "%s"' % user_agent)
-        gen_cert("127.0.0.1")
+        generate_certificate(cn=str(tf_cfg.cfg.get("Tempesta", "ip")))
         self.start_all_servers()
         self.start_tempesta()
 
