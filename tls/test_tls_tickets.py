@@ -327,11 +327,13 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
                 tls_certificate_key ${tempesta_workdir}/tempesta-tech.com.key;
                 proxy_pass srv_grp1;
             }
+
             vhost tempesta.com {
                 tls_certificate ${tempesta_workdir}/tempesta.com.crt;
                 tls_certificate_key ${tempesta_workdir}/tempesta.com.key;
                 proxy_pass srv_grp1;
             }
+            
             http_chain {
                 host == "tempesta-tech.com" -> tempesta-tech.com;
                 host == "tempesta.com" -> tempesta.com;

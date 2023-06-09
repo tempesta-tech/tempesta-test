@@ -86,7 +86,7 @@ def clients(uri="/"):
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": ("-k " "https://${tempesta_ip}%s " % uri),
+            "cmd_args": ("-k " " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com%s" % uri),
         },
     ]
 
@@ -138,7 +138,7 @@ class CurlTestBase(tester.TempestaTest):
         user_agent = "http2-user-agent-%d" % status_code
         curl.options.append('-e "%s"' % referer)
         curl.options.append('-A "%s"' % user_agent)
-        generate_certificate(cn=str(tf_cfg.cfg.get("Tempesta", "ip")))
+        generate_certificate()
         self.start_all_servers()
         self.start_tempesta()
 
@@ -163,7 +163,7 @@ class CurlTestBase(tester.TempestaTest):
         self.assertEqual(msg.status, status_code, "Wrong HTTP status")
         self.assertEqual(msg.user_agent, user_agent)
         self.assertEqual(msg.referer, referer)
-        remove_certs(["/tmp/tempesta/key.pem", "/tmp/tempesta/cert.pem"])
+        remove_certs(["/tmp/tempesta/tempesta.crt", "/tmp/tempesta/tempesta.key"])
         return msg
 
 
