@@ -43,6 +43,8 @@ key, not password. `ssh-copy-id` can be used for that.
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
 -n, --no-resume                   - Do not resume from state file
+-N, --no-reload                   - Run all tests without restarting Tempesta and
+                                    backends for once test class.
 -l, --log <file>                  - Duplcate tests' stderr to this file
 -L, --list                        - List all discovered tests subject to filters
 -C, --clean                       - Stop old instances of Tempesta and Nginx
@@ -110,7 +112,7 @@ t_retry = False
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:T:fr:ER:a:nl:LCDZpIi:sS",
+        "hvdt:T:fr:ER:a:nNl:LCDZpIi:sS",
         [
             "help",
             "verbose",
@@ -132,7 +134,8 @@ try:
             "identifier=",
             "save-tcpdump",
             "save-secrets",
-            "--tcp-segmentation=",
+            "tcp-segmentation=",
+            "no-reload",
         ],
     )
 
@@ -193,6 +196,8 @@ for opt, arg in options:
             run_config.TCP_SEGMENTATION = int(arg)
         else:
             raise ValueError("tcp-segmentation argument must be greater than 0.")
+    elif opt in ("-N", "--no-reload"):
+        run_config.NO_RELOAD = True
 
 tf_cfg.cfg.check()
 

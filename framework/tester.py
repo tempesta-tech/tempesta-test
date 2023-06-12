@@ -13,8 +13,9 @@ import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
+import run_config
 from framework.templates import fill_template, populate_properties
-from helpers import control, dmesg, remote, sysnet, tf_cfg
+from helpers import control, dmesg, remote, stateful, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
@@ -56,6 +57,8 @@ class TempestaTest(unittest.TestCase):
     3) several test functions.
     function name should start with 'test'
 
+    no_reload - Tempesta and backends run once for test class.
+
     Verbose documentation is placed in README.md
     """
 
@@ -69,18 +72,25 @@ class TempestaTest(unittest.TestCase):
         "backends": [],
     }
 
-    def __init_subclass__(cls, base=False, **kwargs):
+    def __init_subclass__(cls, base=False, no_reload=False, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._base = base
+        cls._no_reload = no_reload
+        cls.deproxy_manager = deproxy_manager.DeproxyManager()
+
+        if cls._no_reload or run_config.NO_RELOAD:
+            cls.__servers = {}
+            cls.__tempesta = None
 
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-        self.__servers = {}
         self.__clients = {}
         self.__tcpdump: subprocess.Popen = None
         self.__ips = []
-        self.__tempesta = None
-        self.deproxy_manager = deproxy_manager.DeproxyManager()
+
+        if not self._no_reload or not run_config.NO_RELOAD:
+            self.__servers = {}
+            self.__tempesta = None
 
     def __create_client_deproxy(self, client, ssl, bind_addr):
         addr = fill_template(client["addr"], client)
@@ -154,7 +164,8 @@ class TempestaTest(unittest.TestCase):
         elif client["type"] == "external":
             self.__clients[cid] = self.__create_client_external(client)
 
-    def __create_backend(self, server):
+    @staticmethod
+    def __create_backend(tester, server):
         srv = None
         checks = []
         sid = server["id"]
@@ -172,14 +183,15 @@ class TempestaTest(unittest.TestCase):
             tf_cfg.dbg(1, "Unsupported backend %s" % stype)
             tf_cfg.dbg(1, "Supported backends: %s" % backend_defs)
             raise e
-        srv = factory(server, sid, self)
+        srv = factory(server, sid, tester)
         srv.port_checks = checks
-        self.__servers[sid] = srv
+        tester.__servers[sid] = srv
 
-    def __create_servers(self):
-        for server in self.backends:
+    @staticmethod
+    def __create_servers(tester):
+        for server in tester.backends:
             # Copy description to keep it clean between several tests.
-            self.__create_backend(server.copy())
+            tester.__create_backend(tester, server.copy())
 
     def get_server(self, sid):
         """Return client with specified id"""
@@ -218,36 +230,47 @@ class TempestaTest(unittest.TestCase):
         """Return Tempesta instance"""
         return self.__tempesta
 
-    def __create_tempesta(self):
-        desc = self.tempesta.copy()
+    @staticmethod
+    def __create_tempesta(tester):
+        desc = tester.tempesta.copy()
         populate_properties(desc)
         custom_cert = False
         if "custom_cert" in desc:
-            custom_cert = self.tempesta["custom_cert"]
+            custom_cert = tester.tempesta["custom_cert"]
         config = ""
         if "config" in desc:
             config = desc["config"]
         if "type" in desc:
             factory = tempesta_defs[desc["type"]]
-            self.__tempesta = factory(desc)
+            tester.__tempesta = factory(desc)
         else:
-            self.__tempesta = default_tempesta_factory(desc)
-        self.__tempesta.config.set_defconfig(fill_template(config, desc), custom_cert)
+            tester.__tempesta = default_tempesta_factory(desc)
+        tester.__tempesta.config.set_defconfig(fill_template(config, desc), custom_cert)
 
     def start_all_servers(self):
-        for sid in self.__servers:
-            srv = self.__servers[sid]
+        self.__start_all_servers(self)
+
+    @staticmethod
+    def __start_all_servers(tester):
+        for sid in tester.__servers:
+            srv = tester.__servers[sid]
             srv.start()
             if not srv.is_running():
                 raise Exception("Can not start server %s" % sid)
 
     def start_tempesta(self):
+        self.__start_tempesta(self)
+
+    @staticmethod
+    def __start_tempesta(tester):
         """Start Tempesta and wait until the initialization process finish."""
+        if tester.__tempesta.state == stateful.STATE_STARTED:
+            return None
         # "modules are started" string is only logged in debug builds while
         # "Tempesta FW is ready" is logged at all levels.
         with dmesg.wait_for_msg("[tempesta fw] Tempesta FW is ready", 1, True):
-            self.__tempesta.start()
-            if not self.__tempesta.is_running():
+            tester.__tempesta.start()
+            if not tester.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
     def start_all_clients(self):
@@ -257,38 +280,55 @@ class TempestaTest(unittest.TestCase):
             if not client.is_running():
                 raise Exception("Can not start client %s" % cid)
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        tf_cfg.dbg(3, "\tsetUpClass - start.")
+        if not remote.wait_available():
+            raise Exception("Tempesta node is unavaliable")
+
+        if run_config.NO_RELOAD and cls._no_reload:
+            cls.__create_servers(cls)
+            cls.__create_tempesta(cls)
+            cls.__start_all_servers(cls)
+            cls.__start_tempesta(cls)
+            cls.deproxy_manager.start()
+            assert cls.__wait_all_connections(cls), "Tempesta did not connect to servers."
+
+        tf_cfg.dbg(3, "\tsetUpClass - complete.")
+
     def setUp(self):
         # `unittest.TestLoader.discover` returns initialized objects, we can't
         # raise `SkipTest` inside of `TempestaTest.__init__` because we are unable
         # to interfere `unittest` code and catch that exception inside of it.
         # Please, make sure to put the following check in your code if you override `setUp`.
+        tf_cfg.dbg(3, "\tsetUp - start.")
         if self._base:
             self.skipTest("This is an abstract class")
 
-        tf_cfg.dbg(3, "\tInit test case...")
-        if not remote.wait_available():
-            raise Exception("Tempesta node is unavaliable")
         self.oops = dmesg.DmesgFinder()
         self.oops_ignore = []
-        self.__create_servers()
-        self.__create_tempesta()
         self.__create_clients()
+
+        if not self._no_reload or not run_config.NO_RELOAD:
+            self.__create_servers(self)
+            self.__create_tempesta(self)
+
         self.__run_tcpdump()
 
+        tf_cfg.dbg(3, "\tsetUp - complete.")
+
     def tearDown(self):
-        tf_cfg.dbg(3, "\tTeardown")
+        tf_cfg.dbg(3, "\ttearDown - start.")
+        if not run_config.NO_RELOAD or not self._no_reload:
+            self.__stop_tempesta_servers_deproxy_manager(self)
+        else:
+            for sid in self.__servers:
+                server = self.__servers[sid]
+                server.clear_stats()
+
         for cid in self.__clients:
             client = self.__clients[cid]
             client.stop()
-        self.__tempesta.stop()
-        for sid in self.__servers:
-            server = self.__servers[sid]
-            server.stop()
-        self.deproxy_manager.stop()
-        try:
-            deproxy_manager.finish_all_deproxy()
-        except:
-            print("Unknown exception in stopping deproxy")
 
         tf_cfg.dbg(3, "Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
@@ -319,6 +359,26 @@ class TempestaTest(unittest.TestCase):
         self.oops_ignore = []
         self.__stop_tcpdump()
 
+        tf_cfg.dbg(3, "\ttearDown - complete.")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        tf_cfg.dbg(3, "\ttearDownClass - start.")
+
+        if run_config.NO_RELOAD and cls._no_reload:
+            cls.__stop_tempesta_servers_deproxy_manager(cls)
+
+        tf_cfg.dbg(3, "\ttearDownClass - complete.")
+
+    @staticmethod
+    def __stop_tempesta_servers_deproxy_manager(tester):
+        tester.__tempesta.stop()
+        for sid in tester.__servers:
+            server = tester.__servers[sid]
+            server.stop()
+        tester.deproxy_manager.stop()
+        deproxy_manager.finish_all_deproxy()
+
     def wait_while_busy(self, *items):
         if items is None:
             return
@@ -331,8 +391,12 @@ class TempestaTest(unittest.TestCase):
 
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=1):
-        for sid in self.__servers:
-            srv = self.__servers[sid]
+        return self.__wait_all_connections(self, tmt)
+
+    @staticmethod
+    def __wait_all_connections(tester, tmt=1):
+        for sid in tester.__servers:
+            srv = tester.__servers[sid]
             if not srv.wait_for_connections(timeout=tmt):
                 return False
         return True
