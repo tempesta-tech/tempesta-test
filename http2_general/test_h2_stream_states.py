@@ -15,7 +15,7 @@ from hyperframe.frame import (
 from http2_general.helpers import H2Base
 
 
-class TestClosedStreamState(H2Base):
+class TestClosedStreamState(H2Base, no_reload=True):
     def __base_scenario(self, frame: Frame):
         """
         An endpoint that sends a frame with the END_STREAM flag set or a RST_STREAM frame might
@@ -48,7 +48,7 @@ class TestClosedStreamState(H2Base):
         self.__base_scenario(PriorityFrame(stream_id=1))
 
 
-class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
+class TestHalfClosedStreamStateUnexpectedFrames(H2Base, no_reload=True):
     def __base_scenario(self, frame: Frame):
         """
         If an endpoint receives additional frames, other than WINDOW_UPDATE, PRIORITY,

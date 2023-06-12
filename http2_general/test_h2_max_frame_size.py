@@ -6,7 +6,7 @@ from framework import deproxy_client, deproxy_server
 from http2_general.helpers import H2Base
 
 
-class TestMaxFrameSize(H2Base):
+class TestMaxFrameSize(H2Base, no_reload=True):
     def test_large_data_frame_in_response(self):
         """
         Tempesta must separate response body because it is larger than SETTINGS_MAX_FRAME_SIZE.

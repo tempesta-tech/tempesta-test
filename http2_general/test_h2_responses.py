@@ -8,7 +8,7 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class H2ResponsesTestCase(tester.TempestaTest):
+class H2ResponsesTestCase(tester.TempestaTest, no_reload=True):
     clients = [
         {
             "id": "curl",

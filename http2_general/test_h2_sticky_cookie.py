@@ -111,7 +111,7 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
         )
 
 
-class H2StickyCookieTestCase(tester.TempestaTest):
+class H2StickyCookieTestCase(tester.TempestaTest, no_reload=True):
     """Test case to check cookies' behavior."""
 
     clients = [

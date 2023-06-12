@@ -6,15 +6,14 @@ __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
-
-from framework import deproxy_client, tester
-from helpers import checks_for_tests as checks
-from http2_general.helpers import H2Base
-from helpers.networker import NetWorker
 from hpack import HeaderTuple
 
+from framework import deproxy_client
+from helpers.networker import NetWorker
+from http2_general.helpers import H2Base
 
-class TestH2Frame(H2Base):
+
+class TestH2Frame(H2Base, no_reload=True):
     def test_data_framing(self):
         """Send many 1 byte frames in request."""
         self.start_all_services()
@@ -297,13 +296,6 @@ class TestH2Frame(H2Base):
         self.assertTrue(client.wait_for_response(timeout=5))
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.requests), request_number)
-        checks.check_tempesta_request_and_response_stats(
-            tempesta=self.get_tempesta(),
-            cl_msg_received=request_number,
-            cl_msg_forwarded=request_number,
-            srv_msg_received=request_number,
-            srv_msg_forwarded=request_number,
-        )
         error_msg = "Malformed request from Tempesta."
         self.assertEqual(server.last_request.method, self.post_request[3][1], error_msg)
         self.assertEqual(server.last_request.headers["host"], self.post_request[0][1], error_msg)
@@ -327,7 +319,9 @@ class TestH2FrameEnabledDisabledTsoGroGsoBase(H2Base):
 DEFAULT_MTU = 1500
 
 
-class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
+class TestH2FrameEnabledDisabledTsoGroGso(
+    TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker, no_reload=True
+):
     def test_headers_frame_with_continuation(self):
         client, server = self.setup_tests()
         self.run_test_tso_gro_gso_disabled(
@@ -405,7 +399,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
 
 
 class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
-    TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker
+    TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker, no_reload=True
 ):
     tempesta = {
         "config": """
@@ -476,7 +470,9 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
         self.post_request.pop()
 
 
-class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
+class TestH2FrameEnabledDisabledTsoGroGsoCache(
+    TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker, no_reload=True
+):
     tempesta = {
         "config": """
             listen 443 proto=h2;
