@@ -17,6 +17,7 @@ class TlsBasic(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
