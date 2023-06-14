@@ -77,7 +77,7 @@ class H2Spec(tester.TempestaTest):
             "type": "external",
             "binary": "h2spec",
             "ssl": True,
-            "cmd_args": "-tkh tempesta-tech.com",
+            "cmd_args": "-tkh ${tempesta_ip} -n tempesta-tech.com",
         },
     ]
 
@@ -94,8 +94,7 @@ class H2Spec(tester.TempestaTest):
     tempesta = {
         "config": TEMPESTA_CONFIG,
     }
-    
-    @tester.dns_entry_decorator(tf_cfg.cfg.get("Tempesta", "ip"), 'tempesta-tech.com')
+
     def test_h2_specs(self):
         h2spec = self.get_client("h2spec")
         # For different reasons there's still a bunch of `h2spec` tests that fail.
