@@ -705,9 +705,9 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
         # Both 'wildcard' and 'private' certificates are provided
         for sni, expected_cert in (
-            ("example.com", "wildcard"),
-            ("public.example.com", "wildcard"),
+            ("example.com", "private"),
             ("private.example.com", "private"),
+            ("public.example.com", "wildcard"),
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
                 hs = TlsHandshake()
@@ -729,15 +729,16 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
         self.reload_with_config(self.config_only_private_section)
-        # After Tempesta reload,
-        # 'wildcard' certificate is provided for 'private' section,
-        hs = TlsHandshake()
-        hs.sni = "private.example.com"
-        hs.do_12()
-        self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "private"))
+        for sni in "example.com", "private.example.com":
+            # After Tempesta reload,
+            # 'private' certificate is provided for 'private' section,
+            hs = TlsHandshake()
+            hs.sni = sni
+            hs.do_12()
+            self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "private"))
 
         # and no certificate provided for removed 'wildcard' section subdomains
-        for sni in "example.com", "public.example.com":
+        for sni in ["public.example.com"]:
             with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
                 hs = TlsHandshake()
                 hs.sni = sni
@@ -747,9 +748,9 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
         for sni, expected_cert in (
-            ("example.com", "wildcard"),
-            ("public.example.com", "wildcard"),
+            ("example.com", "private"),
             ("private.example.com", "private"),
+            ("public.example.com", "wildcard"),
         ):
             with self.subTest(msg="Trying TLS handshake after second config reload", sni=sni):
                 hs = TlsHandshake()

@@ -483,36 +483,8 @@
         },
         {
             "name": "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_bypass_check",
-            "reason": "Status unknown after #1878"
+            "reason": "Status unknown after #1878 - need to decide what we should do with this test"
         },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_double_different_forwarded_headers",
-            "reason": "Test is not sending correct SNI after #1878"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredH2TestCase.test_h2_missmatch_forwarded_header",
-            "reason": "Test is not sending correct SNI after #1878"
-        },
-        {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockOneClientH2.test_not_reaching_the_limit",
-            "reason": "Test is not sending correct SNI after #1878"
-        },
-        {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockOneClientH2.test_reaching_the_limit_2",
-            "reason": "Test is not sending correct SNI after #1878"
-        },
-        {
-            "name": "t_frang.test_http_body_and_header_chunk_cnt.HttpBodyChunkCnt.test_body_chunk_cnt_invalid",
-            "reason": "Chunked requests found to be broken in #456 branch (tempesta PR #1878)"
-        },
-        {
-            "name": "t_frang.test_http_body_and_header_chunk_cnt.HttpBodyChunkCntH2.test_body_chunk_cnt_invalid",
-            "reason": "Chunked requests found to be broken in #456 branch (tempesta PR #1878)"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsCertSelectBySanwitMultipleSections.test",
-            "reason": "Can't run this test (tempesta PR #1878)"
-		},
 		{
             "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
             "reason": "Disabled by issue #1736"
