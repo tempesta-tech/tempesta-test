@@ -27,6 +27,40 @@ last_test_id = ""
 build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 
+def dns_entry_decorator(ip_address, dns_name):
+    
+    def add_dns_entry(ip_address, dns_name):
+        try:
+            with open('/etc/hosts', 'a') as hosts_file:
+                entry = f"{ip_address} {dns_name}\n"
+                hosts_file.write(entry)
+            tf_cfg.dbg(3, f"DNS Record added: {entry}")
+        except IOError as e:
+            tf_cfg.dbg(3, f"Error during add DNS record: {str(e)}")
+
+    def remove_dns_entry(ip_address, dns_name):
+        try:
+            with open('/etc/hosts', 'r') as hosts_file:
+                lines = hosts_file.readlines()
+            filtered_lines = [line for line in lines if f"{ip_address} {dns_name}" not in line]
+            with open('/etc/hosts', 'w') as hosts_file:
+                hosts_file.writelines(filtered_lines)
+            tf_cfg.dbg(3, f"DNS record removed: {ip_address} {dns_name}")
+        except IOError as e:
+            tf_cfg.dbg(3, f"Error during remove DNS record: {str(e)}")
+    
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            add_dns_entry(ip_address, dns_name)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                remove_dns_entry(ip_address, dns_name)
+                return result
+        return wrapper
+    return decorator
+
+
 def register_backend(type_name, factory):
     global backend_defs
     """ Register backend type """
