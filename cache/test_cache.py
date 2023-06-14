@@ -9,8 +9,9 @@ from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers import checks_for_tests as checks
-from helpers import deproxy, tf_cfg
+from helpers import deproxy, tf_cfg, remote
 from helpers.control import Tempesta
+from framework.x509 import CertGenerator
 
 MIXED_CONFIG = (
     "cache {0};\r\n"
@@ -548,8 +549,8 @@ class TestCacheVhost(tester.TempestaTest):
         }
 
         vhost tempesta-tech.com {
-                tls_certificate ${tempesta_workdir}/tempesta.crt;
-                tls_certificate_key ${tempesta_workdir}/tempesta.key;
+                tls_certificate ${tempesta_workdir}/tempesta-tech.com.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta-tech.com.key;
                 proxy_pass main;
         }
 
@@ -567,6 +568,17 @@ class TestCacheVhost(tester.TempestaTest):
         """
     }
 
+    @staticmethod
+    def gen_certs(host_name):
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        cert_path = "%s/%s.crt" % (workdir, host_name)
+        key_path = "%s/%s.key" % (workdir, host_name)
+        cgen = CertGenerator(cert_path, key_path)
+        cgen.CN = host_name
+        cgen.generate()
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+
     def get_response(self, client) -> CurlResponse:
         client.start()
         self.wait_while_busy(client)
@@ -574,6 +586,7 @@ class TestCacheVhost(tester.TempestaTest):
         return client.response_msg
 
     def test(self):
+        self.gen_certs("tempesta-tech.com")
         self.start_all_services(client=False)
 
         # Fetch response from the backend
