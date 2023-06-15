@@ -402,10 +402,6 @@
             "reason": "Disabled by issue #1823"
         },
         {
-            "name": "t_http_rules.test_h2_http_tables.HttpTablesTestMarkRulesH2",
-            "reason": "Disabled by issue #1841"
-        },
-        {
             "name": "t_stress.test_stress.WrkStressMTU80",
             "reason": "Disabled by issue #1867"
         },
