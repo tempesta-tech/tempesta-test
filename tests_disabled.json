@@ -370,10 +370,6 @@
             "reason": "Disabled by issue #1773"
         },
         {
-            "name": "http2_general.test_h2_headers.HeadersParsing.test_capitalized_header_in_request",
-            "reason": "Disabled by issue #1729"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestHpack.test_hpack_bomb",
             "reason": "Disabled by issue #1780"
         },
