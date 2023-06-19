@@ -163,7 +163,8 @@ class CurlTestBase(tester.TempestaTest):
         self.assertEqual(msg.status, status_code, "Wrong HTTP status")
         self.assertEqual(msg.user_agent, user_agent)
         self.assertEqual(msg.referer, referer)
-        remove_certs(["/tmp/tempesta/tempesta.crt", "/tmp/tempesta/tempesta.key"])
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        remove_certs([f"{workdir}/tempesta.crt", f"f{workdir}/tempesta.key"])
         return msg
 
 
