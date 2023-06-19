@@ -7,7 +7,7 @@ __license__ = "GPL2"
 import os
 
 from framework.x509 import CertGenerator
-from helpers import dmesg, tf_cfg, remote
+from helpers import dmesg, remote, tf_cfg
 
 from .common import AccessLogLine
 
@@ -86,7 +86,10 @@ def clients(uri="/"):
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": ("-k " " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com%s" % uri),
+            "cmd_args": (
+                "-k "
+                " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com%s" % uri
+            ),
         },
     ]
 
@@ -164,7 +167,7 @@ class CurlTestBase(tester.TempestaTest):
         self.assertEqual(msg.user_agent, user_agent)
         self.assertEqual(msg.referer, referer)
         workdir = tf_cfg.cfg.get("Tempesta", "workdir")
-        remove_certs([f"{workdir}/tempesta.crt", f"f{workdir}/tempesta.key"])
+        remove_certs([f"{workdir}/tempesta.crt", f"{workdir}/tempesta.key"])
         return msg
 
 
