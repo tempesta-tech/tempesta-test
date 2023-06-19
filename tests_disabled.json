@@ -466,10 +466,6 @@
             "reason": "Disabled by issue #1866"
         },
         {
-            "name": "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_bypass_check",
-            "reason": "Status unknown after #1878 - need to decide what we should do with this test"
-        },
-		    {
             "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
             "reason": "Disabled by issue #1736"
         },
