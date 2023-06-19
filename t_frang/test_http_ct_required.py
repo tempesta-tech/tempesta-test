@@ -26,6 +26,7 @@ class FrangHttpCtRequiredTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_ct_required true;",
             requests=["POST / HTTP/1.1\r\nHost: localhost\r\n\r\n"],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -49,6 +50,7 @@ class FrangHttpCtRequiredH2(H2Config, FrangHttpCtRequiredTestCase):
                 self.post_request + [("content-type", "random")],
                 self.post_request + [("content-type", "random")],  # from dynamic table
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 
@@ -57,6 +59,7 @@ class FrangHttpCtRequiredH2(H2Config, FrangHttpCtRequiredTestCase):
         client = self.base_scenario(
             frang_config="http_ct_required true;",
             requests=[self.post_request],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -65,5 +68,6 @@ class FrangHttpCtRequiredH2(H2Config, FrangHttpCtRequiredTestCase):
         client = self.base_scenario(
             frang_config="",
             requests=[self.post_request],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)

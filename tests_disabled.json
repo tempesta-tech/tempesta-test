@@ -182,10 +182,6 @@
             "reason" : "Disabled by issue #363"
         },
         {
-            "name" : "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_mismatch",
-            "reason" : "Disabled by issue #363"
-        },
-        {
             "name" : "health_monitoring",
             "reason" : "Disabled by issue #273"
         },
@@ -244,34 +240,6 @@
         {
             "name" : "cache.test_purge_resp_hch.HeavyChunkedPurgeRespTest.test_1_purge_resp_hch",
             "reason": "Need to investigate"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsCertSelectBySan",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTable",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableFrang",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiFrang",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2Frang",
-            "reason": "Disable by issue #1688"
         },
         {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
@@ -496,6 +464,10 @@
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
+            "reason": "Disabled by issue #1736"
         },
         {
             "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",

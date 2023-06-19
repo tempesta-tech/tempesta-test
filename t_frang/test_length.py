@@ -187,6 +187,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_uri_len 5;",
             requests=[request, request],  # as string and as byte
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
@@ -205,6 +206,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_uri_len 5;",
             requests=[request, request],
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
@@ -231,6 +233,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_field_len 300;",
             requests=[self.post_request + [("header", "x" * 200)]],
+            disable_hshc=True,
         )
         self.check_response(
             client,
@@ -245,6 +248,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_field_len 300;",
             requests=[self.post_request + [("header", "x" * 294)]],
+            disable_hshc=True,
         )
         self.check_response(
             client,
@@ -271,6 +275,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_body_len 10;",
             requests=[self.post_request],
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP body length exceeded for"

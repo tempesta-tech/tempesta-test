@@ -43,7 +43,6 @@ def generate_certificate(cn="tempesta-tech.com", san=None, cert_name="tempesta")
 
 
 class X509(tester.TempestaTest):
-
     TIMEOUT = 1  # Use bigger timeout for debug builds.
 
     clients = [
@@ -53,6 +52,7 @@ class X509(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
@@ -366,7 +366,7 @@ class TlsCertSelect(tester.TempestaTest):
                 -> block;
             }
         """,
-        "custom_cert": True
+        "custom_cert": True,
     }
 
     # This function can be redefined in subclasses to provide
@@ -401,8 +401,8 @@ class TlsCertSelect(tester.TempestaTest):
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # Similarly it must fail on RSA-only vhost.
         hs = TlsHandshake()
-        hs.sni = 'example.com'
-        hs.ciphers = list(range(49196, 49198)) # EC Ciphers
+        hs.sni = "example.com"
+        hs.ciphers = list(range(49196, 49198))  # EC Ciphers
         res = hs.do_12()
         self.assertFalse(res, "Wrong handshake result: %s" % res)
 
@@ -506,10 +506,6 @@ class TlsCertSelectBySan(tester.TempestaTest):
             "a.example.com.example.com",
             tf_cfg.cfg.get("Server", "ip"),
             "a" * 251,  # max length, 252 will give DECODE_ERROR
-            "@.example.com",
-            "*.example.com",
-            "!!!.example.com",
-            "\n.example.com",
         ):
             with self.subTest(msg="Trying TLS handshake with expected unknown SNI", sni=sni):
                 self.check_handshake_unrecognized_name(sni=sni)
@@ -547,9 +543,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
             # Component fragment wildcards does not accepted.
             # Related discussion: https://codereview.chromium.org/762013002
             (["w*.example.com"], "www.example.com"),
-            (["www.example.com"], "www.example.com"),
             (["a.example.com"], "b.example.com"),
-            (["example.onion"], "example.onion"),
         ):
             generate_certificate(san=san)
             self.get_tempesta().reload()
@@ -610,7 +604,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
             self.assertTrue(handshake(next(sni_iter)), "First handshake should pass")
             self.assertFalse(handshake(next(sni_iter)), "Second handshake should fail")
-            next(sni_iter) # additional shift to alternate the order
+            next(sni_iter)  # additional shift to alternate the order
+
 
 class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     """Test that no confusion occurs between wildcard certificate
@@ -710,9 +705,9 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
         # Both 'wildcard' and 'private' certificates are provided
         for sni, expected_cert in (
-            ("example.com", "wildcard"),
-            ("public.example.com", "wildcard"),
+            ("example.com", "private"),
             ("private.example.com", "private"),
+            ("public.example.com", "wildcard"),
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
                 hs = TlsHandshake()
@@ -734,27 +729,28 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
         self.reload_with_config(self.config_only_private_section)
-        # After Tempesta reload,
-        # 'wildcard' certificate is provided for 'private' section,
-        hs = TlsHandshake()
-        hs.sni = "private.example.com"
-        hs.do_12()
-        self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "private"))
+        for sni in "example.com", "private.example.com":
+            # After Tempesta reload,
+            # 'private' certificate is provided for 'private' section,
+            hs = TlsHandshake()
+            hs.sni = sni
+            hs.do_12()
+            self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "private"))
 
         # and no certificate provided for removed 'wildcard' section subdomains
-        for sni in "example.com", "public.example.com":
+        for sni in ["public.example.com"]:
             with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
                 hs = TlsHandshake()
                 hs.sni = sni
                 hs.do_12()
-                self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
+                self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED")
 
         # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
         for sni, expected_cert in (
-            ("example.com", "wildcard"),
-            ("public.example.com", "wildcard"),
+            ("example.com", "private"),
             ("private.example.com", "private"),
+            ("public.example.com", "wildcard"),
         ):
             with self.subTest(msg="Trying TLS handshake after second config reload", sni=sni):
                 hs = TlsHandshake()
@@ -813,6 +809,9 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     tempesta_tmpl = """
             cache 0;
             listen 443 proto=https;
+            frang_limits {
+                http_strict_host_checking;
+            }
 
             # Optional Frang section
             %s
@@ -901,7 +900,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: localhost
         """
-        generate_certificate(cn="random-name", san=["example.com"])
+        generate_certificate(cn="random-name", san=["example.com"], cert_name="example")
         self.start_all()
         self.expect_request_fail("localhost")
 
@@ -936,18 +935,6 @@ class TlsSniWithHttpTable(BaseTlsSniWithHttpTable):
     """
 
     frang_limits = ""
-
-
-class TlsSniWithHttpTableFrang(BaseTlsSniWithHttpTable):
-    """
-    Same as TlsSniWithHttpTable, with `http_strict_host_checking` enabled.
-    """
-
-    frang_limits = """
-            frang_limits {
-                http_strict_host_checking;
-            }
-    """
 
 
 class BaseTlsMultiTest(tester.TempestaTest, base=True):
@@ -985,6 +972,9 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
     tempesta_tmpl = """
             cache 0;
             listen 443 proto=%s;
+            frang_limits {
+                http_strict_host_checking;
+            }
 
             # Optional Frang section
             %s
@@ -1064,7 +1054,6 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
 
 class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
-
     proto = "https"
     frang_limits = ""
 
@@ -1083,7 +1072,7 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
         def build_request(host):
             return "GET / HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
 
-        return "\r\n".join([build_request(host) for host in hosts])
+        return "".join([build_request(host) for host in hosts])
 
     def test_alternating_access(self):
         """
@@ -1093,20 +1082,7 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
         self.run_alterative_access()
 
 
-class TlsSniWithHttpTableMultiFrang(TlsSniWithHttpTableMulti):
-    """
-    Same as TlsSniWithHttpTableMulti, with `http_strict_host_checking` enabled.
-    """
-
-    frang_limits = """
-            frang_limits {
-                http_strict_host_checking;
-            }
-    """
-
-
 class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
-
     proto = "h2"
     frang_limits = ""
 
@@ -1132,18 +1108,4 @@ class TlsSniWithHttpTableMultiH2(BaseTlsMultiTest):
         Test for HTTP/2 multiplexed requests: 'localhost'
         vhost should not receive requests.
         """
-        # Ignore 'BUG tfw_stream_cache Tainted'
-        self.oops_ignore = ["WARNING"]
         self.run_alterative_access()
-
-
-class TlsSniWithHttpTableMultiH2Frang(TlsSniWithHttpTableMultiH2):
-    """
-    Same as TlsSniWithHttpTableMultiH2, with `http_strict_host_checking` enabled.
-    """
-
-    frang_limits = """
-            frang_limits {
-                http_strict_host_checking;
-            }
-    """

@@ -69,8 +69,14 @@ block_action attack reply;
         self.setUp()
         self.start_all_services(client=False)
 
-    def base_scenario(self, frang_config: str, requests: list) -> DeproxyClient:
-        self.set_frang_config(frang_config)
+    def base_scenario(
+        self, frang_config: str, requests: list, disable_hshc: bool = False
+    ) -> DeproxyClient:
+        self.set_frang_config(
+            "\n".join(
+                [frang_config] + (["http_strict_host_checking false;"] if disable_hshc else [])
+            )
+        )
 
         client = self.get_client("deproxy-1")
         client.parsing = False
@@ -106,6 +112,7 @@ class H2Config:
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 

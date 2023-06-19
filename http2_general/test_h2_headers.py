@@ -498,7 +498,7 @@ class CurlTestBase(tester.TempestaTest):
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": ("-kfv " "https://${tempesta_ip}/ "),
+            "cmd_args": ("-kfv " " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com/ "),
         },
     ]
 
@@ -595,7 +595,7 @@ class BackendSetCoookieH2(tester.TempestaTest):
             "type": "external",
             "binary": "curl",
             "cmd_args": (
-                "-kfv " "https://${tempesta_ip}/ "  # Set non-null return code on 4xx-5xx responses.
+                "-kfv " " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com/"  # Set non-null return code on 4xx-5xx responses.
             ),
         },
     ]

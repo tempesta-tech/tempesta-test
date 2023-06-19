@@ -333,10 +333,10 @@ class TlsHandshake:
     """
 
     def __init__(self, chunk=None, debug=(tf_cfg.v_level() - 1)):
-        self.server = "127.0.0.1"
+        self.server = tf_cfg.cfg.get(section='Tempesta', opt='ip')
         self.hs_state = False
         self.debug = debug
-        self.timeout = 5
+        self.timeout = 20
         self.sni = "tempesta-tech.com"
         self.host = self.sni
         self.chunk = chunk

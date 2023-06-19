@@ -11,7 +11,7 @@ ENV WP_HOME=$WORDPRESS_URL
 ENV WP_SITEURL=$WORDPRESS_URL
 ENV PATH="${PATH}:/var/www/.composer/vendor/bin"
 
-RUN apt-get -y update && apt install -y imagemagick
+RUN apt-get -y update && apt install -y libzip-dev imagemagick
 
 RUN chown www-data /var/www
 COPY --chown=www-data wp-config.php "${WORDPRESS_DIR}/wp-config.php"

@@ -85,6 +85,7 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
 
         for clnt in self.clients:
             client = self.get_client(clnt["id"])
+            client.server_hostname = "tempesta-tech.com"
             client.make_request(self.make_req(req_len))
             res = client.wait_for_response(timeout=5)
             self.assertTrue(
@@ -297,6 +298,7 @@ class ManyClients(Cache):
             listen 443 proto=https;
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
             server ${server_ip}:8000;
         """
     }
@@ -344,6 +346,7 @@ class ManyClientsH2(H2Base, ManyClients):
             listen 443 proto=h2;
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
             server ${server_ip}:8000;
         """
     }
@@ -413,6 +416,7 @@ class CloseConnection(tester.TempestaTest):
         self.get_server("deproxy").set_response(self.make_resp(resp_body))
 
         client = self.get_client(self.clients[0]["id"])
+        client.server_hostname = "tempesta-tech.com"
         client.make_request(self.make_req(req_len))
         res = client.wait_for_response(timeout=5)
         self.assertTrue(
