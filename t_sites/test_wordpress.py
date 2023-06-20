@@ -561,6 +561,8 @@ class TestWordpressSiteH2(BaseWordpressTest):
         cookie = self.get_client("login").cookie_string
         self.assertTrue(cookie)
 
+        self.set_nf_mark(1)
+
         for uri in [
             "/wp-admin/index.php",  # Dashboard
             "/wp-admin/profile.php",
