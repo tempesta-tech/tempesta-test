@@ -10,7 +10,6 @@ __license__ = "GPL2"
 
 
 class StressTls(tester.TempestaTest):
-
     backends = [
         {
             "id": "0",
