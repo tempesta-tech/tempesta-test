@@ -35,7 +35,7 @@ class TestHttpTablesH2(test_http_tables.HttpTablesTest):
                     (option[1], option[2]),
                 ]
             ),
-            expected_status_code="403" if option[3] else "200",
+            expected_status_code="403" if option[3] and self.match_rules_test else "200",
         )
 
         if client.last_response.status == "200":

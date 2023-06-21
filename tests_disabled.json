@@ -262,10 +262,6 @@
             "reason": "Disable by issue #1703 - can cause kernel panic"
         },
         {
-            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_get_admin_resource_with_assets",
-            "reason": "Disable by issue #1841"
-        },
-        {
             "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_burst",
             "reason": "Disabled by issue #1751"
         },
@@ -400,10 +396,6 @@
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_double_header_frame_in_single_stream",
             "reason": "Disabled by issue #1823"
-        },
-        {
-            "name": "t_http_rules.test_h2_http_tables.HttpTablesTestMarkRulesH2",
-            "reason": "Disabled by issue #1841"
         },
         {
             "name": "t_stress.test_stress.WrkStressMTU80",
