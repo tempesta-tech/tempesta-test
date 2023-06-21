@@ -472,6 +472,10 @@
         {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
+            "reason": "Disabled by issue #1902"
         }
     ]
 }

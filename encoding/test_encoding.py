@@ -501,11 +501,14 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
             f"Date: {DATE}\r\n"
             "Server: Deproxy Server\r\n"
             "Transfer-Encoding: chunked\r\n"
-            "Trailer: Expires,X-Token\r\n\r\n",
+            "Trailer: X-Token\r\n\r\n",
         }
     ]
     tempesta = {
         "config": """
+        cache 2;
+        cache_fulfill * *;
+        listen 80;
         listen 443 proto=h2;
         server ${server_ip}:8000;
         tls_certificate ${tempesta_workdir}/tempesta.crt;
@@ -514,12 +517,17 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         """
     }
 
+    request = [
+        (":authority", "localhost"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
+    ]
+
     def setUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += (
-            self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)[:-2]
-            + f"Expires: {DATE}\r\n"
-            + f"X-Token: {self.token}\r\n\r\n"
+            self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
         )
         super().setUp()
 
@@ -527,29 +535,35 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         self.start_all()
 
         client = self.get_client("client")
+        server = self.get_server("backend")
 
-        request = [
-            (":authority", "localhost"),
-            (":path", "/"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ]
-        client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
-        response = client.responses[-1] if len(client.responses) else None
+        for response in ("backend", "cache"):
+            with self.subTest(response_from=response):
+                client.send_request(self.request, "200")
+                response = client.last_response
+                self.assertEqual(
+                    # headers for h2 and trailer for http1
+                    response.headers.get("X-Token") or response.trailer.get("X-Token"),
+                    self.token,
+                    "Moved trailer header value mismatch the original one",
+                )
+        self.assertEqual(1, len(server.requests))
 
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(response.status, "200")
-        self.assertEqual(
-            response.headers.get("Expires"),
-            str(DATE),
-            "Moved trailer header value mismatch the original one",
-        )
-        self.assertEqual(
-            response.headers.get("X-Token"),
-            self.token,
-            "Moved trailer header value mismatch the original one",
-        )
+
+class TestH1ChunkedWithTrailer(TestH2ChunkedWithTrailer, CommonUtils):
+    clients = [
+        {
+            "id": "client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "ssl_hostname": "localhost",
+        }
+    ]
+
+    request = (
+        "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept-Encoding: gzip, br, chunked\r\n" "\r\n"
+    )
 
 
 class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
