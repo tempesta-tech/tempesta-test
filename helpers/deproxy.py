@@ -315,10 +315,9 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
                 self.body += chunk
 
                 chunk_size = len(chunk.rstrip("\r\n"))
-                if chunk_size < size:
+                if chunk_size < size or "\n" not in chunk[-2:]:
                     raise IncompleteMessage("Incomplete chunked body")
                 assert chunk_size == size
-                assert chunk[-1] == "\n"
             except IncompleteMessage:
                 raise
             except:
@@ -845,7 +844,9 @@ class Client(TlsClient, stateful.Stateful):
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
         self.error_codes.append(type_error)
+        tf_cfg.dbg(4, f"\tDeproxy: Client: Receive error - {type_error} with message - {v}.")
         if type(v) == ParseError or type(v) == AssertionError:
+            self.handle_close()
             raise v
         elif type(v) == ssl.SSLWantReadError:
             # Need to receive more data before decryption can start.
