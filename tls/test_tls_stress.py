@@ -2,7 +2,8 @@
 TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
 from framework import tester
-from helpers import tf_cfg
+from framework.x509 import CertGenerator
+from run_config import THREADS, CONCURRENT_CONNECTIONS, DURATION
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
@@ -83,13 +84,105 @@ class StressTls(tester.TempestaTest):
         wrk = self.get_client("0")
         wrk.set_script("foo", content="")
         # Wrk can't handle very big amound of TLS connections.
-        wrk.connections = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 100)
+        wrk.connections = min(int(CONCURRENT_CONNECTIONS), 100)
         wrk.start()
         self.wait_while_busy(wrk)
         wrk.stop()
 
         self.assertTrue(200 in wrk.statuses)
         self.assertGreater(wrk.statuses[200], 0)
+
+
+class TlsHandshakeDheRsaTest(tester.TempestaTest):
+    clients = [
+        {
+            "id": "tls-perf-DHE-RSA-AES128-GCM-SHA256",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c DHE-RSA-AES128-GCM-SHA256 -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-DHE-RSA-AES256-GCM-SHA384",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c DHE-RSA-AES256-GCM-SHA384 -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-DHE-RSA-AES128-GCM",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c DHE-RSA-AES128-GCM -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-DHE-RSA-AES256-GCM",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c DHE-RSA-AES256-GCM -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+    ]
+
+    tempesta_tmpl = """
+        cache 0;
+        listen 443 proto=https;
+
+        tls_certificate %s;
+        tls_certificate_key %s;
+        tls_match_any_server_name;
+
+        srv_group srv_grp1 {
+            server ${server_ip}:8000;
+        }
+        vhost tempesta-tech.com {
+            proxy_pass srv_grp1;
+        }
+        http_chain {
+            host == "tempesta-tech.com" -> tempesta-tech.com;
+            -> block;
+        }
+    """
+
+    def setUp(self):
+        self.cgen = CertGenerator()
+        self.cgen.key = {"alg": "rsa", "len": 4096}
+        self.cgen.sign_alg = "sha256"
+        self.cgen.generate()
+        self.tempesta = {
+            "config": self.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
+        }
+        tester.TempestaTest.setUp(self)
+
+    def check_alg(self, alg):
+        tls_perf = self.get_client(alg)
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.wait_while_busy(tls_perf)
+
+    def test_DHE_RSA_AES128_GCM_SHA256(self):
+        self.check_alg("tls-perf-DHE-RSA-AES128-GCM-SHA256")
+
+    def test_DHE_RSA_AES256_GCM_SHA384(self):
+        self.check_alg("tls-perf-DHE-RSA-AES256-GCM-SHA384")
+
+    def test_DHE_RSA_AES128_GCM(self):
+        self.check_alg("tls-perf-DHE-RSA-AES128-GCM")
+
+    def test_DHE_RSA_AES256_GCM(self):
+        self.check_alg("tls-perf-DHE-RSA-AES256-GCM")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
