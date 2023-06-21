@@ -458,8 +458,8 @@
             "reason": "Disabled by issue #1866"
         },
         {
-            "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
-            "reason": "Disabled by issue #1736"
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
+            "reason": "Disabled by test issue #212"
         },
         {
             "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
