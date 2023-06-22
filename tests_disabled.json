@@ -162,26 +162,6 @@
             "reason" : "Disabled by issue #1836"
         },
         {
-            "name" : "tls.test_tls_limits.TLSLimits.test_with_deproxy",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimits.test_with_tlsperf",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_deproxy",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_tlsperf",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsIncomplete.test",
-            "reason" : "Disabled by issue #363"
-        },
-        {
             "name" : "health_monitoring",
             "reason" : "Disabled by issue #273"
         },
