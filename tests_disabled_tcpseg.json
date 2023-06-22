@@ -14,6 +14,10 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name" : "tls.test_tls_stress",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "selftests.test_docker_server",
             "reason": "These tests should not be run with TCP segmentation."
         },
