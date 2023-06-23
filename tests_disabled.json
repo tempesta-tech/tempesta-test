@@ -382,10 +382,6 @@
             "reason": "Disabled by issue #1346"
         },
         {
-            "name": "http2_general.test_h2_streams.TestH2Stream.test_reuse_stream_id",
-            "reason": "Disabled by issue #1800"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
             "reason": "Disabled by issue #1819"
         },
