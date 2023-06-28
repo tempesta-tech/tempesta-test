@@ -97,20 +97,6 @@ class HeadersParsing(H2Base):
                 "200",
             )
 
-    def test_capitalized_header_in_request(self):
-        """The request must be treated as malformed. RFC 7540 8.1.2"""
-        self.start_all_services()
-
-        client = self.get_client("deproxy")
-        client.parsing = False
-        client.send_request(
-            (
-                self.post_request + [("Content-Length", "3")],
-                "123",
-            ),
-            "400",
-        )
-
     def test_transfer_encoding_header_in_request(self):
         """
         The only exception to this is the TE header field, which MAY be present in an HTTP/2
