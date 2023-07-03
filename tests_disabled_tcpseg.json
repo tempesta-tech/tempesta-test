@@ -114,10 +114,6 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
-            "reason": "Disabled by issue #1819"
-        },
-        {
             "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
             "reason": "Disabled by issue #1884"
         },
