@@ -759,6 +759,67 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
 
+class WrkTestsMultipleVhosts(TlsCertSelectBySanwitMultipleSections):
+    NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests ${server_keepalive_requests};
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8000;
+
+        location / {
+            return 200;
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+    clients = [
+        {
+            "id": "wrk",
+            "type": "wrk",
+            "ssl": True,
+            "addr": f'{tf_cfg.cfg.get("Tempesta", "ip")}:443',
+        },
+    ]
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
+
     def config_changer(self):
         self.set_second_config()
         self.set_first_config()
@@ -810,6 +871,10 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                     tls_certificate /tmp/host/private.crt;
                     tls_certificate_key /tmp/host/private.key;
                 }
+                
+                http_chain {
+                    -> localhost;
+                }
             """ % (tf_cfg.cfg.get("General", "ip")),
         custom_cert=True
         )
@@ -836,19 +901,16 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                     tls_certificate /tmp/host/localhost.crt;
                     tls_certificate_key /tmp/host/localhost.key;
                 }
+                
+                http_chain {
+                    -> localhost;
+                }
+                
             """% (tf_cfg.cfg.get("General", "ip")),
         custom_cert=True)
         self.get_tempesta().config = config
         self.get_tempesta().reload()
-    
-    clients = [
-        {
-            "id": "wrk",
-            "type": "wrk",
-            "ssl": True,
-            "addr": f'{tf_cfg.cfg.get("Tempesta", "ip")}:443',
-        },
-    ]
+
 
 class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     """
