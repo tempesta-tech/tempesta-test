@@ -74,9 +74,6 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             expect_response=True,
         )
 
-        # TODO Uncomment by issue #1819
-        # self.assertTrue(client.wait_for_response(3))
-        # self.assertEqual(client.last_response.status, '400')
         self.assertTrue(client.wait_for_reset_stream(stream_id=1))
 
         client.stream_id += 2
