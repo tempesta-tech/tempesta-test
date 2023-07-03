@@ -458,10 +458,6 @@
             "reason": "Disabled by issue #1866"
         },
         {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
-            "reason": "Disabled by test issue #212"
-        },
-        {
             "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
             "reason": "Disabled by issue #1103"
         },

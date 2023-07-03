@@ -759,6 +759,97 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
 
+    def config_changer(self):
+        self.set_second_config()
+        self.set_first_config()
+        self.set_second_config()
+        self.set_first_config()
+        self.set_second_config()
+
+
+    def test_wrk(self):
+        generate_certificate(
+            cert_name="localhost", cn="localhost", san=[tf_cfg.cfg.get("Tempesta", "ip")]
+        )
+        generate_certificate(
+            cert_name="private", cn="private", san=["example.com", "private.example.com"]
+        )
+        self.start_all()
+        self.set_first_config()
+        wrk = self.get_client("wrk")
+        wrk.duration = 10
+        wrk.start()
+        self.config_changer()
+        wrk.stop()
+        self.wait_while_busy(wrk)
+        print(dir(wrk.statuses))
+        print(wrk.statuses)
+        self.assertNotEqual(
+            0,
+            wrk.requests,
+            msg='"wrk" client has not sent requests or received results.',
+        )
+        
+    def set_first_config(self):
+        config = tempesta.Config()
+        config.set_defconfig(
+            """
+                cache 0;
+                listen 443 proto=https;
+
+                srv_group sg { server %s:8000; }
+
+                vhost localhost {
+                    proxy_pass sg;
+                    tls_certificate /tmp/host/localhost.crt;
+                    tls_certificate_key /tmp/host/localhost.key;
+                }
+
+                vhost private.example.com {
+                    proxy_pass sg;
+                    tls_certificate /tmp/host/private.crt;
+                    tls_certificate_key /tmp/host/private.key;
+                }
+            """ % (tf_cfg.cfg.get("General", "ip")),
+        custom_cert=True
+        )
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+        
+    def set_second_config(self):
+        config = tempesta.Config()
+        config.set_defconfig(
+            """
+                cache 0;
+                listen 443 proto=https;
+
+                srv_group sg { server %s:8000; }
+
+                vhost private.example.com {
+                    proxy_pass sg;
+                    tls_certificate /tmp/host/private.crt;
+                    tls_certificate_key /tmp/host/private.key;
+                }
+
+                vhost localhost {
+                    proxy_pass sg;
+                    tls_certificate /tmp/host/localhost.crt;
+                    tls_certificate_key /tmp/host/localhost.key;
+                }
+            """% (tf_cfg.cfg.get("General", "ip")),
+        custom_cert=True)
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+    
+    clients = [
+        {
+            "id": "wrk",
+            "type": "wrk",
+            "ssl": True,
+            "addr": f'{tf_cfg.cfg.get("Tempesta", "ip")}:443',
+        },
+    ]
+
 class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     """
     Base class for vhost sections access tests.
