@@ -115,6 +115,7 @@ http_chain {
         self.start_all_services()
 
         client = self.get_client("deproxy")
+        client.server_hostname = "tempesta-tech.com"
         for _ in range(self.requests_n):
             step = 0
             for option in self.options:

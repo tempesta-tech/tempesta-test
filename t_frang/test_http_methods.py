@@ -24,6 +24,7 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_methods get post;",
             requests=["DELETE / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -31,6 +32,7 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_methods get post;",
             requests=["gEt / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -47,6 +49,7 @@ class FrangHttpMethodsTestCase(FrangTestCase):
             requests=[
                 "PUT / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method-Override: GET\r\n\r\n"
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -62,6 +65,7 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         client = self.base_scenario(
             frang_config="http_methods get post put;",
             requests=[self.get_request, self.post_request, put_request, put_request],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 
@@ -76,6 +80,7 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
                     (":method", "DELETE"),
                 ],
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -90,6 +95,7 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
                     (":method", "gEt"),
                 ],
             ],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
@@ -111,5 +117,6 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         client = self.base_scenario(
             frang_config="http_methods get put;",
             requests=[self.post_request + [("x-http-method-override", "GET")]],
+            disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)

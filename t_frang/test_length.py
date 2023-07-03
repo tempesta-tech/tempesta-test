@@ -65,7 +65,9 @@ class FrangLengthTestCase(FrangTestCase):
             requests=[f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nX-Long: {'1' * 320}\r\n\r\n"],
         )
         self.check_response(
-            client, status_code="403", warning_msg="frang: HTTP field length exceeded for"
+            client,
+            status_code="403",
+            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
         )
 
     def test_field_without_reaching_the_limit(self):
@@ -80,7 +82,9 @@ class FrangLengthTestCase(FrangTestCase):
             requests=[f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nX-Long: {'1' * 200}\r\n\r\n"],
         )
         self.check_response(
-            client, status_code="200", warning_msg="frang: HTTP field length exceeded for"
+            client,
+            status_code="200",
+            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
         )
 
     def test_field_without_reaching_the_limit_2(self):
@@ -95,7 +99,9 @@ class FrangLengthTestCase(FrangTestCase):
             requests=[f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nX-Long: {'1' * 292}\r\n\r\n"],
         )
         self.check_response(
-            client, status_code="200", warning_msg="frang: HTTP field length exceeded for"
+            client,
+            status_code="200",
+            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
         )
 
     def test_body_len(self):
@@ -181,6 +187,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_uri_len 5;",
             requests=[request, request],  # as string and as byte
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
@@ -199,6 +206,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_uri_len 5;",
             requests=[request, request],
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
@@ -213,7 +221,9 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             requests=[self.post_request + [("header", "x" * 320)]],
         )
         self.check_response(
-            client, status_code="403", warning_msg="frang: HTTP field length exceeded for"
+            client,
+            status_code="403",
+            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
         )
 
     def test_field_without_reaching_the_limit(self):
@@ -223,9 +233,12 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_field_len 300;",
             requests=[self.post_request + [("header", "x" * 200)]],
+            disable_hshc=True,
         )
         self.check_response(
-            client, status_code="200", warning_msg="frang: HTTP field length exceeded for"
+            client,
+            status_code="200",
+            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
         )
 
     def test_field_without_reaching_the_limit_2(self):
@@ -235,9 +248,12 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_field_len 300;",
             requests=[self.post_request + [("header", "x" * 294)]],
+            disable_hshc=True,
         )
         self.check_response(
-            client, status_code="200", warning_msg="frang: HTTP field length exceeded for"
+            client,
+            status_code="200",
+            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
         )
 
     def test_body_len(self):
@@ -259,6 +275,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         client = self.base_scenario(
             frang_config="http_body_len 10;",
             requests=[self.post_request],
+            disable_hshc=True,
         )
         self.check_response(
             client, status_code="200", warning_msg="frang: HTTP body length exceeded for"

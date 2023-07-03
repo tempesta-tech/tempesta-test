@@ -170,16 +170,8 @@
             "reason" : "Disabled by issue #363"
         },
         {
-            "name" : "tls.test_tls_limits.TLSMatchHostSni.test_host_sni_mismatch",
-            "reason" : "Disabled by issue #363"
-        },
-        {
             "name" : "health_monitoring",
             "reason" : "Disabled by issue #273"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
         },
         {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
@@ -238,44 +230,12 @@
             "reason": "Need to investigate"
         },
         {
-            "name": "tls.test_tls_cert.TlsCertSelectBySan",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTable",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableFrang",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiFrang",
-            "reason": "Disable by issue #1688"
-        },
-        {
-            "name": "tls.test_tls_cert.TlsSniWithHttpTableMultiH2Frang",
-            "reason": "Disable by issue #1688"
-        },
-        {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
             "reason": "Disable by issue #1703"
         },
         {
             "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
             "reason": "Disable by issue #1714"
-        },
-        {
-            "name" : "selftests.test_framework.ExampleTest.test_curl",
-            "reason": "Disable by issue #308"
         },
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
@@ -288,10 +248,6 @@
         {
             "name" : "t_stress.test_wordpress.H2WordpressStress",
             "reason": "Disable by issue #1703 - can cause kernel panic"
-        },
-        {
-            "name" : "t_sites.test_wordpress.TestWordpressSiteH2.test_get_admin_resource_with_assets",
-            "reason": "Disable by issue #1841"
         },
         {
             "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_burst",
@@ -418,28 +374,8 @@
             "reason": "Disabled by issue #1800"
         },
         {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_proxy_connection_header_in_request",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_upgrade_header_in_request",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_proxy_connection_header_in_response",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_upgrade_header_in_response",
-            "reason": "Disabled by issue #1805"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_request",
-            "reason": "Disabled by issue #1805"
-        },
-        {
             "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_response",
-            "reason": "Disabled by issue #1805"
+            "reason": "Disabled by PR #1917"
         },
         {
             "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
@@ -452,10 +388,6 @@
         {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_double_header_frame_in_single_stream",
             "reason": "Disabled by issue #1823"
-        },
-        {
-            "name": "t_http_rules.test_h2_http_tables.HttpTablesTestMarkRulesH2",
-            "reason": "Disabled by issue #1841"
         },
         {
             "name": "t_stress.test_stress.WrkStressMTU80",
@@ -518,10 +450,6 @@
             "reason": "Disabled by issue #1866"
         },
         {
-            "name": "http2_general.test_h2_headers.TestSplitCookies.test_split_cookies",
-            "reason": "Disabled by issue #1736"
-        },
-        {
             "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_uppercase_in_header_name",
             "reason": "Disabled by issue #1729"
         },
@@ -556,6 +484,22 @@
         {
             "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_connect_method_with_path_and_scheme",
             "reason": "Disabled by issue #1883"
+        },
+        {
+            "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",
+            "reason": "Disabled by test issue #212"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyCachedResponseHeaders",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
+            "reason": "Disabled by issue #1103"
         }
     ]
 }

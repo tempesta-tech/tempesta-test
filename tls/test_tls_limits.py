@@ -222,7 +222,6 @@ class TLSLimits(tester.TempestaTest):
 
 
 class TLSLimitsBurst(TLSLimits):
-
     tempesta = {
         "config": """
             cache 0;
@@ -425,7 +424,6 @@ class TLSLimitsIncomplete(tester.TempestaTest):
 
 
 class TLSMatchHostSni(tester.TempestaTest):
-
     clients = [
         {
             "id": "usual-client",
@@ -483,14 +481,19 @@ class TLSMatchHostSni(tester.TempestaTest):
             vhost tempesta-tech.com {
                 proxy_pass srv_grp1;
             }
+            # needed to trigger "vhost mismatch" event
+            vhost dummy {
+                proxy_pass srv_grp1;
+            }
             # Any request can be served.
             http_chain {
-                -> tempesta-tech.com;
+                host == "tempesta-tech.com" -> tempesta-tech.com;
+                -> dummy;
             }
         """
     }
 
-    TLS_WARN = "Warning: frang: host header doesn't match SNI from TLS handshake"
+    TLS_WARN = "Warning: frang: vhost by SNI doesn't match vhost by authority"
     TLS_WARN_PORT = "Warning: frang: port from host header doesn't match real port"
 
     def start_all(self):
@@ -508,41 +511,21 @@ class TLSMatchHostSni(tester.TempestaTest):
         self.start_all()
         klog = dmesg.DmesgFinder(ratelimited=False)
 
-        requests = (
-            "GET / HTTP/1.1\r\n"
-            "Host: tempesta-tech.com\r\n"
-            "\r\n"
-            "GET / HTTP/1.1\r\n"
-            "Host:    tempesta-tech.com     \r\n"
-            "\r\n"
-            "GET / HTTP/1.1\r\n"
-            "Host: example.com\r\n"
-            "\r\n"
-        )
         deproxy_cl = self.get_client("usual-client")
         deproxy_cl.start()
-        deproxy_cl.make_requests(requests)
-        deproxy_cl.wait_for_response()
 
-        self.assertEqual(2, len(deproxy_cl.responses))
+        # case 1 (sni match)
+        deproxy_cl.make_request(("GET / HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"))
+        deproxy_cl.wait_for_response()
+        self.assertEqual(1, len(deproxy_cl.responses))
+
+        # case 2 (sni mismatch)
+        deproxy_cl.make_request(("GET / HTTP/1.1\r\n" "Host: example.com\r\n" "\r\n"))
+        deproxy_cl.wait_for_response()
+        self.assertEqual(1, len(deproxy_cl.responses))
+
         self.assertTrue(deproxy_cl.connection_is_closed())
         self.assertEqual(klog.warn_count(self.TLS_WARN), 1, "Frang limits warning is not shown")
-
-    def test_host_sni_bypass_check(self):
-        """SNI is not set. Requests to any ports are allowed."""
-        self.start_all()
-        klog = dmesg.DmesgFinder(ratelimited=False)
-
-        requests = "GET / HTTP/1.1\r\n" "Host: example.com\r\n" "\r\n"
-        deproxy_cl = self.get_client("no-sni-client")
-        deproxy_cl.start()
-        deproxy_cl.make_requests(requests)
-        deproxy_cl.wait_for_response()
-
-        self.assertEqual(1, len(deproxy_cl.responses))
-        self.assertEqual(
-            klog.warn_count(self.TLS_WARN), 0, "Frang limits warning was unexpectedly shown"
-        )
 
     def test_port_mismatch(self):
         """After client send a request that has port mismatch in host header,

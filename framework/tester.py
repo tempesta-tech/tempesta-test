@@ -14,10 +14,10 @@ import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
 from framework.templates import fill_template, populate_properties
-from helpers import control, dmesg, remote, tf_cfg
+from helpers import control, dmesg, remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 backend_defs = {}
@@ -25,6 +25,40 @@ tempesta_defs = {}
 save_tcpdump = False
 last_test_id = ""
 build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
+
+
+def dns_entry_decorator(ip_address, dns_name):
+    
+    def add_dns_entry(ip_address, dns_name):
+        try:
+            with open('/etc/hosts', 'a') as hosts_file:
+                entry = f"{ip_address} {dns_name}\n"
+                hosts_file.write(entry)
+            tf_cfg.dbg(3, f"DNS Record added: {entry}")
+        except IOError as e:
+            tf_cfg.dbg(3, f"Error during add DNS record: {str(e)}")
+
+    def remove_dns_entry(ip_address, dns_name):
+        try:
+            with open('/etc/hosts', 'r') as hosts_file:
+                lines = hosts_file.readlines()
+            filtered_lines = [line for line in lines if f"{ip_address} {dns_name}" not in line]
+            with open('/etc/hosts', 'w') as hosts_file:
+                hosts_file.writelines(filtered_lines)
+            tf_cfg.dbg(3, f"DNS record removed: {ip_address} {dns_name}")
+        except IOError as e:
+            tf_cfg.dbg(3, f"Error during remove DNS record: {str(e)}")
+    
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            add_dns_entry(ip_address, dns_name)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                remove_dns_entry(ip_address, dns_name)
+                return result
+        return wrapper
+    return decorator
 
 
 def register_backend(type_name, factory):
@@ -46,80 +80,6 @@ def default_tempesta_factory(tempesta):
 
 
 register_tempesta("tempesta", default_tempesta_factory)
-
-
-def ip_str_to_number(ip_addr):
-    """Convert ip to number"""
-    packed = socket.inet_aton(ip_addr)
-    return struct.unpack("!L", packed)[0]
-
-
-def ip_number_to_str(ip_addr):
-    """Convert ip in numeric form to string"""
-    packed = struct.pack("!L", ip_addr)
-    return socket.inet_ntoa(packed)
-
-
-def create_interface(iface_id, base_iface_name, base_ip):
-    """Create interface alias"""
-    base_ip_addr = ip_str_to_number(base_ip)
-    iface_ip_addr = base_ip_addr + iface_id
-    iface_ip = ip_number_to_str(iface_ip_addr)
-
-    iface = "%s:%i" % (base_iface_name, iface_id)
-
-    command = "LANG=C ip address add %s dev %s label %s" % (iface_ip, base_iface_name, iface)
-    try:
-        tf_cfg.dbg(3, "Adding ip %s" % iface_ip)
-        remote.client.run_cmd(command)
-    except:
-        tf_cfg.dbg(3, "Interface alias already added")
-
-    return (iface, iface_ip)
-
-
-def remove_interface(interface_name, iface_ip):
-    """Remove interface"""
-    template = "LANG=C ip address del %s dev %s"
-    try:
-        tf_cfg.dbg(3, "Removing ip %s" % iface_ip)
-        remote.client.run_cmd(template % (iface_ip, interface_name))
-    except:
-        tf_cfg.dbg(3, "Interface alias already removed")
-
-
-def remove_interfaces(base_interface_name, ips):
-    """Remove previously created interfaces"""
-    for ip in ips:
-        remove_interface(base_interface_name, ip)
-
-
-def create_route(base_iface_name, ip, gateway_ip):
-    """Create route"""
-    command = "LANG=C ip route add %s via %s dev %s" % (ip, gateway_ip, base_iface_name)
-    try:
-        tf_cfg.dbg(3, "Adding route for %s" % ip)
-        remote.tempesta.run_cmd(command)
-    except:
-        tf_cfg.dbg(3, "Route already added")
-
-    return
-
-
-def remove_route(interface_name, ip):
-    """Remove route"""
-    template = "LANG=C ip route del %s dev %s"
-    try:
-        tf_cfg.dbg(3, "Removing route for %s" % ip)
-        remote.tempesta.run_cmd(template % (ip, interface_name))
-    except:
-        tf_cfg.dbg(3, "Route already removed")
-
-
-def remove_routes(base_interface_name, ips):
-    """Remove previously created routes"""
-    for ip in ips:
-        remove_route(base_interface_name, ip)
 
 
 class TempestaTest(unittest.TestCase):
@@ -216,8 +176,8 @@ class TempestaTest(unittest.TestCase):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
                 client_ip = tf_cfg.cfg.get("Client", "ip")
-                (_, ip) = create_interface(len(self.__ips), interface, base_ip)
-                create_route(interface, ip, client_ip)
+                (_, ip) = sysnet.create_interface(len(self.__ips), interface, base_ip)
+                sysnet.create_route(interface, ip, client_ip)
                 self.__ips.append(ip)
             self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip)
             self.__clients[cid].set_rps(client.get("rps", 0))
@@ -366,8 +326,8 @@ class TempestaTest(unittest.TestCase):
 
         tf_cfg.dbg(3, "Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
-        remove_routes(interface, self.__ips)
-        remove_interfaces(interface, self.__ips)
+        sysnet.remove_routes(interface, self.__ips)
+        sysnet.remove_interfaces(interface, self.__ips)
         self.__ips = []
 
         self.oops.update()

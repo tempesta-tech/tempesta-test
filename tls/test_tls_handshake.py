@@ -16,7 +16,6 @@ __license__ = "GPL2"
 
 
 class TlsHandshakeTest(tester.TempestaTest):
-
     backends = [
         {
             "id": "0",
@@ -64,7 +63,7 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_1byte_transfer(self):
         self.start_all()
-        self.oops_ignore = ['WARNING']
+        self.oops_ignore = ["WARNING"]
         hs = TlsHandshake(chunk=1)
         hs.timeout = 30
         res = hs.do_12()
@@ -72,13 +71,13 @@ class TlsHandshakeTest(tester.TempestaTest):
 
     def test_9byte_transfer(self):
         self.start_all()
-        self.oops_ignore = ['WARNING']
+        self.oops_ignore = ["WARNING"]
         res = TlsHandshake(chunk=9).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     def test_10byte_transfer(self):
         self.start_all()
-        self.oops_ignore = ['WARNING']
+        self.oops_ignore = ["WARNING"]
         res = TlsHandshake(chunk=10).do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
@@ -93,7 +92,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         # Tempesta doesn't crash and doesn't generate an error message.
 
         # Put valid cipher in first 122 values
-        hs12.ciphers = list(range(64,50000))
+        hs12.ciphers = list(range(64, 50000))
         # Add some compressions as well. `0` is NULL-compression, so we are
         # good.
         hs12.compressions = list(range(15))
@@ -107,16 +106,16 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12 = TlsHandshake()
         hs12.sni = "a" * 1000
         hs12.do_12()
-        self.oops_ignore = ['WARNING']
-        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
+        self.oops_ignore = ["WARNING"]
+        self.assertEqual(hs12.hs.state.state, "TLSALERT_RECIEVED")
         warn = "ClientHello: bad extension size"
         self.assertEqual(self.oops.warn_count(warn), 1, "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.sni = ''
-        self.assertTrue(hs12.do_12(), "Empty SNI isn't accepted by default")
+        hs12.sni = ""
+        self.assertFalse(hs12.do_12(), "Empty SNI accepted by default")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sni(self):
@@ -131,20 +130,25 @@ class TlsHandshakeTest(tester.TempestaTest):
         hs12 = TlsHandshake()
         hs12.sni = "badservername"
         hs12.do_12()
-        self.oops_ignore = ['WARNING']
-        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
-        self.assertEqual(self.oops.warn_count("requested unknown server name 'badservername'"), 1,
-                         "Bad SNI isn't logged")
+        self.oops_ignore = ["WARNING"]
+        self.assertEqual(hs12.hs.state.state, "TLSALERT_RECIEVED")
+        self.assertEqual(
+            self.oops.warn_count("requested unknown server name 'badservername'"),
+            1,
+            "Bad SNI isn't logged",
+        )
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_sign_algs(self):
         self.start_all()
         hs12 = TlsHandshake()
         # Generate bad extension mismatching length and actual data.
-        hs12.ext_sa = TLS_Ext_SignatureAlgorithms(sig_algs=[0x0201, 0x0401, 0x0501, 0x0601, 0x0403],len=11)
+        hs12.ext_sa = TLS_Ext_SignatureAlgorithms(
+            sig_algs=[0x0201, 0x0401, 0x0501, 0x0601, 0x0403], len=11
+        )
         hs12.do_12()
-        self.oops_ignore = ['WARNING']
-        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
+        self.oops_ignore = ["WARNING"]
+        self.assertEqual(hs12.hs.state.state, "TLSALERT_RECIEVED")
         warn = "ClientHello: bad signature algorithm extension"
         self.assertEqual(self.oops.warn_count(warn), 1, "No warning about bad ClientHello")
 
@@ -152,10 +156,10 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_bad_elliptic_curves(self):
         self.start_all()
         hs12 = TlsHandshake()
-        hs12.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=['sect163k1'])
+        hs12.ext_ec = TLS_Ext_SupportedEllipticCurves(groups=["sect163k1"])
         hs12.do_12()
-        self.oops_ignore = ['WARNING']
-        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
+        self.oops_ignore = ["WARNING"]
+        self.assertEqual(hs12.hs.state.state, "TLSALERT_RECIEVED")
         warn = "None of the common ciphersuites is usable"
         self.assertEqual(self.oops.warn_count(warn), 1, "No warning about bad ClientHello")
 
@@ -164,10 +168,12 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.start_all()
         hs12 = TlsHandshake()
 
-        hs12.renegotiation_info = TLS_Ext_RenegotiationInfo(renegotiated_connection="foo", type=65281)
+        hs12.renegotiation_info = TLS_Ext_RenegotiationInfo(
+            renegotiated_connection="foo", type=65281
+        )
         hs12.do_12()
-        self.oops_ignore = ['WARNING']
-        self.assertEqual(hs12.hs.state.state, 'TLSALERT_RECIEVED')
+        self.oops_ignore = ["WARNING"]
+        self.assertEqual(hs12.hs.state.state, "TLSALERT_RECIEVED")
         warn = "ClientHello: bad renegotiation_info"
         self.assertEqual(
             self.oops.warn_count(warn), 1, "No warning about non-empty RenegotiationInfo"
@@ -176,30 +182,52 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_alert(self):
         self.start_all()
         tls_conn = TlsHandshake()
-        tls_conn.send_data = [TLSAlert(level=1, descr=10), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        tls_conn.send_data = [
+            TLSAlert(level=1, descr=10),
+            TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
+        ]
         self.assertTrue(tls_conn.do_12(), "Can not connect to Tempesta")
-        self.assertTrue(len(tls_conn.hs.server_data)==1, "Wrong request 1 result: %s" % tls_conn.hs.server_data)
-        
+        self.assertTrue(
+            len(tls_conn.hs.server_data) == 1,
+            "Wrong request 1 result: %s" % tls_conn.hs.server_data,
+        )
+
         # Unknown alerts are just ignored.
         tls_conn = TlsHandshake()
-        tls_conn.send_data = [TLSAlert(level=22, descr=77), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        tls_conn.send_data = [
+            TLSAlert(level=22, descr=77),
+            TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
+        ]
         self.assertTrue(tls_conn.do_12(), "Can not connect to Tempesta")
-        self.assertTrue(len(tls_conn.hs.server_data)==1, "Wrong request 2 result: %s" % tls_conn.hs.server_data)
-        
-        tls_conn = TlsHandshake()
-        tls_conn.send_data = [TLSAlert(level=2, descr=10), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
-        tls_conn.do_12()
-        self.assertTrue(len(tls_conn.hs.server_data)==0, "Request processed on closed socket")
+        self.assertTrue(
+            len(tls_conn.hs.server_data) == 1,
+            "Wrong request 2 result: %s" % tls_conn.hs.server_data,
+        )
 
+        tls_conn = TlsHandshake()
+        tls_conn.send_data = [
+            TLSAlert(level=2, descr=10),
+            TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
+        ]
+        tls_conn.do_12()
+        self.assertTrue(len(tls_conn.hs.server_data) == 0, "Request processed on closed socket")
 
     def test_close_notify(self):
         self.start_all()
         tls_conn = TlsHandshake()
-        tls_conn.send_data = [TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"), TLSAlert(level=1, descr=0), TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")]
+        tls_conn.send_data = [
+            TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
+            TLSAlert(level=1, descr=0),
+            TLSApplicationData(data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
+        ]
         self.assertTrue(tls_conn.do_12(), "Can not connect to Tempesta")
-        self.assertTrue(len(tls_conn.hs.server_data)==2, "Wrong request result: %s" % tls_conn.hs.server_data)
+        self.assertTrue(
+            len(tls_conn.hs.server_data) == 2, "Wrong request result: %s" % tls_conn.hs.server_data
+        )
         alert = tls_conn.hs.server_data[1]
-        self.assertTrue(isinstance(alert, TLSAlert), "Wrong request result: %s" % tls_conn.hs.server_data)
+        self.assertTrue(
+            isinstance(alert, TLSAlert), "Wrong request result: %s" % tls_conn.hs.server_data
+        )
         self.assertEqual(len(alert), 2)
         self.assertEqual(alert, TLSAlert(level=1, descr=0))
 
@@ -228,9 +256,9 @@ class TlsHandshakeTest(tester.TempestaTest):
     def test_regression_1(self):
         """Application data records before ClientFinished."""
         self.start_all()
-        
+
         class _ModifiedTLSClientAutomaton(ModifiedTLSClientAutomaton):
-            self.host = 'tempesta-tech.com'
+            self.host = "tempesta-tech.com"
 
             @ATMT.state()
             def ADDED_CHANGECIPHERSPEC(self):
@@ -239,7 +267,9 @@ class TlsHandshakeTest(tester.TempestaTest):
             @ATMT.condition(ADDED_CHANGECIPHERSPEC)
             def should_add_ClientFinished(self):
                 self.add_record()
-                self.add_msg(TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"))
+                self.add_msg(
+                    TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
+                )
                 self.add_record()
                 self.add_msg(TLSFinished())
                 raise self.ADDED_CLIENTFINISHED()
@@ -247,8 +277,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         conn = TlsHandshake()
         res = conn.do_12(automaton=_ModifiedTLSClientAutomaton)
         self.assertFalse(res, "Bad handshake successfully processed")
-        
-        
+
     def test_old_handshakes(self):
         self.start_all()
         res = TlsHandshakeStandard().do_old()
@@ -270,15 +299,9 @@ class TlsMissingDefaultKey(tester.TempestaTest):
             }
 
             vhost tempesta-tech.com {
-                proxy_pass be1;
                 tls_certificate ${general_workdir}/tempesta.crt;
                 tls_certificate_key ${general_workdir}/tempesta.key;
-            }
-
-            http_chain {
-                host == "tempesta-tech.com" -> tempesta-tech.com;
-                host == "example.com" -> example.com;
-                -> block;
+                proxy_pass be1;
             }
         """,
     }
@@ -291,23 +314,29 @@ class TlsMissingDefaultKey(tester.TempestaTest):
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
 
-        # tempesta.com => ok
-        res = TlsHandshake().do_12()
+        # tempesta-tech.com => ok
+        hs = TlsHandshake()
+        hs.sni = "tempesta-tech.com"
+        res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
         # example.com => internal error
         hs = TlsHandshake()
-        hs.sni = 'example.com'
+        hs.sni = "example.com"
         hs.do_12()
-        self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
+        self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED")
 
         # empty sni => internal error
         hs = TlsHandshake()
-        hs.sni = ''
+        hs.sni = ""
         hs.do_12()
-        self.assertEqual(hs.hs.state.state, 'TLSALERT_RECIEVED')
-        self.assertEqual(self.oops.warn_count("requested misconfigured vhost"), 2,
-                         "Bad SNI isn't logged")
+        self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED")
+        self.assertEqual(
+            self.oops.warn_count(" requested unknown server name"), 1, "Bad SNI isn't logged"
+        )
+        self.assertEqual(
+            self.oops.warn_count("requested missing server name"), 1, "Bad SNI isn't logged"
+        )
 
 
 class TlsVhostHandshakeTest(tester.TempestaTest):
@@ -392,50 +421,54 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {vhs.sni}\r\n\r\n")]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost1: %s" % res)
-        self.assertTrue(vhs.hs.server_data[0].data.decode().endswith("be1"),
-                        "Bad response from vhost1: [%s]" % vhs.hs.server_data[0].data.decode())
-        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
-                        "Wrong certificate received for vhost1")
+        self.assertTrue(
+            vhs.hs.server_data[0].data.decode().endswith("be1"),
+            "Bad response from vhost1: [%s]" % vhs.hs.server_data[0].data.decode(),
+        )
+        self.assertTrue(
+            x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
+            "Wrong certificate received for vhost1",
+        )
 
         vhs = TlsHandshake()
         vhs.sni = "vhost2.net"
         vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {vhs.sni}\r\n\r\n")]
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake with vhost2: %s" % res)
-        self.assertTrue(vhs.hs.server_data[0].data.decode().endswith("be2"),
-                        "Bad response from vhost2: [%s]" % vhs.hs.server_data[0].data.decode())
-        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost2.net"),
-                        "Wrong certificate received for vhost2")
+        self.assertTrue(
+            vhs.hs.server_data[0].data.decode().endswith("be2"),
+            "Bad response from vhost2: [%s]" % vhs.hs.server_data[0].data.decode(),
+        )
+        self.assertTrue(
+            x509_check_cn(vhs.hs.server_cert[0], "vhost2.net"),
+            "Wrong certificate received for vhost2",
+        )
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_empty_sni_default(self):
-        """When a client doesn't send a SNI identifier, the global certificates
-        will be used. The request is processed well, if it follows the
-        http_chain rules by the host header.
+        """
+        When a client doesn't send an ampty SNI identifier, handshake will not be established
+        And ensure the sni==vhost2.net provided will route to vhost2.net
         """
         self.init()
         vhs = TlsHandshake()
-        vhs.sni = ''
-        vhs.host = 'vhost1.net'
-        vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: vhost1.net\r\n\r\n")]
+        vhs.sni = ""
+        vhs.host = "vhost1.net"
+        vhs.send_data = []
         res = vhs.do_12()
-        self.assertTrue(res, "Bad handshake: %s" % res)
-        resp = vhs.hs.server_data[0].data.decode("utf-8")
-        self.assertTrue(resp.endswith("be1"),
-                        "Bad response from vhost1: [%s]" % resp)
-        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
-                        "Wrong certificate received for vhost1")
+        self.assertFalse(res, "Handshake successfull with empty sni: %s" % res)
 
         vhs = TlsHandshake()
-        vhs.sni = ''
+        vhs.sni = "vhost2.net"
         vhs.host = "vhost2.net"
         res = vhs.do_12()
         self.assertTrue(res, "Bad handshake: %s" % res)
         resp = vhs.hs.server_data[0].data.decode("utf-8")
-        self.assertTrue(resp.endswith("be2"),
-                        "Bad response from vhost2: [%s]" % resp)
-        self.assertTrue(x509_check_cn(vhs.hs.server_cert[0], "vhost1.net"),
-                        "Wrong certificate received for vhost1")
+        self.assertTrue(resp.endswith("be2"), "Bad response from vhost2: [%s]" % resp)
+        self.assertTrue(
+            x509_check_cn(vhs.hs.server_cert[0], "vhost2.net"),
+            "Wrong certificate received for vhost1",
+        )
 
     def test_bad_host(self):
         self.init()
@@ -449,7 +482,9 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.assertTrue(hs12.do_12(), "Bad Host successfully processed")
         self.assertEqual(len(hs12.hs.server_data), 0, "Got unexpected response after Errno 104")
         sniffer.stop()
-        self.assertEqual(sniffer.packets[-1].sprintf('%TCP.flags%'), "RA", "No Connection reset recieved")
+        self.assertEqual(
+            sniffer.packets[-1].sprintf("%TCP.flags%"), "RA", "No Connection reset recieved"
+        )
 
 
 class TlsCertReconfig(tester.TempestaTest):

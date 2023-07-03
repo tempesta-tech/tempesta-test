@@ -5,7 +5,7 @@ Tests for correct handling of HTTP/1.1 headers.
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -291,3 +291,68 @@ class TestHost(tester.TempestaTest):
             ),
             expected_status_code="400",
         )
+
+
+class TestHeadersParsing(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+
+            block_action attack reply;
+            block_action error reply;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def test_long_header_name_in_request(self):
+        """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
+        for length, status_code in ((1023, "200"), (1024, "200"), (1025, "400")):
+            with self.subTest(length=length, status_code=status_code):
+                self.start_all_services()
+
+                client = self.get_client("deproxy")
+                client.send_request(
+                    f"GET / HTTP/1.1\r\nHost: localhost\r\n{'a' * length}: text\r\n\r\n",
+                    status_code,
+                )
+
+    def test_long_header_name_in_response(self):
+        """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
+        for length, status_code in ((1023, "200"), (1024, "200"), (1025, "502")):
+            with self.subTest(length=length, status_code=status_code):
+                self.start_all_services()
+
+                client = self.get_client("deproxy")
+                server = self.get_server("deproxy")
+                server.set_response(
+                    "HTTP/1.1 200 OK\r\n"
+                    + "Date: test\r\n"
+                    + "Server: debian\r\n"
+                    + f"{'a' * length}: text\r\n"
+                    + "Content-Length: 0\r\n\r\n"
+                )
+                client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", status_code)
