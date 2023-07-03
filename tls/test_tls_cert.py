@@ -759,7 +759,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
 
-class WrkTestsMultipleVhosts(TlsCertSelectBySanwitMultipleSections):
+class WrkTestsMultipleVhosts(tester.TempestaTest):
     NGINX_CONFIG = """
 pid ${pid};
 worker_processes  auto;
@@ -827,6 +827,9 @@ http {
         self.set_first_config()
         self.set_second_config()
 
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
 
     def test_wrk(self):
         generate_certificate(
