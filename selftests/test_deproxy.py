@@ -97,8 +97,7 @@ class DeproxyTestFailOver(DeproxyTest):
         self.tester = DeproxyFailOver(self.client, self.servers)
 
 
-class DeproxyTestH2(tester.TempestaTest):
-
+class DeproxyTestH2(tester.TempestaTest, no_reload=True):
     backends = [
         {
             "id": "deproxy",
@@ -271,8 +270,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertIn(b"example.com", client.request_buffers[0])
 
 
-class DeproxyClientTest(tester.TempestaTest):
-
+class DeproxyClientTest(tester.TempestaTest, no_reload=True):
     backends = [
         {
             "id": "deproxy",

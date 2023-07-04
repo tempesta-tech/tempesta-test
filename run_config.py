@@ -7,6 +7,8 @@ h2.frame_buffer.CONTINUATION_BACKLOG = 100000
 
 SAVE_SECRETS = False
 
+NO_RELOAD = False
+
 # General params from tests_config.ini
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
 

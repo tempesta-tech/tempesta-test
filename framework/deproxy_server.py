@@ -195,24 +195,43 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
 
 class StaticDeproxyServer(BaseDeproxyServer):
+    __response: bytes
+
     def __init__(self, *args, **kwargs):
-        self.response = kwargs["response"]
+        self.set_response(kwargs.get("response", b""))
+        self.__default_response = self.__response
         kwargs.pop("response", None)
         BaseDeproxyServer.__init__(self, *args, **kwargs)
         self.last_request = None
         self.requests = []
 
     def run_start(self):
-        self.requests = []
+        self.clear_stats()
         BaseDeproxyServer.run_start(self)
 
-    def set_response(self, response):
-        self.response = response
+    @property
+    def response(self) -> str:
+        return self.__response.decode(errors="ignore")
+
+    @response.setter
+    def response(self, response: str or bytes) -> None:
+        self.set_response(response)
+
+    def set_response(self, response: str or bytes) -> None:
+        if isinstance(response, str):
+            self.__response = response.encode()
+        elif isinstance(response, bytes):
+            self.__response = response
 
     def receive_request(self, request):
         self.requests.append(request)
         self.last_request = request
         return self.response, False
+
+    def clear_stats(self):
+        self.set_response(self.__default_response)
+        self.last_request = None
+        self.requests = []
 
 
 def deproxy_srv_factory(server, name, tester):

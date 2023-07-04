@@ -49,7 +49,7 @@ class TestHpackBase(H2Base):
         )
 
 
-class TestHpack(TestHpackBase):
+class TestHpack(TestHpackBase, no_reload=True):
     def test_static_table(self):
         """
         Send request with headers from static table.
@@ -658,7 +658,7 @@ class TestHpackStickyCookie(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
 
 
-class TestHpackCache(TestHpackBase):
+class TestHpackCache(TestHpackBase, no_reload=True):
     tempesta = {
         "config": """
             listen 443 proto=h2;
@@ -722,7 +722,7 @@ class TestHpackCache(TestHpackBase):
         self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
 
-class TestFramePayloadLength(H2Base):
+class TestFramePayloadLength(H2Base, no_reload=True):
     """
     Additionally, an endpoint MAY use any applicable error code when it detects
     an error condition; a generic error code (such as PROTOCOL_ERROR or INTERNAL_ERROR)

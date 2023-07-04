@@ -71,8 +71,7 @@ class TestCurlClientParsing(unittest.TestCase):
             self.assertEqual(client.responses[0].headers["content-length"], "395")
 
 
-class TestCurlClient(tester.TempestaTest):
-
+class TestCurlClient(tester.TempestaTest, no_reload=True):
     backends = [
         {
             "id": "deproxy",

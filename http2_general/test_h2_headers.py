@@ -83,7 +83,7 @@ vhost default {
 """
 
 
-class HeadersParsing(H2Base):
+class HeadersParsing(H2Base, no_reload=True):
     def test_small_header_in_request(self):
         """Request with small header name length completes successfully."""
         self.start_all_services()
@@ -142,7 +142,7 @@ class HeadersParsing(H2Base):
                 client.send_request(self.post_request, status_code)
 
 
-class DuplicateSingularHeader(H2Base):
+class DuplicateSingularHeader(H2Base, no_reload=True):
     def test_two_header_as_bytes_from_dynamic_table(self):
         client = self.get_client("deproxy")
         client.parsing = False
@@ -187,7 +187,7 @@ class DuplicateSingularHeader(H2Base):
         client.send_request(self.get_request + [("referer", "test1"), ("referer", "test1")], "400")
 
 
-class TestPseudoHeaders(H2Base):
+class TestPseudoHeaders(H2Base, no_reload=True):
     def test_invalid_pseudo_header(self):
         """
         Endpoints MUST NOT generate pseudo-header fields other than those defined in this document.
@@ -237,7 +237,7 @@ class TestPseudoHeaders(H2Base):
         self.assertTrue(client.wait_for_connection_close())
 
 
-class TestConnectionHeaders(H2Base):
+class TestConnectionHeaders(H2Base, no_reload=True):
     def __test_request(self, header: tuple):
         """
         An endpoint MUST NOT generate an HTTP/2 message containing connection-specific
@@ -304,6 +304,7 @@ class TestSplitCookies(H2Base):
     Ensure that multiple cookie headers values are merged
     into single header when proxying to backend
     """
+
     def test_split_cookies(self):
         client = self.get_client("deproxy")
         client.parsing = False
@@ -311,7 +312,9 @@ class TestSplitCookies(H2Base):
         self.start_all_services()
 
         cookies = {"foo": "bar", "bar": "baz"}
-        client.send_request(self.get_request + [("cookie", f"{name}={val}") for name, val in cookies.items()], "200")
+        client.send_request(
+            self.get_request + [("cookie", f"{name}={val}") for name, val in cookies.items()], "200"
+        )
 
         cookie_hdrs = list(self.get_server("deproxy").last_request.headers.find_all("cookie"))
         self.assertEqual(len(cookie_hdrs), 1, "Cookie headers are not merged together")
@@ -323,7 +326,7 @@ class TestSplitCookies(H2Base):
         self.assertEqual(cookies, received_cookies, "Sent and received cookies are not equal")
 
 
-class TestIPv6(H2Base):
+class TestIPv6(H2Base, no_reload=True):
     clients = [
         {
             "id": "deproxy",
@@ -379,7 +382,7 @@ class TestIPv6(H2Base):
         self.assertIn(response_header, client.last_response.headers.headers)
 
 
-class TestH2Host(H2Base):
+class TestH2Host(H2Base, no_reload=True):
     def test_host_missing(self):
         self.start_all_services()
         client = self.get_client("deproxy")

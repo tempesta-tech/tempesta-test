@@ -13,7 +13,7 @@ from helpers import tf_cfg
 from http2_general.helpers import H2Base
 
 
-class TestH2Stream(H2Base):
+class TestH2Stream(H2Base, no_reload=True):
     def test_max_concurrent_stream(self):
         """
         An endpoint that receives a HEADERS frame that causes its advertised concurrent
