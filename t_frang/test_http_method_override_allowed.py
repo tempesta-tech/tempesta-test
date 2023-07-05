@@ -10,20 +10,11 @@ WARN = "frang: restricted HTTP method"
 WARN_ERROR = "frang: restricted overridden HTTP method"
 WARN_UNSAFE = "request dropped: unsafe method override:"
 
-ACCEPTED_REQUESTS = """
-POST / HTTP/1.1\r
-Host: tempesta-tech.com\r
-X-HTTP-Method-Override: PUT\r
-\r
-POST / HTTP/1.1\r
-Host: tempesta-tech.com\r
-X-Method-Override: PUT\r
-\r
-POST / HTTP/1.1\r
-Host: tempesta-tech.com\r
-X-HTTP-Method: PUT\r
-\r
-"""
+ACCEPTED_REQUESTS = [
+    "POST / HTTP/1.1\r\n" + "Host: tempesta-tech.com\r\n" + "X-HTTP-Method-Override: PUT\r\n\r\n",
+    "POST / HTTP/1.1\r\n" + "Host: tempesta-tech.com\r\n" + "X-Method-Override: PUT\r\n\r\n",
+    "POST / HTTP/1.1\r\n" + "Host: tempesta-tech.com\r\n" + "X-HTTP-Method: PUT\r\n\r\n",
+]
 
 REQUEST_FALSE_OVERRIDE = """
 POST / HTTP/1.1\r
@@ -59,8 +50,8 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
     def test_accepted_request(self):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
-            requests=[
-                ACCEPTED_REQUESTS,
+            requests=ACCEPTED_REQUESTS
+            + [
                 REQUEST_FALSE_OVERRIDE,
                 DOUBLE_OVERRIDE,
                 MULTIPLE_OVERRIDE,

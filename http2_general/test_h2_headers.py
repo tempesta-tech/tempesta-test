@@ -3,8 +3,11 @@ Tests for correct parsing of some parts of http2 messages, such as headers.
 For now tests run curl as external program capable to generate h2 messages and
 analises its return code.
 """
+from h2.connection import AllowedStreamIDs
+from h2.stream import StreamInputs
+from hyperframe import frame
 
-from framework import deproxy_client, tester
+from framework import tester
 from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
@@ -193,7 +196,7 @@ class TestPseudoHeaders(H2Base):
         Endpoints MUST NOT generate pseudo-header fields other than those defined in this document.
         RFC 9113 8.3
         """
-        self.__test([(":content-length", "0")])
+        self.__test(self.post_request + [(":content-length", "0")])
 
     def test_duplicate_pseudo_header(self):
         """
@@ -202,35 +205,113 @@ class TestPseudoHeaders(H2Base):
         field name MUST be treated as malformed.
         RFC 9113 8.3
         """
-        self.__test([(":path", "/")])
+        self.__test(self.post_request + [(":path", "/")])
 
     def test_status_header_in_request(self):
         """
         Pseudo-header fields defined for responses MUST NOT appear in requests.
         RFC 9113 8.3
         """
-        self.__test([(":status", "200")])
+        self.__test(self.post_request + [(":status", "200")])
 
     def test_regular_header_before_pseudo_header(self):
         """
         All pseudo-header fields MUST appear in a field block before all regular field lines.
         RFC 9113 8.3
         """
-        self.post_request = [
-            (":authority", "example.com"),
-            (":path", "/"),
-            (":scheme", "https"),
-        ]
-        self.__test([("content-length", "0"), (":method", "POST")])
+        self.__test(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                ("content-length", "0"),
+                (":method", "POST"),
+            ]
+        )
 
-    def __test(self, optional_header: list):
+    def test_authority_with_scheme_and_path(self):
+        """
+        ":authority" MUST NOT include the deprecated userinfo subcomponent for "http"
+        or "https" schemed URIs.
+        RFC 9113 8.3.1
+        """
+        self.__test(
+            [
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "POST"),
+                (":authority", "https://example.com/index.html"),
+            ]
+        )
+
+    def test_without_path_header(self):
+        """
+        All HTTP/2 requests MUST include exactly one valid value for the ":method",
+        ":scheme", and ":path" pseudo-header fields, unless they are CONNECT
+        requests. An HTTP request that omits mandatory pseudo-header fields is malformed.
+        RFC 9113 8.3.1
+        """
+        self.__test(
+            [
+                (":authority", "example.com"),
+                (":scheme", "https"),
+                (":method", "POST"),
+            ]
+        )
+
+    def test_without_scheme_header(self):
+        """
+        All HTTP/2 requests MUST include exactly one valid value for the ":method",
+        ":scheme", and ":path" pseudo-header fields, unless they are CONNECT
+        requests. An HTTP request that omits mandatory pseudo-header fields is malformed.
+        RFC 9113 8.3.1
+        """
+        self.__test(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":method", "POST"),
+            ]
+        )
+
+    def test_without_method_header(self):
+        """
+        All HTTP/2 requests MUST include exactly one valid value for the ":method",
+        ":scheme", and ":path" pseudo-header fields, unless they are CONNECT
+        requests. An HTTP request that omits mandatory pseudo-header fields is malformed.
+        RFC 9113 8.3.1
+        """
+        self.__test(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+            ]
+        )
+
+    def test_connect_method_with_path_and_scheme(self):
+        """
+        The ":scheme" and ":path" pseudo-header fields MUST be omitted.
+        A CONNECT request that does not conform to these restrictions is malformed.
+        RFC 9113 8.5
+        """
+        self.__test(
+            [
+                (":method", "CONNECT"),
+                (":authority", "www.example.com:443"),
+                (":path", "/"),
+                (":scheme", "https"),
+            ]
+        )
+
+    def __test(self, request: list):
         self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
 
         client.send_request(
-            self.post_request + optional_header,
+            request,
             "400",
         )
 
@@ -271,8 +352,12 @@ class TestConnectionHeaders(H2Base):
             + "Content-Length: 0\r\n\r\n"
         )
 
+        header = (header[0].lower(), header[1])
         client.send_request(self.post_request, "200")
         self.assertNotIn(header, client.last_response.headers.headers)
+
+    def test_TE_header_in_request(self):
+        self.__test_request(header=("te", "gzip"))
 
     def test_connection_header_in_request(self):
         self.__test_request(header=("connection", "keep-alive"))
@@ -297,6 +382,9 @@ class TestConnectionHeaders(H2Base):
 
     def test_upgrade_header_in_response(self):
         self.__test_response(header=("upgrade", "websocket"))
+
+    def test_TE_header_in_response(self):
+        self.__test_response(header=("te", "gzip"))
 
 
 class TestSplitCookies(H2Base):
@@ -476,6 +564,123 @@ class TestH2Host(H2Base):
             ],
             expected_status_code="400",
         )
+
+
+class TestTrailers(H2Base):
+    request = [
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+    ]
+
+    def __create_connection_and_get_client(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        self.initiate_h2_connection(client)
+
+        # create stream and change state machine in H2Connection object
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        return client
+
+    def __send_headers_and_data_frames(self, client):
+        # create and send HEADERS frame without END_STREAM and with END_HEADERS
+        hf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode(self.request),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=False)
+
+        # create and send DATA frame without END_STREAM
+        df = frame.DataFrame(stream_id=client.stream_id, data=b"asd")
+        client.send_bytes(data=df.serialize(), expect_response=False)
+
+    def test_trailers_in_request(self):
+        """Send trailers after DATA frame and receive a 200 response."""
+        client = self.__create_connection_and_get_client()
+        self.__send_headers_and_data_frames(client)
+
+        # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
+        tf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("host", "localhost")]),
+            flags=["END_STREAM", "END_HEADERS"],
+        )
+        client.send_bytes(data=tf.serialize(), expect_response=True)
+
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
+
+    def test_trailers_with_continuation_frame_in_request(self):
+        """
+        Send trailers (HEADER and CONTINUATION frames) after DATA frame and receive a 200 response.
+        """
+        client = self.__create_connection_and_get_client()
+        self.__send_headers_and_data_frames(client)
+
+        # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
+        tf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("host", "localhost")]),
+            flags=["END_STREAM"],
+        )
+
+        # create and send CONTINUATION frame with trailers
+        cf = frame.ContinuationFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("x-my-hdr", "text")]),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(data=cf.serialize(), expect_response=True)
+
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
+
+    def test_trailers_with_pseudo_headers_in_request(self):
+        """
+        Trailers MUST NOT include pseudo-header fields.
+        RFC 9113 8.1
+        """
+        client = self.__create_connection_and_get_client()
+        self.__send_headers_and_data_frames(client)
+
+        # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
+        tf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([(":authority", "localhost")]),
+            flags=["END_STREAM", "END_HEADERS"],
+        )
+        client.send_bytes(data=tf.serialize(), expect_response=True)
+
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual("400", client.last_response.status, "HTTP response code missmatch.")
+
+    def test_trailers_without_end_stream_in_request(self):
+        """
+        An endpoint that receives a HEADERS frame without the END_STREAM flag set after
+        receiving the HEADERS frame that opens a request or after receiving a final
+        (non-informational) status code MUST treat the corresponding request or response
+        as malformed.
+        RFC 9113 8.1
+        """
+        client = self.__create_connection_and_get_client()
+        self.__send_headers_and_data_frames(client)
+
+        # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
+        tf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("host", "localhost")]),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(data=tf.serialize(), expect_response=True)
+
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual("400", client.last_response.status, "HTTP response code missmatch.")
 
 
 class CurlTestBase(tester.TempestaTest):

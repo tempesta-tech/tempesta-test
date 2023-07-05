@@ -989,6 +989,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
 
     def handle_close(self):
         self.close()
+        self.state = stateful.STATE_STOPPED
 
 
 # -------------------------------------------------------------------------------

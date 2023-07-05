@@ -336,7 +336,7 @@ class TempestaTest(unittest.TestCase):
             4,
             (
                 "----------------------dmesg---------------------\n"
-                + self.oops.log.decode()
+                + self.oops.log.decode(errors="ignore")
                 + "-------------------end dmesg--------------------"
             ),
         )

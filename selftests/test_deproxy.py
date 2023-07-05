@@ -98,7 +98,6 @@ class DeproxyTestFailOver(DeproxyTest):
 
 
 class DeproxyTestH2(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -272,7 +271,6 @@ class DeproxyTestH2(tester.TempestaTest):
 
 
 class DeproxyClientTest(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -417,6 +415,23 @@ server ${server_ip}:8000;
                 client.stop()
             except OSError:
                 raise AssertionError("Deproxy client launch: IP address is not available.")
+
+    def test_pipeline_request(self):
+        self.start_all_services()
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy")
+        client.parsing = False
+
+        messages = 3
+        request = ["GET / HTTP/1.1\r\nHost: localhost\r\n\r\n" for _ in range(messages)]
+
+        client.make_requests(request, pipelined=True)
+        client.valid_req_num = messages
+        client.wait_for_response(timeout=3)
+
+        self.assertEqual(client.nrreq, 1, "The estimated number of requests does not match.")
+        self.assertEqual(len(client.responses), messages)
+        for res in client.responses:
+            self.assertEqual(res.status, "200")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
