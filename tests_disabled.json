@@ -468,6 +468,10 @@
         {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
+            "reason": "Disabled by issue #1196"
         }
     ]
 }
