@@ -45,7 +45,7 @@ tls_match_any_server_name;
         },
     ]
 
-    def send_response_and_check_connection_is_closed(self, header: list):
+    def send_response_and_check_connection_is_not_closed(self, header: list):
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -61,10 +61,21 @@ tls_match_any_server_name;
             + header,
             huffman=False,
         )
+
         self.assertTrue(client.wait_for_response())
         self.assertEqual("400", client.last_response.status)
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertFalse(client.connection_is_closed())
+
+        client.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
 
     def test_ascii_uppercase_in_header_name(self):
         """
@@ -76,11 +87,15 @@ tls_match_any_server_name;
         """
         symbol = random.randint(0x41, 0x5A).to_bytes(1, "big")
         with self.subTest(symbol=symbol, msg="Subtest with one random symbols."):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+            self.send_response_and_check_connection_is_not_closed(
+                [(b"x-my-hdr" + symbol, b"value")]
+            )
 
         symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x41, 0x5A)])
         with self.subTest(msg="Subtest with symbols from 0x41 to 0x5a"):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
+            self.send_response_and_check_connection_is_not_closed(
+                [(b"x-my-hdr" + symbols, b"value")]
+            )
 
     def test_ascii_from_0x7f_to_0xff_in_header_name(self):
         """
@@ -92,11 +107,15 @@ tls_match_any_server_name;
         """
         symbol = random.randint(0x7F, 0xFF).to_bytes(1, "big")
         with self.subTest(hex=symbol, msg="Subtest with one random symbols."):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+            self.send_response_and_check_connection_is_not_closed(
+                [(b"x-my-hdr" + symbol, b"value")]
+            )
 
         symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x7F, 0xFF)])
         with self.subTest(msg="Subtest with symbols from 0x7f to 0xff"):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
+            self.send_response_and_check_connection_is_not_closed(
+                [(b"x-my-hdr" + symbols, b"value")]
+            )
 
     def test_ascii_from_0x00_to_0x20_in_header_name(self):
         """
@@ -108,11 +127,15 @@ tls_match_any_server_name;
         """
         symbol = random.randint(0x00, 0x20).to_bytes(1, "big")
         with self.subTest(hex=symbol, msg="Subtest with one random symbols."):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+            self.send_response_and_check_connection_is_not_closed(
+                [(b"x-my-hdr" + symbol, b"value")]
+            )
 
         symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x00, 0x20)])
         with self.subTest(msg="Subtest with symbols from 0x7f to 0xff"):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
+            self.send_response_and_check_connection_is_not_closed(
+                [(b"x-my-hdr" + symbols, b"value")]
+            )
 
     def test_ascii_0x00_0x0a_0x0d_in_header_value(self):
         """
@@ -122,7 +145,7 @@ tls_match_any_server_name;
         """
         for symbol in [b"\x00", b"\x0a", b"\x0d"]:
             with self.subTest(symbol=symbol):
-                self.send_response_and_check_connection_is_closed(
+                self.send_response_and_check_connection_is_not_closed(
                     [(b"x-my-hdr", b"val" + symbol + b"ue")]
                 )
 
@@ -135,11 +158,13 @@ tls_match_any_server_name;
         for symbol in [b"\x20", b"\x09"]:
             for header_value in [b"value" + symbol, symbol + b"value"]:
                 with self.subTest(header_value=header_value, symbol=symbol):
-                    self.send_response_and_check_connection_is_closed([(b"x-my-hdr", header_value)])
+                    self.send_response_and_check_connection_is_not_closed(
+                        [(b"x-my-hdr", header_value)]
+                    )
 
 
 class TestH2HeaderFieldResponse(TestH2HeaderFieldRequest):
-    def send_response_and_check_connection_is_closed(self, header: list):
+    def send_response_and_check_connection_is_not_closed(self, header: list):
         self.start_all_services()
 
         server = self.get_server("deproxy")

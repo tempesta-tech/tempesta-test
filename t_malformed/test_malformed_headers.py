@@ -39,12 +39,18 @@ server ${server_ip}:8000;
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
+    def send_success_request(self):
+        clnt = self.get_client("deproxy")
+        clnt.send_request("GET / HTTP/1.1\r\nHost: deproxy\r\n\r\n", "200")
+
     def common_check(self, headers: tuple, method="GET"):
         self.start_all_services()
 
         clnt = self.get_client("deproxy")
         clnt.parsing = False
         clnt.send_request(self.generate_request(headers, method), "400")
+        self.assertFalse(clnt.connection_is_closed())
+        self.send_success_request()
 
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
@@ -478,6 +484,7 @@ server ${server_ip}:8000;
 
         clnt = self.get_client("deproxy")
         clnt.send_request(request, expect)
+        self.assertFalse(clnt.connection_is_closed())
 
 
 class MalformedResponsesTest(MalformedResponseBase):

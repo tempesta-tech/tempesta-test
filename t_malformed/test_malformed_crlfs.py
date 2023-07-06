@@ -92,6 +92,7 @@ server ${general_ip}:8000 conns_n=1;
                 expect,
                 "Request sent to backend differs from expected one",
             )
+        self.assertFalse(deproxy_cl.connection_is_closed())
 
     def test_02_no_crlf_pipeline(self):
         """Test 2 normal requests in pipeline."""

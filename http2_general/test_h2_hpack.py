@@ -800,4 +800,4 @@ class TestFramePayloadLength(H2Base):
         self.__make_request(client, b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00")
 
         self.assertEqual(client.last_response.status, "400")
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertFalse(client.connection_is_closed())

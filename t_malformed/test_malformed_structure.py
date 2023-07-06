@@ -39,6 +39,7 @@ server ${general_ip}:8000;
         client.parsing = False
 
         client.send_request(request, expect)
+        self.assertFalse(client.connection_is_closed())
 
     def test_lfcr(self):
         """

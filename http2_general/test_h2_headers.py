@@ -315,7 +315,16 @@ class TestPseudoHeaders(H2Base):
             "400",
         )
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertFalse(client.connection_is_closed())
+        client.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
 
 
 class TestConnectionHeaders(H2Base):
@@ -331,7 +340,16 @@ class TestConnectionHeaders(H2Base):
         client.parsing = False
 
         client.send_request(self.post_request + [header], "400")
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertFalse(client.connection_is_closed())
+        client.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
 
     def __test_response(self, header: tuple):
         """

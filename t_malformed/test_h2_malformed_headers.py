@@ -18,6 +18,24 @@ class H2MalformedRequestsTest(test_malformed_headers.MalformedRequestsTest):
         },
     ]
 
+    def send_success_request(self):
+        clnt = self.get_client("deproxy")
+        clnt.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
+
+    def test_upgrade(self):
+        self.common_check(headers=("Upgrade", "invalid"))
+
+    def test_te(self):
+        self.common_check(headers=("TE", "invalid"))
+
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
         if headers[0] == "Host":
@@ -50,6 +68,26 @@ class H2MalformedRequestsWithoutStrictParsingTest(
             "ssl": True,
         },
     ]
+
+    def send_success_request(self):
+        clnt = self.get_client("deproxy")
+        clnt.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
+
+    @unittest.SkipTest
+    def test_upgrade(self):
+        pass
+
+    @unittest.SkipTest
+    def test_te(self):
+        pass
 
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
@@ -94,6 +132,18 @@ class H2MalformedResponseWithoutStrictParsingTest(
         (":authority", "localhost"),
     ]
 
+    def send_success_request(self):
+        clnt = self.get_client("deproxy")
+        clnt.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
+
 
 class H2EtagAlphabetTest(test_malformed_headers.EtagAlphabetTest):
     clients = [
@@ -112,6 +162,18 @@ class H2EtagAlphabetTest(test_malformed_headers.EtagAlphabetTest):
         (":authority", "localhost"),
     ]
 
+    def send_success_request(self):
+        clnt = self.get_client("deproxy")
+        clnt.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
+
 
 class H2EtagAlphabetBrangeTest(test_malformed_headers.EtagAlphabetBrangeTest):
     clients = [
@@ -129,3 +191,15 @@ class H2EtagAlphabetBrangeTest(test_malformed_headers.EtagAlphabetBrangeTest):
         (":method", "GET"),
         (":authority", "localhost"),
     ]
+
+    def send_success_request(self):
+        clnt = self.get_client("deproxy")
+        clnt.send_request(
+            [
+                (":authority", "example.com"),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+            ],
+            "200",
+        )
