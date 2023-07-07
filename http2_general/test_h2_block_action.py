@@ -38,12 +38,6 @@ class BlockActionH2Base(H2Base):
         }
     """
 
-    def check_response(self, client, expected_status_code: str):
-        self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
-        assert expected_status_code in client.last_response.status, (
-            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-            + f"Received - {client.last_response.status}"
-        )
 
 
 class BlockActionH2Reply(BlockActionH2Base):
@@ -78,7 +72,7 @@ class BlockActionH2Reply(BlockActionH2Base):
         self.start_all_services()
         self.initiate_h2_connection(client)
 
-        client.make_request(
+        client.send_request(
             request=[
                 HeaderTuple(":authority", "good.com"),
                 HeaderTuple(":path", "/"),
@@ -86,10 +80,8 @@ class BlockActionH2Reply(BlockActionH2Base):
                 HeaderTuple(":method", "GET"),
                 HeaderTuple("X-Forwarded-For", "1.1.1.1.1.1")
             ],
+            expected_status_code="400",
         )
-
-        self.assertTrue(client.wait_for_response())
-        self.check_response(client, expected_status_code="400")
         self.assertFalse(client.connection_is_closed())
 
         client.send_request(
