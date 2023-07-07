@@ -178,10 +178,6 @@
             "reason": "Disable by issue #1703 - can cause kernel panic"
         },
         {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_burst",
-            "reason": "Disabled by issue #1751"
-        },
-        {
             "name": "t_frang.test_ip_block.FrangIpBlockMessageLimits.test_two_clients_two_ip_with_ip_block_on",
             "reason": "Disabled by issue #1751"
         },
@@ -222,20 +218,12 @@
             "reason": "Disabled by issue #1751"
         },
         {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_rate",
-            "reason": "Disabled by issue #1749"
+            "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
+            "reason": "Disabled by issue #480"
         },
         {
-            "name": "t_frang.test_connection_rate_burst.FrangTlsRateBurstTestCase.test_connection_rate_on_the_limit",
-            "reason": "Disabled by issue #1716"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTlsRateBurstTestCase.test_connection_rate",
-            "reason": "Disabled by issue #1716"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionTlsAndNonTlsRateBurst",
-            "reason": "Disabled by issue #1716"
+            "name": "t_frang.test_connection_rate_burst.FrangTls.test_connection_rate",
+            "reason": "Disabled by issue #480"
         },
         {
             "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
