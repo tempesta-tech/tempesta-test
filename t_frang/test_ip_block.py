@@ -142,7 +142,7 @@ block_action attack reply;
 
 class FrangIpBlockConnectionLimits(FrangIpBlockBase):
     """
-    For `connection_rate 1` and `block_action attack reply`.
+    For `tcp_connection_rate 1` and `block_action attack reply`.
     Create two client connections, send valid requests and receive:
         - for different ip and ip_block on or off - 200 and 200 response;
         - for single ip and ip_block on - RST and RST;
@@ -153,7 +153,7 @@ class FrangIpBlockConnectionLimits(FrangIpBlockBase):
         "config": """
 frang_limits {
     http_strict_host_checking false;
-    connection_rate 1;
+    tcp_connection_rate 1;
     ip_block on;
 }
 listen 80;
@@ -202,7 +202,7 @@ block_action attack reply;
             "config": """
 frang_limits {
     http_strict_host_checking false;
-    connection_rate 1;
+    tcp_connection_rate 1;
     ip_block off;
 }
 listen 80;

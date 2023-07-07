@@ -83,7 +83,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             self.node.remove_file(f)
 
     def copy_files(self):
-        for (name, content) in self.files:
+        for name, content in self.files:
             self.node.copy_file(name, content)
 
     def is_busy(self, verbose=True):

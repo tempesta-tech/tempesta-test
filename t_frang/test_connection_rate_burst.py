@@ -1,4 +1,4 @@
-"""Tests for Frang directive `connection_rate` and 'connection_burst'."""
+"""Tests for Frang directive `*_connection_rate` and '*_connection_burst'."""
 import time
 
 from helpers import util
@@ -143,7 +143,7 @@ class FrangTls(FrangTestCase):
 
 
 class FrangTcp(FrangTls):
-    """Tests for 'connection_burst' and 'connection_rate'."""
+    """Tests for 'tcp_connection_burst' and 'tcp_connection_rate'."""
 
     clients = [
         {
@@ -174,8 +174,8 @@ class FrangTcp(FrangTls):
 
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
-    burst_config = "connection_burst 5;\n\tconnection_rate 20;"
-    rate_config = "connection_burst 2;\n\tconnection_rate 4;"
+    burst_config = "tcp_connection_burst 5;\n\ttcp_connection_rate 20;"
+    rate_config = "tcp_connection_burst 2;\n\ttcp_connection_rate 4;"
 
 
 class FrangConnectionRateDifferentIp(FrangTestCase):
@@ -203,7 +203,7 @@ class FrangConnectionRateDifferentIp(FrangTestCase):
     tempesta = {
         "config": """
             frang_limits {
-                connection_rate 2;
+                tcp_connection_rate 2;
                 ip_block on;
             }
             listen 80;
@@ -246,7 +246,7 @@ class FrangConnectionBurstDifferentIp(FrangConnectionRateDifferentIp):
     tempesta = {
         "config": """
             frang_limits {
-                connection_burst 2;
+                tcp_connection_burst 2;
                 ip_block on;
             }
             listen 80;
@@ -444,7 +444,7 @@ class FrangTlsVsBoth(FrangTestCase):
 
 
 class FrangTcpVsBoth(FrangTlsVsBoth):
-    """Tests for tls and non-tls connections 'connection_burst' and 'connection_rate'"""
+    """Tests for tls and non-tls connections 'tcp_connection_burst' and 'tcp_connection_rate'"""
 
     tempesta_template = {
         "config": """
@@ -471,12 +471,12 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
     opt_client_id = "curl-https"
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
-    burst_config = "connection_burst 3;"
-    rate_config = "connection_rate 3;"
+    burst_config = "tcp_connection_burst 3;"
+    rate_config = "tcp_connection_rate 3;"
 
     def test_burst(self):
         """
-        Set `connection_burst 3` and create 4 tls and 4 non-tls connections.
+        Set `tcp_connection_burst 3` and create 4 tls and 4 non-tls connections.
         Connections of both types will be blocked (4+4 > 3*2).
         """
         self.set_frang_config(frang_config=self.burst_config)
@@ -492,7 +492,7 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
 
     def test_rate(self):
         """
-        Set connection_rate 3` and create 2 tls and 2 non-tls connections.
+        Set tcp_connection_rate 3` and create 2 tls and 2 non-tls connections.
         Connections of both types will be blocked (2+2 > 3).
         """
         self.set_frang_config(frang_config=self.rate_config + self.no_shc_config)
