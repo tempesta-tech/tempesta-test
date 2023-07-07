@@ -12,7 +12,6 @@ __license__ = "GPL2"
 
 
 class SchedSticky(reconf_stress.LiveReconfStress):
-
     sg_name = "default"
     sched = "ratio static"
     defconfig = (

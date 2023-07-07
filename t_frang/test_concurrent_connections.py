@@ -1,4 +1,4 @@
-"""Functional tests for `concurrent_connections` in Tempesta config."""
+"""Functional tests for `concurrent_tcp_connections` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
@@ -107,10 +107,10 @@ frang_limits {
 
     def test_three_clients_same_ip(self):
         """
-        For three clients with same IP and concurrent_connections 2, ip_block off:
+        For three clients with same IP and concurrent_tcp_connections 2, ip_block off:
             - Tempesta serves only two clients.
         """
-        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block off;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
 
         self._base_scenario(
             clients=[
@@ -125,10 +125,10 @@ frang_limits {
 
     def test_three_clients_different_ip(self):
         """
-        For three clients with different IP and concurrent_connections 2:
+        For three clients with different IP and concurrent_tcp_connections 2:
             - Tempesta serves three clients.
         """
-        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block off;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
         self._base_scenario(
             clients=[
                 self.get_client("deproxy-interface-1"),
@@ -142,10 +142,10 @@ frang_limits {
 
     def test_three_clients_same_ip_with_block_ip(self):
         """
-        For three clients with same IP and concurrent_connections 2, ip_block on:
+        For three clients with same IP and concurrent_tcp_connections 2, ip_block on:
             - Tempesta does not serve clients.
         """
-        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block on;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block on;")
         self._base_scenario(
             clients=[
                 self.get_client("deproxy-1"),
@@ -163,7 +163,7 @@ frang_limits {
         Check that Tempesta cleared client connection stats and
         new connections are established.
         """
-        self.set_frang_config(frang_config="concurrent_connections 2;\n\tip_block on;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block on;")
 
         client = self.get_client("parallel-curl")
 

@@ -12,7 +12,6 @@ __license__ = "GPL2"
 
 
 class SchedStickyGraceRatioSched(reconf_stress.LiveReconfStress):
-
     sg_name = "default"
     sched = "ratio static"
     defconfig = (
@@ -50,7 +49,6 @@ class SchedStickyGraceRatioSched(reconf_stress.LiveReconfStress):
 
 
 class SchedStickyGraceHashSched(SchedStickyGraceRatioSched):
-
     sched = "hash"
 
 

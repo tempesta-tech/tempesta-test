@@ -15,7 +15,6 @@ __license__ = "GPL2"
 
 
 class OneClient(stress.StressTest):
-
     config = (
         "cache 0;\n"
         "sticky {\n"
@@ -75,7 +74,6 @@ class OneClient(stress.StressTest):
 
 
 class LotOfClients(OneClient):
-
     # Override maximum number of clients
     clients_num = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 1000)
 
