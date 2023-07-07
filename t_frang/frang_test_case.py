@@ -5,10 +5,14 @@ __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
+from typing import Union  # TODO: use | instead when we move to python3.10
+from typing import Any, Dict, List
+
 from framework import tester
 from framework.deproxy_client import DeproxyClient
 from helpers import dmesg
 
+# used to prevent burst
 DELAY = 0.125
 
 
@@ -56,6 +60,7 @@ block_action attack reply;
         },
     ]
 
+    # waiting for dmesg
     timeout = 0.5
 
     def setUp(self):
@@ -98,11 +103,31 @@ block_action attack reply;
                 self.assertTrue(client.wait_for_connection_close(self.timeout))
                 self.assertFrangWarning(warning=warning_msg, expected=1)
 
-    def assertFrangWarning(self, warning: str, expected: int):
+    def check_connections(
+        self, curl_stats: List[Dict[str, Any]], warning: str, resets_expected: Union[int, range]
+    ):
+        warns_occured = self.assertFrangWarning(warning, resets_expected)
+
+        reset_stats = [s for s in curl_stats if s["response_code"] != 200]
+        self.assertEqual(len(reset_stats), warns_occured)
+        for s in reset_stats:
+            self.assertConnReset(s)
+
+    def assertConnReset(self, curl_stat: Dict[str, Any]):
+        self.assertIn("Connection reset by peer", curl_stat["errormsg"])
+        self.assertEqual(curl_stat["response_code"], 0)
+
+    def assertFrangWarning(self, warning: str, expected: Union[int, range]):
         warning_count = self.klog.warn_count(warning)
-        self.assertEqual(
-            warning_count, expected, self.assert_msg.format(exp=expected, got=warning_count)
-        )
+
+        if type(expected) is range:
+            # [start, stop], not [start, stop)
+            test_value = warning_count in expected or warning_count == expected.stop
+        else:
+            test_value = warning_count == expected
+
+        self.assertTrue(test_value, self.assert_msg.format(exp=expected, got=warning_count))
+        return warning_count
 
 
 class H2Config:

@@ -1,6 +1,7 @@
 """Tests for Frang directive `connection_rate` and 'connection_burst'."""
 import time
 
+from helpers import util
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -11,7 +12,7 @@ ERROR = "Warning: frang: new connections {0} exceeded for"
 ERROR_TLS = "Warning: frang: new TLS connections {0} exceeded for"
 
 
-class FrangTlsRateBurstTestCase(FrangTestCase):
+class FrangTls(FrangTestCase):
     """Tests for 'tls_connection_burst' and 'tls_connection_rate'."""
 
     clients = [
@@ -71,6 +72,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         curl = self.get_client("curl-1")
         curl.uri += f"[1-{connections}]"
         curl.parallel = connections
+        curl.dump_headers = False
 
         self.set_frang_config(self.burst_config)
 
@@ -80,14 +82,13 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
 
         time.sleep(self.timeout)
 
-        warning_count = connections - 5 if connections > 5 else 0  # limit burst 5
+        # Doc: "Minor bursts also can actually exceed the specified limit,
+        # but not more than 2 times."
+        # So we need to set 11=10+1 to guarantee burst 5.
+        warns_expected = range(max(connections - 10, 0), max(connections - 5, 0))
 
-        self.assertFrangWarning(warning=self.burst_warning, expected=warning_count)
-
-        if warning_count:
-            self.assertIn("Failed sending HTTP request", curl.last_response.stderr)
-
-        self.assertFrangWarning(warning=self.rate_warning, expected=0)
+        self.check_connections(curl.stats, self.burst_warning, warns_expected)
+        self.assertFrangWarning(self.rate_warning, expected=0)
 
     def _base_rate_scenario(self, connections: int, disable_hshc: bool = False):
         """
@@ -97,11 +98,12 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         curl = self.get_client("curl-1")
         self.set_frang_config(
             "\n".join(
-                [self.rate_config]
-                + (["http_strict_host_checking false;"] if disable_hshc else [])
+                [self.rate_config] + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
         )
 
+        # TODO #480: doesn't work properly,
+        # very slow execution to fit in a second
         for step in range(connections):
             curl.start()
             self.wait_while_busy(curl)
@@ -117,13 +119,12 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
             self.assertEqual(curl.last_response.status, 200)
         else:
             # rate limit is reached
-            self.assertFrangWarning(warning=self.rate_warning, expected=1)
-            self.assertIn("Failed sending HTTP request", curl.last_response.stderr)
+            self.check_connections(curl.stats, self.rate_warning, resets_expected=connections - 4)
 
-        self.assertFrangWarning(warning=self.burst_warning, expected=0)
+        self.assertFrangWarning(self.burst_warning, expected=0)
 
     def test_connection_burst(self):
-        self._base_burst_scenario(connections=10)
+        self._base_burst_scenario(connections=11)
 
     def test_connection_burst_without_reaching_the_limit(self):
         self._base_burst_scenario(connections=2)
@@ -141,7 +142,7 @@ class FrangTlsRateBurstTestCase(FrangTestCase):
         self._base_rate_scenario(connections=4)
 
 
-class FrangConnectionRateBurstTestCase(FrangTlsRateBurstTestCase):
+class FrangTcp(FrangTls):
     """Tests for 'connection_burst' and 'connection_rate'."""
 
     clients = [
@@ -330,7 +331,7 @@ class FrangTlsBurstDifferentIp(FrangTlsRateDifferentIp):
     error = ERROR_TLS.format("burst")
 
 
-class FrangTlsAndNonTlsRateBurst(FrangTestCase):
+class FrangTlsVsBoth(FrangTestCase):
     """Tests for tls and non-tls connections 'tls_connection_burst' and 'tls_connection_rate'"""
 
     clients = [
@@ -378,42 +379,52 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
     }
 
     base_client_id = "curl-https"
-    optional_client_id = "curl-http"
+    opt_client_id = "curl-http"
     burst_warning = ERROR_TLS.format("burst")
     rate_warning = ERROR_TLS.format("rate")
     burst_config = "tls_connection_burst 3;"
     rate_config = "tls_connection_rate 3;"
     no_shc_config = "http_strict_host_checking false;"
 
+    def _arrange_clients(self, conns_n):
+        base_client = self.get_client(self.base_client_id)
+        opt_client = self.get_client(self.opt_client_id)
+
+        base_client.uri += f"[1-{conns_n}]"
+        opt_client.uri += f"[1-{conns_n}]"
+        base_client.parallel = conns_n
+        opt_client.parallel = conns_n
+        base_client.dump_headers = False
+        opt_client.dump_headers = False
+
+        return base_client, opt_client
+
+    def _act(self, base_client, opt_client):
+        base_client.start()
+        opt_client.start()
+        self.wait_while_busy(base_client, opt_client)
+        self.wait_while_busy(opt_client)
+        base_client.stop()
+        opt_client.stop()
+
     def test_burst(self):
         """
-        Set `tls_connection_burst 3` and create 4 tls and 4 non-tls connections.
+        Set `tls_connection_burst 3` and create 7 tls and 7 non-tls connections.
         Only tls connections will be blocked.
         """
         self.set_frang_config(frang_config=self.burst_config)
+        # Doc: "Minor bursts also can actually exceed the specified limit,
+        # but not more than 2 times."
+        # So we need to set 7=6+1 to guarantee burst 3.
+        conns_n = 7
+        base_client, opt_client = self._arrange_clients(conns_n)
 
-        base_client = self.get_client(self.base_client_id)
-        optional_client = self.get_client(self.optional_client_id)
+        self._act(base_client, opt_client)
 
-        # burst limit 3
-        limit = 4
-
-        base_client.uri += f"[1-{limit}]"
-        optional_client.uri += f"[1-{limit}]"
-        base_client.parallel = limit
-        optional_client.parallel = limit
-
-        base_client.start()
-        optional_client.start()
-        self.wait_while_busy(base_client, optional_client)
-        base_client.stop()
-        optional_client.stop()
-
-        self.assertEqual(len(optional_client.stats), limit, "Client has been unexpectedly blocked.")
-        for stat in optional_client.stats:
-            self.assertEqual(stat["response_code"], 200)
-        time.sleep(self.timeout)
-        self.assertFrangWarning(warning=self.burst_warning, expected=1)
+        resets_expected = range(conns_n - 3 * 2, conns_n - 3)
+        self.check_connections(base_client.stats, self.burst_warning, resets_expected)
+        codes = [s["response_code"] for s in opt_client.stats]
+        self.assertEqual(codes, [200] * conns_n, "Client has been unexpectely reset")
 
     def test_rate(self):
         """
@@ -421,32 +432,18 @@ class FrangTlsAndNonTlsRateBurst(FrangTestCase):
         Only tls connections will be blocked.
         """
         self.set_frang_config(frang_config=self.rate_config + self.no_shc_config)
-
-        base_client = self.get_client(self.base_client_id)
-        optional_client = self.get_client(self.optional_client_id)
-
         # limit rate 3
-        limit = 4
+        conns_n = 4
+        base_client, opt_client = self._arrange_clients(conns_n)
 
-        base_client.uri += f"[1-{limit}]"
-        optional_client.uri += f"[1-{limit}]"
-        base_client.parallel = limit
-        optional_client.parallel = limit
+        self._act(base_client, opt_client)
 
-        base_client.start()
-        optional_client.start()
-        self.wait_while_busy(base_client, optional_client)
-        base_client.stop()
-        optional_client.stop()
-
-        self.assertEqual(len(optional_client.stats), limit, "Client has been unexpectedly blocked.")
-        for stat in optional_client.stats:
-            self.assertEqual(stat["response_code"], 200)
-        time.sleep(self.timeout)
-        self.assertFrangWarning(warning=self.rate_warning, expected=1)
+        self.check_connections(base_client.stats, self.rate_warning, resets_expected=conns_n - 3)
+        codes = [s["response_code"] for s in opt_client.stats]
+        self.assertEqual(codes, [200] * conns_n, "Client has been unexpectely reset")
 
 
-class FrangConnectionTlsAndNonTlsRateBurst(FrangTlsAndNonTlsRateBurst):
+class FrangTcpVsBoth(FrangTlsVsBoth):
     """Tests for tls and non-tls connections 'connection_burst' and 'connection_rate'"""
 
     tempesta_template = {
@@ -471,8 +468,39 @@ class FrangConnectionTlsAndNonTlsRateBurst(FrangTlsAndNonTlsRateBurst):
     }
 
     base_client_id = "curl-http"
-    optional_client_id = "curl-https"
+    opt_client_id = "curl-https"
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
     burst_config = "connection_burst 3;"
     rate_config = "connection_rate 3;"
+
+    def test_burst(self):
+        """
+        Set `connection_burst 3` and create 4 tls and 4 non-tls connections.
+        Connections of both types will be blocked (4+4 > 3*2).
+        """
+        self.set_frang_config(frang_config=self.burst_config)
+        conn_n = 4
+        base_client, opt_client = self._arrange_clients(conn_n)
+
+        self._act(base_client, opt_client)
+
+        resets_expected = range(conn_n * 2 - 3 * 2, conn_n * 2 - 3)
+        self.check_connections(
+            base_client.stats + opt_client.stats, self.burst_warning, resets_expected
+        )
+
+    def test_rate(self):
+        """
+        Set connection_rate 3` and create 2 tls and 2 non-tls connections.
+        Connections of both types will be blocked (2+2 > 3).
+        """
+        self.set_frang_config(frang_config=self.rate_config + self.no_shc_config)
+        conns_n = 2
+        base_client, opt_client = self._arrange_clients(conns_n)
+
+        self._act(base_client, opt_client)
+
+        self.check_connections(
+            base_client.stats + opt_client.stats, self.rate_warning, resets_expected=conns_n * 2 - 3
+        )
