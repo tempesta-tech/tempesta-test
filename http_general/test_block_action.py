@@ -57,12 +57,6 @@ class BlockActionBase(tester.TempestaTest):
         }
     """
 
-    def check_response(self, client, expected_status_code: str):
-        self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
-        assert expected_status_code in client.last_response.status, (
-            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-            + f"Received - {client.last_response.status}"
-        )
 
 
 class BlockActionReply(BlockActionBase):
@@ -100,6 +94,21 @@ class BlockActionReply(BlockActionBase):
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\n\r\n",
             expected_status_code="200",
         )
+
+    def test_block_action_error_reply_multiple_requests(self):
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+
+        client.make_requests(
+            requests=[
+                f"GET / HTTP/1.1\r\nHost: good.com\r\nX-Forwarded-For: 1.1.1.1.1.1\r\n\r\n",
+                f"GET / HTTP/1.1\r\nHost: good.com\r\n\r\n",
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response()
+        self.assertEqual(len(client.responses), 2)
 
     def test_block_action_attack_reply_not_on_req_rcv_event(self):
         """
@@ -139,7 +148,6 @@ class BlockActionDrop(BlockActionBase):
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-            expected_status_code="403",
         )
 
         self.assertTrue(client.wait_for_connection_close())
@@ -152,7 +160,6 @@ class BlockActionDrop(BlockActionBase):
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
-            expected_status_code="400",
         )
 
         self.assertTrue(client.wait_for_connection_close())
