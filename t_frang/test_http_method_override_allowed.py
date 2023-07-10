@@ -11,9 +11,9 @@ WARN_ERROR = "frang: restricted overridden HTTP method"
 WARN_UNSAFE = "request dropped: unsafe method override:"
 
 ACCEPTED_REQUESTS = [
-    "POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method-Override: PUT\r\n\r\n",
-    "POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-Method-Override: PUT\r\n\r\n",
-    "POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\nX-HTTP-Method: PUT\r\n\r\n",
+    "POST / HTTP/1.1\r\n" + "Host: tempesta-tech.com\r\n" + "X-HTTP-Method-Override: PUT\r\n\r\n",
+    "POST / HTTP/1.1\r\n" + "Host: tempesta-tech.com\r\n" + "X-Method-Override: PUT\r\n\r\n",
+    "POST / HTTP/1.1\r\n" + "Host: tempesta-tech.com\r\n" + "X-HTTP-Method: PUT\r\n\r\n",
 ]
 
 REQUEST_FALSE_OVERRIDE = """

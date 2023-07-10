@@ -102,20 +102,8 @@
             "reason" : "#988"
         },
         {
-            "name": "malformed.test_malformed_headers.MalformedRequestsTest",
-            "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
-        },
-        {
-            "name": "malformed.test_malformed_headers.MalformedResponsesTest",
-            "reason" : "See tempesta-tech/tempesta#1050 and tempesta-tech/tempesta#1053"
-        },
-        {
             "name" : "flacky_net",
             "reason" : "Disabled by issue #114"
-        },
-        {
-            "name" : "malformed",
-            "reason" : "Disabled by issue #427"
         },
         {
             "name" : "pipelining",
@@ -160,26 +148,6 @@
                 {
             "name" : "tls.test_tls_integrity.ProxyH2.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimits.test_with_deproxy",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimits.test_with_tlsperf",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_deproxy",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsBurst.test_with_tlsperf",
-            "reason" : "Disabled by issue #363"
-        },
-        {
-            "name" : "tls.test_tls_limits.TLSLimitsIncomplete.test",
-            "reason" : "Disabled by issue #363"
         },
         {
             "name" : "health_monitoring",
@@ -370,10 +338,6 @@
             "reason": "Disabled by issue #1773"
         },
         {
-            "name": "http2_general.test_h2_headers.HeadersParsing.test_capitalized_header_in_request",
-            "reason": "Disabled by issue #1729"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestHpack.test_hpack_bomb",
             "reason": "Disabled by issue #1780"
         },
@@ -384,6 +348,10 @@
         {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_reuse_stream_id",
             "reason": "Disabled by issue #1800"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_response",
+            "reason": "Disabled by PR #1917"
         },
         {
             "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
@@ -456,6 +424,42 @@
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by issue #1866"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_uppercase_in_header_name",
+            "reason": "Disabled by issue #1729"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_0x20_and_0x09_in_header_value",
+            "reason": "Disabled by issue #1882"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldResponse.test_ascii_0x20_and_0x09_in_header_value",
+            "reason": "Disabled by issue #1882"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_with_pseudo_headers_in_request",
+            "reason": "Disabled by issue #1881"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_with_continuation_frame_in_request",
+            "reason": "Disabled by issue #1881"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_scheme_header",
+            "reason": "Disabled by issue #1883"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_path_header",
+            "reason": "Disabled by issue #1883"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_method_header",
+            "reason": "Disabled by issue #1883"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_connect_method_with_path_and_scheme",
+            "reason": "Disabled by issue #1883"
         },
         {
             "name": "tls.test_tls_cert.TlsSniWithHttpTableMulti",

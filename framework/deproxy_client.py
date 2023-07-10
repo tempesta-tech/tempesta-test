@@ -1,5 +1,4 @@
 import abc
-import socket
 import time
 from io import StringIO
 
@@ -15,10 +14,9 @@ from h2.events import (
 )
 from h2.settings import SettingCodes, Settings
 from hpack import Encoder
-from hyperframe.frame import WindowUpdateFrame
 
 import run_config
-from helpers import deproxy, selfproxy, stateful, tf_cfg
+from helpers import deproxy, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
@@ -56,18 +54,10 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.segment_gap = 0
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
-        # The following 2 variables are used to save destination address and port
-        # when overriding to connect via ssl chunking proxy
-        self.overriden_addr = None
-        self.overriden_port = None
-        # a presense of selfproxy
-        self.selfproxy_present = False
         self.parsing = True
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
-        if self.segment_size and not self.selfproxy_present:
-            self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.start_time = time.time()
 
     def set_events(self, polling_lock):
@@ -78,7 +68,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     def __stop_client(self):
         tf_cfg.dbg(4, "\tStop deproxy client")
-        self.release_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
         try:
@@ -99,8 +88,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.start_time = 0
         self.valid_req_num = 0
         self.cur_req_num = 0
-        if self.ssl and self.segment_size != 0:
-            self.insert_selfproxy()
         if self.polling_lock != None:
             self.polling_lock.acquire()
 
@@ -139,7 +126,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             return
         tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
         tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
-        while len(self.response_buffer) > 0 and self.nrreq > self.nrresp:
+        while len(self.response_buffer) > 0:
             try:
                 method = self.methods[self.nrresp]
                 response = deproxy.Response(
@@ -161,11 +148,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.receive_response(response)
             self.nrresp += 1
 
-        if self.nrreq == self.nrresp and len(self.response_buffer) > 0:
-            raise deproxy.ParseError(
-                "Garbage after response" " end:\n```\n%s\n```\n" % self.response_buffer
-            )
-
     def writable(self):
         if self.cur_req_num >= self.nrreq:
             return False
@@ -173,7 +155,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             return False
         if (
             self.segment_gap != 0
-            and not self.selfproxy_present
             and time.time() - self.last_segment_time < self.segment_gap / 1000.0
         ):
             return False
@@ -192,7 +173,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
             self.segment_size = run_config.TCP_SEGMENTATION
 
-        if self.segment_size != 0 and not self.selfproxy_present:
+        if self.segment_size != 0:
             sent = self.send(reqs[self.cur_req_num][: self.segment_size].encode())
         else:
             self.socket.sendall(reqs[self.cur_req_num].encode())
@@ -226,41 +207,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def receive_response(self, response):
         raise NotImplementedError("Not implemented 'receive_response()'")
 
-    def insert_selfproxy(self):
-        # inserting the chunking proxy between ssl client and server
-        if not self.ssl or self.segment_size == 0:
-            return
-        selfproxy.request_client_selfproxy(
-            listen_host="127.0.0.1",
-            listen_port=selfproxy.CLIENT_MODE_PORT_REPLACE,
-            forward_host=self.conn_addr,
-            forward_port=self.port,
-            segment_size=self.segment_size,
-            segment_gap=self.segment_gap,
-        )
-        self.overriden_addr = self.conn_addr
-        self.overriden_port = self.port
-        self.conn_addr = "127.0.0.1"
-        self.port = selfproxy.CLIENT_MODE_PORT_REPLACE
-        self.selfproxy_present = True
-
-    def release_selfproxy(self):
-        # action reverse to insert_selfproxy
-        if self.selfproxy_present:
-            selfproxy.release_client_selfproxy()
-            self.selfproxy_present = False
-        if self.overriden_addr is not None:
-            self.conn_addr = self.overriden_addr
-            self.overriden_addr = None
-        if self.overriden_port is not None:
-            self.port = self.overriden_port
-            self.overriden_port = None
-
-    def update_selfproxy(self):
-        # update chunking parameters
-        if self.selfproxy_present:
-            selfproxy.update_client_selfproxy_chunking(self.segment_size, self.segment_gap)
-
     def _clear_request_stats(self):
         if self.cur_req_num >= self.nrreq:
             self.nrresp = 0
@@ -276,17 +222,24 @@ class DeproxyClient(BaseDeproxyClient):
     responses = []
     last_response: deproxy.Response
 
-    def make_requests(self, requests: list or str) -> None:
-        """Send pipelined HTTP requests. Requests parsing can be disabled only for list."""
+    def make_requests(self, requests: list or str, pipelined=False) -> None:
+        """
+        Send pipelined HTTP requests. Requests parsing can be disabled only for list.
+        Invalid pipelined requests works with list only.
+        """
         self._clear_request_stats()
-        self.update_selfproxy()
 
         if isinstance(requests, list):
             for request in requests:
                 self.__check_request(request)
 
-            self.request_buffers.extend(requests)
-            self.valid_req_num += len(self.request_buffers)
+            if pipelined:
+                self.request_buffers.append("".join(requests))
+                self.valid_req_num += len(requests)
+            else:
+                self.request_buffers.extend(requests)
+                self.valid_req_num += len(self.request_buffers)
+
             self.nrreq += len(self.request_buffers)
 
         elif isinstance(requests, str):
@@ -321,7 +274,6 @@ class DeproxyClient(BaseDeproxyClient):
     def make_request(self, request: str, **kwargs) -> None:
         """Send one HTTP request"""
         self._clear_request_stats()
-        self.update_selfproxy()
 
         self.__check_request(request)
 
@@ -402,7 +354,11 @@ class DeproxyClientH2(DeproxyClient):
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer = False
 
-    def make_requests(self, requests):
+    def run_start(self):
+        super(DeproxyClientH2, self).run_start()
+        self.h2_connection = None
+
+    def make_requests(self, requests, *args, **kwargs):
         for request in requests:
             self.make_request(request)
 
@@ -652,9 +608,6 @@ class DeproxyClientH2(DeproxyClient):
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
         self.start_time = time.time()
-
-    def insert_selfproxy(self):
-        tf_cfg.dbg(4, "\tDeproxy: Client: h2 client does not need selfproxy for chunking requests.")
 
     def __headers_to_string(self, headers):
         return "".join(["%s: %s\r\n" % (h, v) for h, v in headers])

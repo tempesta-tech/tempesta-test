@@ -14,6 +14,7 @@ from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 from hyperframe.frame import HeadersFrame
 
+import helpers
 from framework import deproxy_client
 from http2_general.helpers import H2Base
 
@@ -141,7 +142,7 @@ class TestHpack(TestHpackBase):
 
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
-                b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)",
+                f"2.0 tempesta_fw (Tempesta FW {helpers.tempesta.version()})".encode(),
             ),
             "Tempesta does not encode via header as expected.",
         )
@@ -245,8 +246,8 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.get_request, expected_status_code="200")
 
         for header in (
-            b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)",  # Via header
-            b"Tempesta FW/pre-0.7.0",  # Server header
+            f"2.0 tempesta_fw (Tempesta FW {helpers.tempesta.version()})".encode(),  # Via header
+            f"Tempesta FW/{helpers.tempesta.version()}".encode(),  # Server header
             b"test",  # Date header
             b"x" * 4058,  # optional header
         ):
@@ -314,7 +315,7 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(
-                b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)"
+                b"2.0 tempesta_fw (Tempesta FW " + helpers.tempesta.version().encode() + b")"
             )
         )
 
@@ -322,7 +323,7 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
-                b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)"
+                b"2.0 tempesta_fw (Tempesta FW " + helpers.tempesta.version().encode() + b")"
             )
         )
 
@@ -337,7 +338,7 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(
-                b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)"
+                b"2.0 tempesta_fw (Tempesta FW " + helpers.tempesta.version().encode() + b")"
             )
         )
 
@@ -345,7 +346,7 @@ class TestHpack(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
-                b"2.0 tempesta_fw (Tempesta FW pre-0.7.0)"
+                b"2.0 tempesta_fw (Tempesta FW " + helpers.tempesta.version().encode() + b")"
             )
         )
 

@@ -28,6 +28,7 @@ class FrangTestCase(tester.TempestaTest):
         "config": """
 cache 0;
 listen 80;
+listen 81;
 listen 443 proto=h2;
 frang_limits {
     %(frang_config)s

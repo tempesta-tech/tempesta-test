@@ -4,8 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import unittest
-
+import helpers
 from framework import tester
 from helpers.deproxy import H2Response, HttpMessage, Request, Response
 
@@ -26,7 +25,7 @@ def generate_response(optional_headers=[]) -> str:
     return (
         "HTTP/1.1 200 OK\r\n"
         + f"Date: {HttpMessage.date_time_string()}\r\n"
-        + "Server: Tempesta FW/pre-0.7.0\r\n"
+        + f"Server: Tempesta FW/{helpers.tempesta.version()}\r\n"
         + "".join(f"{header[0]}: {header[1]}\r\n" for header in optional_headers)
         + "Content-Length: 0\r\n\r\n"
     )
@@ -46,11 +45,11 @@ def get_expected_response(
 ) -> Response or H2Response:
     if client.proto == "h2":
         tempesta_headers = [
-            ("via", "2.0 tempesta_fw (Tempesta FW pre-0.7.0)"),
+            ("via", f"2.0 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
         ]
     else:
         tempesta_headers = [
-            ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
+            ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
             ("Connection", "keep-alive"),
         ]
 
@@ -75,7 +74,7 @@ def get_expected_request(
 ) -> Request:
     tempesta_headers = [
         ("X-Forwarded-For", "127.0.0.1"),
-        ("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)"),
+        ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
     ]
     if directive == "req":
         expected_request = generate_http1_request(

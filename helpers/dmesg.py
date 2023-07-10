@@ -53,7 +53,7 @@ class DmesgFinder(object):
         return len(self._warn_match(warn_str))
 
     def _warn_match(self, warn_str):
-        return re.findall(warn_str, self.log.decode())
+        return re.findall(warn_str, self.log.decode(errors="ignore"))
 
     def warn_count(self, warn_str):
         """Count occurrences of given string in system log. Normally used to
