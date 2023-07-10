@@ -537,8 +537,8 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         client = self.get_client("client")
         server = self.get_server("backend")
 
-        for response in ("backend", "cache"):
-            with self.subTest(response_from=response):
+        for from_ in ("backend", "cache"):
+            with self.subTest(response_from=from_):
                 client.send_request(self.request, "200")
                 response = client.last_response
                 self.assertEqual(
