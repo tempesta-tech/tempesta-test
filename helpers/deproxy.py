@@ -152,7 +152,7 @@ class HeaderCollection(object):
             if no_crlf and not line:
                 break
             if not line or (line[-1] != "\n"):
-                raise IncompleteMessage("Incomplete headers")
+                raise IncompleteMessage("Incomplete headers field")
             line = line.rstrip("\r\n")
             try:
                 # h2 pseuodo-header
@@ -166,6 +166,8 @@ class HeaderCollection(object):
             name = name.strip()
             value = value.strip()
             line = rfile.readline()
+            if "\n" not in line[-2:]:
+                raise IncompleteMessage("Incomplete headers")
             while line.startswith(" ") or line.startswith("\t"):
                 # Continuation lines - see RFC 2616, section 4.2
                 value += " " + line.strip()
@@ -305,6 +307,9 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
     def read_chunked_body(self, stream):
         while True:
             line = stream.readline()
+            if not line:
+                raise IncompleteMessage("Empty chunk in chunked body.")
+
             self.body += line
             try:
                 size = int(line.rstrip("\r\n"), 16)
@@ -316,7 +321,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
 
                 chunk_size = len(chunk.rstrip("\r\n"))
                 if chunk_size < size or "\n" not in chunk[-2:]:
-                    raise IncompleteMessage("Incomplete chunked body")
+                    raise IncompleteMessage("Incomplete chunk in chunked body")
                 assert chunk_size == size
             except IncompleteMessage:
                 raise
@@ -331,7 +336,11 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         end = stream.read(2)
         if end and end.rstrip("\r\n") == "":
             self.body += end
+            if 2 != self.body[-3:].count("\n"):
+                raise IncompleteMessage("Incomplete chunked body.")
             return
+        elif end == "":
+            raise IncompleteMessage("Incomplete last CRLF in chunked body.")
 
         stream.seek(pos)
         # Parsing trailer will eat last CRLF
