@@ -468,6 +468,10 @@
         {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "tls.test_tls_cert.WrkTestsMultipleVhosts.test_wrk",
+            "reason": "Disabled by issue #1928"
         }
     ]
 }
