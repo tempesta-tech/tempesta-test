@@ -53,6 +53,7 @@ class TestCurlClientParsing(unittest.TestCase):
             return_value=MULTIPLE_RESPONSES,
         ):
             client.dump_headers = True
+            client.disable_output = True
             client.parse_out(b"", b"")
             self.assertEqual(len(client.responses), 2)
             self.assertEqual(client.responses[0].headers["content-length"], "1")
@@ -65,6 +66,7 @@ class TestCurlClientParsing(unittest.TestCase):
             return_value=HTTP_1_0_RESPONSE,
         ):
             client.dump_headers = True
+            client.disable_output = True
             client.parse_out(b"", b"")
             self.assertEqual(len(client.responses), 1)
             self.assertEqual(client.responses[0].proto, "1.0")
