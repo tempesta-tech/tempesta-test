@@ -174,6 +174,10 @@
             "reason" : "Disabled by issue #399"
         },
         {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
+            "reason": "Disable by issue #1692"
+        },
+        {
             "name" : "t_stress.test_wordpress.H2WordpressStress",
             "reason": "Disable by issue #1703 - can cause kernel panic"
         },

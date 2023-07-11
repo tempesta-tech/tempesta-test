@@ -72,7 +72,6 @@ class FrangTls(FrangTestCase):
         curl = self.get_client("curl-1")
         curl.uri += f"[1-{connections}]"
         curl.parallel = connections
-        curl.dump_headers = False
 
         self.set_frang_config(self.burst_config)
 
@@ -394,8 +393,6 @@ class FrangTlsVsBoth(FrangTestCase):
         opt_client.uri += f"[1-{conns_n}]"
         base_client.parallel = conns_n
         opt_client.parallel = conns_n
-        base_client.dump_headers = False
-        opt_client.dump_headers = False
 
         return base_client, opt_client
 
@@ -423,8 +420,9 @@ class FrangTlsVsBoth(FrangTestCase):
 
         resets_expected = range(conns_n - 3 * 2, conns_n - 3)
         self.check_connections(base_client.stats, self.burst_warning, resets_expected)
-        codes = [s["response_code"] for s in opt_client.stats]
-        self.assertEqual(codes, [200] * conns_n, "Client has been unexpectely reset")
+        self.assertEqual(
+            opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
+        )
 
     def test_rate(self):
         """
@@ -439,8 +437,9 @@ class FrangTlsVsBoth(FrangTestCase):
         self._act(base_client, opt_client)
 
         self.check_connections(base_client.stats, self.rate_warning, resets_expected=conns_n - 3)
-        codes = [s["response_code"] for s in opt_client.stats]
-        self.assertEqual(codes, [200] * conns_n, "Client has been unexpectely reset")
+        self.assertEqual(
+            opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
+        )
 
 
 class FrangTcpVsBoth(FrangTlsVsBoth):
