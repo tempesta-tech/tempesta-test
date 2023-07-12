@@ -16,6 +16,8 @@ from helpers.error import Error
 
 from .handshake import TlsHandshake, x509_check_cn
 
+import os
+
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
@@ -132,19 +134,23 @@ class X509(tester.TempestaTest):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def check_cannot_start(self, msg):
+    def check_cannot_start_impl(self, msg):
         # Don't fail the test if errors and warnings are detected, It's an
         # expected behaviour.
         self.oops_ignore = ["WARNING", "ERROR"]
-        # We have to copy the certificate and key on our own.
-        cert_path, key_path = self.cgen.get_file_paths()
-        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
-        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
         try:
             self.start_tempesta()
         except:
             pass
         self.assertGreater(self.oops.warn_count(msg), 0, "Tempesta doesn't report error")
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def check_cannot_start(self, msg):
+        # We have to copy the certificate and key on our own.
+        cert_path, key_path = self.cgen.get_file_paths()
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
+        self.check_cannot_start_impl(msg)
 
 
 class RSA4096_SHA512(X509):
@@ -288,6 +294,31 @@ class InvalidHash(X509):
 
     def test(self):
         self.check_cannot_start("with OID 1.2.840.10045.4.1 is unsupported")
+
+
+class InvalidKeyWithGoodCert(X509):
+    def setUp(self):
+        self.cgen = CertGenerator()
+        self.cgen.key = {"alg": "ecdsa", "curve": ec.SECP256R1()}
+        self.cgen.sign_alg = "sha256"
+        self.cgen.generate()
+
+        self.tempesta = {
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
+        }
+        tester.TempestaTest.setUp(self)
+
+    def test(self):
+        cert_path, key_path = self.cgen.get_file_paths()
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
+
+        remote.tempesta.run_cmd(
+            "openssl ecparam -name secp192r1 -genkey -noout -out %s" % self.cgen.f_key
+        )
+
+        self.check_cannot_start_impl("with OID 1.2.840.10045.3.1.1 is unsupported")
 
 
 class StaleCert(X509):
