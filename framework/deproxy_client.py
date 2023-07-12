@@ -16,6 +16,7 @@ from h2.settings import SettingCodes, Settings
 from hpack import Encoder
 
 import run_config
+from framework.deproxy_manager import DeproxyManager
 from helpers import deproxy, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -30,8 +31,9 @@ def adjust_timeout_for_tcp_segmentation(timeout):
 
 
 class BaseDeproxyClient(deproxy.Client, abc.ABC):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, deproxy_manager: DeproxyManager, *args, **kwargs):
         deproxy.Client.__init__(self, *args, **kwargs)
+        self.__deproxy_manager = deproxy_manager
         self.polling_lock = None
         self.stop_procedures = [self.__stop_client]
         self.nrresp = 0
@@ -55,6 +57,10 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
         self.parsing = True
+
+    @property
+    def deproxy_manager(self) -> DeproxyManager:
+        return self.__deproxy_manager
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -197,7 +203,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         t0 = time.time()
         while not self.connection_is_closed():
             t = time.time()
-            if t - t0 > timeout:
+            if t - t0 > timeout or self.deproxy_manager.state != stateful.STATE_STARTED:
                 return False
             time.sleep(0.01)
         return True
@@ -307,7 +313,11 @@ class DeproxyClient(BaseDeproxyClient):
         t0 = time.time()
         while len(self.responses) < self.valid_req_num:
             t = time.time()
-            if t - t0 > timeout or self.state != stateful.STATE_STARTED:
+            if (
+                t - t0 > timeout
+                or self.state != stateful.STATE_STARTED
+                or self.deproxy_manager.state != stateful.STATE_STARTED
+            ):
                 return False
             time.sleep(0.01)
         return True
@@ -464,7 +474,11 @@ class DeproxyClientH2(DeproxyClient):
         t0 = time.time()
         while not self.ack_settings:
             t = time.time()
-            if t - t0 > timeout:
+            if (
+                t - t0 > timeout
+                or self.state != stateful.STATE_STARTED
+                or self.deproxy_manager.state != stateful.STATE_STARTED
+            ):
                 return False
             time.sleep(0.01)
         return True
@@ -477,7 +491,11 @@ class DeproxyClientH2(DeproxyClient):
         t0 = time.time()
         while not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id):
             t = time.time()
-            if t - t0 > timeout:
+            if (
+                t - t0 > timeout
+                or self.state != stateful.STATE_STARTED
+                or self.deproxy_manager.state != stateful.STATE_STARTED
+            ):
                 return False
             time.sleep(0.01)
         return True

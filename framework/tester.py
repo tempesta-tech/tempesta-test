@@ -28,10 +28,9 @@ build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().str
 
 
 def dns_entry_decorator(ip_address, dns_name):
-    
     def add_dns_entry(ip_address, dns_name):
         try:
-            with open('/etc/hosts', 'a') as hosts_file:
+            with open("/etc/hosts", "a") as hosts_file:
                 entry = f"{ip_address} {dns_name}\n"
                 hosts_file.write(entry)
             tf_cfg.dbg(3, f"DNS Record added: {entry}")
@@ -40,15 +39,15 @@ def dns_entry_decorator(ip_address, dns_name):
 
     def remove_dns_entry(ip_address, dns_name):
         try:
-            with open('/etc/hosts', 'r') as hosts_file:
+            with open("/etc/hosts", "r") as hosts_file:
                 lines = hosts_file.readlines()
             filtered_lines = [line for line in lines if f"{ip_address} {dns_name}" not in line]
-            with open('/etc/hosts', 'w') as hosts_file:
+            with open("/etc/hosts", "w") as hosts_file:
                 hosts_file.writelines(filtered_lines)
             tf_cfg.dbg(3, f"DNS record removed: {ip_address} {dns_name}")
         except IOError as e:
             tf_cfg.dbg(3, f"Error during remove DNS record: {str(e)}")
-    
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             add_dns_entry(ip_address, dns_name)
@@ -57,7 +56,9 @@ def dns_entry_decorator(ip_address, dns_name):
             finally:
                 remove_dns_entry(ip_address, dns_name)
                 return result
+
         return wrapper
+
     return decorator
 
 
@@ -122,6 +123,7 @@ class TempestaTest(unittest.TestCase):
         socket_family = client.get("socket_family", "ipv4")
         if client["type"] == "deproxy_h2":
             clt = deproxy_client.DeproxyClientH2(
+                deproxy_manager=self.deproxy_manager,
                 addr=addr,
                 port=port,
                 ssl=ssl,
@@ -131,7 +133,12 @@ class TempestaTest(unittest.TestCase):
             )
         else:
             clt = deproxy_client.DeproxyClient(
-                addr=addr, port=port, ssl=ssl, bind_addr=bind_addr, socket_family=socket_family
+                deproxy_manager=self.deproxy_manager,
+                addr=addr,
+                port=port,
+                ssl=ssl,
+                bind_addr=bind_addr,
+                socket_family=socket_family,
             )
         if ssl and "ssl_hostname" in client:
             # Don't set SNI by default, do this only if it was specified in
