@@ -359,15 +359,18 @@ class TempestaTest(unittest.TestCase):
         self.oops_ignore = []
         self.__stop_tcpdump()
 
-    def wait_while_busy(self, *items):
+    def wait_while_busy(self, *items, timeout=20):
         if items is None:
             return
 
+        success = True
         for item in items:
             if item.is_running():
                 tf_cfg.dbg(4, f'\tClient "{item}" wait for finish ')
-                item.wait_for_finish()
+                success = success and item.wait_for_finish(timeout)
                 tf_cfg.dbg(4, f'\tWaiting for client "{item}" is completed')
+
+        self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=1):
