@@ -476,6 +476,14 @@
         {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES128_GCM",
+            "reason": "Disabled by issue #1939"
+        },
+        {
+            "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES256_GCM",
+            "reason": "Disabled by issue #1939"
         }
     ]
 }

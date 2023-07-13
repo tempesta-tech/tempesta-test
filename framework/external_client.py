@@ -22,11 +22,23 @@ class ExternalTester(client.Client):
         client.Client.__init__(self, **kwargs)
         self.options = [cmd_args]
         self.response_msg: str = None
+        self.__stdout = b""
+        self.__stderr = b""
+
+    @property
+    def stdout(self) -> bytes:
+        return self.__stdout
+
+    @property
+    def stderr(self) -> bytes:
+        return self.__stderr
 
     def form_command(self):
         cmd = " ".join([self.bin] + self.options)
         return cmd
 
-    def parse_out(self, stdout, stderr):
+    def parse_out(self, stdout: bytes, stderr: bytes):
+        self.__stdout = stdout
+        self.__stderr = stderr
         self.response_msg = stdout.decode() if stdout else stderr.decode()
         return True
