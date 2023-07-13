@@ -2,6 +2,7 @@
 Utils for the testing framework.
 """
 import functools
+import time
 from cProfile import Profile
 from pstats import Stats
 
@@ -63,3 +64,15 @@ def profiled(func):
         return res
 
     return wrap
+
+
+def wait_until(wait_cond, timeout=5, poll_freq=0.01, abort_cond=lambda: False):
+    t0 = time.time()
+
+    while wait_cond():
+        t = time.time()
+        if t - t0 > timeout or abort_cond():
+            return False
+        time.sleep(poll_freq)
+
+    return True

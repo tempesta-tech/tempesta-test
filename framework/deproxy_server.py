@@ -8,7 +8,7 @@ import time
 import framework.port_checks as port_checks
 import framework.tester
 import run_config
-from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg
+from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 
 from .templates import fill_template
 
@@ -187,13 +187,9 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        while len(self.connections) < self.conns_n:
-            t = time.time()
-            if t - t0 > timeout:
-                return False
-            time.sleep(0.001)  # to prevent redundant CPU usage
-        return True
+        return util.wait_until(
+            lambda: len(self.connections) < self.conns_n, timeout, poll_freq=0.001
+        )
 
     @abc.abstractmethod
     def receive_request(self, request):
