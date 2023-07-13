@@ -3,10 +3,11 @@ TLS perf tests - load Tempesta FW with multiple TLS handshakes.
 """
 
 import helpers.tf_cfg as tf_cfg
+import run_config
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2020-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -72,8 +73,12 @@ class TLSPerf(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l 1000 -t 2 -T %s ${server_ip} 443"
-                % (tf_cfg.cfg.get("General", "Duration"))
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 "
+                "-C prime256v1 "
+                f"-l {run_config.CONCURRENT_CONNECTIONS} "
+                f"-t {run_config.THREADS} "
+                f"-T {run_config.DURATION} "
+                "${tempesta_ip} 443"
             ),
         },
     ]
@@ -97,5 +102,8 @@ class TLSPerf(tester.TempestaTest):
 
         self.start_all_servers()
         self.start_tempesta()
-        self.start_all_clients()
+        tls_perf.start()
         self.wait_while_busy(tls_perf)
+        tls_perf.stop()
+
+        self.assertFalse(tls_perf.stderr)

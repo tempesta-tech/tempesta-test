@@ -477,6 +477,14 @@
         {
             "name": "tls.test_tls_cert.WrkTestsMultipleVhosts.test_wrk",
             "reason": "Disabled by issue #1928"
+        },
+        {
+            "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES128_GCM",
+            "reason": "Disabled by issue #1939"
+        },
+        {
+            "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES256_GCM",
+            "reason": "Disabled by issue #1939"
         }
     ]
 }
