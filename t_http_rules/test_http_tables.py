@@ -348,13 +348,13 @@ class HttpTablesTestEmptyMainChainReply(HttpTablesTestBase):
 class HttpTablesTestEmptyMainChainDrop(HttpTablesTestBase):
     tempesta = {"config": TEMPESTA_CONFIG % ("block_action attack drop;", "http_chain {}")}
 
-    resp_status = 0
+    resp_status = 403
 
 
 class HttpTablesTestEmptyMainChainDefault(HttpTablesTestBase):
     tempesta = {"config": TEMPESTA_CONFIG % ("", "http_chain {}")}
 
-    resp_status = 0
+    resp_status = 403
 
 
 class HttpTablesTestEmptyChainReply(HttpTablesTestBase):
@@ -386,7 +386,7 @@ http_chain {
         )
     }
 
-    resp_status = 0
+    resp_status = 403
 
 
 class HttpTablesTestEmptyChainDefault(HttpTablesTestBase):
@@ -402,7 +402,7 @@ http_chain {
         )
     }
 
-    resp_status = 0
+    resp_status = 403
 
 
 class HttpTablesTestMixedChainReply(HttpTablesTestBase):
@@ -438,7 +438,7 @@ http_chain {
         )
     }
 
-    resp_status = 0
+    resp_status = 403
 
 
 class HttpTablesTestMixedChainDefault(HttpTablesTestBase):
@@ -456,7 +456,7 @@ http_chain {
         )
     }
 
-    resp_status = 0
+    resp_status = 403
 
 
 class HttpTablesTestMixedChainResp(HttpTablesTestBase):
