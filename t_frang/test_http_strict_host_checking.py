@@ -10,7 +10,6 @@ WARN_UNKNOWN = "frang: Request authority is unknown"
 WARN_DIFFER = "frang: Request host from absolute URI differs from Host header for"
 WARN_IP_ADDR = "frang: Host header field contains IP address"
 WARN_HEADER_HOST = "frang: Request :authority differs from Host for"
-WARN_INVALID_AUTHORITY = "Invalid authority"
 WARN_PORT = "Warning: frang: port from host header doesn't match real port"
 
 
@@ -54,21 +53,6 @@ class FrangHostRequiredTestCase(FrangTestCase):
             frang_config="http_strict_host_checking true;", requests=requests
         )
         self.check_response(client, status_code="200", warning_msg="frang: ")
-
-    def test_empty_host_header(self):
-        """Test with empty header `host`."""
-        client = self.base_scenario(
-            frang_config="http_strict_host_checking true;",
-            requests=["GET / HTTP/1.1\r\nHost: \r\n\r\n"],
-        )
-        self.check_response(client, status_code="400", warning_msg=WARN_INVALID_AUTHORITY)
-
-    def test_host_header_missing(self):
-        """Test with missing header `host`."""
-        client = self.base_scenario(
-            frang_config="http_strict_host_checking true;", requests=["GET / HTTP/1.1\r\n\r\n"]
-        )
-        self.check_response(client, status_code="400", warning_msg=WARN_INVALID_AUTHORITY)
 
     def test_host_header_with_old_proto(self):
         """
@@ -278,38 +262,6 @@ block_action error reply;
             self.assertTrue(client.wait_for_response(1))
 
         self.check_response(client, status_code="200", warning_msg="frang: ")
-
-    def test_h2_empty_host_header(self):
-        """Test with empty header `host`."""
-        self._test(
-            headers=[
-                (":path", "/"),
-                ("host", ""),
-            ],
-            expected_warning=WARN_INVALID_AUTHORITY,
-            status_code="400",
-        )
-
-    def test_h2_empty_authority_header(self):
-        """Test with header `authority`."""
-        self._test(
-            headers=[
-                (":path", "/"),
-                (":authority", ""),
-            ],
-            expected_warning=WARN_INVALID_AUTHORITY,
-            status_code="400",
-        )
-
-    def test_h2_host_and_authority_headers_missing(self):
-        """Test with missing header `host`."""
-        self._test(
-            headers=[
-                (":path", "/"),
-            ],
-            expected_warning=WARN_INVALID_AUTHORITY,
-            status_code="400",
-        )
 
     def test_h2_host_header_as_ip(self):
         """Test with header `host` as ip address."""

@@ -153,7 +153,6 @@ class DeproxyTestH2(tester.TempestaTest):
         deproxy_cl.make_request(head)
 
         self.assertTrue(deproxy_cl.wait_for_response(timeout=0.5))
-        self.assertIsNotNone(deproxy_cl.last_response)
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
     def test_parsing_make_request(self):
@@ -178,8 +177,8 @@ class DeproxyTestH2(tester.TempestaTest):
         deproxy_cl.parsing = False
 
         deproxy_cl.make_request(head)
-        self.assertFalse(deproxy_cl.wait_for_response(timeout=0.5))
-        self.assertIsNone(deproxy_cl.last_response)
+        self.assertTrue(deproxy_cl.wait_for_response(timeout=0.5))
+        self.assertEqual(deproxy_cl.last_response.status, "400")
 
     def test_bodyless(self):
         self.start_all()
@@ -249,7 +248,6 @@ class DeproxyTestH2(tester.TempestaTest):
         deproxy_cl.make_request(head)
 
         self.assertTrue(deproxy_cl.wait_for_response(timeout=2))
-        self.assertIsNotNone(deproxy_cl.last_response)
         # TODO: decide between 400 or 403 response code later
         self.assertEqual(int(int(deproxy_cl.last_response.status) / 100), 4)
 
