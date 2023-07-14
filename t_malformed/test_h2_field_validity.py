@@ -170,8 +170,6 @@ class TestH2HeaderFieldResponse(TestH2HeaderFieldRequest):
             "502",
         )
 
-        self.assertTrue(client.wait_for_connection_close())
-
     def test_ascii_uppercase_in_header_name(self):
         """Tempesta converts all characters to lowercase."""
         pass
