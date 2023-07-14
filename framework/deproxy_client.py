@@ -203,7 +203,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         return util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
-            abort_cond=self.deproxy_manager.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.deproxy_manager.state != stateful.STATE_STARTED,
         )
 
     @abc.abstractmethod
