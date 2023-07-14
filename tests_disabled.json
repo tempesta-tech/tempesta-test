@@ -450,6 +450,10 @@
             "reason": "Disabled by issue #1883"
         },
         {
+            "name": "selftests.test_deproxy.DeproxyTestH2.test_no_parsing_make_request",
+            "reason": "Disabled by issue #1883"
+        },
+        {
             "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
             "reason": "Disabled by issue #1103"
         },
