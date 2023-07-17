@@ -865,8 +865,8 @@ http {
 
                 vhost localhost {
                     proxy_pass sg;
-                    tls_certificate /tmp/host/localhost.crt;
-                    tls_certificate_key /tmp/host/localhost.key;
+                    tls_certificate ${tempesta_workdir}/localhost.crt;
+                    tls_certificate_key ${tempesta_workdir}/localhost.key;
                 }
 
                 vhost private.example.com {
