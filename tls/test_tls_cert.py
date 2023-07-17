@@ -820,12 +820,12 @@ http {
         }
     ]
 
-    def config_changer(self):
-        self.set_second_config()
-        self.set_first_config()
-        self.set_second_config()
-        self.set_first_config()
-        self.set_second_config()
+    def config_changer(self, n):
+        for _ in range(n):
+            if n % 2 == 1:
+                self.set_first_config()
+            else:
+                self.set_second_config()
 
     def start_all(self):
         self.start_all_servers()
@@ -838,16 +838,14 @@ http {
         generate_certificate(
             cert_name="private", cn="private", san=["example.com", "private.example.com"]
         )
-        self.start_all_services(client=False)
+        self.start_all()
         self.set_first_config()
         wrk = self.get_client("wrk")
         wrk.duration = 10
         wrk.start()
-        self.config_changer()
-        wrk.stop()
+        self.config_changer(10)
         self.wait_while_busy(wrk)
-        print(dir(wrk.statuses))
-        print(wrk.statuses)
+        wrk.stop()
         self.assertNotEqual(
             0,
             wrk.requests,
@@ -861,24 +859,24 @@ http {
                 cache 0;
                 listen 443 proto=https;
 
-                srv_group sg { server %s:8000; }
+                srv_group sg { server server_:8000; }
 
                 vhost localhost {
                     proxy_pass sg;
-                    tls_certificate ${tempesta_workdir}/localhost.crt;
-                    tls_certificate_key ${tempesta_workdir}/localhost.key;
+                    tls_certificate path/localhost.crt;
+                    tls_certificate_key path/localhost.key;
                 }
 
                 vhost private.example.com {
                     proxy_pass sg;
-                    tls_certificate ${tempesta_workdir}/private.crt;
-                    tls_certificate_key ${tempesta_workdir}/private.key;
+                    tls_certificate path/private.crt;
+                    tls_certificate_key path/private.key;
                 }
                 
                 http_chain {
                     -> localhost;
                 }
-            """ % (tf_cfg.cfg.get("Server", "ip")),
+            """.replace('server_', (tf_cfg.cfg.get("Server", "ip"))).replace('path', (tf_cfg.cfg.get("General", "workdir"))) ,
         custom_cert=True
         )
         self.get_tempesta().config = config
@@ -891,25 +889,25 @@ http {
                 cache 0;
                 listen 443 proto=https;
 
-                srv_group sg { server %s:8000; }
+                srv_group sg { server server_:8000; }
 
                 vhost private.example.com {
                     proxy_pass sg;
-                    tls_certificate /tmp/host/private.crt;
-                    tls_certificate_key /tmp/host/private.key;
+                    tls_certificate path/localhost.crt;
+                    tls_certificate_key path/localhost.key;
                 }
 
                 vhost localhost {
                     proxy_pass sg;
-                    tls_certificate /tmp/host/localhost.crt;
-                    tls_certificate_key /tmp/host/localhost.key;
+                    tls_certificate path/private.crt;
+                    tls_certificate_key path/private.key;
                 }
                 
                 http_chain {
                     -> localhost;
                 }
                 
-            """% (tf_cfg.cfg.get("General", "ip")),
+            """.replace('server_', (tf_cfg.cfg.get("Server", "ip"))).replace('path', (tf_cfg.cfg.get("General", "workdir"))) ,
         custom_cert=True)
         self.get_tempesta().config = config
         self.get_tempesta().reload()
