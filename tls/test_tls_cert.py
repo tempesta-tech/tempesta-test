@@ -878,7 +878,7 @@ http {
                 http_chain {
                     -> localhost;
                 }
-            """ % (tf_cfg.cfg.get("General", "ip")),
+            """ % (tf_cfg.cfg.get("Server", "ip")),
         custom_cert=True
         )
         self.get_tempesta().config = config
