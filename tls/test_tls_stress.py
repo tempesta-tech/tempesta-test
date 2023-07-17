@@ -3,7 +3,7 @@ TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
 from framework import tester
 from framework.x509 import CertGenerator
-from run_config import THREADS, CONCURRENT_CONNECTIONS, DURATION
+from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
@@ -100,7 +100,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c DHE-RSA-AES128-GCM-SHA256 -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                "-c DHE-RSA-AES128-GCM-SHA256 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
@@ -109,7 +109,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c DHE-RSA-AES256-GCM-SHA384 -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                "-c DHE-RSA-AES256-GCM-SHA384 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
@@ -118,7 +118,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c DHE-RSA-AES128-GCM -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                "-c DHE-RSA-AES128-GCM -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
@@ -127,7 +127,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c DHE-RSA-AES256-GCM -C prime256v1 -l %s -t %s -T %s ${server_ip} 443"
+                "-c DHE-RSA-AES256-GCM -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
@@ -169,8 +169,11 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
         self.start_all_servers()
         self.start_tempesta()
-        self.start_all_clients()
+        tls_perf.start()
         self.wait_while_busy(tls_perf)
+        tls_perf.stop()
+
+        self.assertFalse(tls_perf.stderr)
 
     def test_DHE_RSA_AES128_GCM_SHA256(self):
         self.check_alg("tls-perf-DHE-RSA-AES128-GCM-SHA256")

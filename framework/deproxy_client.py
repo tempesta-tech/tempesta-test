@@ -374,7 +374,7 @@ class DeproxyClientH2(DeproxyClient):
         """
         if self.h2_connection is None:
             self.h2_connection = h2.connection.H2Connection()
-            self.h2_connection.encoder = self.encoder
+            self.h2_connection.encoder = HuffmanEncoder()
             self.h2_connection.initiate_connection()
 
         self.h2_connection.encoder.huffman = huffman
@@ -414,7 +414,7 @@ class DeproxyClientH2(DeproxyClient):
         """Update initial SETTINGS frame and add preamble + SETTINGS frame in `data_to_send`."""
         if not self.h2_connection:
             self.h2_connection = h2.connection.H2Connection()
-            self.h2_connection.encoder = self.encoder
+            self.h2_connection.encoder = HuffmanEncoder()
 
             new_settings = self.__generate_new_settings(
                 header_table_size,
