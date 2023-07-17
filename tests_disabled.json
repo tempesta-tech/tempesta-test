@@ -470,6 +470,10 @@
             "reason": "Disabled by issue #1103"
         },
         {
+            "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
+            "reason": "Disabled by issue #1902"
+        },
+        {
             "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES128_GCM",
             "reason": "Disabled by issue #1939"
         },

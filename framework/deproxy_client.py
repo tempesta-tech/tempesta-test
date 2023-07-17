@@ -125,7 +125,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if not self.response_buffer:
             return
         tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
-        tf_cfg.dbg(5, self.response_buffer)
+        tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
         while len(self.response_buffer) > 0:
             try:
                 method = self.methods[self.nrresp]
@@ -133,14 +133,15 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
                     self.response_buffer, method=method, keep_original_data=self.keep_original_data
                 )
                 self.response_buffer = self.response_buffer[response.original_length :]
-            except deproxy.IncompleteMessage:
+            except deproxy.IncompleteMessage as e:
+                tf_cfg.dbg(5, f"\tDeproxy: Client: Receive IncompleteMessage - {e}")
                 return
             except deproxy.ParseError:
                 tf_cfg.dbg(
                     4,
                     (
                         "Deproxy: Client: Can't parse message\n"
-                        "<<<<<\n%s>>>>>" % self.response_buffer
+                        "<<<<<\n%s\n>>>>>" % self.response_buffer
                     ),
                 )
                 raise

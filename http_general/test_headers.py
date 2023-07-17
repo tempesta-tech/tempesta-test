@@ -356,3 +356,48 @@ class TestHeadersParsing(tester.TempestaTest):
                     + "Content-Length: 0\r\n\r\n"
                 )
                 client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", status_code)
+
+    def test_trailers_in_request(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            request=(
+                "POST / HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+                "Content-type: text/html\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "Trailers: X-Token\r\n\r\n"
+                "10\r\n"
+                "abcdefghijklmnop\r\n"
+                "0\r\n"
+                "X-Token: value\r\n\r\n"
+            ),
+            expected_status_code="200",
+        )
+
+        self.assertIn(("X-Token", "value"), server.last_request.trailer.headers)
+
+    def test_without_trailers_in_request(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            request=(
+                "POST / HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+                "Content-type: text/html\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "Trailers: X-Token\r\n\r\n"
+                "10\r\n"
+                "abcdefghijklmnop\r\n"
+                "0\r\n\r\n"
+            ),
+            expected_status_code="200",
+        )
+
+        self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
