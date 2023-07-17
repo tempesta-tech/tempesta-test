@@ -838,7 +838,7 @@ http {
         generate_certificate(
             cert_name="private", cn="private", san=["example.com", "private.example.com"]
         )
-        self.start_all()
+        self.start_all_services(client=False)
         self.set_first_config()
         wrk = self.get_client("wrk")
         wrk.duration = 10
