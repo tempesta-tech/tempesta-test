@@ -16,7 +16,6 @@ from h2.settings import SettingCodes, Settings
 from hpack import Encoder
 
 import run_config
-from framework.deproxy_manager import DeproxyManager
 from helpers import deproxy, stateful, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
@@ -31,9 +30,8 @@ def adjust_timeout_for_tcp_segmentation(timeout):
 
 
 class BaseDeproxyClient(deproxy.Client, abc.ABC):
-    def __init__(self, deproxy_manager: DeproxyManager, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         deproxy.Client.__init__(self, *args, **kwargs)
-        self.__deproxy_manager = deproxy_manager
         self.polling_lock = None
         self.stop_procedures = [self.__stop_client]
         self.nrresp = 0
@@ -57,10 +55,6 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
         self.parsing = True
-
-    @property
-    def deproxy_manager(self) -> DeproxyManager:
-        return self.__deproxy_manager
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -203,7 +197,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         return util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
-            abort_cond=lambda: self.deproxy_manager.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
     @abc.abstractmethod
@@ -311,8 +305,7 @@ class DeproxyClient(BaseDeproxyClient):
         return util.wait_until(
             lambda: len(self.responses) < self.valid_req_num,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED
-            or self.deproxy_manager.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
     def send_request(self, request, expected_status_code: str):
@@ -464,8 +457,7 @@ class DeproxyClientH2(DeproxyClient):
         return util.wait_until(
             lambda: not self.ack_settings,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED
-            or self.deproxy_manager.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
     def wait_for_reset_stream(self, stream_id: int, timeout=5):
@@ -473,8 +465,7 @@ class DeproxyClientH2(DeproxyClient):
         return util.wait_until(
             lambda: not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id),
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED
-            or self.deproxy_manager.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
     def send_bytes(self, data: bytes, expect_response=False):

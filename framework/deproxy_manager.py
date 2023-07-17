@@ -75,6 +75,21 @@ class DeproxyManager(stateful.Stateful):
         except queue.Empty:
             return None
 
+    @stateful.Stateful.state.setter
+    def state(self, new_state: str) -> None:
+        """
+        Set state for deproxy manager.
+        Also set states for clients and servers if state is STATE_ERROR.
+        """
+        self._state = new_state
+        if new_state != stateful.STATE_ERROR:
+            return None
+
+        for client in self.clients:
+            client.state = new_state
+        for server in self.servers:
+            server.state = new_state
+
     def __stop(self):
         tf_cfg.dbg(3, "Stopping deproxy")
         self.exit_event.set()

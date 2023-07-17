@@ -123,7 +123,6 @@ class TempestaTest(unittest.TestCase):
         socket_family = client.get("socket_family", "ipv4")
         if client["type"] == "deproxy_h2":
             clt = deproxy_client.DeproxyClientH2(
-                deproxy_manager=self.deproxy_manager,
                 addr=addr,
                 port=port,
                 ssl=ssl,
@@ -133,7 +132,6 @@ class TempestaTest(unittest.TestCase):
             )
         else:
             clt = deproxy_client.DeproxyClient(
-                deproxy_manager=self.deproxy_manager,
                 addr=addr,
                 port=port,
                 ssl=ssl,
@@ -188,6 +186,7 @@ class TempestaTest(unittest.TestCase):
                 self.__ips.append(ip)
             self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip)
             self.__clients[cid].set_rps(client.get("rps", 0))
+            self.deproxy_manager.add_client(self.__clients[cid])
         elif client["type"] == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif client["type"] == "curl":
