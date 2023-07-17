@@ -871,8 +871,8 @@ http {
 
                 vhost private.example.com {
                     proxy_pass sg;
-                    tls_certificate /tmp/host/private.crt;
-                    tls_certificate_key /tmp/host/private.key;
+                    tls_certificate ${tempesta_workdir}/private.crt;
+                    tls_certificate_key ${tempesta_workdir}/private.key;
                 }
                 
                 http_chain {
