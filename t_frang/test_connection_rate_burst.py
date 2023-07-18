@@ -86,7 +86,7 @@ class FrangTls(FrangTestCase):
         # So we need to set 11=10+1 to guarantee burst 5.
         warns_expected = range(max(connections - 10, 0), max(connections - 5, 0))
 
-        self.check_connections(curl.stats, self.burst_warning, warns_expected)
+        self.check_connections([curl], self.burst_warning, warns_expected)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
     def _base_rate_scenario(self, connections: int, disable_hshc: bool = False):
@@ -118,7 +118,7 @@ class FrangTls(FrangTestCase):
             self.assertEqual(curl.last_response.status, 200)
         else:
             # rate limit is reached
-            self.check_connections(curl.stats, self.rate_warning, resets_expected=connections - 4)
+            self.check_connections([curl], self.rate_warning, resets_expected=connections - 4)
 
         self.assertFrangWarning(self.burst_warning, expected=0)
 
@@ -419,7 +419,7 @@ class FrangTlsVsBoth(FrangTestCase):
         self._act(base_client, opt_client)
 
         resets_expected = range(conns_n - 3 * 2, conns_n - 3)
-        self.check_connections(base_client.stats, self.burst_warning, resets_expected)
+        self.check_connections([base_client], self.burst_warning, resets_expected)
         self.assertEqual(
             opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
         )
@@ -436,7 +436,7 @@ class FrangTlsVsBoth(FrangTestCase):
 
         self._act(base_client, opt_client)
 
-        self.check_connections(base_client.stats, self.rate_warning, resets_expected=conns_n - 3)
+        self.check_connections([base_client], self.rate_warning, resets_expected=conns_n - 3)
         self.assertEqual(
             opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
         )
@@ -485,9 +485,7 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self._act(base_client, opt_client)
 
         resets_expected = range(conn_n * 2 - 3 * 2, conn_n * 2 - 3)
-        self.check_connections(
-            base_client.stats + opt_client.stats, self.burst_warning, resets_expected
-        )
+        self.check_connections([base_client, opt_client], self.burst_warning, resets_expected)
 
     def test_rate(self):
         """
@@ -501,5 +499,5 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self._act(base_client, opt_client)
 
         self.check_connections(
-            base_client.stats + opt_client.stats, self.rate_warning, resets_expected=conns_n * 2 - 3
+            [base_client, opt_client], self.rate_warning, resets_expected=conns_n * 2 - 3
         )

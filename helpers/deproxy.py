@@ -751,6 +751,7 @@ class Client(TlsClient, stateful.Stateful):
         self.port = port
         self.stop_procedures = [self.__stop_client]
         self.conn_is_closed = True
+        self.conn_was_opened = False
         self.bind_addr = bind_addr
         self.error_codes = []
         self.socket_family = socket_family
@@ -785,6 +786,10 @@ class Client(TlsClient, stateful.Stateful):
         return self.conn_is_closed
 
     @property
+    def conn_is_active(self):
+        return self.conn_was_opened and not self.conn_is_closed
+
+    @property
     def socket_family(self) -> str:
         return self.__socket_family
 
@@ -797,6 +802,7 @@ class Client(TlsClient, stateful.Stateful):
 
     def handle_connect(self):
         TlsClient.handle_connect(self)
+        self.conn_was_opened = True
         self.conn_is_closed = False
 
     def handle_close(self):
@@ -851,11 +857,15 @@ class Client(TlsClient, stateful.Stateful):
         type_error, v, _ = sys.exc_info()
         self.error_codes.append(type_error)
         tf_cfg.dbg(4, f"\tDeproxy: Client: Receive error - {type_error} with message - {v}.")
+
         if type(v) == ParseError or type(v) == AssertionError:
             self.handle_close()
             raise v
         elif type(v) == ssl.SSLWantReadError:
             # Need to receive more data before decryption can start.
+            pass
+        elif type_error == ConnectionRefusedError:
+            # RST is legitimate case
             pass
         else:
             self.handle_close()
