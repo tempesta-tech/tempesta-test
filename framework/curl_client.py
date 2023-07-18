@@ -95,6 +95,7 @@ class CurlArguments:
     load_cookies: bool = False
     ssl: bool = False
     http2: bool = False
+    curl_iface: str = None
     insecure: bool = True
     parallel: int = None
 
@@ -124,6 +125,9 @@ class CurlClient(CurlArguments, client.Client):
       load_cookies (bool): load and send cookies from the workdir
       ssl (bool): use SSL/TLS for the connection
       http2 (bool): use HTTP version 2
+      curl_iface (str): Interface name, IP address or host name using for performing request.
+                        Don't mess with "interface" argument, used by framework
+                        for creating alias interfaces.
       insecure (bool): Ignore SSL certificate errors. Enabled by default.
       parallel (int): Enable parallel mode, with maximum <int> simultaneous transfers.
                       In combination with dump_headers can provide inaccurate results #488.
@@ -277,6 +281,9 @@ class CurlClient(CurlArguments, client.Client):
             options.append("--http2-prior-knowledge")
         else:
             options.append("--http1.1")
+
+        if self.curl_iface:
+            options.append(f"--interface {self.curl_iface}")
 
         if self.ssl and self.insecure:
             options.append("--insecure")

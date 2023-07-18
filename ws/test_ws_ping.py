@@ -3,15 +3,15 @@
 import asyncio
 import os
 import ssl
-from multiprocessing import Process
-from helpers import dmesg, tf_cfg
-
 import time
+from multiprocessing import Process
+
 import requests
 import websockets
 
 from framework import tester
 from framework.x509 import CertGenerator
+from helpers import dmesg, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
@@ -311,7 +311,6 @@ class WssPing(WsPing):
             asyncio.ensure_future(websockets.serve(self.handler, hostname, port + i))
         loop.run_forever()
 
-
     def test(self):
         gen_cert(hostname)
         p1 = Process(target=self.run_wss, args=(8099,))
@@ -391,7 +390,9 @@ class CacheTest(WsPing):
 
         r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
-            self.fail("Test failed cause recieved invalid status_code")
+            self.fail(
+                f"Test failed cause received invalid status_code: {r.status_code}, expected: {expected_status}"
+            )
 
     def test(self):
         p1 = Process(target=self.run_ws, args=(8099,))
@@ -464,34 +465,34 @@ class WsPipelining(WsPing):
     }
 
     request = (
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Connection: Upgrade\r\n"
-            "Upgrade: websocket\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
-            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
-            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-            "\r\n"
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Connection: Upgrade\r\n"
-            "Upgrade: websocket\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
-            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
-            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-            "\r\n"
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Connection: Upgrade\r\n"
-            "Upgrade: websocket\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
-            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
-            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-            "\r\n"
-        )
+        "GET / HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Connection: Upgrade\r\n"
+        "Upgrade: websocket\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+        "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+        "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+        "\r\n"
+        "GET / HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Connection: Upgrade\r\n"
+        "Upgrade: websocket\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+        "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+        "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+        "\r\n"
+        "GET / HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Connection: Upgrade\r\n"
+        "Upgrade: websocket\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+        "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+        "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+        "\r\n"
+    )
 
     async def handler(self, websocket, path):
         pass
@@ -507,7 +508,7 @@ class WsPipelining(WsPing):
         deproxy_cl.start()
         deproxy_cl.make_requests(self.request)
         deproxy_cl.wait_for_response(timeout=5)
-        
+
         for resp in deproxy_cl.responses:
             tf_cfg.dbg(3, resp)
         p1.terminate()
@@ -515,14 +516,14 @@ class WsPipelining(WsPing):
 
 
 class WsScheduler(WsPing):
-    
+
     """
     Create 4 connections against 1 backend ws
     Make 256 async client ws connections
-    Expected result - All ping messages recieved
-    Current result - Kernel panic 
+    Expected result - All ping messages received
+    Current result - Kernel panic
     """
-    
+
     tempesta = {
         "config": """
             listen 81;
@@ -594,7 +595,7 @@ class RestartOnUpgrade(WsPing):
 
         r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
-           self.fail(f"Recieved invalid status_code {r.status_code}")
+            self.fail(f"Received invalid status_code {r.status_code}")
 
     def fibo(self, n):
         fib = [0, 1]
