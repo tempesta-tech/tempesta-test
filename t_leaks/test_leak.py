@@ -31,21 +31,14 @@ def drop_caches():
     sleep(1)
 
 
-def file_exists(remote_file):
-    """Check existence of file on Tempesta host"""
-    if os.path.exists(remote_file):
-        return True
-    return False
-
-
 def has_kmemleak():
     """Check presence of kmemleak"""
-    return file_exists("/sys/kernel/debug/kmemleak")
+    return os.path.exists("/sys/kernel/debug/kmemleak")
 
 
 def has_meminfo():
     """Check presence of meminfo"""
-    return file_exists("/proc/meminfo")
+    return os.path.exists("/proc/meminfo")
 
 
 def read_kmemleaks():

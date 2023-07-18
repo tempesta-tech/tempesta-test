@@ -104,19 +104,10 @@ block_action attack reply;
                 self.assertTrue(client.wait_for_connection_close(self.timeout))
                 self.assertFrangWarning(warning=warning_msg, expected=1)
 
-    def check_connections(
-        self, curl_stats: List[Dict[str, Any]], warning: str, resets_expected: Union[int, range]
-    ):
+    def check_connections(self, clients, warning: str, resets_expected: Union[int, range]):
         warns_occured = self.assertFrangWarning(warning, resets_expected)
-
-        reset_stats = [s for s in curl_stats if s["response_code"] != 200]
-        self.assertEqual(len(reset_stats), warns_occured)
-        for s in reset_stats:
-            self.assertConnReset(s)
-
-    def assertConnReset(self, curl_stat: Dict[str, Any]):
-        self.assertIn("Connection reset by peer", curl_stat["errormsg"])
-        self.assertEqual(curl_stat["response_code"], 0)
+        reset_conn_n = sum(c.reset_conn_n for c in clients)
+        self.assertEqual(reset_conn_n, warns_occured)
 
     def assertFrangWarning(self, warning: str, expected: Union[int, range]):
         warning_count = self.klog.warn_count(warning)

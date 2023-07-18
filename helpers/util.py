@@ -72,7 +72,7 @@ def wait_until(wait_cond, timeout=5, poll_freq=0.01, abort_cond=lambda: False):
     while wait_cond():
         t = time.time()
         if t - t0 > timeout or abort_cond():
-            return False
+            return not wait_cond()  # check wait_cond for a last time
         time.sleep(poll_freq)
 
     return True

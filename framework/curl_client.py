@@ -216,6 +216,16 @@ class CurlClient(CurlArguments, client.Client):
         return list(self._stats)
 
     @property
+    def reset_conn_n(self) -> int:
+        """
+        Amount of connections reseted by server (by RST).
+        """
+        return sum(
+            "Connection reset by peer" in (s["errormsg"] or "") and s["response_code"] == 0
+            for s in self.stats
+        )
+
+    @property
     def binary_version(self) -> Optional[str]:
         """curl binary version, parsed from the latest transfer."""
         if self.last_stats:
@@ -294,7 +304,7 @@ class CurlClient(CurlArguments, client.Client):
             options.append(f"--parallel-max {self.parallel}")
 
         cmd = " ".join([self.bin] + options + self.options + [f"'{self.uri}'"])
-        tf_cfg.dbg(3, f"Curl command formatted: {cmd}")
+        tf_cfg.dbg(2, f"Curl command formatted: {cmd}")
         return cmd
 
     def parse_out(self, stdout, stderr):

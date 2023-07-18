@@ -1,4 +1,11 @@
-"""Tests for Frang directive `*_connection_rate` and '*_connection_burst'."""
+"""
+Tests for Frang directive `*_connection_rate` and '*_connection_burst'.
+
+From wiki, read it to understand burst tests (why number of warnings
+are ranged):
+"Minor bursts also can actually exceed the specified limit,
+but not more than 2 times."
+"""
 import time
 
 from helpers import util
@@ -81,12 +88,10 @@ class FrangTls(FrangTestCase):
 
         time.sleep(self.timeout)
 
-        # Doc: "Minor bursts also can actually exceed the specified limit,
-        # but not more than 2 times."
-        # So we need to set 11=10+1 to guarantee burst 5.
+        # we need to set 11=10+1 to guarantee burst 5
         warns_expected = range(max(connections - 10, 0), max(connections - 5, 0))
 
-        self.check_connections(curl.stats, self.burst_warning, warns_expected)
+        self.check_connections([curl], self.burst_warning, warns_expected)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
     def _base_rate_scenario(self, connections: int, disable_hshc: bool = False):
@@ -118,7 +123,7 @@ class FrangTls(FrangTestCase):
             self.assertEqual(curl.last_response.status, 200)
         else:
             # rate limit is reached
-            self.check_connections(curl.stats, self.rate_warning, resets_expected=connections - 4)
+            self.check_connections([curl], self.rate_warning, resets_expected=connections - 4)
 
         self.assertFrangWarning(self.burst_warning, expected=0)
 
@@ -410,16 +415,14 @@ class FrangTlsVsBoth(FrangTestCase):
         Only tls connections will be blocked.
         """
         self.set_frang_config(frang_config=self.burst_config)
-        # Doc: "Minor bursts also can actually exceed the specified limit,
-        # but not more than 2 times."
-        # So we need to set 7=6+1 to guarantee burst 3.
+        # we need to set 7=6+1 to guarantee burst 3
         conns_n = 7
         base_client, opt_client = self._arrange_clients(conns_n)
 
         self._act(base_client, opt_client)
 
         resets_expected = range(conns_n - 3 * 2, conns_n - 3)
-        self.check_connections(base_client.stats, self.burst_warning, resets_expected)
+        self.check_connections([base_client], self.burst_warning, resets_expected)
         self.assertEqual(
             opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
         )
@@ -436,7 +439,7 @@ class FrangTlsVsBoth(FrangTestCase):
 
         self._act(base_client, opt_client)
 
-        self.check_connections(base_client.stats, self.rate_warning, resets_expected=conns_n - 3)
+        self.check_connections([base_client], self.rate_warning, resets_expected=conns_n - 3)
         self.assertEqual(
             opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
         )
@@ -485,9 +488,7 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self._act(base_client, opt_client)
 
         resets_expected = range(conn_n * 2 - 3 * 2, conn_n * 2 - 3)
-        self.check_connections(
-            base_client.stats + opt_client.stats, self.burst_warning, resets_expected
-        )
+        self.check_connections([base_client, opt_client], self.burst_warning, resets_expected)
 
     def test_rate(self):
         """
@@ -501,5 +502,5 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self._act(base_client, opt_client)
 
         self.check_connections(
-            base_client.stats + opt_client.stats, self.rate_warning, resets_expected=conns_n * 2 - 3
+            [base_client, opt_client], self.rate_warning, resets_expected=conns_n * 2 - 3
         )
