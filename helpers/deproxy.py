@@ -1067,9 +1067,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
             conns_n = tempesta.server_conns_default()
         self.conns_n = conns_n
         self.keep_alive = keep_alive
-        if host is None:
-            host = "Client"
-        self.ip = tf_cfg.cfg.get("Client", "ip")
+        self.ip = tf_cfg.cfg.get("Server", "ip")
         self.stop_procedures = [self.__stop_server]
 
     def run_start(self):

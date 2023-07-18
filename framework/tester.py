@@ -117,10 +117,9 @@ class TempestaTest(unittest.TestCase):
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client, ssl, bind_addr):
+    def __create_client_deproxy(self, client, ssl, bind_addr, socket_family):
         addr = fill_template(client["addr"], client)
         port = int(fill_template(client["port"], client))
-        socket_family = client.get("socket_family", "ipv4")
         if client["type"] == "deproxy_h2":
             clt = deproxy_client.DeproxyClientH2(
                 addr=addr,
@@ -161,13 +160,14 @@ class TempestaTest(unittest.TestCase):
         )
         return ext_client
 
-    def __create_client_curl(self, client):
+    def __create_client_curl(self, client, interface):
         # extract arguments that are supported by cURL client
         kwargs = {k: client[k] for k in curl_client.CurlArguments.get_kwargs() if k in client}
         kwargs["addr"] = fill_template(
             client.get("addr", "${tempesta_ip}"), client  # Address is Tempesta IP by default
         )
         kwargs["cmd_args"] = fill_template(client.get("cmd_args", ""), client)
+        kwargs.setdefault("curl_iface", interface)
         curl = curl_client.CurlClient(**kwargs)
         return curl
 
@@ -175,22 +175,26 @@ class TempestaTest(unittest.TestCase):
         populate_properties(client)
         ssl = client.setdefault("ssl", False)
         cid = client["id"]
-        if client["type"] in ["deproxy", "deproxy_h2"]:
-            ip = None
+        socket_family = client.get("socket_family", "ipv4")
+        client_ip_opt = "ipv6" if socket_family == "ipv6" else "ip"
+        client_ip = tf_cfg.cfg.get("Client", client_ip_opt)
+        if client["type"] in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-                client_ip = tf_cfg.cfg.get("Client", "ip")
                 (_, ip) = sysnet.create_interface(len(self.__ips), interface, base_ip)
                 sysnet.create_route(interface, ip, client_ip)
                 self.__ips.append(ip)
-            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip)
+            else:
+                ip = client_ip
+        if client["type"] in ["deproxy", "deproxy_h2"]:
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip, socket_family)
             self.__clients[cid].set_rps(client.get("rps", 0))
             self.deproxy_manager.add_client(self.__clients[cid])
         elif client["type"] == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif client["type"] == "curl":
-            self.__clients[cid] = self.__create_client_curl(client)
+            self.__clients[cid] = self.__create_client_curl(client, ip)
         elif client["type"] == "external":
             self.__clients[cid] = self.__create_client_external(client)
 
@@ -412,7 +416,7 @@ class TempestaTest(unittest.TestCase):
                     "-U",
                     "-i",
                     "any",
-                    f"ip src {tempesta_ip} and ip dst {tempesta_ip}",
+                    f"ip src {tempesta_ip} or ip dst {tempesta_ip}",
                     "-w",
                     f"{build_path}/{test_name}.pcap",
                 ],

@@ -392,7 +392,9 @@ class CacheTest(WsPing):
 
         r = requests.get(f"http://{TEMPESTA_IP}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
-            self.fail("Test failed cause recieved invalid status_code")
+            self.fail(
+                f"Test failed cause received invalid status_code: {r.status_code}, expected: {expected_status}"
+            )
 
     def test(self):
         self.p1 = Process(target=self.run_ws, args=(8099,))
@@ -577,7 +579,7 @@ class RestartOnUpgrade(WsPing):
 
         r = requests.get(f"http://{TEMPESTA_IP}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
-            self.fail(f"Recieved invalid status_code {r.status_code}")
+            self.fail(f"Received invalid status_code {r.status_code}")
 
     def fibo(self, n):
         fib = [0, 1]

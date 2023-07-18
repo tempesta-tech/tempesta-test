@@ -74,7 +74,7 @@ TEMPESTA_DEPROXY_CONFIG = """
 listen 443 proto=h2;
 
 srv_group default {
-    server ${general_ip}:8000;
+    server ${server_ip}:8000;
 }
 vhost default {
     tls_certificate ${tempesta_workdir}/tempesta.crt;
@@ -392,6 +392,7 @@ class TestSplitCookies(H2Base):
     Ensure that multiple cookie headers values are merged
     into single header when proxying to backend
     """
+
     def test_split_cookies(self):
         client = self.get_client("deproxy")
         client.parsing = False
@@ -399,7 +400,9 @@ class TestSplitCookies(H2Base):
         self.start_all_services()
 
         cookies = {"foo": "bar", "bar": "baz"}
-        client.send_request(self.get_request + [("cookie", f"{name}={val}") for name, val in cookies.items()], "200")
+        client.send_request(
+            self.get_request + [("cookie", f"{name}={val}") for name, val in cookies.items()], "200"
+        )
 
         cookie_hdrs = list(self.get_server("deproxy").last_request.headers.find_all("cookie"))
         self.assertEqual(len(cookie_hdrs), 1, "Cookie headers are not merged together")
@@ -689,7 +692,10 @@ class CurlTestBase(tester.TempestaTest):
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": ("-kfv " " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com/ "),
+            "cmd_args": (
+                "-kfv "
+                " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com/ "
+            ),
         },
     ]
 
@@ -786,7 +792,8 @@ class BackendSetCoookieH2(tester.TempestaTest):
             "type": "external",
             "binary": "curl",
             "cmd_args": (
-                "-kfv " " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com/"  # Set non-null return code on 4xx-5xx responses.
+                "-kfv "
+                " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com/"  # Set non-null return code on 4xx-5xx responses.
             ),
         },
     ]

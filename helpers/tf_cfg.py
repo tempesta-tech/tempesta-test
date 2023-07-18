@@ -59,7 +59,7 @@ class TestFrameworkCfg(object):
                     "long_body_size": "500",
                 },
                 "Client": {
-                    "ip": "127.0.0.1",
+                    "ip": "127.0.0.2",
                     "ipv6": "::1",
                     "hostname": "localhost",
                     "ab": "ab",
@@ -82,7 +82,7 @@ class TestFrameworkCfg(object):
                     "unavaliable_timeout": "300",
                 },
                 "Server": {
-                    "ip": "127.0.0.1",
+                    "ip": "127.0.0.3",
                     "ipv6": "::1",
                     "hostname": "localhost",
                     "user": "root",
