@@ -182,9 +182,6 @@ class HeaderCollection(object):
             ret.setdefault(hed.lower(), []).append(val)
         return ret
 
-    def _has_good_date(self):
-        return len(self.headers.get("date", [])) == 1
-
     _disable_report_wrong_is_expected = False
 
     def _report_wrong_is_expected(self, other):
