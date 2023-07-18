@@ -162,7 +162,7 @@ class TempestaTest(unittest.TestCase):
 
     def __create_client_curl(self, client, interface):
         # extract arguments that are supported by cURL client
-        kwargs = {k: client[k] for k in curl_client.CurlArguments.get_kwargs() if k in client}
+        kwargs = {k: client[k] for k in curl_client.CurlArguments.get_arg_names() if k in client}
         kwargs["addr"] = fill_template(
             client.get("addr", "${tempesta_ip}"), client  # Address is Tempesta IP by default
         )
