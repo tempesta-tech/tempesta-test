@@ -16,7 +16,7 @@ from h2.settings import SettingCodes, Settings
 from hpack import Encoder
 
 import run_config
-from helpers import deproxy, stateful, tf_cfg
+from helpers import deproxy, stateful, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
@@ -195,13 +195,11 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     def wait_for_connection_close(self, timeout=5):
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
-        t0 = time.time()
-        while not self.connection_is_closed():
-            t = time.time()
-            if t - t0 > timeout:
-                return False
-            time.sleep(0.01)
-        return True
+        return util.wait_until(
+            lambda: not self.connection_is_closed(),
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
 
     @abc.abstractmethod
     def receive_response(self, response):
@@ -305,13 +303,11 @@ class DeproxyClient(BaseDeproxyClient):
     def wait_for_response(self, timeout=5):
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
 
-        t0 = time.time()
-        while len(self.responses) < self.valid_req_num:
-            t = time.time()
-            if t - t0 > timeout or self.state != stateful.STATE_STARTED:
-                return False
-            time.sleep(0.01)
-        return True
+        return util.wait_until(
+            lambda: len(self.responses) < self.valid_req_num,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
 
     def send_request(self, request, expected_status_code: str):
         """
@@ -459,29 +455,19 @@ class DeproxyClientH2(DeproxyClient):
 
     def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
-        if self.state != stateful.STATE_STARTED:
-            return False
-
-        t0 = time.time()
-        while not self.ack_settings:
-            t = time.time()
-            if t - t0 > timeout:
-                return False
-            time.sleep(0.01)
-        return True
+        return util.wait_until(
+            lambda: not self.ack_settings,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
 
     def wait_for_reset_stream(self, stream_id: int, timeout=5):
         """Wait RST_STREAM frame for stream."""
-        if self.state != stateful.STATE_STARTED:
-            return False
-
-        t0 = time.time()
-        while not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id):
-            t = time.time()
-            if t - t0 > timeout:
-                return False
-            time.sleep(0.01)
-        return True
+        return util.wait_until(
+            lambda: not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id),
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
 
     def send_bytes(self, data: bytes, expect_response=False):
         self.request_buffers.append(data)
