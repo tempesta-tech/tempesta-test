@@ -53,7 +53,7 @@ class Stateful(object):
             try:
                 stop_proc()
             except Exception as exc:
-                tf_cfg.dbg(1, "Exception in stopping process: %s" % str(exc))
+                tf_cfg.dbg(1, f"Exception in stopping process: {exc}, type: {type(exc)}")
                 self.state = STATE_ERROR
 
         if self.state != STATE_ERROR:

@@ -68,6 +68,7 @@ block_action attack reply;
         self.klog = dmesg.DmesgFinder(ratelimited=False)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
 
+    # TODO: rename to set_frang_cfg_and_start
     def set_frang_config(self, frang_config: str):
         self.tempesta["config"] = self.tempesta_template["config"] % {
             "frang_config": frang_config,
