@@ -33,10 +33,10 @@ Content-Length: 395\r
 
 
 class TestCurlArguments(unittest.TestCase):
-    def test_kwargs_returned(self):
-        kwargs = CurlArguments.get_kwargs()
-        self.assertIn("addr", kwargs)
-        self.assertFalse([arg for arg in kwargs if arg.startswith("_")])
+    def test_arg_names_returned(self):
+        arg_names = CurlArguments.get_arg_names()
+        self.assertIn("addr", arg_names)
+        self.assertFalse([arg for arg in arg_names if arg.startswith("_")])
 
 
 class TestCurlClientParsing(unittest.TestCase):

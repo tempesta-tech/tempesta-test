@@ -100,7 +100,7 @@ class CurlArguments:
     parallel: int = None
 
     @classmethod
-    def get_kwargs(cls) -> List[str]:
+    def get_arg_names(cls) -> List[str]:
         """Returns list of `CurlClient` supported argument names."""
         return list(cls.__dataclass_fields__.keys())
 
