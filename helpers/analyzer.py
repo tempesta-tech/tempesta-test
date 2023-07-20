@@ -10,7 +10,7 @@ from time import sleep
 
 from scapy.all import *
 
-from . import error, remote, tf_cfg
+from . import error, remote, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
@@ -60,11 +60,7 @@ class Sniffer(object, metaclass=abc.ABCMeta):
     def start(self):
         self.thread = Thread(target=self.sniff)
         self.thread.start()
-        # TODO #120: the sniffer thread may not start with lower timeout like
-        # 0.001, so we use longer timeout here. Instead we should check whether
-        # the tcpdump process is running and wait for it otherwise.
-        # See appropriate comments in remote.py and analyzer.py.
-        sleep(0.1)
+        util.wait_until(lambda: not self.thread.is_alive())
 
     def stop(self):
         if self.thread:
@@ -74,13 +70,6 @@ class Sniffer(object, metaclass=abc.ABCMeta):
                 os.remove(self.dump_file)
             else:
                 error.bug('Dump file "%s" does not exist!' % self.dump_file)
-
-    @abc.abstractmethod
-    def check_results(self):
-        """Analyzing captured packets. Should be called after start-stop cycle.
-        Should be redefined in sublasses.
-        """
-        return True
 
 
 class AnalyzerCloseRegular(Sniffer):
@@ -160,28 +149,45 @@ class AnalyzerTCPSegmentation(Sniffer):
                     self.tfw_pkts += [int(plen)]
                 elif p[TCP].sport == self.srv_port:
                     self.srv_pkts += [int(plen)]
-                tf_cfg.dbg(3, (f'pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id}'))
-        self.srv_pkts.pop(0) # Exclude first ack
-        tls_offset = self.tfw_pkts.index(self.srv_pkts[0]) # Find payload offset
-        self.tfw_pkts.pop(tls_offset+1) # Exclude heades
+                tf_cfg.dbg(
+                    3, (f"pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id}")
+                )
+        self.srv_pkts.pop(0)  # Exclude first ack
+        tls_offset = self.tfw_pkts.index(self.srv_pkts[0])  # Find payload offset
+        self.tfw_pkts.pop(tls_offset + 1)  # Exclude heades
         (tfw_n, srv_n) = (len(self.tfw_pkts), len(self.srv_pkts))
-        tfw_sent = tfw_n - tls_offset # TLS handshake
-        srv_sent = srv_n # Ack packet
+        tfw_sent = tfw_n - tls_offset  # TLS handshake
+        srv_sent = srv_n  # Ack packet
         assert tfw_n and srv_n, "Traffic wasn't captured"
-        assert tfw_n >= 6, "Captured the number of packets less than" \
-                          " the TCP/TLS overhead"
+        assert tfw_n >= 6, "Captured the number of packets less than" " the TCP/TLS overhead"
         assert srv_sent != 0, "Backend not sent payload"
         assert tfw_sent != 0, "Tempesta not sent payload"
         # Tempesta cant generate less payload packets cause we overheaded by TLS
         # + Header addition. So we check the number of sent packets is equal
         if tfw_sent != srv_sent:
-            tf_cfg.dbg(2, (f"Tempesta TLS generates more packets ({tfw_sent}) than" \
-                          f" original server ({srv_sent})"))
+            tf_cfg.dbg(
+                2,
+                (
+                    f"Tempesta TLS generates more packets ({tfw_sent}) than"
+                    f" original server ({srv_sent})"
+                ),
+            )
             res = False
-        tf_cfg.dbg(2, "Tempesta segments len: %s\nServer segments len: %s" % (sum(self.tfw_pkts[tls_offset:]), sum(self.srv_pkts)))
-        tf_cfg.dbg(2, "Tempesta\Server len delta: %s" % (sum(self.tfw_pkts[tls_offset:]) - sum(self.srv_pkts)))
-        tf_cfg.dbg(2, "Tempesta segments: %s\nServer segments: %s"
-                    % (str(self.tfw_pkts[tls_offset:]), str(self.srv_pkts)))
+        tf_cfg.dbg(
+            2,
+            "Tempesta segments len: %s\nServer segments len: %s"
+            % (sum(self.tfw_pkts[tls_offset:]), sum(self.srv_pkts)),
+        )
+        tf_cfg.dbg(
+            2,
+            "Tempesta\Server len delta: %s"
+            % (sum(self.tfw_pkts[tls_offset:]) - sum(self.srv_pkts)),
+        )
+        tf_cfg.dbg(
+            2,
+            "Tempesta segments: %s\nServer segments: %s"
+            % (str(self.tfw_pkts[tls_offset:]), str(self.srv_pkts)),
+        )
         self.first_run = False
         return res
 

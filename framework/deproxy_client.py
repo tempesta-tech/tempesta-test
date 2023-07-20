@@ -1,6 +1,8 @@
 import abc
 import time
+from collections import defaultdict
 from io import StringIO
+from typing import Dict
 
 import h2.connection
 from h2.events import (
@@ -309,6 +311,17 @@ class DeproxyClient(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    def make_req_wait_resp(self, req: str, timeout=5) -> bool:
+        self.make_request(req)
+        return self.wait_for_response()
+
+    @property
+    def statuses(self) -> Dict[int, int]:
+        d = defaultdict(lambda: 0)
+        for r in self.responses:
+            d[int(r.status)] += 1
+        return dict(d)
+
     def send_request(self, request, expected_status_code: str):
         """
         Form and send one HTTP request. And also check that the client has received a response and
@@ -316,8 +329,7 @@ class DeproxyClient(BaseDeproxyClient):
         """
         curr_responses = len(self.responses)
 
-        self.make_request(request)
-        self.wait_for_response()
+        self.make_req_wait_resp(request)
 
         assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
         assert expected_status_code in self.last_response.status, (
