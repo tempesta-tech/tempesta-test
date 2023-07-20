@@ -76,3 +76,21 @@ def wait_until(wait_cond, timeout=5, poll_freq=0.01, abort_cond=lambda: False):
         time.sleep(poll_freq)
 
     return True
+
+
+class ForEach:
+    def __init__(self, *objects):
+        self.objects = objects
+
+    def __getattr__(self, name):
+        if not callable(getattr(self.objects[0], name)):
+            return [getattr(o, name) for o in self.objects]
+
+        def wrapper(*args, **kwargs):
+            return [getattr(o, name)(*args, **kwargs) for o in self.objects]
+
+        return wrapper
+
+    def __iter__(self):
+        for o in self.objects:
+            yield o

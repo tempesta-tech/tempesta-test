@@ -1,7 +1,9 @@
 import abc
 import time
+from collections import defaultdict
 from io import StringIO
-from typing import Union
+from typing import Dict, Optional
+from typing import Union  # TODO: use | instead when we move to python3.10
 
 import h2.connection
 from h2.events import (
@@ -311,7 +313,14 @@ class DeproxyClient(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
-    def send_request(self, request, expected_status_code: str):
+    @property
+    def statuses(self) -> Dict[int, int]:
+        d = defaultdict(lambda: 0)
+        for r in self.responses:
+            d[int(r.status)] += 1
+        return dict(d)
+
+    def send_request(self, request, expected_status_code: Optional[str] = None, timeout=5) -> None:
         """
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
@@ -319,13 +328,14 @@ class DeproxyClient(BaseDeproxyClient):
         curr_responses = len(self.responses)
 
         self.make_request(request)
-        self.wait_for_response()
+        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
 
-        assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
-        assert expected_status_code in self.last_response.status, (
-            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-            + f"Received - {self.last_response.status}"
-        )
+        if expected_status_code:
+            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
+            assert expected_status_code in self.last_response.status, (
+                f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
+                + f"Received - {self.last_response.status}"
+            )
 
     @staticmethod
     def create_request(
