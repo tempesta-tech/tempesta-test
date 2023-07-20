@@ -821,8 +821,8 @@ http {
     ]
 
     def config_changer(self, n):
-        for _ in range(n):
-            if n % 2 == 1:
+        for step in range(n):
+            if step % 2 == 1:
                 self.set_first_config()
             else:
                 self.set_second_config()
