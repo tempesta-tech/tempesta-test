@@ -101,7 +101,7 @@ block_action attack reply;
                 self.assertFalse(client.connection_is_closed())
                 self.assertFrangWarning(warning=warning_msg, expected=0)
             else:
-                self.assertTrue(client.wait_for_connection_close(self.timeout))
+                self.assertTrue(client.wait_for_connection_close())
                 self.assertFrangWarning(warning=warning_msg, expected=1)
 
     def check_connections(self, clients, warning: str, resets_expected: Union[int, range]):

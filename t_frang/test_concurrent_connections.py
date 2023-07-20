@@ -89,12 +89,12 @@ frang_limits {
         if responses == 0:
             for client in clients:
                 self.assertEqual(0, len(client.responses))
-                self.assertTrue(client.wait_for_connection_close(self.timeout))
+                self.assertTrue(client.wait_for_connection_close())
         elif responses == 2:
             self.assertEqual(1, len(clients[0].responses))
             self.assertEqual(1, len(clients[1].responses))
             self.assertEqual(0, len(clients[2].responses))
-            self.assertTrue(clients[2].wait_for_connection_close(self.timeout))
+            self.assertTrue(clients[2].wait_for_connection_close())
             self.assertFalse(clients[0].connection_is_closed())
             self.assertFalse(clients[1].connection_is_closed())
         elif responses == 3:

@@ -209,7 +209,7 @@ block_action attack reply;
             self.check_response(client, warning_msg=self.rate_warning, status_code="200")
         else:
             # rate limit is reached
-            self.assertTrue(client.wait_for_connection_close(self.timeout))
+            self.assertTrue(client.wait_for_connection_close())
             self.assertFrangWarning(warning=self.rate_warning, expected=1)
             self.assertEqual(client.last_response.status, "403")
 
