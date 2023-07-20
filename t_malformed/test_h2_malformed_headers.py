@@ -18,6 +18,12 @@ class H2MalformedRequestsTest(test_malformed_headers.MalformedRequestsTest):
         },
     ]
 
+    def test_upgrade(self):
+        self.common_check(headers=("Upgrade", "invalid"))
+
+    def test_te(self):
+        self.common_check(headers=("TE", "invalid"))
+
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
         if headers[0] == "Host":
@@ -50,6 +56,14 @@ class H2MalformedRequestsWithoutStrictParsingTest(
             "ssl": True,
         },
     ]
+
+    @unittest.SkipTest
+    def test_upgrade(self):
+        pass
+
+    @unittest.SkipTest
+    def test_te(self):
+        pass
 
     @staticmethod
     def generate_request(headers: tuple, method="GET"):

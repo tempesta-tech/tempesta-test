@@ -3,7 +3,7 @@ import queue
 import select
 import threading
 
-from helpers import stateful, tf_cfg
+from helpers import error, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
@@ -30,6 +30,8 @@ def run_deproxy_server(deproxy, exit_event, polling_lock, q):
         tf_cfg.dbg(2, "Error while polling: %s" % str(e))
         polling_lock.release()
         q.put(e)
+        deproxy.state = stateful.STATE_ERROR
+        error.bug(f"\n\tDeproxy: Manager:")
     tf_cfg.dbg(3, "Finished deproxy manager")
 
 
@@ -72,6 +74,21 @@ class DeproxyManager(stateful.Stateful):
             return self.thread_expts.get()
         except queue.Empty:
             return None
+
+    @stateful.Stateful.state.setter
+    def state(self, new_state: str) -> None:
+        """
+        Set state for deproxy manager.
+        Also set states for clients and servers if state is STATE_ERROR.
+        """
+        self._state = new_state
+        if new_state != stateful.STATE_ERROR:
+            return None
+
+        for client in self.clients:
+            client.state = new_state
+        for server in self.servers:
+            server.state = new_state
 
     def __stop(self):
         tf_cfg.dbg(3, "Stopping deproxy")

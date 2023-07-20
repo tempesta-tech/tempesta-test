@@ -354,14 +354,6 @@
             "reason": "Disabled by PR #1917"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
-            "reason": "Disabled by issue #1819"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_rst_frame_in_response",
-            "reason": "Disabled by issue #1819"
-        },
-        {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_double_header_frame_in_single_stream",
             "reason": "Disabled by issue #1823"
         },
@@ -426,7 +418,6 @@
             "reason": "Disabled by issue #1866"
         },
         {
-
             "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_uppercase_in_header_name",
             "reason": "Disabled by issue #1729"
         },
@@ -479,12 +470,40 @@
             "reason": "Disabled by issue #1928"
         },
         {
+            "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
+            "reason": "Disabled by issue #1902"
+        },
+        {
             "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES128_GCM",
             "reason": "Disabled by issue #1939"
         },
         {
             "name": "tls.test_tls_stress.TlsHandshakeDheRsaTest.test_DHE_RSA_AES256_GCM",
             "reason": "Disabled by issue #1939"
+        },
+        {
+            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
+            "reason": "Disabled by issue #1196"
+        },
+        {
+            "name": "http2_general.test_h2_block_action",
+            "reason": "Disabled by PR #1926"
+        },
+        {
+            "name": "http_general.test_block_action",
+            "reason": "Disabled by PR #1926"
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestH2Frame.test_rst_frame_in_response",
+            "reason": "Disabled by PR #1926"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity",
+            "reason": "Disabled by PR #1926"
+        },
+        {
+            "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
+            "reason": "Disabled by PR #1926"
         }
     ]
 }

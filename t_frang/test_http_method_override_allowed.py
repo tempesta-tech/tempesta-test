@@ -50,12 +50,12 @@ class FrangHttpMethodsOverrideTestCase(FrangTestCase):
     def test_accepted_request(self):
         client = self.base_scenario(
             frang_config="http_method_override_allowed true;\n\thttp_methods post put get;",
-            requests=ACCEPTED_REQUESTS
-            + [
+            requests=[
                 REQUEST_FALSE_OVERRIDE,
                 DOUBLE_OVERRIDE,
                 MULTIPLE_OVERRIDE,
-            ],
+            ]
+            + ACCEPTED_REQUESTS,
             disable_hshc=True,
         )
         self.check_response(client, status_code="200", warning_msg="frang: ")
