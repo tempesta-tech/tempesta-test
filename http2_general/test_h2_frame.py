@@ -6,12 +6,12 @@ __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
+from hpack import HeaderTuple
 
 from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
-from http2_general.helpers import H2Base
 from helpers.networker import NetWorker
-from hpack import HeaderTuple
+from http2_general.helpers import H2Base
 
 
 class TestH2Frame(H2Base):
@@ -205,7 +205,7 @@ class TestH2Frame(H2Base):
         client.send_bytes(b"\x00\x00\x04\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 
         self.assertTrue(
-            client.wait_for_connection_close(1),
+            client.wait_for_connection_close(),
             "Tempesta did not close connection after receiving RST_STREAM with id 0.",
         )
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
@@ -238,7 +238,7 @@ class TestH2Frame(H2Base):
         # Tempesta MUST return GOAWAY frame with PROTOCOL_ERROR
         client.send_bytes(b"\x00\x00\x03\x00\x01\x00\x00\x00\x00asd")
 
-        self.assertTrue(client.wait_for_connection_close(3), "Tempesta did not send GOAWAY frame.")
+        self.assertTrue(client.wait_for_connection_close(), "Tempesta did not send GOAWAY frame.")
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
         self.assertEqual(
             client.last_stream_id,
