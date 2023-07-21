@@ -857,7 +857,7 @@ class Client(TlsClient, stateful.Stateful):
         if type(v) == ParseError or type(v) == AssertionError:
             self.handle_close()
             raise v
-        elif type(v) == ssl.SSLWantReadError:
+        elif type(v) == ssl.SSLWantReadError or type(v) == ssl.SSLWantWriteError:
             # Need to receive more data before decryption can start.
             pass
         else:

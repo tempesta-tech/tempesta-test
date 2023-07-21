@@ -1,5 +1,6 @@
 import abc
 import asyncore
+import io
 import socket
 import sys
 import threading
@@ -13,7 +14,7 @@ from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 from .templates import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2021 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -36,18 +37,19 @@ class ServerConnection(asyncore.dispatcher_with_send):
         if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
             self.server.segment_size = run_config.TCP_SEGMENTATION
 
-        if self.server.segment_size:
-            for chunk in [
-                self.out_buffer[i : (i + self.server.segment_size)]
-                for i in range(0, len(self.out_buffer), self.server.segment_size)
-            ]:
-                try:
-                    self.socket.send(chunk)
-                except ConnectionError as e:
-                    tf_cfg.dbg(4, f"\tDeproxy: Server: Connection: Received error - {e}")
-                    break
-        else:
-            self.socket.sendall(self.out_buffer)
+        segment_size = (
+            self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
+        )
+
+        while self.out_buffer:
+            try:
+                sent = self.socket.send(self.out_buffer[:segment_size])
+            except io.BlockingIOError as e:
+                tf_cfg.dbg(4, f"\tDeproxy: SrvConnection: Receive error - {e}.")
+                continue
+            if sent < 0:
+                return
+            self.out_buffer = self.out_buffer[sent:]
 
         self.out_buffer = b""
 
