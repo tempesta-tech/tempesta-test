@@ -114,10 +114,6 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
-            "reason": "Disabled by issue #1819"
-        },
-        {
             "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
             "reason": "Disabled by issue #1884"
         },
@@ -202,8 +198,20 @@
             "reason": "Disabled by issue #464"
         },
         {
+            "name": "http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
+            "reason": "Disabled by issue #450"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_from_0x00_to_0x20_in_header_name",
+            "reason": "Disabled by issue #450"
+        },
+        {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest",
+            "reason": "Disabled by test issue #450"
         }
     ]
 }

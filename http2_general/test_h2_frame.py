@@ -171,7 +171,7 @@ class TestH2Frame(H2Base):
         # client send invalid request and Tempesta returns RST_STREAM
         stream_with_rst = 3
         client.stream_id = stream_with_rst
-        client.send_request((self.get_request + [("host", "")], "asd"), "400")
+        client.send_request(self.get_request + [("x-forwarded-for", "1.1.1.1.1.1")], "400")
 
         # client open new stream
         client.make_request(self.get_request, end_stream=True)

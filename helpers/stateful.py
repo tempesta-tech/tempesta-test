@@ -14,8 +14,18 @@ class Stateful(object):
     """Class for stateful items, who have states
     stopped -> started -> stopped"""
 
-    state = STATE_STOPPED
+    _state = STATE_STOPPED
     stop_procedures = []
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    @state.setter
+    def state(self, new_state: str) -> None:
+        if new_state not in [STATE_BEGIN_START, STATE_STARTED, STATE_STOPPED, STATE_ERROR]:
+            raise ValueError('Please use valid values for "Stateful".')
+        self._state = new_state
 
     def run_start(self):
         """Should be overridden"""

@@ -11,6 +11,7 @@ WARN_DIFFER = "frang: Request host from absolute URI differs from Host header fo
 WARN_IP_ADDR = "frang: Host header field contains IP address"
 WARN_HEADER_HOST = "frang: Request :authority differs from Host for"
 WARN_INVALID_AUTHORITY = "Invalid authority"
+WARN_PORT = "Warning: frang: port from host header doesn't match real port"
 
 
 class FrangHostRequiredTestCase(FrangTestCase):
@@ -19,6 +20,21 @@ class FrangHostRequiredTestCase(FrangTestCase):
 
     See TLSMatchHostSni test for other cases.
     """
+
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "81",
+        },
+    ]
 
     def test_host_header_set_ok(self):
         """Test with header `host`, success."""
@@ -134,6 +150,19 @@ class FrangHostRequiredTestCase(FrangTestCase):
             client, status_code="403", warning_msg="port from host header doesn't match real port"
         )
 
+    def test_auto_port_mismatch(self):
+        """
+        After client send a request that has port mismatch in host header,
+        it is blocked. Port is defined from implicit values.
+        """
+        self.set_frang_config(frang_config="http_strict_host_checking true;")
+
+        client = self.get_client("deproxy-2")
+        client.start()
+        client.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
+        client.wait_for_response()
+        self.check_response(client, status_code="403", warning_msg=WARN_PORT)
+
     def test_host_header_as_ip(self):
         """Test with header `host` as ip address."""
         client = self.base_scenario(
@@ -178,6 +207,14 @@ class FrangHostRequiredH2TestCase(FrangTestCase):
             "ssl": True,
             "ssl_hostname": "tempesta-tech.com",
         },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "444",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        },
     ]
 
     tempesta_template = {
@@ -188,6 +225,7 @@ frang_limits {
 }
 
 listen 443 proto=h2;
+listen 444 proto=h2;
 server ${server_ip}:8000;
 
 tls_match_any_server_name;
@@ -318,6 +356,26 @@ block_action error reply;
             headers=[(":path", "/"), (":authority", "localhost"), ("host", "host")],
             expected_warning=WARN_HEADER_HOST,
         )
+
+    def test_auto_port_mismatch(self):
+        """
+        After client send a request that has port mismatch in host header,
+        it is blocked. Port is defined from implicit values.
+        """
+        self.set_frang_config(frang_config="http_strict_host_checking true;")
+
+        client = self.get_client("deproxy-2")
+        client.start()
+        client.make_request(
+            [
+                (":scheme", "https"),
+                (":method", "GET"),
+                (":path", "/"),
+                (":authority", "tempesta-tech.com"),
+            ]
+        )
+        client.wait_for_response()
+        self.check_response(client, status_code="403", warning_msg=WARN_PORT)
 
     def _test(
         self,

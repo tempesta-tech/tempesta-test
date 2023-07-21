@@ -8,7 +8,7 @@ import time
 import framework.port_checks as port_checks
 import framework.tester
 import run_config
-from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg
+from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 
 from .templates import fill_template
 
@@ -80,34 +80,40 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
     def handle_read(self):
         self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
-        try:
-            request = deproxy.Request(
-                self.request_buffer, keep_original_data=self.server.keep_original_data
-            )
-        except deproxy.IncompleteMessage:
-            return
-        except deproxy.ParseError:
-            tf_cfg.dbg(
-                4,
-                (
-                    "Deproxy: SrvConnection: Can't parse message\n"
-                    "<<<<<\n%s>>>>>" % self.request_buffer
-                ),
-            )
-        # Handler will be called even if buffer is empty.
-        if not self.request_buffer:
-            return
-        tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request.")
+
+        tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive data.")
         tf_cfg.dbg(5, self.request_buffer)
-        response, need_close = self.server.receive_request(request)
-        self.request_buffer = ""
-        if response:
-            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
-            tf_cfg.dbg(5, response)
-            self.out_buffer += response.encode()
-            self.initiate_send()
-        if need_close:
-            self.close()
+
+        while self.request_buffer:
+            try:
+                request = deproxy.Request(
+                    self.request_buffer, keep_original_data=self.server.keep_original_data
+                )
+            except deproxy.IncompleteMessage:
+                return None
+            except deproxy.ParseError as e:
+                tf_cfg.dbg(
+                    4,
+                    (
+                        "Deproxy: SrvConnection: Can't parse message\n"
+                        "<<<<<\n%s>>>>>" % self.request_buffer
+                    ),
+                )
+
+            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request.")
+            tf_cfg.dbg(5, request)
+            response, need_close = self.server.receive_request(request)
+            if response:
+                tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
+                tf_cfg.dbg(5, response)
+                self.out_buffer += response
+                self.initiate_send()
+            if need_close:
+                self.close()
+            self.request_buffer = self.request_buffer[request.original_length :]
+        # Handler will be called even if buffer is empty.
+        else:
+            return None
 
 
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
@@ -181,13 +187,9 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        while len(self.connections) < self.conns_n:
-            t = time.time()
-            if t - t0 > timeout:
-                return False
-            time.sleep(0.001)  # to prevent redundant CPU usage
-        return True
+        return util.wait_until(
+            lambda: len(self.connections) < self.conns_n, timeout, poll_freq=0.001
+        )
 
     @abc.abstractmethod
     def receive_request(self, request):
@@ -195,8 +197,10 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
 
 class StaticDeproxyServer(BaseDeproxyServer):
+    __response: str or bytes
+
     def __init__(self, *args, **kwargs):
-        self.response = kwargs["response"]
+        self.set_response(kwargs["response"])
         kwargs.pop("response", None)
         BaseDeproxyServer.__init__(self, *args, **kwargs)
         self.last_request = None
@@ -206,13 +210,24 @@ class StaticDeproxyServer(BaseDeproxyServer):
         self.requests = []
         BaseDeproxyServer.run_start(self)
 
-    def set_response(self, response):
-        self.response = response
+    @property
+    def response(self) -> str:
+        return self.__response.decode(errors="ignore")
+
+    @response.setter
+    def response(self, response: str or bytes) -> None:
+        self.set_response(response)
+
+    def set_response(self, response: str or bytes) -> None:
+        if isinstance(response, str):
+            self.__response = response.encode()
+        elif isinstance(response, bytes):
+            self.__response = response
 
     def receive_request(self, request):
         self.requests.append(request)
         self.last_request = request
-        return self.response, False
+        return self.__response, False
 
 
 def deproxy_srv_factory(server, name, tester):
