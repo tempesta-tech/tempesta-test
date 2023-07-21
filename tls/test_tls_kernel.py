@@ -27,9 +27,10 @@ class TCrypt(tester.TempestaTest):
                 "for m in 35 37 102 103 104;" " do modprobe tcrypt mode=$m;" "done"
             )
         except Exception as e:
+            stderr = e.stderr.decode() if hasattr(e, "stderr") else e.args[0]
             # modprobe tcrypt always returns non-zero status code.
             # -EAGAIN return code is the successful return code of the module.
-            m = re.findall("Resource temporarily unavailable", e.stderr.decode())
+            m = re.findall("Resource temporarily unavailable", stderr)
             self.assertEqual(len(m), 5)
 
 

@@ -7,16 +7,17 @@ __license__ = "GPL2"
 from framework import tester
 from framework.external_client import ExternalTester
 from framework.wrk_client import Wrk
+from helpers import tf_cfg
 from helpers.control import Tempesta
 
 WRK_SCRIPT = "conn_close"  # with header 'connection: close'
 STATUS_OK = "200"
 
-SOCKET_START = "127.0.0.4:8282"
-SOCKET_AFTER_RELOAD = "127.0.1.5:7654"
+SOCKET_START = f"{tf_cfg.cfg.get('Tempesta', 'ip')}:8282"
+SOCKET_AFTER_RELOAD = f"{tf_cfg.cfg.get('Tempesta', 'ip')}:7654"
 
 TEMPESTA_CONFIG = """
-listen 127.0.0.4:8282;
+listen ${tempesta_ip}:8282;
 
 srv_group default {
     server ${server_ip}:8000;
@@ -81,21 +82,21 @@ class TestOnTheFly(tester.TempestaTest):
 
     clients = [
         {
-            "id": "wrk-127.0.0.4:8282",
+            "id": f"wrk-{SOCKET_START}",
             "type": "wrk",
-            "addr": "127.0.0.4:8282",
+            "addr": "${tempesta_ip}:8282",
         },
         {
-            "id": "curl-127.0.0.4:8282",
+            "id": f"curl-{SOCKET_START}",
             "type": "external",
             "binary": "curl",
-            "cmd_args": "-Ikf http://127.0.0.4:8282/",
+            "cmd_args": "-Ikf http://${tempesta_ip}:8282/",
         },
         {
-            "id": "curl-127.0.1.5:7654",
+            "id": f"curl-{SOCKET_AFTER_RELOAD}",
             "type": "external",
             "binary": "curl",
-            "cmd_args": "-Ikf http://127.0.1.5:7654/",
+            "cmd_args": "-Ikf http://${tempesta_ip}:7654/",
         },
     ]
 

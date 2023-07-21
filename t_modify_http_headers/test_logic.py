@@ -6,6 +6,7 @@ __license__ = "GPL2"
 
 import helpers
 from framework import tester
+from helpers import tf_cfg
 from helpers.deproxy import H2Response, HttpMessage, Request, Response
 
 MAX_HEADER_NAME = 1024  # See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN
@@ -73,7 +74,7 @@ def get_expected_request(
     optional_headers: list, expected_headers: list, client, directive: str
 ) -> Request:
     tempesta_headers = [
-        ("X-Forwarded-For", "127.0.0.1"),
+        ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
         ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
     ]
     if directive == "req":
