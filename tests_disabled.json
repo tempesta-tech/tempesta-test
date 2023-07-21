@@ -346,7 +346,6 @@
             "reason": "Disabled by issue #1346"
         },
         {
-        {
             "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_response",
             "reason": "Disabled by PR #1917"
         },
