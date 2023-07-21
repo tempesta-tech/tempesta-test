@@ -851,7 +851,7 @@ http {
             wrk.requests,
             msg='"wrk" client has not sent requests or received results.',
         )
-        
+
     def set_first_config(self):
         config = tempesta.Config()
         config.set_defconfig(
@@ -876,12 +876,16 @@ http {
                 http_chain {
                     -> localhost;
                 }
-            """.replace('server_', (tf_cfg.cfg.get("Server", "ip"))).replace('path', (tf_cfg.cfg.get("General", "workdir"))) ,
-        custom_cert=True
+            """.replace(
+                "server_", (tf_cfg.cfg.get("Server", "ip"))
+            ).replace(
+                "path", (tf_cfg.cfg.get("General", "workdir"))
+            ),
+            custom_cert=True,
         )
         self.get_tempesta().config = config
         self.get_tempesta().reload()
-        
+
     def set_second_config(self):
         config = tempesta.Config()
         config.set_defconfig(
@@ -907,8 +911,13 @@ http {
                     -> localhost;
                 }
                 
-            """.replace('server_', (tf_cfg.cfg.get("Server", "ip"))).replace('path', (tf_cfg.cfg.get("General", "workdir"))) ,
-        custom_cert=True)
+            """.replace(
+                "server_", (tf_cfg.cfg.get("Server", "ip"))
+            ).replace(
+                "path", (tf_cfg.cfg.get("General", "workdir"))
+            ),
+            custom_cert=True,
+        )
         self.get_tempesta().config = config
         self.get_tempesta().reload()
 
@@ -1197,8 +1206,9 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
         server1 = self.get_server("server-1")
         server2 = self.get_server("server-2")
 
-        client.make_requests(self.build_requests(hosts=islice(host_iter, REQ_NUM)))
-        client.wait_for_response(timeout=2)
+        for request in self.build_requests(hosts=islice(host_iter, REQ_NUM)):
+            client.make_request(request)
+            client.wait_for_response()
 
         self.assertLess(len(client.responses), 2)
         # server1 received requests
@@ -1226,7 +1236,7 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
         def build_request(host):
             return "GET / HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
 
-        return "".join([build_request(host) for host in hosts])
+        return [build_request(host) for host in hosts]
 
     def test_alternating_access(self):
         """

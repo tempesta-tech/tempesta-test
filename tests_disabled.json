@@ -466,10 +466,6 @@
             "reason": "Disabled by issue #1103"
         },
         {
-            "name": "tls.test_tls_cert.WrkTestsMultipleVhosts.test_wrk",
-            "reason": "Disabled by issue #1928"
-        },
-        {
             "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
             "reason": "Disabled by issue #1902"
         },
