@@ -1,22 +1,27 @@
 #! /usr/bin/python3
 
 import asyncio
-import os
 import ssl
-from multiprocessing import Process
-from helpers import dmesg, tf_cfg
-
 import time
+from multiprocessing import Process
+from threading import Thread
+
 import requests
 import websockets
 
 from framework import tester
 from framework.x509 import CertGenerator
+from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+GENERAL_WORKDIR = tf_cfg.cfg.get("General", "workdir")
+CERT_PATH = f"{GENERAL_WORKDIR}/cert.pem"
+KEY_PATH = f"{GENERAL_WORKDIR}/key.pem"
+TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
+SERVER_IP = tf_cfg.cfg.get("Server", "ip")
 hostname = "localhost"
 ping_message = "ping_test"
 
@@ -25,21 +30,21 @@ TEMPESTA_CONFIG = """
 listen 81;
 listen 82 proto=https;
 
-srv_group localhost {
+srv_group default {
 
     server ${server_ip}:8099;
 }
 
-vhost localhost {
-    tls_certificate /tmp/cert.pem;
-    tls_certificate_key /tmp/key.pem;
-
-    proxy_pass localhost;
+vhost default {
+    tls_certificate ${general_workdir}/cert.pem;
+    tls_certificate_key ${general_workdir}/key.pem;
+    tls_match_any_server_name;
+    proxy_pass default;
 
 }
 
 http_chain {
-    -> localhost;
+    -> default;
 }
 %s
 """
@@ -48,7 +53,7 @@ TEMPESTA_STRESS_CONFIG = """
 listen 81;
 listen 82 proto=https;
 
-srv_group localhost {
+srv_group default {
 
     server ${server_ip}:8099;
     server ${server_ip}:8100;
@@ -103,16 +108,16 @@ srv_group localhost {
     server ${server_ip}:8149;
 }
 
-vhost localhost {
-    tls_certificate /tmp/cert.pem;
-    tls_certificate_key /tmp/key.pem;
-
-    proxy_pass localhost;
+vhost default {
+    tls_certificate ${general_workdir}/cert.pem;
+    tls_certificate_key ${general_workdir}/key.pem;
+    tls_match_any_server_name;
+    proxy_pass default;
 
 }
 
 http_chain {
-    -> localhost;
+    -> default;
 }
 """
 
@@ -120,20 +125,20 @@ TEMPESTA_NGINX_CONFIG = """
 listen 81;
 listen 82 proto=https;
 
-srv_group localhost {
+srv_group default {
     server ${server_ip}:8000;
 }
 
-vhost localhost {
-    tls_certificate /tmp/cert.pem;
-    tls_certificate_key /tmp/key.pem;
-
-    proxy_pass localhost;
+vhost default {
+    tls_certificate ${general_workdir}/cert.pem;
+    tls_certificate_key ${general_workdir}/key.pem;
+    tls_match_any_server_name;
+    proxy_pass default;
 
 }
 
 http_chain {
-    -> localhost;
+    -> default;
 }
 %s
 """
@@ -141,13 +146,13 @@ http_chain {
 TEMPESTA_CACHE_CONFIG = """
 listen 81;
 
-srv_group localhost {
+srv_group default {
 
     server ${server_ip}:8099;
 }
 
-vhost localhost {
-    proxy_pass localhost;
+vhost default {
+    proxy_pass default;
 }
 
 access_log on;
@@ -156,7 +161,7 @@ cache 1;
 cache_fulfill * *;
 
 http_chain {
-    -> localhost;
+    -> default;
 }
 %s
 """
@@ -178,12 +183,12 @@ http {
 
     upstream websocket {
         ip_hash;
-        server 0.0.0.0:8099;
+        server ${server_ip}:8099;
     }
 
     upstream wss_websockets {
         ip_hash;
-        server 0.0.0.0:8099;
+        server ${server_ip}:8099;
     }
 
     server {
@@ -200,8 +205,8 @@ http {
     server {
         listen 8001 ssl;
         ssl_protocols TLSv1.2;
-        ssl_certificate /tmp/cert.pem;
-        ssl_certificate_key /tmp/key.pem;
+        ssl_certificate ${general_workdir}/cert.pem;
+        ssl_certificate_key ${general_workdir}/key.pem;
         location / {
             proxy_pass http://wss_websockets;
             proxy_http_version 1.1;
@@ -215,16 +220,9 @@ http {
 
 
 def gen_cert(host_name):
-    cert_path = "/tmp/cert.pem"
-    key_path = "/tmp/key.pem"
-    cgen = CertGenerator(cert_path, key_path)
+    cgen = CertGenerator(CERT_PATH, KEY_PATH)
     cgen.CN = host_name
     cgen.generate()
-
-
-def remove_certs(cert_files_):
-    for cert in cert_files_:
-        os.remove(cert)
 
 
 class WsPing(tester.TempestaTest):
@@ -247,18 +245,19 @@ class WsPing(tester.TempestaTest):
 
     async def ws_ping_test(self, port):
         global ping_message
-        host = hostname
-        async with websockets.connect(f"ws://{host}:{port}") as websocket:
+        async with websockets.connect(f"ws://{TEMPESTA_IP}:{port}") as websocket:
             await websocket.send(ping_message)
             await websocket.recv()
             await websocket.close()
 
     async def wss_ping_test(self, port):
         global ping_message
-        host = hostname
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_context.load_verify_locations("/tmp/cert.pem")
-        async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        ssl_context.load_verify_locations(f"{GENERAL_WORKDIR}/cert.pem")
+
+        async with websockets.connect(f"wss://{TEMPESTA_IP}:{port}", ssl=ssl_context) as websocket:
             await websocket.send(ping_message)
             await websocket.recv()
             await websocket.close()
@@ -268,7 +267,7 @@ class WsPing(tester.TempestaTest):
             self.start_all_servers()
         loop = asyncio.get_event_loop()
         for i in range(count):
-            asyncio.ensure_future(websockets.serve(self.handler, hostname, port + i))
+            asyncio.ensure_future(websockets.serve(self.handler, SERVER_IP, port + i))
         loop.run_forever()
 
     def test(self):
@@ -301,16 +300,12 @@ class WssPing(WsPing):
             asyncio.run(self.wss_ping_test(port))
 
     def run_wss(self, port, count=1, proxy=False):
-        ssl._create_default_https_context = ssl._create_unverified_context
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ssl_context.load_cert_chain("/tmp/cert.pem", keyfile="/tmp/key.pem")
         if proxy:
             self.start_all_servers()
         loop = asyncio.get_event_loop()
         for i in range(count):
-            asyncio.ensure_future(websockets.serve(self.handler, hostname, port + i))
+            asyncio.ensure_future(websockets.serve(self.handler, SERVER_IP, port + i))
         loop.run_forever()
-
 
     def test(self):
         gen_cert(hostname)
@@ -321,7 +316,6 @@ class WssPing(WsPing):
         p2.start()
         p2.join()
         p1.terminate()
-        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class WssPingProxy(WssPing):
@@ -346,7 +340,7 @@ class WssPingProxy(WssPing):
     }
 
     def test(self):
-        gen_cert(hostname)
+        gen_cert(TEMPESTA_IP)
         p1 = Process(target=self.run_wss, args=(8099, 1, True))
         p2 = Process(target=self.run_test, args=(82, 4))
         p1.start()
@@ -355,7 +349,6 @@ class WssPingProxy(WssPing):
         p2.join()
         p1.terminate()
         self.get_server("nginx").stop_nginx()
-        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class CacheTest(WsPing):
@@ -375,7 +368,7 @@ class CacheTest(WsPing):
 
     def call_upgrade(self, port, expected_status):
         headers_ = {
-            "Host": hostname,
+            "Host": TEMPESTA_IP,
             "Connection": "Upgrade",
             "Pragma": "no-cache",
             "Cache-Control": "no-cache",
@@ -389,7 +382,7 @@ class CacheTest(WsPing):
             "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
         }
 
-        r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
+        r = requests.get(f"http://{TEMPESTA_IP}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
             self.fail("Test failed cause recieved invalid status_code")
 
@@ -424,7 +417,7 @@ class WssStress(WssPing):
         count = 0
         for _ in range(n):
             count += 1
-            asyncio.run(self.stress_ping_test(port))
+            asyncio.run(self.wss_ping_test(port))
         if (4000 - count) in self.fibo(4000):
             self.get_tempesta().restart()
 
@@ -437,17 +430,6 @@ class WssStress(WssPing):
         p2.start()
         p2.join()
         p1.terminate()
-        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
-
-    async def stress_ping_test(self, port):
-        host = hostname
-        global ping_message
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_context.load_verify_locations("/tmp/cert.pem")
-        async with websockets.connect(f"wss://{host}:{port}", ssl=ssl_context) as websocket:
-            await websocket.send(ping_message)
-            await websocket.recv()
-            await websocket.close()
 
 
 class WsPipelining(WsPing):
@@ -464,34 +446,34 @@ class WsPipelining(WsPing):
     }
 
     request = (
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Connection: Upgrade\r\n"
-            "Upgrade: websocket\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
-            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
-            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-            "\r\n"
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Connection: Upgrade\r\n"
-            "Upgrade: websocket\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
-            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
-            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-            "\r\n"
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Connection: Upgrade\r\n"
-            "Upgrade: websocket\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
-            "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
-            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-            "\r\n"
-        )
+        "GET / HTTP/1.1\r\n"
+        f"Host: {hostname}\r\n"
+        "Connection: Upgrade\r\n"
+        "Upgrade: websocket\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+        "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+        "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+        "\r\n"
+        "GET / HTTP/1.1\r\n"
+        f"Host: {hostname}\r\n"
+        "Connection: Upgrade\r\n"
+        "Upgrade: websocket\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+        "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+        "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+        "\r\n"
+        "GET / HTTP/1.1\r\n"
+        f"Host: {hostname}\r\n"
+        "Connection: Upgrade\r\n"
+        "Upgrade: websocket\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
+        "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+        "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+        "\r\n"
+    )
 
     async def handler(self, websocket, path):
         pass
@@ -507,36 +489,34 @@ class WsPipelining(WsPing):
         deproxy_cl.start()
         deproxy_cl.make_requests(self.request)
         deproxy_cl.wait_for_response(timeout=5)
-        
+
         for resp in deproxy_cl.responses:
             tf_cfg.dbg(3, resp)
-        p1.terminate()
-        remove_certs(["/tmp/cert.pem", "/tmp/key.pem"])
 
 
 class WsScheduler(WsPing):
-    
+
     """
     Create 4 connections against 1 backend ws
     Make 256 async client ws connections
     Expected result - All ping messages recieved
-    Current result - Kernel panic 
+    Current result - Kernel panic
     """
-    
+
     tempesta = {
         "config": """
             listen 81;
 
-            srv_group localhost {
+            srv_group default {
                 server ${server_ip}:8099 conns_n=16;
             }
 
-            vhost localhost {
-                proxy_pass localhost;
+            vhost default {
+                proxy_pass default;
             }
 
             http_chain {
-                -> localhost;
+                -> default;
             }
         """,
     }
@@ -592,9 +572,9 @@ class RestartOnUpgrade(WsPing):
             "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
         }
 
-        r = requests.get(f"http://{hostname}:{port}", auth=("user", "pass"), headers=headers_)
+        r = requests.get(f"http://{TEMPESTA_IP}:{port}", auth=("user", "pass"), headers=headers_)
         if r.status_code not in expected_status:
-           self.fail(f"Recieved invalid status_code {r.status_code}")
+            self.fail(f"Recieved invalid status_code {r.status_code}")
 
     def fibo(self, n):
         fib = [0, 1]
@@ -612,11 +592,10 @@ class RestartOnUpgrade(WsPing):
 
     def test(self):
         p1 = Process(target=self.run_ws, args=(8099,))
-        p2 = Process(target=self.run_test, args=(81, [101]))
+        p2 = Thread(target=self.run_test, args=(81, [101]))
         p1.start()
         self.start_tempesta()
         time.sleep(2)
         p2.start()
-        p2.join()
+        p2.join(timeout=30)
         p1.terminate()
-        p2.terminate()
