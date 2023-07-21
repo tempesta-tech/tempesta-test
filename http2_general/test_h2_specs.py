@@ -113,7 +113,6 @@ class H2Spec(tester.TempestaTest):
                 "-x http2/5.1/6",  # disabled by issue 1828
                 "-x http2/5.1/11",  # disabled by issue 1828
                 "-x http2/5.1/12",  # disabled by issue 1828
-                "-x http2/5.1.1/3",  # disabled by issue 1800
                 "-x http2/5.3.1/1",  # disabled by issue 1196
                 "-x http2/5.3.1/2",  # disabled by issue 1196
                 "-x http2/5.5/2",  # disabled by issue 1824

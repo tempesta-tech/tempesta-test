@@ -57,8 +57,6 @@ class TestH2Stream(H2Base):
         )
         client.wait_for_response(1)
 
-        client.send_request(self.post_request, "200")
-
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
 
     def test_headers_frame_with_zero_stream_id(self):
