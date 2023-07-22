@@ -759,6 +759,169 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
 
+class WrkTestsMultipleVhosts(tester.TempestaTest):
+    NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests ${server_keepalive_requests};
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8000;
+
+        location / {
+            return 200;
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+    clients = [
+        {
+            "id": "wrk",
+            "type": "wrk",
+            "ssl": True,
+            "addr": f'{tf_cfg.cfg.get("Tempesta", "ip")}:443',
+        },
+    ]
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
+
+    def config_changer(self, n):
+        for step in range(n):
+            if step % 2 == 1:
+                self.set_first_config()
+            else:
+                self.set_second_config()
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+
+    def test_wrk(self):
+        generate_certificate(
+            cert_name="localhost", cn="localhost", san=[tf_cfg.cfg.get("Tempesta", "ip")]
+        )
+        generate_certificate(
+            cert_name="private", cn="private", san=["example.com", "private.example.com"]
+        )
+        self.start_all()
+        self.set_first_config()
+        wrk = self.get_client("wrk")
+        wrk.duration = 10
+        wrk.start()
+        self.config_changer(10)
+        self.wait_while_busy(wrk)
+        wrk.stop()
+        self.assertNotEqual(
+            0,
+            wrk.requests,
+            msg='"wrk" client has not sent requests or received results.',
+        )
+
+    def set_first_config(self):
+        config = tempesta.Config()
+        config.set_defconfig(
+            """
+                cache 0;
+                listen 443 proto=https;
+
+                srv_group sg { server server_:8000; }
+
+                vhost localhost {
+                    proxy_pass sg;
+                    tls_certificate path/localhost.crt;
+                    tls_certificate_key path/localhost.key;
+                }
+
+                vhost private.example.com {
+                    proxy_pass sg;
+                    tls_certificate path/private.crt;
+                    tls_certificate_key path/private.key;
+                }
+                
+                http_chain {
+                    -> localhost;
+                }
+            """.replace(
+                "server_", (tf_cfg.cfg.get("Server", "ip"))
+            ).replace(
+                "path", (tf_cfg.cfg.get("General", "workdir"))
+            ),
+            custom_cert=True,
+        )
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+
+    def set_second_config(self):
+        config = tempesta.Config()
+        config.set_defconfig(
+            """
+                cache 0;
+                listen 443 proto=https;
+
+                srv_group sg { server server_:8000; }
+
+                vhost private.example.com {
+                    proxy_pass sg;
+                    tls_certificate path/localhost.crt;
+                    tls_certificate_key path/localhost.key;
+                }
+
+                vhost localhost {
+                    proxy_pass sg;
+                    tls_certificate path/private.crt;
+                    tls_certificate_key path/private.key;
+                }
+                
+                http_chain {
+                    -> localhost;
+                }
+                
+            """.replace(
+                "server_", (tf_cfg.cfg.get("Server", "ip"))
+            ).replace(
+                "path", (tf_cfg.cfg.get("General", "workdir"))
+            ),
+            custom_cert=True,
+        )
+        self.get_tempesta().config = config
+        self.get_tempesta().reload()
+
+
 class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
     """
     Base class for vhost sections access tests.
@@ -1043,8 +1206,9 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
         server1 = self.get_server("server-1")
         server2 = self.get_server("server-2")
 
-        client.make_requests(self.build_requests(hosts=islice(host_iter, REQ_NUM)))
-        client.wait_for_response(timeout=2)
+        for request in self.build_requests(hosts=islice(host_iter, REQ_NUM)):
+            client.make_request(request)
+            client.wait_for_response()
 
         self.assertLess(len(client.responses), 2)
         # server1 received requests
@@ -1072,7 +1236,7 @@ class TlsSniWithHttpTableMulti(BaseTlsMultiTest):
         def build_request(host):
             return "GET / HTTP/1.1\r\n" f"Host: {host}\r\n" "\r\n"
 
-        return "".join([build_request(host) for host in hosts])
+        return [build_request(host) for host in hosts]
 
     def test_alternating_access(self):
         """
