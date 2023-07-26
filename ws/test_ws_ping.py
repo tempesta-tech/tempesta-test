@@ -271,14 +271,12 @@ class WsPing(tester.TempestaTest):
         loop.run_forever()
 
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099,))
-        p2 = Process(target=self.run_test, args=(81, 4))
-        p1.start()
+        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p2 = Process(target=self.run_test, args=(81, 4))
+        self.p1.start()
         self.start_tempesta()
-        p2.start()
-        p2.join()
-        p1.terminate()
-        p2.terminate()
+        self.p2.start()
+        self.p2.join(timeout=5)
 
     # Backend
 
@@ -289,6 +287,18 @@ class WsPing(tester.TempestaTest):
         if f"{data}" != ping_message:
             self.fail("Ping message corrupted")
         await websocket.send(reply)
+
+    def setUp(self):
+        self.p1 = None
+        self.p2 = None
+        super().setUp()
+
+    def tearDown(self):
+        if self.p1:
+            self.p1.terminate()
+        if self.p2:
+            self.p2.terminate()
+        super().tearDown()
 
 
 class WssPing(WsPing):
@@ -309,13 +319,12 @@ class WssPing(WsPing):
 
     def test(self):
         gen_cert(hostname)
-        p1 = Process(target=self.run_wss, args=(8099,))
-        p2 = Process(target=self.run_test, args=(82, 4))
-        p1.start()
+        self.p1 = Process(target=self.run_wss, args=(8099,))
+        self.p2 = Process(target=self.run_test, args=(82, 4))
+        self.p1.start()
         self.start_tempesta()
-        p2.start()
-        p2.join()
-        p1.terminate()
+        self.p2.start()
+        self.p2.join()
 
 
 class WssPingProxy(WssPing):
@@ -341,14 +350,12 @@ class WssPingProxy(WssPing):
 
     def test(self):
         gen_cert(TEMPESTA_IP)
-        p1 = Process(target=self.run_wss, args=(8099, 1, True))
-        p2 = Process(target=self.run_test, args=(82, 4))
-        p1.start()
+        self.p1 = Process(target=self.run_wss, args=(8099, 1, True))
+        self.p2 = Process(target=self.run_test, args=(82, 4))
+        self.p1.start()
         self.start_tempesta()
-        p2.start()
-        p2.join()
-        p1.terminate()
-        self.get_server("nginx").stop_nginx()
+        self.p2.start()
+        self.p2.join()
 
 
 class CacheTest(WsPing):
@@ -387,11 +394,11 @@ class CacheTest(WsPing):
             self.fail("Test failed cause recieved invalid status_code")
 
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099,))
-        p1.start()
+        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p1.start()
         self.start_tempesta()
         self.call_upgrade(81, [101])
-        p1.terminate()
+        self.p1.terminate()
         self.call_upgrade(81, [502, 504])
 
 
@@ -423,13 +430,12 @@ class WssStress(WssPing):
 
     def test(self):
         gen_cert(hostname)
-        p1 = Process(target=self.run_ws, args=(8099, 50))
-        p2 = Process(target=self.run_test, args=(82, 4000))
-        p1.start()
+        self.p1 = Process(target=self.run_ws, args=(8099, 50))
+        self.p2 = Process(target=self.run_test, args=(82, 4000))
+        self.p1.start()
         self.start_tempesta()
-        p2.start()
-        p2.join()
-        p1.terminate()
+        self.p2.start()
+        self.p2.join()
 
 
 class WsPipelining(WsPing):
@@ -479,8 +485,8 @@ class WsPipelining(WsPing):
         pass
 
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099,))
-        p1.start()
+        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p1.start()
         self.start_tempesta()
         time.sleep(5)
 
@@ -530,14 +536,12 @@ class WsScheduler(WsPing):
         await websocket.send(reply)
 
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099, 4))
-        p2 = Process(target=self.run_test, args=(81, 1500))
-        p1.start()
+        self.p1 = Process(target=self.run_ws, args=(8099, 4))
+        self.p2 = Process(target=self.run_test, args=(81, 1500))
+        self.p1.start()
         self.start_tempesta()
-        p2.start()
-        p2.join()
-        p1.terminate()
-        p2.terminate()
+        self.p2.start()
+        self.p2.join()
 
 
 class RestartOnUpgrade(WsPing):
@@ -591,11 +595,11 @@ class RestartOnUpgrade(WsPing):
                 self.get_tempesta().restart()
 
     def test(self):
-        p1 = Process(target=self.run_ws, args=(8099,))
-        p2 = Thread(target=self.run_test, args=(81, [101]))
-        p1.start()
+        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p2 = Thread(target=self.run_test, args=(81, [101]))
+        self.p1.start()
         self.start_tempesta()
         time.sleep(2)
-        p2.start()
-        p2.join(timeout=30)
-        p1.terminate()
+        self.p2.start()
+        self.p2.join(timeout=30)
+        self.p2 = None
