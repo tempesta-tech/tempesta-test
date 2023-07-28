@@ -356,6 +356,7 @@ class WssPingProxy(WssPing):
         self.start_tempesta()
         self.p2.start()
         self.p2.join()
+        self.get_server("nginx").stop_nginx()
 
 
 class CacheTest(WsPing):
