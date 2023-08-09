@@ -41,17 +41,10 @@ class ServerConnection(asyncore.dispatcher_with_send):
             self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
         )
 
-        while self.out_buffer:
-            try:
-                sent = self.socket.send(self.out_buffer[:segment_size])
-            except io.BlockingIOError as e:
-                tf_cfg.dbg(4, f"\tDeproxy: SrvConnection: Receive error - {e}.")
-                continue
-            if sent < 0:
-                return
-            self.out_buffer = self.out_buffer[sent:]
-
-        self.out_buffer = b""
+        sent = self.socket.send(self.out_buffer[:segment_size])
+        if sent < 0:
+            return
+        self.out_buffer = self.out_buffer[sent:]
 
         self.last_segment_time = time.time()
         self.responses_done += 1
@@ -109,7 +102,6 @@ class ServerConnection(asyncore.dispatcher_with_send):
                 tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
                 tf_cfg.dbg(5, response)
                 self.out_buffer += response
-                self.initiate_send()
             if need_close:
                 self.close()
             self.request_buffer = self.request_buffer[request.original_length :]

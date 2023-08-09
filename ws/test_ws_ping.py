@@ -507,7 +507,6 @@ class WsScheduler(WsPing):
     Create 4 connections against 1 backend ws
     Make 256 async client ws connections
     Expected result - All ping messages recieved
-    Current result - Kernel panic
     """
 
     tempesta = {
@@ -551,7 +550,6 @@ class RestartOnUpgrade(WsPing):
     Asyncly create many Upgrade requests
     against WS during tempesta-fw restart.
     Expected - 101 response code
-    Current result - Kernel panic
     """
 
     tempesta = {
