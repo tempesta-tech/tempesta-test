@@ -5,6 +5,7 @@ import socket
 import sys
 import threading
 import time
+from typing import List
 
 import framework.port_checks as port_checks
 import framework.tester
@@ -27,6 +28,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.last_segment_time = 0
         self.responses_done = 0
         self.request_buffer = ""
+        self.response_buffer: List[bytes] = []
         tf_cfg.dbg(6, "\tDeproxy: SrvConnection: New server connection.")
 
     def initiate_send(self):
@@ -41,13 +43,16 @@ class ServerConnection(asyncore.dispatcher_with_send):
             self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
         )
 
-        sent = self.socket.send(self.out_buffer[:segment_size])
+        resp = self.response_buffer[self.responses_done]
+        sent = self.socket.send(resp[:segment_size])
+
         if sent < 0:
             return
-        self.out_buffer = self.out_buffer[sent:]
+        self.response_buffer[self.responses_done] = resp[sent:]
 
         self.last_segment_time = time.time()
-        self.responses_done += 1
+        if self.response_buffer[self.responses_done] == b"":
+            self.responses_done += 1
 
         if self.responses_done == self.keep_alive and self.keep_alive:
             self.handle_close()
@@ -58,7 +63,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
             and time.time() - self.last_segment_time < self.server.segment_gap / 1000.0
         ):
             return False
-        return asyncore.dispatcher_with_send.writable(self)
+        return (not self.connected) or len(self.response_buffer) > self.responses_done
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
@@ -101,7 +106,8 @@ class ServerConnection(asyncore.dispatcher_with_send):
             if response:
                 tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
                 tf_cfg.dbg(5, response)
-                self.out_buffer += response
+                self.response_buffer.append(response)
+
             if need_close:
                 self.close()
             self.request_buffer = self.request_buffer[request.original_length :]
