@@ -297,3 +297,61 @@ class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
         )
+
+
+class TestIdleState(H2Base):
+    def test_priority_frame_in_idle_state(self):
+        """
+        An endpoint should receive and accept PRIORITY frame
+        on idle stream.
+        """
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        client.send_bytes(PriorityFrame(stream_id=3).serialize())
+        client.stream_id = 3
+
+        client.send_request(self.post_request, "200")
+
+    def test_closing_idle_stream(self):
+        """
+        The first use of a new stream identifier implicitly closes all
+        streams in the "idle" state that might have been initiated by
+        that peer with a lower-valued stream identifier.
+        """
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        client.send_bytes(PriorityFrame(stream_id=7).serialize())
+        client.send_bytes(PriorityFrame(stream_id=3).serialize())
+        client.send_bytes(PriorityFrame(stream_id=5).serialize())
+        client.send_bytes(PriorityFrame(stream_id=17).serialize())
+
+        client.stream_id = 11
+
+        client.send_request(self.post_request, "200")
+
+        """
+        Idle stream with id == 3 should be moved to closed state
+        during previous request. RST_SREAM frame is allowed for
+        closed streams but is not allowed for idle streams.
+        """
+        client.send_bytes(RstStreamFrame(stream_id=3).serialize())
+        client.send_bytes(RstStreamFrame(stream_id=5).serialize())
+        client.send_bytes(RstStreamFrame(stream_id=7).serialize())
+
+        client.send_request(self.post_request, "200")
+        client.stream_id = 17
+        client.send_request(self.post_request, "200")
