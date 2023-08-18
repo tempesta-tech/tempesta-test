@@ -37,7 +37,8 @@ http {
         listen        ${server_ip}:8000;
 
         location / {
-            return 200;
+            default_type text/html;
+            return 200 'Test data';
         }
         location /nginx_status {
             stub_status on;
