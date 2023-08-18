@@ -107,10 +107,6 @@ class H2Spec(tester.TempestaTest):
         h2spec.options.extend(
             [
                 "-x generic/2/2",  # Our version TestHalfClosedStreamStateWindowUpdate
-                "-x generic/2/3",  # disabled by issue 1196
-                "-x http2/5.3.1/1",  # disabled by issue 1196
-                "-x http2/5.3.1/2",  # disabled by issue 1196
-                "-x http2/5.1.2",  # disabled by issue 1196
             ]
         )
 
