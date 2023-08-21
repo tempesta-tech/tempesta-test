@@ -424,12 +424,22 @@ class DeproxyClientH2(BaseDeproxyClient):
         super(DeproxyClientH2, self).run_start()
         self.update_initial_settings()
 
+    def reinit_hpack_encoder(self):
+        self.encoder = HuffmanEncoder()
+        self.h2_connection.encoder = HuffmanEncoder()
+
     def make_requests(self, requests, huffman=True, *args, **kwargs):
         for request in requests:
             self.make_request(request, huffman=huffman)
 
     def make_request(
-        self, request: Union[tuple, list, str, deproxy.H2Request], end_stream=True, huffman=True
+        self,
+        request: Union[tuple, list, str, deproxy.H2Request],
+        end_stream=True,
+        priority_weight=None,
+        priority_depends_on=None,
+        priority_exclusive=None,
+        huffman=True,
     ):
         """
         Add request to buffers and change counters.
@@ -450,7 +460,13 @@ class DeproxyClientH2(BaseDeproxyClient):
 
         request = request.msg if isinstance(request, deproxy.H2Request) else request
 
-        self._add_to_request_buffers(data=request, end_stream=end_stream)
+        self._add_to_request_buffers(
+            data=request,
+            end_stream=end_stream,
+            priority_weight=priority_weight,
+            priority_depends_on=priority_depends_on,
+            priority_exclusive=priority_exclusive,
+        )
 
         self.nrreq += 1
         if end_stream:
@@ -613,6 +629,7 @@ class DeproxyClientH2(BaseDeproxyClient):
                     response = self.active_responses.pop(event.stream_id, None)
                     if response is None:
                         return
+                    self.response_sequence.append(event.stream_id)
                     self.receive_response(response)
                     self.nrresp += 1
                 elif isinstance(event, StreamReset):
@@ -746,7 +763,15 @@ class DeproxyClientH2(BaseDeproxyClient):
     ) -> None:
         self._req_body_buffers.append(ReqBodyBuffer(body, stream_id, end_stream))
 
-    def _add_to_request_buffers(self, *, data, end_stream: bool = None) -> None:
+    def _add_to_request_buffers(
+        self,
+        *,
+        data,
+        end_stream: bool = None,
+        priority_weight=None,
+        priority_depends_on=None,
+        priority_exclusive=None,
+    ) -> None:
         if isinstance(data, bytes):
             # in case when you use `send_bytes` method
             self._request_buffers.append(data)
@@ -759,14 +784,28 @@ class DeproxyClientH2(BaseDeproxyClient):
             )
         elif isinstance(data, tuple):
             # in case when you use `make_request` to sending headers + body
-            self.h2_connection.send_headers(self.stream_id, data[0], end_stream=False)
+            self.h2_connection.send_headers(
+                self.stream_id,
+                data[0],
+                False,
+                priority_weight,
+                priority_depends_on,
+                priority_exclusive,
+            )
             self._request_buffers.append(self.h2_connection.data_to_send())
             self._add_to_body_buffers(
                 body=data[1].encode(), stream_id=self.stream_id, end_stream=end_stream
             )
         elif isinstance(data, list):
             # in case when you use `make_request` to sending headers
-            self.h2_connection.send_headers(self.stream_id, data, end_stream)
+            self.h2_connection.send_headers(
+                self.stream_id,
+                data,
+                end_stream,
+                priority_weight,
+                priority_depends_on,
+                priority_exclusive,
+            )
             self._request_buffers.append(self.h2_connection.data_to_send())
             self._add_to_body_buffers(body=None, stream_id=None, end_stream=None)
 
@@ -794,6 +833,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self.last_stream_id: int = None
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer: bool = False
+        self.response_sequence = []
         self._req_body_buffers: List[ReqBodyBuffer] = list()
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
