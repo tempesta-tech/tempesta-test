@@ -24,8 +24,12 @@ __license__ = "GPL2"
 
 
 def adjust_timeout_for_tcp_segmentation(timeout):
-    if run_config.TCP_SEGMENTATION and timeout < 30:
-        timeout = 30
+    if run_config.TCP_SEGMENTATION:
+        if timeout < 30:
+            timeout = 30
+        else:
+            timeout = 30 * timeout / 5
+
     return timeout
 
 
@@ -349,6 +353,7 @@ class DeproxyClientH2(DeproxyClient):
         self.last_stream_id = None
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer = False
+        self.response_sequence = []
 
     def run_start(self):
         super(DeproxyClientH2, self).run_start()
@@ -358,7 +363,15 @@ class DeproxyClientH2(DeproxyClient):
         for request in requests:
             self.make_request(request)
 
-    def make_request(self, request: tuple or list or str, end_stream=True, huffman=True):
+    def make_request(
+        self,
+        request: tuple or list or str,
+        end_stream=True,
+        priority_weight=None,
+        priority_depends_on=None,
+        priority_exclusive=None,
+        huffman=True,
+    ):
         """
         Args:
             request:
@@ -383,12 +396,26 @@ class DeproxyClientH2(DeproxyClient):
         if isinstance(request, tuple):
             self._clear_request_stats()
             headers, body = request
-            self.h2_connection.send_headers(self.stream_id, headers)
+            self.h2_connection.send_headers(
+                self.stream_id,
+                headers,
+                False,
+                priority_weight,
+                priority_depends_on,
+                priority_exclusive,
+            )
             self.__prepare_data_frames(data=body, end_stream=end_stream)
         elif isinstance(request, list):
             self._clear_request_stats()
             headers = request
-            self.h2_connection.send_headers(self.stream_id, headers, end_stream)
+            self.h2_connection.send_headers(
+                self.stream_id,
+                headers,
+                end_stream,
+                priority_weight,
+                priority_depends_on,
+                priority_exclusive,
+            )
         elif isinstance(request, str):
             self.__prepare_data_frames(data=request, end_stream=end_stream)
 
@@ -535,6 +562,7 @@ class DeproxyClientH2(DeproxyClient):
                     response = self.active_responses.pop(event.stream_id, None)
                     if response == None:
                         return
+                    self.response_sequence.append(event.stream_id)
                     self.receive_response(response)
                     self.nrresp += 1
                 elif isinstance(event, ConnectionTerminated):
