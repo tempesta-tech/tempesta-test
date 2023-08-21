@@ -6,6 +6,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+
 class NetWorker:
     def _get_state(self, dev, what):
         cmd = f"ethtool --show-features {dev} | grep {what}"
@@ -85,6 +86,17 @@ class NetWorker:
 
     def run_test_tso_gro_gso_enabled(self, client, server, test, mtu):
         self.run_test_tso_gro_gso(client, server, test, mtu, True, True, True)
+
+    def run_test_tso_gro_gso_def(self, client, server, test, mtu):
+        try:
+            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+        except Error as err:
+            self.fail(err)
+
+        tso = self.get_tso_state(dev)
+        gro = self.get_gro_state(dev)
+        gso = self.get_gso_state(dev)
+        self.run_test_tso_gro_gso(client, server, test, mtu, tso, gro, gso)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
