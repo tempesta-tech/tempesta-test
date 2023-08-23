@@ -519,7 +519,10 @@ class DeproxyClientH2(DeproxyClient):
                     self.h2_connection.increment_flow_control_window(
                         increment=event.flow_controlled_length, stream_id=None
                     )
-                    if event.stream_ended is None:
+                    if (
+                        self.h2_connection._get_stream_by_id(event.stream_id).state_machine.state
+                        != h2.stream.StreamState.CLOSED
+                    ):
                         self.h2_connection.increment_flow_control_window(
                             increment=event.flow_controlled_length, stream_id=event.stream_id
                         )
