@@ -184,6 +184,7 @@ def base(uri="/", method="GET", forward=True, date=None):
         headers=common_req_headers + client_req_headers_addn,
         uri=uri,
         body=common_req_body,
+        authority=False,
     )
 
     tempesta_resp = deproxy.Response.create(
@@ -200,6 +201,7 @@ def base(uri="/", method="GET", forward=True, date=None):
             headers=common_req_headers + tempesta_req_headers_addn,
             uri=uri,
             body=common_req_body,
+            authority=False,
         )
 
         backend_resp = deproxy.Response.create(

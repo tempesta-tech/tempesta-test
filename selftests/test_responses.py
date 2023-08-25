@@ -210,8 +210,8 @@ Connection: close
 4
 1234
 0
-
 Expires: Wed, 21 Oct 2015 07:28:00 GMT
+
 """
 
 OTHER_TRAILER = """HTTP/1.1 200 OK
@@ -228,8 +228,8 @@ Connection: close
 4
 1234
 0
-
 Expires: Wed, 21 Dec 2015 07:28:00 GMT
+
 """
 
 

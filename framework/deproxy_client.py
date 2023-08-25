@@ -325,6 +325,22 @@ class DeproxyClient(BaseDeproxyClient):
             + f"Received - {self.last_response.status}"
         )
 
+    @staticmethod
+    def create_request(
+        method,
+        headers,
+        uri="/",
+        date=None,
+        body="",
+        version="HTTP/1.1",
+        authority=tf_cfg.cfg.get("Client", "hostname"),
+        *args,
+        **kwargs,
+    ) -> deproxy.Request:
+        return deproxy.Request.create(
+            method=method, headers=headers, uri=uri, version=version, date=date, body=body
+        )
+
 
 class HuffmanEncoder(Encoder):
     """Override method to disable Huffman encoding. Encoding is enabled by default."""
@@ -397,6 +413,20 @@ class DeproxyClientH2(DeproxyClient):
         if end_stream:
             self.stream_id += 2
             self.valid_req_num += 1
+
+    @staticmethod
+    def create_request(
+        method,
+        headers,
+        uri="/",
+        date=None,
+        body="",
+        version="HTTP/2",
+        authority=tf_cfg.cfg.get("Client", "hostname"),
+        *args,
+        **kwargs,
+    ) -> deproxy.H2Request:
+        return deproxy.H2Request.create(method, headers, authority, uri, version, date, body)
 
     def update_initial_settings(
         self,
