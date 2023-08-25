@@ -1,17 +1,18 @@
 """Functional tests of caching config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+import time
 
 from framework import tester
 from framework.curl_client import CurlResponse
-from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import checks_for_tests as checks
-from helpers import deproxy, tf_cfg, remote
-from helpers.control import Tempesta
 from framework.x509 import CertGenerator
+from helpers import checks_for_tests as checks
+from helpers import deproxy, remote, tf_cfg
+from helpers.control import Tempesta
 
 MIXED_CONFIG = (
     "cache {0};\r\n"
@@ -28,11 +29,15 @@ class TestCache(tester.TempestaTest):
     tempesta = {
         "config": """
 listen 80;
+listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
 vhost default {
     proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
 }
 """,
     }
@@ -75,17 +80,17 @@ vhost default {
             + "<html></html>"
         )
 
-        client: DeproxyClient = self.get_client("deproxy")
-        request = (
-            f"GET {uri} HTTP/1.1\r\n"
-            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
-            + "Connection: keep-alive\r\n"
-            + "Accept: */*\r\n"
-            + "\r\n"
+        client = self.get_client("deproxy")
+        request = client.create_request(
+            method="GET",
+            uri=uri,
+            headers=[
+                ("connection", "keep-alive"),
+            ],
         )
 
         for _ in range(self.messages):
-            client.send_request(request, expected_status_code="200")
+            client.send_request(request.msg, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         msg = "Server has received unexpected number of requests."
@@ -323,7 +328,100 @@ vhost default {
             self.assertIn("date", response.headers)
 
 
-class H2Cache(tester.TempestaTest):
+class TestCacheLocation(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+server ${server_ip}:8000;
+cache 2;
+
+vhost default {
+    proxy_pass default;
+    tls_match_any_server_name;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+    location prefix "/cached" {
+        proxy_pass default;
+        cache_fulfill * *;
+    }
+
+    location prefix "/bypassed" {
+        proxy_pass default;
+        cache_bypass * *;
+    }
+
+    location prefix "/nonidempotent" {
+        proxy_pass default;
+        cache_fulfill * *;
+        nonidempotent GET * *;
+        nonidempotent HEAD * *;
+    }
+}
+""",
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Connection: keep-alive\r\n"
+                + "Content-Length: 13\r\n"
+                + "Content-Type: text/html\r\n"
+                + "\r\n"
+                + "<html></html>"
+            ),
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def _test(self, uri: str, method: str, should_be_cached: bool):
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+        request = client.create_request(uri=uri, method=method, headers=[])
+
+        for _ in range(2):
+            client.send_request(request.msg, expected_status_code="200")
+
+        self.assertNotIn("age", client.responses[0].headers)
+        msg = "Server has received unexpected number of requests."
+
+        self.assertEqual(len(srv.requests), 1 if should_be_cached else 2, msg)
+
+        if should_be_cached:
+            self.assertIn("age", client.last_response.headers, msg)
+        else:
+            self.assertNotIn("age", client.last_response.headers, msg)
+
+    def test_prefix_cached(self):
+        self._test(uri="/cached", method="GET", should_be_cached=True)
+
+    def test_prefix_bypassed(self):
+        self._test(uri="/bypassed", method="GET", should_be_cached=False)
+
+    def test_nonidempotent_get(self):
+        self._test(uri="/bypassed", method="GET", should_be_cached=False)
+
+    def test_nonidempotent_head(self):
+        self._test(uri="/bypassed", method="HEAD", should_be_cached=False)
+
+
+class H2Cache(TestCache):
     clients = [
         {
             "id": "deproxy",
@@ -331,7 +429,30 @@ class H2Cache(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
-            "ssl_hostname": "tempesta-tech.com",
+        }
+    ]
+
+
+class TestH2CacheLocation(TestCacheLocation):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
+    ]
+
+
+class TestH2CacheHdrDel(tester.TempestaTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         }
     ]
 
@@ -341,65 +462,598 @@ class H2Cache(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
-        }
+            "response_content": "",
+        },
     ]
 
     tempesta = {
         "config": """
-        cache 2;
-        cache_fulfill eq /to-be-cached;
+listen 80;
+listen 443 proto=h2;
 
-        listen 443 proto=h2;
-        tls_match_any_server_name;
+server ${server_ip}:8000;
 
-        srv_group default {
-            server ${server_ip}:8000;
-        }
-
-        vhost tempesta-tech.com {
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            proxy_pass default;
-        }
-
-       """
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
+}
+cache 2;
+"""
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
+    def base_scenario(
+        self,
+        tempesta_config: str,
+        response_headers: list,
+        expected_cached_headers: list,
+        should_be_cached: bool,
+    ):
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig += tempesta_config
 
-    def test(self):
-        self.start_all()
+        self.start_all_services()
 
-        request = [
-            (":authority", "tempesta-tech.com"),
-            (":path", "/to-be-cached"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ]
-        requests = [request, request]
+        response = deproxy.Response.create(
+            status="200",
+            headers=response_headers + [("content-length", "0")],
+            date=deproxy.HttpMessage.date_time_string(),
+        )
+        expected_response = deproxy.H2Response.create(
+            status=response.status,
+            headers=response.headers.headers,
+            date=response.headers.get("date"),
+            tempesta_headers=True,
+            expected=True,
+        )
+
+        server = self.get_server("deproxy")
+        server.set_response(response.msg)
 
         client = self.get_client("deproxy")
-        client.make_requests(requests)
+        request = client.create_request(method="GET", headers=[], uri="/")
+        client.send_request(request.msg, "200")
+        self.assertEqual(client.last_response, expected_response)
 
-        got_response = client.wait_for_response(timeout=5)
+        client.send_request(request.msg, "200")
+        if should_be_cached:
+            optional_headers = [("content-length", "0"), ("age", "5")]
+        else:
+            optional_headers = [("content-length", "0")]
+        expected_cached_response = deproxy.H2Response.create(
+            status=response.status,
+            headers=expected_cached_headers + optional_headers,
+            date=response.headers.get("date"),
+            tempesta_headers=True,
+            expected=True,
+        )
 
-        self.assertTrue(got_response)
+        self.assertEqual(client.last_response, expected_cached_response)
+        self.assertEqual(len(server.requests), 1 if should_be_cached else 2)
 
-        # Only the first request should be forwarded to the backend.
-        self.assertEqual(
-            len(self.get_server("deproxy").requests),
-            1,
-            "The second request wasn't served from cache.",
+    # cache_resp_hdr_del --------------------------------------------------------------------------
+    def test_cache_bypass_and_hdr_del(self):
+        self.base_scenario(
+            tempesta_config="cache_bypass * *;\ncache_resp_hdr_del set-cookie remove-me-2;\n",
+            response_headers=[("set-cookie", "cookie=2; a=b"), ("remove-me-2", "")],
+            expected_cached_headers=[("set-cookie", "cookie=2; a=b"), ("remove-me-2", "")],
+            should_be_cached=False,
+        )
+
+    def test_cache_fulfill_and_hdr_del(self):
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\ncache_resp_hdr_del set-cookie remove-me-2;\n",
+            response_headers=[("set-cookie", "cookie=2; a=b"), ("remove-me-2", "")],
+            expected_cached_headers=[],
+            should_be_cached=True,
+        )
+
+    def test_cache_bypass(self):
+        """
+        This test does a regular caching without additional processing,
+        however, the regular caching might not work correctly for
+        empty 'Remove-me' header value due to a bug in message fixups. See #530.
+        """
+        self.base_scenario(
+            tempesta_config="cache_bypass * *;\n",
+            response_headers=[("remove-me", ""), ("remove-me-2", "")],
+            expected_cached_headers=[("remove-me", ""), ("remove-me-2", "")],
+            should_be_cached=False,
+        )
+
+    def test_cache_fulfill(self):
+        """
+        This test does a regular caching without additional processing,
+        however, the regular caching might not work correctly for
+        empty 'Remove-me' header value due to a bug in message fixups. See #530.
+        """
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[("remove-me", ""), ("remove-me-2", "")],
+            expected_cached_headers=[("remove-me", ""), ("remove-me-2", "")],
+            should_be_cached=True,
+        )
+
+    # NO-CACHE ------------------------------------------------------------------------------------
+    def test_cache_bypass_no_cache_with_arg(self):
+        """Tempesta must not change response if cache_bypass is present."""
+        self.base_scenario(
+            tempesta_config="cache_bypass * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", "a"),
+                ("cache-control", 'no-cache="remove-me"'),
+            ],
+            expected_cached_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", "a"),
+                ("cache-control", 'no-cache="remove-me"'),
+            ],
+            should_be_cached=False,
+        )
+
+    def test_cache_fulfilll_no_cache_with_arg(self):
+        """
+        Tempesta must not save remove-me header in cache
+        if cache-control no-cache="remove-me".
+        """
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", ""),
+                ("remove-me-2", ""),
+                ("cache-control", 'no-cache="remove-me"'),
+            ],
+            expected_cached_headers=[
+                ("remove-me-2", ""),
+                ("cache-control", 'no-cache="remove-me"'),
+            ],
+            should_be_cached=True,
+        )
+
+    def test_cache_fulfilll_no_cache_with_arg_2(self):
+        """
+        Tempesta must not save remove-me header in cache
+        if cache-control no-cache="remove-me".
+        """
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'no-cache="remove-me"'),
+            ],
+            expected_cached_headers=[
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'no-cache="remove-me"'),
+            ],
+            should_be_cached=True,
+        )
+
+    def test_cache_fulfilll_no_cache_with_args(self):
+        """Tempesta must not save all headers from no-cache."""
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'no-cache="remove-me, remove-me-2"'),
+            ],
+            expected_cached_headers=[("cache-control", 'no-cache="remove-me, remove-me-2"')],
+            should_be_cached=True,
+        )
+
+    def test_cache_fulfilll_multi_cache_control(self):
+        """Tempesta must not save all headers from no-cache."""
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'public, no-cache="remove-me", max-age=100, must-revalidate'),
+            ],
+            expected_cached_headers=[
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'public, no-cache="remove-me", max-age=100, must-revalidate'),
+            ],
+            should_be_cached=True,
+        )
+
+    # PRIVATE -------------------------------------------------------------------------------------
+    def test_cache_bypass_private_with_arg(self):
+        """Tempesta must not change response if cache_bypass is present."""
+        self.base_scenario(
+            tempesta_config="cache_bypass * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", "a"),
+                ("cache-control", 'private="remove-me"'),
+            ],
+            expected_cached_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", "a"),
+                ("cache-control", 'private="remove-me"'),
+            ],
+            should_be_cached=False,
+        )
+
+    def test_cache_fulfilll_private_with_arg(self):
+        """
+        Tempesta must not save remove-me header in cache
+        if cache-control private="remove-me".
+        """
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", ""),
+                ("remove-me-2", ""),
+                ("cache-control", 'private="remove-me"'),
+            ],
+            expected_cached_headers=[("remove-me-2", ""), ("cache-control", 'private="remove-me"')],
+            should_be_cached=True,
+        )
+
+    def test_cache_fulfilll_private_with_arg_2(self):
+        """
+        Tempesta must not save remove-me header in cache
+        if cache-control private="remove-me".
+        """
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'private="remove-me"'),
+            ],
+            expected_cached_headers=[
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'private="remove-me"'),
+            ],
+            should_be_cached=True,
+        )
+
+    def test_cache_fulfilll_private_with_args(self):
+        """Tempesta must not save all headers from no-cache."""
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'private="remove-me, remove-me-2"'),
+            ],
+            expected_cached_headers=[("cache-control", 'private="remove-me, remove-me-2"')],
+            should_be_cached=True,
+        )
+
+    def test_cache_fulfilll_multi_cache_control_2(self):
+        """Tempesta must not save all headers from no-cache."""
+        self.base_scenario(
+            tempesta_config="cache_fulfill * *;\n",
+            response_headers=[
+                ("remove-me", "a"),
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'public, private="remove-me", max-age=100, must-revalidate'),
+            ],
+            expected_cached_headers=[
+                ("remove-me-2", '"a"'),
+                ("cache-control", 'public, private="remove-me", max-age=100, must-revalidate'),
+            ],
+            should_be_cached=True,
+        )
+
+
+class TestH2CacheTtl(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+server ${server_ip}:8000;
+
+vhost vh1 {
+    proxy_pass default;
+}
+
+cache 2;
+cache_fulfill * *;
+cache_ttl 3;
+
+http_chain {
+    cookie "comment_author_*" == "*" -> cache_ttl = 1;
+    -> vh1;
+}
+"""
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
+        },
+    ]
+
+    def base_scenario(
+        self,
+        response_headers: list,
+        request_headers: list,
+        second_request_headers: list,
+        sleep_interval: float,
+        should_be_cached: bool,
+    ):
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=response_headers + [("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            ).msg
+        )
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            client.create_request(method="GET", headers=request_headers, uri="/").msg,
+            "200",
+        )
+
+        time.sleep(sleep_interval)
+
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=response_headers + [("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            ).msg
+        )
+        client.send_request(
+            client.create_request(method="GET", headers=second_request_headers, uri="/").msg,
+            "200",
+        )
+
+        self.assertEqual(1 if should_be_cached else 2, len(server.requests))
+
+    def test_global_cache_ttl_3_sleep_0(self):
+        """Response must be from cache if sleep < cache_ttl."""
+        self.base_scenario(
+            response_headers=[],
+            request_headers=[],
+            second_request_headers=[],
+            sleep_interval=0,
+            should_be_cached=True,
+        )
+
+    def test_global_cache_ttl_3_sleep_4(self):
+        """Response must not be from cache if sleep > cache_ttl."""
+        self.base_scenario(
+            response_headers=[],
+            request_headers=[],
+            second_request_headers=[],
+            sleep_interval=4,
+            should_be_cached=False,
+        )
+
+    def test_global_cache_ttl_3_sleep_4_max_age_10(self):
+        """
+        Response must be from cache if:
+            - max-age is present in response;
+            - sleep < max-age;
+        cache_ttl is ignored.
+        """
+        self.base_scenario(
+            response_headers=[("cache-control", "max-age=10")],
+            request_headers=[],
+            second_request_headers=[],
+            sleep_interval=4,
+            should_be_cached=True,
+        )
+
+    def test_global_cache_ttl_3_sleep_2_max_age_1(self):
+        """
+        Response must not be from cache if:
+            - max-age is present in response;
+            - sleep > max-age;
+        cache_ttl is ignored.
+        """
+        self.base_scenario(
+            response_headers=[("cache-control", "max-age=1")],
+            request_headers=[],
+            second_request_headers=[],
+            sleep_interval=2,
+            should_be_cached=False,
+        )
+
+    def test_global_cache_ttl_3_sleep_2_s_maxage_1(self):
+        """
+        Response must not be from cache if:
+            - max-age is present in response;
+            - sleep > s-maxage;
+        cache_ttl is ignored.
+        """
+        self.base_scenario(
+            response_headers=[("cache-control", "s-maxage=1")],
+            request_headers=[],
+            second_request_headers=[],
+            sleep_interval=2,
+            should_be_cached=False,
+        )
+
+    def test_vhost_cache_ttl_1_sleep_2(self):
+        self.base_scenario(
+            response_headers=[],
+            request_headers=[("cookie", "comment_author_name=john")],
+            second_request_headers=[("cookie", "comment_author_name=john")],
+            sleep_interval=2,
+            should_be_cached=False,
+        )
+
+    def test_vhost_cache_ttl_1_sleep_4(self):
+        self.base_scenario(
+            response_headers=[],
+            request_headers=[("cookie", "comment_author_name=john")],
+            second_request_headers=[("cookie", "comment_author_name=john")],
+            sleep_interval=4,  # great than global cache ttl
+            should_be_cached=False,
+        )
+
+    def test_priority_for_cache_control_header_no_cache(self):
+        """Cache-Control header has priority over cache_ttl."""
+        self.base_scenario(
+            response_headers=[("cache-control", "no-cache")],
+            request_headers=[("cookie", "comment_author_name=john")],
+            second_request_headers=[("cookie", "comment_author_name=john")],
+            sleep_interval=0,
+            should_be_cached=False,
+        )
+
+    def test_priority_for_cache_control_header_no_store(self):
+        """Cache-Control header has priority over cache_ttl."""
+        self.base_scenario(
+            response_headers=[("cache-control", "no-store")],
+            request_headers=[("cookie", "comment_author_name=john")],
+            second_request_headers=[("cookie", "comment_author_name=john")],
+            sleep_interval=0,
+            should_be_cached=False,
+        )
+
+    def test_priority_for_cache_control_header_private(self):
+        """Cache-Control header has priority over cache_ttl."""
+        self.base_scenario(
+            response_headers=[("cache-control", "private")],
+            request_headers=[("cookie", "comment_author_name=john")],
+            second_request_headers=[("cookie", "comment_author_name=john")],
+            sleep_interval=0,
+            should_be_cached=False,
+        )
+
+
+class TestH2CacheDisable(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+server ${server_ip}:8000;
+
+vhost vh1 {
+    proxy_pass default;
+}
+
+cache 2;
+cache_fulfill * *;
+http_chain {
+    cookie "foo_items_in_cart" == "*" -> cache_disable = 1;
+    cookie "comment_author_*" == "*" -> cache_disable = 0;
+    cookie "wordpress_logged_in*" == "*" -> cache_disable;
+    -> vh1;
+}
+"""
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Content-Length: 0\r\n"
+                + "Server: Deproxy Server\r\n"
+                + "\r\n"
+            ),
+        },
+    ]
+
+    def base_scenario(
+        self,
+        request_headers: list,
+        second_request_headers: list,
+        should_be_cached: bool,
+    ):
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            client.create_request(method="GET", headers=request_headers, uri="/").msg,
+            "200",
+        )
+        client.send_request(
+            client.create_request(method="GET", headers=second_request_headers, uri="/").msg,
+            "200",
+        )
+
+        self.assertEqual(1 if should_be_cached else 2, len(server.requests))
+
+    def test_cache_disable(self):
+        self.base_scenario(
+            request_headers=[("cookie", "wordpress_logged_in=true")],
+            second_request_headers=[("cookie", "wordpress_logged_in=true")],
+            should_be_cached=False,
+        )
+
+    def test_cache_disable_0(self):
+        self.base_scenario(
+            request_headers=[("cookie", "comment_author_name=john")],
+            second_request_headers=[("cookie", "comment_author_name=john")],
+            should_be_cached=True,
+        )
+
+    def test_cache_disable_1(self):
+        self.base_scenario(
+            request_headers=[("cookie", "foo_items_in_cart=")],
+            second_request_headers=[("cookie", "foo_items_in_cart=")],
+            should_be_cached=False,
+        )
+
+    def test_cache_disable_with_override_http_chain(self):
+        self.base_scenario(
+            request_headers=[("cookie", "foo_items_in_cart=; comment_author_name=john")],
+            second_request_headers=[("cookie", "foo_items_in_cart=; comment_author_name=john")],
+            should_be_cached=True,
         )
 
 
 class TestChunkedResponse(tester.TempestaTest):
+    """
+    Cached data of the chunked response
+    should be equal to the original data.
+    """
+
     backends = [
         {
             "id": "chunked",
@@ -421,6 +1075,10 @@ class TestChunkedResponse(tester.TempestaTest):
     tempesta = {
         "config": """
         listen 80;
+        listen 443 proto=h2;
+        tls_match_any_server_name;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
         cache 1;
         cache_fulfill * *;
         server ${server_ip}:8000;
@@ -429,8 +1087,19 @@ class TestChunkedResponse(tester.TempestaTest):
 
     clients = [
         {
-            "id": "get",
+            "id": "http1",
             "type": "curl",
+            "cmd_args": (
+                # Disable HTTP decoding, chunked data should be compared
+                " --raw"
+                # Prevent hang on invalid response
+                " --max-time 1"
+            ),
+        },
+        {
+            "id": "http2",
+            "type": "curl",
+            "http2": True,
             "cmd_args": (
                 # Disable HTTP decoding, chunked data should be compared
                 " --raw"
@@ -440,33 +1109,32 @@ class TestChunkedResponse(tester.TempestaTest):
         },
     ]
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def get_response(self, client) -> CurlResponse:
         client.start()
         self.wait_while_busy(client)
         client.stop()
         return client.last_response
 
+    def test_h2_cached_data_equal_to_original(self):
+        self.get_simple_and_cache_response(
+            client=self.get_client("http2"), resp_body_for_first_request="test-data"
+        )
+
     def test_cached_data_equal_to_original(self):
-        """
-        Cached data of the chunked response
-        should be equal to the original data.
-        (see Tempesta issue #1698)
-        """
-        self.start_all()
+        self.get_simple_and_cache_response(
+            client=self.get_client("http1"),
+            resp_body_for_first_request="9\r\ntest-data\r\n0\r\n\r\n",
+        )
+
+    def get_simple_and_cache_response(self, client, resp_body_for_first_request):
+        self.start_all_services(client=False)
         srv = self.get_server("chunked")
-        client = self.get_client("get")
 
         with self.subTest("Get non-cached response"):
             response = self.get_response(client)
             self.assertEqual(response.status, 200, response)
             self.assertNotIn("age", response.headers)
-            self.assertEqual(response.stdout, "9\r\ntest-data\r\n0\r\n\r\n")
+            self.assertEqual(response.stdout, resp_body_for_first_request)
 
         with self.subTest("Get cached response"):
             response = self.get_response(client)
@@ -585,7 +1253,7 @@ class TestCacheVhost(tester.TempestaTest):
         client.stop()
         return client.response_msg
 
-    def test(self):
+    def test_h2(self):
         self.gen_certs("tempesta-tech.com")
         self.start_all_services(client=False)
 
@@ -593,16 +1261,14 @@ class TestCacheVhost(tester.TempestaTest):
         srv = self.get_server("srv_front")
         client = self.get_client("front-1")
         response = self.get_response(client)
-        self.assertEqual(len(srv.requests), 1,
-                "Request should be taken from srv_front")
+        self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_front")
         self.assertEqual(response, "bar")
 
         # Make sure it was cached
         srv = self.get_server("srv_front")
         client = self.get_client("front-2")
         response = self.get_response(client)
-        self.assertEqual(len(srv.requests), 1,
-                "Request should be taken from cache")
+        self.assertEqual(len(srv.requests), 1, "Request should be taken from cache")
         self.assertEqual(response, "bar")
 
         # Send request to the different vhost. Make sure that
@@ -610,9 +1276,13 @@ class TestCacheVhost(tester.TempestaTest):
         srv = self.get_server("srv_main")
         client = self.get_client("debian-1")
         response = self.get_response(client)
-        self.assertEqual(len(srv.requests), 1,
-                "Request should be taken from srv_main")
+        self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_main")
         self.assertEqual(response, "foo")
+
+    def test_http1(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = tempesta.config.defconfig.replace("h2", "https")
+        self.test_h2()
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
