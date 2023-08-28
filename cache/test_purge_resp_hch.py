@@ -120,9 +120,9 @@ Connection: keep-alive
             expect=[
                 ("Host", "localhost"),
                 ("X-Tempesta-Cache", "GET"),
-                ("Connection", "keep-alive"),
+                ("connection", "keep-alive"),
                 ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
-                ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+                ("x-forwarded-for", tf_cfg.cfg.get("Client", "ip")),
             ],
         )
 
@@ -140,9 +140,9 @@ Connection: keep-alive
             expect=[
                 ("Host", "localhost"),
                 ("X-Tempesta-Cache", "GET"),
-                ("Connection", "keep-alive"),
+                ("connection", "keep-alive"),
                 ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
-                ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+                ("x-forwarded-for", tf_cfg.cfg.get("Client", "ip")),
             ],
         )
 
