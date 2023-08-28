@@ -359,6 +359,10 @@ class DeproxyClientH2(DeproxyClient):
         super(DeproxyClientH2, self).run_start()
         self.h2_connection = None
 
+    def reinit_hpack_encoder(self):
+        self.encoder = HuffmanEncoder()
+        self.h2_connection.encoder = HuffmanEncoder()
+
     def make_requests(self, requests, *args, **kwargs):
         for request in requests:
             self.make_request(request)
