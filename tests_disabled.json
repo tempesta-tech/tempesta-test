@@ -238,18 +238,6 @@
             "reason": "Disabled by issue #1883"
         },
         {
-            "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
-            "reason": "Disabled by issue #1103"
-        },
-        {
-            "name": "t_modify_http_headers.test_logic.TestManyCachedResponseHeaders",
-            "reason": "Disabled by issue #1103"
-        },
-        {
-            "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
-            "reason": "Disabled by issue #1103"
-        },
-        {
             "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
             "reason": "Disabled by issue #1961"
         },
