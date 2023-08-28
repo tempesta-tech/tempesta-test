@@ -103,9 +103,9 @@ cache_purge_acl ${client_ip};
             expect="GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "X-Tempesta-Cache: GET\r\n"
-            f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n'
+            f'x-forwarded-for: {tf_cfg.cfg.get("Server", "ip")}\r\n'
             "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
-            "Connection: keep-alive\r\n"
+            "connection: keep-alive\r\n"
             "\r\n" % tempesta.version(),
         )
 
@@ -120,9 +120,9 @@ cache_purge_acl ${client_ip};
             expect="GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "X-Tempesta-Cache: GET\r\n"
-            f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n'
+            f'x-forwarded-for: {tf_cfg.cfg.get("Server", "ip")}\r\n'
             "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
-            "Connection: keep-alive\r\n"
+            "connection: keep-alive\r\n"
             "\r\n" % tempesta.version(),
             chunked=True,
         )
