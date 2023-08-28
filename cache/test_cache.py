@@ -518,7 +518,7 @@ cache 2;
 
         client.send_request(request.msg, "200")
         if should_be_cached:
-            optional_headers = [("content-length", "0"), ("age", "5")]
+            optional_headers = [("content-length", "0"), ("age", "0")]
         else:
             optional_headers = [("content-length", "0")]
         expected_cached_response = deproxy.H2Response.create(
