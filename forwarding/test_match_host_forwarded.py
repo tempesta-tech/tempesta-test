@@ -2,7 +2,6 @@
 Tests for verifying correctness of matching
 all host headers (URI, Host, Forwarded).
 """
-
 from helpers import chains
 from test_suite import tester
 
@@ -12,7 +11,6 @@ __license__ = "GPL2"
 
 
 class TestMatchHost(tester.TempestaTest):
-
     backends = [
         {
             "id": 0,
@@ -75,21 +73,21 @@ class TestMatchHost(tester.TempestaTest):
     requests_opt = [
         {
             "uri": "http://testshop.com",  # <--must be matched by "host eq"
-            "headers": [("Host", "testwiki.com"), ("Forwarded", "host=testapp.com")],
+            "headers": ["Host: testwiki.com", "Forwarded: host=testapp.com"],
             "block": False,
             "sid": 0,
         },
         {
             "uri": "http://testshop.com",  # <--must be matched by "host eq"
-            "headers": [("Host", "badhost.com"), ("Forwarded", "host=badhost.com")],
+            "headers": ["Host: badhost.com", "Forwarded: host=badhost.com"],
             "block": False,
             "sid": 0,
         },
         {
             "uri": "http://testshop.com",
             "headers": [
-                ("Host", "testapp.com"),  # <--must be matched by "hdr host == testapp.com"
-                ("Forwarded", "host=testwiki.com"),
+                "Host: testapp.com",  # <--must be matched by "hdr host == testapp.com"
+                "Forwarded: host=testwiki.com",
             ],
             "block": False,
             "sid": 2,
@@ -97,8 +95,8 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "http://badhost.com",
             "headers": [
-                ("Host", "badhost.com"),
-                ("Forwarded", "host=testshop.com"),  # <--must be matched by "hdr forwarded"
+                "Host: badhost.com",
+                "Forwarded: host=testshop.com",  # <--must be matched by "hdr forwarded"
             ],
             "block": False,
             "sid": 0,
@@ -106,9 +104,9 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "http://badhost.com",
             "headers": [
-                ("Host", "badhost.com"),
-                ("Forwarded", "host=unkhost.com"),
-                ("Forwarded", "host=testshop.com"),  # <--must be matched by "hdr forwarded"
+                "Host: badhost.com",
+                "Forwarded: host=unkhost.com",
+                "Forwarded: host=testshop.com",  # <--must be matched by "hdr forwarded"
             ],
             "block": False,
             "sid": 0,
@@ -116,8 +114,8 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "/foo",
             "headers": [
-                ("Host", "testwiki.com"),  # <--must be matched by "host eq"
-                ("Forwarded", "host=forwarded.host.ignored"),
+                "Host: testwiki.com",  # <--must be matched by "host eq"
+                "Forwarded: host=forwarded.host.ignored",
             ],
             "block": False,
             "sid": 1,
@@ -125,8 +123,8 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "/foo",
             "headers": [
-                ("Host", "TesTaPp.cOm"),  # <--must be matched by "host eq"
-                ("Forwarded", "HoSt=forwarded.host.ignored"),
+                "Host: TesTaPp.cOm",  # <--must be matched by "host eq"
+                "Forwarded: HoSt=forwarded.host.ignored",
             ],
             "block": False,
             "sid": 2,
@@ -145,41 +143,23 @@ class TestMatchHost(tester.TempestaTest):
         },
         {
             "uri": "/foo",
-            "headers": [("Host", "badhost.com"), ("Forwarded", "host=forwarded.host.ignored")],
+            "headers": ["Host: badhost.com", "Forwarded: host=forwarded.host.ignored"],
             "block": True,
             "sid": 0,
         },
-        {"uri": "/foo", "headers": [("Host", "unkhost.com")], "block": True, "sid": 0},
+        {"uri": "/foo", "headers": ["Host: unkhost.com"], "block": True, "sid": 0},
     ]
 
     blocked_response_status = "403"
-    chains = []
 
     def add_client(self, cid):
         client = {"id": cid, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}
         self.clients.append(client)
 
-    def init_chain(self, req_opt):
-        ch = chains.base(uri=req_opt["uri"])
-        if req_opt["block"]:
-            for header, value in req_opt["headers"]:
-                ch.request.headers.delete_all(header)
-                ch.request.headers.add(header, value)
-                ch.request.update()
-                ch.fwd_request = None
-        else:
-            for request in [ch.request, ch.fwd_request]:
-                for header, value in req_opt["headers"]:
-                    request.headers.delete_all(header)
-                    request.headers.add(header, value)
-                    request.update()
-        self.chains.append(ch)
-
     def setUp(self):
-        del self.chains[:]
+        # Create a client for each request
         count = len(self.requests_opt)
         for i in range(count):
-            self.init_chain(self.requests_opt[i])
             self.add_client(i)
         tester.TempestaTest.setUp(self)
 
@@ -190,29 +170,32 @@ class TestMatchHost(tester.TempestaTest):
         self.deproxy_manager.start()
         self.assertTrue(self.wait_all_connections())
 
-    def process(self, client, server, chain):
-        client.make_request(chain.request.msg)
+    def process(self, client, server, opt, req_id):
+        uri = opt["uri"]
+        first_line = "GET " + uri + " HTTP/1.1\r\n"
+        base_headers = "\r\n".join(opt["headers"]) + "\r\n"
+        req_id_hdr = "x-req-id: " + str(req_id) + "\r\n"
+        request = first_line + base_headers + req_id_hdr + "\r\n"
+
+        client.make_request(request)
         client.wait_for_response()
 
-        if chain.fwd_request:
-            chain.fwd_request.set_expected()
-            self.assertEqual(server.last_request, chain.fwd_request)
+        if not opt["block"]:
+            last_req_id = int(server.last_request.headers.get("x-req-id"))
+            self.assertEqual(last_req_id, req_id)
         else:
             last_response_status = client.last_response.status
             self.assertEqual(self.blocked_response_status, last_response_status)
 
-    def test_chains(self):
+    def test(self):
         """
         Send requests with different hosts
         and check correctness of forwarding
-        by compare last request on client and
-        server.
+        comparing id of the last request on
+        client and server.
         """
         self.start_all()
-        count = len(self.chains)
-        for i in range(count):
-            sid = self.requests_opt[i]["sid"]
-            self.process(self.get_client(i), self.get_server(sid), self.chains[i])
 
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+        for req_id, opt in enumerate(self.requests_opt):
+            sid = opt["sid"]
+            self.process(self.get_client(req_id), self.get_server(sid), opt, req_id)
