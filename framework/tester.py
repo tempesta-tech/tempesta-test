@@ -317,6 +317,7 @@ class TempestaTest(unittest.TestCase):
 
     def tearDown(self):
         tf_cfg.dbg(3, "\tTeardown")
+        self.deproxy_manager.stop()
         for cid in self.__clients:
             client = self.__clients[cid]
             client.stop()
@@ -324,7 +325,6 @@ class TempestaTest(unittest.TestCase):
         for sid in self.__servers:
             server = self.__servers[sid]
             server.stop()
-        self.deproxy_manager.stop()
         try:
             deproxy_manager.finish_all_deproxy()
         except:
