@@ -8,6 +8,7 @@ from http2_general.helpers import H2Base
 from hyperframe.frame import PriorityFrame
 from helpers.networker import NetWorker
 from helpers import util
+from h2.errors import ErrorCodes
 import time
 
 DEFAULT_MTU = 1500
@@ -508,6 +509,29 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
 
 
 class TestStreamPriorityStress(TestPriorityBase, NetWorker):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            max_concurrent_streams 1000;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
     def test_stream_priority_stress(self):
         client, server = self.setup_test_priority()
         self.run_test_tso_gro_gso_def(
@@ -548,3 +572,92 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             weight = weight + 1
 
         self.wait_for_responses(client, timeout=240)
+        self.assertTrue(len(client.response_sequence) == 256 + 256 * 2)
+
+
+class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            max_concurrent_streams 10;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    def test_max_concurent_stream_exceed_by_stream(self):
+        """
+        If creation of new stream leads to exceeding of max_concurrent_streams, we should reset
+        this stream. Check that all streams, which creation leads to exceedion of max_concurrent_streams
+        will be reset and all previos streams will be finished successfully.
+        """
+        client, server = self.setup_test_priority()
+
+        prev_stream_id = 0
+        self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
+        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
+            stream_id = 2 * client.h2_connection.remote_settings.max_concurrent_streams + 2 * i + 1
+            client.send_bytes(
+                PriorityFrame(
+                    stream_id=stream_id,
+                    depends_on=prev_stream_id,
+                    stream_weight=1,
+                    exclusive=False,
+                ).serialize()
+            )
+            prev_stream_id = stream_id
+
+        valid_req_num = client.valid_req_num
+        time.sleep(1)
+        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
+            stream_id = client.stream_id
+            client.make_request(self.post_request)
+            self.assertTrue(client.wait_for_reset_stream(stream_id=stream_id))
+
+        client.reinit_hpack_encoder()
+        client.valid_req_num = valid_req_num
+        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
+            client.make_request(self.post_request)
+
+        self.wait_for_responses(client)
+        self.check_response_sequence(client, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
+
+    def test_max_concurent_stream_exceed_by_priority_frame(self):
+        """
+        If creation of new stream leads to exceeding of max_concurrent_streams, we should reset
+        this stream. But according to RFC we can't reset idle streams, so Tempesta FW just
+        close the connetion with PROTOCOL_ERROR.
+        """
+        client, server = self.setup_test_priority()
+
+        self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
+        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams - 1):
+            client.make_request(self.post_request)
+        time.sleep(1)
+
+        client.send_bytes(
+            PriorityFrame(
+                stream_id=client.stream_id, depends_on=5, stream_weight=255, exclusive=False
+            ).serialize()
+        )
+        client.send_bytes(
+            PriorityFrame(
+                stream_id=client.stream_id + 2, depends_on=5, stream_weight=255, exclusive=False
+            ).serialize()
+        )
+        self.assertTrue(client.wait_for_connection_close())
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
