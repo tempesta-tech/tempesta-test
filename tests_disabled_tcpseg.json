@@ -102,6 +102,10 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_h2_stream_priority.TestStreamPriorityStress",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "http2_general.test_h2_hpack.TestHpackBomb",
             "reason": "These tests should not be run with TCP segmentation. We have separate tests for `http_max_header_list_size`."
         },
