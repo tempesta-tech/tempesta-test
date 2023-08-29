@@ -104,7 +104,7 @@ class ServerConnection(asyncore.dispatcher):
         self.response_buffer[self.responses_done] = resp[sent:]
 
         self.last_segment_time = time.time()
-        if self.response_buffer[self.responses_done]:
+        if self.response_buffer[self.responses_done] == b"":
             self.responses_done += 1
 
         if self.responses_done == self.keep_alive and self.keep_alive:
