@@ -629,19 +629,18 @@ class DeproxyClientH2(DeproxyClient):
         return new_settings
 
     def __prepare_data_frames(self, data: str, end_stream: bool) -> None:
-        while len(data) > self.h2_connection.max_outbound_frame_size:
+        while True:
+            send_bytes = min(len(data), self.h2_connection.max_outbound_frame_size, self.h2_connection.local_flow_control_window(self.stream_id))
+            data_is_finished = True if len(data) == send_bytes else False
+            print(send_bytes, data_is_finished, len(data), self.h2_connection.max_outbound_frame_size, self.h2_connection.local_flow_control_window(self.stream_id))
             self.h2_connection.send_data(
                 stream_id=self.stream_id,
-                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
-                end_stream=False,
+                data=data[: send_bytes].encode(),
+                end_stream=end_stream if data_is_finished else False,
             )
-            data = data[self.h2_connection.max_outbound_frame_size :]
-        else:
-            self.h2_connection.send_data(
-                stream_id=self.stream_id,
-                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
-                end_stream=end_stream,
-            )
+            data = data[send_bytes :]
+            if data_is_finished:
+                break
 
     def __calculate_frame_length(self, pos):
         #: The type byte defined for CONTINUATION frames.
