@@ -321,6 +321,7 @@ class TestCurlClient(tester.TempestaTest):
     def test_parallel_mod_enabled(self):
         client = self.get_client("parallel")
         server = self.get_server("deproxy")
+        # dump_headers may work incorrectly with parallel client
         client.dump_headers = False
         response = self.get_response(client)
         self.assertIn("--parallel-max 2", client.form_command())

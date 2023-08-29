@@ -19,10 +19,9 @@ __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class ServerConnection(asyncore.dispatcher_with_send):
+class ServerConnection(asyncore.dispatcher):
     def __init__(self, server, sock=None, keep_alive=None):
-        asyncore.dispatcher_with_send.__init__(self, sock)
-        self.out_buffer = b""
+        super().__init__(sock=sock)
         self.server = server
         self.keep_alive = keep_alive
         self.last_segment_time = 0
@@ -30,32 +29,6 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.request_buffer = ""
         self.response_buffer: List[bytes] = []
         tf_cfg.dbg(6, "\tDeproxy: SrvConnection: New server connection.")
-
-    def initiate_send(self):
-        """Override dispatcher_with_send.initiate_send() which transfers
-        data with too small chunks of 512 bytes.
-        However if server.segment_size is set (!=0), use this value.
-        """
-        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
-            self.server.segment_size = run_config.TCP_SEGMENTATION
-
-        segment_size = (
-            self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
-        )
-
-        resp = self.response_buffer[self.responses_done]
-        sent = self.socket.send(resp[:segment_size])
-
-        if sent < 0:
-            return
-        self.response_buffer[self.responses_done] = resp[sent:]
-
-        self.last_segment_time = time.time()
-        if self.response_buffer[self.responses_done] == b"":
-            self.responses_done += 1
-
-        if self.responses_done == self.keep_alive and self.keep_alive:
-            self.handle_close()
 
     def writable(self):
         if (
@@ -114,6 +87,28 @@ class ServerConnection(asyncore.dispatcher_with_send):
         # Handler will be called even if buffer is empty.
         else:
             return None
+
+    def handle_write(self):
+        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
+            self.server.segment_size = run_config.TCP_SEGMENTATION
+
+        segment_size = (
+            self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
+        )
+
+        resp = self.response_buffer[self.responses_done]
+        sent = self.socket.send(resp[:segment_size])
+
+        if sent < 0:
+            return
+        self.response_buffer[self.responses_done] = resp[sent:]
+
+        self.last_segment_time = time.time()
+        if self.response_buffer[self.responses_done]:
+            self.responses_done += 1
+
+        if self.responses_done == self.keep_alive and self.keep_alive:
+            self.handle_close()
 
 
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
