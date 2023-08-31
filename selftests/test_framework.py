@@ -103,13 +103,13 @@ server ${server_ip}:8000;
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": "-Ikf http://127.0.0.1:80/",
+            "cmd_args": "-Ikf http://${tempesta_ip}:80/",
         },
         {
             "id": "curl_1",
             "type": "external",
             "binary": "curl",
-            "cmd_args": "-Ikf http://127.0.0.2:80/",
+            "cmd_args": "-Ikf http://${tempesta_ip}:80/",
         },
         # Output large amount of '@' symbol
         {
@@ -294,13 +294,13 @@ server ${server_ip}:8000;
         curl1.stop()
 
         err_msg = '"Curl" client did not response message.'
-        self.assertNotEqual(
-            None,
+        self.assertIn(
+            "200",
             curl.response_msg,
             err_msg,
         )
-        self.assertNotEqual(
-            None,
+        self.assertIn(
+            "200",
             curl1.response_msg,
             err_msg,
         )

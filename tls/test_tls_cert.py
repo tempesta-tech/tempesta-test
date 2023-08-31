@@ -1083,7 +1083,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: example.com
         """
-        generate_certificate(cn="example.com", san=["example.com"])
+        generate_certificate(cn="example.com", san=["example.com"], cert_name="example")
         self.start_all()
         self.expect_request_processed("example.com", expected_server="server-1")
 
@@ -1105,7 +1105,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         SNI: example.com
         HOST: localhost
         """
-        generate_certificate(cn="example.com", san=None)
+        generate_certificate(cn="example.com", san=None, cert_name="example")
         self.start_all()
         self.expect_request_fail("localhost")
 
@@ -1118,7 +1118,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         """
         # ignore "Vhost example.com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
-        generate_certificate(cn="random-name", san=None)
+        generate_certificate(cn="random-name", san=None, cert_name="example")
         self.start_all()
         self.expect_request_fail("another-random-name")
 

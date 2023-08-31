@@ -23,10 +23,9 @@ __license__ = "GPL2"
 
 
 class TempestaCacheSharding(tester.TempestaTest):
-
     tempesta = {
         "config": """
-server ${general_ip}:8000;
+server ${server_ip}:8000;
 
 cache 1;
 cache_fulfill suffix ".jpg";
@@ -35,10 +34,9 @@ cache_fulfill suffix ".jpg";
 
 
 class TestCacheReplicated(tester.TempestaTest):
-
     tempesta = {
         "config": """
-server ${general_ip}:8000;
+server ${server_ip}:8000;
 
 cache 2;
 cache_fulfill suffix ".jpg";
@@ -47,7 +45,6 @@ cache_fulfill suffix ".jpg";
 
 
 class NoStoreBackends(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -64,7 +61,6 @@ Cache-Control: no-store
 
 
 class NoCacheBackends(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -81,7 +77,6 @@ Cache-Control: no-cache
 
 
 class CachePrivateBackends(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -98,7 +93,6 @@ Cache-Control: private
 
 
 class PragmaNoCacheBackends(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -115,7 +109,6 @@ Pragma: no-cache
 
 
 class WithoutCacheControlBackends(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -131,7 +124,6 @@ Content-Length: 0
 
 
 class CacheDeceptionAttackBase(tester.TempestaTest):
-
     clients = [
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]

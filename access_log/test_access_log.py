@@ -200,7 +200,7 @@ class AccessLogFrang(CheckedResponses):
                 http_uri_len 10;
             }
 
-            server ${general_ip}:8000;
+            server ${server_ip}:8000;
         """
     }
 

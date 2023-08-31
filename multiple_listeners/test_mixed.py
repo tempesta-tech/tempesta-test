@@ -45,8 +45,8 @@ http {
 """
 
 TEMPESTA_CONFIG = """
-listen 127.0.0.1:443 proto=h2;
-listen 127.0.0.1:4433 proto=https;
+listen ${tempesta_ip}:443 proto=h2;
+listen ${tempesta_ip}:4433 proto=https;
 
 srv_group default {
     server ${server_ip}:8000;
@@ -116,28 +116,28 @@ class TestMixedListeners(tester.TempestaTest):
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http2 https://127.0.0.1:443/",
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:443/",
         },
         {
             "id": "curl-h2-false",
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http2 https://127.0.0.1:4433/",
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:4433/",
         },
         {
             "id": "curl-https-true",
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http1.1 https://127.0.0.1:4433/",
+            "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:4433/",
         },
         {
             "id": "curl-https-false",
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http1.1 https://127.0.0.1:443/",
+            "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:443/",
         },
     ]
 
