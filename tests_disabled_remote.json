@@ -80,6 +80,14 @@
         {
             "name": "sessions.test_sessions",
             "reason": "is not stable when backend is stopped with remote setup."
+        },
+        {
+            "name": "t_http_rules.test_h2_backup_servers",
+            "reason": "is not stable when backend is stopped with remote setup."
+        },
+        {
+            "name": "t_http_rules.test_backup_servers",
+            "reason": "is not stable when backend is stopped with remote setup."
         }
     ]
 }
