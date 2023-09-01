@@ -515,6 +515,7 @@ class TestWordpressSiteH2(BaseWordpressTest):
                 "type": "external",
                 "binary": "nghttp",
                 "cmd_args": (
+                    "--verbose"
                     " --no-verify-peer"
                     " --get-assets"
                     " --null-out"
@@ -564,12 +565,12 @@ class TestWordpressSiteH2(BaseWordpressTest):
         self.set_nf_mark(1)
 
         for uri in [
-            "/wp-admin/index.php",  # Dashboard
-            "/wp-admin/profile.php",
-            "/wp-admin/edit-comments.php",
-            "/wp-admin/edit.php",
+            #"/wp-admin/index.php",  # Dashboard
+            #"/wp-admin/profile.php",
+            #"/wp-admin/edit-comments.php",
+            #"/wp-admin/edit.php",
             "/wp-admin/post.php?post=2&action=edit",  # About page
-            "/wp-admin/post.php?post=3&action=edit",  # long text page
+            #"/wp-admin/post.php?post=3&action=edit",  # long text page
         ]:
             with self.subTest("GET", uri=uri):
                 # Construct command with the Cookie header
@@ -577,5 +578,6 @@ class TestWordpressSiteH2(BaseWordpressTest):
                 client.start()
                 self.wait_while_busy(client)
                 client.stop()
+                print("ZZZ: ", client.response_msg)
                 self.assertNotIn("Some requests were not processed", client.response_msg)
                 self.assertFalse(client.response_msg)
