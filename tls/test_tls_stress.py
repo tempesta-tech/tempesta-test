@@ -115,20 +115,20 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             ),
         },
         {
-            "id": "tls-perf-DHE-RSA-AES128-GCM",
+            "id": "tls-perf-DHE-RSA-AES128-CCM",
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c DHE-RSA-AES128-GCM -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                "-c DHE-RSA-AES128-CCM -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
         {
-            "id": "tls-perf-DHE-RSA-AES256-GCM",
+            "id": "tls-perf-DHE-RSA-AES256-CCM",
             "type": "external",
             "binary": "tls-perf",
             "cmd_args": (
-                "-c DHE-RSA-AES256-GCM -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                "-c DHE-RSA-AES256-CCM -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
@@ -187,11 +187,11 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
     def test_DHE_RSA_AES256_GCM_SHA384(self):
         self.check_alg("tls-perf-DHE-RSA-AES256-GCM-SHA384")
 
-    def test_DHE_RSA_AES128_GCM(self):
-        self.check_alg("tls-perf-DHE-RSA-AES128-GCM")
+    def test_DHE_RSA_AES128_CCM(self):
+        self.check_alg("tls-perf-DHE-RSA-AES128-CCM")
 
-    def test_DHE_RSA_AES256_GCM(self):
-        self.check_alg("tls-perf-DHE-RSA-AES256-GCM")
+    def test_DHE_RSA_AES256_CCM(self):
+        self.check_alg("tls-perf-DHE-RSA-AES256-CCM")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
