@@ -1,0 +1,85 @@
+{
+    "disable" : true,
+    "disabled" : [
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2BodyDechunking",
+            "reason": "Disabled by issue #1934"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
+            "reason": "Disabled by issue #1934"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
+            "reason": "Disabled by issue #1934"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestIPv6",
+            "reason": "Ipv6 does not work with deproxy"
+        },
+        {
+            "name": "regression.test_stress_pipeline",
+            "reason": "unexpected 403 responses"
+        },
+        {
+            "name": "regression.test_stress_failovering",
+            "reason": "unexpected 403 responses"
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_two_ip",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_two_ip",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_different_ip",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_frang.test_ip_block.FrangIpBlockConnectionLimits.test_two_clients_two_ip_with_ip_block_on",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_sites",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "t_stress.test_nginx",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "t_stress.test_wordpress",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "selftests.test_docker_server",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "ws.test_ws_ping.WssStress",
+            "reason": ""
+        },
+        {
+            "name": "sessions.test_sessions.StickySessionsFailover.test_sessions",
+            "reason": "blinking"
+        },
+        {
+            "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
+            "reason": ""
+        },
+        {
+            "name": "encoding.test_encoding.TestH1ChunkedWithTrailer",
+            "reason": "Disabled by issue #1902"
+        },
+        {
+            "name": "sessions.test_sessions",
+            "reason": "is not stable when backend is stopped with remote setup."
+        }
+    ]
+}

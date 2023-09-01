@@ -79,6 +79,10 @@ disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
 DISABLED_TESTS_FILE_NAME_TCP_SEG = "/tests_disabled_tcpseg.json"
 disfile_tcp_seg = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_TCP_SEG
 
+# this file is needed for tests with remote config
+DISABLED_TESTS_FILE_NAME_REMOTE = "/tests_disabled_remote.json"
+disfile_remote = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_REMOTE
+
 TESTS_PRIORITY_FILE_NAME = "/tests_priority"
 priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
 t_priority_out = open(priority_file).readlines()
@@ -93,6 +97,9 @@ disabled_reader.try_load()
 
 disabled_reader_tcp_seg = shell.DisabledListLoader(disfile_tcp_seg)
 disabled_reader_tcp_seg.try_load()
+
+disabled_reader_remote = shell.DisabledListLoader(disfile_remote)
+disabled_reader_remote.try_load()
 
 state_reader = shell.TestState()
 state_reader.load()
@@ -303,6 +310,14 @@ exclusions = []
 
 if run_config.TCP_SEGMENTATION and disabled_reader_tcp_seg.disable:
     disabled_reader.disabled.extend(disabled_reader_tcp_seg.disabled)
+
+if (
+    type(remote.host) is remote.RemoteNode
+    or type(remote.client) is remote.RemoteNode
+    or type(remote.tempesta) is remote.RemoteNode
+    or type(remote.server) is remote.RemoteNode
+) and disabled_reader_remote.disable:
+    disabled_reader.disabled.extend(disabled_reader_remote.disabled)
 
 if not run_disabled:
     # remove empty arguments
