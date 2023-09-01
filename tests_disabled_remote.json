@@ -2,6 +2,26 @@
     "disable" : true,
     "disabled" : [
         {
+            "name": "t_stress.test_nginx",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "t_frang.test_ip_block",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip_with_block_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_one_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_one_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
             "reason": "Disabled by issue #1103"
         },
@@ -19,15 +39,7 @@
         },
         {
             "name": "http2_general.test_h2_headers.TestIPv6",
-            "reason": "Ipv6 does not work with deproxy"
-        },
-        {
-            "name": "regression.test_stress_pipeline",
-            "reason": "unexpected 403 responses"
-        },
-        {
-            "name": "regression.test_stress_failovering",
-            "reason": "unexpected 403 responses"
+            "reason": "Disabled by test issue #508"
         },
         {
             "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_two_ip",
@@ -42,15 +54,7 @@
             "reason": "Disabled by test issue #492"
         },
         {
-            "name": "t_frang.test_ip_block.FrangIpBlockConnectionLimits.test_two_clients_two_ip_with_ip_block_on",
-            "reason": "Disabled by test issue #492"
-        },
-        {
             "name": "t_sites",
-            "reason": "Disabled by test issue #507"
-        },
-        {
-            "name": "t_stress.test_nginx",
             "reason": "Disabled by test issue #507"
         },
         {
@@ -63,15 +67,15 @@
         },
         {
             "name": "ws.test_ws_ping.WssStress",
-            "reason": ""
+            "reason": "Disabled by test issue #508"
         },
         {
-            "name": "sessions.test_sessions.StickySessionsFailover.test_sessions",
-            "reason": "blinking"
+            "name": "ws.test_ws_ping.CacheTest",
+            "reason": "Disabled by test issue #508"
         },
         {
             "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
-            "reason": ""
+            "reason": "Disabled by test issue #508"
         },
         {
             "name": "encoding.test_encoding.TestH1ChunkedWithTrailer",
@@ -79,15 +83,15 @@
         },
         {
             "name": "sessions.test_sessions",
-            "reason": "is not stable when backend is stopped with remote setup."
+            "reason": "Disabled by test issue #508."
         },
         {
             "name": "t_http_rules.test_h2_backup_servers",
-            "reason": "is not stable when backend is stopped with remote setup."
+            "reason": "Disabled by test issue #508."
         },
         {
             "name": "t_http_rules.test_backup_servers",
-            "reason": "is not stable when backend is stopped with remote setup."
+            "reason": "Disabled by test issue #508."
         }
     ]
 }
