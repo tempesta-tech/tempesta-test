@@ -13,10 +13,11 @@ import time
 
 DEFAULT_MTU = 1500
 DEFAULT_INITIAL_WINDOW_SIZE = 65535
+BIG_HEADER_SIZE = 600000
 
 
 class TestPriorityBase(H2Base, NetWorker):
-    def setup_test_priority(self):
+    def setup_test_priority(self, extra_header=""):
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
@@ -24,6 +25,7 @@ class TestPriorityBase(H2Base, NetWorker):
             "HTTP/1.1 200 OK\r\n"
             + "Date: test\r\n"
             + "Server: debian\r\n"
+            + extra_header
             + "Content-Length: 100000\r\n\r\n"
             + ("x" * 100000)
         )
@@ -33,7 +35,7 @@ class TestPriorityBase(H2Base, NetWorker):
         client.wait_for_ack_settings()
         return client, server
 
-    def wait_for_responses(self, client, timeout=60):
+    def wait_for_responses(self, client, timeout=10):
         """
         Make sure that all requests come to client, before updating
         initial window size.
@@ -43,11 +45,16 @@ class TestPriorityBase(H2Base, NetWorker):
         client.wait_for_ack_settings()
         self.assertTrue(client.wait_for_response(timeout=timeout))
 
-    def check_response_sequence(self, client, expected_sequence):
-        self.assertTrue(len(expected_sequence) == len(client.response_sequence))
-        for i in range(len(expected_sequence)):
-            self.assertTrue(expected_sequence[i] == client.response_sequence[i])
+    def check_response_sequence(self, client, expected_length, expected_sequence=None):
+        self.assertTrue(expected_length == len(client.response_sequence))
+        self.assertTrue(expected_length == len(client.responses))
+        for i in range(expected_length):
+            if expected_sequence:
+                self.assertTrue(expected_sequence[i] == client.response_sequence[i])
+            self.assertEqual(client.responses[i].status, "200")
         client.response_sequence = []
+        client.valid_req_num = 0
+        client.responses = []
 
     def build_complex_priority_tree(self, client):
         """
@@ -152,7 +159,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [7, 5, 3, 1])
+        self.check_response_sequence(client, 4, [7, 5, 3, 1])
 
     def test_stream_priority_from_existing_stream(self):
         """
@@ -198,7 +205,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 3, 5, 7])
+        self.check_response_sequence(client, 4, [1, 3, 5, 7])
 
     def test_stream_priority_from_existing_stream_complex(self):
         """
@@ -212,7 +219,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
     def _test_stream_priority_from_existing_stream_complex(self, client, server):
         self.build_complex_priority_tree(client)
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 3, 7, 9, 5, 11, 13])
+        self.check_response_sequence(client, 7, [1, 3, 7, 9, 5, 11, 13])
 
     def test_stream_priority_from_existing_stream_complex_exclusive(self):
         """
@@ -237,7 +244,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 15, 3, 7, 9, 5, 11, 13])
+        self.check_response_sequence(client, 8, [1, 15, 3, 7, 9, 5, 11, 13])
 
     def test_stream_priority_from_existing_stream_with_removal(self):
         """
@@ -285,7 +292,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
         client.wait_for_ack_settings()
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [15, 17])
+        self.check_response_sequence(client, 2, [15, 17])
 
 
 """
@@ -321,7 +328,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [7, 5, 3, 1])
+        self.check_response_sequence(client, 4, [7, 5, 3, 1])
 
     def test_stream_priority_from_existing_stream(self):
         client, server = self.setup_test_priority()
@@ -351,7 +358,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase, NetWorker):
         client.make_request(self.post_request)
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 3, 5, 7])
+        self.check_response_sequence(client, 4, [1, 3, 5, 7])
 
     def test_stream_priority_from_existing_stream_complex(self):
         """
@@ -401,7 +408,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase, NetWorker):
         client.make_request(self.post_request)
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 3, 7, 9, 5, 11, 13])
+        self.check_response_sequence(client, 7, [1, 3, 7, 9, 5, 11, 13])
 
 
 """
@@ -429,7 +436,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 3, 7, 5, 11, 13, 9])
+        self.check_response_sequence(client, 7, [1, 3, 7, 5, 11, 13, 9])
 
     def test_stream_change_parent_stream_exlusive(self):
         """
@@ -449,7 +456,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [1, 3, 5, 11, 9, 7, 13])
+        self.check_response_sequence(client, 7, [1, 3, 5, 11, 9, 7, 13])
 
     def test_stream_change_parent_stream_not_exlusive_with_rebuild(self):
         """
@@ -477,7 +484,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [11, 15, 1, 3, 7, 9, 5, 13])
+        self.check_response_sequence(client, 8, [11, 15, 1, 3, 7, 9, 5, 13])
 
     def test_stream_change_parent_stream_exlusive_with_rebuild(self):
         """
@@ -505,7 +512,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
         )
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [11, 1, 3, 7, 9, 15, 5, 13])
+        self.check_response_sequence(client, 8, [11, 1, 3, 7, 9, 15, 5, 13])
 
 
 class TestStreamPriorityStress(TestPriorityBase, NetWorker):
@@ -571,8 +578,8 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             )
             weight = weight + 1
 
-        self.wait_for_responses(client, timeout=240)
-        self.assertTrue(len(client.response_sequence) == 256 + 256 * 2)
+        self.wait_for_responses(client, timeout=30)
+        self.check_response_sequence(client, 256 + 256 * 2)
 
 
 class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
@@ -634,7 +641,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             client.make_request(self.post_request)
 
         self.wait_for_responses(client)
-        self.check_response_sequence(client, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
+        self.check_response_sequence(client, 10, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
 
     def test_max_concurent_stream_exceed_by_priority_frame(self):
         """
@@ -661,3 +668,24 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         )
         self.assertTrue(client.wait_for_connection_close())
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
+
+class TestBigHeadersAndBodyForSeveralStreams(TestPriorityBase, NetWorker):
+    def test_big_headers_and_body(self):
+        client, server = self.setup_test_priority(extra_header=f"qwerty: {'y' * BIG_HEADER_SIZE}\r\n")
+        client.send_settings_frame(max_header_list_size=BIG_HEADER_SIZE * 2)
+        client.wait_for_ack_settings()
+
+        self.run_test_tso_gro_gso_def(
+            client,
+            server,
+            self._test_big_headers_and_body,
+            DEFAULT_MTU,
+        )
+
+    def _test_big_headers_and_body(self, client, server):
+        for i in range(1, 3):
+            client.make_request(self.post_request)
+
+        self.wait_for_responses(client)
+        self.check_response_sequence(client, 2)
