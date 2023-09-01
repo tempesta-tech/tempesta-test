@@ -72,7 +72,7 @@ http_chain {
 def establish_client_server_connection(
     port: int,
     protocols: list,
-    hostname="localhost",
+    hostname=tf_cfg.cfg.get("Tempesta", "ip"),
 ):
     """
     Establish a client-server connection and check verify protocol compliance.
