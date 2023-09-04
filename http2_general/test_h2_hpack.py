@@ -654,8 +654,11 @@ class TestHpackStickyCookie(TestHpackBase):
         client.send_request(request=self.post_request, expected_status_code="302")
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
-        self.post_request.append(HeaderTuple("Cookie", client.last_response.headers["set-cookie"]))
-        client.send_request(request=self.post_request, expected_status_code="200")
+        client.send_request(
+            request=self.post_request
+            + [HeaderTuple("Cookie", client.last_response.headers["set-cookie"])],
+            expected_status_code="200",
+        )
 
 
 class TestHpackCache(TestHpackBase):

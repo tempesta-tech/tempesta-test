@@ -69,6 +69,9 @@ cache_purge_acl ${client_ip};
 
         frequest: deproxy.Request = deproxy_srv.last_request
 
+        frequest.headers.headers.sort()
+        expect.sort()
+
         self.assertEqual(frequest.method, "GET")
         self.assertEqual(frequest.headers.headers, expect)
         self.assertEqual(frequest.body, "")

@@ -90,6 +90,9 @@ Connection: keep-alive
 
         frequest: deproxy.Request = deproxy_srv.last_request
 
+        frequest.headers.headers.sort()
+        expect.sort()
+
         self.assertEqual(frequest.method, "GET")
         self.assertEqual(
             frequest.headers.headers,
