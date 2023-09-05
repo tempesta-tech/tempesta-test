@@ -100,9 +100,9 @@ class TestFrameworkCfg(object):
             }
         )
 
-    def inc_verbose(self):
-        verbose = int(self.config["General"]["Verbose"]) + 1
-        self.config["General"]["Verbose"] = str(verbose)
+    def set_v_level(self, level):
+        assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
+        self.config["General"]["Verbose"] = str(level)
 
     def set_duration(self, val):
         try:
