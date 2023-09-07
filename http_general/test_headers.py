@@ -401,3 +401,120 @@ class TestHeadersParsing(tester.TempestaTest):
         )
 
         self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
+
+
+class TestMethods(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+
+            block_action attack reply;
+            block_action error reply;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    """
+    Methods known to Tempesta except PURGE it's covered by another tests.
+    See tempesta enum tfw_http_meth_t in fw/http.h
+    """
+    known_methods = [
+        "COPY",
+        "DELETE",
+        "GET",
+        "HEAD",
+        "LOCK",
+        "MKCOL",
+        "MOVE",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PROPFIND",
+        "PROPPATCH",
+        "PUT",
+        "TRACE",
+        "UNLOCK",
+    ]
+
+    unknown_methods = [
+        "ACL",
+        "UPDATEREDIRECTREF",
+    ]
+
+    def process(self, methods, leading_crlf=False):
+        crlf = "\r\n" if leading_crlf else ""
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        for i, method in enumerate(methods):
+            client.make_request(
+                request=crlf + method + " / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            )
+            client.wait_for_response()
+            self.assertEqual(
+                client.last_response.status,
+                "200",
+                f'Wrong status {client.last_response.status} for method "{method}"',
+            )
+            self.assertEqual(len(client.responses), i + 1, f"Lost response for method {method}")
+            self.assertEqual(
+                server.last_request.method,
+                method,
+                f"Wrong method received on server",
+            )
+
+    def test_known_methods(self):
+        """
+        Test correctness of processing all http methods known to Tempesta FW.
+        """
+        self.start_all_services()
+        self.process(self.known_methods)
+
+    def test_known_methods_leading_crlf(self):
+        """
+        Test correctness of processing all http methods known to Tempesta FW.
+        CRLF will be prepended to http request, this leading CRLF must be skipped
+        during parsing, method must not contain leading CRLF.
+        """
+        self.start_all_services()
+        self.process(self.known_methods, True)
+
+    def test_unknown_methods(self):
+        """
+        Test correctness of processing http methods unknown to Tempesta FW.
+        """
+        self.start_all_services()
+        self.process(self.unknown_methods)
+
+    def test_unknown_methods_leading_crlf(self):
+        """
+        Test correctness of processing http methods unknown to Tempesta FW.
+        CRLF will be prepended to http request, this leading CRLF must be skipped
+        during parsing, method must not contain leading CRLF.
+        """
+        self.start_all_services()
+        self.process(self.unknown_methods, True)
