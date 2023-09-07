@@ -339,7 +339,7 @@ if not run_disabled:
                 tf_cfg.dbg(0, "D")
             name = disabled["name"]
             reason = disabled["reason"]
-            tf_cfg.dbg(4, 'Disabled test "%s" : %s' % (name, reason))
+            tf_cfg.dbg(6, 'Disabled test "%s" : %s' % (name, reason))
             exclusions.append(name)
 else:
     for disabled in disabled_reader.disabled:
