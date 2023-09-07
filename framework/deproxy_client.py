@@ -624,13 +624,14 @@ class DeproxyClientH2(DeproxyClient):
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
             self.segment_size = run_config.TCP_SEGMENTATION
 
+        sent = 0
         if self.segment_size != 0:
             try:
                 for chunk in [
                     reqs[self.cur_req_num][i : (i + self.segment_size)]
                     for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
                 ]:
-                    sent = self.socket.send(chunk)
+                    sent += self.socket.send(chunk)
             except ConnectionError as e:
                 tf_cfg.dbg(4, f"\tDeproxy: Client: Received error - {e}.")
         else:
