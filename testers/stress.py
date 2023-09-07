@@ -110,6 +110,7 @@ class StressTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+        del self.oops
 
     def show_performance(self):
         if tf_cfg.v_level() < 2:

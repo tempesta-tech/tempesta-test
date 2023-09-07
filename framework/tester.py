@@ -361,6 +361,7 @@ class TempestaTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+        del self.oops
         self.__stop_tcpdump()
 
     def wait_while_busy(self, *items, timeout=20):

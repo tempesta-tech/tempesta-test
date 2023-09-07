@@ -30,15 +30,19 @@ class DmesgFinder(object):
         if ratelimited:
             self.msg_cost = None
         else:
-            self.msg_cost = self.node.run_cmd("sysctl net.core.message_cost")[0]
-            self.node.run_cmd("sysctl -w net.core.message_cost=0")
+            self.msg_cost = int(self.node.run_cmd("sysctl --values net.core.message_cost")[0])
+            if self.msg_cost != 0:
+                self.node.run_cmd("sysctl -w net.core.message_cost=0")
 
     def __del__(self):
-        """Restore net.core.message_cost to not to flood the log on
+        """
+        Restore net.core.message_cost to not to flood the log on
         performance tests.
+
+        Call it explicitly via del operator every time you don't need dmesg more.
         """
         if self.msg_cost:
-            self.node.run_cmd("sysctl -w " + self.msg_cost.decode().replace(" ", ""))
+            self.node.run_cmd(f"sysctl -w net.core.message_cost={self.msg_cost}")
 
     def update(self):
         """Get log from the last run."""

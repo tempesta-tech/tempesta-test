@@ -14,7 +14,6 @@ __license__ = "GPL2"
 
 @util.deprecated("tester.TempestaTest")
 class FunctionalTest(unittest.TestCase):
-
     tfw_clnt_msg_otherr = False
 
     def create_client(self):
@@ -124,6 +123,7 @@ class FunctionalTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+        del self.oops
 
     @classmethod
     def tearDownClass(cls):
