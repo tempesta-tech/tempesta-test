@@ -110,10 +110,10 @@ t_retry = False
 try:
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        "hvdt:T:fr:ER:a:nl:LCDZpIi:sS",
+        "hv:dt:T:fr:ER:a:nl:LCDZpIi:sS",
         [
             "help",
-            "verbose",
+            "verbose=",
             "defaults",
             "duration=",
             "failfast",
@@ -145,7 +145,7 @@ for opt, arg in options:
     if opt in ("-f", "--failfast"):
         fail_fast = True
     if opt in ("-v", "--verbose"):
-        tf_cfg.cfg.inc_verbose()
+        tf_cfg.cfg.set_v_level(arg)
     if opt in ("-t", "--duration"):
         if not tf_cfg.cfg.set_duration(arg):
             print("Invalid option: ", opt, arg)
