@@ -2,6 +2,7 @@
 
 ## Recommended configuration
 
+
 Running tests during development process can cause crashes to TempestaFW.
 Since TempestaFW is implemented as a set of kernel modules it is not convenient
 to run testing framework on the same host. It is recommended to run testing
