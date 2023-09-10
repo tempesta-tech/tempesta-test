@@ -12,6 +12,8 @@ import framework.tester
 import run_config
 from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 
+dbg = deproxy.dbg
+
 from .templates import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
@@ -28,7 +30,7 @@ class ServerConnection(asyncore.dispatcher):
         self.responses_done = 0
         self.request_buffer = ""
         self.response_buffer: List[bytes] = []
-        tf_cfg.dbg(6, "\tDeproxy: SrvConnection: New server connection.")
+        dbg(self, 6, "New server connection", prefix="\t")
 
     def writable(self):
         if (
@@ -43,7 +45,7 @@ class ServerConnection(asyncore.dispatcher):
         error.bug("\tDeproxy: SrvConnection: %s" % v)
 
     def handle_close(self):
-        tf_cfg.dbg(6, "\tDeproxy: SrvConnection: Close connection.")
+        dbg(self, 6, "Close connection", prefix="\t")
         self.close()
         if self.server:
             try:
@@ -54,7 +56,7 @@ class ServerConnection(asyncore.dispatcher):
     def handle_read(self):
         self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
 
-        tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive data.")
+        dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self.request_buffer)
 
         while self.request_buffer:
@@ -65,19 +67,17 @@ class ServerConnection(asyncore.dispatcher):
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
-                tf_cfg.dbg(
+                dbg(
+                    self,
                     4,
-                    (
-                        "Deproxy: SrvConnection: Can't parse message\n"
-                        "<<<<<\n%s>>>>>" % self.request_buffer
-                    ),
+                    ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.request_buffer),
                 )
 
-            tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Receive request.")
+            dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
             response, need_close = self.server.receive_request(request)
             if response:
-                tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
+                dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
                 self.response_buffer.append(response)
 
@@ -146,7 +146,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
             # It's not a error case, it's a problem of polling
 
     def run_start(self):
-        tf_cfg.dbg(3, "\tDeproxy: Server: Start on %s:%d." % (self.ip, self.port))
+        dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
         self.check_ports_status()
         self.polling_lock.acquire()
 
@@ -163,7 +163,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         self.polling_lock.release()
 
     def __stop_server(self):
-        tf_cfg.dbg(3, "\tDeproxy: Server: Stop on %s:%d." % (self.ip, self.port))
+        dbg(self, 3, "Stop", prefix="\t")
         self.polling_lock.acquire()
 
         self.close()

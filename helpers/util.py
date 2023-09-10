@@ -96,3 +96,11 @@ class ForEach:
     def __iter__(self):
         for o in self.objects:
             yield o
+
+
+def getsockname_safe(s):
+    try:
+        return s.getsockname()
+    except Exception as e:
+        tf_cfg.dbg(6, f"Failed to get socket name: {e}")
+        return None

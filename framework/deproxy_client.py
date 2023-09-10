@@ -21,6 +21,8 @@ from hpack import Encoder
 import run_config
 from helpers import deproxy, stateful, tf_cfg, util
 
+dbg = deproxy.dbg
+
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
@@ -127,7 +129,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
-        tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
+        dbg(self, 4, "Receive response:", prefix="\t")
         tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
         while len(self.response_buffer) > 0:
             try:
@@ -137,15 +139,13 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
                 )
                 self.response_buffer = self.response_buffer[response.original_length :]
             except deproxy.IncompleteMessage as e:
-                tf_cfg.dbg(5, f"\tDeproxy: Client: Receive IncompleteMessage - {e}")
+                dbg(self, 5, f"Receive IncompleteMessage - {e}", prefix="\t")
                 return
             except deproxy.ParseError:
-                tf_cfg.dbg(
+                dbg(
+                    self,
                     4,
-                    (
-                        "Deproxy: Client: Can't parse message\n"
-                        "<<<<<\n%s\n>>>>>" % self.response_buffer
-                    ),
+                    ("Can't parse message\n" "<<<<<\n%s\n>>>>>" % self.response_buffer),
                 )
                 raise
             self.receive_response(response)
@@ -170,7 +170,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     def handle_write(self):
         reqs = self.request_buffers
-        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
+        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
@@ -552,7 +552,7 @@ class DeproxyClientH2(DeproxyClient):
         if not self.response_buffer:
             return
 
-        tf_cfg.dbg(4, "\tDeproxy: Client: Receive data.")
+        dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, f"\t\t{self.response_buffer}")
 
         if self.clear_last_response_buffer:
@@ -563,7 +563,7 @@ class DeproxyClientH2(DeproxyClient):
         try:
             events = self.h2_connection.receive_data(self.response_buffer)
 
-            tf_cfg.dbg(4, "\tDeproxy: Client: Receive 'h2_connection' events.")
+            dbg(self, 4, "Receive 'h2_connection' events:", prefix="\t")
             tf_cfg.dbg(5, f"\t\t{events}")
             for event in events:
                 if isinstance(event, ResponseReceived):
@@ -627,24 +627,23 @@ class DeproxyClientH2(DeproxyClient):
                     self.handle_read()
 
         except deproxy.IncompleteMessage:
-            tf_cfg.dbg(
+            dbg(
+                self,
                 4,
-                (
-                    "Deproxy: Client: Can't parse incomplete message\n"
-                    "<<<<<\n%s>>>>>" % self.response_buffer
-                ),
+                ("Can't parse incomplete message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
             )
             return
         except deproxy.ParseError:
-            tf_cfg.dbg(
+            dbg(
+                self,
                 4,
-                ("Deproxy: Client: Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
+                ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
             )
             raise
 
     def handle_write(self):
         reqs = self.request_buffers
-        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
+        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
@@ -659,7 +658,7 @@ class DeproxyClientH2(DeproxyClient):
                 ]:
                     sent += self.socket.send(chunk)
             except ConnectionError as e:
-                tf_cfg.dbg(4, f"\tDeproxy: Client: Received error - {e}.")
+                dbg(self, 4, f"Received error - {e}", prefix="\t")
         else:
             sent = self.send(reqs[self.cur_req_num])
         if sent < 0:
