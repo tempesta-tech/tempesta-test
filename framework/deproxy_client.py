@@ -196,13 +196,22 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def make_request(self, request, **kwargs):
         raise NotImplementedError("Not implemented 'make_request()'")
 
-    def wait_for_connection_close(self, timeout=5):
+    def wait_for_connection_close(self, timeout=5, strict=False):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
-        return util.wait_until(
+        timeout_not_exceeded = util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection close: {timeout}"
+        return timeout_not_exceeded
 
     @abc.abstractmethod
     def receive_response(self, response):
@@ -304,17 +313,34 @@ class DeproxyClient(BaseDeproxyClient):
         self.last_response = response
         self.clear_last_response_buffer = True
 
-    def wait_for_response(self, timeout=5):
+    def wait_for_response(self, timeout=5, strict=False):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
-
-        return util.wait_until(
+        timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < self.valid_req_num,
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting response: {timeout}"
+        return timeout_not_exceeded
 
     @property
     def statuses(self) -> Dict[int, int]:
+        """
+        Be aware that number of HTTP responses (and hence statuses) can be unequal to number of
+        TCP responses.
+
+        Example case: we have request_rate=4 and ip_block on. Client maked 4-th request and received
+        TCP ACK, but did't received HTTP response yet (it should become in separate TCP packet).
+        After this, 5-th request proceed, and client's IP is blocked. In this case we will have only
+        3 responses despite the fact that request_rate=4.
+        """
         d = defaultdict(lambda: 0)
         for r in self.responses:
             d[int(r.status)] += 1

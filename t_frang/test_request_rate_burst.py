@@ -69,8 +69,8 @@ block_action attack reply;
         for _ in range(request_cnt):
             c1.make_request(self.request)
             c2.make_request(self.request)
-        c1.wait_for_response(3)
-        c2.wait_for_response(3)
+        c1.wait_for_response(10, strict=True)
+        c2.wait_for_response(10, strict=True)
 
     def test_two_clients_two_ip(self):
         """
@@ -89,7 +89,8 @@ block_action attack reply;
 
         self.assertEqual(c1.statuses, {200: 6})
         self.assertTrue(c1.conn_is_active)
-        self.assertEqual(c2.statuses, {200: 4})
+        # For c2: we can't say number of received responses when ip is blocked.
+        # See the comment in DeproxyClient.statuses for details.
 
         self.sniffer.stop()
         self.assert_reset_socks(self.sniffer.packets)
@@ -110,9 +111,8 @@ block_action attack reply;
 
         self.do_requests(c1, c2, request_cnt=4)
 
-        self.assertGreater(5, len(c2.responses) + len(c1.responses))
-        self.assertGreater(len(c1.responses), 0)
-        self.assertGreater(len(c2.responses), 0)
+        # We can't say number of received responses when ip is blocked.
+        # See the comment in DeproxyClient.statuses for details.
 
         self.sniffer.stop()
         self.assert_reset_socks(self.sniffer.packets)

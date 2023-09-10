@@ -869,14 +869,12 @@ class Client(TlsClient, stateful.Stateful):
         self.request_buffer = ""
         self.response_buffer = ""
         self.tester = None
-        if addr is None:
-            addr = tf_cfg.cfg.get(host, "ip")
-        self.conn_addr = addr
+        self.conn_addr = addr or tf_cfg.cfg.get(host, "ip")
         self.port = port
         self.stop_procedures = [self.__stop_client]
         self.conn_is_closed = True
         self.conn_was_opened = False
-        self.bind_addr = bind_addr
+        self.bind_addr = bind_addr or tf_cfg.cfg.get("Client", "ip")
         self.error_codes = []
         self.socket_family = socket_family
 

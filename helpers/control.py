@@ -329,6 +329,11 @@ class Tempesta(stateful.Stateful):
         self.node.copy_file(self.config_name, self.config.get_config())
         cmd = "%s/scripts/tempesta.sh --start" % self.srcdir
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
+
+        if tf_cfg.v_level() >= 5:
+            out, _ = remote.tempesta.run_cmd(f"cat {self.config_name}")
+            tf_cfg.dbg(5, f"\tTempesta config contents:\n{out.decode('utf-8')}")
+
         self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "start"))
 
     def stop_tempesta(self):
