@@ -1,7 +1,8 @@
 #! /bin/sh
 
 apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev \
-    apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl docker.io -y
+    apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl docker.io \
+    tcpdump -y
 
 # stop and disable installed nginx
 systemctl stop nginx
