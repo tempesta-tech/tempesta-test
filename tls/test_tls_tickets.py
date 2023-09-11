@@ -14,7 +14,6 @@ __license__ = "GPL2"
 
 
 class TlsTicketTest(tester.TempestaTest):
-
     backends = [
         {
             "id": "0",
@@ -232,7 +231,7 @@ class TlsVhostConfusion(tester.TempestaTest):
             hs.hs.session_ticket, "Ticket value is empty, no NewSessionTicket was found"
         )
         self.assertIsNotNone(master_secret, "Can't read master secret")
-        
+
         # A new connection with the same ticket will receive full, not
         # abbreviated, handshake because SNI is different.
         hs_abb = TlsHandshake()
@@ -245,7 +244,6 @@ class TlsVhostConfusion(tester.TempestaTest):
 
 
 class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
-
     tempesta = {
         "custom_cert": True,
         "config": """
@@ -466,6 +464,7 @@ class StandardTlsClient(tester.TempestaTest):
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
@@ -485,5 +484,7 @@ class StandardTlsClient(tester.TempestaTest):
 
         self.start_all_servers()
         self.start_tempesta()
-        self.start_all_clients()
+        tls_perf.start()
         self.wait_while_busy(tls_perf)
+        tls_perf.stop()
+        self.assertFalse(tls_perf.stderr)
