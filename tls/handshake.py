@@ -441,6 +441,7 @@ class TlsHandshake:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(5)
+        self.hs.stop()
         return self.hs.hs_state
 
     def do_12(self, automaton=ModifiedTLSClientAutomaton):
@@ -473,6 +474,7 @@ class TlsHandshake:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
         self.hs.control_thread.join(self.timeout)
+        self.hs.stop()
         tf_cfg.dbg(3, f"Fin_state: {self.hs.state.state}")
         tf_cfg.dbg(3, f"Server_data: {self.hs.server_data}")
         tf_cfg.dbg(3, f"Session_ticket: {type(self.hs.session_ticket)}")

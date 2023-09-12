@@ -441,7 +441,7 @@ class StandardTlsClient(tester.TempestaTest):
             "id": "tls-perf",
             "type": "external",
             "binary": "tls-perf",
-            "cmd_args": ("-l 1 -t 1 -n 2  --tickets on ${server_ip} 443"),
+            "cmd_args": ("-l 1 -t 1 -n 2  --tickets on ${tempesta_ip} 443"),
         },
     ]
 
