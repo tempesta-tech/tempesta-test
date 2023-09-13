@@ -13,6 +13,7 @@ from hyperframe.frame import (
     Frame,
     HeadersFrame,
     PriorityFrame,
+    HeadersFrame,
     RstStreamFrame,
     WindowUpdateFrame,
 )
@@ -21,6 +22,7 @@ from framework.parameterize import param, parameterize, parameterize_class
 from helpers import dmesg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
+from h2.errors import ErrorCodes
 
 
 class TestClosedStreamState(H2Base):
@@ -381,23 +383,44 @@ class TestIdleState(H2Base):
         client.wait_for_ack_settings()
 
         client.send_bytes(PriorityFrame(stream_id=7).serialize())
-        client.send_bytes(PriorityFrame(stream_id=3).serialize())
-        client.send_bytes(PriorityFrame(stream_id=5).serialize())
-        client.send_bytes(PriorityFrame(stream_id=17).serialize())
-
         client.stream_id = 11
-
         client.send_request(self.post_request, "200")
 
         """
-        Idle stream with id == 3 should be moved to closed state
-        during previous request. RST_SREAM frame is allowed for
-        closed streams but is not allowed for idle streams.
+        Idle stream with id == 7 should be moved to closed state
+        during previous request. Headers frames are not allowed in
+        the closed state. Connection is closed with PROTOCOL_ERROR
         """
-        client.send_bytes(RstStreamFrame(stream_id=3).serialize())
-        client.send_bytes(RstStreamFrame(stream_id=5).serialize())
-        client.send_bytes(RstStreamFrame(stream_id=7).serialize())
+        client.send_bytes(
+            HeadersFrame(
+                stream_id=7,
+                data=client.h2_connection.encoder.encode(self.post_request),
+                flags=["END_HEADERS"],
+            ).serialize()
+        )
 
+        self.assertTrue(client.wait_for_connection_close())
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
+    def test_not_closing_idle_stream(self):
+        """
+        The first use of a new stream identifier implicitly closes all
+        streams in the "idle" state that might have been initiated by
+        that peer with a lower-valued stream identifier and not closes
+        with a greater one.
+        """
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        client.send_bytes(PriorityFrame(stream_id=17).serialize())
+        client.stream_id = 11
         client.send_request(self.post_request, "200")
+
         client.stream_id = 17
         client.send_request(self.post_request, "200")

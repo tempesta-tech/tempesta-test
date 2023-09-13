@@ -4,12 +4,14 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from http2_general.helpers import H2Base
-from hyperframe.frame import PriorityFrame
-from helpers.networker import NetWorker
-from helpers import util
-from h2.errors import ErrorCodes
 import time
+
+from h2.errors import ErrorCodes
+from hyperframe.frame import PriorityFrame
+
+from helpers import util
+from helpers.networker import NetWorker
+from http2_general.helpers import H2Base
 
 DEFAULT_MTU = 1500
 DEFAULT_INITIAL_WINDOW_SIZE = 65535
@@ -40,6 +42,7 @@ class TestPriorityBase(H2Base, NetWorker):
         Make sure that all requests come to client, before updating
         initial window size.
         """
+        # TODO: #528
         time.sleep(2)
         client.send_settings_frame(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
         client.wait_for_ack_settings()
@@ -519,6 +522,7 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
     tempesta = {
         "config": """
             listen 443 proto=h2;
+            keepalive_timeout 120;
             max_concurrent_streams 1000;
             srv_group default {
                 server ${server_ip}:8000;
@@ -578,7 +582,7 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             )
             weight = weight + 1
 
-        self.wait_for_responses(client, timeout=30)
+        self.wait_for_responses(client, timeout=120)
         self.check_response_sequence(client, 256 + 256 * 2)
 
 
@@ -616,6 +620,8 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
 
         prev_stream_id = 0
         self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
+
+        # Create streams with "idle" state with the id range from 21 to 39
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
             stream_id = 2 * client.h2_connection.remote_settings.max_concurrent_streams + 2 * i + 1
             client.send_bytes(
@@ -629,19 +635,38 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             prev_stream_id = stream_id
 
         valid_req_num = client.valid_req_num
-        time.sleep(1)
+        """
+        Try to open streams with the id range from 1 to 19, they should be reseted,
+        because of exceed of max concurent stream limit.
+        """
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
             stream_id = client.stream_id
             client.make_request(self.post_request)
             self.assertTrue(client.wait_for_reset_stream(stream_id=stream_id))
 
+        return client, valid_req_num
+
+    def test_opening_created_idle_streams_after_exceed_max_concurent_streams_linit(self):
+        client, valid_req_num = self.test_max_concurent_stream_exceed_by_stream()
+
         client.reinit_hpack_encoder()
         client.valid_req_num = valid_req_num
+        # Opening of streams which was previously created with idle state is allowed.
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
             client.make_request(self.post_request)
 
         self.wait_for_responses(client)
         self.check_response_sequence(client, 10, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
+
+    def test_opening_not_created_idle_streams_after_exceed_max_concurent_streams_linit(self):
+        client, valid_req_num = self.test_max_concurent_stream_exceed_by_stream()
+
+        client.reinit_hpack_encoder()
+        client.valid_req_num = valid_req_num
+        client.stream_id = 41
+        client.make_request(self.post_request)
+        self.wait_for_responses(client)
+        self.check_response_sequence(client, 1, [41])
 
     def test_max_concurent_stream_exceed_by_priority_frame(self):
         """
@@ -654,7 +679,6 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams - 1):
             client.make_request(self.post_request)
-        time.sleep(1)
 
         client.send_bytes(
             PriorityFrame(
@@ -672,7 +696,9 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
 
 class TestBigHeadersAndBodyForSeveralStreams(TestPriorityBase, NetWorker):
     def test_big_headers_and_body(self):
-        client, server = self.setup_test_priority(extra_header=f"qwerty: {'y' * BIG_HEADER_SIZE}\r\n")
+        client, server = self.setup_test_priority(
+            extra_header=f"qwerty: {'y' * BIG_HEADER_SIZE}\r\n"
+        )
         client.send_settings_frame(max_header_list_size=BIG_HEADER_SIZE * 2)
         client.wait_for_ack_settings()
 
