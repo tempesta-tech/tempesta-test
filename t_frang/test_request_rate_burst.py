@@ -45,7 +45,7 @@ frang_limits {
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
     }
 
@@ -131,7 +131,7 @@ frang_limits {
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
     }
 
