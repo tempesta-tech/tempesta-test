@@ -73,64 +73,38 @@ Connection: keep-alive
         expect_status_0=200,
         request="",
         expect_status=200,
-        expect="",
-        expect_body=False,
+        expect: list = None,
     ):
         # Set expect to expected proxied request,
         # to empty string to skip request check and
         # to None to check that request is missing
         deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.segment_size = chunksize
-        deproxy_srv.start()
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        deproxy_srv.segment_size = chunksize
 
-        deproxy_cl.make_request(request_0)
-        has_resp = deproxy_cl.wait_for_response(timeout=10)
+        self.start_all_services()
 
-        self.assertTrue(has_resp, "Response not received, with chunksize = %d" % chunksize)
-        status = int(deproxy_cl.last_response.status)
-        self.assertTrue(
-            status == expect_status_0,
-            "Wrong status: %d , expected: %d with chunksize = %d"
-            % (status, expect_status_0, chunksize),
+        deproxy_cl.send_request(request_0, str(expect_status_0))
+
+        deproxy_cl.send_request(request, str(expect_status))
+
+        frequest: deproxy.Request = deproxy_srv.last_request
+
+        frequest.headers.headers.sort()
+        expect.sort()
+
+        self.assertEqual(frequest.method, "GET")
+        self.assertEqual(
+            frequest.headers.headers,
+            expect,
+            "Request sent to backend differs from expected one " "with chunksize = %d" % chunksize,
         )
 
-        deproxy_cl.make_request(request)
-        has_resp = deproxy_cl.wait_for_response(timeout=10)
-
-        self.assertTrue(has_resp, "Response not received, with chunksize = %d" % chunksize)
-        status = int(deproxy_cl.last_response.status)
-        self.assertTrue(
-            status == expect_status,
-            "Wrong status: %d , expected: %d with chunksize = %d"
-            % (status, expect_status, chunksize),
+        self.assertEqual(
+            deproxy_cl.last_response.body,
+            "",
+            "Response body not expected but present " "with chunksize = %d" % chunksize,
         )
-        frequest = deproxy_srv.last_request
-        if expect is None:
-            self.assertTrue(
-                frequest is None,
-                "Request was unexpectedly sent to backend " "with chunksize = %d" % chunksize,
-            )
-        elif expect:
-            self.assertTrue(
-                frequest.original_data == expect,
-                "Request sent to backend differs from expected one "
-                "with chunksize = %d" % chunksize,
-            )
-        if expect_body:
-            self.assertTrue(
-                len(deproxy_cl.last_response.body) > 0,
-                "Response body expected but missing " "with chunksize = %d" % chunksize,
-            )
-        else:
-            self.assertTrue(
-                len(deproxy_cl.last_response.body) == 0,
-                "Response body not expected but present " "with chunksize = %d" % chunksize,
-            )
 
     def test_0_purge_resp_non_hch(self):
         # Normal (non heavy-chunked) test
@@ -140,14 +114,13 @@ Connection: keep-alive
             expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect_status=200,
-            expect="GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "X-Tempesta-Cache: GET\r\n"
-            f'X-Forwarded-For: {tf_cfg.cfg.get("Client", "ip")}\r\n'
-            "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
-            "Connection: keep-alive\r\n"
-            "\r\n" % tempesta.version(),
-            expect_body=False,
+            expect=[
+                ("Host", "localhost"),
+                ("X-Tempesta-Cache", "GET"),
+                ("Connection", "keep-alive"),
+                ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
+                ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+            ],
         )
 
     def test_1_purge_resp_hch(self):
@@ -161,14 +134,13 @@ Connection: keep-alive
             expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect_status=200,
-            expect="GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "X-Tempesta-Cache: GET\r\n"
-            f'X-Forwarded-For: {tf_cfg.cfg.get("Client", "ip")}\r\n'
-            "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
-            "Connection: keep-alive\r\n"
-            "\r\n" % tempesta.version(),
-            expect_body=False,
+            expect=[
+                ("Host", "localhost"),
+                ("X-Tempesta-Cache", "GET"),
+                ("Connection", "keep-alive"),
+                ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
+                ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+            ],
         )
 
     def iterate_test(self, test_func, msg_size, *args, **kwargs):

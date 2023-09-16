@@ -169,7 +169,12 @@ class LearnSessions(tester.TempestaTest):
                 "Cookie: %s=%s\r\n"
                 "\r\n" % (cookie[0], cookie[1])
             )
-            resp = self.client_send_req(client, req)
+            client.make_request(req)
+
+        self.assertTrue(client.wait_for_response())
+
+        self.assertEqual(len(client.responses), ATTEMPTS + 1)
+        for resp in client.responses[1:]:
             self.assertEqual(resp.status, "502", "unexpected response status code")
         srv.start()
         self.assertTrue(srv.wait_for_connections(timeout=3), "Can't restart backend server")

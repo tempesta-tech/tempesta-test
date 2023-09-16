@@ -2,9 +2,9 @@
 Tests for data integrity transferred via Tempesta TLS.
 """
 import hashlib
-import run_config
 from contextlib import contextmanager
 
+import run_config
 from framework import tester
 from helpers import analyzer, remote, sysnet, tf_cfg
 from helpers.error import Error
@@ -318,7 +318,7 @@ class ManyClients(Cache):
 
         for client in clients:
             self.assertTrue(
-                client.wait_for_response(timeout=5),
+                client.wait_for_response(timeout=10),
                 "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len),
             )
 

@@ -72,7 +72,7 @@ http_chain {
 def establish_client_server_connection(
     port: int,
     protocols: list,
-    hostname="localhost",
+    hostname=tf_cfg.cfg.get("Client", "hostname"),
 ):
     """
     Establish a client-server connection and check verify protocol compliance.
@@ -91,7 +91,7 @@ def establish_client_server_connection(
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
 
-    with socket.create_connection((hostname, port)) as tcp_conn:
+    with socket.create_connection((tf_cfg.cfg.get("Tempesta", "ip"), port)) as tcp_conn:
         with context.wrap_socket(tcp_conn, server_hostname=hostname) as tls_conn:
             if tls_conn.selected_alpn_protocol() not in protocols:
                 raise RuntimeError(f"Wrong protocol has been used for port {port}")

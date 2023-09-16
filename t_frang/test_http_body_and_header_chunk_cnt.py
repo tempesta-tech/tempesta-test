@@ -6,9 +6,18 @@ __license__ = "GPL2"
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
+CLIENT = {
+    "id": "deproxy-1",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "80",
+    "segment_gap": 100,  # ms
+}
+
 
 class HttpHeaderChunkCnt(FrangTestCase):
     error = "Warning: frang: HTTP header chunk count exceeded"
+    clients = [CLIENT]
 
     requests = [
         "POST / HTTP/1.1\r\n",
@@ -37,15 +46,14 @@ class HttpHeaderChunkCnt(FrangTestCase):
     def test_header_chunk_cnt_invalid(self):
         """Set up `http_header_chunk_cnt 2;` and make request with 3 header chunk"""
         client = self.base_scenario(
-            frang_config="http_header_chunk_cnt 2;",
-            requests=self.requests,
-            disable_hshc=True
+            frang_config="http_header_chunk_cnt 2;", requests=self.requests, disable_hshc=True
         )
         self.check_response(client, "403", self.error)
 
 
 class HttpBodyChunkCnt(FrangTestCase):
     error = "Warning: frang: HTTP body chunk count exceeded"
+    clients = [CLIENT]
 
     requests = [
         "POST / HTTP/1.1\r\nHost: debian\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\n",
@@ -77,8 +85,7 @@ class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
     def base_scenario(self, frang_config: str, requests: list, disable_hshc: bool = False):
         self.set_frang_config(
             "\n".join(
-                [frang_config]
-                + (["http_strict_host_checking false;"] if disable_hshc else [])
+                [frang_config] + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
         )
 
