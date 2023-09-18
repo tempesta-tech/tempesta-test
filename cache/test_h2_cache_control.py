@@ -64,7 +64,7 @@ class TestH2CacheControl(tester.TempestaTest):
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
                 date=deproxy.HttpMessage.date_time_string(),
-            ).msg
+            )
         )
 
         client = self.get_client("deproxy")
@@ -73,7 +73,7 @@ class TestH2CacheControl(tester.TempestaTest):
                 method="GET",
                 uri="/",
                 headers=request_headers,
-            ).msg,
+            ),
             "200",
         )
 
@@ -84,14 +84,14 @@ class TestH2CacheControl(tester.TempestaTest):
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
                 date=deproxy.HttpMessage.date_time_string(),
-            ).msg
+            )
         )
         client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
                 headers=second_request_headers,
-            ).msg,
+            ),
             expected_cached_status,
         )
         self.assertEqual(1 if should_be_cached else 2, len(server.requests))
@@ -774,7 +774,7 @@ cache 2;
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
                 date=deproxy.HttpMessage.date_time_string(),
-            ).msg
+            )
         )
 
         client = self.get_client("deproxy")
@@ -783,7 +783,7 @@ cache 2;
                 method="GET",
                 uri="/",
                 headers=request_headers,
-            ).msg,
+            ),
             "200",
         )
 
@@ -794,14 +794,14 @@ cache 2;
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
                 date=deproxy.HttpMessage.date_time_string(),
-            ).msg
+            )
         )
         client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
                 headers=second_request_headers,
-            ).msg,
+            ),
             "200",
         )
 

@@ -90,7 +90,7 @@ vhost default {
         )
 
         for _ in range(self.messages):
-            client.send_request(request.msg, expected_status_code="200")
+            client.send_request(request, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         msg = "Server has received unexpected number of requests."
@@ -396,7 +396,7 @@ vhost default {
         request = client.create_request(uri=uri, method=method, headers=[])
 
         for _ in range(2):
-            client.send_request(request.msg, expected_status_code="200")
+            client.send_request(request, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         msg = "Server has received unexpected number of requests."
@@ -509,14 +509,14 @@ cache 2;
         )
 
         server = self.get_server("deproxy")
-        server.set_response(response.msg)
+        server.set_response(response)
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[], uri="/")
-        client.send_request(request.msg, "200")
+        client.send_request(request, "200")
         self.assertEqual(client.last_response, expected_response)
 
-        client.send_request(request.msg, "200")
+        client.send_request(request, "200")
         if should_be_cached:
             optional_headers = [("content-length", "0"), ("age", "0")]
         else:
@@ -806,12 +806,12 @@ http_chain {
                 status="200",
                 headers=response_headers + [("content-length", "0")],
                 date=deproxy.HttpMessage.date_time_string(),
-            ).msg
+            )
         )
 
         client = self.get_client("deproxy")
         client.send_request(
-            client.create_request(method="GET", headers=request_headers, uri="/").msg,
+            client.create_request(method="GET", headers=request_headers, uri="/"),
             "200",
         )
 
@@ -822,10 +822,10 @@ http_chain {
                 status="200",
                 headers=response_headers + [("content-length", "0")],
                 date=deproxy.HttpMessage.date_time_string(),
-            ).msg
+            )
         )
         client.send_request(
-            client.create_request(method="GET", headers=second_request_headers, uri="/").msg,
+            client.create_request(method="GET", headers=second_request_headers, uri="/"),
             "200",
         )
 
@@ -1009,11 +1009,11 @@ http_chain {
 
         client = self.get_client("deproxy")
         client.send_request(
-            client.create_request(method="GET", headers=request_headers, uri="/").msg,
+            client.create_request(method="GET", headers=request_headers, uri="/"),
             "200",
         )
         client.send_request(
-            client.create_request(method="GET", headers=second_request_headers, uri="/").msg,
+            client.create_request(method="GET", headers=second_request_headers, uri="/"),
             "200",
         )
 
@@ -1217,8 +1217,8 @@ class TestCacheVhost(tester.TempestaTest):
         }
 
         vhost tempesta-tech.com {
-                tls_certificate ${tempesta_workdir}/tempesta-tech.com.crt;
-                tls_certificate_key ${tempesta_workdir}/tempesta-tech.com.key;
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 proxy_pass main;
         }
 
@@ -1236,17 +1236,6 @@ class TestCacheVhost(tester.TempestaTest):
         """
     }
 
-    @staticmethod
-    def gen_certs(host_name):
-        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
-        cert_path = "%s/%s.crt" % (workdir, host_name)
-        key_path = "%s/%s.key" % (workdir, host_name)
-        cgen = CertGenerator(cert_path, key_path)
-        cgen.CN = host_name
-        cgen.generate()
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
-
     def get_response(self, client) -> CurlResponse:
         client.start()
         self.wait_while_busy(client)
@@ -1254,7 +1243,6 @@ class TestCacheVhost(tester.TempestaTest):
         return client.response_msg
 
     def test_h2(self):
-        self.gen_certs("tempesta-tech.com")
         self.start_all_services(client=False)
 
         # Fetch response from the backend

@@ -1,6 +1,7 @@
 import abc
 import time
 from io import StringIO
+from typing import Union
 
 import h2.connection
 from h2.events import (
@@ -269,18 +270,19 @@ class DeproxyClient(BaseDeproxyClient):
         else:
             raise TypeError("Use list or str for request.")
 
-    def make_request(self, request: str, **kwargs) -> None:
+    def make_request(self, request: Union[str, deproxy.Request], **kwargs) -> None:
         """Send one HTTP request"""
         self._clear_request_stats()
 
         self.__check_request(request)
 
         self.valid_req_num += 1
-        self.request_buffers.append(request)
+        self.request_buffers.append(request if isinstance(request, str) else request.msg)
         self.nrreq += 1
 
-    def __check_request(self, request: str) -> None:
-        if self.parsing:
+    def __check_request(self, request: Union[str, deproxy.Request]) -> None:
+        req_is_str = isinstance(request, str)
+        if self.parsing and req_is_str:
             tf_cfg.dbg(2, "Request parsing is running.")
             req = deproxy.Request(request)
             self.methods.append(req.method)
@@ -289,7 +291,7 @@ class DeproxyClient(BaseDeproxyClient):
             tf_cfg.dbg(3, "Request parsing is complete.")
         else:
             tf_cfg.dbg(2, "Request parsing has been disabled.")
-            self.methods.append(request.split(" ")[0])
+            self.methods.append(request.split(" ")[0] if req_is_str else request.method)
 
     def run_start(self):
         BaseDeproxyClient.run_start(self)
@@ -374,7 +376,9 @@ class DeproxyClientH2(DeproxyClient):
         for request in requests:
             self.make_request(request)
 
-    def make_request(self, request: tuple or list or str, end_stream=True, huffman=True):
+    def make_request(
+        self, request: Union[tuple, list, str, deproxy.H2Request], end_stream=True, huffman=True
+    ):
         """
         Args:
             request:
@@ -395,6 +399,8 @@ class DeproxyClientH2(DeproxyClient):
             self.h2_connection.config.normalize_outbound_headers = False
             self.h2_connection.config.validate_inbound_headers = False
             self.h2_connection.config.validate_outbound_headers = False
+
+        request = request.msg if isinstance(request, deproxy.H2Request) else request
 
         if isinstance(request, tuple):
             self._clear_request_stats()

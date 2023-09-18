@@ -92,146 +92,134 @@ cache_fulfill suffix ".jpg";
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_CC_NO_STORE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_cc_no_store_in_response_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_CC_NO_STORE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_cc_no_cache_in_response_and_cache_lvl_1(self):
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_CC_NO_CACHE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_cc_no_cache_in_response_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_CC_NO_CACHE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_cc_private_in_response_and_cache_lvl_1(self):
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_CC_PRIVATE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_cc_private_in_response_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_CC_PRIVATE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_cc_no_store_in_request_and_cache_lvl_1(self):
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_WITHOUT_CC,
-            request=self.get_client("deproxy")
-            .create_request(
+            request=self.get_client("deproxy").create_request(
                 method="GET",
                 headers=[("cache-control", "no-store")],
                 uri="/home.php/picts/bear.jpg",
-            )
-            .msg,
+            ),
         )
 
     def test_cc_no_store_in_request_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_WITHOUT_CC,
-            request=self.get_client("deproxy")
-            .create_request(
+            request=self.get_client("deproxy").create_request(
                 method="GET",
                 headers=[("cache-control", "no-store")],
                 uri="/home.php/picts/bear.jpg",
-            )
-            .msg,
+            ),
         )
 
     def test_cc_no_cache_in_request_and_cache_lvl_1(self):
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_WITHOUT_CC,
-            request=self.get_client("deproxy")
-            .create_request(
+            request=self.get_client("deproxy").create_request(
                 method="GET",
                 headers=[("cache-control", "no-cache")],
                 uri="/home.php/picts/bear.jpg",
-            )
-            .msg,
+            ),
         )
 
     def test_cc_no_cache_in_request_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_WITHOUT_CC,
-            request=self.get_client("deproxy")
-            .create_request(
+            request=self.get_client("deproxy").create_request(
                 method="GET",
                 headers=[("cache-control", "no-cache")],
                 uri="/home.php/picts/bear.jpg",
-            )
-            .msg,
+            ),
         )
 
     def test_pragma_no_cache_in_request_and_cache_lvl_1(self):
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_WITHOUT_CC,
-            request=self.get_client("deproxy")
-            .create_request(
+            request=self.get_client("deproxy").create_request(
                 method="GET", headers=[("pragma", "no-cache")], uri="/home.php/picts/bear.jpg"
-            )
-            .msg,
+            ),
         )
 
     def test_pragma_no_cache_in_request_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_WITHOUT_CC,
-            request=self.get_client("deproxy")
-            .create_request(
+            request=self.get_client("deproxy").create_request(
                 method="GET", headers=[("pragma", "no-cache")], uri="/home.php/picts/bear.jpg"
-            )
-            .msg,
+            ),
         )
 
     def test_pragma_no_cache_in_response_and_cache_lvl_1(self):
         self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_PRAGMA_NO_CACHE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
     def test_pragma_no_cache_in_response_and_cache_lvl_2(self):
         self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_PRAGMA_NO_CACHE,
-            request=self.get_client("deproxy")
-            .create_request(method="GET", headers=[], uri="/home.php/picts/bear.jpg")
-            .msg,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
         )
 
 

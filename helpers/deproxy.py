@@ -524,7 +524,7 @@ class Request(HttpMessage):
     def create(
         method: str,
         headers: list,
-        authority=tf_cfg.cfg.get("Client", "hostname"),
+        authority: str = tf_cfg.cfg.get("Client", "hostname"),
         uri="/",
         version="HTTP/1.1",
         date=None,
@@ -566,7 +566,7 @@ class H2Request(Request):
     def create(
         method: str or None,
         headers: List[Tuple[str, str]],
-        authority=tf_cfg.cfg.get("Client", "hostname"),
+        authority: str = tf_cfg.cfg.get("Client", "hostname"),
         uri="/",
         version="HTTP/2",
         date: str = None,
