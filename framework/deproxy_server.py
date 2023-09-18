@@ -1,10 +1,11 @@
 import abc
 import asyncore
+import io
 import socket
 import sys
 import threading
 import time
-from typing import Union
+from typing import List, Union
 
 import framework.port_checks as port_checks
 import framework.tester
@@ -14,49 +15,20 @@ from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 from .templates import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2021 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class ServerConnection(asyncore.dispatcher_with_send):
+class ServerConnection(asyncore.dispatcher):
     def __init__(self, server, sock=None, keep_alive=None):
-        asyncore.dispatcher_with_send.__init__(self, sock)
-        self.out_buffer = b""
+        super().__init__(sock=sock)
         self.server = server
         self.keep_alive = keep_alive
         self.last_segment_time = 0
         self.responses_done = 0
         self.request_buffer = ""
+        self.response_buffer: List[bytes] = []
         tf_cfg.dbg(6, "\tDeproxy: SrvConnection: New server connection.")
-
-    def initiate_send(self):
-        """Override dispatcher_with_send.initiate_send() which transfers
-        data with too small chunks of 512 bytes.
-        However if server.segment_size is set (!=0), use this value.
-        """
-        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
-            self.server.segment_size = run_config.TCP_SEGMENTATION
-
-        if self.server.segment_size:
-            for chunk in [
-                self.out_buffer[i : (i + self.server.segment_size)]
-                for i in range(0, len(self.out_buffer), self.server.segment_size)
-            ]:
-                try:
-                    self.socket.send(chunk)
-                except ConnectionError as e:
-                    tf_cfg.dbg(4, f"\tDeproxy: Server: Connection: Received error - {e}")
-                    break
-        else:
-            self.socket.sendall(self.out_buffer)
-
-        self.out_buffer = b""
-
-        self.last_segment_time = time.time()
-        self.responses_done += 1
-
-        if self.responses_done == self.keep_alive and self.keep_alive:
-            self.handle_close()
 
     def writable(self):
         if (
@@ -64,7 +36,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
             and time.time() - self.last_segment_time < self.server.segment_gap / 1000.0
         ):
             return False
-        return asyncore.dispatcher_with_send.writable(self)
+        return (not self.connected) or len(self.response_buffer) > self.responses_done
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
@@ -107,14 +79,36 @@ class ServerConnection(asyncore.dispatcher_with_send):
             if response:
                 tf_cfg.dbg(4, "\tDeproxy: SrvConnection: Send response.")
                 tf_cfg.dbg(5, response)
-                self.out_buffer += response
-                self.initiate_send()
+                self.response_buffer.append(response)
+
             if need_close:
                 self.close()
             self.request_buffer = self.request_buffer[request.original_length :]
         # Handler will be called even if buffer is empty.
         else:
             return None
+
+    def handle_write(self):
+        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
+            self.server.segment_size = run_config.TCP_SEGMENTATION
+
+        segment_size = (
+            self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
+        )
+
+        resp = self.response_buffer[self.responses_done]
+        sent = self.socket.send(resp[:segment_size])
+
+        if sent < 0:
+            return
+        self.response_buffer[self.responses_done] = resp[sent:]
+
+        self.last_segment_time = time.time()
+        if self.response_buffer[self.responses_done] == b"":
+            self.responses_done += 1
+
+        if self.responses_done == self.keep_alive and self.keep_alive:
+            self.handle_close()
 
 
 class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):

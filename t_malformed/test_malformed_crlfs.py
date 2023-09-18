@@ -54,7 +54,7 @@ block_action attack reply;
 block_action error reply;
 
 cache 0;
-server ${general_ip}:8000 conns_n=1;
+server ${server_ip}:8000 conns_n=1;
 
 """,
     }

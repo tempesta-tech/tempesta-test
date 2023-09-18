@@ -1,0 +1,101 @@
+{
+    "disable" : true,
+    "disabled" : [
+        {
+            "name": "t_stress.test_nginx",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "t_frang.test_ip_block",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip_with_block_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_one_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_one_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
+            "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2BodyDechunking",
+            "reason": "Disabled by issue #1934"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
+            "reason": "Disabled by issue #1934"
+        },
+        {
+            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
+            "reason": "Disabled by issue #1934"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestIPv6",
+            "reason": "Disabled by test issue #508"
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_two_ip",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_two_ip",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_different_ip",
+            "reason": "Disabled by test issue #492"
+        },
+        {
+            "name": "t_sites",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "t_stress.test_wordpress",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "selftests.test_docker_server",
+            "reason": "Disabled by test issue #507"
+        },
+        {
+            "name": "ws.test_ws_ping.WssStress",
+            "reason": "Disabled by test issue #508"
+        },
+        {
+            "name": "ws.test_ws_ping.CacheTest",
+            "reason": "Disabled by test issue #508"
+        },
+        {
+            "name": "ws.test_ws_ping.WsPipelining",
+            "reason": "Disabled by test issue #1968"
+        },
+        {
+            "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
+            "reason": "Disabled by test issue #508"
+        },
+        {
+            "name": "encoding.test_encoding.TestH1ChunkedWithTrailer",
+            "reason": "Disabled by issue #1902"
+        },
+        {
+            "name": "sessions.test_sessions",
+            "reason": "Disabled by test issue #508."
+        },
+        {
+            "name": "t_http_rules.test_h2_backup_servers",
+            "reason": "Disabled by test issue #508."
+        },
+        {
+            "name": "t_http_rules.test_backup_servers",
+            "reason": "Disabled by test issue #508."
+        }
+    ]
+}

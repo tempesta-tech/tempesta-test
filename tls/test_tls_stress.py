@@ -3,6 +3,7 @@ TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
 from framework import tester
 from framework.x509 import CertGenerator
+from helpers import remote
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 
 __author__ = "Tempesta Technologies, Inc."
@@ -158,8 +159,13 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         self.cgen.key = {"alg": "rsa", "len": 4096}
         self.cgen.sign_alg = "sha256"
         self.cgen.generate()
+
+        cert_path, key_path = self.cgen.get_file_paths()
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
+
         self.tempesta = {
-            "config": self.tempesta_tmpl % self.cgen.get_file_paths(),
+            "config": self.tempesta_tmpl % (cert_path, key_path),
             "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)

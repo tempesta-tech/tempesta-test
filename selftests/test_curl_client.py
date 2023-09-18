@@ -72,7 +72,6 @@ class TestCurlClientParsing(unittest.TestCase):
 
 
 class TestCurlClient(tester.TempestaTest):
-
     backends = [
         {
             "id": "deproxy",
@@ -322,15 +321,19 @@ class TestCurlClient(tester.TempestaTest):
     def test_parallel_mod_enabled(self):
         client = self.get_client("parallel")
         server = self.get_server("deproxy")
+        # dump_headers may work incorrectly with parallel client
+        client.dump_headers = False
         response = self.get_response(client)
         self.assertIn("--parallel-max 2", client.form_command())
         self.assertEqual(len(server.requests), 10)
         self.assertEqual(client.requests, 10)
-        self.assertEqual(client.results(), (10, 0, ANY, {200: ANY}))
+        self.assertEqual(client.results(), (10, 0, ANY, {}))
 
         with self.subTest("multiple stats parsed"):
             self.assertEqual(len(client.stats), 10)
             self.assertGreaterEqual(client.last_stats["time_total"], 0)
+            for stat in client.stats:
+                self.assertEqual(stat["response_code"], 200)
 
     def test_stats_after_multiple_requests(self):
         client = self.get_client("default")

@@ -26,7 +26,7 @@ __license__ = "GPL2"
 
 def adjust_timeout_for_tcp_segmentation(timeout):
     if run_config.TCP_SEGMENTATION and timeout < 30:
-        timeout = 30
+        timeout = 60
     return timeout
 
 

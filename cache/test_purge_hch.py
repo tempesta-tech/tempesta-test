@@ -49,48 +49,32 @@ cache_purge_acl ${client_ip};
         expect_status_0=200,
         request="",
         expect_status=200,
-        expect="",
+        expect: list = None,
         chunked=False,
     ):
         # Set expect to expected proxied request,
         # to empty string to skip request check and
         # to None to check that request is missing
         deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
 
-        deproxy_cl.make_request(request_0)
-        has_resp = deproxy_cl.wait_for_response(timeout=5)
+        self.start_all_services()
 
-        self.assertTrue(has_resp, "Response not received")
-        status = int(deproxy_cl.last_response.status)
-        self.assertTrue(
-            status == expect_status_0, "Wrong status: %d, expected: %d" % (status, expect_status_0)
-        )
+        deproxy_cl.send_request(request_0, str(expect_status_0))
 
         if chunked:
             deproxy_cl.segment_size = 1
-        deproxy_cl.make_request(request)
-        has_resp = deproxy_cl.wait_for_response(timeout=5)
 
-        self.assertTrue(has_resp, "Response not received")
-        status = int(deproxy_cl.last_response.status)
-        self.assertTrue(
-            status == expect_status, "Wrong status: %d, expected: %d" % (status, expect_status)
-        )
+        deproxy_cl.send_request(request, str(expect_status))
 
-        frequest = deproxy_srv.last_request
-        if expect is None:
-            self.assertTrue(frequest is None, "Request was unexpectedly sent to backend")
-        elif expect:
-            self.assertTrue(
-                frequest.original_data == expect,
-                "Request sent to backend differs from expected one",
-            )
+        frequest: deproxy.Request = deproxy_srv.last_request
+
+        frequest.headers.headers.sort()
+        expect.sort()
+
+        self.assertEqual(frequest.method, "GET")
+        self.assertEqual(frequest.headers.headers, expect)
+        self.assertEqual(frequest.body, "")
 
     def test_0_purge_non_hch(self):
         # Normal (non heavy-chunked) test
@@ -100,13 +84,13 @@ cache_purge_acl ${client_ip};
             expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect_status=200,
-            expect="GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "X-Tempesta-Cache: GET\r\n"
-            f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n'
-            "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
-            "Connection: keep-alive\r\n"
-            "\r\n" % tempesta.version(),
+            expect=[
+                ("Host", "localhost"),
+                ("X-Tempesta-Cache", "GET"),
+                ("Connection", "keep-alive"),
+                ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
+                ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+            ],
         )
 
     def test_1_purge_hch(self):
@@ -117,12 +101,12 @@ cache_purge_acl ${client_ip};
             expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect_status=200,
-            expect="GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "X-Tempesta-Cache: GET\r\n"
-            f'X-Forwarded-For: {tf_cfg.cfg.get("Server", "ip")}\r\n'
-            "via: 1.1 tempesta_fw (Tempesta FW %s)\r\n"
-            "Connection: keep-alive\r\n"
-            "\r\n" % tempesta.version(),
+            expect=[
+                ("Host", "localhost"),
+                ("X-Tempesta-Cache", "GET"),
+                ("Connection", "keep-alive"),
+                ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
+                ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+            ],
             chunked=True,
         )

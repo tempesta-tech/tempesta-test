@@ -45,8 +45,8 @@ http {
 """
 
 TEMPESTA_CONFIG = """
-listen 127.0.0.1:443 proto=h2;
-listen 127.0.0.1:4433 proto=https;
+listen ${tempesta_ip}:443 proto=h2;
+listen ${tempesta_ip}:4433 proto=https;
 
 srv_group default {
     server ${server_ip}:8000;
@@ -72,7 +72,7 @@ http_chain {
 def establish_client_server_connection(
     port: int,
     protocols: list,
-    hostname="localhost",
+    hostname=tf_cfg.cfg.get("Client", "hostname"),
 ):
     """
     Establish a client-server connection and check verify protocol compliance.
@@ -91,7 +91,7 @@ def establish_client_server_connection(
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
 
-    with socket.create_connection((hostname, port)) as tcp_conn:
+    with socket.create_connection((tf_cfg.cfg.get("Tempesta", "ip"), port)) as tcp_conn:
         with context.wrap_socket(tcp_conn, server_hostname=hostname) as tls_conn:
             if tls_conn.selected_alpn_protocol() not in protocols:
                 raise RuntimeError(f"Wrong protocol has been used for port {port}")
@@ -116,28 +116,28 @@ class TestMixedListeners(tester.TempestaTest):
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http2 https://127.0.0.1:443/",
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:443/",
         },
         {
             "id": "curl-h2-false",
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http2 https://127.0.0.1:4433/",
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:4433/",
         },
         {
             "id": "curl-https-true",
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http1.1 https://127.0.0.1:4433/",
+            "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:4433/",
         },
         {
             "id": "curl-https-false",
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": "-Ikf --http1.1 https://127.0.0.1:443/",
+            "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:443/",
         },
     ]
 

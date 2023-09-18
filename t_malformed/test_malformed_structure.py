@@ -27,7 +27,7 @@ block_action attack reply;
 block_action error reply;
 
 cache 0;
-server ${general_ip}:8000;
+server ${server_ip}:8000;
 
 """,
     }

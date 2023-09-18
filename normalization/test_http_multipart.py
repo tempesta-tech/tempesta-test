@@ -94,7 +94,7 @@ class ContentTypeHeaderReconstructTest(ContentTypeTestBase):
     tempesta = {
         "config": textwrap.dedent(
             """\
-            server ${general_ip}:8000;
+            server ${server_ip}:8000;
             vhost default {
                 location prefix / {
                     http_post_validate;
@@ -140,7 +140,7 @@ class ConfigParameterAbsent(ContentTypeTestBase):
     tempesta = {
         "config": textwrap.dedent(
             """\
-            server ${general_ip}:8000;
+            server ${server_ip}:8000;
             vhost default {
                 location prefix / {
                     proxy_pass default;
@@ -165,7 +165,7 @@ class ConfigParameterAtTopLevel(ContentTypeTestBase):
         "config": textwrap.dedent(
             """\
             http_post_validate;
-            server ${general_ip}:8000;
+            server ${server_ip}:8000;
             vhost default {
                 location prefix / {
                     proxy_pass default;
@@ -189,7 +189,7 @@ class ConfigParameterAtVhost(ContentTypeTestBase):
     tempesta = {
         "config": textwrap.dedent(
             """\
-            server ${general_ip}:8000;
+            server ${server_ip}:8000;
             vhost default {
                 http_post_validate;
                 location prefix / {
@@ -214,7 +214,7 @@ class ConfigParameterAtLocation(ContentTypeTestBase):
     tempesta = {
         "config": textwrap.dedent(
             """\
-            server ${general_ip}:8000;
+            server ${server_ip}:8000;
             vhost default {
                 location prefix / {
                     http_post_validate;
