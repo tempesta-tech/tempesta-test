@@ -5,7 +5,7 @@ import socket
 import sys
 import threading
 import time
-from typing import List
+from typing import List, Union
 
 import framework.port_checks as port_checks
 import framework.tester
@@ -213,11 +213,13 @@ class StaticDeproxyServer(BaseDeproxyServer):
     def response(self, response: str or bytes) -> None:
         self.set_response(response)
 
-    def set_response(self, response: str or bytes) -> None:
+    def set_response(self, response: Union[str, bytes, deproxy.Response]) -> None:
         if isinstance(response, str):
             self.__response = response.encode()
         elif isinstance(response, bytes):
             self.__response = response
+        elif isinstance(response, deproxy.Response):
+            self.__response = response.msg.encode()
 
     def receive_request(self, request):
         self.requests.append(request)

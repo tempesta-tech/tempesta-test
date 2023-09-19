@@ -11,273 +11,219 @@
 #
 # https://omergil.blogspot.com/2017/02/web-cache-deception-attack.html
 
-import os
-
-from framework import deproxy_server, tester
-from framework.templates import fill_template
-from helpers import control, deproxy, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework import tester
+from helpers import tf_cfg
 
-class TempestaCacheSharding(tester.TempestaTest):
+RESPONSE_CC_NO_STORE = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nCache-Control: no-store\r\n\r\n"
+
+RESPONSE_CC_NO_CACHE = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nCache-Control: no-cache\r\n\r\n"
+
+RESPONSE_CC_PRIVATE = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nCache-Control: private\r\n\r\n"
+
+RESPONSE_WITHOUT_CC = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
+
+RESPONSE_PRAGMA_NO_CACHE = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nPragma: no-cache\r\n\r\n"
+
+
+class TestCacheDeceptionAttackH2(tester.TempestaTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
+    ]
+
     tempesta = {
         "config": """
+listen 80;
+listen 443 proto=h2;
+
 server ${server_ip}:8000;
 
-cache 1;
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
+}
+
 cache_fulfill suffix ".jpg";
-""",
+"""
     }
 
-
-class TestCacheReplicated(tester.TempestaTest):
-    tempesta = {
-        "config": """
-server ${server_ip}:8000;
-
-cache 2;
-cache_fulfill suffix ".jpg";
-""",
-    }
-
-
-class NoStoreBackends(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-Cache-Control: no-store
-
-""",
+            "response_content": "",
         },
     ]
 
+    def base_scenario(self, cache_lvl: int, response: str, request: list):
+        """
+        Send each request twice and assert that backend server also receives
+        exactly two requests
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig += f"cache {cache_lvl};"
 
-class NoCacheBackends(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-Cache-Control: no-cache
+        server = self.get_server("deproxy")
+        server.set_response(response)
 
-""",
-        },
-    ]
+        self.start_all_services()
+
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.send_request(request, "200")
+        deproxy_cl.send_request(request, "200")
+
+        self.assertEqual(2, len(server.requests))
+
+    def test_cc_no_store_in_response_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_CC_NO_STORE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_cc_no_store_in_response_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_CC_NO_STORE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_cc_no_cache_in_response_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_CC_NO_CACHE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_cc_no_cache_in_response_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_CC_NO_CACHE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_cc_private_in_response_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_CC_PRIVATE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_cc_private_in_response_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_CC_PRIVATE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_cc_no_store_in_request_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_WITHOUT_CC,
+            request=self.get_client("deproxy").create_request(
+                method="GET",
+                headers=[("cache-control", "no-store")],
+                uri="/home.php/picts/bear.jpg",
+            ),
+        )
+
+    def test_cc_no_store_in_request_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_WITHOUT_CC,
+            request=self.get_client("deproxy").create_request(
+                method="GET",
+                headers=[("cache-control", "no-store")],
+                uri="/home.php/picts/bear.jpg",
+            ),
+        )
+
+    def test_cc_no_cache_in_request_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_WITHOUT_CC,
+            request=self.get_client("deproxy").create_request(
+                method="GET",
+                headers=[("cache-control", "no-cache")],
+                uri="/home.php/picts/bear.jpg",
+            ),
+        )
+
+    def test_cc_no_cache_in_request_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_WITHOUT_CC,
+            request=self.get_client("deproxy").create_request(
+                method="GET",
+                headers=[("cache-control", "no-cache")],
+                uri="/home.php/picts/bear.jpg",
+            ),
+        )
+
+    def test_pragma_no_cache_in_request_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_WITHOUT_CC,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[("pragma", "no-cache")], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_pragma_no_cache_in_request_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_WITHOUT_CC,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[("pragma", "no-cache")], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_pragma_no_cache_in_response_and_cache_lvl_1(self):
+        self.base_scenario(
+            cache_lvl=1,
+            response=RESPONSE_PRAGMA_NO_CACHE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
+
+    def test_pragma_no_cache_in_response_and_cache_lvl_2(self):
+        self.base_scenario(
+            cache_lvl=2,
+            response=RESPONSE_PRAGMA_NO_CACHE,
+            request=self.get_client("deproxy").create_request(
+                method="GET", headers=[], uri="/home.php/picts/bear.jpg"
+            ),
+        )
 
 
-class CachePrivateBackends(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-Cache-Control: private
-
-""",
-        },
-    ]
-
-
-class PragmaNoCacheBackends(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-Pragma: no-cache
-
-""",
-        },
-    ]
-
-
-class WithoutCacheControlBackends(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-
-""",
-        },
-    ]
-
-
-class CacheDeceptionAttackBase(tester.TempestaTest):
+class TestCacheDeceptionAttack(TestCacheDeceptionAttackH2):
     clients = [
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
-
-    # Send each request twice and assert that backend server also receives
-    # exactly two requests
-    def make_requests(self, request):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.assertEqual(0, len(deproxy_srv.requests))
-        self.start_tempesta()
-        deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_request(request)
-        resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
-        deproxy_cl.make_request(request)
-        resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
-        self.assertEqual(2, len(deproxy_cl.responses))
-        self.assertEqual(2, len(deproxy_srv.requests))
-
-
-class CacheDeceptionAttackTest01(CacheDeceptionAttackBase, TempestaCacheSharding, NoStoreBackends):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest02(CacheDeceptionAttackBase, TestCacheReplicated, NoStoreBackends):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest03(CacheDeceptionAttackBase, TempestaCacheSharding, NoCacheBackends):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest04(CacheDeceptionAttackBase, TestCacheReplicated, NoCacheBackends):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest05(
-    CacheDeceptionAttackBase, TempestaCacheSharding, CachePrivateBackends
-):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest06(
-    CacheDeceptionAttackBase, TestCacheReplicated, CachePrivateBackends
-):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest07(
-    CacheDeceptionAttackBase, TempestaCacheSharding, WithoutCacheControlBackends
-):
-    def test(self):
-        request = (
-            "GET /home.php/picts/bear.jpg HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Cache-Control: no-store\r\n"
-            "\r\n"
-        )
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest08(
-    CacheDeceptionAttackBase, TestCacheReplicated, WithoutCacheControlBackends
-):
-    def test(self):
-        request = (
-            "GET /home.php/picts/bear.jpg HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Cache-Control: no-store\r\n"
-            "\r\n"
-        )
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest09(
-    CacheDeceptionAttackBase, TempestaCacheSharding, WithoutCacheControlBackends
-):
-    def test(self):
-        request = (
-            "GET /home.php/picts/bear.jpg HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Cache-Control: no-cache\r\n"
-            "\r\n"
-        )
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest10(
-    CacheDeceptionAttackBase, TestCacheReplicated, WithoutCacheControlBackends
-):
-    def test(self):
-        request = (
-            "GET /home.php/picts/bear.jpg HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Cache-Control: no-cache\r\n"
-            "\r\n"
-        )
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest11(
-    CacheDeceptionAttackBase, TempestaCacheSharding, WithoutCacheControlBackends
-):
-    def test(self):
-        request = (
-            "GET /home.php/picts/bear.jpg HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Pragma: no-cache\r\n"
-            "\r\n"
-        )
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest12(
-    CacheDeceptionAttackBase, TestCacheReplicated, WithoutCacheControlBackends
-):
-    def test(self):
-        request = (
-            "GET /home.php/picts/bear.jpg HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Pragma: no-cache\r\n"
-            "\r\n"
-        )
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest13(
-    CacheDeceptionAttackBase, TempestaCacheSharding, PragmaNoCacheBackends
-):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)
-
-
-class CacheDeceptionAttackTest14(
-    CacheDeceptionAttackBase, TestCacheReplicated, PragmaNoCacheBackends
-):
-    def test(self):
-        request = "GET /home.php/picts/bear.jpg HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.make_requests(request)

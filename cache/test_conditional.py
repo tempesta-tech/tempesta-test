@@ -1,7 +1,7 @@
 """Functional tests of caching different methods."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
@@ -17,10 +17,14 @@ class TestConditional(TempestaTest):
     tempesta = {
         "config": """
 listen 80;
+listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
 vhost default {
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
     proxy_pass default;
 }
 
@@ -49,6 +53,25 @@ cache_methods GET;
         },
     ]
 
+    request = (
+        "GET /page.html HTTP/1.1\r\n"
+        + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+        + "Connection: keep-alive\r\n"
+        + "Accept: */*\r\n"
+        + "\r\n"
+    )
+
+    @staticmethod
+    def request_with_optional_headers(optional_headers: list):
+        return (
+            "GET /page.html HTTP/1.1\r\n"
+            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + f"".join([f"{header[0]}: {header[1]}\r\n" for header in optional_headers])
+            + "\r\n"
+        )
+
     def _test(
         self,
         etag: str,
@@ -76,7 +99,7 @@ cache_methods GET;
             + f"Date: {HttpMessage.date_time_string()}\r\n"
             + f"Etag: {etag}\r\n"
             + "\r\n"
-            + "<html></html>\r\n",
+            + "<html></html>",
         )
 
         if not expected_etag_200:
@@ -85,38 +108,26 @@ cache_methods GET;
             expected_etag_304 = etag
 
         client.send_request(
-            request=(
-                "GET /page.html HTTP/1.1\r\n"
-                + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
-                + "Connection: keep-alive\r\n"
-                + "Accept: */*\r\n"
-                + "\r\n"
-            ),
+            request=self.request,
             expected_status_code="200",
         )
         self.assertIn(expected_etag_200, str(client.last_response))
 
         if if_none_match and if_modified_since:
-            option_header = (
-                f"if-none-match: {if_none_match}\r\n"
-                + f"if-modified-since: {if_modified_since}\r\n"
-            )
+            option_header = [
+                ("if-none-match", if_none_match),
+                (f"if-modified-since", if_modified_since),
+            ]
         elif if_none_match:
-            option_header = f"if-none-match: {if_none_match}\r\n"
+            option_header = [("if-none-match", if_none_match)]
         elif if_modified_since:
-            option_header = f"if-modified-since: {if_modified_since}\r\n"
+            option_header = [("if-modified-since", if_modified_since)]
         else:
-            option_header = ""
+            option_header = []
 
+        request = self.request_with_optional_headers(option_header)
         client.send_request(
-            request=(
-                "GET /page.html HTTP/1.1\r\n"
-                + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
-                + "Connection: keep-alive\r\n"
-                + "Accept: */*\r\n"
-                + option_header
-                + "\r\n"
-            ),
+            request=request,
             expected_status_code=expected_status_code,
         )
 
@@ -277,3 +288,25 @@ cache_methods GET;
             if_none_match='"jfgfdgnjdn"',
             if_modified_since="Mon, 12 Dec 2016 13:59:39 GMT",
         )
+
+
+class TestConditionalH2(TestConditional):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    request = [
+        (":authority", tf_cfg.cfg.get("Client", "hostname")),
+        (":path", "/page.html"),
+        (":scheme", "https"),
+        (":method", "GET"),
+    ]
+
+    def request_with_optional_headers(self, optional_headers: list):
+        return self.request + optional_headers

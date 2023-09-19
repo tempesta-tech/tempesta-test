@@ -188,7 +188,7 @@ class TestDeproxyMessage(unittest.TestCase):
             "\r\n"
         )
         headers = ["Host: 10.0.10.2", "User-Agent: curl/7.53.1", "Accept: */*"]
-        created = deproxy.Request.create("GET", headers)
+        created = deproxy.Request.create("GET", headers, authority="")
         self.assertEqual(request, created)
 
     def test_request_body(self):
@@ -204,7 +204,7 @@ class TestDeproxyMessage(unittest.TestCase):
         )
         headers = ["Host: 10.0.10.2", "User-Agent: curl/7.53.1", "Accept: */*", "Content-Length: 6"]
         body = "<html>\r\n"
-        created = deproxy.Request.create("GET", headers, body=body)
+        created = deproxy.Request.create("GET", headers, body=body, authority="")
         self.assertEqual(request, created)
 
     def test_response_plain(self):

@@ -26,6 +26,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler
 from io import StringIO
+from typing import List, Tuple
 
 import run_config
 
@@ -58,7 +59,7 @@ class HeaderCollection(object):
     def __init__(self, mapping=None, **kwargs):
         self.headers = []
         self.is_expected = False
-        self.expected_time_delta = None
+        self.expected_time_delta = 0
         if mapping is not None:
             for k, v in mapping.items():
                 self.add(k, v)
@@ -401,16 +402,16 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         return timestamp
 
     @staticmethod
-    def create(first_line, headers, date=None, srv_version=None, body=None):
+    def create(first_line, headers, date=None, srv_version=None, body=""):
+        if headers and isinstance(headers[0], tuple):
+            headers = [f"{header[0]}: {header[1]}" for header in headers]
         if date:
-            date = "".join(["Date: ", date])
+            date = "".join(["date: ", date])
             headers.append(date)
         if srv_version:
             version = "".join(["Server: ", srv_version])
             headers.append(version)
-        end = ["\r\n"]
-        if body != None:
-            end = ["", body]
+        end = ["", body] if body else ["\r\n"]
         return "\r\n".join([first_line] + headers + end)
 
 
@@ -514,11 +515,83 @@ class Request(HttpMessage):
     def __ne__(self, other):
         return not Request.__eq__(self, other)
 
+    def add_tempesta_headers(self):
+        self.headers.add("Via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)")
+        self.headers.delete_all("X-Forwarded-For")
+        self.headers.add("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip"))
+
     @staticmethod
-    def create(method, headers, uri="/", version="HTTP/1.1", date=False, body=None):
+    def create(
+        method: str,
+        headers: list,
+        authority: str = tf_cfg.cfg.get("Client", "hostname"),
+        uri="/",
+        version="HTTP/1.1",
+        date=None,
+        body="",
+    ):
         first_line = " ".join([method, uri, version])
+        if authority:
+            headers.insert(0, ("Host", authority))
+
         msg = HttpMessage.create(first_line, headers, date=date, body=body)
         return Request(msg)
+
+
+class H2Request(Request):
+    def __str__(self):
+        return "".join([str(self.headers), "\r\n", self.body, str(self.trailer)])
+
+    def build_message(self) -> list or tuple:
+        msg = (self.headers.headers, self.body) if self.body else self.headers.headers
+        self.msg = msg
+
+    def parse_firstline(self, stream):
+        pass
+
+    def get_firstline(self):
+        pass
+
+    def parse_headers(self, stream):
+        self.headers = HeaderCollection.from_stream(stream, is_h2=True)
+        self.uri = self.headers.get(":path")
+        self.method = self.headers.get(":method")
+
+    def add_tempesta_headers(self):
+        self.headers.add("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)")
+        self.headers.delete_all("x-forwarded-for")
+        self.headers.add("x-forwarded-for", tf_cfg.cfg.get("Client", "ip"))
+
+    @staticmethod
+    def create(
+        method: str or None,
+        headers: List[Tuple[str, str]],
+        authority: str = tf_cfg.cfg.get("Client", "hostname"),
+        uri="/",
+        version="HTTP/2",
+        date: str = None,
+        body="",
+    ):
+        pseudo_headers = [
+            (":method", method) if method else (),
+            (":path", uri) if uri else (),
+            (":scheme", "https"),
+            (":authority", authority) if authority else (),
+        ]
+        if date:
+            headers.append(("date", date))
+
+        request = H2Request()
+        request.method = method
+        request.uri = uri
+        request.version = version
+        request.headers = HeaderCollection(
+            **{header[0]: header[1] for header in pseudo_headers + headers}
+        )
+        request.body = body
+        request.build_message()
+
+        return request
 
 
 class Response(HttpMessage):
@@ -588,14 +661,33 @@ class Response(HttpMessage):
     def __ne__(self, other):
         return not Response.__eq__(self, other)
 
+    def add_tempesta_headers(self):
+        self.headers.add("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)")
+        self.headers.delete_all("server")
+        self.headers.add("server", "Tempesta FW/pre-0.7.0")
+
     @staticmethod
     def create(
-        status, headers, version="HTTP/1.1", date=False, srv_version=None, body=None, method="GET"
+        status,
+        headers,
+        version="HTTP/1.1",
+        date=False,
+        srv_version=None,
+        body=None,
+        method="GET",
+        tempesta_headers=False,
+        expected=False,
     ):
         reason = BaseHTTPRequestHandler.responses
-        first_line = " ".join([version, str(status), reason[status][0]])
+        first_line = " ".join([version, str(status), reason[int(status)][0]])
         msg = HttpMessage.create(first_line, headers, date=date, srv_version=srv_version, body=body)
-        return Response(msg, method=method)
+
+        response = Response(msg, method=method)
+        if expected:
+            response.set_expected()
+        if tempesta_headers:
+            response.add_tempesta_headers()
+        return response
 
 
 class H2Response(Response):
@@ -612,6 +704,38 @@ class H2Response(Response):
     def parse_headers(self, stream):
         self.headers = HeaderCollection.from_stream(stream, is_h2=True)
         self.status = self.headers.get(":status")
+
+    def add_tempesta_headers(self):
+        self.headers.add("via", f"2.0 tempesta_fw (Tempesta FW {tempesta.version()})")
+        self.headers.delete_all("server")
+        self.headers.add("server", f"Tempesta FW/{tempesta.version()}")
+
+    @staticmethod
+    def create(
+        status: str,
+        headers: list,
+        date: str = None,
+        body="",
+        tempesta_headers=False,
+        expected=False,
+        **kwargs,
+    ):
+        if date:
+            headers.append(("date", date))
+
+        response = H2Response(method="")
+        response.status = status
+        response.headers = HeaderCollection(
+            **{header[0]: header[1] for header in [(":status", f"{status}")] + headers}
+        )
+        if expected:
+            response.set_expected()
+        if tempesta_headers:
+            response.add_tempesta_headers()
+        response.body = body
+        response.build_message()
+
+        return response
 
 
 # -------------------------------------------------------------------------------

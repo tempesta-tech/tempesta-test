@@ -110,38 +110,6 @@
             "reason" : "Disabled by issue #963"
         },
         {
-            "name" : "selftests.test_deproxy.DeproxyChunkedTest.test_deproxy_one_chain",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_deproxy.DeproxyTest.test_deproxy_one_chain",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_deproxy.DeproxyTestFailOver.test_deproxy_one_chain",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_responses.ParseBody.test_chunked_empty",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_responses.ParseBody.test_contentlength",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_responses.ParseBody.test_contentlength_too_short",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_responses.ParseResponse.test_equal",
-            "reason" : "Disabled by issue #73"
-        },
-        {
-            "name" : "selftests.test_responses.ParseResponse.test_parse",
-            "reason" : "Disabled by issue #73"
-        },
-        {
             "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
         },
@@ -164,26 +132,6 @@
         {
             "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
             "reason": "Disabled by issue #1663"
-        },
-        {
-            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderMaxAgeCache",
-            "reason": "Disabled by issue #1678"
-        },
-        {
-            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderNoTransformCache",
-            "reason": "Disabled by issue #1678"
-        },
-        {
-            "name": "cache.test_cache_control.StoringResponsesWithSetCookieHeaderDefaultCache",
-            "reason": "Disabled by issue #1678"
-        },
-        {
-            "name": "cache.test_cache.H2Cache",
-            "reason": "Disabled by issue #416"
-        },
-        {
-            "name": "cache.test_cache.TestChunkedResponse",
-            "reason": "Disabled by issue #1698"
         },
         {
             "name": "cache.test_purge.TestPurgeGet",
@@ -476,6 +424,38 @@
         {
             "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
             "reason": "Disabled by issue #1196"
+        },
+        {
+            "name": "cache.test_cache_control.StoringResponsesToAuthenticatedRequestsProxyRevalidateCache",
+            "reason": "Disabled by issue #1899"
+        },
+        {
+            "name": "cache.test_h2_cache_control.TestH2CacheControl.test_authorization_in_first_request_proxy_revalidate_in_response",
+            "reason": "Disabled by issue #1899"
+        },
+        {
+            "name": "cache.test_cache.TestH2CacheHdrDel.test_cache_bypass",
+            "reason": "Disabled by issue #1900"
+        },
+        {
+            "name": "cache.test_cache_deception_attack.TestCacheDeceptionAttackH2.test_cc_no_cache_in_request_and_cache_lvl_1",
+            "reason": "Disabled by issue #1901"
+        },
+        {
+            "name": "cache.test_cache_deception_attack.TestCacheDeceptionAttackH2.test_cc_no_cache_in_request_and_cache_lvl_2",
+            "reason": "Disabled by issue #1901"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
+            "reason": "Disabled by issue #1961"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag",
+            "reason": "Disabled by issue #1961"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag_with_extra_spaces",
+            "reason": "Disabled by issue #1961"
         }
     ]
 }

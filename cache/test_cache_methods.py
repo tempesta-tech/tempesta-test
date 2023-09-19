@@ -1,7 +1,7 @@
 """Functional tests of caching different methods."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
@@ -28,10 +28,14 @@ class TestCacheMethods(TempestaTest):
     tempesta = {
         "config": """
 listen 80;
+listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
 vhost default {
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
     proxy_pass default;
 }
 
@@ -69,6 +73,16 @@ cache_fulfill * *;
 
     messages = 10
     should_be_cached = True
+
+    @staticmethod
+    def generate_request(method):
+        return (
+            f"{method} /page.html HTTP/1.1\r\n"
+            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + "\r\n"
+        )
 
     def check_tempesta_stats_and_response(self, client):
         """Check tempesta cache stats and 'age' header in responses."""
@@ -128,15 +142,8 @@ cache_fulfill * *;
         srv.set_response(server_response)
 
         client: DeproxyClient = self.get_client("deproxy")
-        request = (
-            f"{method} /page.html HTTP/1.1\r\n"
-            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
-            + "Connection: keep-alive\r\n"
-            + "Accept: */*\r\n"
-            + "\r\n"
-        )
         for _ in range(self.messages):
-            client.make_request(request)
+            client.make_request(self.generate_request(method))
             client.wait_for_response(timeout=1)
 
         self.assertEqual(
@@ -243,6 +250,27 @@ class TestCacheMethodsNoCache(TestCacheMethods):
     should_be_cached = False
 
 
+class TestCacheMethodsH2(TestCacheMethods):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    @staticmethod
+    def generate_request(method):
+        return [
+            (":authority", tf_cfg.cfg.get("Client", "hostname")),
+            (":path", "/page.html"),
+            (":scheme", "https"),
+            (":method", method),
+        ]
+
+
 class TestMultipleMethods(TempestaTest):
     """
     TempestaFW must return cached responses to exactly matching request
@@ -255,10 +283,14 @@ class TestMultipleMethods(TempestaTest):
     tempesta = {
         "config": """
     listen 80;
+    listen 443 proto=h2; 
 
     server ${server_ip}:8000;
 
     vhost default {
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
         proxy_pass default;
     }
 
@@ -297,6 +329,16 @@ class TestMultipleMethods(TempestaTest):
         },
     ]
 
+    @staticmethod
+    def generate_request(method):
+        return (
+            f"{method} /page.html HTTP/1.1\r\n"
+            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + "\r\n"
+        )
+
     def test_caching_different_methods(self):
         """
         Send requests with different methods and checks that responses has been from different
@@ -306,27 +348,19 @@ class TestMultipleMethods(TempestaTest):
         client: DeproxyClient = self.get_client("deproxy")
         srv: StaticDeproxyServer = self.get_server("deproxy")
 
-        request: str = (
-            "{0} /page.html HTTP/1.1\r\n"
-            + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
-            + "Connection: keep-alive\r\n"
-            + "Accept: */*\r\n"
-            + "\r\n"
-        )
-
-        client.send_request(request.format("GET"), "200")
+        client.send_request(self.generate_request("GET"), "200")
         self.assertNotIn("age", client.last_response.headers)
 
         srv.set_response(RESPONSE_OK_EMPTY)
 
-        client.send_request(request.format("HEAD"), "200")
+        client.send_request(self.generate_request("HEAD"), "200")
         self.assertNotIn("age", client.last_response.headers)
 
-        client.send_request(request.format("GET"), "200")
+        client.send_request(self.generate_request("GET"), "200")
         response_get = client.last_response
         self.assertIn("age", client.last_response.headers)
 
-        client.send_request(request.format("HEAD"), "200")
+        client.send_request(self.generate_request("HEAD"), "200")
         response_head = client.last_response
         self.assertIn("age", client.last_response.headers)
 
@@ -347,6 +381,27 @@ class TestMultipleMethods(TempestaTest):
             2,
             "Server has received unexpected number of requests.",
         )
+
+
+class TestMultipleMethodsH2(TestMultipleMethods):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    @staticmethod
+    def generate_request(method):
+        return [
+            (":authority", tf_cfg.cfg.get("Client", "hostname")),
+            (":path", "/page.html"),
+            (":scheme", "https"),
+            (":method", method),
+        ]
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

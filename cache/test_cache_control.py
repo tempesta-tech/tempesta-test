@@ -86,7 +86,6 @@ class TestCacheControl(tester.TempestaTest, base=True):
         super().setUp()
 
     def client_send_req(self, client, headers: dict):
-
         req_headers = "".join(
             "{0}: {1}\r\n".format(header, header_value if header_value else "")
             for header, header_value in headers.items()
@@ -207,6 +206,7 @@ class SingleTest(abc.ABC):
 # - empty value for default behaviour,
 # For example, ResponseMustRevalidateIgnore - testing "must-revalidate"
 # in the request, which should be ignored due to cache_control_ignore.
+
 
 #########################################################
 #  cache_resp_hdr_del
@@ -1076,58 +1076,6 @@ class CacheTtlHonourNoCache(TestCacheControl, SingleTest):
     should_be_cached = False
 
 
-class CacheLocationBase(TestCacheControl, SingleTest, base=True):
-
-    tempesta_config_sample = """
-    server ${server_ip}:8000;
-
-    vhost default {
-        proxy_pass default;
-
-        location prefix "/cached" {
-            proxy_pass default;
-            cache_fulfill * *;
-        }
-
-        location prefix "/bypassed" {
-            proxy_pass default;
-            cache_bypass * *;
-        }
-
-        location prefix "/nonidempotent" {
-            proxy_pass default;
-            cache_fulfill * *;
-            nonidempotent GET * *;
-            nonidempotent HEAD * *;
-        }
-    }
-    """
-
-    tempesta_template = {"config": tempesta_config_sample}
-    tempesta_config = ""
-
-
-class CacheLocationCached(CacheLocationBase):
-    should_be_cached = True
-    uri = "/cached"
-
-
-class CacheLocationBypass(CacheLocationBase):
-    should_be_cached = False
-    uri = "/bypassed"
-
-
-class CacheLocationNonidempotentGetBypass(CacheLocationBase):
-    should_be_cached = False
-    uri = "/nonidempotent"
-
-
-class CacheLocationNonidempotentHeadBypass(CacheLocationBase):
-    should_be_cached = False
-    uri = "/nonidempotent"
-    request_method = "HEAD"
-
-
 #########################################################
 # 3.2 Storing Responses to Authenticated Requests. RFC 7234
 #########################################################
@@ -1244,19 +1192,24 @@ class StoringResponsesToAuthenticatedRequestsPrivateCache(TestCacheControl, Sing
 
 class StoringResponsesToAuthenticatedRequestsProxyRevalidateCache(TestCacheControl, SingleTest):
     """
-    This test sends two requests with different basic authentication headers and with
-    cache-control proxy-revalidate to the same resource and check that the second one was
-    serviced from the cache.
+    Response must not be cached if:
+        - authorization header is present in request;
+        - proxy-revalidate is present in response;
+    RFC 9111 3.5
+
+    This is analogous to must-revalidate, except that
+    proxy-revalidate does not apply to private caches.
+    RFC 9111 5.2.2.8
     """
 
     tempesta_config = """
         cache_fulfill * *;
         """
     request_headers = {"Authorization": "Basic dXNlcjE6cGFzc3dvcmQx"}
-    second_request_headers = {"Authorization": "Basic dXNlcjI6cGFzc3dvcmQy"}
-    should_be_cached = True
+    second_request_headers = {}
+    should_be_cached = False
     sleep_interval = None
-    response_headers = {"Cache-control": "proxy-revalidate, max-age=1"}
+    response_headers = {"Cache-control": "proxy-revalidate"}
 
 
 class StoringResponsesToAuthenticatedRequestsMaxAgeCache(TestCacheControl, SingleTest):
@@ -1294,53 +1247,25 @@ class StoringResponsesToAuthenticatedRequestsSMaxAgeCache(TestCacheControl, Sing
 
 class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTest):
     """
-    This test sends two requests to the same resource, which responds with set-cookie headers,
-    and check that second request wasn't serviced from the cache.
+    Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
+    RFC 9111 7.3
     """
 
     tempesta_config = """
         cache_fulfill * *;
         """
-    should_be_cached = False
+    should_be_cached = True
     response_headers = {"Set-Cookie": "session=1"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-
-
-class StoringResponsesWithSetCookieHeaderPublicCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with public cache-control
-    and set-cookie headers, and check that second request was serviced from the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    should_be_cached = True
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "public"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-
-
-class StoringResponsesWithSetCookieHeaderMustRevalidateCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with must-revalidate
-    cache-control and set-cookie headers, and check that second request was serviced from
-    the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "must-revalidate, max-age=1"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = True
-    sleep_interval = None
+    request_headers = {}
+    second_request_headers = {}
 
 
 class StoringResponsesWithSetCookieHeaderNoCacheCache(TestCacheControl, SingleTest):
     """
-    This test sends two requests to the same resource, which responds with no-cache
-    cache-control and set-cookie headers, and check that second request wasn't serviced
-    from the cache.
+    Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
+    Servers that wish to control caching of these responses are encouraged to emit
+    appropriate Cache-Control response header fields.
+    RFC 9111 7.3
     """
 
     tempesta_config = """
@@ -1353,9 +1278,10 @@ class StoringResponsesWithSetCookieHeaderNoCacheCache(TestCacheControl, SingleTe
 
 class StoringResponsesWithSetCookieHeaderNoStoreCache(TestCacheControl, SingleTest):
     """
-    This test sends two requests to the same resource, which responds with no-store
-    cache-control and set-cookie headers, and check that second request wasn't serviced
-    from the cache.
+    Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
+    Servers that wish to control caching of these responses are encouraged to emit
+    appropriate Cache-Control response header fields.
+    RFC 9111 7.3
     """
 
     tempesta_config = """
@@ -1378,7 +1304,7 @@ class StoringResponsesWithSetCookieHeaderNoTransformCache(TestCacheControl, Sing
         """
     response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-transform"}
     second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = False
+    should_be_cached = True
 
 
 class StoringResponsesWithSetCookieHeaderPrivateCache(TestCacheControl, SingleTest):
@@ -1420,9 +1346,9 @@ class StoringResponsesWithSetCookieHeaderMaxAgeCache(TestCacheControl, SingleTes
     tempesta_config = """
         cache_fulfill * *;
         """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "max-age=1"}
+    response_headers = {"Set-Cookie": "session=1", "Cache-control": "max-age=5"}
     second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = False
+    should_be_cached = True
 
 
 class StoringResponsesWithSetCookieHeaderSMaxAgeCache(TestCacheControl, SingleTest):
