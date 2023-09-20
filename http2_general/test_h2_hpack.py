@@ -611,6 +611,32 @@ class TestHpack(TestHpackBase):
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(server.last_request.method, "GET")
 
+    def test_unknown_method_dynamic_table(self):
+        """
+        Verifies correctness of processing unknown method that
+        stored in dynamic table.
+        """
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        method = "UPDATEREDIRECTREF"
+
+        self.start_all_services()
+
+        request = [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", method),
+        ]
+
+        # send request two times, header :method must be processed from dynamyc table
+        client.send_request(request, "200")
+        self.assertEqual(server.last_request.method, method)
+
+        client.send_request(request, "200")
+        self.assertEqual(server.last_request.method, method)
+        self.assertEqual(2, len(server.requests))
+
 
 class TestHpackStickyCookie(TestHpackBase):
     tempesta = {
