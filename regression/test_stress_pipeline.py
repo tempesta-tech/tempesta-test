@@ -29,13 +29,14 @@ class Pipeline(stress.StressTest):
 
     def create_servers(self):
         self.create_servers_helper(tempesta.servers_in_group())
+        for srv in self.servers:
+            srv.config.set_return_code(200)
 
     def test_pipelined_requests(self):
         self.generic_test_routine("cache 0;\n")
 
 
 class PipelineFaultInjection(stress.StressTest):
-
     pipelined_req = 7
     tfw_msg_errors = True
 
