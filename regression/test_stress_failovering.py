@@ -33,6 +33,7 @@ class RatioFailovering(stress.StressTest):
         """Create sever with very little connections count."""
         port = tempesta.upstream_port_start_from()
         server = control.Nginx(listen_port=port)
+        server.config.set_return_code(200)
         server.conns_n = 4
         self.servers = [server]
 
