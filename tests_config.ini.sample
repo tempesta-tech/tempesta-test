@@ -197,7 +197,7 @@ config = tempesta.conf
 #
 # ex.: tmp_config = etc/tempesta_tmp_test.conf (default tempesta_tmp.conf)
 #
-tmp_config = tempesta.conf
+tmp_config = tempesta_tmp.conf
 
 # Timeout to wait if node is unavaliable
 # ex.: unavaliable_timeout = 300 (default 300)
