@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers import checks_for_tests as checks
 from t_wrong_body_length.utils import H2Config, TestContentLengthBase
 
 
@@ -279,3 +280,95 @@ class ResponseEmptyBodyLength(ResponseContentLengthBase):
     expected_body_length = 0
     srv_msg_other_errors = 0
     srv_msg_parsing_errors = 1
+
+
+class H2CachedResponseMissingContentLength(ResponseContentLengthBase):
+    """
+    Send request to server. Wait for the server response.
+    Check that Tempesta cached server response with body and empty Content-Length
+    header. Tempesta will read body until the connection is closed.
+    """
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+
+            server ${server_ip}:8000;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            cache 2;
+            cache_fulfill * *;
+            block_action error reply;
+            block_action attack reply;
+            """
+    }
+
+    response_status = "200 OK"
+    response_body = "x" * 10000
+    response_headers = (
+        "Content-type: text/html\r\n" + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+    )
+    keep_alive = 1  # close server connection after first response
+    expected_response_status = "200"
+    expected_body_length = len(response_body)
+    srv_msg_other_errors = 0
+    srv_msg_parsing_errors = 0
+    expected_requests_to_server = 1
+
+    def test(self):
+        """
+        Send request with correct or incorrect data to server and check if response have been
+        received.
+        """
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.keep_alive = self.keep_alive
+        self.start_all_services()
+
+        client: DeproxyClient = self.get_client("deproxy")
+        client.parsing = False
+
+        response = (
+            f"HTTP/1.1 {self.response_status}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + f"{self.response_headers}\r\n"
+            + f"{self.response_body}"
+        )
+        srv.set_response(response)
+
+        headers = [
+            (":authority", "localhost"),
+            (":path", self.uri),
+            (":scheme", "https"),
+            (":method", self.request_method),
+        ]
+
+        for step in range(2):
+            client.send_request(
+                request=headers,
+                expected_status_code=self.expected_response_status,
+            )
+        checks.check_tempesta_error_stats(
+            tempesta=self.get_tempesta(),
+            cl_msg_parsing_errors=self.cl_msg_parsing_errors,
+            cl_msg_other_errors=self.cl_msg_other_errors,
+            srv_msg_other_errors=self.srv_msg_other_errors,
+            srv_msg_parsing_errors=self.srv_msg_parsing_errors,
+        )
+        self.assertEqual(
+            self.expected_requests_to_server,
+            len(srv.requests),
+            "Server received unexpected number of requests.",
+        )
