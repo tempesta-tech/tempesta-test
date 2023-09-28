@@ -451,7 +451,7 @@ class WsPipelining(WsPing):
         "config": TEMPESTA_CONFIG % "",
     }
 
-    request = (
+    request = [
         "GET / HTTP/1.1\r\n"
         f"Host: {hostname}\r\n"
         "Connection: Upgrade\r\n"
@@ -479,7 +479,7 @@ class WsPipelining(WsPing):
         "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
         "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
         "\r\n"
-    )
+    ]
 
     async def handler(self, websocket, path):
         pass
@@ -492,6 +492,7 @@ class WsPipelining(WsPing):
 
         self.deproxy_manager.start()
         deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
         deproxy_cl.start()
         deproxy_cl.make_requests(self.request)
         deproxy_cl.wait_for_response(timeout=5)
