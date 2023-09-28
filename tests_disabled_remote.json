@@ -110,10 +110,6 @@
             "reason": "Disabled by test issue #508"
         },
         {
-            "name": "ws.test_ws_ping.WsPipelining",
-            "reason": "Disabled by test issue #1968"
-        },
-        {
             "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
             "reason": "Disabled by test issue #508"
         },
