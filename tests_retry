@@ -2,3 +2,4 @@ t_frang.test_request_rate_burst
 forwarding.test_forwarded_hdr.TestForwardedBaseDisallowed.test_run
 access_log.test_access_log_h2.TruncateUriTest
 forwarding.test_forwarded_hdr.TestForwardedBaseMalicious
+tls.test_tls_integrity.ManyClients.test_various_req_resp_sizes

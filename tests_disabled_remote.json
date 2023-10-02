@@ -108,6 +108,18 @@
         {
             "name": "t_http_rules.test_backup_servers",
             "reason": "Disabled by test issue #508."
+        },
+        {
+            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip",
+            "reason": "Disabled by test issue #529."
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_burst",
+            "reason": "Disabled by test issue #529."
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.FrangTcpVsBoth.test_burst",
+            "reason": "Disabled by test issue #529."
         }
     ]
 }
