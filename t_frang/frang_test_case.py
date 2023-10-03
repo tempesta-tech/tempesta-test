@@ -65,7 +65,7 @@ block_action attack reply;
 
     def setUp(self):
         super().setUp()
-        self.klog = dmesg.DmesgFinder(ratelimited=False)
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
 
     def tearDown(self):
@@ -114,16 +114,24 @@ block_action attack reply;
         self.assertEqual(reset_conn_n, warns_occured)
 
     def assertFrangWarning(self, warning: str, expected: Union[int, range]):
-        warning_count = self.klog.warn_count(warning)
-
         if type(expected) is range:
-            # [start, stop], not [start, stop)
-            test_value = warning_count in expected or warning_count == expected.stop
-        else:
-            test_value = warning_count == expected
+            found_greater_eq = self.klog.find(warning, cond=dmesg.amount_greater_eq(expected.start))
+            amount = len(self.klog.log_findall(warning))
+            self.assertTrue(
+                found_greater_eq,
+                f"Amount of '{warning}' warnings in dmesg is less then {expected.start}: {amount}",
+            )
 
-        self.assertTrue(test_value, self.assert_msg.format(exp=expected, got=warning_count))
-        return warning_count
+            # [start, stop], not [start, stop)
+            self.assertLessEqual(
+                amount,
+                expected.stop,
+                f"Amount of '{warning}' warnings in dmesg is more then {expected.stop}: {amount}",
+            )
+        else:
+            self.assertTrue(self.klog.find(warning, cond=dmesg.amount_equals(expected)), expected)
+
+        return len(self.klog.log_findall(warning))
 
 
 class H2Config:

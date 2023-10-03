@@ -5,20 +5,42 @@ from __future__ import print_function
 import re
 import time
 from contextlib import contextmanager
+from typing import Callable, List
 
-from . import error, remote, tf_cfg
+from . import error, remote, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
+# Collection of conditions for DmesgFinder.find
+def amount_one(matches: List[str]) -> bool:
+    return len(matches) == 1
+
+
+def amount_zero(matches: List[str]) -> bool:
+    return len(matches) == 0
+
+
+def amount_positive(matches: List[str]) -> bool:
+    return len(matches) > 0
+
+
+def amount_equals(expected: int) -> Callable[[List[str]], bool]:
+    return lambda matches: len(matches) == expected
+
+
+def amount_greater_eq(expected: int) -> Callable[[List[str]], bool]:
+    return lambda matches: len(matches) >= expected
+
+
 class DmesgFinder(object):
     """dmesg helper class."""
 
-    def __init__(self, ratelimited=True):
+    def __init__(self, disable_ratelimit=False):
         """
-        Be careful using ratelimited=False - you must be sure that GC frees the
+        Be careful using disable_ratelimit=True - you must be sure that GC frees the
         logger instance or delete the logger instance explicitly with `del`.
         Python GC can not to call destructor of the object at all on assertion
         or exception.
@@ -26,12 +48,14 @@ class DmesgFinder(object):
         self.node = remote.tempesta
         self.log = ""
         self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
+        self.prev_message_cost = None
+
         # Suppress net ratelimiter to have all the messages in dmesg.
-        if ratelimited:
-            self.msg_cost = None
-        else:
-            self.msg_cost = int(self.node.run_cmd("sysctl --values net.core.message_cost")[0])
-            if self.msg_cost != 0:
+        if disable_ratelimit:
+            self.prev_message_cost = int(
+                self.node.run_cmd("sysctl --values net.core.message_cost")[0]
+            )
+            if self.prev_message_cost != 0:
                 self.node.run_cmd("sysctl -w net.core.message_cost=0")
 
     def __del__(self):
@@ -41,8 +65,8 @@ class DmesgFinder(object):
 
         Call it explicitly via del operator every time you don't need dmesg more.
         """
-        if self.msg_cost:
-            self.node.run_cmd(f"sysctl -w net.core.message_cost={self.msg_cost}")
+        if self.prev_message_cost is not None:
+            self.node.run_cmd(f"sysctl -w net.core.message_cost={self.prev_message_cost}")
 
     def update(self):
         """Get log from the last run."""
@@ -53,72 +77,51 @@ class DmesgFinder(object):
         """Show tempesta system log."""
         print(self.log)
 
-    def _warn_count(self, warn_str):
-        return len(self._warn_match(warn_str))
+    def log_findall(self, pattern: str):
+        return re.findall(pattern, self.log.decode(errors="ignore"))
 
-    def _warn_match(self, warn_str):
-        return re.findall(warn_str, self.log.decode(errors="ignore"))
-
-    def warn_count(self, warn_str):
-        """Count occurrences of given string in system log. Normally used to
-        count warnings during test.
+    def find(self, pattern: str, cond=amount_one) -> bool:
         """
-        self.update()
-        return self._warn_count(warn_str)
-
-    def warn_match(self, warn_str):
-        """Returns list of occurrences of given string in system log."""
-        self.update()
-        return self._warn_match(warn_str)
-
-    def msg_ratelimited(self, msg):
-        """Like previous, but returns binary found/not-found status and takes
-        care about ratelimited messages. Returns 0 on success, -1 if msg wasn't
-        found and 1 if there are no msg and the log is ratelimited.
+        Why we need to put wait_until() logic under the hood:
+        in most cases can be situation when dmesg isn't ready yet and we need to wait
+        (leads to the bunch of annoying flacky tests). In all another cases
+        log_findall() should be enough (in combination with len() or something).
         """
-        self.update()
-        ratelimited = False
-        for line in self.log.decode().split("\n"):
-            if line.find(msg) >= 0:
-                return 0
-            if re.findall("net_ratelimit: [\d]+ callbacks suppressed", line):
-                ratelimited = True
-        return 1 if ratelimited else -1
+        tf_cfg.dbg(4, f"\tFinding pattern '{pattern}' in dmesg.")
+
+        def wait_cond():
+            self.update()
+            matches = self.log_findall(pattern)
+            return not cond(matches)
+
+        return util.wait_until(wait_cond, timeout=2, poll_freq=0.2)
 
 
 WARN_GENERIC = "Warning: "
 WARN_SPLIT_ATTACK = "Warning: Paired request missing, HTTP Response Splitting attack?"
+WARN_RATELIMIT = "net_ratelimit: [\d]+ callbacks suppressed"
 
 
 @contextmanager
-def wait_for_msg(msg, timeout, permissive):
-    """Execute a code and waith for the messages in dmesg with the timeout.
-    Dmesg may rate limit some messages and our message might be skipped in the
-    log. Permissive mode assumes that if msg wasn't found and the log was
-    rate limited, then the message was one of the skipped records.
+def wait_for_msg(pattern: str, strict=True):
+    """Enter context: save start time for further dmesg grepping.
+    Exit context: ensure that message occured.
+
+    Strict parameter: raise error if message wasn't found,
+    otherwise check if rate limit occured - this considered OK,
+    otherwise write warning to the log.
     """
-    dmesg = DmesgFinder(ratelimited=False)
 
-    # If the code called under context of the function raises an exception or
-    # fails assertion, __exit__() routine of the context manager is still called
-    # and we call DmesgFinder.__del__() in the local context. Return, failed
-    # assertion, or unhandled exception at the below code frees dmesg instance.
-
+    dmesg = DmesgFinder(disable_ratelimit=strict)
     yield
 
-    dmesg.update()
-    ratelimited = False
-    t_start = time.time()
-    while t_start + timeout >= time.time():
-        res = dmesg.msg_ratelimited(msg)
-        if res == 0:
-            return
-        elif res == 1:
-            ratelimited = True
-        time.sleep(0.01)
-    if not permissive:
+    if dmesg.find(pattern):
+        return
+
+    if strict:
         raise error.Error("dmesg wait for message timeout")
-    if not ratelimited:
+
+    if not dmesg.find(WARN_RATELIMIT):
         # Ratelimiting messages appear only on next logging operation if
         # previous records were suppressed. This means that if some operation
         # produces a lot of logging and last log records are dropped, then we
@@ -126,7 +129,7 @@ def wait_for_msg(msg, timeout, permissive):
         # The only good way to fix this is to properly setup system logger,
         # otherwise we either spend too much time on timeouts or observe
         # spurious exceptions.
-        tf_cfg.dbg(2, 'No "%s" log record and no ratelimiting' % msg)
+        tf_cfg.dbg(2, f'No "{pattern}" log record and no ratelimiting')
 
 
 def unlimited_rate_on_tempesta_node(func):

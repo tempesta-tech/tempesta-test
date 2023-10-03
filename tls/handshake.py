@@ -336,7 +336,7 @@ class TlsHandshake:
     """
 
     def __init__(self, chunk=None, debug=(tf_cfg.v_level() - 1)):
-        self.server = tf_cfg.cfg.get(section='Tempesta', opt='ip')
+        self.server = tf_cfg.cfg.get(section="Tempesta", opt="ip")
         self.hs_state = False
         self.debug = debug
         self.timeout = 20
@@ -495,7 +495,7 @@ class TlsHandshakeStandard:
         self.verbose = verbose
 
     def try_tls_vers(self, version):
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.io_to)
         sock.connect((self.addr, self.port))

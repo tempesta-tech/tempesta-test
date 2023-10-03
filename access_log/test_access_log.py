@@ -146,7 +146,7 @@ class CheckedResponses(tester.TempestaTest):
 class AccessLogTest(CheckedResponses):
     def test_success_path_http1x(self):
         self.start_all()
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         for status, body in [
             (200, "body http ok"),
             (204, None),
@@ -158,7 +158,7 @@ class AccessLogTest(CheckedResponses):
 
     def test_uri_truncate(self):
         self.start_all()
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request(
             "/too-long-uri_" + "1" * 4000, user_agent="user-agent", referer="referer"
         )
@@ -176,7 +176,7 @@ class AccessLogTest(CheckedResponses):
 
     def test_bad_user_agent(self):
         self.start_all()
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request("/some-uri", user_agent="bad\nagent", referer="Ok-Referer")
         msg = self.send_request_and_get_dmesg(klog, req)
         self.assertTrue(msg is not None, "No access_log message in dmesg")
@@ -206,7 +206,7 @@ class AccessLogFrang(CheckedResponses):
 
     def test_frang(self):
         self.start_all()
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request(
             "/longer-than-10-symbols-uri", user_agent="user-agent", referer="referer"
         )

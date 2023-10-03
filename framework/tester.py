@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import datetime
 import os
+import re
 import signal
 import socket
 import struct
@@ -289,7 +290,7 @@ class TempestaTest(unittest.TestCase):
         """Start Tempesta and wait until the initialization process finish."""
         # "modules are started" string is only logged in debug builds while
         # "Tempesta FW is ready" is logged at all levels.
-        with dmesg.wait_for_msg("[tempesta fw] Tempesta FW is ready", 1, True):
+        with dmesg.wait_for_msg(re.escape("[tempesta fw] Tempesta FW is ready"), strict=False):
             self.__tempesta.start()
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
@@ -354,8 +355,8 @@ class TempestaTest(unittest.TestCase):
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue
-            if self.oops._warn_count(err) > 0:
-                print(self.oops.log.decode())
+            if len(self.oops.log_findall(err)) > 0:
+                self.oops.show()
                 self.oops_ignore = []
                 raise Exception("%s happened during test on Tempesta" % err)
         # Drop the list of ignored errors to allow set different errors masks

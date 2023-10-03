@@ -2,6 +2,8 @@
 Tests for basic x509 handling: certificate loading and getting a valid request
 and response, stale certificates and certificates with unsupported algorithms.
 """
+import os
+import re
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from itertools import cycle, islice
@@ -15,8 +17,6 @@ from helpers import dmesg, remote, tempesta, tf_cfg
 from helpers.error import Error
 
 from .handshake import TlsHandshake, x509_check_cn
-
-import os
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -129,9 +129,7 @@ class X509(tester.TempestaTest):
         client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = client.wait_for_response(timeout=X509.TIMEOUT)
         self.assertFalse(res, "Erroneously established connection")
-        self.assertEqual(
-            self.oops.warn_count(msg), 1, "Tempesta doesn't throw a warning on bad certificate"
-        )
+        self.assertTrue(self.oops.find(msg), "Tempesta doesn't throw a warning on bad certificate")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
@@ -142,7 +140,9 @@ class X509(tester.TempestaTest):
             self.start_tempesta()
         except:
             pass
-        self.assertGreater(self.oops.warn_count(msg), 0, "Tempesta doesn't report error")
+        self.assertTrue(
+            self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
+        )
 
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start(self, msg):
@@ -601,7 +601,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         ):
             with self.subTest(msg="Check 'unknown server name' warning", sni=sni):
                 with dmesg.wait_for_msg(
-                    f"requested unknown server name {printable_name}", timeout=1, permissive=False
+                    re.escape(f"requested unknown server name {printable_name}")
                 ):
                     self.check_handshake_unrecognized_name(sni=sni)
 

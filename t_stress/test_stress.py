@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from framework import tester
-from helpers import remote, sysnet, tf_cfg
+from helpers import dmesg, remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -429,12 +429,15 @@ class CurlStress(BaseCurlStress):
             self.wait_while_busy(client)
             client.stop()
 
-            if self.oops.warn_count(expected_warning) > 0:
+            if self.oops.find(expected_warning, cond=dmesg.amount_positive):
                 break
 
         server.get_stats()
         self.assertGreater(server.requests, 0)
-        self.assertGreater(self.oops.warn_count(expected_warning), 0)
+        self.assertTrue(
+            self.oops.find(expected_warning, cond=dmesg.amount_positive),
+            f"Warning '{expected_warning}' wasn't found",
+        )
 
 
 class TlsCurlStress(BaseCurlStress):

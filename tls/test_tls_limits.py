@@ -79,7 +79,7 @@ class TLSMatchHostSni(tester.TempestaTest):
         send a request that doesnt match his SNI, t is blocked
         """
         self.start_all()
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
 
         deproxy_cl = self.get_client("usual-client")
         deproxy_cl.start()
@@ -95,4 +95,4 @@ class TLSMatchHostSni(tester.TempestaTest):
         self.assertEqual(1, len(deproxy_cl.responses))
 
         self.assertTrue(deproxy_cl.connection_is_closed())
-        self.assertEqual(klog.warn_count(self.TLS_WARN), 1, "Frang limits warning is not shown")
+        self.assertTrue(klog.find(self.TLS_WARN), "Frang limits warning is not shown")

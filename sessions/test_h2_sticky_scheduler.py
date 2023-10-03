@@ -135,10 +135,9 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
 
         # check request is filtering out
-        self.assertEqual(
-            self.oops.warn_count(
+        self.assertTrue(
+            self.oops.find(
                 "request has been filtered out via http table",
             ),
-            1,
             "Filtered request warning is not shown",
         )
