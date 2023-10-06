@@ -5,10 +5,14 @@ __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
+from typing import Union  # TODO: use | instead when we move to python3.10
+from typing import Any, Dict, List
+
 from framework import tester
 from framework.deproxy_client import DeproxyClient
 from helpers import dmesg
 
+# used to prevent burst
 DELAY = 0.125
 
 
@@ -56,18 +60,24 @@ block_action attack reply;
         },
     ]
 
+    # waiting for dmesg
     timeout = 0.5
 
     def setUp(self):
         super().setUp()
-        self.klog = dmesg.DmesgFinder(ratelimited=False)
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
 
+    def tearDown(self):
+        super().tearDown()
+        del self.klog
+
+    # TODO: rename to set_frang_cfg_and_start
     def set_frang_config(self, frang_config: str):
         self.tempesta["config"] = self.tempesta_template["config"] % {
             "frang_config": frang_config,
         }
-        self.setUp()
+        super().setUp()
         self.start_all_services(client=False)
 
     def base_scenario(
@@ -95,14 +105,33 @@ block_action attack reply;
                 self.assertFalse(client.connection_is_closed())
                 self.assertFrangWarning(warning=warning_msg, expected=0)
             else:
-                self.assertTrue(client.wait_for_connection_close(self.timeout))
+                self.assertTrue(client.wait_for_connection_close())
                 self.assertFrangWarning(warning=warning_msg, expected=1)
 
-    def assertFrangWarning(self, warning: str, expected: int):
-        warning_count = self.klog.warn_count(warning)
-        self.assertEqual(
-            warning_count, expected, self.assert_msg.format(exp=expected, got=warning_count)
-        )
+    def check_connections(self, clients, warning: str, resets_expected: Union[int, range]):
+        warns_occured = self.assertFrangWarning(warning, resets_expected)
+        reset_conn_n = sum(c.reset_conn_n for c in clients)
+        self.assertEqual(reset_conn_n, warns_occured)
+
+    def assertFrangWarning(self, warning: str, expected: Union[int, range]):
+        if type(expected) is range:
+            found_greater_eq = self.klog.find(warning, cond=dmesg.amount_greater_eq(expected.start))
+            amount = len(self.klog.log_findall(warning))
+            self.assertTrue(
+                found_greater_eq,
+                f"Amount of '{warning}' warnings in dmesg is less then {expected.start}: {amount}",
+            )
+
+            # [start, stop], not [start, stop)
+            self.assertLessEqual(
+                amount,
+                expected.stop,
+                f"Amount of '{warning}' warnings in dmesg is more then {expected.stop}: {amount}",
+            )
+        else:
+            self.assertTrue(self.klog.find(warning, cond=dmesg.amount_equals(expected)), expected)
+
+        return len(self.klog.log_findall(warning))
 
 
 class H2Config:

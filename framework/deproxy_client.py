@@ -1,7 +1,9 @@
 import abc
 import time
+from collections import defaultdict
 from io import StringIO
-from typing import Union
+from typing import Dict, Optional
+from typing import Union  # TODO: use | instead when we move to python3.10
 
 import h2.connection
 from h2.events import (
@@ -18,6 +20,8 @@ from hpack import Encoder
 
 import run_config
 from helpers import deproxy, stateful, tf_cfg, util
+
+dbg = deproxy.dbg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
@@ -125,7 +129,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
-        tf_cfg.dbg(4, "\tDeproxy: Client: Receive response.")
+        dbg(self, 4, "Receive response:", prefix="\t")
         tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
         while len(self.response_buffer) > 0:
             try:
@@ -135,15 +139,13 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
                 )
                 self.response_buffer = self.response_buffer[response.original_length :]
             except deproxy.IncompleteMessage as e:
-                tf_cfg.dbg(5, f"\tDeproxy: Client: Receive IncompleteMessage - {e}")
+                dbg(self, 5, f"Receive IncompleteMessage - {e}", prefix="\t")
                 return
             except deproxy.ParseError:
-                tf_cfg.dbg(
+                dbg(
+                    self,
                     4,
-                    (
-                        "Deproxy: Client: Can't parse message\n"
-                        "<<<<<\n%s\n>>>>>" % self.response_buffer
-                    ),
+                    ("Can't parse message\n" "<<<<<\n%s\n>>>>>" % self.response_buffer),
                 )
                 raise
             self.receive_response(response)
@@ -168,7 +170,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     def handle_write(self):
         reqs = self.request_buffers
-        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
+        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
@@ -194,13 +196,22 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def make_request(self, request, **kwargs):
         raise NotImplementedError("Not implemented 'make_request()'")
 
-    def wait_for_connection_close(self, timeout=5):
+    def wait_for_connection_close(self, timeout=5, strict=False):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
-        return util.wait_until(
+        timeout_not_exceeded = util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection close: {timeout}"
+        return timeout_not_exceeded
 
     @abc.abstractmethod
     def receive_response(self, response):
@@ -302,16 +313,40 @@ class DeproxyClient(BaseDeproxyClient):
         self.last_response = response
         self.clear_last_response_buffer = True
 
-    def wait_for_response(self, timeout=5):
+    def wait_for_response(self, timeout=5, strict=False):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
         timeout = adjust_timeout_for_tcp_segmentation(timeout)
-
-        return util.wait_until(
+        timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < self.valid_req_num,
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting response: {timeout}"
+        return timeout_not_exceeded
 
-    def send_request(self, request, expected_status_code: str):
+    @property
+    def statuses(self) -> Dict[int, int]:
+        """
+        Be aware that number of HTTP responses (and hence statuses) can be unequal to number of
+        TCP responses.
+
+        Example case: we have request_rate=4 and ip_block on. Client maked 4-th request and received
+        TCP ACK, but did't received HTTP response yet (it should become in separate TCP packet).
+        After this, 5-th request proceed, and client's IP is blocked. In this case we will have only
+        3 responses despite the fact that request_rate=4.
+        """
+        d = defaultdict(lambda: 0)
+        for r in self.responses:
+            d[int(r.status)] += 1
+        return dict(d)
+
+    def send_request(self, request, expected_status_code: Optional[str] = None, timeout=5) -> None:
         """
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
@@ -319,13 +354,14 @@ class DeproxyClient(BaseDeproxyClient):
         curr_responses = len(self.responses)
 
         self.make_request(request)
-        self.wait_for_response()
+        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
 
-        assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
-        assert expected_status_code in self.last_response.status, (
-            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-            + f"Received - {self.last_response.status}"
-        )
+        if expected_status_code:
+            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
+            assert expected_status_code in self.last_response.status, (
+                f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
+                + f"Received - {self.last_response.status}"
+            )
 
     @staticmethod
     def create_request(
@@ -516,7 +552,7 @@ class DeproxyClientH2(DeproxyClient):
         if not self.response_buffer:
             return
 
-        tf_cfg.dbg(4, "\tDeproxy: Client: Receive data.")
+        dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, f"\t\t{self.response_buffer}")
 
         if self.clear_last_response_buffer:
@@ -527,7 +563,7 @@ class DeproxyClientH2(DeproxyClient):
         try:
             events = self.h2_connection.receive_data(self.response_buffer)
 
-            tf_cfg.dbg(4, "\tDeproxy: Client: Receive 'h2_connection' events.")
+            dbg(self, 4, "Receive 'h2_connection' events:", prefix="\t")
             tf_cfg.dbg(5, f"\t\t{events}")
             for event in events:
                 if isinstance(event, ResponseReceived):
@@ -591,38 +627,38 @@ class DeproxyClientH2(DeproxyClient):
                     self.handle_read()
 
         except deproxy.IncompleteMessage:
-            tf_cfg.dbg(
+            dbg(
+                self,
                 4,
-                (
-                    "Deproxy: Client: Can't parse incomplete message\n"
-                    "<<<<<\n%s>>>>>" % self.response_buffer
-                ),
+                ("Can't parse incomplete message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
             )
             return
         except deproxy.ParseError:
-            tf_cfg.dbg(
+            dbg(
+                self,
                 4,
-                ("Deproxy: Client: Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
+                ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
             )
             raise
 
     def handle_write(self):
         reqs = self.request_buffers
-        tf_cfg.dbg(4, "\tDeproxy: Client: Send request to Tempesta.")
+        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
         tf_cfg.dbg(5, reqs[self.cur_req_num])
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
             self.segment_size = run_config.TCP_SEGMENTATION
 
+        sent = 0
         if self.segment_size != 0:
             try:
                 for chunk in [
                     reqs[self.cur_req_num][i : (i + self.segment_size)]
                     for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
                 ]:
-                    sent = self.socket.send(chunk)
+                    sent += self.socket.send(chunk)
             except ConnectionError as e:
-                tf_cfg.dbg(4, f"\tDeproxy: Client: Received error - {e}.")
+                dbg(self, 4, f"Received error - {e}", prefix="\t")
         else:
             sent = self.send(reqs[self.cur_req_num])
         if sent < 0:

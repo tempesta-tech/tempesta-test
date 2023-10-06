@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import datetime
 import os
+import re
 import signal
 import socket
 import struct
@@ -117,10 +118,9 @@ class TempestaTest(unittest.TestCase):
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
 
-    def __create_client_deproxy(self, client, ssl, bind_addr):
+    def __create_client_deproxy(self, client, ssl, bind_addr, socket_family):
         addr = fill_template(client["addr"], client)
         port = int(fill_template(client["port"], client))
-        socket_family = client.get("socket_family", "ipv4")
         if client["type"] == "deproxy_h2":
             clt = deproxy_client.DeproxyClientH2(
                 addr=addr,
@@ -161,13 +161,14 @@ class TempestaTest(unittest.TestCase):
         )
         return ext_client
 
-    def __create_client_curl(self, client):
+    def __create_client_curl(self, client, interface):
         # extract arguments that are supported by cURL client
-        kwargs = {k: client[k] for k in curl_client.CurlArguments.get_kwargs() if k in client}
+        kwargs = {k: client[k] for k in curl_client.CurlArguments.get_arg_names() if k in client}
         kwargs["addr"] = fill_template(
             client.get("addr", "${tempesta_ip}"), client  # Address is Tempesta IP by default
         )
         kwargs["cmd_args"] = fill_template(client.get("cmd_args", ""), client)
+        kwargs.setdefault("curl_iface", interface)
         curl = curl_client.CurlClient(**kwargs)
         return curl
 
@@ -175,22 +176,26 @@ class TempestaTest(unittest.TestCase):
         populate_properties(client)
         ssl = client.setdefault("ssl", False)
         cid = client["id"]
-        if client["type"] in ["deproxy", "deproxy_h2"]:
-            ip = None
+        socket_family = client.get("socket_family", "ipv4")
+        client_ip_opt = "ipv6" if socket_family == "ipv6" else "ip"
+        client_ip = tf_cfg.cfg.get("Client", client_ip_opt)
+        if client["type"] in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-                client_ip = tf_cfg.cfg.get("Client", "ip")
                 (_, ip) = sysnet.create_interface(len(self.__ips), interface, base_ip)
                 sysnet.create_route(interface, ip, client_ip)
                 self.__ips.append(ip)
-            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip)
+            else:
+                ip = client_ip
+        if client["type"] in ["deproxy", "deproxy_h2"]:
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip, socket_family)
             self.__clients[cid].set_rps(client.get("rps", 0))
             self.deproxy_manager.add_client(self.__clients[cid])
         elif client["type"] == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif client["type"] == "curl":
-            self.__clients[cid] = self.__create_client_curl(client)
+            self.__clients[cid] = self.__create_client_curl(client, ip)
         elif client["type"] == "external":
             self.__clients[cid] = self.__create_client_external(client)
 
@@ -287,7 +292,7 @@ class TempestaTest(unittest.TestCase):
         """Start Tempesta and wait until the initialization process finish."""
         # "modules are started" string is only logged in debug builds while
         # "Tempesta FW is ready" is logged at all levels.
-        with dmesg.wait_for_msg("[tempesta fw] Tempesta FW is ready", 1, True):
+        with dmesg.wait_for_msg(re.escape("[tempesta fw] Tempesta FW is ready"), strict=False):
             self.__tempesta.start()
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
@@ -352,24 +357,28 @@ class TempestaTest(unittest.TestCase):
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue
-            if self.oops._warn_count(err) > 0:
-                print(self.oops.log.decode())
+            if len(self.oops.log_findall(err)) > 0:
+                self.oops.show()
                 self.oops_ignore = []
                 raise Exception("%s happened during test on Tempesta" % err)
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+        del self.oops
         self.__stop_tcpdump()
 
-    def wait_while_busy(self, *items):
+    def wait_while_busy(self, *items, timeout=20):
         if items is None:
             return
 
+        success = True
         for item in items:
             if item.is_running():
                 tf_cfg.dbg(4, f'\tClient "{item}" wait for finish ')
-                item.wait_for_finish()
+                success = success and item.wait_for_finish(timeout)
                 tf_cfg.dbg(4, f'\tWaiting for client "{item}" is completed')
+
+        self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=1):
@@ -411,7 +420,7 @@ class TempestaTest(unittest.TestCase):
                     "-U",
                     "-i",
                     "any",
-                    f"ip src {tempesta_ip} and ip dst {tempesta_ip}",
+                    f"ip src {tempesta_ip} or ip dst {tempesta_ip}",
                     "-w",
                     f"{build_path}/{test_name}.pcap",
                 ],

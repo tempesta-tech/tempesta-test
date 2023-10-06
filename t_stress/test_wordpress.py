@@ -7,7 +7,6 @@ from pathlib import Path
 
 from framework import tester
 from helpers import remote, sysnet, tf_cfg
-
 from t_stress.test_stress import CustomMtuMixin
 
 __author__ = "Tempesta Technologies, Inc."
@@ -22,7 +21,6 @@ REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 
 
 class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
-
     tempesta_tmpl = """
         listen 443 proto=%s;
         server ${server_ip}:8000;

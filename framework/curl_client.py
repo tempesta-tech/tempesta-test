@@ -95,11 +95,12 @@ class CurlArguments:
     load_cookies: bool = False
     ssl: bool = False
     http2: bool = False
+    curl_iface: str = None
     insecure: bool = True
     parallel: int = None
 
     @classmethod
-    def get_kwargs(cls) -> List[str]:
+    def get_arg_names(cls) -> List[str]:
         """Returns list of `CurlClient` supported argument names."""
         return list(cls.__dataclass_fields__.keys())
 
@@ -115,15 +116,21 @@ class CurlClient(CurlArguments, client.Client):
       cmd_args (str): additional curl options
       data (str): data to POST
       headers (dict[str, str]): headers to include in the request
-      dump_headers (bool): dump headers to the workdir, and enable response parsing.
-                           Enabled by default.
+      dump_headers (bool): dump headers to the workdir, and enable response parsing
+                           Enabled by default. In combination with parallel
+                           can provide inaccurate results #488.
       disable_output (bool): do not output results but only errors
-      save_cookies (bool): save cookies to the workdir
+      save_cookies (bool): Save cookies to the workdir.
+                           Be aware: cookies are shared among all clients.
       load_cookies (bool): load and send cookies from the workdir
       ssl (bool): use SSL/TLS for the connection
       http2 (bool): use HTTP version 2
+      curl_iface (str): Interface name, IP address or host name using for performing request.
+                        Don't mess with "interface" argument, used by framework
+                        for creating alias interfaces.
       insecure (bool): Ignore SSL certificate errors. Enabled by default.
-      parallel (int): Enable parallel mode, with maximum <int> simultaneous transfers
+      parallel (int): Enable parallel mode, with maximum <int> simultaneous transfers.
+                      In combination with dump_headers can provide inaccurate results #488.
     """
 
     def __init__(self, **kwargs):
@@ -152,18 +159,26 @@ class CurlClient(CurlArguments, client.Client):
 
     @property
     def responses(self) -> List[CurlResponse]:
-        """List of all received responses."""
+        """List of all received responses.
+        Can provide inaccurate results in some cases, (see dump_headers comment).
+        If dump_headers disabled, will be empty.
+        """
         return list(self._responses)
 
     @property
     def last_response(self) -> Optional[CurlResponse]:
-        """Last parsed response if any."""
+        """Last parsed response if any.
+        Can provide inaccurate results in some cases, (see dump_headers comment).
+        If dump_headers disabled, will be empty.
+        """
         return (self.responses or [None])[-1]
 
     @property
     def statuses(self) -> Dict[int, int]:
-        """Received statuses counters, like:
+        """Received statuses counters from headers, like:
         {200: 1, 400: 2}
+        Can provide inaccurate results in some cases, (see dump_headers comment).
+        If dump_headers disabled, will be empty.
         """
         return dict(self._statuses)
 
@@ -171,18 +186,44 @@ class CurlClient(CurlArguments, client.Client):
     def statuses(self, value):
         self._statuses = defaultdict(lambda: 0, value)
 
+    def statuses_from_stats(self) -> Dict[int, int]:
+        """Received statuses counters from curl output, like:
+        {200: 1, 400: 2}
+        statuses property can provide inaccurate results in some cases,
+        (see dump_headers comment) - the function will be useful so.
+        """
+        r = defaultdict(lambda: 0)
+        for s in self.stats:
+            r[int(s["response_code"])] += 1
+        return dict(r)
+
     @property
     def last_stats(self) -> Dict[str, Any]:
         """Information about last completed transfer.
         See https://curl.se/docs/manpage.html#-w
         for the list of available variables.
+        If disable_output enabled, will be empty.
         """
         return (self._stats or [None])[-1]
 
     @property
-    def stats(self) -> List[Dict[int, int]]:
-        """List of stats of all transfers"""
+    def stats(self) -> List[Dict[str, Any]]:
+        """List of stats of all transfers.
+        See https://curl.se/docs/manpage.html#-w
+        for the list of available variables.
+        If disable_output enabled, will be empty.
+        """
         return list(self._stats)
+
+    @property
+    def reset_conn_n(self) -> int:
+        """
+        Amount of connections reseted by server (by RST).
+        """
+        return sum(
+            "Connection reset by peer" in (s["errormsg"] or "") and s["response_code"] == 0
+            for s in self.stats
+        )
 
     @property
     def binary_version(self) -> Optional[str]:
@@ -198,12 +239,14 @@ class CurlClient(CurlArguments, client.Client):
     @property
     def output_path(self):
         """Path to write stdout (response)."""
-        return Path(self.workdir) / "curl-output"
+        # id(self) for the case of several client instances
+        return Path(self.workdir) / f"curl-output-{id(self)}"
 
     @property
     def headers_dump_path(self):
         """Path do dump received headers."""
-        return Path(self.workdir) / "curl-default.hdr"
+        # id(self) for the case of several client instances
+        return Path(self.workdir) / f"curl-{id(self)}.hdr"
 
     @property
     def cookie_string(self) -> str:
@@ -249,6 +292,9 @@ class CurlClient(CurlArguments, client.Client):
         else:
             options.append("--http1.1")
 
+        if self.curl_iface:
+            options.append(f"--interface {self.curl_iface}")
+
         if self.ssl and self.insecure:
             options.append("--insecure")
 
@@ -258,13 +304,12 @@ class CurlClient(CurlArguments, client.Client):
             options.append(f"--parallel-max {self.parallel}")
 
         cmd = " ".join([self.bin] + options + self.options + [f"'{self.uri}'"])
-        tf_cfg.dbg(3, f"Curl command formatted: {cmd}")
+        tf_cfg.dbg(2, f"Curl command formatted: {cmd}")
         return cmd
 
     def parse_out(self, stdout, stderr):
         if self.dump_headers:
             for dump in filter(None, self._read_headers_dump().split(b"\r\n\r\n")):
-
                 response = CurlResponse(
                     headers_dump=dump,
                     stdout_raw=self._read_output() if not self.disable_output else b"",

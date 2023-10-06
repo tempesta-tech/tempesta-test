@@ -38,7 +38,7 @@ class DockerServerArguments:
     cmd_args: str = ""
 
     @classmethod
-    def get_kwargs(cls) -> List[str]:
+    def get_arg_names(cls) -> List[str]:
         """Returns list of `DockerServer` supported argument names."""
         return list(cls.__dataclass_fields__.keys())
 
@@ -69,7 +69,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
     def __init__(self, **kwargs):
         # Initialize using the `DockerServerArguments` interface,
         # with only supported arguments
-        super().__init__(**{k: kwargs[k] for k in self.get_kwargs() if k in kwargs})
+        super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
         self.node = remote.server
         self.container_id = None
         self.stop_procedures = [self.stop_server, self.cleanup]

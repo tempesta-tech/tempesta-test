@@ -2,7 +2,7 @@ import abc
 import multiprocessing
 import os
 
-from helpers import remote, stateful, tf_cfg
+from helpers import remote, stateful, tf_cfg, util
 
 
 def _run_client(client, resq: multiprocessing.Queue):
@@ -83,7 +83,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             self.node.remove_file(f)
 
     def copy_files(self):
-        for (name, content) in self.files:
+        for name, content in self.files:
             self.node.copy_file(name, content)
 
     def is_busy(self, verbose=True):
@@ -163,6 +163,5 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     def set_user_agent(self, ua):
         self.options.append("-H 'User-Agent: %s'" % ua)
 
-    def wait_for_finish(self):
-        while self.is_busy(verbose=False):
-            pass
+    def wait_for_finish(self, timeout=5):
+        return util.wait_until(lambda: self.is_busy(verbose=False), timeout)

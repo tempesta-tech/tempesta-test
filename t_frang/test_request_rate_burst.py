@@ -1,6 +1,7 @@
 """Tests for Frang directive `request_rate` and 'request_burst'."""
 import time
 
+from helpers import analyzer, asserts, remote
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -11,31 +12,24 @@ ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
 ERROR_MSG_BURST = "Warning: frang: requests burst exceeded"
 
 
-class FrangRequestRateTestCase(FrangTestCase):
+class FrangRequestRateTestCase(FrangTestCase, asserts.Sniffer):
     """Tests for 'request_rate' directive."""
 
     clients = [
         {
-            "id": "deproxy-1",
+            "id": "same-ip1",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
         },
         {
-            "id": "deproxy-2",
+            "id": "same-ip2",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
         },
         {
-            "id": "deproxy-interface-1",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
-        },
-        {
-            "id": "deproxy-interface-2",
+            "id": "another-ip",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
@@ -51,29 +45,32 @@ frang_limits {
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
     }
+
+    def setUp(self):
+        super().setUp()
+        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5)
 
     request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
 
     error_msg = ERROR_MSG_RATE
 
-    def get_responses(self, client_1, client_2, rps_1: int, rps_2: int, request_cnt: int):
+    def arrange(self, c1, c2, rps_1: int, rps_2: int):
+        self.sniffer.start()
         self.start_all_services(client=False)
+        c1.set_rps(rps_1)
+        c2.set_rps(rps_2)
 
-        client_1.set_rps(rps_1)
-        client_2.set_rps(rps_2)
-
-        client_1.start()
-        client_2.start()
-
+    def do_requests(self, c1, c2, request_cnt: int):
+        c1.start()
+        c2.start()
         for _ in range(request_cnt):
-            client_1.make_request(self.request)
-            client_2.make_request(self.request)
-
-        client_1.wait_for_response(3)
-        client_2.wait_for_response(3)
+            c1.make_request(self.request)
+            c2.make_request(self.request)
+        c1.wait_for_response(10, strict=True)
+        c2.wait_for_response(10, strict=True)
 
     def test_two_clients_two_ip(self):
         """
@@ -81,19 +78,23 @@ block_action attack reply;
             - 6 requests for client with 4 rps and receive 6 responses with 200 status;
             - 6 requests for client with rps greater than 4 and get ip block;
         """
-        client_1 = self.get_client("deproxy-interface-1")
-        client_2 = self.get_client("deproxy-interface-2")
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("another-ip")
 
-        self.get_responses(client_1, client_2, rps_1=4, rps_2=0, request_cnt=6)
+        self.arrange(c1, c2, rps_1=4, rps_2=0)
+        self.save_must_reset_socks(c2)
+        self.save_must_not_reset_socks(c1)
 
-        self.assertFalse(client_1.connection_is_closed())
-        self.assertTrue(client_2.connection_is_closed())
+        self.do_requests(c1, c2, request_cnt=6)
 
-        for response in client_1.responses:
-            self.assertEqual(response.status, "200")
+        self.assertEqual(c1.statuses, {200: 6})
+        self.assertTrue(c1.conn_is_active)
+        # For c2: we can't say number of received responses when ip is blocked.
+        # See the comment in DeproxyClient.statuses for details.
 
-        self.assertEqual(4, len(client_2.responses))
-
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets)
+        self.assert_unreset_socks(self.sniffer.packets)
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning=self.error_msg, expected=1)
 
@@ -102,18 +103,19 @@ block_action attack reply;
         Set `request_rate 4;` and make requests concurrently for two clients with same ip.
         Clients will be blocked on 5th request.
         """
-        client_1 = self.get_client("deproxy-1")
-        client_2 = self.get_client("deproxy-2")
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("same-ip2")
 
-        self.get_responses(client_1, client_2, rps_1=0, rps_2=0, request_cnt=4)
+        self.arrange(c1, c2, rps_1=0, rps_2=0)
+        self.save_must_reset_socks(c1, c2)
 
-        self.assertGreater(5, len(client_2.responses) + len(client_1.responses))
-        self.assertGreater(len(client_1.responses), 0)
-        self.assertGreater(len(client_2.responses), 0)
+        self.do_requests(c1, c2, request_cnt=4)
 
-        self.assertTrue(client_1.connection_is_closed())
-        self.assertTrue(client_2.connection_is_closed())
+        # We can't say number of received responses when ip is blocked.
+        # See the comment in DeproxyClient.statuses for details.
 
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets)
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning=self.error_msg, expected=1)
 
@@ -129,7 +131,7 @@ frang_limits {
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
     }
 
@@ -207,7 +209,7 @@ block_action attack reply;
             self.check_response(client, warning_msg=self.rate_warning, status_code="200")
         else:
             # rate limit is reached
-            self.assertTrue(client.wait_for_connection_close(self.timeout))
+            self.assertTrue(client.wait_for_connection_close())
             self.assertFrangWarning(warning=self.rate_warning, expected=1)
             self.assertEqual(client.last_response.status, "403")
 

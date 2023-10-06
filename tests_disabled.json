@@ -174,68 +174,20 @@
             "reason" : "Disabled by issue #399"
         },
         {
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
+            "reason": "Disable by issue #1692"
+        },
+        {
             "name" : "t_stress.test_wordpress.H2WordpressStress",
             "reason": "Disable by issue #1703 - can cause kernel panic"
         },
         {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_burst",
-            "reason": "Disabled by issue #1751"
+            "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
+            "reason": "Disabled by issue #480"
         },
         {
-            "name": "t_frang.test_ip_block.FrangIpBlockMessageLimits.test_two_clients_two_ip_with_ip_block_on",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_ip_block.FrangIpBlockMessageLimits.test_two_clients_one_ip_with_ip_block_on",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_ip_block.FrangIpBlockConnectionLimits.test_two_clients_one_ip_with_ip_block_on",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_ip_block.FrangIpBlockConnectionLimits.test_two_clients_one_ip_with_ip_block_off",
-            "reason": "Disabled by issue #1751 and #1749"
-        },
-        {
-            "name": "t_frang.test_request_rate_burst.FrangRequestRateTestCase",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_request_rate_burst.FrangRequestBurstTestCase",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionRateDifferentIp",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionBurstDifferentIp",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTlsRateDifferentIp",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTlsBurstDifferentIp",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionRateBurstTestCase.test_connection_rate",
-            "reason": "Disabled by issue #1749"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTlsRateBurstTestCase.test_connection_rate_on_the_limit",
-            "reason": "Disabled by issue #1716"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTlsRateBurstTestCase.test_connection_rate",
-            "reason": "Disabled by issue #1716"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangConnectionTlsAndNonTlsRateBurst",
-            "reason": "Disabled by issue #1716"
+            "name": "t_frang.test_connection_rate_burst.FrangTls.test_connection_rate",
+            "reason": "Disabled by issue #480"
         },
         {
             "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
@@ -248,22 +200,6 @@
         {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
             "reason": "Disabled by issue #1740"
-        },
-        {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip",
-            "reason": "Disabled by issue #1749 and #1751"
-        },
-        {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip_with_block_ip",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_one_ip",
-            "reason": "Disabled by issue #1751"
-        },
-        {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_one_ip",
-            "reason": "Disabled by issue #1751"
         },
         {
             "name": "t_frang.test_client_body_and_header_timeout",

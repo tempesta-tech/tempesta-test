@@ -570,8 +570,6 @@ class TestPurgeGet(TempestaTest):
         response = client.last_response
 
         self.assertEqual(response.status, 200, response)
-        self.assertEqual(
-            self.oops.warn_count(dmesg.WARN_GENERIC),
-            0,
-            f"Warnings: {self.oops.warn_match('Warning: .*')}",
+        self.assertTrue(
+            self.oops.find(dmesg.WARN_GENERIC, cond=dmesg.amount_zero), f"Some warnings were found"
         )

@@ -33,10 +33,10 @@ Content-Length: 395\r
 
 
 class TestCurlArguments(unittest.TestCase):
-    def test_kwargs_returned(self):
-        kwargs = CurlArguments.get_kwargs()
-        self.assertIn("addr", kwargs)
-        self.assertFalse([arg for arg in kwargs if arg.startswith("_")])
+    def test_arg_names_returned(self):
+        arg_names = CurlArguments.get_arg_names()
+        self.assertIn("addr", arg_names)
+        self.assertFalse([arg for arg in arg_names if arg.startswith("_")])
 
 
 class TestCurlClientParsing(unittest.TestCase):
@@ -53,6 +53,7 @@ class TestCurlClientParsing(unittest.TestCase):
             return_value=MULTIPLE_RESPONSES,
         ):
             client.dump_headers = True
+            client.disable_output = True
             client.parse_out(b"", b"")
             self.assertEqual(len(client.responses), 2)
             self.assertEqual(client.responses[0].headers["content-length"], "1")
@@ -65,6 +66,7 @@ class TestCurlClientParsing(unittest.TestCase):
             return_value=HTTP_1_0_RESPONSE,
         ):
             client.dump_headers = True
+            client.disable_output = True
             client.parse_out(b"", b"")
             self.assertEqual(len(client.responses), 1)
             self.assertEqual(client.responses[0].proto, "1.0")

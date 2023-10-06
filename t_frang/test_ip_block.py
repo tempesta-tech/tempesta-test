@@ -1,6 +1,7 @@
 """Tests for Frang directive `ip_block`."""
 import time
 
+from helpers import analyzer, asserts, remote, util
 from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -8,31 +9,36 @@ __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class FrangIpBlockBase(FrangTestCase, base=True):
+class FrangIpBlockBase(FrangTestCase, asserts.Sniffer, base=True):
     """Base class for tests with 'ip_block' directive."""
 
     clients = [
         {
-            "id": "deproxy-1",
+            "id": "same-ip1",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
         },
         {
-            "id": "deproxy-2",
+            "id": "same-ip2",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
         },
         {
-            "id": "deproxy-interface-1",
+            "id": "same-ip3",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
-            "interface": True,
         },
         {
-            "id": "deproxy-interface-2",
+            "id": "same-ip4",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "another-ip",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
@@ -40,26 +46,14 @@ class FrangIpBlockBase(FrangTestCase, base=True):
         },
     ]
 
-    def get_responses(self, client_1, client_2):
-        self.start_all_services(client=False)
-
-        client_1.start()
-        client_2.start()
-
-        client_1.make_request("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
-        client_1.wait_for_response(1)
-
-        client_2.make_request("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-        client_2.wait_for_response(1)
+    def setUp(self):
+        super().setUp()
+        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5)
 
 
-class FrangIpBlockMessageLimits(FrangIpBlockBase):
+class FrangIpBlockMsg(FrangIpBlockBase):
     """
-    For `http_strict_host_checking true` and `block_action attack reply`:
-    Create two client connections, then send invalid and valid requests and receive:
-        - for different ip and ip_block on - RST and 200 response;
-        - for single ip and ip_block on - RST and RST;
-        - for single or different ip and ip_block off - 403 and 200 responses;
+    Test ip_block with message level of Frang.
     """
 
     tempesta = {
@@ -70,160 +64,172 @@ frang_limits {
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
     }
 
-    def test_two_clients_two_ip_with_ip_block_on(self):
-        client_1 = self.get_client("deproxy-interface-1")
-        client_2 = self.get_client("deproxy-interface-2")
+    GOOD_REQ = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+    BAD_REQ = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
 
-        self.get_responses(client_1, client_2)
+    def test_on(self):
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("same-ip2")
+        c3 = self.get_client("same-ip3")
+        c4 = self.get_client("another-ip")
+        c5 = self.get_client("same-ip4")
+        four = util.ForEach(c1, c2, c3, c4)
 
-        self.assertIsNone(client_1.last_response)
-        self.assertIsNotNone(client_2.last_response)
-        self.assertEqual(client_2.last_response.status, "200")
+        self.sniffer.start()
+        self.start_all_services(client=False)
+        four.start()
+        self.save_must_reset_socks(c1, c2, c3)
+        self.save_must_not_reset_socks(c4)
 
-        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
-        self.assertFalse(client_2.connection_is_closed())
+        # Good request: all is good
+        four.send_request(self.GOOD_REQ, "200")
+        self.assertEqual(set(four.conn_is_active), {True})
 
+        # Bad request:
+        # reset all current clients with the same IPs
+        c2.send_request(self.BAD_REQ)
+        # Last client wasn't blocked due to different IP
+        self.assertTrue(c4.conn_is_active)
+        c4.send_request(self.GOOD_REQ, "200")
+        # New clients with blocked IP won't be accepted
+        c5.start()
+        c5.send_request(self.GOOD_REQ, timeout=1)
+        self.assertFalse(c5.conn_is_active)
+
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets)
+        self.assert_unreset_socks(self.sniffer.packets)
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
 
-    def test_two_clients_one_ip_with_ip_block_on(self):
-        client_1 = self.get_client("deproxy-1")
-        client_2 = self.get_client("deproxy-2")
-
-        self.get_responses(client_1, client_2)
-
-        self.assertIsNone(client_1.last_response)
-        self.assertIsNone(client_2.last_response)
-
-        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
-        self.assertTrue(client_2.wait_for_connection_close(self.timeout))
-
-        self.assertFrangWarning(warning="Warning: block client:", expected=1)
-        self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
-
-    def test_two_client_one_ip_with_ip_block_off(self):
+    def test_off(self):
         self.tempesta = {
             "config": """
 frang_limits {
     http_strict_host_checking true;
     ip_block off;
 }
-
 listen 80;
-
 server ${server_ip}:8000;
-
-block_action attack reply;
+block_action attack drop;
 """,
         }
         self.setUp()
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("same-ip2")
 
-        client_1 = self.get_client("deproxy-1")
-        client_2 = self.get_client("deproxy-2")
+        self.sniffer.start()
+        self.start_all_services(client=False)
+        c1.start()
+        c2.start()
+        self.save_must_reset_socks(c1)
+        self.save_must_not_reset_socks(c2)
 
-        self.get_responses(client_1, client_2)
+        # Blocking is off: clients with the same IPs
+        # handled separately
+        c1.send_request(self.BAD_REQ)
+        c2.send_request(self.GOOD_REQ, "200")
+        self.assertTrue(c2.conn_is_active)
 
-        self.assertIsNotNone(client_1.last_response)
-        self.assertIsNotNone(client_2.last_response)
-
-        self.assertEqual(client_1.last_response.status, "403")
-        self.assertEqual(client_2.last_response.status, "200")
-
-        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
-        self.assertFalse(client_2.connection_is_closed())
-
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets)
+        self.assert_unreset_socks(self.sniffer.packets)
         self.assertFrangWarning(warning="Warning: block client:", expected=0)
         self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
 
 
-class FrangIpBlockConnectionLimits(FrangIpBlockBase):
+class FrangIpBlockConn(FrangIpBlockBase):
     """
-    For `connection_rate 1` and `block_action attack reply`.
-    Create two client connections, send valid requests and receive:
-        - for different ip and ip_block on or off - 200 and 200 response;
-        - for single ip and ip_block on - RST and RST;
-        - for single ip and ip_block off - 200 response and RST;
+    Test ip_block with connection level of Frang.
     """
 
     tempesta = {
         "config": """
 frang_limits {
-    http_strict_host_checking false;
-    connection_rate 1;
+    tcp_connection_rate 2;
     ip_block on;
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
     }
 
-    def test_two_clients_two_ip_with_ip_block_on(self):
-        client_1 = self.get_client("deproxy-interface-1")
-        client_2 = self.get_client("deproxy-interface-2")
+    REQ = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
 
-        self.get_responses(client_1, client_2)
+    def test_on(self):
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("same-ip2")
+        c3 = self.get_client("another-ip")
+        c4 = self.get_client("same-ip3")
+        c5 = self.get_client("same-ip4")
+        four = util.ForEach(c1, c2, c3, c4)
 
-        self.assertIsNotNone(client_1.last_response)
-        self.assertIsNotNone(client_2.last_response)
+        self.sniffer.start()
+        self.start_all_services(client=False)
+        four.start()
+        self.save_must_reset_socks(c1, c2, c4)
+        self.save_must_not_reset_socks(c3)
 
-        self.assertEqual(client_2.last_response.status, "200")
-        self.assertEqual(client_2.last_response.status, "200")
+        # Last request triggers rate limit (3 same IPs > 2)
+        four.send_request(self.REQ)
 
-        time.sleep(self.timeout)
+        # Reset all current clients with the same IPs
+        # Client with different IP wasn't blocked
+        self.assertEqual(c3.last_response.status, "200")
+        self.assertTrue(c3.conn_is_active)
+        # New clients with blocked IP won't be accepted
+        c5.start()
+        c5.send_request(self.REQ, timeout=1)
+        self.assertFalse(c5.conn_is_active)
 
-        self.assertFalse(client_1.connection_is_closed())
-        self.assertFalse(client_2.connection_is_closed())
-
-        self.assertFrangWarning(warning="Warning: block client:", expected=0)
-        self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=0)
-
-    def test_two_clients_one_ip_with_ip_block_on(self):
-        client_1 = self.get_client("deproxy-1")
-        client_2 = self.get_client("deproxy-2")
-
-        self.get_responses(client_1, client_2)
-
-        self.assertIsNone(client_1.last_response)
-        self.assertIsNone(client_2.last_response)
-
-        self.assertTrue(client_1.wait_for_connection_close(self.timeout))
-        self.assertTrue(client_2.wait_for_connection_close(self.timeout))
-
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets)
+        self.assert_unreset_socks(self.sniffer.packets)
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)
 
-    def test_two_clients_one_ip_with_ip_block_off(self):
+    def test_off(self):
         self.tempesta = {
             "config": """
 frang_limits {
-    http_strict_host_checking false;
-    connection_rate 1;
+    tcp_connection_rate 1;
     ip_block off;
 }
 listen 80;
 server ${server_ip}:8000;
-block_action attack reply;
+block_action attack drop;
 """,
         }
         self.setUp()
 
-        client_1 = self.get_client("deproxy-1")
-        client_2 = self.get_client("deproxy-2")
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("another-ip")
+        c3 = self.get_client("same-ip2")
+        clients = util.ForEach(c1, c2, c3)
 
-        self.get_responses(client_1, client_2)
+        self.sniffer.start()
+        time.sleep(self.timeout)
+        self.start_all_services(client=False)
+        clients.start()
+        self.save_must_reset_socks(c3)
+        self.save_must_not_reset_socks(c1, c2)
 
-        self.assertIsNotNone(client_1.last_response)
-        self.assertIsNone(client_2.last_response)
+        # Blocking is off: clients with the same IPs
+        # handled separately
+        c1.send_request(self.REQ, "200")
+        # Client with different IP isn't accounted
+        c2.send_request(self.REQ, "200")
+        c3.send_request(self.REQ)
+        self.assertTrue(c1.conn_is_active)
+        self.assertTrue(c2.conn_is_active)
 
-        self.assertEqual(client_1.last_response.status, "200")
-
-        self.assertTrue(client_2.wait_for_connection_close(self.timeout))
-        self.assertFalse(client_1.connection_is_closed())
-
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets)
+        self.assert_unreset_socks(self.sniffer.packets)
         self.assertFrangWarning(warning="Warning: block client:", expected=0)
         self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)
