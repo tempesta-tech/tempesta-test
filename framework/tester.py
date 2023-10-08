@@ -272,8 +272,6 @@ class TempestaTest(unittest.TestCase):
         config = ""
         if "config" in desc:
             config = desc["config"]
-        else:
-            raise AttributeError("Tempesta config is empty.")
         if "type" in desc:
             factory = tempesta_defs[desc["type"]]
             self.__tempesta = factory(desc)
