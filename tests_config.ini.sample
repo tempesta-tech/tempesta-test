@@ -164,18 +164,34 @@ tls-perf = tls-perf
 ip = 127.0.0.1
 ipv6 = ::1
 
-# Target host description. These values will be used to SSH into the remote host.
+# Target host description (can be IP address). These values will be used to SSH into the remote host.
 # If hostname is 'localhost', TempestaFW will be ran locally.
 #
 # ex.: Use a remote host to run TempestaFW:
 #       hostname = tempesta.test  (default localhost)
 #       user = rtest              (default root)
 #       port = 22022              (default 22)
+#       password = 12345          (if not passed, host keys are used)
 #
 # ex.: Use the local host to run TempestaFW (default):
 #       hostname = localhost
 #
 hostname = localhost
+
+# Public host description (can be IP address). Optional. If passed, enables SSH Jump functionality, 
+# in this case hostname is considered as private host.
+#
+# ex.: Use a SSH Jump to remote host to run TempestaFW:
+#       hostname = 192.168.5.56
+#       user = root
+#       port = 22022
+#       password = 12345
+#       jump_hostname = 5.190.150.24
+#       jump_user = user1
+#       jump_port = 21022
+#       jump_password = 54321      (if not passed, host keys from public host are used)
+#
+jump_hostname = 192.168.5.56
 
 # Absolute path to the TempestaFW source tree.
 #

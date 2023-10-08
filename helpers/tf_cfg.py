@@ -112,8 +112,15 @@ class TestFrameworkCfg(object):
         self.config["General"]["Duration"] = val
         return True
 
-    def get(self, section, opt) -> str:
-        return self.config[section][opt]
+    def get(self, section, opt, type=str):
+        val = self.config[section][opt]
+        return type(val)
+
+    def maybe_get(self, section, opt, type=str, default_val=None):
+        val = self.config[section].get(opt, default_val)
+        if val is None:
+            return None
+        return type(val)
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value

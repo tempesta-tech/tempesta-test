@@ -121,12 +121,7 @@ There is 4 sections in configuration: `General`, `Client`, `Tempesta`, `Server`.
 `ip` — IPv4/IPv6 address of the host running the testing framework, as reachable
 from the host running TempestaFW.
 
-`verbose`: verbose level of output:
-- `0` — quiet mode, result of each test is shown by symbols. `.` — passed, `F` -
-failed, `u` — unexpected success, `x` — expected failure. `s` — skipped;
-- `1` — Show test names and doc strings;
-- `2` — Show tests names and performance counters;
-- `3` — Full debug output.
+`verbose`: debug level verbosity (from 1 to 6).
 
 The current state: be sure that verbose is set at least to 2 level, otherwise
 you may find it difficult to detect errors, because some of exceptions are silently suppressed.

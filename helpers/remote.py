@@ -15,6 +15,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from typing import Union  # TODO: use | instead when we move to python3.10
+from typing import Optional
 
 import paramiko
 
@@ -156,30 +157,74 @@ class LocalNode(Node):
         return True
 
 
+@dataclass
+class SSHCreds:
+    host: str
+    user: str
+    pwd: Optional[str] = None  # If None host keys are used as auth method
+    port: int = 22
+
+    @staticmethod
+    def from_cfg(cfg, section, prefix=""):
+        host = cfg.maybe_get(section, f"{prefix}hostname")
+
+        if not host:
+            return None
+        return SSHCreds(
+            host=host,
+            user=cfg.get(section, f"{prefix}user"),
+            pwd=cfg.maybe_get(section, f"{prefix}password"),
+            port=cfg.maybe_get(section, f"{prefix}port", int, default_val=22),
+        )
+
+
 class RemoteNode(Node):
-    def __init__(self, type, hostname, workdir, user, port=22):
-        Node.__init__(self, type, hostname, workdir)
-        self.user = user
-        self.port = port
+    def __init__(
+        self, type: str, workdir: str, creds: SSHCreds, jump_creds: Optional[SSHCreds] = None
+    ):
+        Node.__init__(self, type, creds.host, workdir)
+
+        self.creds = creds
+        self.jump_creds = jump_creds
+
+        self.ssh = None
+        self.jump_ssh = None
         self.connect()
 
     def connect(self):
         """Open SSH connection to node if remote. Returns False on SSH errors."""
-        try:
-            self.ssh = paramiko.SSHClient()
-            self.ssh.load_system_host_keys()
-            # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
-            # key to known_hosts.
-            self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.ssh.connect(
-                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT
+
+        def do_connect(creds, sock=None):
+            c = paramiko.SSHClient()
+            if not creds.pwd:
+                c.load_system_host_keys()
+            c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            c.connect(
+                creds.host, creds.port, creds.user, creds.pwd, sock=sock, timeout=DEFAULT_TIMEOUT
             )
+            return c
+
+        try:
+            if self.jump_creds:
+                self.jump_ssh = do_connect(self.jump_creds)
+                sock = self.jump_ssh.get_transport().open_channel(
+                    "direct-tcpip",
+                    (self.creds.host, self.creds.port),
+                    (self.jump_creds.host, self.jump_creds.port),
+                )
+            else:
+                sock = None
+
+            self.ssh = do_connect(self.creds, sock)
         except Exception as e:
             error.bug("Error connecting %s" % self.host)
 
     def close(self):
-        """Release SSH connection without waiting for GC."""
-        self.ssh.close()
+        """Release SSH connections without waiting for GC."""
+        if self.ssh:
+            self.ssh.close()
+        if self.jump_ssh:
+            self.jump_ssh.close()
 
     def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False, err_msg="", env={}):
         tf_cfg.dbg(4, "\tRun command '%s' on host %s with environment %s" % (cmd, self.host, env))
@@ -283,11 +328,12 @@ def create_node(host):
     hostname = tf_cfg.cfg.get(host, "hostname")
     workdir = tf_cfg.cfg.get(host, "workdir")
 
-    if hostname != "localhost":
-        port = int(tf_cfg.cfg.get(host, "port"))
-        username = tf_cfg.cfg.get(host, "user")
-        return RemoteNode(host, hostname, workdir, username, port)
-    return LocalNode(host, hostname, workdir)
+    if hostname == "localhost":
+        return LocalNode(host, hostname, workdir)
+
+    creds = SSHCreds.from_cfg(tf_cfg.cfg, host)
+    jump_creds = SSHCreds.from_cfg(tf_cfg.cfg, host, prefix="jump_")
+    return RemoteNode(host, workdir, creds, jump_creds)
 
 
 # -------------------------------------------------------------------------------
@@ -334,11 +380,7 @@ def wait_available():
     global client
     global server
     global tempesta
-
-    for node in [client, server, tempesta]:
-        if not node.wait_available():
-            return False
-    return True
+    return all(node.wait_available() for node in [client, server, tempesta])
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
