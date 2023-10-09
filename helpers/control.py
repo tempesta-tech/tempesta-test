@@ -336,14 +336,10 @@ class Tempesta(stateful.Stateful):
     def _do_run(self, cmd):
         cfg_content = self.config.get_config()
 
-        if cfg_content:
-            tf_cfg.dbg(4, f"\tTempesta config content:\n{cfg_content}")
-        else:
-            tf_cfg.dbg(
-                1,
-                "\tTempesta config is empty. Maybe it's ok, but usually that means "
-                "you missed out 'tempesta' attribute in the testcase.",
-            )
+        tf_cfg.dbg(4, f"\tTempesta config content:\n{cfg_content}")
+
+        if not cfg_content:
+            raise AttributeError("Tempesta config is empty.")
 
         self.node.copy_file(self.config_name, cfg_content)
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
