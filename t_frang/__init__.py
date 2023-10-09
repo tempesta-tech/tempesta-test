@@ -9,7 +9,7 @@ __all__ = [
     "test_tls_incomplete",
     "test_http_method_override_allowed",
     "test_client_body_and_header_timeout",
-    # "test_whitelist_mark",
+    "test_whitelist_mark",
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
