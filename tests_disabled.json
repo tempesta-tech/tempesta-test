@@ -159,7 +159,7 @@
         },
         {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
-            "reason": "Disable by issue #1703"
+            "reason": "Disable by issue #525"
         },
         {
             "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
@@ -179,7 +179,7 @@
         },
         {
             "name" : "t_stress.test_wordpress.H2WordpressStress",
-            "reason": "Disable by issue #1703 - can cause kernel panic"
+            "reason": "Disable by issue #1982 - can cause kernel panic"
         },
         {
             "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
