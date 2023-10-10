@@ -326,14 +326,23 @@ class Tempesta(stateful.Stateful):
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
         self.stats.clear()
-        self.node.copy_file(self.config_name, self.config.get_config())
-        cmd = "%s/scripts/tempesta.sh --start" % self.srcdir
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
+
+    def reload(self):
+        """Live reconfiguration"""
+        tf_cfg.dbg(3, "\tReconfiguring TempestaFW on %s" % self.host)
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload")
+
+    def _do_run(self, cmd):
+        cfg_content = self.config.get_config()
+
+        tf_cfg.dbg(4, f"\tTempesta config content:\n{cfg_content}")
+
+        if not cfg_content:
+            raise AttributeError("Tempesta config is empty.")
+
+        self.node.copy_file(self.config_name, cfg_content)
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
-
-        if tf_cfg.v_level() >= 5:
-            out, _ = remote.tempesta.run_cmd(f"cat {self.config_name}")
-            tf_cfg.dbg(5, f"\tTempesta config contents:\n{out.decode('utf-8')}")
-
         self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "start"))
 
     def stop_tempesta(self):
@@ -344,14 +353,6 @@ class Tempesta(stateful.Stateful):
     def remove_config(self):
         self.node.remove_file(self.config_name)
         self.node.remove_file(self.tmp_config_name)
-
-    def reload(self):
-        """Live reconfiguration"""
-        tf_cfg.dbg(3, "\tReconfiguring TempestaFW on %s" % self.host)
-        self.node.copy_file(self.config_name, self.config.get_config())
-        cmd = "%s/scripts/tempesta.sh --reload" % self.srcdir
-        env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
-        self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "reload"))
 
     def get_stats(self):
         cmd = "cat /proc/tempesta/perfstat"

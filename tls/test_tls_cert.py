@@ -855,12 +855,10 @@ http {
         for step in range(n):
             if step % 2 == 1:
                 self.set_first_config()
+                self.get_tempesta().reload()
             else:
                 self.set_second_config()
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
+                self.get_tempesta().reload()
 
     def test_wrk(self):
         generate_certificate(
@@ -869,8 +867,8 @@ http {
         generate_certificate(
             cert_name="private", cn="private", san=["example.com", "private.example.com"]
         )
-        self.start_all()
         self.set_first_config()
+        self.start_all_services(client=False)
         wrk = self.get_client("wrk")
         wrk.duration = 10
         wrk.start()
@@ -915,7 +913,6 @@ http {
             custom_cert=True,
         )
         self.get_tempesta().config = config
-        self.get_tempesta().reload()
 
     def set_second_config(self):
         config = tempesta.Config()
@@ -950,7 +947,6 @@ http {
             custom_cert=True,
         )
         self.get_tempesta().config = config
-        self.get_tempesta().reload()
 
 
 class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
