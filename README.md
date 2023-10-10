@@ -128,6 +128,9 @@ failed, `u` — unexpected success, `x` — expected failure. `s` — skipped;
 - `2` — Show tests names and performance counters;
 - `3` — Full debug output.
 
+The current state: be sure that verbose is set at least to 2 level, otherwise
+you may find it difficult to detect errors, because some of exceptions are silently suppressed.
+
 `duration` option controls duration in seconds of each workload test. Use small
 values to obtain results quickly add large for more heavy stress tests. Default
 is `10` seconds.

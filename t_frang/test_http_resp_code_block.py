@@ -80,8 +80,7 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
     warning = "frang: http_resp_code_block limit exceeded for"
 
     def set_frang_config_no_shc(self, frang_config: str):
-        self.set_frang_config(frang_config
-                              + "\nhttp_strict_host_checking false;")
+        self.set_frang_config(frang_config + "\nhttp_strict_host_checking false;")
 
     def test_not_reaching_the_limit(self):
         client = self.get_client("deproxy-1")
@@ -113,7 +112,7 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         client.make_requests(self.request_405 * 3 + self.request_404 * 4)
         client.wait_for_response()
 
-        self.assertTrue(client.wait_for_connection_close(self.timeout))
+        self.assertTrue(client.wait_for_connection_close())
         self.assertFrangWarning(warning=self.warning, expected=1)
 
     def test_reaching_the_limit_2(self):
@@ -131,7 +130,7 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         )
         client.wait_for_response()
 
-        self.assertTrue(client.wait_for_connection_close(self.timeout))
+        self.assertTrue(client.wait_for_connection_close())
         self.assertFrangWarning(warning=self.warning, expected=1)
 
 
@@ -214,8 +213,8 @@ frang_limits {
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(0, len(deproxy_cl2.responses))
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(self.timeout))
-        self.assertTrue(deproxy_cl2.wait_for_connection_close(self.timeout))
+        self.assertTrue(deproxy_cl.wait_for_connection_close())
+        self.assertTrue(deproxy_cl2.wait_for_connection_close())
 
         self.assertFrangWarning(warning=self.warning, expected=1)
 
@@ -245,7 +244,7 @@ frang_limits {
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(self.timeout))
+        self.assertTrue(deproxy_cl.wait_for_connection_close())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
         self.assertFrangWarning(warning=self.warning, expected=1)

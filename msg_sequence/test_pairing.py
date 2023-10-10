@@ -13,7 +13,6 @@ __license__ = "GPL2"
 
 
 class PairingTest(functional.FunctionalTest):
-
     chains_size = 2
     send_to_close = chains_size / 2
     defconfig = ""
@@ -48,9 +47,8 @@ class PairingTest(functional.FunctionalTest):
         self.tester.send_reqs(self.send_to_close)
         self.tester.disconnect_clnt()
         self.tester.send_resps()
-        self.assertEqual(
-            self.oops.warn_count(dmesg.WARN_SPLIT_ATTACK),
-            0,
+        self.assertTrue(
+            self.oops.find(dmesg.WARN_SPLIT_ATTACK, cond=dmesg.amount_zero),
             msg=("Got '%s'" % dmesg.WARN_SPLIT_ATTACK),
         )
 

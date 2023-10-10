@@ -91,6 +91,10 @@ long_body_size = 500
 # running TempestaFW.
 # This value will be used internally, in command lines and configuration files.
 #
+# It's important to set different IPs for Tempesta and clients when testing
+# ip_block Frang directive on the Loopback interface (which is default),
+# because otherwise Netfilter can block what was not intended.
+#
 # ex.: ip = 192.168.11.6 (default 127.0.0.1)
 #
 ip = 127.0.0.1
@@ -209,6 +213,10 @@ unavaliable_timeout = 300
 
 # IPv4 and IPv6 addresses of the host running HTTP servers in the test network,
 # as reachable from the host running TempestaFW.
+#
+# It's important to set different IPs for Tempesta and servers when testing
+# ip_block Frang directive on the Loopback interface (which is default),
+# because otherwise Netfilter can block what was not intended.
 #
 # ex.: ip = 192.168.11.7 (default 127.0.0.1)
 #

@@ -135,7 +135,7 @@ class CurlTestBase(tester.TempestaTest):
         curl.stop()
 
     def run_test(self, status_code=200, is_frang=False):
-        klog = dmesg.DmesgFinder(ratelimited=False)
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         curl = self.get_client("curl")
         referer = "http2-referer-%d" % status_code
         user_agent = "http2-user-agent-%d" % status_code

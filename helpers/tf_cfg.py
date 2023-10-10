@@ -59,7 +59,7 @@ class TestFrameworkCfg(object):
                     "long_body_size": "500",
                 },
                 "Client": {
-                    "ip": "127.0.0.1",
+                    "ip": "127.0.0.2",
                     "ipv6": "::1",
                     "hostname": "localhost",
                     "ab": "ab",
@@ -82,7 +82,7 @@ class TestFrameworkCfg(object):
                     "unavaliable_timeout": "300",
                 },
                 "Server": {
-                    "ip": "127.0.0.1",
+                    "ip": "127.0.0.3",
                     "ipv6": "::1",
                     "hostname": "localhost",
                     "user": "root",
@@ -155,7 +155,7 @@ class TestFrameworkCfg(object):
             raise ConfigError(msg)
 
 
-def debug():
+def debug() -> bool:
     return int(cfg.get("General", "Verbose")) >= 3
 
 
@@ -163,12 +163,12 @@ def v_level():
     return int(cfg.get("General", "Verbose"))
 
 
-def dbg(level, *args, **kwargs):
+def dbg(level, *args, **kwargs) -> None:
     if int(cfg.get("General", "Verbose")) >= level:
         print(file=sys.stderr, *args, **kwargs)
 
 
-def log_dmesg(node, msg):
+def log_dmesg(node, msg) -> None:
     """Forward a message to kernel log at given node."""
     try:
         node.run_cmd('echo "%s" > /dev/kmsg' % msg)

@@ -2,11 +2,16 @@
 from __future__ import print_function
 
 import getopt
+import inspect
 import os
+import re
 import resource
 import subprocess
 import sys
 import unittest
+from importlib.machinery import SourceFileLoader
+
+import inquirer
 
 import run_config
 from framework import tester
@@ -31,7 +36,12 @@ Remote nodes controlled via SSH protocol. Make sure that you can be autorised by
 key, not password. `ssh-copy-id` can be used for that.
 
 -h, --help                        - Print this help and exit.
--v, --verbose                     - Enable verbose output.
+-v, --verbose <level>             - Enable verbose output.
+-H, --choice                      - Choose test by file path. You must provide
+                                    file path instead of test name in that case.
+-F, --from-failstr                - Convert unittest fail message to test name.
+                                    You must provide fail message instead of
+                                    test name in that case.
 -d, --defaults                    - Save default configuration to config file
                                     and exit.
 -t, --duration <seconds>          - Duration of every single test.
@@ -49,13 +59,13 @@ key, not password. `ssh-copy-id` can be used for that.
 -D, --debug-files                 - Don't remove generated config files
 -Z, --run-disabled                - Run only tests from list of disabled
 -I, --ignore-errors               - Don't exit on import/syntax errors in tests
--s, --save-tcpdump                - Enable tcpdump for test. Results is saved to 
+-s, --save-tcpdump                - Enable tcpdump for test. Results is saved to
                                     file with name of test. Works with -R option.
                                     Default path: /var/tcpdump/<date>/<time>/<test_name>.pcap [number].
                                     For -i option - /<identifier>/<test_id>.pcap [number]
--i, --identifier <id>             - Path to tcpdump results folder. Workspace path 
+-i, --identifier <id>             - Path to tcpdump results folder. Workspace path
                                     and build tag on CI or other.
--S, --save-secrets                - Save TLS secrets for deproxy and curl client to 
+-S, --save-secrets                - Save TLS secrets for deproxy and curl client to
                                     secrets.txt in main directory.
 -T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
                                     deproxy client and server.
@@ -70,6 +80,34 @@ Testsuite execution is automatically resumed if it was interrupted, or it can
 be resumed manually from any given test.
 """
     )
+
+
+def choose_test(file_path):
+    module_name = re.sub("\.py$", "", file_path).replace(os.sep, ".")
+    module = SourceFileLoader(module_name, file_path).load_module()
+    classes = dict(inspect.getmembers(module, predicate=inspect.isclass))
+
+    q = inquirer.List("class", message="Select test class", choices=classes.keys())
+    class_name = inquirer.prompt([q])["class"]
+
+    methods = [
+        name
+        for name, obj in inspect.getmembers(classes[class_name])
+        if inspect.isfunction(obj) and name.startswith("test_")
+    ]
+    q = inquirer.List("method", message="Select test method", choices=["ALL"] + methods)
+    method_name = inquirer.prompt([q])["method"]
+
+    full_test_name = f"{module_name}.{class_name}"
+    if method_name != "ALL":
+        full_test_name += f".{method_name}"
+
+    return full_test_name
+
+
+def test_from_failstr(failstr):
+    m = re.match("^[A-Z]+: ([a-z0-9_]+) \((.+)\)", failstr)
+    return f"{m.group(2)}.{m.group(1)}"
 
 
 DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
@@ -115,12 +153,14 @@ ignore_errors = False
 t_retry = False
 
 try:
-    options, remainder = getopt.getopt(
+    options, testname_args = getopt.getopt(
         sys.argv[1:],
-        "hv:dt:T:fr:ER:a:nl:LCDZpIi:sS",
+        "hv:HFdt:T:fr:ER:a:nl:LCDZpIi:sS",
         [
             "help",
             "verbose=",
+            "from-failstr",
+            "choice",
             "defaults",
             "duration=",
             "failfast",
@@ -142,6 +182,7 @@ try:
             "--tcp-segmentation=",
         ],
     )
+    testname_args = filter(None, testname_args)
 
 except getopt.GetoptError as e:
     print(e)
@@ -153,6 +194,12 @@ for opt, arg in options:
         fail_fast = True
     if opt in ("-v", "--verbose"):
         tf_cfg.cfg.set_v_level(arg)
+    if opt in ("-H", "--choice"):
+        testname_args = list(map(choose_test, testname_args))
+        tf_cfg.dbg(6, f"Tests chosen: {testname_args}")
+    if opt in ("-F", "--from-failstr"):
+        testname_args = list(map(test_from_failstr, testname_args))
+        tf_cfg.dbg(6, f"Tests from fail strings: {testname_args}")
     if opt in ("-t", "--duration"):
         if not tf_cfg.cfg.set_duration(arg):
             print("Invalid option: ", opt, arg)
@@ -320,11 +367,7 @@ if (
     disabled_reader.disabled.extend(disabled_reader_remote.disabled)
 
 if not run_disabled:
-    # remove empty arguments
-    for name in remainder:
-        if len(name) > 0:
-            use_tests.append(name)
-
+    use_tests = [re.sub("\.py$", "", arg).replace(os.sep, ".") for arg in testname_args]
     for name in use_tests:
         # determine if this is an inclusion or exclusion
         if name.startswith("-"):
@@ -339,7 +382,7 @@ if not run_disabled:
                 tf_cfg.dbg(0, "D")
             name = disabled["name"]
             reason = disabled["reason"]
-            tf_cfg.dbg(2, 'Disabled test "%s" : %s' % (name, reason))
+            tf_cfg.dbg(6, 'Disabled test "%s" : %s' % (name, reason))
             exclusions.append(name)
 else:
     for disabled in disabled_reader.disabled:
