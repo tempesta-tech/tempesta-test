@@ -9,7 +9,7 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class FrangWhitelistMarkTestCase(tester.TempestaTest, NetfilterMarkMixin):
+class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
     clients = [
         # basic request testing
         {
@@ -48,7 +48,7 @@ class FrangWhitelistMarkTestCase(tester.TempestaTest, NetfilterMarkMixin):
                 http_strict_host_checking false;
                 http_methods GET;
                 http_uri_len 20;
-                connection_rate 1;
+                tcp_connection_rate 1;
             }
             block_action attack reply;
             block_action error reply;
@@ -65,7 +65,7 @@ class FrangWhitelistMarkTestCase(tester.TempestaTest, NetfilterMarkMixin):
                 sticky {
                     cookie enforce name=cname;
                     js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                    delay_limit=100;
+                    delay_limit=100 ${tempesta_workdir}/js_challenge.html;
                 }
                 proxy_pass sg1;
             }
@@ -76,41 +76,62 @@ class FrangWhitelistMarkTestCase(tester.TempestaTest, NetfilterMarkMixin):
         """,
     }
 
-    def test_non_whitelisted_request(self):
+    def prepare_js_templates(self):
+        srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        template = "%s/etc/js_challenge.tpl" % srcdir
+        js_code = "%s/etc/js_challenge.js.tpl" % srcdir
+        remote.tempesta.run_cmd("cp %s %s" % (js_code, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js_challenge.tpl" % (template, workdir))
+
+    def setUp(self):
+        self.prepare_js_templates()
+        return super().setUp()
+
+    def test_whitelisted_basic_request(self):
         self.start_all_services()
-        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-
-        client.send_request(
-            client.create_request(uri="/", method="GET", headers=[]),
-            expected_status_code="503",  # filtered by js_challenge
-        )
-
-    def test_whitelisted_request(self):
-        self.start_all_services()
-        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-
-        # whitelist_mark 1
         self.set_nf_mark(1)
 
-        # test basic request
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="200",
         )
-        # test frang http_uri_len
+
+    def test_whitelisted_frang_http_uri_len(self):
+        self.start_all_services()
+        self.set_nf_mark(1)
+
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.send_request(
-            client.create_request(uri="/very-very-long-uri", method="GET", headers=[]),
+            # very long uri
+            client.create_request(uri="/" + "a" * 25, method="GET", headers=[]),
             expected_status_code="200",
         )
-        # test frang connection_rate
+
+    def test_whitelisted_frang_connection_rate(self):
+        self.start_all_services()
+        self.set_nf_mark(1)
+
         connections = 5
         curl: curl_client.CurlClient = self.get_client("curl-1")
         curl.uri += f"[1-{connections}]"
         curl.parallel = connections
         curl.start()
-        self.wait_while_busy(curl)
+        curl.wait_for_finish()
         curl.stop()
-        self.assertEqual(curl.last_response.status, 200)
+        # we expect all requests to receive 200
+        self.assertEqual(
+            curl.statuses,
+            {200: connections},
+            "Client is whitelisted, but connection rate is still aplied.",
+        )
 
-        # clean up
-        self.del_nf_mark(1)
+    def test_non_whitelisted_request_are_js_challenged(self):
+        self.start_all_services()
+
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.send_request(
+            client.create_request(uri="/", method="GET", headers=[]),
+            expected_status_code="503",
+        )
