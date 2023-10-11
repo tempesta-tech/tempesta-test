@@ -450,8 +450,8 @@
             "reason": "Disabled by issue #1961"
         },
         {
-          "name": "t_frang.test_whitelist_mark.FrangWhitelistMarkTestCase",
-          "reason": "https://github.com/tempesta-tech/tempesta-test/pull/533#discussion_r1351872036"
+            "name": "t_frang.test_whitelist_mark.FrangWhitelistMarkTestCase",
+            "reason": "https://github.com/tempesta-tech/tempesta-test/pull/533#discussion_r1351872036"
         }
     ]
 }
