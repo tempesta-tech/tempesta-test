@@ -384,6 +384,10 @@
         {
             "name": "cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag_with_extra_spaces",
             "reason": "Disabled by issue #1961"
+        },
+        {
+            "name": "t_frang.test_whitelist_mark.FrangWhitelistMarkTestCase",
+            "reason": "https://github.com/tempesta-tech/tempesta-test/pull/533#discussion_r1351872036"
         }
     ]
 }
