@@ -2,8 +2,8 @@ import abc
 import time
 from collections import defaultdict
 from io import StringIO
-from typing import Dict, Optional
 from typing import Union  # TODO: use | instead when we move to python3.10
+from typing import Dict, Optional
 
 import h2.connection
 from h2.events import (
@@ -375,9 +375,7 @@ class DeproxyClient(BaseDeproxyClient):
         *args,
         **kwargs,
     ) -> deproxy.Request:
-        return deproxy.Request.create(
-            method=method, headers=headers, uri=uri, version=version, date=date, body=body
-        )
+        return deproxy.Request.create(method, headers, authority, uri, version, date, body)
 
 
 class HuffmanEncoder(Encoder):
