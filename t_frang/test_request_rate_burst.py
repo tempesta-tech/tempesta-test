@@ -3,6 +3,7 @@ import time
 
 from hyperframe.frame import RstStreamFrame
 
+from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from helpers import analyzer, asserts, remote
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
@@ -12,6 +13,9 @@ __license__ = "GPL2"
 
 ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
 ERROR_MSG_BURST = "Warning: frang: requests burst exceeded"
+
+HTTP1_REQUEST = DeproxyClient.create_request(method="GET", uri="/", headers=[])
+HTTP2_REQUEST = DeproxyClientH2.create_request(method="GET", uri="/", headers=[])
 
 
 class FrangRequestRateTestCase(FrangTestCase, asserts.Sniffer):
@@ -39,25 +43,31 @@ class FrangRequestRateTestCase(FrangTestCase, asserts.Sniffer):
         },
     ]
 
-    tempesta = {
+    tempesta_template = {
         "config": """
 frang_limits {
-    request_rate 4;
+    %(frang_config)s;
     ip_block on;
 }
 listen 80;
+listen 443 proto=h2;
 server ${server_ip}:8000;
 block_action attack drop;
+
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
 """,
     }
 
+    frang_config = "request_rate 4"
+    error_msg = ERROR_MSG_RATE
+    request = HTTP1_REQUEST
+
     def setUp(self):
         super().setUp()
-        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5)
-
-    request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-
-    error_msg = ERROR_MSG_RATE
+        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80, 443))
+        self.set_frang_config(self.frang_config)
 
     def arrange(self, c1, c2, rps_1: int, rps_2: int):
         self.sniffer.start()
@@ -125,19 +135,47 @@ block_action attack drop;
 class FrangRequestBurstTestCase(FrangRequestRateTestCase):
     """Tests for and 'request_burst' directive."""
 
-    tempesta = {
-        "config": """
-frang_limits {
-    request_burst 4;
-    ip_block on;
-}
-listen 80;
-server ${server_ip}:8000;
-block_action attack drop;
-""",
-    }
-
+    clients = FrangRequestRateTestCase.clients
+    frang_config = "request_burst 4"
     error_msg = ERROR_MSG_BURST
+    request = HTTP1_REQUEST
+
+
+class FrangRequestRateH2(FrangRequestRateTestCase):
+    clients = [
+        {
+            "id": "same-ip1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "same-ip2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "another-ip",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "interface": True,
+            "ssl": True,
+        },
+    ]
+    frang_config = FrangRequestRateTestCase.frang_config
+    error_msg = ERROR_MSG_RATE
+    request = HTTP2_REQUEST
+
+
+class FrangRequestBurstH2(FrangRequestRateTestCase):
+    clients = FrangRequestRateH2.clients
+    frang_config = FrangRequestBurstTestCase.frang_config
+    error_msg = ERROR_MSG_BURST
+    request = HTTP2_REQUEST
 
 
 class FrangRequestRateBurstTestCase(FrangTestCase):
