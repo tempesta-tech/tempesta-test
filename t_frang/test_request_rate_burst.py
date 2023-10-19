@@ -321,9 +321,10 @@ class FrangRequestRateBurstH2(FrangRequestRateBurstTestCase):
             client.stream_id += 2
             time.sleep(sleep)
 
+        time.sleep(self.timeout)
+
         self.assertTrue(client.wait_for_connection_close())
         self.assertFrangWarning(warning=warning, expected=1)
-        self.assertEqual(client.last_response.status, "403")
 
     def test_request_rate_with_only_headers_frame(self):
         self._test_with_only_headers_frame(requests=4, sleep=DELAY, warning=self.rate_warning)

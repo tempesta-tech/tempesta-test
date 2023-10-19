@@ -276,9 +276,7 @@ class TempestaTest(unittest.TestCase):
             self.get_clients()
             + list(self.get_servers())
             + [self.deproxy_manager]
-            + [self.__tempesta]
-            if self.__tempesta is not None
-            else []
+            + ([self.__tempesta] if self.__tempesta is not None else [])
         )
 
     def get_clients_id(self):
