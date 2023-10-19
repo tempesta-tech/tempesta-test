@@ -16,6 +16,7 @@ class Stateful(object):
 
     _state = STATE_STOPPED
     stop_procedures = []
+    errors = list()
 
     @property
     def state(self) -> str:
@@ -71,3 +72,8 @@ class Stateful(object):
 
     def is_running(self):
         return self.state == STATE_STARTED
+
+    def check_errors(self):
+        """Raise exception if error was received."""
+        if self.state == STATE_ERROR:
+            raise self.errors[0]

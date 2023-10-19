@@ -23,6 +23,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers.stateful import Stateful
+
 backend_defs = {}
 tempesta_defs = {}
 save_tcpdump = False
@@ -269,6 +271,16 @@ class TempestaTest(unittest.TestCase):
     def get_clients(self) -> list:
         return list(self.__clients.values())
 
+    def get_all_services(self) -> typing.List[Stateful]:
+        return (
+            self.get_clients()
+            + list(self.get_servers())
+            + [self.deproxy_manager]
+            + [self.__tempesta]
+            if self.__tempesta is not None
+            else []
+        )
+
     def get_clients_id(self):
         """Return list of registered clients id"""
         return self.__clients.keys()
@@ -336,18 +348,9 @@ class TempestaTest(unittest.TestCase):
 
     def tearDown(self):
         tf_cfg.dbg(3, "\tTeardown")
-        for cid in self.__clients:
-            client = self.__clients[cid]
-            client.stop()
-        self.__tempesta.stop()
-        for sid in self.__servers:
-            server = self.__servers[sid]
-            server.stop()
-        self.deproxy_manager.stop()
-        try:
-            deproxy_manager.finish_all_deproxy()
-        except:
-            print("Unknown exception in stopping deproxy")
+
+        for service in self.get_all_services():
+            service.stop()
 
         tf_cfg.dbg(3, "Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
@@ -378,6 +381,9 @@ class TempestaTest(unittest.TestCase):
         self.oops_ignore = []
         del self.oops
         self.__stop_tcpdump()
+
+        for service in self.get_all_services():
+            service.check_errors()
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:
