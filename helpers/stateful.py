@@ -56,6 +56,7 @@ class Stateful(object):
             except Exception as exc:
                 tf_cfg.dbg(1, f"Exception in stopping process: {exc}, type: {type(exc)}")
                 self.state = STATE_ERROR
+                self.errors.append(exc)
 
         if self.state != STATE_ERROR:
             self.state = STATE_STOPPED
