@@ -321,8 +321,8 @@ class FrangRequestRateBurstH2(FrangRequestRateBurstTestCase):
             client.stream_id += 2
             time.sleep(sleep)
 
-        time.sleep(self.timeout)
-
+        #  The response status check was removed because sometimes client
+        #  receives TCP RST before the HTTP response.
         self.assertTrue(client.wait_for_connection_close())
         self.assertFrangWarning(warning=warning, expected=1)
 

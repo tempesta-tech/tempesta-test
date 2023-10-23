@@ -988,7 +988,7 @@ class Client(TlsClient, stateful.Stateful):
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
         self.error_codes.append(type_error)
-        dbg(self, 4, f"Receive error - {type_error} with message - {v}", prefix="\t")
+        dbg(self, 2, f"Receive error - {type_error} with message - {v}", prefix="\t")
 
         if type_error == ParseError or type_error == AssertionError:
             self.handle_close()

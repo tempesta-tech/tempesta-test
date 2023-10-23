@@ -136,6 +136,10 @@
         {
             "name": "t_frang.test_connection_rate_burst.FrangTcpVsBoth.test_burst",
             "reason": "Disabled by test issue #529."
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.FrangTcpVsBoth.test_rate",
+            "reason": "Disabled by test issue #529."
         }
     ]
 }

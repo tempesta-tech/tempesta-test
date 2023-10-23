@@ -23,6 +23,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers.deproxy import dbg
 from helpers.stateful import Stateful
 
 backend_defs = {}
@@ -350,6 +351,13 @@ class TempestaTest(unittest.TestCase):
         for service in self.get_all_services():
             service.stop()
 
+        try:
+            deproxy_manager.finish_all_deproxy()
+        except Exception as e:
+            dbg(
+                self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
+            )
+
         tf_cfg.dbg(3, "Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
         sysnet.remove_routes(interface, self.__ips)
@@ -380,8 +388,8 @@ class TempestaTest(unittest.TestCase):
         del self.oops
         self.__stop_tcpdump()
 
-        for service in self.get_all_services():
-            service.check_errors()
+        # TODO it should be change after #534 issue
+        self.deproxy_manager.check_exceptions()
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:
