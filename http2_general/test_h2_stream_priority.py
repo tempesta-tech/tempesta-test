@@ -9,6 +9,7 @@ import time
 from h2.errors import ErrorCodes
 from hyperframe.frame import PriorityFrame
 
+import run_config
 from helpers import util
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
@@ -16,6 +17,16 @@ from http2_general.helpers import H2Base
 DEFAULT_MTU = 1500
 DEFAULT_INITIAL_WINDOW_SIZE = 65535
 BIG_HEADER_SIZE = 600000
+
+"""
+Make sure that all requests come to client, and we
+receive headers for all responses. TODO: #528
+"""
+
+
+def wair_for_headers():
+    timeout = 5 if run_config.TCP_SEGMENTATION else 2
+    time.sleep(timeout)
 
 
 class TestPriorityBase(H2Base, NetWorker):
@@ -37,14 +48,11 @@ class TestPriorityBase(H2Base, NetWorker):
         client.wait_for_ack_settings()
         return client, server
 
-    def wait_for_responses(self, client, timeout=10):
-        """
-        Make sure that all requests come to client, before updating
-        initial window size.
-        """
-        # TODO: #528
-        time.sleep(2)
-        client.send_settings_frame(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
+    def wait_for_responses(
+        self, client, initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE, timeout=10
+    ):
+        wair_for_headers()
+        client.send_settings_frame(initial_window_size=initial_window_size)
         client.wait_for_ack_settings()
         self.assertTrue(client.wait_for_response(timeout=timeout))
 
@@ -715,3 +723,46 @@ class TestBigHeadersAndBodyForSeveralStreams(TestPriorityBase, NetWorker):
 
         self.wait_for_responses(client)
         self.check_response_sequence(client, 2)
+
+
+class TestSameWeightsWithOneParent(TestPriorityBase, NetWorker):
+    def test_content_type_not_progessive(self):
+        """
+        Check that we don't use raund robin for non progressive
+        streams and don't switch between such streams, when we
+        send data to client.
+        """
+        client, server = self.setup_test_priority(extra_header=f"content-type: image/png\r\n")
+
+        self.run_test_tso_gro_gso_def(
+            client,
+            server,
+            self._test_same_weights_streams_not_progressive,
+            DEFAULT_MTU,
+        )
+
+    def _test_same_weights_streams_not_progressive(self, client, server):
+        for i in range(1, 4):
+            client.make_request(
+                self.post_request,
+                end_stream=True,
+                priority_weight=16,
+                priority_depends_on=0,
+                priority_exclusive=False,
+            )
+            # Need to sure that tempesta receive requests in the correct order.
+            wair_for_headers()
+
+        """
+        Increment initial_window_size to max value, to prevent its affecting
+        on data sending (We switch to another stream if current stream exceeds
+        http window).
+        """
+        self.wait_for_responses(client, initial_window_size=2**31 - 1)
+        """
+        We send headers for all streams, and then blocked untlil initial
+        window size will be updated. Since the last stream has id == 5,
+        we start from it and don't switch to another stream until all data
+        will be sent or we exceeded HTTP window for this stream.
+        """
+        self.check_response_sequence(client, 3, [5, 1, 3])
