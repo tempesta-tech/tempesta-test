@@ -464,6 +464,8 @@ class Request(HttpMessage):
         "VERSION-CONTROL",
         # Not RFC methods:
         "PURGE",
+        # To check appropriate frang directive
+        "UNKNOWN",
     ]
 
     def __init__(self, *args, **kwargs):
