@@ -1,3 +1,5 @@
+import typing
+
 from . import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -27,6 +29,16 @@ class Stateful(object):
             raise ValueError('Please use valid values for "Stateful".')
         self._state = new_state
 
+    @property
+    def exceptions(self) -> typing.List[Exception]:
+        # TODO it should be change after #534 issue
+        return self._exceptions
+
+    def append_exception(self, exception: Exception) -> None:
+        # TODO it should be change after #534 issue
+        self._exceptions.append(exception)
+        self.state = STATE_ERROR
+
     def run_start(self):
         """Should be overridden"""
         pass
@@ -44,6 +56,7 @@ class Stateful(object):
                 tf_cfg.dbg(3, "%s not stopped" % obj)
             return
         self.state = STATE_BEGIN_START
+        self._exceptions = list()
         self.run_start()
         self.state = STATE_STARTED
 
@@ -54,7 +67,7 @@ class Stateful(object):
                 stop_proc()
             except Exception as exc:
                 tf_cfg.dbg(1, f"Exception in stopping process: {exc}, type: {type(exc)}")
-                self.state = STATE_ERROR
+                self.append_exception(exc)
 
         if self.state != STATE_ERROR:
             self.state = STATE_STOPPED
@@ -71,3 +84,9 @@ class Stateful(object):
 
     def is_running(self):
         return self.state == STATE_STARTED
+
+    def check_exceptions(self):
+        """Raise exception if error was received."""
+        # TODO it should be change after #534 issue
+        if self.state == STATE_ERROR:
+            raise self.exceptions[0]

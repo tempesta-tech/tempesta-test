@@ -2,8 +2,8 @@ import abc
 import time
 from collections import defaultdict
 from io import StringIO
-from typing import Dict, Optional
 from typing import Union  # TODO: use | instead when we move to python3.10
+from typing import Dict, Optional
 
 import h2.connection
 from h2.events import (
@@ -376,7 +376,13 @@ class DeproxyClient(BaseDeproxyClient):
         **kwargs,
     ) -> deproxy.Request:
         return deproxy.Request.create(
-            method=method, headers=headers, uri=uri, version=version, date=date, body=body
+            method=method,
+            headers=headers,
+            authority=authority,
+            uri=uri,
+            version=version,
+            date=date,
+            body=body,
         )
 
 
@@ -468,7 +474,15 @@ class DeproxyClientH2(DeproxyClient):
         *args,
         **kwargs,
     ) -> deproxy.H2Request:
-        return deproxy.H2Request.create(method, headers, authority, uri, version, date, body)
+        return deproxy.H2Request.create(
+            method=method,
+            headers=headers,
+            authority=authority,
+            uri=uri,
+            version=version,
+            date=date,
+            body=body,
+        )
 
     def update_initial_settings(
         self,

@@ -1,6 +1,5 @@
 import abc
 import asyncore
-import io
 import socket
 import sys
 import threading
@@ -8,7 +7,6 @@ import time
 from typing import List, Union
 
 import framework.port_checks as port_checks
-import framework.tester
 import run_config
 from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 
@@ -248,6 +246,3 @@ def deproxy_srv_factory(server, name, tester):
 
     tester.deproxy_manager.add_server(srv)
     return srv
-
-
-framework.tester.register_backend("deproxy", deproxy_srv_factory)

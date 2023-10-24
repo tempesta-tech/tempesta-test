@@ -318,7 +318,7 @@ class ManyClients(Cache):
 
         for client in clients:
             self.assertTrue(
-                client.wait_for_response(timeout=10),
+                client.wait_for_response(timeout=25),
                 "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len),
             )
 

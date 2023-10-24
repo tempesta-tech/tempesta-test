@@ -8,7 +8,6 @@ from typing import Dict, List
 
 import framework.port_checks as port_checks
 from framework.templates import fill_template
-from framework.tester import register_backend
 from helpers import remote, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -221,6 +220,3 @@ def docker_srv_factory(server, name, tester):
     fill_args("env")
 
     return DockerServer(**server)
-
-
-register_backend("docker", docker_srv_factory)

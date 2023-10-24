@@ -4,9 +4,8 @@ import datetime
 import os
 import re
 import signal
-import socket
-import struct
 import subprocess
+import typing
 import unittest
 
 import framework.curl_client as curl_client
@@ -14,12 +13,18 @@ import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
+from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
+from framework.docker_server import DockerServer, docker_srv_factory
+from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.templates import fill_template, populate_properties
 from helpers import control, dmesg, remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+from helpers.deproxy import dbg
+from helpers.stateful import Stateful
 
 backend_defs = {}
 tempesta_defs = {}
@@ -82,6 +87,9 @@ def default_tempesta_factory(tempesta):
 
 
 register_tempesta("tempesta", default_tempesta_factory)
+register_backend("deproxy", deproxy_srv_factory)
+register_backend("docker", docker_srv_factory)
+register_backend("nginx", nginx_srv_factory)
 
 
 class TempestaTest(unittest.TestCase):
@@ -226,11 +234,9 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid):
+    def get_server(self, sid) -> typing.Union[StaticDeproxyServer, Nginx, DockerServer, None]:
         """Return client with specified id"""
-        if sid not in self.__servers:
-            return None
-        return self.__servers[sid]
+        return self.__servers.get(sid)
 
     def get_servers(self):
         return self.__servers.values()
@@ -246,20 +252,35 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
 
-    def get_client(self, cid):
+    def get_client(
+        self, cid
+    ) -> typing.Union[
+        deproxy_client.DeproxyClientH2,
+        deproxy_client.DeproxyClient,
+        curl_client.CurlClient,
+        external_client.ExternalTester,
+        wrk_client.Wrk,
+        None,
+    ]:
         """Return client with specified id"""
-        if cid not in self.__clients:
-            return None
-        return self.__clients[cid]
+        return self.__clients.get(cid)
 
     def get_clients(self) -> list:
         return list(self.__clients.values())
+
+    def get_all_services(self) -> typing.List[Stateful]:
+        return (
+            self.get_clients()
+            + list(self.get_servers())
+            + [self.deproxy_manager]
+            + ([self.__tempesta] if self.__tempesta is not None else [])
+        )
 
     def get_clients_id(self):
         """Return list of registered clients id"""
         return self.__clients.keys()
 
-    def get_tempesta(self):
+    def get_tempesta(self) -> control.Tempesta:
         """Return Tempesta instance"""
         return self.__tempesta
 
@@ -322,18 +343,16 @@ class TempestaTest(unittest.TestCase):
 
     def tearDown(self):
         tf_cfg.dbg(3, "\tTeardown")
-        for cid in self.__clients:
-            client = self.__clients[cid]
-            client.stop()
-        self.__tempesta.stop()
-        for sid in self.__servers:
-            server = self.__servers[sid]
-            server.stop()
-        self.deproxy_manager.stop()
+
+        for service in self.get_all_services():
+            service.stop()
+
         try:
             deproxy_manager.finish_all_deproxy()
-        except:
-            print("Unknown exception in stopping deproxy")
+        except Exception as e:
+            dbg(
+                self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
+            )
 
         tf_cfg.dbg(3, "Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
@@ -364,6 +383,9 @@ class TempestaTest(unittest.TestCase):
         self.oops_ignore = []
         del self.oops
         self.__stop_tcpdump()
+
+        # TODO it should be change after #534 issue
+        self.deproxy_manager.check_exceptions()
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:

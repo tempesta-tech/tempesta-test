@@ -30,8 +30,8 @@ def run_deproxy_server(deproxy, exit_event, polling_lock, q):
         tf_cfg.dbg(2, "Error while polling: %s" % str(e))
         polling_lock.release()
         q.put(e)
-        deproxy.state = stateful.STATE_ERROR
-        error.bug(f"\n\tDeproxy: Manager:")
+        # TODO it should be change after #534 issue
+        deproxy.append_exception(e)
     tf_cfg.dbg(3, "Finished deproxy manager")
 
 

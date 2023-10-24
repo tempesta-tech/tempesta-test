@@ -3,7 +3,6 @@ import re
 import time
 
 import framework.port_checks as port_checks
-import framework.tester
 from framework.templates import fill_template
 from helpers import remote, stateful, tempesta, tf_cfg
 
@@ -124,6 +123,3 @@ def nginx_srv_factory(server, name, tester):
     if "config" not in server.keys():
         return None
     return Nginx(name, server)
-
-
-framework.tester.register_backend("nginx", nginx_srv_factory)
