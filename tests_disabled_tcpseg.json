@@ -158,18 +158,6 @@
             "reason": "Disabled by issue #56"
         },
         {
-            "name": "t_frang.test_http_method_override_allowed.FrangHttpMethodsOverrideTestCase",
-            "reason": "Disabled by issue 1872"
-        },
-        {
-            "name": "t_frang.test_http_methods.FrangHttpMethodsTestCase.test_accepted_request",
-            "reason": "Disabled by issue 1872"
-        },
-        {
-            "name": "t_frang.test_http_methods.FrangHttpMethodsTestCase.test_not_accepted_request_zero_byte",
-            "reason": "Disabled by issue 1872"
-        },
-        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

@@ -36,12 +36,21 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
-    def test_not_accepted_request_zero_byte(self):
+    def test_not_accepted_request_with_unknown_method(self):
         client = self.base_scenario(
             frang_config="http_methods get post;",
-            requests=["x0 POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            requests=["UNKNOWN / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            disable_hshc=True,
         )
-        self.check_response(client, status_code="400", warning_msg="Parser error:")
+        self.check_response(client, status_code="403", warning_msg=self.error)
+
+    def test_accepted_request_with_unknown_method(self):
+        client = self.base_scenario(
+            frang_config="http_methods get post unknown;",
+            requests=["UNKNOWN / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="200", warning_msg=self.error)
 
     def test_not_accepted_request_owerride(self):
         client = self.base_scenario(
@@ -98,6 +107,36 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
             disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
+
+    def test_not_accepted_request_with_unknown_method(self):
+        client = self.base_scenario(
+            frang_config="http_methods get post;",
+            requests=[
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "UNKNOWN"),
+                ],
+            ],
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="403", warning_msg=self.error)
+
+    def test_accepted_request_with_unknown_method(self):
+        client = self.base_scenario(
+            frang_config="http_methods get post unknown;",
+            requests=[
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "UNKNOWN"),
+                ],
+            ],
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="200", warning_msg=self.error)
 
     def test_not_accepted_request_zero_byte(self):
         client = self.base_scenario(

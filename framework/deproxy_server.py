@@ -70,6 +70,7 @@ class ServerConnection(asyncore.dispatcher):
                     4,
                     ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.request_buffer),
                 )
+                return None
 
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
