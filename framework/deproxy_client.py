@@ -375,7 +375,15 @@ class DeproxyClient(BaseDeproxyClient):
         *args,
         **kwargs,
     ) -> deproxy.Request:
-        return deproxy.Request.create(method, headers, authority, uri, version, date, body)
+        return deproxy.Request.create(
+            method=method,
+            headers=headers,
+            authority=authority,
+            uri=uri,
+            version=version,
+            date=date,
+            body=body,
+        )
 
 
 class HuffmanEncoder(Encoder):
@@ -466,7 +474,15 @@ class DeproxyClientH2(DeproxyClient):
         *args,
         **kwargs,
     ) -> deproxy.H2Request:
-        return deproxy.H2Request.create(method, headers, authority, uri, version, date, body)
+        return deproxy.H2Request.create(
+            method=method,
+            headers=headers,
+            authority=authority,
+            uri=uri,
+            version=version,
+            date=date,
+            body=body,
+        )
 
     def update_initial_settings(
         self,

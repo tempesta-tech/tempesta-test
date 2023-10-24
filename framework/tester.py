@@ -236,9 +236,7 @@ class TempestaTest(unittest.TestCase):
 
     def get_server(self, sid) -> typing.Union[StaticDeproxyServer, Nginx, DockerServer, None]:
         """Return client with specified id"""
-        if sid not in self.__servers:
-            return None
-        return self.__servers[sid]
+        return self.__servers.get(sid)
 
     def get_servers(self):
         return self.__servers.values()
@@ -265,9 +263,7 @@ class TempestaTest(unittest.TestCase):
         None,
     ]:
         """Return client with specified id"""
-        if cid not in self.__clients:
-            return None
-        return self.__clients[cid]
+        return self.__clients.get(cid)
 
     def get_clients(self) -> list:
         return list(self.__clients.values())
