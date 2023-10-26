@@ -3,14 +3,12 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-import parameterized as p
-from parameterized import param
+from parameterized import parameterized, parameterized_class
 
 
 def get_func_name(func, param_num, params):
-    suffix = params.kwargs.get("name", None)
-
-    if suffix is None:
+    suffix = params.kwargs.get("name")
+    if not suffix:
         if params.args:
             suffix = params.args[0]
         else:
@@ -19,26 +17,26 @@ def get_func_name(func, param_num, params):
                 "or add the 'name' argument."
             )
 
-    return f"{func.__name__}_{p.parameterized.to_safe_name(f'{suffix}')}"
+    return f"{func.__name__}_{parameterized.to_safe_name(f'{suffix}')}"
 
 
 def get_class_name(cls, num, params_dict: dict):
-    if params_dict.get("name", None) is not None:
-        suffix = p.parameterized.to_safe_name(params_dict["name"])
+    if params_dict.get("name"):
+        suffix = parameterized.to_safe_name(params_dict["name"])
     else:
         raise AttributeError("Please add the 'name' variable to the class parameters.")
 
-    return f"{cls.__name__}{p.parameterized.to_safe_name(suffix)}"
+    return f"{cls.__name__}{parameterized.to_safe_name(suffix)}"
 
 
 def parameterize_class(
     attrs, input_values=None, class_name_func=get_class_name, classname_func=None
 ):
     """Default wrapper for parametrizing a class from `parameterized` library."""
-    return p.parameterized_class(attrs, input_values, class_name_func, classname_func)
+    return parameterized_class(attrs, input_values, class_name_func, classname_func)
 
 
-class parameterize(p.parameterized):
+class parameterize(parameterized):
     @classmethod
     def expand(
         cls,
