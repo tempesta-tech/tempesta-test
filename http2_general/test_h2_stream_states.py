@@ -4,14 +4,19 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import AllowedStreamIDs
+from h2.errors import ErrorCodes
+from h2.stream import StreamInputs
 from hyperframe.frame import (
     DataFrame,
     Frame,
+    HeadersFrame,
     PriorityFrame,
     RstStreamFrame,
     WindowUpdateFrame,
 )
 
+from framework.parameterize import parameterize_class
 from http2_general.helpers import H2Base
 
 
@@ -123,6 +128,169 @@ class TestHalfClosedStreamStateWindowUpdate(H2Base):
         client.h2_connection.clear_outbound_data_buffer()
 
         self.assertTrue(client.wait_for_response(2))
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            len(client.last_response.body), 2000, "Tempesta did not return full response body."
+        )
+
+
+@parameterize_class(
+    [
+        {"name": "Cont", "flags": []},
+        {"name": "ContClosed", "flags": ["END_STREAM"]},
+    ]
+)
+class TestStreamState(H2Base):
+    """
+    There were two special states in tempesta for streams, which are not
+    mentioned in the RFC. HTTP2_STREAM_CONT and HTTP2_STREAM_CONT_CLOSED.
+    HTTP2_STREAM_CONT state is a state into which the stream goes after
+    receiving headers without the END_HEADERS flag.
+    HTTP2_STREAM_CONT_CLOSED is a state same as previos one, but if
+    HTTP2_F_END_STREAM flag is received. (Currently we remove this states
+    from tempesta code)
+    """
+
+    def __setup(self, request=None, expect_response=False):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 2000\r\n\r\n"
+            + ("x" * 2000)
+        )
+
+        self.initiate_h2_connection(client)
+        # create stream and change state machine in H2Connection object
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        request = request if request is not None else self.post_request
+        hf = HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode(request),
+            flags=self.flags,
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=expect_response)
+        return client
+
+    def test_any_frame_between_header_blocks(self):
+        """
+        Each field block is processed as a discrete unit. Field blocks MUST be
+        transmitted as a contiguous sequence of frames, with no interleaved
+        frames of any other type or from any other stream. The last frame in a
+        sequence of HEADERS or CONTINUATION frames has the END_HEADERS flag set.
+        The last frame in a sequence of PUSH_PROMISE or CONTINUATION frames has
+        the END_HEADERS flag set. This allows a field block to be logically
+        equivalent to a single frame.
+        """
+        client = self.__setup()
+        hf = HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode(self.post_request),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=False)
+        self.assertTrue(client.wait_for_connection_close())
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
+    def test_headers_frame_for_other_stream_between_header_blocks(self):
+        """
+        Each field block is processed as a discrete unit. Field blocks MUST be
+        transmitted as a contiguous sequence of frames, with no interleaved
+        frames of any other type or from any other stream. The last frame in a
+        sequence of HEADERS or CONTINUATION frames has the END_HEADERS flag set.
+        The last frame in a sequence of PUSH_PROMISE or CONTINUATION frames has
+        the END_HEADERS flag set. This allows a field block to be logically
+        equivalent to a single frame.
+        """
+        client = self.__setup()
+        hf = HeadersFrame(
+            stream_id=client.stream_id + 2,
+            data=client.h2_connection.encoder.encode(self.post_request),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=False)
+        self.assertTrue(client.wait_for_connection_close())
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+
+    def test_headers_frame_for_other_stream_after_rst(self):
+        """
+        If we reset stream, for which we are waiting END_HEADERS flag
+        we can send headers for other streams.
+        """
+        client = self.__setup()
+        hf = RstStreamFrame(stream_id=1)
+        client.send_bytes(hf.serialize())
+        client.stream_id = 3
+        client.make_request(self.post_request)
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            len(client.last_response.body), 2000, "Tempesta did not return full response body."
+        )
+
+    def test_error_request_between_header_blocks(self):
+        """
+        Test case when we don't receive END_HEADERS flag
+        but have error during processing request.
+        """
+        client = self.__setup(self.post_request + [("BAD", "BAD")], True)
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "400")
+
+
+class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
+    def test(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 2000\r\n\r\n"
+            + ("x" * 2000)
+        )
+
+        self.initiate_h2_connection(client)
+        # create stream and change state machine in H2Connection object
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        hf = HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode(self.post_request),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=False)
+
+        client.stream_id = 3
+        client.make_request(self.post_request)
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            len(client.last_response.body), 2000, "Tempesta did not return full response body."
+        )
+
+        client.stream_id = 1
+        client.make_request([("header", "x" * 320)])
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            len(client.last_response.body), 2000, "Tempesta did not return full response body."
+        )
+
+        client.stream_id = 5
+        client.make_request(self.post_request)
+        self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
