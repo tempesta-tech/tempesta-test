@@ -1,15 +1,103 @@
 """Functional tests of caching different methods."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
+from framework.parameterize import param, parameterize
 from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
 from helpers import dmesg, tf_cfg
 from helpers.deproxy import HttpMessage
+
+
+class TestPurgeAcl(TempestaTest):
+    tempesta = {
+        "config": """
+listen ${tempesta_ip}:80;
+listen [${tempesta_ipv6}]:80;
+
+server ${server_ip}:8000;
+
+cache 2;
+cache_fulfill * *;
+cache_methods GET;
+cache_purge;
+"""
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Content-Length: 0\r\n"
+                + "Server: Deproxy Server\r\n"
+                + "\r\n"
+            ),
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    @parameterize.expand(
+        [
+            param(name="ipv4", purge_ip=tf_cfg.cfg.get("Client", "ip"), family="ipv4"),
+            param(name="ipv6", purge_ip=tf_cfg.cfg.get("Client", "ipv6"), family="ipv6"),
+            param(
+                name="ipv4_with_mask", purge_ip=f'{tf_cfg.cfg.get("Client", "ip")}/8', family="ipv4"
+            ),
+            param(
+                name="ipv6_with_mask",
+                purge_ip=f'{tf_cfg.cfg.get("Client", "ipv6")}/120',
+                family="ipv6",
+            ),
+            param(
+                name="ipv4_and_ipv6",
+                purge_ip=f'{tf_cfg.cfg.get("Client", "ip")} {tf_cfg.cfg.get("Client", "ipv6")}',
+                family="ipv4",
+            ),
+        ]
+    )
+    def test_purge_acl(self, name, purge_ip, family):
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        srv = self.get_server("deproxy")
+
+        tempesta.config.set_defconfig(tempesta.config.defconfig + f"cache_purge_acl {purge_ip};\n")
+        client.bind_addr = tf_cfg.cfg.get("Client", "ip" if family == "ipv4" else "ipv6")
+        client.socket_family = family
+        client.conn_addr = tf_cfg.cfg.get("Tempesta", "ip" if family == "ipv4" else "ipv6")
+        request = client.create_request(method="GET", uri="/page.html", headers=[])
+
+        self.start_all_services()
+
+        client.send_request(request, "200")
+        client.send_request(request, "200")
+        self.assertIn("age", client.last_response.headers)
+        self.assertEqual(len(srv.requests), 1)
+
+        client.send_request(
+            client.create_request(method="PURGE", uri="/page.html", headers=[]),
+            "200",
+        )
+
+        # cached responses was removed
+        client.send_request(request, "200")
+        self.assertNotIn("age", client.last_response.headers)
+        self.assertEqual(len(srv.requests), 2)
 
 
 class TestPurge(TempestaTest):
