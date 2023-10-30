@@ -122,38 +122,6 @@
             "reason": "Disabled by issue #1884"
         },
         {
-            "name": "cache.test_cache",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "cache.test_cache_methods.TestMultipleMethods",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "cache.test_conditional",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "cache.test_purge",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "cache.test_purge_hch",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "cache.test_purge_resp_hch",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "tls.test_tls_integrity.Cache",
-            "reason": "Disabled by issue #1868"
-        },
-        {
-            "name": "tls.test_tls_integrity.CacheH2",
-            "reason": "Disabled by issue #1868"
-        },
-        {
             "name": "regression",
             "reason": "Disabled by issue #56"
         },

@@ -126,11 +126,19 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "cache.test_cache_control.CacheLocationNonidempotentGetBypass",
+            "name" : "cache.test_cache.TestCacheLocationHttp.test_nonidempotent_get",
             "reason": "Disabled by issue #1663"
         },
         {
-            "name" : "cache.test_cache_control.CacheLocationNonidempotentHeadBypass",
+            "name" : "cache.test_cache.TestCacheLocationHttp.test_nonidempotent_head",
+            "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheLocationH2.test_nonidempotent_get",
+            "reason": "Disabled by issue #1663"
+        },
+        {
+            "name" : "cache.test_cache.TestCacheLocationH2.test_nonidempotent_head",
             "reason": "Disabled by issue #1663"
         },
         {
@@ -387,11 +395,75 @@
         },
         {
             "name": "t_frang.test_whitelist_mark.FrangWhitelistMarkTestCase",
-            "reason": "https://github.com/tempesta-tech/tempesta-test/pull/533#discussion_r1351872036"
+            "reason": "Disabled by issue #1949"
         },
         {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by test issue #1968"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalHttp.test_none_match_nc_HEAD",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalH2.test_none_match_nc_HEAD",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalHttp.test_none_match_POST",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalH2.test_none_match_POST",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalHttp.test_none_match_HEAD",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_conditional.TestConditionalH2.test_none_match_HEAD",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestQueryParamsAndRedirectHttp.test_redirect_308_permanent_redirect",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestQueryParamsAndRedirectH2.test_redirect_308_permanent_redirect",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_update_cache_via_PUT_request",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_update_cache_via_PUT_request",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_update_cache_via_DELETE_request",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_update_cache_via_DELETE_request",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_cache_POST_request",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_cache_POST_request",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_HEAD_after_GET",
+            "reason": "Disabled by issue #"
+        },
+        {
+            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_HEAD_after_GET",
+            "reason": "Disabled by issue #"
         }
     ]
 }

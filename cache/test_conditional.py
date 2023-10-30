@@ -418,15 +418,6 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         },
     ]
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
-
     @parameterize.expand(
         [
             param(name="vary", header=("vary", "accept-language")),

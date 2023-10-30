@@ -74,8 +74,6 @@ vhost default {
 
     backends = [DEPROXY_SERVER]
 
-    clients = [DEPROXY_CLIENT]
-
     messages = 10
 
     def _test(self, uri: str, cache_mode: int, should_be_cached: bool, tempesta_config: str):
@@ -370,8 +368,6 @@ vhost default {
 
     backends = [DEPROXY_SERVER]
 
-    clients = [DEPROXY_CLIENT]
-
     @parameterize.expand(
         [
             param(
@@ -565,8 +561,6 @@ vhost default {
     }
 
     backends = [DEPROXY_SERVER]
-
-    clients = [DEPROXY_CLIENT]
 
     def _test(self, uri: str, method: str, should_be_cached: bool):
         self.start_all_services()
