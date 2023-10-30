@@ -382,10 +382,6 @@
             "reason": "Disabled by issue #1961"
         },
         {
-            "name": "t_frang.test_whitelist_mark.FrangWhitelistMarkTestCase",
-            "reason": "Disabled by issue #1949"
-        },
-        {
             "name": "ws.test_ws_ping.WsPipelining",
             "reason": "Disabled by test issue #1968"
         },
