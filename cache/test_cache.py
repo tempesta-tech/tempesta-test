@@ -5,13 +5,14 @@ __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
+from http import HTTPStatus
 
 from framework import tester
 from framework.curl_client import CurlResponse
 from framework.deproxy_server import StaticDeproxyServer
-from framework.x509 import CertGenerator
+from framework.parameterize import param, parameterize, parameterize_class
 from helpers import checks_for_tests as checks
-from helpers import deproxy, remote, tf_cfg
+from helpers import deproxy
 from helpers.control import Tempesta
 
 MIXED_CONFIG = (
@@ -22,7 +23,36 @@ MIXED_CONFIG = (
     + 'cache_fulfill prefix "/static/";\r\n'
 )
 
+DEPROXY_CLIENT = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "80",
+}
 
+DEPROXY_CLIENT_H2 = {
+    "id": "deproxy",
+    "type": "deproxy_h2",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
+}
+
+DEPROXY_SERVER = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "port": "8000",
+    "response": "static",
+    "response_content": "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n",
+}
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
 class TestCache(tester.TempestaTest):
     """This class contains checks for tempesta cache config."""
 
@@ -42,24 +72,9 @@ vhost default {
 """,
     }
 
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "",
-        },
-    ]
+    backends = [DEPROXY_SERVER]
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
+    clients = [DEPROXY_CLIENT]
 
     messages = 10
 
@@ -328,6 +343,192 @@ vhost default {
             self.assertIn("date", response.headers)
 
 
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestQueryParamsAndRedirect(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+cache 2;
+cache_fulfill * *;
+
+server ${server_ip}:8000;
+
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
+}
+""",
+    }
+
+    backends = [DEPROXY_SERVER]
+
+    clients = [DEPROXY_CLIENT]
+
+    @parameterize.expand(
+        [
+            param(
+                name="different_key",
+                uri_1="/pic.jpg?param1=value1",
+                uri_2="/pic.jpg?param2=value1",
+                should_be_cached=False,
+            ),
+            param(
+                name="different_value",
+                uri_1="/pic.jpg?param1=value1",
+                uri_2="/pic.jpg?param1=value2",
+                should_be_cached=False,
+            ),
+            param(
+                name="with_new_param",
+                uri_1="/pic.jpg?param1=value1",
+                uri_2="/pic.jpg?param1=value1&param2=value2",
+                should_be_cached=False,
+            ),
+            param(
+                name="with_new_param",
+                uri_1="/pic.jpg?param1=value1",
+                uri_2="/pic.jpg?param1=value1&param1=value1",
+                should_be_cached=False,
+            ),
+            param(
+                name="same_params",
+                uri_1="/pic.jpg?param1=value1",
+                uri_2="/pic.jpg?param1=value1",
+                should_be_cached=True,
+            ),
+        ]
+    )
+    def test_query_param(self, name, uri_1, uri_2, should_be_cached):
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        for uri in [uri_1, uri_2]:
+            client.send_request(
+                client.create_request(method="GET", uri=uri, headers=[]),
+                expected_status_code="200",
+            )
+
+        if should_be_cached:
+            self.assertIn("age", client.last_response.headers)
+
+            checks.check_tempesta_cache_stats(
+                self.get_tempesta(),
+                cache_hits=1,
+                cache_misses=1,
+                cl_msg_served_from_cache=1,
+            )
+            self.assertEqual(len(server.requests), 1)
+        else:
+            self.assertNotIn("age", client.last_response.headers)
+
+            checks.check_tempesta_cache_stats(
+                self.get_tempesta(),
+                cache_hits=0,
+                cache_misses=2,
+                cl_msg_served_from_cache=0,
+            )
+            self.assertEqual(len(server.requests), 2)
+
+    @parameterize.expand(
+        [
+            param(
+                name="300_multiple_choices",
+                response=HTTPStatus.MULTIPLE_CHOICES,
+                should_be_cached=True,
+            ),
+            param(
+                name="301_moved_permanently",
+                response=HTTPStatus.MOVED_PERMANENTLY,
+                should_be_cached=True,
+            ),
+            param(
+                name="302_found",
+                response=HTTPStatus.FOUND,
+                should_be_cached=False,
+            ),
+            param(
+                name="303_see_other",
+                response=HTTPStatus.SEE_OTHER,
+                should_be_cached=False,
+            ),
+            param(
+                name="304_not_modified",
+                response=HTTPStatus.NOT_MODIFIED,
+                should_be_cached=False,
+            ),
+            param(
+                name="305_user_proxy",
+                response=HTTPStatus.USE_PROXY,
+                should_be_cached=False,
+            ),
+            param(
+                name="307_temporary_redirect",
+                response=HTTPStatus.TEMPORARY_REDIRECT,
+                should_be_cached=False,
+            ),
+            param(
+                name="308_permanent_redirect",
+                response=HTTPStatus.PERMANENT_REDIRECT,
+                should_be_cached=True,
+            ),
+        ]
+    )
+    def test_redirect(self, name, response, should_be_cached):
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        server.set_response(
+            f"HTTP/1.1 {response.value} {response.phrase}\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 0\r\n"
+            + "Location: http://www.example.com/index.html\r\n"
+            + "\r\n"
+        )
+
+        self.start_all_services()
+
+        for _ in range(2):
+            client.send_request(
+                client.create_request(method="GET", uri="/index.html", headers=[]),
+                expected_status_code=str(response.value),
+            )
+
+        if should_be_cached:
+            # self.assertIn("age", client.last_response.headers)
+            checks.check_tempesta_cache_stats(
+                self.get_tempesta(),
+                cache_hits=1,
+                cache_misses=1,
+                cl_msg_served_from_cache=1,
+            )
+            self.assertEqual(len(server.requests), 1)
+        else:
+            self.assertNotIn("age", client.last_response.headers)
+            checks.check_tempesta_cache_stats(
+                self.get_tempesta(),
+                cache_hits=0,
+                cache_misses=2,
+                cl_msg_served_from_cache=0,
+            )
+            self.assertEqual(len(server.requests), 2)
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
 class TestCacheLocation(tester.TempestaTest):
     tempesta = {
         "config": """
@@ -341,8 +542,8 @@ vhost default {
     tls_match_any_server_name;
     tls_certificate ${tempesta_workdir}/tempesta.crt;
     tls_certificate_key ${tempesta_workdir}/tempesta.key;
-
-    location prefix "/cached" {
+    
+    location suffix ".jpg" {
         proxy_pass default;
         cache_fulfill * *;
     }
@@ -357,36 +558,15 @@ vhost default {
         cache_fulfill * *;
         nonidempotent GET * *;
         nonidempotent HEAD * *;
+        nonidempotent POST * *;
     }
 }
 """,
     }
 
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": (
-                "HTTP/1.1 200 OK\r\n"
-                + "Connection: keep-alive\r\n"
-                + "Content-Length: 13\r\n"
-                + "Content-Type: text/html\r\n"
-                + "\r\n"
-                + "<html></html>"
-            ),
-        },
-    ]
+    backends = [DEPROXY_SERVER]
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
+    clients = [DEPROXY_CLIENT]
 
     def _test(self, uri: str, method: str, should_be_cached: bool):
         self.start_all_services()
@@ -408,63 +588,190 @@ vhost default {
         else:
             self.assertNotIn("age", client.last_response.headers, msg)
 
-    def test_prefix_cached(self):
-        self._test(uri="/cached", method="GET", should_be_cached=True)
+    def test_suffix_cached(self):
+        self._test(uri="/image.jpg", method="GET", should_be_cached=True)
 
     def test_prefix_bypassed(self):
         self._test(uri="/bypassed", method="GET", should_be_cached=False)
 
     def test_nonidempotent_get(self):
-        self._test(uri="/bypassed", method="GET", should_be_cached=False)
+        self._test(uri="/nonidempotent", method="GET", should_be_cached=False)
 
     def test_nonidempotent_head(self):
-        self._test(uri="/bypassed", method="HEAD", should_be_cached=False)
+        self._test(uri="/nonidempotent", method="HEAD", should_be_cached=False)
+
+    def test_suffix_cached_and_prefix_bypassed(self):
+        """
+        Wiki:
+            Multiple virtual hosts and locations may be defined and are processed
+            strictly in the order they are defined in the configuration file.
+        https://github.com/tempesta-tech/tempesta/wiki/Virtual-hosts-and-locations
+        Response must be cached because location with suffix `.jpg` is first.
+        """
+        self._test(uri="/bypassed/image.jpg", method="GET", should_be_cached=True)
 
 
-class H2Cache(TestCache):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
     ]
+)
+class TestCacheMultipleMethods(tester.TempestaTest):
+    backends = [DEPROXY_SERVER]
 
+    tempesta = {
+        "config": """
+    listen 80;
+    listen 443 proto=h2;
+    cache 2;
+    cache_fulfill * *;
+    cache_methods GET HEAD POST;
 
-class TestH2CacheLocation(TestCacheLocation):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
+    server ${server_ip}:8000;
+
+    vhost default {
+        proxy_pass default;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+    }
+    """,
+    }
+
+    @parameterize.expand(
+        [
+            param("GET_after_GET", first_method="GET", second_method="GET", should_be_cached=True),
+            param(
+                "HEAD_after_GET", first_method="GET", second_method="HEAD", should_be_cached=True
+            ),
+            param(
+                "HEAD_after_HEAD", first_method="HEAD", second_method="HEAD", should_be_cached=True
+            ),
+            param(
+                "GET_after_HEAD", first_method="HEAD", second_method="GET", should_be_cached=False
+            ),
+        ]
+    )
+    def test(self, name, first_method, second_method, should_be_cached):
+        """
+        The response to a GET request is cacheable; a cache MAY use it to
+        satisfy subsequent GET and HEAD requests.
+        RFC 9110 9.3.1
+
+        The response to a HEAD request is cacheable; a cache MAY use it to
+        satisfy subsequent HEAD requests
+        RFC 9110 9.3.2
+        """
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 5\r\n"
+            + "\r\n"
+            + "12345"
+        )
+
+        self.start_all_services()
+        client.send_request(
+            client.create_request(method=first_method, uri="/index.html", headers=[])
+        )
+        client.send_request(
+            client.create_request(method=second_method, uri="/index.html", headers=[])
+        )
+
+        if should_be_cached:
+            self.assertIn("age", client.last_response.headers.keys())
+            self.assertEqual(len(server.requests), 1)
+        else:
+            self.assertNotIn("age", client.last_response.headers.keys())
+            self.assertEqual(len(server.requests), 2)
+
+    @parameterize.expand(
+        [
+            param(name="PUT_request", method="PUT"),
+            param(name="DELETE_request", method="DELETE"),
+        ]
+    )
+    def test_update_cache_via(self, name, method):
+        """
+        Responses to the PUT/DELETE method are not cacheable.
+        If a successful PUT request passes through a cache that has one or more stored
+        responses for the target URI, those stored responses will be invalidated.
+        RFC 9110 9.3.4/9.3.5
+
+        "Invalidate" means that the cache will either remove all stored responses whose
+        target URI matches the given URI or mark them as "invalid" and in need of a mandatory
+        validation before they can be sent in response to a subsequent request.
+        RFC 9111 4.4
+        """
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 10\r\n"
+            + "\r\n"
+            + "First body."
+        )
+        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 11\r\n"
+            + "\r\n"
+            + "Second body."
+        )
+        client.send_request(client.create_request(method=method, uri="/index.html", headers=[]))
+        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+
+        self.assertEqual(
+            "Second body",
+            client.last_response.body,
+            f"The response was not updated in the cache after a request with {method} method.",
+        )
+
+    def test_cache_POST_request(self):
+        """
+        Responses to POST requests are only cacheable when they include explicit
+        freshness information and a Content-Location header field that has the same
+        value as the POST's target URI. A cached POST response can be reused to satisfy
+        a later GET or HEAD request. In contrast, a POST request cannot be satisfied by
+        a cached POST response because POST is potentially unsafe.
+        RFC 9110 9.3.3
+        """
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 10\r\n"
+            + "Content-Location: /index.html\r\n"
+            + "Cache-Control: public, s-maxage=5\r\n"
+            + "\r\n"
+            + "First body."
+        )
+
+        client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
+        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+
+        self.assertIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 1)
 
 
 class TestH2CacheHdrDel(tester.TempestaTest):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
+    clients = [DEPROXY_CLIENT_H2]
 
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "",
-        },
-    ]
+    backends = [DEPROXY_SERVER]
 
     tempesta = {
         "config": """
@@ -770,25 +1077,9 @@ http_chain {
 """
     }
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
+    clients = [DEPROXY_CLIENT_H2]
 
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "",
-        },
-    ]
+    backends = [DEPROXY_SERVER]
 
     def base_scenario(
         self,
@@ -972,30 +1263,9 @@ http_chain {
 """
     }
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
+    clients = [DEPROXY_CLIENT_H2]
 
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": (
-                "HTTP/1.1 200 OK\r\n"
-                + "Content-Length: 0\r\n"
-                + "Server: Deproxy Server\r\n"
-                + "\r\n"
-            ),
-        },
-    ]
+    backends = [DEPROXY_SERVER]
 
     def base_scenario(
         self,
