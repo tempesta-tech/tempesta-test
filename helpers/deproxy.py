@@ -17,6 +17,7 @@ from __future__ import print_function
 import abc
 import asyncore
 import calendar  # for calendar.timegm()
+import copy
 import errno
 import re
 import select
@@ -407,6 +408,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
 
     @staticmethod
     def create(first_line, headers, date=None, srv_version=None, body=""):
+        headers = copy.deepcopy(headers)
         if headers and isinstance(headers[0], tuple):
             headers = [f"{header[0]}: {header[1]}" for header in headers]
         if date:
@@ -535,6 +537,7 @@ class Request(HttpMessage):
         body="",
     ):
         first_line = " ".join([method, uri, version])
+        headers = copy.deepcopy(headers)
         if authority:
             headers.insert(0, ("Host", authority))
 
@@ -576,6 +579,7 @@ class H2Request(Request):
         date: str = None,
         body="",
     ):
+        headers = copy.deepcopy(headers)
         pseudo_headers = [
             (":method", method) if method else (),
             (":path", uri) if uri else (),
@@ -724,6 +728,7 @@ class H2Response(Response):
         expected=False,
         **kwargs,
     ):
+        headers = copy.deepcopy(headers)
         if date:
             headers.append(("date", date))
 
