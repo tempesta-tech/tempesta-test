@@ -3,7 +3,7 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-from parameterized import parameterized, parameterized_class
+from parameterized import param, parameterized, parameterized_class
 
 
 def get_func_name(func, param_num, params):
