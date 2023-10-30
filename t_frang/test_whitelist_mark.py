@@ -89,8 +89,8 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         return super().setUp()
 
     def test_whitelisted_basic_request(self):
-        self.start_all_services()
         self.set_nf_mark(1)
+        self.start_all_services()
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.send_request(
@@ -98,9 +98,19 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
             expected_status_code="200",
         )
 
-    def test_whitelisted_frang_http_uri_len(self):
-        self.start_all_services()
+    def test_whitelisted_basic_request_xforwarded_for(self):
         self.set_nf_mark(1)
+        self.start_all_services()
+
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.send_request(
+            client.create_request(uri="/", method="GET", headers=[("x-forwarded-for", "1.2.3.4")]),
+            expected_status_code="200",
+        )
+
+    def test_whitelisted_frang_http_uri_len(self):
+        self.set_nf_mark(1)
+        self.start_all_services()
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.send_request(
@@ -109,16 +119,32 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
             expected_status_code="200",
         )
 
-    def test_whitelisted_frang_connection_rate(self):
+    def test_whitelisted_frang_http_uri_len_xforwarded_for(self):
+        self.set_nf_mark(1)
         self.start_all_services()
+
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.send_request(
+            # very long uri
+            client.create_request(
+                uri="/" + "a" * 25, method="GET", headers=[("x-forwarded-for", "1.2.3.4")]
+            ),
+            expected_status_code="200",
+        )
+
+    def test_whitelisted_frang_connection_rate(self):
         self.set_nf_mark(1)
 
         connections = 5
         curl: curl_client.CurlClient = self.get_client("curl-1")
         curl.uri += f"[1-{connections}]"
         curl.parallel = connections
+        curl.dump_headers = False
+
+        self.start_all_services()
+
         curl.start()
-        curl.wait_for_finish()
+        self.wait_while_busy(curl)
         curl.stop()
         # we expect all requests to receive 200
         self.assertEqual(

@@ -323,6 +323,15 @@ class CurlClient(CurlArguments, client.Client):
         if not self.disable_output and stdout:
             try:
                 self._stats = self._parse_stats(stdout)
+                if not self.dump_headers:
+                    for response in self._stats:
+                        expected_proto = ("2") if self.http2 else ("1.0", "1.1")
+                        if (
+                            response["http_version"]
+                            and response["http_version"] not in expected_proto
+                        ):
+                            raise Exception(f"Unexpected HTTP version response: {response.proto}")
+                        self._statuses[response["response_code"]] += 1
             except json.JSONDecodeError:
                 tf_cfg.dbg(1, "Error: can't decode cURL JSON stats.")
             else:

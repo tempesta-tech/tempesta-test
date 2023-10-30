@@ -329,7 +329,7 @@ class TestCurlClient(tester.TempestaTest):
         self.assertIn("--parallel-max 2", client.form_command())
         self.assertEqual(len(server.requests), 10)
         self.assertEqual(client.requests, 10)
-        self.assertEqual(client.results(), (10, 0, ANY, {}))
+        self.assertEqual(client.results(), (10, 0, ANY, {200: 10}))
 
         with self.subTest("multiple stats parsed"):
             self.assertEqual(len(client.stats), 10)
