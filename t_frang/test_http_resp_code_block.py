@@ -15,6 +15,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework.parameterize import parameterize_class
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
 NGINX_CONFIG = {
@@ -70,12 +71,18 @@ http {
 }
 
 
+@parameterize_class(
+    [
+        {"name": "Http", "clients": FrangTestCase.clients},
+        {"name": "H2", "clients": H2Config.clients},
+    ]
+)
 class HttpRespCodeBlockOneClient(FrangTestCase):
     backends = [NGINX_CONFIG]
 
-    request_200 = "GET /uri2 HTTP/1.1\r\nHost: localhost\r\n\r\n"
-    request_404 = "GET /uri1 HTTP/1.1\r\nHost: localhost\r\n\r\n"
-    request_405 = "GET /uri3 HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    uri_200 = "/uri2"
+    uri_404 = "/uri1"
+    uri_405 = "/uri3"
 
     warning = "frang: http_resp_code_block limit exceeded for"
 
@@ -89,8 +96,8 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         client.start()
 
         for rps, requests in [
-            (3, self.request_404 * 7),
-            (10, self.request_200 * 10),
+            (3, [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 7),
+            (10, [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg] * 10),
         ]:
             with self.subTest():
                 client.set_rps(rps)
@@ -109,7 +116,10 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
 
         client = self.get_client("deproxy-1")
         client.start()
-        client.make_requests(self.request_405 * 3 + self.request_404 * 4)
+        client.make_requests(
+            [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 3
+            + [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 4
+        )
         client.wait_for_response()
 
         self.assertTrue(client.wait_for_connection_close())
@@ -126,7 +136,10 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         client = self.get_client("deproxy-1")
         client.start()
         client.make_requests(
-            self.request_200 + self.request_404 * 4 + self.request_200 + self.request_405 * 2
+            [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg]
+            + [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 4
+            + [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg]
+            + [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 2
         )
         client.wait_for_response()
 
@@ -248,33 +261,6 @@ frang_limits {
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
         self.assertFrangWarning(warning=self.warning, expected=1)
-
-
-class HttpRespCodeBlockOneClientH2(H2Config, HttpRespCodeBlockOneClient):
-    request_200 = [
-        [
-            (":authority", "example.com"),
-            (":path", "/uri2"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ]
-    ]
-    request_404 = [
-        [
-            (":authority", "example.com"),
-            (":path", "/uri1"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ]
-    ]
-    request_405 = [
-        [
-            (":authority", "example.com"),
-            (":path", "/uri3"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ]
-    ]
 
 
 class HttpRespCodeBlockH2(HttpRespCodeBlock):

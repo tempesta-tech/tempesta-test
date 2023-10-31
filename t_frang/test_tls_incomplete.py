@@ -1,6 +1,7 @@
 """Tests for Frang directive tls-related."""
 import time
 
+from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -47,7 +48,14 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         """,
     }
 
-    def _base_scenario(self, steps):
+    @parameterize.expand(
+        [
+            param(name="rate", steps=5),
+            param(name="without_reaching_the_limit", steps=3),
+            param(name="rate_on_the_limit", steps=4),
+        ]
+    )
+    def test_tls_incomplete_connection(self, name, steps):
         """
         Create several client connections with fail.
         If number of connections is more than 4 they will be blocked.
@@ -71,12 +79,3 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         else:
             # rate limit is reached
             self.assertFrangWarning(warning=ERROR_INCOMP_CONN, expected=1)
-
-    def test_tls_incomplete_connection_rate(self):
-        self._base_scenario(steps=5)
-
-    def test_tls_incomplete_connection_rate_without_reaching_the_limit(self):
-        self._base_scenario(steps=3)
-
-    def test_tls_incomplete_connection_rate_on_the_limit(self):
-        self._base_scenario(steps=4)
