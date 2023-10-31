@@ -94,8 +94,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c2 = self.get_client("another-ip")
 
         self.arrange(c1, c2, rps_1=4, rps_2=0)
-        self.save_must_reset_socks(c2)
-        self.save_must_not_reset_socks(c1)
+        self.save_must_reset_socks([c2])
+        self.save_must_not_reset_socks([c1])
 
         self.do_requests(c1, c2, request_cnt=6)
 
@@ -119,7 +119,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c2 = self.get_client("same-ip2")
 
         self.arrange(c1, c2, rps_1=0, rps_2=0)
-        self.save_must_reset_socks(c1, c2)
+        self.save_must_reset_socks([c1, c2])
 
         self.do_requests(c1, c2, request_cnt=4)
 

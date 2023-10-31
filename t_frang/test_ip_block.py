@@ -82,8 +82,8 @@ block_action attack drop;
         self.sniffer.start()
         self.start_all_services(client=False)
         four.start()
-        self.save_must_reset_socks(c1, c2, c3)
-        self.save_must_not_reset_socks(c4)
+        self.save_must_reset_socks([c1, c2, c3])
+        self.save_must_not_reset_socks([c4])
 
         # Good request: all is good
         four.send_request(self.GOOD_REQ, "200")
@@ -126,8 +126,8 @@ block_action attack drop;
         self.start_all_services(client=False)
         c1.start()
         c2.start()
-        self.save_must_reset_socks(c1)
-        self.save_must_not_reset_socks(c2)
+        self.save_must_reset_socks([c1])
+        self.save_must_not_reset_socks([c2])
 
         # Blocking is off: clients with the same IPs
         # handled separately
@@ -172,8 +172,8 @@ block_action attack drop;
         self.sniffer.start()
         self.start_all_services(client=False)
         four.start()
-        self.save_must_reset_socks(c1, c2, c4)
-        self.save_must_not_reset_socks(c3)
+        self.save_must_reset_socks([c1, c2, c4])
+        self.save_must_not_reset_socks([c3])
 
         # Last request triggers rate limit (3 same IPs > 2)
         four.send_request(self.REQ)
@@ -216,8 +216,8 @@ block_action attack drop;
         time.sleep(self.timeout)
         self.start_all_services(client=False)
         clients.start()
-        self.save_must_reset_socks(c3)
-        self.save_must_not_reset_socks(c1, c2)
+        self.save_must_reset_socks([c3])
+        self.save_must_not_reset_socks([c1, c2])
 
         # Blocking is off: clients with the same IPs
         # handled separately
