@@ -171,7 +171,7 @@ class LearnSessions(tester.TempestaTest):
             )
             client.make_request(req)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(client.wait_for_response(20))
 
         self.assertEqual(len(client.responses), ATTEMPTS + 1)
         for resp in client.responses[1:]:

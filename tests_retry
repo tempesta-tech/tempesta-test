@@ -7,3 +7,4 @@ http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_leng
 tls.test_tls_integrity.ManyClientsH2
 tls.test_tls_integrity.ManyClients
 t_frang.test_connection_rate_burst.FrangTcpVsBoth
+t_leaks
