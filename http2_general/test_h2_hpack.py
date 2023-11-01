@@ -369,49 +369,6 @@ class TestHpack(TestHpackBase):
             )
             self.change_header_table_size_and_send_request(client, new_table_size, header)
 
-    def test_hpack_bomb(self):
-        """
-        A HPACK bomb request causes the connection to be torn down with the
-        error code ENHANCE_YOUR_CALM.
-        """
-        self.start_all_services(client=False)
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        client.parsing = False
-
-        # Send 4096 byte header and save in dynamic table.
-        # Max table size 4096 bytes, see RFC 7540 6.5.2
-        for bomb_size in [(2**8), (2**14 - 9)]:
-            with self.subTest(bomb_size=bomb_size):
-                client.stop()
-                client.start()
-                client.make_request(
-                    request=self.post_request + [HeaderTuple(b"a", b"a" * 4063)],
-                    end_stream=False,
-                )
-
-                # wait for tempesta to save header in dynamic table
-                time.sleep(0.5)
-
-                # Generate and send attack frames. It repeatedly refers to the first entry for 16kB.
-                now = time.time()
-                while now + 10 > time.time():
-                    client.stream_id += 2
-                    attack_frame = HeadersFrame(
-                        stream_id=client.stream_id,
-                        data=b"\xbe" * bomb_size,  # max window size 16384
-                    )
-                    attack_frame.flags.add("END_HEADERS")
-
-                    try:
-                        client.send(attack_frame.serialize())
-                    except SSLWantWriteError:
-                        continue
-
-                # Make sure connection is closed by Tempesta.
-                with self.assertRaises(ProtocolError):
-                    client.stream_id = 1
-                    client.make_request(request="asd", end_stream=True)
-
     def test_bytes_of_table_size_in_header_frame_1(self):
         """
         This dynamic table size update MUST occur at the beginning of the first header
@@ -881,3 +838,70 @@ class TestFramePayloadLength(H2Base):
 
         self.assertEqual(client.last_response.status, "400")
         self.assertTrue(client.wait_for_connection_close())
+
+
+class TestHpackBomb(TestHpackBase):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            http_max_header_list_size 65536;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    def test_hpack_bomb(self):
+        """
+        A HPACK bomb request causes the connection to be torn down with the
+        error code ENHANCE_YOUR_CALM.
+        """
+        self.start_all_services(client=False)
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client.parsing = False
+
+        # Send 4096 byte header and save in dynamic table.
+        # Max table size 4096 bytes, see RFC 7540 6.5.2
+        for bomb_size in [(2**8), (2**14 - 9)]:
+            with self.subTest(bomb_size=bomb_size):
+                client.stop()
+                client.start()
+                client.make_request(
+                    request=self.post_request + [HeaderTuple(b"a", b"a" * 4063)],
+                    end_stream=False,
+                )
+
+                # wait for tempesta to save header in dynamic table
+                time.sleep(0.5)
+
+                # Generate and send attack frames. It repeatedly refers to the first entry for 16kB.
+                client.stream_id += 2
+                stream = client.h2_connection._get_or_create_stream(
+                    client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+                )
+                stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+                attack_frame = HeadersFrame(
+                    stream_id=client.stream_id,
+                    data=b"\xbe" * bomb_size,
+                    flags=["END_HEADERS", "END_STREAM"],
+                )
+
+                client.send_bytes(data=attack_frame.serialize(), expect_response=True)
+                self.assertTrue(client.wait_for_response())
+                self.assertEqual(client.last_response.status, "400")
+                self.assertTrue(client.wait_for_connection_close())
+                self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
