@@ -401,3 +401,51 @@ class TestHeadersParsing(tester.TempestaTest):
         )
 
         self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
+
+
+class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+
+            http_max_header_list_size 20;
+
+            block_action attack reply;
+            block_action error reply;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def test_blocked_by_max_headers_count(self):
+        # Total header length is greater then 20 bytes.
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': text\r\n\r\n",
+            expected_status_code="400",
+        )
