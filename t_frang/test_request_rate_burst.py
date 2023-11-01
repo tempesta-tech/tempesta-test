@@ -66,7 +66,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
     def setUp(self):
         super().setUp()
-        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80, 443))
+        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=10, ports=(80, 443))
         self.set_frang_config(self.frang_config)
 
     def arrange(self, c1, c2, rps_1: int, rps_2: int):
@@ -74,10 +74,10 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         self.start_all_services(client=False)
         c1.set_rps(rps_1)
         c2.set_rps(rps_2)
-
-    def do_requests(self, c1, c2, request_cnt: int):
         c1.start()
         c2.start()
+
+    def do_requests(self, c1, c2, request_cnt: int):
         for _ in range(request_cnt):
             c1.make_request(self.request)
             c2.make_request(self.request)
