@@ -7,17 +7,17 @@ import time
 from framework import tester
 from helpers import remote, tf_cfg
 
-CLIENTS_N = 2
+CLIENTS_N = 8
 IMAGE_NAME = "mhddos"
 NETWORK_NAME = "ddos_network"
 PRE_SUBNET = "10.5.0"
-MHDDOS_PATH = "/usr/mhddos"
-TEST_METHOD = "POST"
+MHDDOS_PATH = "/mnt/other/mhddos"
+TEST_METHOD = "GET"
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
 SOCKET_TYPE = "1"  # for HTTP requests
-THREADS = tf_cfg.cfg.get("General", "stress_threads")
-PROXY_LIST = "./proxy.txt"
-RPS = tf_cfg.cfg.get("General", "stress_requests_count")
+THREADS = 1
+PROXY_LIST = "/app/files/proxies/http.txt"
+RPS = 1
 DURATION = tf_cfg.cfg.get("General", "duration")
 
 
@@ -32,9 +32,9 @@ cache_ttl 3600;
 listen 443 proto=https;
 listen 80;
 
-srv_group default {server 127.0.0.1:8000;}
+srv_group default {server ${server_ip}:8000;}
 
-srv_group auth {server 127.0.0.1:8000;}
+srv_group auth {server ${server_ip}:8000;}
 
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -68,7 +68,7 @@ frang_limits {
 }
 
 cache_purge;
-cache_purge_acl 3.72.94.204 127.0.0.1;
+cache_purge_acl ${client_ip};
 
 block_action attack reply;
 block_action error reply;
@@ -107,12 +107,12 @@ http_chain {
         },
     ]
 
-    def setUp(self):
-        self.containers = []
-        super(TestDDoSL7, self).setUp()
-
     def test_ddos_post_method(self):
+        if "127" in TEMPESTA_IP:
+            raise Exception("Please don't use loopback IP for this test.")
+        self.containers = []
         self.start_all_services(client=False)
+        self.__prepare_dockerfile()
 
         self.__create_docker_image()
         self.__create_docker_network()
@@ -122,10 +122,15 @@ http_chain {
         # wait all containers
         time.sleep(int(DURATION) + 10)
 
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+        print(tempesta.stats.__dict__)
+
     def tearDown(self):
         # remove docker containers
         for container_name in self.containers:
             try:
+                remote.client.run_cmd(cmd=f"docker stop {container_name}")
                 remote.client.run_cmd(cmd=f"docker rm {container_name}")
             except:
                 continue
@@ -161,7 +166,7 @@ http_chain {
 
     @staticmethod
     def __create_docker_image():
-        remote.client.run_cmd(cmd=f"docker build -t {IMAGE_NAME} {MHDDOS_PATH}", timeout=30)
+        remote.client.run_cmd(cmd=f"docker build -t {IMAGE_NAME} {MHDDOS_PATH}", timeout=60)
 
     @staticmethod
     def __create_docker_network():
@@ -170,7 +175,7 @@ http_chain {
         )
 
     def __create_docker_containers(self):
-        for step in range(1, CLIENTS_N):
+        for step in range(2, CLIENTS_N + 2):
             container_name = f"mhddos_{TEST_METHOD}_{step}"
             try:
                 remote.client.run_cmd(
