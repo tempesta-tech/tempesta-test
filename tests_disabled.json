@@ -354,14 +354,6 @@
             "reason": "Disabled by issue #1900"
         },
         {
-            "name": "cache.test_cache_deception_attack.TestCacheDeceptionAttackH2.test_cc_no_cache_in_request_and_cache_lvl_1",
-            "reason": "Disabled by issue #1901"
-        },
-        {
-            "name": "cache.test_cache_deception_attack.TestCacheDeceptionAttackH2.test_cc_no_cache_in_request_and_cache_lvl_2",
-            "reason": "Disabled by issue #1901"
-        },
-        {
             "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
             "reason": "Disabled by issue #1961"
         },
