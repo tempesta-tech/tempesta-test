@@ -119,6 +119,20 @@ class TestH2CacheControl(tester.TempestaTest):
             should_be_cached=False,
         )
 
+    def test_max_age_1_in_request_sleep_2_from_hpack_dynamic_table(self):
+        """
+        Same as previous but second cache-control header is loaded
+        from hpack dynamic table.
+        """
+        self.base_scenario(
+            response_headers=[],
+            request_headers=[("cache-control", "max-age=1")],
+            second_request_headers=[("cache-control", "max-age=1")],
+            expected_cached_status="200",
+            sleep_interval=2,
+            should_be_cached=False,
+        )
+
     def test_max_age_2_in_request_sleep_0(self):
         """Response must be from cache if sleep < max-age."""
         self.base_scenario(
@@ -260,6 +274,20 @@ class TestH2CacheControl(tester.TempestaTest):
             should_be_cached=True,
         )
 
+    def test_max_stale_5_in_request_sleep_2_from_dynamic_table(self):
+        """
+        Same as previous but second max-stale header is loaded
+        from hpack dynamic table.
+        """
+        self.base_scenario(
+            response_headers=[("cache-control", "max-age=5")],
+            request_headers=[("cache-control", "max-stale=5")],
+            second_request_headers=[("cache-control", "max-stale=5")],
+            expected_cached_status="200",
+            sleep_interval=2,
+            should_be_cached=True,
+        )
+
     def test_max_stale_in_request_sleep_2(self):
         """Response must be from cache if request contains max-stale and age expired."""
         self.base_scenario(
@@ -294,6 +322,20 @@ class TestH2CacheControl(tester.TempestaTest):
             should_be_cached=True,
         )
 
+    def test_min_fresh_1_in_request_sleep_0_from_dynamic_table(self):
+        """
+        Same as previous but second min-fresh header is loaded
+        from hpack dynamic table.
+        """
+        self.base_scenario(
+            response_headers=[("cache-control", "max-age=2")],
+            request_headers=[("cache-control", "min-fresh=1")],
+            second_request_headers=[("cache-control", "min-fresh=1")],
+            expected_cached_status="200",
+            sleep_interval=0,
+            should_be_cached=True,
+        )
+
     # ONLY-IF-CACHED ------------------------------------------------------------------------------
     def test_only_if_cached_in_request_from_cache(self):
         """Tempesta must return a 504 status code if response is not from cache."""
@@ -305,6 +347,24 @@ class TestH2CacheControl(tester.TempestaTest):
             sleep_interval=0,
             should_be_cached=True,
         )
+
+    def test_only_if_cached_in_request_from_cache_from_dynamic_table(self):
+        """
+        Same as previous but second only-if-cache header is loaded
+        from hpack dynamic table.
+        """
+        self.test_only_if_cached_in_request_from_cache()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[("cache-control", "only-if-cached")],
+            ),
+            "200",
+        )
+        self.assertEqual(1, len(server.requests))
 
     def test_only_if_cached_in_request_not_from_cache(self):
         """Tempesta must return a 504 status code if response is not from cache."""
@@ -328,6 +388,31 @@ class TestH2CacheControl(tester.TempestaTest):
             sleep_interval=0,
             should_be_cached=False,
         )
+
+    def test_no_store_in_first_and_second_request_from_dynamic_table(self):
+        """
+        Same as previous but second no-store header is loaded
+        from hpack dynamic table.
+        """
+        self.base_scenario(
+            response_headers=[],
+            request_headers=[("cache-control", "no-store")],
+            second_request_headers=[("cache-control", "no-store")],
+            expected_cached_status="200",
+            sleep_interval=0,
+            should_be_cached=False,
+        )
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[],
+            ),
+            "200",
+        )
+        self.assertEqual(3, len(server.requests))
 
     def test_no_store_in_second_request(self):
         """
@@ -639,6 +724,24 @@ class TestH2CacheControl(tester.TempestaTest):
             sleep_interval=0,
             should_be_cached=False,
         )
+
+    def test_same_authorization_in_requests_from_dynamic_table(self):
+        """
+        Same as previous but second authorization header is loaded
+        from hpack dynamic table.
+        """
+        self.test_same_authorization_in_requests()
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[("authorization", "token")],
+            ),
+            "200",
+        )
+        self.assertEqual(3, len(server.requests))
 
     def test_authorization_in_second_request(self):
         """
