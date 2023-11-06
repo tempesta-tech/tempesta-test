@@ -692,6 +692,92 @@ class TestHpackCache(TestHpackBase):
     def test_h2_cache_200_after_setting_header_table_size(self):
         self.__test_h2_cache_after_setting_header_table_size("Mon, 12 Dec 2020 13:59:39 GMT", "200")
 
+    def test_cache_response_from_dynamic_table(self):
+        """Tempesta must respond from cache to http2 client using hpack dynamic table."""
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + "x-my-hdr: value\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        client.send_request(self.get_request, "200")
+        client.send_request(self.get_request, "200")
+
+        self.assertEqual(1, len(server.requests))
+        self._check_cached_response_from_dynamic_table(client)
+
+    def test_cache_response_from_dynamic_table_for_different_client(self):
+        """
+        Tempesta must respond from cache to http2 client using hpack dynamic table.
+        But Tempesta must return headers as text for new connection.
+        """
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Date: test\r\n"
+            + "Server: debian\r\n"
+            + "x-my-hdr: value\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        client.send_request(self.get_request, "200")
+        client.stop()
+
+        client.start()
+        client.send_request(self.get_request, "200")
+
+        self.assertEqual(1, len(server.requests))
+        self._check_cached_response_as_text(client)
+
+        client.send_request(self.get_request, "200")
+
+        self.assertEqual(1, len(server.requests))
+        self._check_cached_response_from_dynamic_table(client)
+
+    def _check_cached_response_from_dynamic_table(self, client):
+        self.assertIn("age", client.last_response.headers.keys())
+
+        self.assertNotIn(
+            b"x-my-hdr",
+            client.last_response_buffer,
+            "Tempesta return header key from cache as text, "
+            "but bytes from the dynamic table were expected.",
+        )
+        self.assertNotIn(
+            b"value",
+            client.last_response_buffer,
+            "Tempesta return header value from cache as text, "
+            "but bytes from the dynamic table were expected.",
+        )
+
+    def _check_cached_response_as_text(self, client):
+        self.assertIn("age", client.last_response.headers.keys())
+        self.assertIn(
+            b"x-my-hdr",
+            client.last_response_buffer,
+            "Tempesta return a cached response with header key as bytes from a dynamic table "
+            "for a new connection, but the text were expected.",
+        )
+        self.assertIn(
+            b"value",
+            client.last_response_buffer,
+            "Tempesta return a cached response with header value as bytes from a dynamic table "
+            "for a new connection, but the text were expected.",
+        )
+
     def __test_h2_cache_after_setting_header_table_size(self, date, status_code):
         """
         This dynamic table size update MUST occur at the beginning of the first header
