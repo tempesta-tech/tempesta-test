@@ -5,9 +5,10 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import tester
+from helpers import analyzer, asserts, remote
 
 
-class BlockActionBase(tester.TempestaTest):
+class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
     backends = [
         {
             "id": "deproxy",
@@ -57,6 +58,11 @@ class BlockActionBase(tester.TempestaTest):
         }
     """
 
+    @staticmethod
+    def setup_sniffer() -> analyzer.Sniffer:
+        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80,))
+        sniffer.start()
+        return sniffer
 
 
 class BlockActionReply(BlockActionBase):
@@ -66,10 +72,18 @@ class BlockActionReply(BlockActionBase):
         }
         tester.TempestaTest.setUp(self)
 
+    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_fin_socks(sniffer.packets)
+        self.assert_unreset_socks(sniffer.packets)
+
     def test_block_action_attack_reply(self):
         client = self.get_client("deproxy")
 
+        sniffer = self.setup_sniffer()
         self.start_all_services()
+        self.save_must_fin_socks([client])
+        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
@@ -77,11 +91,15 @@ class BlockActionReply(BlockActionBase):
         )
 
         self.assertTrue(client.wait_for_connection_close())
+        self.check_fin_and_rst_in_sniffer(sniffer)
 
     def test_block_action_error_reply(self):
         client = self.get_client("deproxy")
 
+        sniffer = self.setup_sniffer()
         self.start_all_services()
+        self.save_must_not_fin_socks([client])
+        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nX-Forwarded-For: 1.1.1.1.1.1\r\n\r\n",
@@ -95,10 +113,17 @@ class BlockActionReply(BlockActionBase):
             expected_status_code="200",
         )
 
+        sniffer.stop()
+        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_unreset_socks(sniffer.packets)
+
     def test_block_action_error_reply_multiple_requests(self):
         client = self.get_client("deproxy")
 
+        sniffer = self.setup_sniffer()
         self.start_all_services()
+        self.save_must_not_fin_socks([client])
+        self.save_must_not_reset_socks([client])
 
         client.make_requests(
             requests=[
@@ -109,6 +134,11 @@ class BlockActionReply(BlockActionBase):
         )
         client.wait_for_response()
         self.assertEqual(len(client.responses), 2)
+        self.assertFalse(client.connection_is_closed())
+
+        sniffer.stop()
+        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_unreset_socks(sniffer.packets)
 
     def test_block_action_attack_reply_not_on_req_rcv_event(self):
         """
@@ -119,7 +149,10 @@ class BlockActionReply(BlockActionBase):
         """
         client = self.get_client("deproxy")
 
+        sniffer = self.setup_sniffer()
         self.start_all_services()
+        self.save_must_fin_socks([client])
+        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: frang.com\r\n\r\n",
@@ -132,6 +165,7 @@ class BlockActionReply(BlockActionBase):
         )
 
         self.assertTrue(client.wait_for_connection_close())
+        self.check_fin_and_rst_in_sniffer(sniffer)
 
 
 class BlockActionDrop(BlockActionBase):
@@ -141,10 +175,18 @@ class BlockActionDrop(BlockActionBase):
         }
         tester.TempestaTest.setUp(self)
 
+    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_reset_socks(sniffer.packets)
+        self.assert_not_fin_socks(sniffer.packets)
+
     def test_block_action_attack_drop(self):
         client = self.get_client("deproxy")
 
+        sniffer = self.setup_sniffer()
         self.start_all_services()
+        self.save_must_reset_socks([client])
+        self.save_must_not_fin_socks([client])
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
@@ -152,11 +194,15 @@ class BlockActionDrop(BlockActionBase):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
+        self.check_fin_and_rst_in_sniffer(sniffer)
 
     def test_block_action_error_drop(self):
         client = self.get_client("deproxy")
 
+        sniffer = self.setup_sniffer()
         self.start_all_services()
+        self.save_must_reset_socks([client])
+        self.save_must_not_fin_socks([client])
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
@@ -164,3 +210,4 @@ class BlockActionDrop(BlockActionBase):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
+        self.check_fin_and_rst_in_sniffer(sniffer)
