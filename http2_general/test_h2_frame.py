@@ -7,6 +7,7 @@ __license__ = "GPL2"
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from hpack import HeaderTuple
+from hyperframe.frame import HeadersFrame
 
 from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
@@ -279,13 +280,22 @@ class TestH2Frame(H2Base):
             client.wait_for_response(), "Tempesta closed connection after receiving GOAWAY frame."
         )
 
-    def test_double_header_frame_in_single_stream(self):
+    def test_triple_header_frame_in_single_stream(self):
+        """
+        The RFC allows 2 headers frame in one stream - first for headers and second for trailers.
+        """
         client = self.get_client("deproxy")
 
         self.start_all_services()
         self.initiate_h2_connection(client)
 
         client.make_request(self.post_request, end_stream=False)
+        hf = HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("header1", "header value1")]),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=False)
         client.make_request([("header1", "header value1")], end_stream=True)
 
         self.assertTrue(client.wait_for_connection_close())
