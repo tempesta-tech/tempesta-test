@@ -3,11 +3,15 @@ Tests for correct parsing of some parts of http2 messages, such as headers.
 For now tests run curl as external program capable to generate h2 messages and
 analises its return code.
 """
+
+import itertools
+
 from h2.connection import AllowedStreamIDs
 from h2.stream import StreamInputs
 from hyperframe import frame
 
 from framework import tester
+from helpers import tf_cfg
 from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
@@ -1187,3 +1191,194 @@ class MissingDateServerWithLargeBodyTest(MissingDateServerWithBodyTest):
             ),
         },
     ]
+
+
+class TestLoadingHeadersFromHpackDynamicTable(H2Base):
+    tempesta = {
+        "config": f"""
+            listen 443 proto=h2;
+            srv_group default {{
+                server {tf_cfg.cfg.get("Server", "ip")}:8000;
+            }}
+            vhost good {{
+                frang_limits {{
+                    http_method_override_allowed false;
+                }}
+                http_post_validate;
+                proxy_pass default;
+            }}
+
+            tls_certificate {tf_cfg.cfg.get("Tempesta", "workdir")}/tempesta.crt;
+            tls_certificate_key {tf_cfg.cfg.get("Tempesta", "workdir")}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {{
+                host == \"bad.com\" -> block;
+                                    -> good;
+            }}
+        """
+    }
+
+    tempesta_cache = {
+        "config": f"""
+            listen 443 proto=h2;
+            srv_group default {{
+                server {tf_cfg.cfg.get("Server", "ip")}:8000;
+            }}
+            vhost good {{
+                frang_limits {{
+                    http_method_override_allowed false;
+                }}
+                http_post_validate;
+                proxy_pass default;
+            }}
+
+            cache 2;
+            cache_fulfill * *;
+
+            tls_certificate {tf_cfg.cfg.get("Tempesta", "workdir")}/tempesta.crt;
+            tls_certificate_key {tf_cfg.cfg.get("Tempesta", "workdir")}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {{
+                host == \"bad.com\" -> block;
+                                    -> good;
+            }}
+        """
+    }
+
+    tempesta_override_allowed = {
+        "config": f"""
+            listen 443 proto=h2;
+            srv_group default {{
+                server {tf_cfg.cfg.get("Server", "ip")}:8000;
+            }}
+            vhost good {{
+                frang_limits {{
+                    http_method_override_allowed true;
+                    http_methods POST GET HEAD;
+                }}
+                http_post_validate;
+                proxy_pass default;
+            }}
+
+            tls_certificate {tf_cfg.cfg.get("Tempesta", "workdir")}/tempesta.crt;
+            tls_certificate_key {tf_cfg.cfg.get("Tempesta", "workdir")}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {{
+                host == \"bad.com\" -> block;
+                                    -> good;
+            }}
+        """
+    }
+
+    def __check_server_resp(self, server, header, expected):
+        for server_req in server.requests:
+            val = server_req.headers[header]
+            self.assertIsNotNone(val)
+            self.assertEqual(val, expected)
+
+    def __prepare_request(self, method, extra_header=None, request_body=None):
+        headers = [
+            (":authority", "localhost"),
+            (":path", "/"),
+            (":scheme", "https"),
+        ]
+        headers.extend(method)
+        if extra_header is not None:
+            headers.extend(extra_header)
+        request = (headers, request_body) if request_body else headers
+        return request
+
+    def __do_test_replacement(self, client, server, content_type, expected_content_type):
+        number_of_whitespace_places = content_type.count("{}")
+
+        for state in itertools.product(
+            ["", " ", "\t", " \t", "\t "], repeat=number_of_whitespace_places
+        ):
+            content_type = content_type.format(*state)
+            request = self.__prepare_request(
+                method=[(":method", "POST")], extra_header=[("content-type", content_type)]
+            )
+
+            client.send_request(request, "200")
+            self.__check_server_resp(server, "content-type", expected_content_type)
+
+            client.send_request(request, "200")
+            self.__check_server_resp(server, "content-type", expected_content_type)
+
+    def test_content_length_field_from_hpack_table(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        request = self.__prepare_request(
+            method=[(":method", "POST")],
+            extra_header=[("content-length", "10")],
+            request_body="aaaaaaaaaa",
+        )
+
+        client.send_request(request, "200")
+        client.send_request(request, "200")
+
+    def test_content_type_from_hpack_table(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.__do_test_replacement(
+            client,
+            server,
+            'multiPART/form-data;{}boundary=helloworld{};{}o_param="123" ',
+            "multipart/form-data; boundary=helloworld",
+        )
+
+    def test_method_override_from_hpack_table(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = self.__prepare_request(
+            method=[(":method", "GET")], extra_header=[("x-http-method-override", "HEAD")]
+        )
+
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_override_allowed["config"])
+        tempesta.reload()
+
+        client.send_request(request, "200")
+
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta["config"])
+        tempesta.reload()
+
+        client.send_request(request, "403")
+
+    def test_pragma_from_hpack_table(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = self.__prepare_request(
+            method=[(":method", "GET")], extra_header=[("pragma", "no-cache")]
+        )
+
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_cache["config"])
+        tempesta.reload()
+
+        client.send_request(request, "200")
+        client.send_request(request, "200")
+        self.assertEqual(2, len(server.requests))
+
+        request = self.__prepare_request(method=[(":method", "GET")])
+        client.send_request(request, "200")
+        self.assertEqual(3, len(server.requests))
+        client.send_request(request, "200")
+        self.assertEqual(3, len(server.requests))
