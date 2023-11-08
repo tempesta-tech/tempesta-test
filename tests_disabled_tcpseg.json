@@ -122,6 +122,10 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_flow_control_window",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
             "reason": "Disabled by issue #1884"
         },

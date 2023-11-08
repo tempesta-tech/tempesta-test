@@ -325,9 +325,7 @@ class DeproxyClient(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
         if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting response: {timeout}"
+            assert timeout_not_exceeded, f"Timeout exceeded while waiting response: {timeout}"
         return timeout_not_exceeded
 
     @property
@@ -409,6 +407,7 @@ class DeproxyClientH2(DeproxyClient):
         self.last_stream_id = None
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer = False
+        self._auto_flow_control = True
 
     def run_start(self):
         super(DeproxyClientH2, self).run_start()
@@ -561,6 +560,27 @@ class DeproxyClientH2(DeproxyClient):
         if expect_response:
             self.valid_req_num += 1
 
+    @property
+    def auto_flow_control(self) -> bool:
+        return self._auto_flow_control
+
+    @auto_flow_control.setter
+    def auto_flow_control(self, auto_flow_control: bool) -> None:
+        self._auto_flow_control = auto_flow_control
+
+    def increment_flow_control_window(self, stream_id, flow_controlled_length):
+        self.h2_connection.increment_flow_control_window(
+            increment=flow_controlled_length, stream_id=None
+        )
+        if (
+            self.h2_connection._get_stream_by_id(stream_id).state_machine.state
+            != h2.stream.StreamState.CLOSED
+        ):
+            self.h2_connection.increment_flow_control_window(
+                increment=flow_controlled_length, stream_id=stream_id
+            )
+        self.send_bytes(self.h2_connection.data_to_send())
+
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
@@ -602,17 +622,12 @@ class DeproxyClientH2(DeproxyClient):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
-                    self.h2_connection.increment_flow_control_window(
-                        increment=event.flow_controlled_length, stream_id=None
-                    )
-                    if (
-                        self.h2_connection._get_stream_by_id(event.stream_id).state_machine.state
-                        != h2.stream.StreamState.CLOSED
-                    ):
-                        self.h2_connection.increment_flow_control_window(
-                            increment=event.flow_controlled_length, stream_id=event.stream_id
+
+                    if self.auto_flow_control:
+                        self.increment_flow_control_window(
+                            event.stream_id, event.flow_controlled_length
                         )
-                    self.send_bytes(self.h2_connection.data_to_send())
+
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
