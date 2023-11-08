@@ -206,10 +206,6 @@
             "reason": "Disabled by issue #1719"
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
-            "reason": "Disabled by issue #1740"
-        },
-        {
             "name": "t_frang.test_client_body_and_header_timeout",
             "reason": "Disabled by issue #1762"
         },
