@@ -96,17 +96,27 @@ block_action attack reply;
         client.wait_for_response(3)
         return client
 
+    def _check_frang_warning(self, client, status_code: str, warning_msg: str):
+        if status_code == "200":
+            self.assertFalse(client.connection_is_closed())
+            self.assertFrangWarning(warning=warning_msg, expected=0)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
+            self.assertFrangWarning(warning=warning_msg, expected=1)
+
+    def check_last_response(self, client, status_code: str, warning_msg: str):
+        self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
+        self.assertEqual(
+            client.last_response.status, status_code, "HTTP response status codes mismatch."
+        )
+        self._check_frang_warning(client, status_code, warning_msg)
+
     def check_response(self, client, status_code: str, warning_msg: str):
         self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
         for response in client.responses:
             self.assertEqual(response.status, status_code, "HTTP response status codes mismatch.")
 
-            if status_code == "200":
-                self.assertFalse(client.connection_is_closed())
-                self.assertFrangWarning(warning=warning_msg, expected=0)
-            else:
-                self.assertTrue(client.wait_for_connection_close())
-                self.assertFrangWarning(warning=warning_msg, expected=1)
+        self._check_frang_warning(client, status_code, warning_msg)
 
     def check_connections(self, clients, warning: str, resets_expected: Union[int, range]):
         warns_occured = self.assertFrangWarning(warning, resets_expected)
