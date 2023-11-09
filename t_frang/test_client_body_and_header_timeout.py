@@ -27,11 +27,10 @@ class TestTimeoutBase(FrangTestCase):
         client.start()
 
         client.make_request(request=self.request_segment_1, end_stream=False)
-        if sleep < TIMEOUT:
-            time.sleep(sleep)
-            client.make_request(self.request_segment_2)
+        time.sleep(sleep)
+        client.make_request(self.request_segment_2)
         client.valid_req_num = 1
-        client.wait_for_response(sleep + 1)
+        self.assertTrue(client.wait_for_response())
 
 
 class ClientBodyTimeout(TestTimeoutBase):
@@ -50,12 +49,13 @@ class ClientBodyTimeout(TestTimeoutBase):
     def test_timeout_ok(self):
         self.set_frang_config(frang_config=self.frang_config)
         self.send_request_with_sleep(sleep=TIMEOUT / 2)
-        self.check_response(self.get_client("deproxy-1"), "200", self.error)
+        self.check_last_response(self.get_client("deproxy-1"), "200", self.error)
 
     def test_timeout_invalid(self):
         self.set_frang_config(frang_config=self.frang_config)
         self.send_request_with_sleep(sleep=TIMEOUT * 1.5)
-        self.check_response(self.get_client("deproxy-1"), "403", self.error)
+
+        self.check_last_response(self.get_client("deproxy-1"), "403", self.error)
 
 
 class ClientHeaderTimeout(ClientBodyTimeout):
@@ -90,25 +90,24 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
     request_segment_2 = [("header", "header_value")]
 
     @staticmethod
-    def __setup_connection_and_create_stream(client):
+    def __setup_connection(client):
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
-
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
 
     def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
         client = self.get_client("deproxy-1")
         client.start()
         client.parsing = False
 
-        self.__setup_connection_and_create_stream(client)
+        self.__setup_connection(client)
 
         # timeout counter is created for each stream.
         client.send_request(self.get_request, "200")
 
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
         header_frame = HeadersFrame(
             client.stream_id, client.encoder.encode(self.request_segment_1), flags={"END_STREAM"}
         )
@@ -122,12 +121,11 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
             time.sleep(TIMEOUT + 1)
 
         client.send_bytes(header_frame.serialize())
-        if sleep < TIMEOUT:
-            time.sleep(sleep)
-            client.send_bytes(cont_frame.serialize())
+        time.sleep(sleep)
+        client.send_bytes(cont_frame.serialize())
 
-        client.valid_req_num = 1
-        client.wait_for_response(sleep + 1)
+        client.valid_req_num += 1
+        client.wait_for_response(strict=True)
 
     def test_starting_timeout_counter(self):
         """
@@ -135,4 +133,4 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         """
         self.set_frang_config(frang_config=self.frang_config)
         self.send_request_with_sleep(sleep=TIMEOUT / 2, timeout_before_send=True)
-        self.check_response(self.get_client("deproxy-1"), "200", self.error)
+        self.check_last_response(self.get_client("deproxy-1"), "200", self.error)

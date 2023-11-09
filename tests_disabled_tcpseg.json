@@ -122,6 +122,10 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "t_frang.test_client_body_and_header_timeout",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "encoding.test_encoding.TestH1ChunkedNonCacheable",
             "reason": "Disabled by issue #1884"
         },
