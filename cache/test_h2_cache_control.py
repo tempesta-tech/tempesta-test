@@ -8,7 +8,7 @@ from framework import tester
 from helpers import deproxy
 
 
-class TestH2CacheControl(tester.TempestaTest):
+class TestH2CacheBase(tester.TempestaTest):
     tempesta = {
         "config": """
     listen 80;
@@ -27,16 +27,6 @@ class TestH2CacheControl(tester.TempestaTest):
     """
     }
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        }
-    ]
-
     backends = [
         {
             "id": "deproxy",
@@ -45,6 +35,66 @@ class TestH2CacheControl(tester.TempestaTest):
             "response": "static",
             "response_content": "",
         },
+    ]
+
+
+class TestH2CacheType(TestH2CacheBase):
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    def test_cache_is_shared(self):
+        """Check that tempesta works as a shared cache"""
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=[("Content-Length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+
+        client = self.get_client("deproxy-1")
+        client.send_request(
+            client.create_request(method="GET", uri="/", headers=[]),
+            "200",
+        )
+
+        time.sleep(2)
+
+        client = self.get_client("deproxy-2")
+        client.send_request(
+            client.create_request(method="GET", uri="/", headers=[]),
+            "200",
+        )
+
+        self.assertEqual(1, len(server.requests))
+
+
+class TestH2CacheControl(TestH2CacheBase):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        }
     ]
 
     def base_scenario(

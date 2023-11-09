@@ -350,14 +350,6 @@
             "reason": "Disabled by issue #1196"
         },
         {
-            "name": "cache.test_cache_control.StoringResponsesToAuthenticatedRequestsProxyRevalidateCache",
-            "reason": "Disabled by issue #1899"
-        },
-        {
-            "name": "cache.test_h2_cache_control.TestH2CacheControl.test_authorization_in_first_request_proxy_revalidate_in_response",
-            "reason": "Disabled by issue #1899"
-        },
-        {
             "name": "cache.test_cache.TestH2CacheHdrDel.test_cache_bypass",
             "reason": "Disabled by issue #1900"
         },
