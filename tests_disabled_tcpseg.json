@@ -90,10 +90,6 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
-            "reason": "Flaky test"
-        },
-        {
             "name": "tls.test_tls_integrity.CloseConnection.test8",
             "reason": "These tests should not be run with TCP segmentation."
         },
