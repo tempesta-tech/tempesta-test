@@ -290,11 +290,14 @@ class TestFlowControl(H2Base):
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
 
-        request = client.create_request(method="POST", headers=[])
+        length = 65536
+        request = client.create_request(
+            method="POST", headers=[("content-length", str(length + 1))]
+        )
 
         client.make_request(request, end_stream=False)
 
-        for _ in range(2):
+        for _ in range(4):
             client.send_bytes(DataFrame(stream_id=1, data=b"a" * 16384).serialize())
         client.send_bytes(
             DataFrame(stream_id=1, data=b"a", flags=["END_STREAM"]).serialize(),
@@ -302,3 +305,4 @@ class TestFlowControl(H2Base):
         )
 
         client.wait_for_response(strict=True)
+        self.assertTrue(client.last_response.status, "200")
