@@ -9,6 +9,7 @@ import h2.connection
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
+    RemoteSettingsChanged,
     ResponseReceived,
     SettingsAcknowledged,
     StreamEnded,
@@ -600,6 +601,7 @@ class DeproxyClientH2(DeproxyClient):
             dbg(self, 4, "Receive 'h2_connection' events:", prefix="\t")
             tf_cfg.dbg(5, f"\t\t{events}")
             for event in events:
+                print(event)
                 if isinstance(event, ResponseReceived):
                     headers = self.__binary_headers_to_string(event.headers)
 
@@ -645,6 +647,8 @@ class DeproxyClientH2(DeproxyClient):
                     self.ack_settings = True
                     # TODO should be changed by issue #358
                     self.handle_read()
+                # elif isinstance(event, RemoteSettingsChanged):
+                #     self.h2_connection.remote_settings.
                 elif isinstance(event, WindowUpdated):
                     if event == events[-1]:
                         # TODO should be changed by issue #358

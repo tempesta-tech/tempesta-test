@@ -271,3 +271,34 @@ class TestFlowControl(H2Base):
             client.error_codes,
             "Tempesta did not forward the GOAWAY frame when a window size is 0.",
         )
+
+    def test_(self):
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            response=(
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            )
+        )
+
+        client = self.get_client("deproxy")
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        request = client.create_request(method="POST", headers=[])
+
+        client.make_request(request, end_stream=False)
+
+        for _ in range(2):
+            client.send_bytes(DataFrame(stream_id=1, data=b"a" * 16384).serialize())
+        client.send_bytes(
+            DataFrame(stream_id=1, data=b"a", flags=["END_STREAM"]).serialize(),
+            expect_response=True,
+        )
+
+        client.wait_for_response(strict=True)
