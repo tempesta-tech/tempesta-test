@@ -59,16 +59,13 @@ class BaseJSChallenge(tester.TempestaTest):
         new_cookie = (match.group(1), match.group(2))
         self.assertNotEqual(last_cookie, new_cookie, "Challenge is not restarted")
 
-    def process_js_challenge(
+    def process_first_js_challenge_req(
         self,
         client,
         host,
         delay_min,
         delay_range,
         status_code,
-        expect_pass,
-        req_delay,
-        restart_on_fail=False,
     ):
         """Our tests can't pass the JS challenge with propper configuration,
         enlarge delay limit to not recommended values to make it possible to
@@ -104,13 +101,6 @@ class BaseJSChallenge(tester.TempestaTest):
         for js_var in js_vars:
             self.assertIn(js_var, resp.body, "Can't find JS Challenge parameter in response body")
 
-        # Pretend we can eval JS code and pass the challenge, but we can't set
-        # reliable timeouts and pass the challenge on CI or in virtual
-        # environments. Instead increase the JS parameters to make hardcoding
-        # easy and reliable.
-        if req_delay:
-            time.sleep(req_delay)
-
         if isinstance(client, deproxy_client.DeproxyClientH2):
             req = [
                 (":authority", host),
@@ -128,6 +118,30 @@ class BaseJSChallenge(tester.TempestaTest):
                 "Cookie: %s=%s\r\n"
                 "\r\n" % (host, cookie[0], cookie[1])
             )
+
+        return req, cookie
+
+    def process_js_challenge(
+        self,
+        client,
+        host,
+        delay_min,
+        delay_range,
+        status_code,
+        expect_pass,
+        req_delay,
+        restart_on_fail=False,
+    ):
+        req, cookie = self.process_first_js_challenge_req(
+            client, host, delay_min, delay_range, status_code
+        )
+
+        # Pretend we can eval JS code and pass the challenge, but we can't set
+        # reliable timeouts and pass the challenge on CI or in virtual
+        # environments. Instead increase the JS parameters to make hardcoding
+        # easy and reliable.
+        if req_delay:
+            time.sleep(req_delay)
 
         if not expect_pass:
             if restart_on_fail:
@@ -313,7 +327,7 @@ class JSChallenge(BaseJSChallenge):
             delay_range=1500,
             status_code=503,
             expect_pass=True,
-            req_delay=2.5,
+            req_delay=2,
         )
 
         tf_cfg.dbg(3, "Send request to vhost 2 with timeout 4s...")
@@ -325,7 +339,7 @@ class JSChallenge(BaseJSChallenge):
             delay_range=1200,
             status_code=302,
             expect_pass=True,
-            req_delay=3.5,
+            req_delay=2.5,
         )
         # Vhost 3 has very strict window to receive the request, skip it in
         # this test.
@@ -406,6 +420,7 @@ class JSChallenge(BaseJSChallenge):
 
         tf_cfg.dbg(3, "Send request to vhost 3 with timeout 3s...")
         client = self.get_client("client-3")
+        # if delay_limit is not set it is set to delay_range * 10
         self.process_js_challenge(
             client,
             "vh3.com",
@@ -413,7 +428,7 @@ class JSChallenge(BaseJSChallenge):
             delay_range=1000,
             status_code=503,
             expect_pass=False,
-            req_delay=3,
+            req_delay=12,
             restart_on_fail=True,
         )
 
@@ -686,7 +701,7 @@ class JSChallengeDefVhostInherit(BaseJSChallenge):
             delay_range=1500,
             status_code=503,
             expect_pass=True,
-            req_delay=2.5,
+            req_delay=2,
         )
 
 
@@ -766,5 +781,236 @@ class JSChallengeAfterReload(BaseJSChallenge):
             delay_range=1500,
             status_code=503,
             expect_pass=True,
-            req_delay=2.5,
+            req_delay=2,
         )
+
+
+class JSChallengeMaxAge(BaseJSChallenge):
+    # Test Max Age cookie option.
+    backends = [
+        {
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: deproxy\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+
+        vhost vh1 {
+            proxy_pass default;
+            sticky {
+                cookie enforce;
+                js_challenge resp_code=503 delay_min=1000 delay_range=1500
+                            delay_limit=3000 ${tempesta_workdir}/js1.html;
+            }
+        }
+
+        vhost vh2 {
+            proxy_pass default;
+            sticky {
+                cookie enforce;
+                sess_lifetime 5;
+                js_challenge resp_code=503 delay_min=1000 delay_range=4000
+                            ${tempesta_workdir}/js2.html;
+            }
+        }
+
+        http_chain {
+            host == "vh1.com" -> vh1;
+            host == "vh2.com" -> vh2;
+            -> block;
+        }
+        """
+    }
+
+    clients = [
+        {
+            "id": "client-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "client-2",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def prepare_js_templates(self):
+        """
+        Templates for JS challenge are modified by start script, create a copy
+        of default template for each vhost.
+        """
+        srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        template = "%s/etc/js_challenge.tpl" % srcdir
+        js_code = "%s/etc/js_challenge.js.tpl" % srcdir
+        remote.tempesta.run_cmd("cp %s %s" % (js_code, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js1.tpl" % (template, workdir))
+        remote.tempesta.run_cmd("cp %s %s/js2.tpl" % (template, workdir))
+
+    def send_req_and_check_cookie_max_age(self, client, host, status_code, max_age):
+        if isinstance(client, deproxy_client.DeproxyClientH2):
+            req = [
+                (":authority", host),
+                (":path", "/"),
+                (":scheme", "https"),
+                (":method", "GET"),
+                ("accept", "text/html"),
+            ]
+        elif isinstance(client, deproxy_client.DeproxyClient):
+            req = "GET / HTTP/1.1\r\nHost: %s\r\nAccept: text/html\r\n\r\n" % host
+
+        resp = self.client_send_req(client, req)
+        self.assertEqual(resp.status, "%d" % status_code, "unexpected response status code")
+        c_header = resp.headers.get("Set-Cookie", None)
+        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
+        match = re.search(r"(Max-Age)=([^;\s]+)", c_header)
+        self.assertIsNotNone(match, "Can't extract max-age value from Set-Cookie header")
+        self.assertEqual(match[2], max_age)
+
+    def test_max_age_no_session_lifetime(self):
+        self.start_all()
+        client = self.get_client("client-1")
+        self.send_req_and_check_cookie_max_age(client, "vh1.com", 503, "4294967295")
+
+    def test_max_age_with_session_lifetime(self):
+        self.start_all()
+        client = self.get_client("client-2")
+        self.send_req_and_check_cookie_max_age(client, "vh2.com", 503, "5")
+
+    def test_sticky_cookie_expired(self):
+        self.start_all()
+        client = self.get_client("client-2")
+        req1, cookie1 = self.process_first_js_challenge_req(
+            client,
+            "vh2.com",
+            delay_min=1000,
+            delay_range=4000,
+            status_code=503,
+        )
+
+        time.sleep(2.5)
+
+        resp = self.client_send_req(client, req1)
+        self.assertEqual(resp.status, "200", "unexpected response status code")
+
+        time.sleep(4)
+
+        # Sticky cookie expired, restart JS challenge
+        req2, cookie2 = self.process_first_js_challenge_req(
+            client,
+            "vh2.com",
+            delay_min=1000,
+            delay_range=4000,
+            status_code=503,
+        )
+
+        time.sleep(2.5)
+
+        resp = self.client_send_req(client, req2)
+        self.assertEqual(resp.status, "200", "unexpected response status code")
+
+        self.assertNotEqual(cookie1[1], cookie2[1])
+
+
+class JSChallengeMaxAgeH2(JSChallengeMaxAge):
+    tempesta = {
+        "config": (
+            "listen 443 proto=h2;\n"
+            + JSChallengeMaxAge.tempesta["config"]
+            + """
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            """
+        )
+    }
+
+    clients = [
+        {
+            "id": "client-1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "client-2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+
+class JSChallengeDisallowedOptions(tester.TempestaTest):
+    tempesta_path_in_options_lc = {
+        "config": """
+        sticky {
+            cookie enforce options=\"HttpOnly; path=/\";
+        }
+        """
+    }
+
+    tempesta_path_in_options_uc = {
+        "config": """
+        sticky {
+            cookie enforce options=\"HttpOnly; Path=/\";
+        }
+        """
+    }
+
+    tempesta_max_age_in_options_lc = {
+        "config": """
+        sticky {
+            cookie enforce options=\"HttpOnly; max-age=1\";
+        }
+        """
+    }
+
+    tempesta_max_age_in_options_uc = {
+        "config": """
+        sticky {
+            cookie enforce options=\"HttpOnly; Max-Age=1\";
+        }
+        """
+    }
+
+    def start_fail(self, config):
+        started = None
+        self.oops_ignore = ["WARNING", "ERROR"]
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(config["config"])
+        try:
+            self.start_tempesta()
+            started = True
+        except Exception:
+            started = False
+        finally:
+            self.assertFalse(started)
+
+    def test_tempesta_path_in_options_lc(self):
+        self.start_fail(self.tempesta_path_in_options_lc)
+
+    def test_tempesta_path_in_options_uc(self):
+        self.start_fail(self.tempesta_path_in_options_uc)
+
+    def test_tempesta_max_age_in_options_lc(self):
+        self.start_fail(self.tempesta_max_age_in_options_lc)
+
+    def test_tempesta_max_age_in_options_uc(self):
+        self.start_fail(self.tempesta_max_age_in_options_uc)
