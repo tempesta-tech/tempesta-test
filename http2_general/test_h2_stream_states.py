@@ -64,7 +64,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         Tempesta MUST not close connection.
         """
         client = self.get_client("deproxy")
-        client.encoder.huffman = True
+        client.h2_connection.encoder.huffman = True
 
         self.start_all_services()
         self.initiate_h2_connection(client)

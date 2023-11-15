@@ -45,7 +45,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.stop_procedures = [self.__stop_client]
         self.nrresp = 0
         self.nrreq = 0
-        self._request_buffers = []
+        self._request_buffers: List[bytes] = []
         self.methods = []
         self.start_time = 0
         self.rps = 0
@@ -69,7 +69,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def request_buffers(self) -> List[bytes]:
         return self._request_buffers
 
-    def _add_to_request_buffers(self, data) -> None:
+    def _add_to_request_buffers(self, data, *args, **kwargs) -> None:
         data = data if isinstance(data, list) else [data]
         for request in data:
             self._request_buffers.append(
@@ -184,6 +184,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         return self.start_time + float(self.cur_req_num) / self.rps
 
     def handle_write(self):
+        """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
         dbg(self, 4, "Send request to Tempesta:", prefix="\t")
         tf_cfg.dbg(5, reqs)
@@ -420,6 +421,11 @@ class DeproxyClientH2(DeproxyClient):
         self.last_stream_id = None
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer = False
+        self._req_body_buffers: List[dict] = list()
+
+    @property
+    def req_body_buffers(self) -> List[dict]:
+        return self._req_body_buffers
 
     def run_start(self):
         super(DeproxyClientH2, self).run_start()
@@ -433,6 +439,7 @@ class DeproxyClientH2(DeproxyClient):
         self, request: Union[tuple, list, str, deproxy.H2Request], end_stream=True, huffman=True
     ):
         """
+        Add request to buffers and change counters.
         Args:
             request:
                 str - send data frame;
@@ -450,19 +457,8 @@ class DeproxyClientH2(DeproxyClient):
 
         request = request.msg if isinstance(request, deproxy.H2Request) else request
 
-        if isinstance(request, tuple):
-            self._clear_request_stats()
-            headers, body = request
-            self.h2_connection.send_headers(self.stream_id, headers)
-            self.__prepare_data_frames(data=body, end_stream=end_stream)
-        elif isinstance(request, list):
-            self._clear_request_stats()
-            headers = request
-            self.h2_connection.send_headers(self.stream_id, headers, end_stream)
-        elif isinstance(request, str):
-            self.__prepare_data_frames(data=request, end_stream=end_stream)
+        self._add_to_request_buffers(data=request, end_stream=end_stream)
 
-        self._add_to_request_buffers(self.h2_connection.data_to_send())
         self.nrreq += 1
         if end_stream:
             self.stream_id += 2
@@ -561,7 +557,7 @@ class DeproxyClientH2(DeproxyClient):
         )
 
     def send_bytes(self, data: bytes, expect_response=False):
-        self._add_to_request_buffers(data)
+        self._add_to_request_buffers(data=data, end_stream=None)
         self.nrreq += 1
         if expect_response:
             self.valid_req_num += 1
@@ -660,6 +656,34 @@ class DeproxyClientH2(DeproxyClient):
             )
             raise
 
+    def handle_write(self):
+        """
+        Send data from `self.request_buffers` and cut them.
+        Move data from `self.req_body_buffers` to `self.request_buffers`
+            when `self.request_buffers` is empty for current request.
+        Increase `self.cur_req_num` when two buffers are empty for current request.
+        Does not send data when flow_control_window is 0.
+        """
+        cur_req_num = self.cur_req_num
+
+        if self.request_buffers[cur_req_num]:
+            super().handle_write()
+
+        body = self.req_body_buffers[cur_req_num]["body"]
+        if self.request_buffers[cur_req_num] == b"" and body:
+            stream_id = self.req_body_buffers[cur_req_num]["stream_id"]
+            end_stream = self.req_body_buffers[cur_req_num]["end_stream"]
+            if self.cur_req_num > cur_req_num:
+                self.cur_req_num -= 1
+
+            data_to_send, size = self.__prepare_data_frames(body, end_stream, stream_id)
+            if size == 0:
+                return None
+            self._request_buffers[cur_req_num] = data_to_send
+            self._req_body_buffers[cur_req_num]["body"] = self._req_body_buffers[cur_req_num][
+                "body"
+            ][size:]
+
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
         self.start_time = time.time()
@@ -694,20 +718,65 @@ class DeproxyClientH2(DeproxyClient):
             new_settings[SettingCodes.MAX_HEADER_LIST_SIZE] = max_header_list_size
         return new_settings
 
-    def __prepare_data_frames(self, data: str, end_stream: bool) -> None:
-        while len(data) > self.h2_connection.max_outbound_frame_size:
-            self.h2_connection.send_data(
-                stream_id=self.stream_id,
-                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
-                end_stream=False,
-            )
-            data = data[self.h2_connection.max_outbound_frame_size :]
+    def __prepare_data_frames(self, body: bytes, end_stream: bool, stream_id: int):
+        """
+        Get available size for the stream and prepare 1 DATA frame.
+        """
+        size = min(
+            self.h2_connection.max_outbound_frame_size,
+            self.h2_connection.local_flow_control_window(stream_id),
+        )
+        if size == 0:
+            return b"", size
+        elif len(body) > size:
+            data_to_send = body[:size]
+            end_stream_ = False
         else:
-            self.h2_connection.send_data(
-                stream_id=self.stream_id,
-                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
-                end_stream=end_stream,
+            data_to_send = body
+            end_stream_ = end_stream
+            size = len(data_to_send)
+
+        self.h2_connection.send_data(
+            stream_id=stream_id,
+            data=data_to_send,
+            end_stream=end_stream_,
+        )
+        data_to_send = self.h2_connection.data_to_send()
+        self.h2_connection.clear_outbound_data_buffer()
+        return data_to_send, size
+
+    def _add_to_body_buffers(
+        self, *, body: bytes, stream_id: int = None, end_stream: bool = None
+    ) -> None:
+        self._req_body_buffers.append(
+            {"body": body, "stream_id": stream_id, "end_stream": end_stream}
+        )
+
+    def _add_to_request_buffers(self, *, data, end_stream: bool = None) -> None:
+        if isinstance(data, bytes):
+            # in case when you use `send_bytes` method
+            self._request_buffers.append(data)
+            self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
+        elif isinstance(data, str):
+            # in case when you use `make_request` to sending body
+            self._request_buffers.append(b"")
+            self._add_to_body_buffers(
+                body=data.encode(), stream_id=self.stream_id, end_stream=end_stream
             )
+        elif isinstance(data, tuple):
+            # in case when you use `make_request` to sending headers + body
+            self.h2_connection.send_headers(self.stream_id, data[0], end_stream=False)
+            self._request_buffers.append(self.h2_connection.data_to_send())
+            self.h2_connection.clear_outbound_data_buffer()
+            self._add_to_body_buffers(
+                body=data[1].encode(), stream_id=self.stream_id, end_stream=end_stream
+            )
+        elif isinstance(data, list):
+            # in case when you use `make_request` to sending headers
+            self.h2_connection.send_headers(self.stream_id, data, end_stream)
+            self._request_buffers.append(self.h2_connection.data_to_send())
+            self.h2_connection.clear_outbound_data_buffer()
+            self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
 
     def __calculate_frame_length(self, pos):
         #: The type byte defined for CONTINUATION frames.
