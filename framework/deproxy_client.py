@@ -397,12 +397,10 @@ class HuffmanEncoder(Encoder):
 
 class DeproxyClientH2(DeproxyClient):
     last_response: deproxy.H2Response
-    h2_connection: h2.connection.H2Connection
 
     def __init__(self, *args, **kwargs):
         DeproxyClient.__init__(self, *args, **kwargs)
-        self.encoder = HuffmanEncoder()
-        self.h2_connection = None
+        self.h2_connection: h2.connection.H2Connection = None
         self.stream_id = 1
         self.active_responses = {}
         self.ack_settings = False
@@ -412,7 +410,7 @@ class DeproxyClientH2(DeproxyClient):
 
     def run_start(self):
         super(DeproxyClientH2, self).run_start()
-        self.h2_connection = None
+        self.update_initial_settings()
 
     def make_requests(self, requests, *args, **kwargs):
         for request in requests:
@@ -430,11 +428,6 @@ class DeproxyClientH2(DeproxyClient):
             end_stream (bool) - set END_STREAM flag for frame;
             huffman (bool) - enable or disable Huffman encoding;
         """
-        if self.h2_connection is None:
-            self.h2_connection = h2.connection.H2Connection()
-            self.h2_connection.encoder = HuffmanEncoder()
-            self.h2_connection.initiate_connection()
-
         self.h2_connection.encoder.huffman = huffman
 
         if not self.parsing:
@@ -494,25 +487,24 @@ class DeproxyClientH2(DeproxyClient):
         max_header_list_size: int = None,
     ) -> None:
         """Update initial SETTINGS frame and add preamble + SETTINGS frame in `data_to_send`."""
-        if not self.h2_connection:
-            self.h2_connection = h2.connection.H2Connection()
-            self.h2_connection.encoder = HuffmanEncoder()
+        self.h2_connection = h2.connection.H2Connection()
+        self.h2_connection.encoder = HuffmanEncoder()
 
-            new_settings = self.__generate_new_settings(
-                header_table_size,
-                enable_push,
-                max_concurrent_stream,
-                initial_window_size,
-                max_frame_size,
-                max_header_list_size,
-            )
+        new_settings = self.__generate_new_settings(
+            header_table_size,
+            enable_push,
+            max_concurrent_stream,
+            initial_window_size,
+            max_frame_size,
+            max_header_list_size,
+        )
 
-            # if settings is empty, we should not change them
-            if new_settings:
-                self.h2_connection.local_settings = Settings(initial_values=new_settings)
-                self.h2_connection.local_settings.update(new_settings)
+        # if settings is empty, we should not change them
+        if new_settings:
+            self.h2_connection.local_settings = Settings(initial_values=new_settings)
+            self.h2_connection.local_settings.update(new_settings)
 
-            self.h2_connection.initiate_connection()
+        self.h2_connection.initiate_connection()
 
     def send_settings_frame(
         self,
