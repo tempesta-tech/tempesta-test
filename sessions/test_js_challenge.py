@@ -24,10 +24,22 @@ class BaseJSChallenge(tester.TempestaTest):
 
         return client.responses[-1]
 
-    def client_expect_block(self, client, req):
+    def client_send_reqs(self, client, reqs):
         curr_responses = len(client.responses)
-        client.make_request(req)
+        client.make_requests(reqs, pipelined=True)
+        client.wait_for_response()
+        self.assertEqual(curr_responses + len(reqs), len(client.responses))
+
+        return client.responses[-len(reqs) :]
+
+    def client_expect_block(self, client, req, is_single=True):
+        curr_responses = len(client.responses)
+        if is_single:
+            client.make_request(req)
+        else:
+            client.make_requests(req, pipelined=True)
         client.wait_for_response(timeout=1)
+
         self.assertEqual(curr_responses, len(client.responses))
         self.assertTrue(client.wait_for_connection_close())
 
@@ -43,14 +55,7 @@ class BaseJSChallenge(tester.TempestaTest):
         self.deproxy_manager.start()
         self.assertTrue(self.wait_all_connections(1))
 
-    def expect_restart(self, client, req, status_code, last_cookie):
-        """We tried to pass JS challenge, but the cookie we have was generated
-        too long time ago. We can't pass JS challenge now, but Tempesta
-        doesn't block us, but gives second chance to pass the challenge.
-
-        Expect a new redirect response with new sticky cookie value.
-        """
-        resp = self.client_send_req(client, req)
+    def check_resp_on_restart(self, resp, status_code, last_cookie):
         self.assertEqual(resp.status, "%d" % status_code, "unexpected response status code")
         c_header = resp.headers.get("Set-Cookie", None)
         self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
@@ -59,19 +64,26 @@ class BaseJSChallenge(tester.TempestaTest):
         new_cookie = (match.group(1), match.group(2))
         self.assertNotEqual(last_cookie, new_cookie, "Challenge is not restarted")
 
-    def process_first_js_challenge_req(
-        self,
-        client,
-        host,
-        delay_min,
-        delay_range,
-        status_code,
-    ):
-        """Our tests can't pass the JS challenge with propper configuration,
-        enlarge delay limit to not recommended values to make it possible to
-        hardcode the JS challenge.
+    def expect_restart(self, client, req, status_code, last_cookie):
         """
+        We tried to pass JS challenge, but the cookie we have was generated
+        too long time ago. We can't pass JS challenge now, but Tempesta
+        doesn't block us, but gives second chance to pass the challenge.
 
+        Expect a new redirect response with new sticky cookie value.
+        """
+        resp = self.client_send_req(client, req)
+        self.check_resp_on_restart(resp, status_code, last_cookie)
+
+    def expect_restart_pipelined(self, client, reqs, status_code, last_cookies):
+        resps = self.client_send_reqs(client, reqs)
+        self.assertEqual(len(resps), len(last_cookies))
+        cookie_num = 0
+        for resp in resps:
+            self.check_resp_on_restart(resp, status_code, last_cookies[cookie_num])
+            cookie_num += 1
+
+    def prepare_first_req(self, client, host):
         if isinstance(client, deproxy_client.DeproxyClientH2):
             req = [
                 (":authority", host),
@@ -83,24 +95,9 @@ class BaseJSChallenge(tester.TempestaTest):
         elif isinstance(client, deproxy_client.DeproxyClient):
             req = "GET / HTTP/1.1\r\nHost: %s\r\nAccept: text/html\r\n\r\n" % host
 
-        resp = self.client_send_req(client, req)
-        self.assertEqual(resp.status, "%d" % status_code, "unexpected response status code")
-        c_header = resp.headers.get("Set-Cookie", None)
-        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
-        match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
-        self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
-        cookie = (match.group(1), match.group(2))
+        return req
 
-        # Check that all the variables are passed correctly into JS challenge
-        # code:
-        js_vars = [
-            'var c_name = "%s";' % cookie[0],
-            "var delay_min = %d;" % delay_min,
-            "var delay_range = %d;" % delay_range,
-        ]
-        for js_var in js_vars:
-            self.assertIn(js_var, resp.body, "Can't find JS Challenge parameter in response body")
-
+    def prepare_second_req(self, client, host, cookie):
         if isinstance(client, deproxy_client.DeproxyClientH2):
             req = [
                 (":authority", host),
@@ -118,6 +115,46 @@ class BaseJSChallenge(tester.TempestaTest):
                 "Cookie: %s=%s\r\n"
                 "\r\n" % (host, cookie[0], cookie[1])
             )
+
+        return req
+
+    def check_resp_status_code_and_cookie(self, resp, delay_min, delay_range, status_code):
+        self.assertEqual(resp.status, "%d" % status_code, "unexpected response status code")
+        c_header = resp.headers.get("Set-Cookie", None)
+        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
+        match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
+        self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
+        cookie = (match.group(1), match.group(2))
+
+        # Check that all the variables are passed correctly into JS challenge
+        # code:
+        js_vars = [
+            'var c_name = "%s";' % cookie[0],
+            "var delay_min = %d;" % delay_min,
+            "var delay_range = %d;" % delay_range,
+        ]
+        for js_var in js_vars:
+            self.assertIn(js_var, resp.body, "Can't find JS Challenge parameter in response body")
+        return cookie
+
+    def process_first_js_challenge_req(
+        self,
+        client,
+        host,
+        delay_min,
+        delay_range,
+        status_code,
+    ):
+        """
+        Our tests can't pass the JS challenge with propper configuration,
+        enlarge delay limit to not recommended values to make it possible to
+        hardcode the JS challenge.
+        """
+
+        req = self.prepare_first_req(client, host)
+        resp = self.client_send_req(client, req)
+        cookie = self.check_resp_status_code_and_cookie(resp, delay_min, delay_range, status_code)
+        req = self.prepare_second_req(client, host, cookie)
 
         return req, cookie
 
@@ -151,6 +188,42 @@ class BaseJSChallenge(tester.TempestaTest):
             return
         resp = self.client_send_req(client, req)
         self.assertEqual(resp.status, "200", "unexpected response status code")
+
+    def process_js_challenge_pipelined(
+        self,
+        client,
+        host,
+        delay_min,
+        delay_range,
+        status_code,
+        expect_pass,
+        req_delay,
+        restart_on_fail=False,
+    ):
+        req = self.prepare_first_req(client, host)
+        resps = self.client_send_reqs(client, [req, req, req])
+
+        reqs = []
+        cookies = []
+        for resp in resps:
+            cookie = self.check_resp_status_code_and_cookie(
+                resp, delay_min, delay_range, status_code
+            )
+            cookies.append(cookie)
+            reqs.append(self.prepare_second_req(client, host, cookie))
+
+        if req_delay:
+            time.sleep(req_delay)
+
+        if not expect_pass:
+            if restart_on_fail:
+                self.expect_restart_pipelined(client, reqs, status_code, cookies)
+            else:
+                self.client_expect_block(client, reqs, False)
+            return
+        resps = self.client_send_reqs(client, reqs)
+        for resp in resps:
+            self.assertEqual(resp.status, "200", "unexpected response status code")
 
 
 class JSChallenge(BaseJSChallenge):
@@ -187,7 +260,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce name=cname;
                 js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                            delay_limit=3000 ${tempesta_workdir}/js1.html;
+                            delay_limit=5000 ${tempesta_workdir}/js1.html;
             }
         }
 
@@ -196,7 +269,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce;
                 js_challenge resp_code=302 delay_min=2000 delay_range=1200
-                            delay_limit=2000 ${tempesta_workdir}/js2.html;
+                            delay_limit=5000 ${tempesta_workdir}/js2.html;
             }
         }
 
@@ -254,7 +327,8 @@ class JSChallenge(BaseJSChallenge):
         remote.tempesta.run_cmd("cp %s %s/js3.tpl" % (template, workdir))
 
     def test_get_challenge(self):
-        """Not all requests are challengeable. Tempesta sends the challenge
+        """
+        Not all requests are challengeable. Tempesta sends the challenge
         only if the client can accept it, i.e. request should has GET method and
         'Accept: text/html'. In other cases normal browsers don't eval
         JS code and TempestaFW is not trying to send the challenge to bots.
@@ -313,7 +387,8 @@ class JSChallenge(BaseJSChallenge):
         self.client_expect_block(client, req)
 
     def test_pass_challenge(self):
-        """Clients send the validating request just in time and pass the
+        """
+        Clients send the validating request just in time and pass the
         challenge.
         """
         self.start_all()
@@ -330,7 +405,7 @@ class JSChallenge(BaseJSChallenge):
             req_delay=2,
         )
 
-        tf_cfg.dbg(3, "Send request to vhost 2 with timeout 4s...")
+        tf_cfg.dbg(3, "Send request to vhost 2 with timeout 2.5s...")
         client = self.get_client("client-2")
         self.process_js_challenge(
             client,
@@ -344,8 +419,38 @@ class JSChallenge(BaseJSChallenge):
         # Vhost 3 has very strict window to receive the request, skip it in
         # this test.
 
+    def test_pass_challenge_pipelined(self):
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send requests to vhost 1 with timeout 2s...")
+        client = self.get_client("client-1")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh1.com",
+            delay_min=1000,
+            delay_range=1500,
+            status_code=503,
+            expect_pass=True,
+            req_delay=2,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 2 with timeout 2.5s...")
+        client = self.get_client("client-2")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh2.com",
+            delay_min=2000,
+            delay_range=1200,
+            status_code=302,
+            expect_pass=True,
+            req_delay=2.5,
+        )
+        # Vhost 3 has very strict window to receive the request, skip it in
+        # this test.
+
     def test_fail_challenge_too_early(self):
-        """Clients send the validating request too early, Tempesta closes the
+        """
+        Clients send the validating request too early, Tempesta closes the
         connection.
         """
         self.start_all()
@@ -386,13 +491,57 @@ class JSChallenge(BaseJSChallenge):
             req_delay=0,
         )
 
-    def test_fail_challenge_too_late(self):
-        """Clients send the validating request too late, Tempesta restarts
+    def test_fail_challenge_too_early_pipelined(self):
+        """
+        Clients send the validating request too early, Tempesta closes the
+        connection.
+        """
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send requests to vhost 1 with timeout 0s...")
+        client = self.get_client("client-1")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh1.com",
+            delay_min=1000,
+            delay_range=1500,
+            status_code=503,
+            expect_pass=False,
+            req_delay=0,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 2 with timeout 1s...")
+        client = self.get_client("client-2")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh2.com",
+            delay_min=2000,
+            delay_range=1200,
+            status_code=302,
+            expect_pass=False,
+            req_delay=1,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 3 with timeout 0s...")
+        client = self.get_client("client-3")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh3.com",
+            delay_min=1000,
+            delay_range=1000,
+            status_code=503,
+            expect_pass=False,
+            req_delay=0,
+        )
+
+    def test_fail_challenge_too_late_restart_success(self):
+        """
+        Clients send the validating request too late, Tempesta restarts
         cookie challenge.
         """
         self.start_all()
 
-        tf_cfg.dbg(3, "Send request to vhost 1 with timeout 6s...")
+        tf_cfg.dbg(3, "Send request to vhost 1 with timeout 4s...")
         client = self.get_client("client-1")
         self.process_js_challenge(
             client,
@@ -401,11 +550,11 @@ class JSChallenge(BaseJSChallenge):
             delay_range=1500,
             status_code=503,
             expect_pass=False,
-            req_delay=6,
+            req_delay=4,
             restart_on_fail=True,
         )
 
-        tf_cfg.dbg(3, "Send request to vhost 2 with timeout 6s...")
+        tf_cfg.dbg(3, "Send request to vhost 2 with timeout 4s...")
         client = self.get_client("client-2")
         self.process_js_challenge(
             client,
@@ -414,11 +563,103 @@ class JSChallenge(BaseJSChallenge):
             delay_range=1200,
             status_code=302,
             expect_pass=False,
-            req_delay=6,
+            req_delay=4,
             restart_on_fail=True,
         )
 
-        tf_cfg.dbg(3, "Send request to vhost 3 with timeout 3s...")
+        tf_cfg.dbg(3, "Send request to vhost 3 with timeout 8s...")
+        client = self.get_client("client-3")
+        # if delay_limit is not set it is set to delay_range * 10
+        self.process_js_challenge(
+            client,
+            "vh3.com",
+            delay_min=1000,
+            delay_range=1000,
+            status_code=503,
+            expect_pass=False,
+            req_delay=8,
+            restart_on_fail=True,
+        )
+
+    def test_fail_challenge_too_late_restart_success_pipelined(self):
+        """
+        Clients send the validating request too late, Tempesta restarts
+        cookie challenge.
+        """
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send requests to vhost 1 with timeout 4s...")
+        client = self.get_client("client-1")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh1.com",
+            delay_min=1000,
+            delay_range=1500,
+            status_code=503,
+            expect_pass=False,
+            req_delay=4,
+            restart_on_fail=True,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 2 with timeout 4s...")
+        client = self.get_client("client-2")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh2.com",
+            delay_min=2000,
+            delay_range=1200,
+            status_code=302,
+            expect_pass=False,
+            req_delay=4,
+            restart_on_fail=True,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 3 with timeout 8s...")
+        client = self.get_client("client-3")
+        # if delay_limit is not set it is set to delay_range * 10
+        self.process_js_challenge_pipelined(
+            client,
+            "vh3.com",
+            delay_min=1000,
+            delay_range=1000,
+            status_code=503,
+            expect_pass=False,
+            req_delay=8,
+            restart_on_fail=True,
+        )
+
+    def test_fail_challenge_too_late_restart_fail(self):
+        """
+        Clients send the validating request too late (after
+        delay_limit), Tempesta block request.
+        """
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send request to vhost 1 with timeout 7s...")
+        client = self.get_client("client-1")
+        self.process_js_challenge(
+            client,
+            "vh1.com",
+            delay_min=1000,
+            delay_range=1500,
+            status_code=503,
+            expect_pass=False,
+            req_delay=7,
+        )
+
+        tf_cfg.dbg(3, "Send request to vhost 2 with timeout 8s...")
+        client = self.get_client("client-2")
+        self.process_js_challenge(
+            client,
+            "vh2.com",
+            delay_min=2000,
+            delay_range=1200,
+            status_code=302,
+            expect_pass=False,
+            req_delay=8,
+        )
+
+        tf_cfg.dbg(3, "Send request to vhost 3 with timeout 12s...")
         client = self.get_client("client-3")
         # if delay_limit is not set it is set to delay_range * 10
         self.process_js_challenge(
@@ -429,7 +670,50 @@ class JSChallenge(BaseJSChallenge):
             status_code=503,
             expect_pass=False,
             req_delay=12,
-            restart_on_fail=True,
+        )
+
+    def test_fail_challenge_too_late_restart_fail_pipelined(self):
+        """
+        Clients send the validating request too late (after
+        delay_limit), Tempesta block request.
+        """
+        self.start_all()
+
+        tf_cfg.dbg(3, "Send requests to vhost 1 with timeout 7s...")
+        client = self.get_client("client-1")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh1.com",
+            delay_min=1000,
+            delay_range=1500,
+            status_code=503,
+            expect_pass=False,
+            req_delay=7,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 2 with timeout 8s...")
+        client = self.get_client("client-2")
+        self.process_js_challenge_pipelined(
+            client,
+            "vh2.com",
+            delay_min=2000,
+            delay_range=1200,
+            status_code=302,
+            expect_pass=False,
+            req_delay=8,
+        )
+
+        tf_cfg.dbg(3, "Send requests to vhost 3 with timeout 12s...")
+        client = self.get_client("client-3")
+        # if delay_limit is not set it is set to delay_range * 10
+        self.process_js_challenge_pipelined(
+            client,
+            "vh3.com",
+            delay_min=1000,
+            delay_range=1000,
+            status_code=503,
+            expect_pass=False,
+            req_delay=12,
         )
 
     def client_send_custom_req(self, client, uri, cookie, host=None):
@@ -549,7 +833,8 @@ class JSChallengeH2(JSChallenge):
 
 
 class JSChallengeVhost(JSChallenge):
-    """Same as JSChallenge, but 'sticky' configuration is inherited from
+    """
+    Same as JSChallenge, but 'sticky' configuration is inherited from
     updated defaults for the named vhosts.
     """
 
@@ -560,7 +845,7 @@ class JSChallengeVhost(JSChallenge):
         sticky {
             cookie enforce name=cname;
             js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                         delay_limit=3000 ${tempesta_workdir}/js1.html;
+                         delay_limit=5000 ${tempesta_workdir}/js1.html;
         }
         vhost vh1 {
             proxy_pass default;
@@ -569,7 +854,7 @@ class JSChallengeVhost(JSChallenge):
         sticky {
             cookie enforce;
             js_challenge resp_code=302 delay_min=2000 delay_range=1200
-                         delay_limit=2000 ${tempesta_workdir}/js2.html;
+                         delay_limit=5000 ${tempesta_workdir}/js2.html;
         }
         vhost vh2 {
             proxy_pass default;
@@ -604,7 +889,8 @@ class JSChallengeVhost(JSChallenge):
     }
 
     def test_js_overriden_together_with_cookie(self):
-        """Vhost `vh4` overrides `sticky` directive using only `cookie`
+        """
+        Vhost `vh4` overrides `sticky` directive using only `cookie`
         directive. JS challenge is always derived with `cookie` directive, so
         JS challenge will be disabled for this vhost.
         """
@@ -687,7 +973,8 @@ class JSChallengeDefVhostInherit(BaseJSChallenge):
         remote.tempesta.run_cmd("cp %s %s/js1.tpl" % (template, workdir))
 
     def test_pass_challenge(self):
-        """Clients send the validating request just in time and pass the
+        """
+        Clients send the validating request just in time and pass the
         challenge.
         """
         self.start_all()
@@ -750,7 +1037,8 @@ class JSChallengeAfterReload(BaseJSChallenge):
         remote.tempesta.run_cmd("cp %s %s/js1.tpl" % (template, workdir))
 
     def test(self):
-        """Clients sends the validating request after reload just in time and
+        """
+        Clients sends the validating request after reload just in time and
         passes the challenge.
         """
         self.start_all()
