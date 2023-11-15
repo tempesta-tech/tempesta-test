@@ -2,8 +2,12 @@ import abc
 import time
 from collections import defaultdict
 from io import StringIO
-from typing import Union  # TODO: use | instead when we move to python3.10
-from typing import Dict, Optional
+from typing import (  # TODO: use | instead when we move to python3.10
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 import h2.connection
 from h2.events import (
@@ -41,7 +45,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.stop_procedures = [self.__stop_client]
         self.nrresp = 0
         self.nrreq = 0
-        self.request_buffers = []
+        self._request_buffers = []
         self.methods = []
         self.start_time = 0
         self.rps = 0
@@ -60,6 +64,17 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
         self.parsing = True
+
+    @property
+    def request_buffers(self) -> List[bytes]:
+        return self._request_buffers
+
+    def _add_to_request_buffers(self, data) -> None:
+        data = data if isinstance(data, list) else [data]
+        for request in data:
+            self._request_buffers.append(
+                request if isinstance(request, bytes) else request.encode()
+            )
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -88,7 +103,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def run_start(self):
         self.nrresp = 0
         self.nrreq = 0
-        self.request_buffers = []
+        self._request_buffers = []
         self.methods = []
         self.start_time = 0
         self.valid_req_num = 0
@@ -169,23 +184,21 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         return self.start_time + float(self.cur_req_num) / self.rps
 
     def handle_write(self):
-        reqs = self.request_buffers
+        reqs = self.request_buffers[self.cur_req_num]
         dbg(self, 4, "Send request to Tempesta:", prefix="\t")
-        tf_cfg.dbg(5, reqs[self.cur_req_num])
+        tf_cfg.dbg(5, reqs)
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
             self.segment_size = run_config.TCP_SEGMENTATION
 
-        if self.segment_size != 0:
-            sent = self.send(reqs[self.cur_req_num][: self.segment_size].encode())
-        else:
-            self.socket.sendall(reqs[self.cur_req_num].encode())
-            sent = len(reqs[self.cur_req_num])
+        self.segment_size = self.segment_size if self.segment_size else deproxy.MAX_MESSAGE_SIZE
+
+        sent = self.send(reqs[: self.segment_size])
         if sent < 0:
             return
         self.last_segment_time = time.time()
-        reqs[self.cur_req_num] = reqs[self.cur_req_num][sent:]
-        if len(reqs[self.cur_req_num]) == 0:
+        self.request_buffers[self.cur_req_num] = reqs[sent:]
+        if len(self.request_buffers[self.cur_req_num]) == 0:
             self.cur_req_num += 1
 
     @abc.abstractmethod
@@ -221,7 +234,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if self.cur_req_num >= self.nrreq:
             self.nrresp = 0
             self.nrreq = 0
-            self.request_buffers = []
+            self._request_buffers = []
             self.methods = []
             self.start_time = time.time()
             self.cur_req_num = 0
@@ -244,10 +257,10 @@ class DeproxyClient(BaseDeproxyClient):
                 self.__check_request(request)
 
             if pipelined:
-                self.request_buffers.append("".join(requests))
+                self._add_to_request_buffers("".join(requests))
                 self.valid_req_num += len(requests)
             else:
-                self.request_buffers.extend(requests)
+                self._add_to_request_buffers(requests)
                 self.valid_req_num += len(self.request_buffers)
 
             self.nrreq += len(self.request_buffers)
@@ -275,7 +288,7 @@ class DeproxyClient(BaseDeproxyClient):
                 request_buffers.append(requests)
                 self.methods.append("INVALID")
 
-            self.request_buffers.extend(request_buffers)
+            self._add_to_request_buffers(request_buffers)
             self.valid_req_num += valid_req_num
             self.nrreq += len(self.methods)
         else:
@@ -288,7 +301,7 @@ class DeproxyClient(BaseDeproxyClient):
         self.__check_request(request)
 
         self.valid_req_num += 1
-        self.request_buffers.append(request if isinstance(request, str) else request.msg)
+        self._add_to_request_buffers(request if isinstance(request, str) else request.msg)
         self.nrreq += 1
 
     def __check_request(self, request: Union[str, deproxy.Request]) -> None:
@@ -449,7 +462,7 @@ class DeproxyClientH2(DeproxyClient):
         elif isinstance(request, str):
             self.__prepare_data_frames(data=request, end_stream=end_stream)
 
-        self.request_buffers.append(self.h2_connection.data_to_send())
+        self._add_to_request_buffers(self.h2_connection.data_to_send())
         self.nrreq += 1
         if end_stream:
             self.stream_id += 2
@@ -548,7 +561,7 @@ class DeproxyClientH2(DeproxyClient):
         )
 
     def send_bytes(self, data: bytes, expect_response=False):
-        self.request_buffers.append(data)
+        self._add_to_request_buffers(data)
         self.nrreq += 1
         if expect_response:
             self.valid_req_num += 1
@@ -646,31 +659,6 @@ class DeproxyClientH2(DeproxyClient):
                 ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
             )
             raise
-
-    def handle_write(self):
-        reqs = self.request_buffers
-        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
-        tf_cfg.dbg(5, reqs[self.cur_req_num])
-
-        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
-            self.segment_size = run_config.TCP_SEGMENTATION
-
-        sent = 0
-        if self.segment_size != 0:
-            try:
-                for chunk in [
-                    reqs[self.cur_req_num][i : (i + self.segment_size)]
-                    for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
-                ]:
-                    sent += self.socket.send(chunk)
-            except ConnectionError as e:
-                dbg(self, 4, f"Received error - {e}", prefix="\t")
-        else:
-            sent = self.send(reqs[self.cur_req_num])
-        if sent < 0:
-            return
-
-        self.cur_req_num += 1
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
