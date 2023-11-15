@@ -42,3 +42,36 @@ class TestFlowControl(H2Base):
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
         )
+
+    def test_request_body_greater_than_initial_window_size(self):
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            response=(
+                "HTTP/1.1 200 OK\r\n"
+                + "Date: test\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            )
+        )
+
+        client = self.get_client("deproxy")
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        expected_window_size = 65535
+        window_size_from_tempesta = client.h2_connection.remote_settings.initial_window_size
+        self.assertEqual(
+            window_size_from_tempesta,
+            expected_window_size,
+            f"Tempesta set INITIAL_WINDOW_SIZE: {window_size_from_tempesta}. "
+            f"But expected: {expected_window_size}.",
+        )
+
+        request = client.create_request(
+            method="POST", headers=[], body="a" * (expected_window_size * 2)
+        )
+        client.send_request(request, "200")
