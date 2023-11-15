@@ -114,7 +114,7 @@ class RedirectMark(BaseRedirectMark):
         uri = "/"
         uri, cookie = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_custom_req(client, uri, cookie)
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        hostname = tf_cfg.cfg.get("Client", "hostname")
         self.assertEqual(uri, "http://%s/" % hostname)
 
         req = (
@@ -237,7 +237,7 @@ class RedirectMarkTimeout(BaseRedirectMark):
 
         uri, cookie = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_custom_req(client, uri, cookie)
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        hostname = tf_cfg.cfg.get("Client", "hostname")
         self.assertEqual(uri, "http://%s/" % hostname)
 
         req = (
@@ -288,7 +288,7 @@ class RedirectMarkTimeoutExceedReqCountBase(BaseRedirectMark):
         uri = "/"
         uri, cookie = self.client_send_first_req(client, uri)
         uri, _ = self.client_send_custom_req(client, uri, cookie)
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        hostname = tf_cfg.cfg.get("Client", "hostname")
         self.assertEqual(uri, "http://%s/" % hostname)
 
         req = (
