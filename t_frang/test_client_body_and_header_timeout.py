@@ -109,11 +109,15 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         )
         stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
         header_frame = HeadersFrame(
-            client.stream_id, client.encoder.encode(self.request_segment_1), flags={"END_STREAM"}
+            client.stream_id,
+            client.h2_connection.encoder.encode(self.request_segment_1),
+            flags={"END_STREAM"},
         )
 
         cont_frame = ContinuationFrame(
-            client.stream_id, client.encoder.encode(self.request_segment_2), flags={"END_HEADERS"}
+            client.stream_id,
+            client.h2_connection.encoder.encode(self.request_segment_2),
+            flags={"END_HEADERS"},
         )
 
         # sleep after TLS handshake and exchange SETTINGS frame

@@ -43,14 +43,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         deproxy.Client.__init__(self, *args, **kwargs)
         self.polling_lock = None
         self.stop_procedures = [self.__stop_client]
-        self.nrresp = 0
-        self.nrreq = 0
-        self._request_buffers: List[bytes] = []
-        self.methods = []
-        self.start_time = 0
         self.rps = 0
-        self.valid_req_num = 0
-        self.cur_req_num = 0
         # This parameter controls whether to keep original data with the response
         # (See deproxy.HttpMessage.original_data)
         self.keep_original_data = None
@@ -61,11 +54,8 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
         self.segment_gap = 0
-        # This state variable contains a timestamp of the last segment sent
-        self.last_segment_time = 0
         self.parsing = True
-        self.responses: List[deproxy.Response] = list()
-        self._last_response = None
+        self._reinit_variables()
 
     @property
     def statuses(self) -> Dict[int, int]:
@@ -121,13 +111,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     def run_start(self):
-        self.nrresp = 0
-        self.nrreq = 0
-        self._request_buffers = []
-        self.methods = []
-        self.start_time = 0
-        self.valid_req_num = 0
-        self.cur_req_num = 0
+        self._reinit_variables()
         if self.polling_lock != None:
             self.polling_lock.acquire()
 
@@ -260,7 +244,9 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
         if strict:
-            assert timeout_not_exceeded, f"Timeout exceeded while waiting response: {timeout}"
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting response: {timeout}"
         return timeout_not_exceeded
 
     def receive_response(self, response: deproxy.Response):
@@ -276,6 +262,19 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.methods = []
             self.start_time = time.time()
             self.cur_req_num = 0
+
+    def _reinit_variables(self):
+        self.nrresp = 0
+        self.nrreq = 0
+        self._request_buffers: List[bytes] = []
+        self.methods = []
+        self.start_time = 0
+        self.valid_req_num = 0
+        self.cur_req_num = 0
+        # This state variable contains a timestamp of the last segment sent
+        self.last_segment_time = 0
+        self.responses: List[deproxy.Response] = list()
+        self._last_response = None
 
 
 class DeproxyClient(BaseDeproxyClient):
@@ -423,14 +422,7 @@ class HuffmanEncoder(Encoder):
 class DeproxyClientH2(BaseDeproxyClient):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.h2_connection: h2.connection.H2Connection = None
-        self.stream_id: int = 1
-        self.active_responses = {}
-        self.ack_settings: bool = False
-        self.last_stream_id: int = None
-        self.last_response_buffer = bytes()
-        self.clear_last_response_buffer: bool = False
-        self._req_body_buffers: List[dict] = list()
+        self._reinit_variables()
 
     @property
     def last_response(self) -> deproxy.H2Response:
@@ -792,6 +784,17 @@ class DeproxyClientH2(BaseDeproxyClient):
             return -1
         # TCP/IP use big endian
         return int.from_bytes(self.last_response_buffer[pos : pos + 3], "big")
+
+    def _reinit_variables(self):
+        super()._reinit_variables()
+        self.h2_connection: h2.connection.H2Connection = None
+        self.stream_id: int = 1
+        self.active_responses = {}
+        self.ack_settings: bool = False
+        self.last_stream_id: int = None
+        self.last_response_buffer = bytes()
+        self.clear_last_response_buffer: bool = False
+        self._req_body_buffers: List[dict] = list()
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
         if len(header) == 0:
