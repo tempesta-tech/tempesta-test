@@ -107,7 +107,6 @@ class H2Spec(tester.TempestaTest):
         # amount of runs in a row.
         h2spec.options.extend(
             [
-                "-x generic/2/2",  # Our version TestHalfClosedStreamStateWindowUpdate
                 "-x http2/5.1/5",  # disabled by issue 1828
                 "-x http2/5.1/6",  # disabled by issue 1828
                 "-x http2/5.1/11",  # disabled by issue 1828
