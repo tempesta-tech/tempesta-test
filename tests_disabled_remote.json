@@ -122,10 +122,6 @@
             "reason": "Disabled by test issue #508."
         },
         {
-            "name": "t_leaks.test_leak.LeakTestH2",
-            "reason": "Disabled by issue #1975."
-        },
-        {
             "name": "access_log",
             "reason": "Disabled by test issue #525."
         },
