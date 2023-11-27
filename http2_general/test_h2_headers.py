@@ -1194,6 +1194,13 @@ class MissingDateServerWithLargeBodyTest(MissingDateServerWithBodyTest):
 
 
 class TestLoadingHeadersFromHpackDynamicTable(H2Base):
+    """
+    Some headers required special handling, when they are
+    loaded from hpack dynamic table. This class checks how
+    we handle this headers when we load them from hpack
+    dynamic table.
+    """
+
     tempesta = {
         "config": f"""
             listen 443 proto=h2;
@@ -1285,27 +1292,20 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             self.assertIsNotNone(val)
             self.assertEqual(val, expected)
 
-    def __prepare_request(self, method, extra_header=None, request_body=None):
-        headers = [
-            (":authority", "localhost"),
-            (":path", "/"),
-            (":scheme", "https"),
-        ]
-        headers.extend(method)
-        if extra_header is not None:
-            headers.extend(extra_header)
-        request = (headers, request_body) if request_body else headers
-        return request
-
     def __do_test_replacement(self, client, server, content_type, expected_content_type):
         number_of_whitespace_places = content_type.count("{}")
 
         for state in itertools.product(
             ["", " ", "\t", " \t", "\t "], repeat=number_of_whitespace_places
         ):
-            content_type = content_type.format(*state)
-            request = self.__prepare_request(
-                method=[(":method", "POST")], extra_header=[("content-type", content_type)]
+            request = client.create_request(
+                method="POST",
+                headers=[
+                    (":authority", "localhost"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    ("content-type", content_type.format(*state)),
+                ],
             )
 
             client.send_request(request, "200")
@@ -1318,10 +1318,15 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         self.start_all_services()
         client = self.get_client("deproxy")
 
-        request = self.__prepare_request(
-            method=[(":method", "POST")],
-            extra_header=[("content-length", "10")],
-            request_body="aaaaaaaaaa",
+        request = client.create_request(
+            method="POST",
+            headers=[
+                (":authority", "localhost"),
+                (":path", "/"),
+                (":scheme", "https"),
+                ("content-length", "10"),
+            ],
+            body="aaaaaaaaaa",
         )
 
         client.send_request(request, "200")
@@ -1344,8 +1349,14 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        request = self.__prepare_request(
-            method=[(":method", "GET")], extra_header=[("x-http-method-override", "HEAD")]
+        request = client.create_request(
+            method="GET",
+            headers=[
+                (":authority", "localhost"),
+                (":path", "/"),
+                (":scheme", "https"),
+                ("x-http-method-override", "HEAD"),
+            ],
         )
 
         tempesta = self.get_tempesta()
@@ -1365,8 +1376,14 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        request = self.__prepare_request(
-            method=[(":method", "GET")], extra_header=[("pragma", "no-cache")]
+        request = client.create_request(
+            method="GET",
+            headers=[
+                (":authority", "localhost"),
+                (":path", "/"),
+                (":scheme", "https"),
+                ("pragma", "no-cache"),
+            ],
         )
 
         tempesta = self.get_tempesta()
@@ -1377,7 +1394,15 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client.send_request(request, "200")
         self.assertEqual(2, len(server.requests))
 
-        request = self.__prepare_request(method=[(":method", "GET")])
+        request = client.create_request(
+            method="GET",
+            headers=[
+                (":authority", "localhost"),
+                (":path", "/"),
+                (":scheme", "https"),
+            ],
+        )
+
         client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))
         client.send_request(request, "200")

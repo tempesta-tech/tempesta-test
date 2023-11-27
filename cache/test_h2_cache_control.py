@@ -330,7 +330,7 @@ class TestH2CacheControl(TestH2CacheBase):
         from hpack dynamic table.
         """
         self.base_scenario(
-            response_headers=[("cache-control", "max-age=5")],
+            response_headers=[("cache-control", "max-age=1")],
             request_headers=[("cache-control", "max-stale=5")],
             second_request_headers=[("cache-control", "max-stale=5")],
             expected_cached_status="200",
