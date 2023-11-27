@@ -1,4 +1,5 @@
 import abc
+import dataclasses
 import time
 from collections import defaultdict
 from io import StringIO
@@ -419,17 +420,20 @@ class HuffmanEncoder(Encoder):
         return super().encode(headers=headers, huffman=self.huffman)
 
 
-class DeproxyClientH2(BaseDeproxyClient):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._reinit_variables()
+@dataclasses.dataclass
+class ReqBodyBuffer:
+    body: bytes
+    stream_id: int or None
+    end_stream: bool or None
 
+
+class DeproxyClientH2(BaseDeproxyClient):
     @property
     def last_response(self) -> deproxy.H2Response:
         return self._last_response
 
     @property
-    def req_body_buffers(self) -> List[dict]:
+    def req_body_buffers(self) -> List[ReqBodyBuffer]:
         return self._req_body_buffers
 
     def run_start(self):
@@ -543,7 +547,6 @@ class DeproxyClientH2(BaseDeproxyClient):
         self.h2_connection.update_settings(new_settings)
 
         self.send_bytes(data=self.h2_connection.data_to_send())
-        self.h2_connection.clear_outbound_data_buffer()
 
     def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
@@ -668,10 +671,14 @@ class DeproxyClientH2(BaseDeproxyClient):
         if self.request_buffers[cur_req_num]:
             super().handle_write()
 
-        body = self.req_body_buffers[cur_req_num]["body"]
+        body = self.req_body_buffers[cur_req_num].body
         if self.request_buffers[cur_req_num] == b"" and body:
-            stream_id = self.req_body_buffers[cur_req_num]["stream_id"]
-            end_stream = self.req_body_buffers[cur_req_num]["end_stream"]
+            stream_id = self.req_body_buffers[cur_req_num].stream_id
+            end_stream = self.req_body_buffers[cur_req_num].end_stream
+
+            # we must decrease self.cur_req_num in case when client sent HEADERS frame
+            # but self._req_body_buffers contain data to send for current request.
+            # This happens when both buffers are not empty.
             if self.cur_req_num > cur_req_num:
                 self.cur_req_num -= 1
 
@@ -679,9 +686,9 @@ class DeproxyClientH2(BaseDeproxyClient):
             if size == 0:
                 return None
             self._request_buffers[cur_req_num] = data_to_send
-            self._req_body_buffers[cur_req_num]["body"] = self._req_body_buffers[cur_req_num][
-                "body"
-            ][size:]
+            self._req_body_buffers[cur_req_num].body = self._req_body_buffers[cur_req_num].body[
+                size:
+            ]
 
     @staticmethod
     def __headers_to_string(headers):
@@ -739,15 +746,12 @@ class DeproxyClientH2(BaseDeproxyClient):
             end_stream=end_stream_,
         )
         data_to_send = self.h2_connection.data_to_send()
-        self.h2_connection.clear_outbound_data_buffer()
         return data_to_send, size
 
     def _add_to_body_buffers(
         self, *, body: bytes, stream_id: int = None, end_stream: bool = None
     ) -> None:
-        self._req_body_buffers.append(
-            {"body": body, "stream_id": stream_id, "end_stream": end_stream}
-        )
+        self._req_body_buffers.append(ReqBodyBuffer(body, stream_id, end_stream))
 
     def _add_to_request_buffers(self, *, data, end_stream: bool = None) -> None:
         if isinstance(data, bytes):
@@ -764,7 +768,6 @@ class DeproxyClientH2(BaseDeproxyClient):
             # in case when you use `make_request` to sending headers + body
             self.h2_connection.send_headers(self.stream_id, data[0], end_stream=False)
             self._request_buffers.append(self.h2_connection.data_to_send())
-            self.h2_connection.clear_outbound_data_buffer()
             self._add_to_body_buffers(
                 body=data[1].encode(), stream_id=self.stream_id, end_stream=end_stream
             )
@@ -772,7 +775,6 @@ class DeproxyClientH2(BaseDeproxyClient):
             # in case when you use `make_request` to sending headers
             self.h2_connection.send_headers(self.stream_id, data, end_stream)
             self._request_buffers.append(self.h2_connection.data_to_send())
-            self.h2_connection.clear_outbound_data_buffer()
             self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
 
     def __calculate_frame_length(self, pos):
@@ -794,7 +796,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self.last_stream_id: int = None
         self.last_response_buffer = bytes()
         self.clear_last_response_buffer: bool = False
-        self._req_body_buffers: List[dict] = list()
+        self._req_body_buffers: List[ReqBodyBuffer] = list()
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
         if len(header) == 0:
