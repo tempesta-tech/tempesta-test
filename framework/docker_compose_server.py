@@ -65,19 +65,20 @@ class DockerComposeServer(
         return self.parent_compose_dir / self.project_name
 
     def _construct_cmd(self, action: str) -> list[str]:
-        cd = f"cd {self.local_workdir};"
         env_exports = ""
         if isinstance(self.node, remote.RemoteNode):
             self.env["DOCKER_HOST"] = f"ssh://{self.node.user}@{self.node.host}:{self.node.port}"
         for k, v in self.env.items():
             env_exports += f"export {k}={v};"
-        return ["bash", "-c", f"{cd} {env_exports} docker compose {action}"]
+        return ["bash", "-c", f"cd {self.local_workdir}; {env_exports}; docker compose {action}"]
 
     def run_start(self):
         tf_cfg.dbg(3, f"\tDocker Compose Server: Start {self.id} (dir {self.local_workdir})")
-        dcp = subprocess.run(
+        p = subprocess.run(
             args=self._construct_cmd("up --detach --quiet-pull"),
         )
+        if p.returncode != 0:
+            error.bug("unable to start docker compose server.")
         return False
 
     @property
@@ -92,11 +93,10 @@ class DockerComposeServer(
                 ps: dict = json.loads(line.decode())
                 health.append(ps.get("Health"))
         except json.JSONDecodeError:
-            error.bug("error parsing output of docker compose ps")
+            error.bug("unable to parse output of docker compose ps")
 
         status = "unhealthy" if "unhealthy" in health else "healthy"
         status = "starting" if "starting" in health else "healthy"
-        print(status)
         return status
 
     def wait_for_connections(self, timeout=10):
@@ -119,9 +119,11 @@ class DockerComposeServer(
 
     def stop_server(self):
         tf_cfg.dbg(3, f"\tDocker Compose server: Stop {self.id} (dir {self.local_workdir})")
-        dcp = subprocess.run(
+        p = subprocess.run(
             self._construct_cmd("down --volumes"),
         )
+        if p.returncode != 0:
+            error.bug("unable to stop docker compose server")
 
 
 def docker_compose_srv_factory(server, name, tester):
