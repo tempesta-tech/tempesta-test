@@ -78,10 +78,6 @@
             "reason": "Disabled by test issue #492"
         },
         {
-            "name": "t_sites",
-            "reason": "Disabled by test issue #507"
-        },
-        {
             "name": "t_stress.test_wordpress",
             "reason": "Disabled by test issue #507"
         },

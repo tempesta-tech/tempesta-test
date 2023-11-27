@@ -120,7 +120,7 @@ class DockerComposeServer(
     def stop_server(self):
         tf_cfg.dbg(3, f"\tDocker Compose server: Stop {self.id} (dir {self.local_workdir})")
         p = subprocess.run(
-            self._construct_cmd("down --volumes"),
+            self._construct_cmd("down"),
         )
         if p.returncode != 0:
             error.bug("unable to stop docker compose server")
