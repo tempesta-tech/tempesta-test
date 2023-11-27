@@ -70,12 +70,12 @@ class DockerComposeServer(
             self.env["DOCKER_HOST"] = f"ssh://{self.node.user}@{self.node.host}:{self.node.port}"
         for k, v in self.env.items():
             env_exports += f"export {k}={v};"
-        return ["bash", "-c", f"cd {self.local_workdir}; {env_exports}; docker compose {action}"]
+        return ["bash", "-c", f"cd {self.local_workdir}; {env_exports} docker compose {action}"]
 
     def run_start(self):
         tf_cfg.dbg(3, f"\tDocker Compose Server: Start {self.id} (dir {self.local_workdir})")
         p = subprocess.run(
-            args=self._construct_cmd("up --detach --quiet-pull"),
+            args=self._construct_cmd("up --detach"),
         )
         if p.returncode != 0:
             error.bug("unable to start docker compose server.")
