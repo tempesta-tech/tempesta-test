@@ -7,7 +7,7 @@ __license__ = "GPL2"
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from hpack import HeaderTuple
-from hyperframe.frame import HeadersFrame
+from hyperframe.frame import DataFrame, HeadersFrame
 
 from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
@@ -55,7 +55,7 @@ class TestH2Frame(H2Base):
         request_body = "123"
 
         deproxy_cl.make_request(request=self.post_request, end_stream=False)
-        deproxy_cl.make_request(request="", end_stream=False)
+        deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize())
         deproxy_cl.make_request(request=request_body, end_stream=True)
 
         self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)

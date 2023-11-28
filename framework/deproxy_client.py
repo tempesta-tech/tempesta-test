@@ -1,9 +1,14 @@
 import abc
+import dataclasses
 import time
 from collections import defaultdict
 from io import StringIO
-from typing import Union  # TODO: use | instead when we move to python3.10
-from typing import Dict, Optional
+from typing import (  # TODO: use | instead when we move to python3.10
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 import h2.connection
 from h2.events import (
@@ -39,14 +44,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         deproxy.Client.__init__(self, *args, **kwargs)
         self.polling_lock = None
         self.stop_procedures = [self.__stop_client]
-        self.nrresp = 0
-        self.nrreq = 0
-        self.request_buffers = []
-        self.methods = []
-        self.start_time = 0
         self.rps = 0
-        self.valid_req_num = 0
-        self.cur_req_num = 0
         # This parameter controls whether to keep original data with the response
         # (See deproxy.HttpMessage.original_data)
         self.keep_original_data = None
@@ -57,9 +55,37 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
         self.segment_gap = 0
-        # This state variable contains a timestamp of the last segment sent
-        self.last_segment_time = 0
         self.parsing = True
+        self._reinit_variables()
+
+    @property
+    def statuses(self) -> Dict[int, int]:
+        """
+        Be aware that number of HTTP responses (and hence statuses) can be unequal to number of
+        TCP responses.
+
+        Example case: we have request_rate=4 and ip_block on. Client maked 4-th request and received
+        TCP ACK, but did't received HTTP response yet (it should become in separate TCP packet).
+        After this, 5-th request proceed, and client's IP is blocked. In this case we will have only
+        3 responses despite the fact that request_rate=4.
+        """
+        d = defaultdict(lambda: 0)
+        for r in self.responses:
+            d[int(r.status)] += 1
+        return dict(d)
+
+    @property
+    @abc.abstractmethod
+    def last_response(self):
+        ...
+
+    @property
+    def request_buffers(self) -> List[bytes]:
+        return self._request_buffers
+
+    @abc.abstractmethod
+    def _add_to_request_buffers(self, *args, **kwargs) -> None:
+        ...
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -86,13 +112,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     def run_start(self):
-        self.nrresp = 0
-        self.nrreq = 0
-        self.request_buffers = []
-        self.methods = []
-        self.start_time = 0
-        self.valid_req_num = 0
-        self.cur_req_num = 0
+        self._reinit_variables()
         if self.polling_lock != None:
             self.polling_lock.acquire()
 
@@ -125,31 +145,9 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if self.polling_lock != None:
             self.polling_lock.release()
 
+    @abc.abstractmethod
     def handle_read(self):
-        self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
-        if not self.response_buffer:
-            return
-        dbg(self, 4, "Receive response:", prefix="\t")
-        tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
-        while len(self.response_buffer) > 0:
-            try:
-                method = self.methods[self.nrresp]
-                response = deproxy.Response(
-                    self.response_buffer, method=method, keep_original_data=self.keep_original_data
-                )
-                self.response_buffer = self.response_buffer[response.original_length :]
-            except deproxy.IncompleteMessage as e:
-                dbg(self, 5, f"Receive IncompleteMessage - {e}", prefix="\t")
-                return
-            except deproxy.ParseError:
-                dbg(
-                    self,
-                    4,
-                    ("Can't parse message\n" "<<<<<\n%s\n>>>>>" % self.response_buffer),
-                )
-                raise
-            self.receive_response(response)
-            self.nrresp += 1
+        ...
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
@@ -169,23 +167,22 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         return self.start_time + float(self.cur_req_num) / self.rps
 
     def handle_write(self):
-        reqs = self.request_buffers
+        """Send data from `self.request_buffers` and cut them."""
+        reqs = self.request_buffers[self.cur_req_num]
         dbg(self, 4, "Send request to Tempesta:", prefix="\t")
-        tf_cfg.dbg(5, reqs[self.cur_req_num])
+        tf_cfg.dbg(5, reqs)
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
             self.segment_size = run_config.TCP_SEGMENTATION
 
-        if self.segment_size != 0:
-            sent = self.send(reqs[self.cur_req_num][: self.segment_size].encode())
-        else:
-            self.socket.sendall(reqs[self.cur_req_num].encode())
-            sent = len(reqs[self.cur_req_num])
+        self.segment_size = self.segment_size if self.segment_size else deproxy.MAX_MESSAGE_SIZE
+
+        sent = self.send(reqs[: self.segment_size])
         if sent < 0:
             return
         self.last_segment_time = time.time()
-        reqs[self.cur_req_num] = reqs[self.cur_req_num][sent:]
-        if len(reqs[self.cur_req_num]) == 0:
+        self.request_buffers[self.cur_req_num] = reqs[sent:]
+        if len(self.request_buffers[self.cur_req_num]) == 0:
             self.cur_req_num += 1
 
     @abc.abstractmethod
@@ -195,6 +192,29 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     @abc.abstractmethod
     def make_request(self, request, **kwargs):
         raise NotImplementedError("Not implemented 'make_request()'")
+
+    def send_request(self, request, expected_status_code: Optional[str] = None, timeout=5) -> None:
+        """
+        Form and send one HTTP request. And also check that the client has received a response and
+        the status code matches.
+        """
+        curr_responses = len(self.responses)
+
+        self.make_request(request)
+        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
+
+        if expected_status_code:
+            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
+            assert expected_status_code in self._last_response.status, (
+                f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
+                + f"Received - {self._last_response.status}"
+            )
+
+    def send_bytes(self, data: bytes, expect_response=False):
+        self._add_to_request_buffers(data=data, end_stream=None)
+        self.nrreq += 1
+        if expect_response:
+            self.valid_req_num += 1
 
     def wait_for_connection_close(self, timeout=5, strict=False):
         """
@@ -213,24 +233,55 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
-    @abc.abstractmethod
-    def receive_response(self, response):
-        raise NotImplementedError("Not implemented 'receive_response()'")
+    def wait_for_response(self, timeout=5, strict=False):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
+        timeout = adjust_timeout_for_tcp_segmentation(timeout)
+        timeout_not_exceeded = util.wait_until(
+            lambda: len(self.responses) < self.valid_req_num,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting response: {timeout}"
+        return timeout_not_exceeded
+
+    def receive_response(self, response: deproxy.Response):
+        self.responses.append(response)
+        self._last_response = response
+        self.clear_last_response_buffer = True
 
     def _clear_request_stats(self):
         if self.cur_req_num >= self.nrreq:
             self.nrresp = 0
             self.nrreq = 0
-            self.request_buffers = []
+            self._request_buffers = []
             self.methods = []
             self.start_time = time.time()
             self.cur_req_num = 0
 
+    def _reinit_variables(self):
+        self.nrresp = 0
+        self.nrreq = 0
+        self._request_buffers: List[bytes] = []
+        self.methods = []
+        self.start_time = 0
+        self.valid_req_num = 0
+        self.cur_req_num = 0
+        # This state variable contains a timestamp of the last segment sent
+        self.last_segment_time = 0
+        self.responses: List[deproxy.Response] = list()
+        self._last_response = None
+
 
 class DeproxyClient(BaseDeproxyClient):
-    last_response = None
-    responses = []
-    last_response: deproxy.Response
+    @property
+    def last_response(self) -> deproxy.Response:
+        return self._last_response
 
     def make_requests(self, requests: list or str, pipelined=False) -> None:
         """
@@ -244,10 +295,10 @@ class DeproxyClient(BaseDeproxyClient):
                 self.__check_request(request)
 
             if pipelined:
-                self.request_buffers.append("".join(requests))
+                self._add_to_request_buffers("".join(requests))
                 self.valid_req_num += len(requests)
             else:
-                self.request_buffers.extend(requests)
+                self._add_to_request_buffers(requests)
                 self.valid_req_num += len(self.request_buffers)
 
             self.nrreq += len(self.request_buffers)
@@ -275,7 +326,7 @@ class DeproxyClient(BaseDeproxyClient):
                 request_buffers.append(requests)
                 self.methods.append("INVALID")
 
-            self.request_buffers.extend(request_buffers)
+            self._add_to_request_buffers(request_buffers)
             self.valid_req_num += valid_req_num
             self.nrreq += len(self.methods)
         else:
@@ -288,7 +339,7 @@ class DeproxyClient(BaseDeproxyClient):
         self.__check_request(request)
 
         self.valid_req_num += 1
-        self.request_buffers.append(request if isinstance(request, str) else request.msg)
+        self._add_to_request_buffers(request if isinstance(request, str) else request.msg)
         self.nrreq += 1
 
     def __check_request(self, request: Union[str, deproxy.Request]) -> None:
@@ -303,65 +354,6 @@ class DeproxyClient(BaseDeproxyClient):
         else:
             tf_cfg.dbg(2, "Request parsing has been disabled.")
             self.methods.append(request.split(" ")[0] if req_is_str else request.method)
-
-    def run_start(self):
-        BaseDeproxyClient.run_start(self)
-        self.responses = []
-
-    def receive_response(self, response):
-        self.responses.append(response)
-        self.last_response = response
-        self.clear_last_response_buffer = True
-
-    def wait_for_response(self, timeout=5, strict=False):
-        """
-        Try to use strict mode whenever it's possible
-        to prevent tests from hard to detect errors.
-        """
-        timeout = adjust_timeout_for_tcp_segmentation(timeout)
-        timeout_not_exceeded = util.wait_until(
-            lambda: len(self.responses) < self.valid_req_num,
-            timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
-        )
-        if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting response: {timeout}"
-        return timeout_not_exceeded
-
-    @property
-    def statuses(self) -> Dict[int, int]:
-        """
-        Be aware that number of HTTP responses (and hence statuses) can be unequal to number of
-        TCP responses.
-
-        Example case: we have request_rate=4 and ip_block on. Client maked 4-th request and received
-        TCP ACK, but did't received HTTP response yet (it should become in separate TCP packet).
-        After this, 5-th request proceed, and client's IP is blocked. In this case we will have only
-        3 responses despite the fact that request_rate=4.
-        """
-        d = defaultdict(lambda: 0)
-        for r in self.responses:
-            d[int(r.status)] += 1
-        return dict(d)
-
-    def send_request(self, request, expected_status_code: Optional[str] = None, timeout=5) -> None:
-        """
-        Form and send one HTTP request. And also check that the client has received a response and
-        the status code matches.
-        """
-        curr_responses = len(self.responses)
-
-        self.make_request(request)
-        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
-
-        if expected_status_code:
-            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
-            assert expected_status_code in self.last_response.status, (
-                f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-                + f"Received - {self.last_response.status}"
-            )
 
     @staticmethod
     def create_request(
@@ -385,6 +377,39 @@ class DeproxyClient(BaseDeproxyClient):
             body=body,
         )
 
+    def handle_read(self):
+        self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
+        if not self.response_buffer:
+            return
+        dbg(self, 4, "Receive response:", prefix="\t")
+        tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
+        while len(self.response_buffer) > 0:
+            try:
+                method = self.methods[self.nrresp]
+                response = deproxy.Response(
+                    self.response_buffer, method=method, keep_original_data=self.keep_original_data
+                )
+                self.response_buffer = self.response_buffer[response.original_length :]
+            except deproxy.IncompleteMessage as e:
+                dbg(self, 5, f"Receive IncompleteMessage - {e}", prefix="\t")
+                return
+            except deproxy.ParseError:
+                dbg(
+                    self,
+                    4,
+                    ("Can't parse message\n" "<<<<<\n%s\n>>>>>" % self.response_buffer),
+                )
+                raise
+            self.receive_response(response)
+            self.nrresp += 1
+
+    def _add_to_request_buffers(self, data) -> None:
+        data = data if isinstance(data, list) else [data]
+        for request in data:
+            self._request_buffers.append(
+                request if isinstance(request, bytes) else request.encode()
+            )
+
 
 class HuffmanEncoder(Encoder):
     """Override method to disable Huffman encoding. Encoding is enabled by default."""
@@ -395,24 +420,25 @@ class HuffmanEncoder(Encoder):
         return super().encode(headers=headers, huffman=self.huffman)
 
 
-class DeproxyClientH2(DeproxyClient):
-    last_response: deproxy.H2Response
-    h2_connection: h2.connection.H2Connection
+@dataclasses.dataclass
+class ReqBodyBuffer:
+    body: bytes
+    stream_id: int or None
+    end_stream: bool or None
 
-    def __init__(self, *args, **kwargs):
-        DeproxyClient.__init__(self, *args, **kwargs)
-        self.encoder = HuffmanEncoder()
-        self.h2_connection = None
-        self.stream_id = 1
-        self.active_responses = {}
-        self.ack_settings = False
-        self.last_stream_id = None
-        self.last_response_buffer = bytes()
-        self.clear_last_response_buffer = False
+
+class DeproxyClientH2(BaseDeproxyClient):
+    @property
+    def last_response(self) -> deproxy.H2Response:
+        return self._last_response
+
+    @property
+    def req_body_buffers(self) -> List[ReqBodyBuffer]:
+        return self._req_body_buffers
 
     def run_start(self):
         super(DeproxyClientH2, self).run_start()
-        self.h2_connection = None
+        self.update_initial_settings()
 
     def make_requests(self, requests, *args, **kwargs):
         for request in requests:
@@ -422,6 +448,7 @@ class DeproxyClientH2(DeproxyClient):
         self, request: Union[tuple, list, str, deproxy.H2Request], end_stream=True, huffman=True
     ):
         """
+        Add request to buffers and change counters.
         Args:
             request:
                 str - send data frame;
@@ -430,11 +457,6 @@ class DeproxyClientH2(DeproxyClient):
             end_stream (bool) - set END_STREAM flag for frame;
             huffman (bool) - enable or disable Huffman encoding;
         """
-        if self.h2_connection is None:
-            self.h2_connection = h2.connection.H2Connection()
-            self.h2_connection.encoder = HuffmanEncoder()
-            self.h2_connection.initiate_connection()
-
         self.h2_connection.encoder.huffman = huffman
 
         if not self.parsing:
@@ -444,19 +466,8 @@ class DeproxyClientH2(DeproxyClient):
 
         request = request.msg if isinstance(request, deproxy.H2Request) else request
 
-        if isinstance(request, tuple):
-            self._clear_request_stats()
-            headers, body = request
-            self.h2_connection.send_headers(self.stream_id, headers)
-            self.__prepare_data_frames(data=body, end_stream=end_stream)
-        elif isinstance(request, list):
-            self._clear_request_stats()
-            headers = request
-            self.h2_connection.send_headers(self.stream_id, headers, end_stream)
-        elif isinstance(request, str):
-            self.__prepare_data_frames(data=request, end_stream=end_stream)
+        self._add_to_request_buffers(data=request, end_stream=end_stream)
 
-        self.request_buffers.append(self.h2_connection.data_to_send())
         self.nrreq += 1
         if end_stream:
             self.stream_id += 2
@@ -494,25 +505,24 @@ class DeproxyClientH2(DeproxyClient):
         max_header_list_size: int = None,
     ) -> None:
         """Update initial SETTINGS frame and add preamble + SETTINGS frame in `data_to_send`."""
-        if not self.h2_connection:
-            self.h2_connection = h2.connection.H2Connection()
-            self.h2_connection.encoder = HuffmanEncoder()
+        self.h2_connection = h2.connection.H2Connection()
+        self.h2_connection.encoder = HuffmanEncoder()
 
-            new_settings = self.__generate_new_settings(
-                header_table_size,
-                enable_push,
-                max_concurrent_stream,
-                initial_window_size,
-                max_frame_size,
-                max_header_list_size,
-            )
+        new_settings = self.__generate_new_settings(
+            header_table_size,
+            enable_push,
+            max_concurrent_stream,
+            initial_window_size,
+            max_frame_size,
+            max_header_list_size,
+        )
 
-            # if settings is empty, we should not change them
-            if new_settings:
-                self.h2_connection.local_settings = Settings(initial_values=new_settings)
-                self.h2_connection.local_settings.update(new_settings)
+        # if settings is empty, we should not change them
+        if new_settings:
+            self.h2_connection.local_settings = Settings(initial_values=new_settings)
+            self.h2_connection.local_settings.update(new_settings)
 
-            self.h2_connection.initiate_connection()
+        self.h2_connection.initiate_connection()
 
     def send_settings_frame(
         self,
@@ -537,7 +547,6 @@ class DeproxyClientH2(DeproxyClient):
         self.h2_connection.update_settings(new_settings)
 
         self.send_bytes(data=self.h2_connection.data_to_send())
-        self.h2_connection.clear_outbound_data_buffer()
 
     def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
@@ -554,12 +563,6 @@ class DeproxyClientH2(DeproxyClient):
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
-
-    def send_bytes(self, data: bytes, expect_response=False):
-        self.request_buffers.append(data)
-        self.nrreq += 1
-        if expect_response:
-            self.valid_req_num += 1
 
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
@@ -656,38 +659,43 @@ class DeproxyClientH2(DeproxyClient):
             raise
 
     def handle_write(self):
-        reqs = self.request_buffers
-        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
-        tf_cfg.dbg(5, reqs[self.cur_req_num])
+        """
+        Send data from `self.request_buffers` and cut them.
+        Move data from `self.req_body_buffers` to `self.request_buffers`
+            when `self.request_buffers` is empty for current request.
+        Increase `self.cur_req_num` when two buffers are empty for current request.
+        Does not send data when flow_control_window is 0.
+        """
+        cur_req_num = self.cur_req_num
 
-        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
-            self.segment_size = run_config.TCP_SEGMENTATION
+        if self.request_buffers[cur_req_num]:
+            super().handle_write()
 
-        sent = 0
-        if self.segment_size != 0:
-            try:
-                for chunk in [
-                    reqs[self.cur_req_num][i : (i + self.segment_size)]
-                    for i in range(0, len(reqs[self.cur_req_num]), self.segment_size)
-                ]:
-                    sent += self.socket.send(chunk)
-            except ConnectionError as e:
-                dbg(self, 4, f"Received error - {e}", prefix="\t")
-        else:
-            sent = self.send(reqs[self.cur_req_num])
-        if sent < 0:
-            return
+        body = self.req_body_buffers[cur_req_num].body
+        if self.request_buffers[cur_req_num] == b"" and body:
+            stream_id = self.req_body_buffers[cur_req_num].stream_id
+            end_stream = self.req_body_buffers[cur_req_num].end_stream
 
-        self.cur_req_num += 1
+            # we must decrease self.cur_req_num in case when client sent HEADERS frame
+            # but self._req_body_buffers contain data to send for current request.
+            # This happens when both buffers are not empty.
+            if self.cur_req_num > cur_req_num:
+                self.cur_req_num -= 1
 
-    def handle_connect(self):
-        deproxy.Client.handle_connect(self)
-        self.start_time = time.time()
+            data_to_send, size = self.__prepare_data_frames(body, end_stream, stream_id)
+            if size == 0:
+                return None
+            self._request_buffers[cur_req_num] = data_to_send
+            self._req_body_buffers[cur_req_num].body = self._req_body_buffers[cur_req_num].body[
+                size:
+            ]
 
-    def __headers_to_string(self, headers):
+    @staticmethod
+    def __headers_to_string(headers):
         return "".join(["%s: %s\r\n" % (h, v) for h, v in headers])
 
-    def __binary_headers_to_string(self, headers):
+    @staticmethod
+    def __binary_headers_to_string(headers):
         return "".join(["%s: %s\r\n" % (h.decode(), v.decode()) for h, v in headers])
 
     @staticmethod
@@ -714,20 +722,60 @@ class DeproxyClientH2(DeproxyClient):
             new_settings[SettingCodes.MAX_HEADER_LIST_SIZE] = max_header_list_size
         return new_settings
 
-    def __prepare_data_frames(self, data: str, end_stream: bool) -> None:
-        while len(data) > self.h2_connection.max_outbound_frame_size:
-            self.h2_connection.send_data(
-                stream_id=self.stream_id,
-                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
-                end_stream=False,
-            )
-            data = data[self.h2_connection.max_outbound_frame_size :]
+    def __prepare_data_frames(self, body: bytes, end_stream: bool, stream_id: int):
+        """
+        Get available size for the stream and prepare 1 DATA frame.
+        """
+        size = min(
+            self.h2_connection.max_outbound_frame_size,
+            self.h2_connection.local_flow_control_window(stream_id),
+        )
+        if size == 0:
+            return b"", size
+        elif len(body) > size:
+            data_to_send = body[:size]
+            end_stream_ = False
         else:
-            self.h2_connection.send_data(
-                stream_id=self.stream_id,
-                data=data[: self.h2_connection.max_outbound_frame_size].encode(),
-                end_stream=end_stream,
+            data_to_send = body
+            end_stream_ = end_stream
+            size = len(data_to_send)
+
+        self.h2_connection.send_data(
+            stream_id=stream_id,
+            data=data_to_send,
+            end_stream=end_stream_,
+        )
+        data_to_send = self.h2_connection.data_to_send()
+        return data_to_send, size
+
+    def _add_to_body_buffers(
+        self, *, body: bytes, stream_id: int = None, end_stream: bool = None
+    ) -> None:
+        self._req_body_buffers.append(ReqBodyBuffer(body, stream_id, end_stream))
+
+    def _add_to_request_buffers(self, *, data, end_stream: bool = None) -> None:
+        if isinstance(data, bytes):
+            # in case when you use `send_bytes` method
+            self._request_buffers.append(data)
+            self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
+        elif isinstance(data, str):
+            # in case when you use `make_request` to sending body
+            self._request_buffers.append(b"")
+            self._add_to_body_buffers(
+                body=data.encode(), stream_id=self.stream_id, end_stream=end_stream
             )
+        elif isinstance(data, tuple):
+            # in case when you use `make_request` to sending headers + body
+            self.h2_connection.send_headers(self.stream_id, data[0], end_stream=False)
+            self._request_buffers.append(self.h2_connection.data_to_send())
+            self._add_to_body_buffers(
+                body=data[1].encode(), stream_id=self.stream_id, end_stream=end_stream
+            )
+        elif isinstance(data, list):
+            # in case when you use `make_request` to sending headers
+            self.h2_connection.send_headers(self.stream_id, data, end_stream)
+            self._request_buffers.append(self.h2_connection.data_to_send())
+            self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
 
     def __calculate_frame_length(self, pos):
         #: The type byte defined for CONTINUATION frames.
@@ -738,6 +786,17 @@ class DeproxyClientH2(DeproxyClient):
             return -1
         # TCP/IP use big endian
         return int.from_bytes(self.last_response_buffer[pos : pos + 3], "big")
+
+    def _reinit_variables(self):
+        super()._reinit_variables()
+        self.h2_connection: h2.connection.H2Connection = None
+        self.stream_id: int = 1
+        self.active_responses = {}
+        self.ack_settings: bool = False
+        self.last_stream_id: int = None
+        self.last_response_buffer = bytes()
+        self.clear_last_response_buffer: bool = False
+        self._req_body_buffers: List[ReqBodyBuffer] = list()
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
         if len(header) == 0:

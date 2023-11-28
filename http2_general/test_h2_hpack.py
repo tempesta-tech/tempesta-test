@@ -129,9 +129,7 @@ class TestHpack(TestHpackBase):
             "\r\n"
         )
 
-        client.request_buffers.append(client.h2_connection.data_to_send())
-        client.nrreq += 1
-
+        client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
 
         # Tempesta must not save large header in dynamic table.
@@ -201,14 +199,11 @@ class TestHpack(TestHpackBase):
         )
         stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
 
-        client.methods.append("POST")
-        client.request_buffers.append(
+        client.send_bytes(
             # \xbe - link to first index in dynamic table
-            b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe"
+            b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe",
+            expect_response=True,
         )
-        # increment counter to call handle_write method
-        client.nrreq += 1
-        client.valid_req_num += 1
         self.assertTrue(client.wait_for_response())
 
         # Last forwarded request from Tempesta MUST have second indexed header
@@ -288,14 +283,11 @@ class TestHpack(TestHpackBase):
         )
         stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
 
-        client.methods.append("POST")
-        client.request_buffers.append(
+        client.send_bytes(
             # \xbe - link to first index in table
-            b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe"
+            b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe",
+            expect_response=True,
         )
-        # increment counter to call handle_write method
-        client.nrreq += 1
-        client.valid_req_num += 1
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "400", "HTTP response status codes mismatch.")
@@ -598,9 +590,8 @@ class TestHpack(TestHpackBase):
 
         self.start_all_services()
         self.initiate_h2_connection(client)
-        client.encoder.huffman = False
+        client.h2_connection.encoder.huffman = False
 
-        client.methods.append("GET")
         client.h2_connection.send_headers(stream_id=1, headers=self.get_request, end_stream=True)
         client.send_bytes(
             data=b"\x00\x00\x14\x01\x05\x00\x00\x00\x01A\x0bexample.com\x84\x87B\x03GET",
