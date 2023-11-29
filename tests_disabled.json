@@ -182,10 +182,6 @@
             "reason": "Disable by issue #1692"
         },
         {
-            "name" : "t_stress.test_wordpress.H2WordpressStress",
-            "reason": "Disable by issue #1982 - can cause kernel panic"
-        },
-        {
             "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
             "reason": "Disabled by issue #480"
         },
