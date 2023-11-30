@@ -10,6 +10,8 @@ Without loss of generality we use self-signed certificates
 to make things simple in tests.
 """
 from datetime import datetime, timedelta
+from os import makedirs
+from typing import Optional
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -25,10 +27,24 @@ __license__ = "GPL2"
 
 
 class CertGenerator(object):
-    def __init__(self, cert_path=None, key_path=None, default=False):
+    def __init__(
+        self,
+        cert_path: Optional[str] = None,
+        key_path: Optional[str] = None,
+        default: bool = False,
+    ):
         workdir = tf_cfg.cfg.get("General", "workdir")
         self.f_cert = cert_path if cert_path else workdir + "/tempesta.crt"
         self.f_key = key_path if key_path else workdir + "/tempesta.key"
+        # Create directories if don't exist
+        dirs = [
+            workdir,
+            # Get only directory from full path
+            "/".join(self.f_cert.split("/")[:-1]),
+            "/".join(self.f_key.split("/")[:-1]),
+        ]
+        for dir in dirs:
+            makedirs(dir, exist_ok=True)
         # Define the certificate fields data supposed for mutation by a caller.
         self.C = "US"
         self.ST = "Washington"
