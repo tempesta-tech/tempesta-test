@@ -8,7 +8,7 @@ import string
 import time
 
 from framework import tester
-from helpers import tf_cfg
+from helpers import stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -278,3 +278,86 @@ class RedirectMarkTimeoutVhost(RedirectMarkTimeout):
         }
         """
     }
+
+
+class RedirectMarkTimeoutExceedReqCountBase(BaseRedirectMark):
+    def client_send_req_with_good_mark(self, client):
+        client.run_start()
+        client.state = stateful.STATE_STARTED
+
+        uri = "/"
+        uri, cookie = self.client_send_first_req(client, uri)
+        uri, _ = self.client_send_custom_req(client, uri, cookie)
+        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        self.assertEqual(uri, "http://%s/" % hostname)
+
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Cookie: %s=%s\r\n"
+            "\r\n" % (uri, cookie[0], cookie[1])
+        )
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status, "200", "unexpected response status code")
+
+
+class RedirectMarkTimeoutExceedReqCountDrop(RedirectMarkTimeoutExceedReqCountBase):
+    """
+    Current count of redirected requests exceed max_misses count.
+    Block action is set to reply
+    """
+
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+
+        block_action attack drop;
+
+        sticky {
+            cookie enforce max_misses=3 timeout=2;
+        }
+        """
+    }
+
+    def test(self):
+        self.start_all()
+
+        client = self.get_client("deproxy")
+        uri = "/"
+        for i in range(3):
+            uri, _ = self.client_send_first_req(client, uri)
+
+        self.client_expect_block(
+            client, req="GET %s HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" % uri
+        )
+        self.client_send_req_with_good_mark(client)
+
+
+class RedirectMarkTimeoutExceedReqCountBlock(RedirectMarkTimeoutExceedReqCountBase):
+    """
+    Current count of redirected requests exceed max_misses count.
+    Block action is set to reply
+    """
+
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+
+        block_action attack reply;
+
+        sticky {
+            cookie enforce max_misses=3 timeout=2;
+        }
+        """
+    }
+
+    def test(self):
+        self.start_all()
+
+        client = self.get_client("deproxy")
+        uri = "/"
+        for i in range(3):
+            uri, _ = self.client_send_first_req(client, uri)
+
+        client.send_request("GET %s HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" % uri, "503")
+        self.client_send_req_with_good_mark(client)

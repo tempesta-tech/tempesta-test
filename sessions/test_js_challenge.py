@@ -60,16 +60,13 @@ class BaseJSChallenge(tester.TempestaTest):
         new_cookie = (match.group(1), match.group(2))
         self.assertNotEqual(last_cookie, new_cookie, "Challenge is not restarted")
 
-    def process_js_challenge(
+    def process_first_js_challenge_req(
         self,
         client,
         host,
         delay_min,
         delay_range,
         status_code,
-        expect_pass,
-        req_delay,
-        restart_on_fail=False,
     ):
         """Our tests can't pass the JS challenge with propper configuration,
         enlarge delay limit to not recommended values to make it possible to
@@ -105,13 +102,6 @@ class BaseJSChallenge(tester.TempestaTest):
         for js_var in js_vars:
             self.assertIn(js_var, resp.body, "Can't find JS Challenge parameter in response body")
 
-        # Pretend we can eval JS code and pass the challenge, but we can't set
-        # reliable timeouts and pass the challenge on CI or in virtual
-        # environments. Instead increase the JS parameters to make hardcoding
-        # easy and reliable.
-        if req_delay:
-            time.sleep(req_delay)
-
         if isinstance(client, deproxy_client.DeproxyClientH2):
             req = [
                 (":authority", host),
@@ -130,11 +120,31 @@ class BaseJSChallenge(tester.TempestaTest):
                 "\r\n" % (host, cookie[0], cookie[1])
             )
 
+        return req, cookie
+
+    def process_js_challenge(
+        self,
+        client,
+        host,
+        delay_min,
+        delay_range,
+        status_code,
+        expect_pass,
+        req_delay,
+    ):
+        req, cookie = self.process_first_js_challenge_req(
+            client, host, delay_min, delay_range, status_code
+        )
+
+        # Pretend we can eval JS code and pass the challenge, but we can't set
+        # reliable timeouts and pass the challenge on CI or in virtual
+        # environments. Instead increase the JS parameters to make hardcoding
+        # easy and reliable.
+        if req_delay:
+            time.sleep(req_delay)
+
         if not expect_pass:
-            if restart_on_fail:
-                self.expect_restart(client, req, status_code, cookie)
-            else:
-                self.client_expect_block(client, req)
+            self.client_expect_block(client, req)
             return
         resp = self.client_send_req(client, req)
         self.assertEqual(resp.status, "200", "unexpected response status code")
@@ -174,7 +184,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce name=cname;
                 js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                            delay_limit=3000 ${tempesta_workdir}/js1.html;
+                            ${tempesta_workdir}/js1.html;
             }
         }
 
@@ -183,7 +193,7 @@ class JSChallenge(BaseJSChallenge):
             sticky {
                 cookie enforce;
                 js_challenge resp_code=302 delay_min=2000 delay_range=1200
-                            delay_limit=2000 ${tempesta_workdir}/js2.html;
+                            ${tempesta_workdir}/js2.html;
             }
         }
 
@@ -373,51 +383,6 @@ class JSChallenge(BaseJSChallenge):
             req_delay=0,
         )
 
-    def test_fail_challenge_too_late(self):
-        """Clients send the validating request too late, Tempesta restarts
-        cookie challenge.
-        """
-        self.start_all()
-
-        tf_cfg.dbg(3, "Send request to vhost 1 with timeout 6s...")
-        client = self.get_client("client-1")
-        self.process_js_challenge(
-            client,
-            "vh1.com",
-            delay_min=1000,
-            delay_range=1500,
-            status_code=503,
-            expect_pass=False,
-            req_delay=6,
-            restart_on_fail=True,
-        )
-
-        tf_cfg.dbg(3, "Send request to vhost 2 with timeout 6s...")
-        client = self.get_client("client-2")
-        self.process_js_challenge(
-            client,
-            "vh2.com",
-            delay_min=2000,
-            delay_range=1200,
-            status_code=302,
-            expect_pass=False,
-            req_delay=6,
-            restart_on_fail=True,
-        )
-
-        tf_cfg.dbg(3, "Send request to vhost 3 with timeout 3s...")
-        client = self.get_client("client-3")
-        self.process_js_challenge(
-            client,
-            "vh3.com",
-            delay_min=1000,
-            delay_range=1000,
-            status_code=503,
-            expect_pass=False,
-            req_delay=3,
-            restart_on_fail=True,
-        )
-
     def client_send_custom_req(self, client, uri, cookie, host=None):
         if not host:
             host = "localhost"
@@ -546,7 +511,7 @@ class JSChallengeVhost(JSChallenge):
         sticky {
             cookie enforce name=cname;
             js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                         delay_limit=3000 ${tempesta_workdir}/js1.html;
+                         ${tempesta_workdir}/js1.html;
         }
         vhost vh1 {
             proxy_pass default;
@@ -555,7 +520,7 @@ class JSChallengeVhost(JSChallenge):
         sticky {
             cookie enforce;
             js_challenge resp_code=302 delay_min=2000 delay_range=1200
-                         delay_limit=2000 ${tempesta_workdir}/js2.html;
+                         ${tempesta_workdir}/js2.html;
         }
         vhost vh2 {
             proxy_pass default;
@@ -634,7 +599,7 @@ class JSChallengeDefVhostInherit(BaseJSChallenge):
         sticky {
             cookie enforce name=cname;
             js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                         delay_limit=3000 ${tempesta_workdir}/js1.html;
+                         ${tempesta_workdir}/js1.html;
         }
         """
     }
@@ -750,7 +715,7 @@ class JSChallengeAfterReload(BaseJSChallenge):
         sticky {
             cookie enforce name=cname;
             js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                         delay_limit=3000 %s/js1.html;
+                         %s/js1.html;
         }
         """
             % (tf_cfg.cfg.get("Server", "ip"), tf_cfg.cfg.get("Tempesta", "workdir"))
