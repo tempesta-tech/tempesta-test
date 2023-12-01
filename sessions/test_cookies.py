@@ -191,15 +191,19 @@ class CookiesEnforced(CookiesNotEnabled):
     challenge.
     """
 
+    max_misses = 2
     tempesta = {
-        "config": """
-        server ${server_ip}:8000;
-        server ${server_ip}:8001;
-        server ${server_ip}:8002;
+        "config": f"""
+        server ${{server_ip}}:8000;
+        server ${{server_ip}}:8001;
+        server ${{server_ip}}:8002;
+        
+        block_action attack reply;
+        block_action error reply;
 
-        sticky {
-            cookie enforce;
-        }
+        sticky {{
+            cookie enforce max_misses={max_misses};
+        }}
 
         """
     }
@@ -218,6 +222,41 @@ class CookiesEnforced(CookiesNotEnabled):
         self.assertTrue(
             self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
         )
+
+    def test_max_misses_no_cookie(self):
+        """
+        Tempesta MUST close connection when requests of client does not contain cookie
+        and the number of requests greater than max_misses.
+        """
+        self.start_all_services()
+
+        client = self.get_client("client-no-cookies")
+        request = client.create_request(method="GET", headers=[])
+
+        for _ in range(self.max_misses + 1):
+            client.send_request(request)
+
+        self.assertEqual(client.last_response.status, "400")
+        self.assertTrue(client.conn_is_closed)
+
+    def test_max_misses_with_cookie(self):
+        """
+        Tempesta MUST close connection when requests of client contain invalid cookie
+        and the number of requests greater than max_misses.
+        """
+        self.start_all_services()
+
+        client = self.get_client("client-no-cookies")
+
+        for _ in range(self.max_misses + 1):
+            client.send_request(
+                client.create_request(
+                    method="GET", headers=[("cookie", "cname=0000db26d9f76f8c40ba5c")]
+                )
+            )
+
+        self.assertEqual(client.last_response.status, "400")
+        self.assertTrue(client.conn_is_closed)
 
 
 class VhostCookies(CookiesNotEnabled):
@@ -421,7 +460,6 @@ class CookiesInherit(VhostCookies):
 
 
 class CookieLifetime(CookiesNotEnabled):
-
     tempesta = {
         "config": """
         server ${server_ip}:8000;
