@@ -242,10 +242,6 @@
             "reason": "Disabled by issue #1838"
         },
         {
-            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_hpack_bomb",
-            "reason": "Disabled by issue #1780 and 1838"
-        },
-        {
             "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_reaching_limit_headers_as_bytes",
             "reason": "Disabled by issue #1838"
         },

@@ -15,7 +15,7 @@ from hpack import HeaderTuple, NeverIndexedHeaderTuple
 from hyperframe.frame import HeadersFrame
 
 import helpers
-from framework import deproxy_client
+from framework.parameterize import param, parameterize
 from http2_general.helpers import H2Base
 
 
@@ -865,7 +865,10 @@ class TestHpackBomb(TestHpackBase):
         """
     }
 
-    def test_hpack_bomb(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_hpack_bomb(self, name, huffman):
         """
         A HPACK bomb request causes the connection to be torn down with the
         error code ENHANCE_YOUR_CALM.
@@ -883,6 +886,7 @@ class TestHpackBomb(TestHpackBase):
                 client.make_request(
                     request=self.post_request + [HeaderTuple(b"a", b"a" * 4063)],
                     end_stream=False,
+                    huffman=huffman,
                 )
 
                 # wait for tempesta to save header in dynamic table

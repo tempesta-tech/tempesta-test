@@ -440,9 +440,9 @@ class DeproxyClientH2(BaseDeproxyClient):
         super(DeproxyClientH2, self).run_start()
         self.update_initial_settings()
 
-    def make_requests(self, requests, *args, **kwargs):
+    def make_requests(self, requests, huffman=True, *args, **kwargs):
         for request in requests:
-            self.make_request(request)
+            self.make_request(request, huffman=huffman)
 
     def make_request(
         self, request: Union[tuple, list, str, deproxy.H2Request], end_stream=True, huffman=True
