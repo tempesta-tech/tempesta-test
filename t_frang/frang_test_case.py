@@ -8,8 +8,9 @@ __license__ = "GPL2"
 from typing import Union  # TODO: use | instead when we move to python3.10
 from typing import Any, Dict, List
 
+import run_config
 from framework import tester
-from framework.deproxy_client import DeproxyClient
+from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from helpers import dmesg
 
 # used to prevent burst
@@ -81,7 +82,7 @@ block_action attack reply;
         self.start_all_services(client=False)
 
     def base_scenario(
-        self, frang_config: str, requests: list, disable_hshc: bool = False
+        self, frang_config: str, requests: list, disable_hshc: bool = False, huffman: bool = True
     ) -> DeproxyClient:
         self.set_frang_config(
             "\n".join(
@@ -92,7 +93,10 @@ block_action attack reply;
         client = self.get_client("deproxy-1")
         client.parsing = False
         client.start()
-        client.make_requests(requests)
+        if isinstance(client, DeproxyClientH2):
+            client.make_requests(requests, huffman=huffman)
+        else:
+            client.make_requests(requests)
         client.wait_for_response(3)
         return client
 
@@ -105,16 +109,30 @@ block_action attack reply;
             self.assertFrangWarning(warning=warning_msg, expected=1)
 
     def check_last_response(self, client, status_code: str, warning_msg: str):
-        self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
-        self.assertEqual(
-            client.last_response.status, status_code, "HTTP response status codes mismatch."
-        )
+        """
+        We can't be sure that client receive error response in case of TCP
+        segmentation, because if we receive some data from client after
+        socket closing, kernel send TCP RST to client.
+        """
+        if not run_config.TCP_SEGMENTATION or status_code == "200":
+            self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
+            self.assertEqual(
+                client.last_response.status, status_code, "HTTP response status codes mismatch."
+            )
         self._check_frang_warning(client, status_code, warning_msg)
 
     def check_response(self, client, status_code: str, warning_msg: str):
-        self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
-        for response in client.responses:
-            self.assertEqual(response.status, status_code, "HTTP response status codes mismatch.")
+        """
+        We can't be sure that client receive error response in case of TCP
+        segmentation, because if we receive some data from client after
+        socket closing, kernel send TCP RST to client.
+        """
+        if not run_config.TCP_SEGMENTATION or status_code == "200":
+            self.assertIsNotNone(client.last_response, "Deproxy client has lost response.")
+            for response in client.responses:
+                self.assertEqual(
+                    response.status, status_code, "HTTP response status codes mismatch."
+                )
 
         self._check_frang_warning(client, status_code, warning_msg)
 

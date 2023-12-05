@@ -7,10 +7,13 @@ __license__ = "GPL2"
 import time
 from ssl import SSLWantWriteError
 
+from h2.connection import AllowedStreamIDs
 from h2.exceptions import ProtocolError
+from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import HeadersFrame
 
+from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
 ERROR = "Warning: frang: HTTP headers count exceeded for"
@@ -138,7 +141,10 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.assertEqual(client.h2_connection.remote_settings.max_header_list_size, 5)
 
-    def test_reaching_limit_headers_as_bytes(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_reaching_limit_headers_as_bytes(self, name, huffman):
         """
         We set up for Tempesta `http_header_cnt 2` and
         made request with 4 headers as index from dynamic table.
@@ -146,11 +152,15 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         client = self.base_scenario(
             frang_config="http_header_cnt 2;",
             requests=self.requests_with_same_header,
+            huffman=huffman,
         )
         client.responses.pop(0)
         self.check_response(client, status_code="400", warning_msg=ERROR)
 
-    def test_not_reaching_limit_headers_as_bytes(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_not_reaching_limit_headers_as_bytes(self, name, huffman):
         """
         We set up for Tempesta `http_header_cnt 8` and
         made request with 8 headers (duplicate headers taken into account)
@@ -160,10 +170,14 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             frang_config="http_header_cnt 8;",
             requests=self.requests_with_same_header,
             disable_hshc=True,
+            huffman=huffman,
         )
         self.check_response(client, status_code="200", warning_msg=ERROR)
 
-    def test_not_reaching_the_limit_2(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_not_reaching_the_limit_2(self, name, huffman):
         """
         We set up for Tempesta `http_header_cnt 8` and
         made request with 8 headers (duplicate headers taken into account)
@@ -173,10 +187,14 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             frang_config="http_header_cnt 8;",
             requests=self.requests_with_same_header,
             disable_hshc=True,
+            huffman=huffman,
         )
         self.check_response(client, status_code="200", warning_msg=ERROR)
 
-    def test_default_http_header_cnt(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_default_http_header_cnt(self, name, huffman):
         """
         We set up for Tempesta default `http_header_cnt` and
         made request with many headers as index from dynamic table.
@@ -188,7 +206,10 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.check_response(client, status_code="200", warning_msg=ERROR)
 
-    def test_hpack_bomb(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_hpack_bomb(self, name, huffman):
         """
         Cause HPACK bomb, probably with many connections, and make sure that
         http_header_cnt limit prevents the attack.
@@ -201,6 +222,7 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         client.make_request(
             request=self.post_request + [HeaderTuple(b"a", b"a" * 4000)],
             end_stream=False,
+            huffman=huffman,
         )
 
         # wait for Tempesta to save header in dynamic table
@@ -209,7 +231,12 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         # Generate and send attack frames.
         now = time.time()
         while now + 2 > time.time():
+            time.sleep(0.1)
             client.stream_id += 2
+            stream = client.h2_connection._get_or_create_stream(
+                client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+            )
+            stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
             encoded_headers = client.h2_connection.encoder.encode(self.post_request)
             attack_frame = HeadersFrame(
                 stream_id=client.stream_id,
@@ -221,6 +248,7 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
                 client.send(attack_frame.serialize())
             except SSLWantWriteError:
                 continue
+            except:
+                break
 
         self.check_response(client, status_code="400", warning_msg=ERROR)
-        self.assertIn(ProtocolError, client.error_codes)

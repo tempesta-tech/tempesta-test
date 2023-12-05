@@ -11,6 +11,7 @@ from h2.stream import StreamInputs
 from hyperframe import frame
 
 from framework import tester
+from framework.parameterize import param, parameterize
 from helpers import tf_cfg
 from http2_general.helpers import H2Base
 
@@ -1448,27 +1449,17 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
-    def test_blocked_by_max_headers_count(self):
-        # Total header length is greater then 200 bytes.
-        self.start_all()
-        head = [
-            (":authority", "localhost"),
-            (":path", "/"),
-            (":scheme", "https"),
-            (":method", "GET"),
-            ("a", "a" * 70),
-        ]
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_blocked_by_max_headers_count(self, name, huffman):
+        """Total header length is greater then 200 bytes."""
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.make_request(head)
+        deproxy_cl.make_request(
+            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 70)], huffman=huffman)
+        )
 
-        resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp)
+        deproxy_cl.wait_for_response(strict=True)
         self.assertEqual(deproxy_cl.last_response.status, "400")

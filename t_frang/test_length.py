@@ -1,9 +1,11 @@
 """Tests for Frang  length related directives."""
-from t_frang.frang_test_case import FrangTestCase, H2Config
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+from framework.parameterize import param, parameterize
+from t_frang.frang_test_case import FrangTestCase, H2Config
 
 
 class FrangLengthTestCase(FrangTestCase):
@@ -55,9 +57,9 @@ class FrangLengthTestCase(FrangTestCase):
 
     def test_http_hdr_len(self):
         """
-        Test 'http_hdr_len('.
+        Test 'http_hdr_len'.
 
-        Set up `http_hdr_len( 300;` and make request with header greater length
+        Set up `http_hdr_len 300;` and make request with header greater length
 
         """
         client = self.base_scenario(
@@ -212,13 +214,17 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
         )
 
-    def test_http_hdr_len(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_http_hdr_len(self, name, huffman):
         """
         Set up `http_hdr_len 300;` and make request with header greater length
         """
         client = self.base_scenario(
             frang_config="http_hdr_len 300;",
             requests=[self.post_request + [("header", "x" * 320)]],
+            huffman=huffman,
         )
         self.check_response(
             client,
@@ -226,7 +232,10 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    def test_http_hdr_len_without_reaching_the_limit(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_http_hdr_len_without_reaching_the_limit(self, name, huffman):
         """
         Set up `http_hdr_len 300; and make request with header 200 length
         """
@@ -234,6 +243,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             frang_config="http_hdr_len 300;",
             requests=[self.post_request + [("header", "x" * 200)]],
             disable_hshc=True,
+            huffman=huffman,
         )
         self.check_response(
             client,
@@ -241,7 +251,10 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    def test_http_hdr_len_without_reaching_the_limit_2(self):
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_http_hdr_len_without_reaching_the_limit_2(self, name, huffman):
         """
         Set up `http_hdr_len 300; and make request with header 300 - 32
         (32 extra bytes are considered the "maximum" overhead that would
@@ -251,6 +264,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             frang_config="http_hdr_len 300;",
             requests=[self.post_request + [("header", "x" * 262)]],
             disable_hshc=True,
+            huffman=huffman,
         )
         self.check_response(
             client,
