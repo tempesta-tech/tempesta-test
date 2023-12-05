@@ -13,7 +13,7 @@ from hyperframe.frame import HeadersFrame
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
-ERROR = "Warning: frang: HTTP headers number exceeded for"
+ERROR = "Warning: frang: HTTP headers count exceeded for"
 
 
 class FrangHttpHeaderCountTestCase(FrangTestCase):
@@ -48,7 +48,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             requests=self.requests,
             disable_hshc=True,
         )
-        self.check_response(client, status_code="403", warning_msg=ERROR)
+        self.check_response(client, status_code="400", warning_msg=ERROR)
 
     def test_not_reaching_the_limit(self):
         """
@@ -88,7 +88,6 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             (":method", "POST"),
         ],
     ]
-    requests[0].extend([(f"header{step}", f"value{step}") for step in range(4)])
 
     requests_with_same_header = [
         [
@@ -149,15 +148,16 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             requests=self.requests_with_same_header,
         )
         client.responses.pop(0)
-        self.check_response(client, status_code="403", warning_msg=ERROR)
+        self.check_response(client, status_code="400", warning_msg=ERROR)
 
     def test_not_reaching_limit_headers_as_bytes(self):
         """
-        We set up for Tempesta `http_header_cnt 4` and
-        made request with 4 headers as index from dynamic table.
+        We set up for Tempesta `http_header_cnt 8` and
+        made request with 8 headers (duplicate headers taken into account)
+        as index from dynamic table.
         """
         client = self.base_scenario(
-            frang_config="http_header_cnt 4;",
+            frang_config="http_header_cnt 8;",
             requests=self.requests_with_same_header,
             disable_hshc=True,
         )
@@ -165,11 +165,12 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
 
     def test_not_reaching_the_limit_2(self):
         """
-        We set up for Tempesta `http_header_cnt 6` and
-        made request with 4 headers as index from dynamic table.
+        We set up for Tempesta `http_header_cnt 8` and
+        made request with 8 headers (duplicate headers taken into account)
+        as index from dynamic table.
         """
         client = self.base_scenario(
-            frang_config="http_header_cnt 6;",
+            frang_config="http_header_cnt 8;",
             requests=self.requests_with_same_header,
             disable_hshc=True,
         )
@@ -221,5 +222,5 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             except SSLWantWriteError:
                 continue
 
-        self.check_response(client, status_code="403", warning_msg=ERROR)
+        self.check_response(client, status_code="400", warning_msg=ERROR)
         self.assertIn(ProtocolError, client.error_codes)
