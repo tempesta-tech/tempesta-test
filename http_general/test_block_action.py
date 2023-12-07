@@ -4,8 +4,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import run_config
 from framework import tester
-from helpers import analyzer, asserts, remote
+from framework.custom_error_page import CustomErrorPageGenerator
+from helpers import analyzer, asserts, remote, tf_cfg
 
 
 class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
@@ -66,6 +68,8 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
 
 
 class BlockActionReply(BlockActionBase):
+    ERROR_RESPONSE_BODY = ""
+
     def setUp(self):
         self.tempesta = {
             "config": self.tempesta_tmpl % ("reply", "reply"),
@@ -74,8 +78,20 @@ class BlockActionReply(BlockActionBase):
 
     def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
         sniffer.stop()
-        self.assert_fin_socks(sniffer.packets)
-        self.assert_unreset_socks(sniffer.packets)
+        if not run_config.TCP_SEGMENTATION:
+            self.assert_fin_socks(sniffer.packets)
+            self.assert_unreset_socks(sniffer.packets)
+
+    def check_last_error_response(self, client, expected_status_code):
+        """
+        In case of TCP segmentation and attack we can't be sure that client
+        receive response, because kernel send TCP RST to client when we
+        receive some data on the DEAD sock.
+        """
+        if not run_config.TCP_SEGMENTATION:
+            self.assertTrue(client.wait_for_response())
+            self.assertEqual(client.last_response.status, expected_status_code)
+            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
     def test_block_action_attack_reply(self):
         client = self.get_client("deproxy")
@@ -85,10 +101,27 @@ class BlockActionReply(BlockActionBase):
         self.save_must_fin_socks([client])
         self.save_must_not_reset_socks([client])
 
-        client.send_request(
+        client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-            expected_status_code="403",
         )
+        self.check_last_error_response(client, expected_status_code="403")
+
+        self.assertTrue(client.wait_for_connection_close())
+        self.check_fin_and_rst_in_sniffer(sniffer)
+
+    def test_block_action_error_reply_with_conn_close(self):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_all_services()
+        self.save_must_fin_socks([client])
+        self.save_must_not_reset_socks([client])
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
+            expected_status_code="400",
+        )
+        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
 
         self.assertTrue(client.wait_for_connection_close())
         self.check_fin_and_rst_in_sniffer(sniffer)
@@ -105,6 +138,7 @@ class BlockActionReply(BlockActionBase):
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nX-Forwarded-For: 1.1.1.1.1.1\r\n\r\n",
             expected_status_code="400",
         )
+        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
 
         self.assertFalse(client.connection_is_closed())
 
@@ -159,13 +193,59 @@ class BlockActionReply(BlockActionBase):
             expected_status_code="200",
         )
 
-        client.send_request(
+        client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: frang.com\r\n\r\n",
-            expected_status_code="403",
         )
+        self.check_last_error_response(client, expected_status_code="403")
 
         self.assertTrue(client.wait_for_connection_close())
         self.check_fin_and_rst_in_sniffer(sniffer)
+
+
+class BlockActionReplyWithCustomErrorPage(BlockActionReply):
+    tempesta_tmpl = """
+        listen 80;
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+        vhost good {
+            proxy_pass default;
+        }
+        vhost frang {
+            frang_limits {
+                http_methods GET;
+                http_resp_code_block 200 1 10;
+            }
+            proxy_pass default;
+        }
+        
+        block_action attack %s;
+        block_action error %s;
+        response_body 4* %s;
+
+        http_chain {
+            host == "bad.com"   -> block;
+            host == "good.com"  -> good;
+            host == "frang.com" -> frang;
+        }
+    """
+
+    ERROR_RESPONSE_BODY = "a" * 1000
+
+    def __generate_custom_error_page(self, data):
+        workdir = tf_cfg.cfg.get("General", "workdir")
+        cpage_gen = CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
+        path = cpage_gen.get_file_path()
+        remote.tempesta.copy_file(path, data)
+
+        return path
+
+    def setUp(self):
+        path = self.__generate_custom_error_page(self.ERROR_RESPONSE_BODY)
+        self.tempesta = {
+            "config": self.tempesta_tmpl % ("reply", "reply", path),
+        }
+        tester.TempestaTest.setUp(self)
 
 
 class BlockActionDrop(BlockActionBase):
