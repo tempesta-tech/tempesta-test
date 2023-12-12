@@ -10,7 +10,15 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "reconf.test_reconf_base.TestTempestaReconfiguring.test_reconf_bad_socks",
+            "name": "reconf.test_reconf_base.TestListenReconfHttp",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "reconf.test_reconf_base.TestListenReconfHttps",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "reconf.test_reconf_base.TestListenReconfH2",
             "reason": "These tests should not be run with remote setup."
         },
         {
