@@ -1469,7 +1469,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         )
 
         deproxy_cl.wait_for_response(strict=True)
-        self.assertEqual(deproxy_cl.last_response.status, "400")
+        self.assertEqual(deproxy_cl.last_response.status, "403")
 
     @parameterize.expand(
         [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]

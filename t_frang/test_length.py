@@ -68,7 +68,7 @@ class FrangLengthTestCase(FrangTestCase):
         )
         self.check_response(
             client,
-            status_code="400",
+            status_code="403",
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
@@ -228,7 +228,7 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
         )
         self.check_response(
             client,
-            status_code="400",
+            status_code="403",
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 

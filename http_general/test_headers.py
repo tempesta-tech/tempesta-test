@@ -451,7 +451,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaaa\r\n\r\n",
-            expected_status_code="400",
+            expected_status_code="403",
         )
 
     def test_not_blocked_by_max_headers_count(self):
