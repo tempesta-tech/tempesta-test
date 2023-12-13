@@ -424,7 +424,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             listen 80;
             server ${server_ip}:8000;
 
-            http_max_header_list_size 20;
+            http_max_header_list_size 23;
 
             block_action attack reply;
             block_action error reply;
@@ -441,11 +441,29 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
     ]
 
     def test_blocked_by_max_headers_count(self):
-        # Total header length is greater then 20 bytes.
+        """
+        Total header length is 24 bytes, greater then 23 bytes.
+        Host: localhost (15 bytes)
+        'a': aaaa (9 bytes)
+        """
         self.start_all_services()
         client = self.get_client("deproxy")
 
         client.send_request(
-            request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': text\r\n\r\n",
+            request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaaa\r\n\r\n",
             expected_status_code="400",
+        )
+
+    def test_not_blocked_by_max_headers_count(self):
+        """
+        Total header length is 23 bytes, not greater then 23 bytes.
+        Host: localhost (15 bytes)
+        'a': aaa (8 bytes)
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaa\r\n\r\n",
+            expected_status_code="200",
         )

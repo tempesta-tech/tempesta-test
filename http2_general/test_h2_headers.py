@@ -1437,7 +1437,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             listen 443 proto=h2;
             server ${server_ip}:8000;
 
-            http_max_header_list_size 200;
+            http_max_header_list_size 250;
 
             block_action attack reply;
             block_action error reply;
@@ -1453,13 +1453,42 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
     )
     def test_blocked_by_max_headers_count(self, name, huffman):
-        """Total header length is greater then 200 bytes."""
+        """
+        Total header length is 251 bytes, greater then 250.
+        :method" "GET" (10 + 32 extra byte according RFC)
+        ":path" "/" (6 + 32)
+        ":scheme" "https" (12 + 32)
+        ":authority" "localhost" (19 + 32)
+        "a" "a" * 43
+        """
         self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(
-            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 70)], huffman=huffman)
+            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 43)], huffman=huffman)
         )
 
         deproxy_cl.wait_for_response(strict=True)
         self.assertEqual(deproxy_cl.last_response.status, "400")
+
+    @parameterize.expand(
+        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    )
+    def test_not_blocked_by_max_headers_count(self, name, huffman):
+        """
+        Total header length is 250 bytes, not greater then 250.
+        :method" "GET" (10 + 32 extra byte according RFC)
+        ":path" "/" (6 + 32)
+        ":scheme" "https" (12 + 32)
+        ":authority" "localhost" (19 + 32)
+        "a" "a" * 42
+        """
+        self.start_all_services()
+
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.make_request(
+            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 42)], huffman=huffman)
+        )
+
+        deproxy_cl.wait_for_response(strict=True)
+        self.assertEqual(deproxy_cl.last_response.status, "200")
