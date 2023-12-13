@@ -906,6 +906,6 @@ class TestHpackBomb(TestHpackBase):
 
                 client.send_bytes(data=attack_frame.serialize(), expect_response=True)
                 self.assertTrue(client.wait_for_response())
-                self.assertEqual(client.last_response.status, "400")
+                self.assertEqual(client.last_response.status, "403")
                 self.assertTrue(client.wait_for_connection_close())
                 self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)

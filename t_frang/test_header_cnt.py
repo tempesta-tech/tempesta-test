@@ -51,7 +51,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             requests=self.requests,
             disable_hshc=True,
         )
-        self.check_response(client, status_code="400", warning_msg=ERROR)
+        self.check_response(client, status_code="403", warning_msg=ERROR)
 
     def test_not_reaching_the_limit(self):
         """
@@ -155,7 +155,7 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             huffman=huffman,
         )
         client.responses.pop(0)
-        self.check_response(client, status_code="400", warning_msg=ERROR)
+        self.check_response(client, status_code="403", warning_msg=ERROR)
 
     @parameterize.expand(
         [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
@@ -251,4 +251,4 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             except:
                 break
 
-        self.check_response(client, status_code="400", warning_msg=ERROR)
+        self.check_response(client, status_code="403", warning_msg=ERROR)
