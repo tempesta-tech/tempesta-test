@@ -10,6 +10,9 @@ from framework.x509 import CertGenerator
 from helpers import remote
 from helpers.tf_cfg import cfg
 
+SERVER_IP = cfg.get("Server", "ip")
+GENERAL_WORKDIR = cfg.get("General", "workdir")
+
 
 class TestTempestaReconfiguring(tester.TempestaTest):
     backends = [
@@ -112,19 +115,18 @@ class TestListenReconf(tester.TempestaTest):
         },
     ]
 
-    general_workdir = cfg.get("General", "workdir")
     server_config = f"""
-server {cfg.get('Server', 'ip')}:8000;
-tls_certificate {general_workdir}/tempesta.crt;
-tls_certificate_key {general_workdir}/tempesta.key;
+server {SERVER_IP}:8000;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 """
     proto: str
 
     @classmethod
     def setUpClass(cls):
-        cert_path = f"{cls.general_workdir}/tempesta.crt"
-        key_path = f"{cls.general_workdir}/tempesta.key"
+        cert_path = f"{GENERAL_WORKDIR}/tempesta.crt"
+        key_path = f"{GENERAL_WORKDIR}/tempesta.key"
         cgen = CertGenerator(cert_path, key_path, True)
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
@@ -222,3 +224,274 @@ tls_match_any_server_name;
         with self.subTest(msg=f"Tempesta continued listening to old IP after reload."):
             with self.assertRaises(AssertionError):
                 client.send_request(request, "200")
+
+
+class TestServerReconf(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def _start_all(self, servers: list, client: bool):
+        for server in servers:
+            server.start()
+        self.start_tempesta()
+        if client:
+            self.start_all_clients()
+        self.deproxy_manager.start()
+
+        for server in servers:
+            server.wait_for_connections()
+
+    def _set_tempesta_config_with_1_srv_group(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+block_action attack reply;
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+"""
+        )
+
+    def _set_tempesta_config_with_2_srv_group(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+block_action attack reply;
+
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+srv_group grp2 {{
+    server {SERVER_IP}:8001;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+vhost grp2 {{
+    proxy_pass grp2;
+}}
+
+http_chain {{
+    host == "grp1" -> grp1;
+    host == "grp2" -> grp2;
+    -> block;
+}}
+"""
+        )
+
+    def _set_tempesta_config_with_1_srv_in_srv_group(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+"""
+        )
+
+    def _set_tempesta_config_with_2_srv_in_srv_group(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+    server {SERVER_IP}:8001;
+}}
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+"""
+        )
+
+    def _set_tempesta_config_with_1_srv_in_default_srv_group(self):
+        self.get_tempesta().config.set_defconfig(f"server {SERVER_IP}:8000;\n")
+
+    def _set_tempesta_config_with_2_srv_in_default_srv_group(self):
+        self.get_tempesta().config.set_defconfig(
+            f"server {SERVER_IP}:8000;\nserver {SERVER_IP}:8001;\n"
+        )
+
+    @parameterize.expand(
+        [
+            param(name="increase", conns_n_1=32, conns_n_2=64),
+            param(name="decrease", conns_n_1=32, conns_n_2=16),
+            param(name="increase_from_default", conns_n_1=0, conns_n_2=64),
+            param(name="decrease_from_default", conns_n_1=0, conns_n_2=16),
+        ]
+    )
+    def test_conns_n(self, name, conns_n_1, conns_n_2):
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy-1")
+        tempesta = self.get_tempesta()
+
+        tempesta.config.set_defconfig(
+            f"server {SERVER_IP}:8000" + f"{f' conns_n={conns_n_1}' if conns_n_1 else ''};\n"
+        )
+        server.conns_n = conns_n_1
+
+        self._start_all(servers=[server], client=False)
+
+        tempesta.config.set_defconfig(f"server {SERVER_IP}:8000 conns_n={conns_n_2};\n")
+        server.conns_n = conns_n_2
+
+        tempesta.reload()
+        self.assertTrue(
+            server.wait_for_connections(),
+            "Tempesta did not change number of connections with server after reload.",
+        )
+
+        client.start()
+        client.send_request(client.create_request(method="GET", headers=[]), "200")
+
+    @parameterize.expand(
+        [
+            param(
+                name="server_from_default_srv_group",
+                first_config=_set_tempesta_config_with_2_srv_in_default_srv_group,
+                second_config=_set_tempesta_config_with_1_srv_in_default_srv_group,
+            ),
+            param(
+                name="server_from_srv_group",
+                first_config=_set_tempesta_config_with_2_srv_in_srv_group,
+                second_config=_set_tempesta_config_with_1_srv_in_srv_group,
+            ),
+            param(
+                name="server_from_srv_group",
+                first_config=_set_tempesta_config_with_2_srv_group,
+                second_config=_set_tempesta_config_with_1_srv_group,
+            ),
+        ]
+    )
+    def test_remove(self, name, first_config, second_config):
+        client = self.get_client("deproxy")
+        server_1 = self.get_server("deproxy-1")
+        server_2 = self.get_server("deproxy-2")
+
+        first_config(self)
+        self._start_all(servers=[server_1, server_2], client=True)
+        second_config(self)
+
+        self.get_tempesta().reload()
+        self.assertTrue(
+            server_1.wait_for_connections(),
+            "Tempesta removed connections to a server/srv_group after reload. "
+            + "But this server/srv_group was not removed.",
+        )
+        self.assertEqual(
+            len(server_2.connections),
+            0,
+            "Tempesta did not remove connections to a deleted server/srv_group after reload. "
+            + "But this server/srv_group was removed.",
+        )
+
+        request = client.create_request(method="GET", headers=[], authority="grp1")
+        for _ in range(10):
+            client.restart()
+            client.send_request(request, "200")
+
+        self.assertIsNotNone(
+            server_1.last_request,
+            "Tempesta did not forward a request to a old server/srv_group after reload. "
+            + "But this server/srv_group was not removed.",
+        )
+        self.assertIsNone(
+            server_2.last_request,
+            "Tempesta forwarded a request to a deleted server/srv_group after reload. "
+            + "But this server/srv_group was removed.",
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="new_server_to_default_srv_group",
+                first_config=_set_tempesta_config_with_1_srv_in_default_srv_group,
+                second_config=_set_tempesta_config_with_2_srv_in_default_srv_group,
+            ),
+            param(
+                name="new_server_to_srv_group",
+                first_config=_set_tempesta_config_with_1_srv_in_srv_group,
+                second_config=_set_tempesta_config_with_2_srv_in_srv_group,
+            ),
+            param(
+                name="new_server_group",
+                first_config=_set_tempesta_config_with_1_srv_group,
+                second_config=_set_tempesta_config_with_2_srv_group,
+            ),
+        ]
+    )
+    def test_add(self, name, first_config, second_config):
+        client = self.get_client("deproxy")
+        server_1 = self.get_server("deproxy-1")
+        server_2 = self.get_server("deproxy-2")
+
+        first_config(self)
+        self._start_all(servers=[server_1], client=True)
+        second_config(self)
+
+        self.get_tempesta().reload()
+        server_2.start()
+        self.assertTrue(
+            server_1.wait_for_connections(),
+            "Tempesta removed connections to a server/srv_group after reload. "
+            + "But this server/srv_group was not removed.",
+        )
+        self.assertTrue(
+            server_1.wait_for_connections(),
+            "Tempesta did not create connections to a new server/srv_group after reload.",
+        )
+
+        for authority in ["grp1", "grp2"] * 5:
+            client.restart()
+            client.send_request(
+                client.create_request(method="GET", headers=[], authority=authority), "200"
+            )
+
+        self.assertIsNotNone(
+            server_1.last_request,
+            "Tempesta did not forward a request to a server/srv_group after reload."
+            + "But this server/srv_group was not removed.",
+        )
+        self.assertIsNotNone(
+            server_2.last_request,
+            "Tempesta did not forward a request to a new server/srv_group after reload.",
+        )
