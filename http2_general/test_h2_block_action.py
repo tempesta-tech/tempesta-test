@@ -5,10 +5,22 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
+from h2.settings import SettingCodes, Settings
 from hpack import HeaderTuple
+from hyperframe.frame import (
+    ContinuationFrame,
+    DataFrame,
+    Frame,
+    GoAwayFrame,
+    HeadersFrame,
+    PriorityFrame,
+    RstStreamFrame,
+    SettingsFrame,
+)
 
 import run_config
 from framework.custom_error_page import CustomErrorPageGenerator
+from framework.deproxy_client import HuffmanEncoder
 from helpers import analyzer, asserts, remote, tf_cfg
 from http2_general.helpers import H2Base
 
@@ -64,6 +76,11 @@ class BlockActionH2Reply(BlockActionH2Base):
         self.assert_fin_socks(sniffer.packets)
         self.assert_unreset_socks(sniffer.packets)
 
+    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_reset_socks(sniffer.packets)
+
     def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
         sniffer.stop()
         self.assert_reset_socks(sniffer.packets)
@@ -93,9 +110,7 @@ class BlockActionH2Reply(BlockActionH2Base):
             elif self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
                 self.check_fin_and_rst_in_sniffer(sniffer)
             else:
-                sniffer.stop()
-                self.assert_not_fin_socks(sniffer.packets)
-                self.assert_reset_socks(sniffer.packets)
+                self.check_rst_no_fin_in_sniffer(sniffer)
 
     def start_services_and_initiate_conn(self, client):
         self.start_all_services()
@@ -296,6 +311,129 @@ class BlockActionH2ReplyWithCustomErrorPage(BlockActionH2Reply):
 class BlockActionH2ReplyWithCustomErrorPageSmallWindow(BlockActionH2ReplyWithCustomErrorPage):
     ERROR_RESPONSE_BODY = "a" * 1000
     INITIAL_WINDOW_SIZE = 100
+
+    def test_block_action_error_reply_with_conn_close_multiple_requests(self):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_services_and_initiate_conn(client)
+        self.save_must_fin_socks([client])
+        self.save_must_not_reset_socks([client])
+
+        good_req = [
+            HeaderTuple(":authority", "good.com"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "GET"),
+        ]
+        curr_responses = len(client.responses)
+
+        client.make_requests(
+            requests=[
+                [
+                    HeaderTuple(":authority", "good.com"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("Content-Type", "invalid"),
+                ],
+                good_req,
+                good_req,
+                good_req,
+            ]
+        )
+        client.wait_for_response(3)
+
+        self.assertEqual(curr_responses + 1, len(client.responses))
+        self.assertEqual(client._last_response.status, "400")
+        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
+        self.assertTrue(client.wait_for_connection_close())
+
+        self.check_fin_no_rst_in_sniffer(sniffer)
+
+    """
+    Check that all frames except WINDOW_UPDATE are ignored after connection
+    is closed by shutdown.
+    """
+
+    def __test_block_action_error_reply_with_conn_close_frames(self, frame, expected_response=True):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_services_and_initiate_conn(client)
+        if expected_response:
+            self.save_must_fin_socks([client])
+            self.save_must_not_reset_socks([client])
+
+        curr_responses = len(client.responses)
+
+        client.make_request(
+            request=[
+                HeaderTuple(":authority", "good.com"),
+                HeaderTuple(":path", "/"),
+                HeaderTuple(":scheme", "https"),
+                HeaderTuple(":method", "GET"),
+                HeaderTuple("Content-Type", "invalid"),
+            ]
+        )
+
+        client.send_bytes(frame.serialize() if isinstance(frame, Frame) else frame)
+        client.wait_for_response(3)
+
+        if expected_response:
+            self.assertEqual(curr_responses + 1, len(client.responses))
+            self.assertEqual(client._last_response.status, "400")
+            self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
+            self.assertTrue(client.wait_for_connection_close())
+            self.check_fin_no_rst_in_sniffer(sniffer)
+
+    def test_block_action_error_reply_with_conn_close_data(self):
+        frame = DataFrame(stream_id=1, data=b"request body")
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_good_priority(self):
+        frame = PriorityFrame(stream_id=1)
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_rst(self):
+        frame = RstStreamFrame(stream_id=1)
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_settings(self):
+        new_settings = dict()
+        new_settings[SettingCodes.INITIAL_WINDOW_SIZE] = 0
+        frame = SettingsFrame(0)
+        frame.settings = new_settings
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_goaway(self):
+        frame = GoAwayFrame(0)
+        frame.last_stream_id = 12
+        frame.error_code = 3
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_headers(self):
+        encoder = HuffmanEncoder()
+        frame = HeadersFrame(
+            stream_id=100,
+            data=encoder.encode(self.post_request),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_continuation(self):
+        encoder = HuffmanEncoder()
+        request_segment_2 = [("header", "header_value")]
+        frame = ContinuationFrame(
+            100,
+            encoder.encode(request_segment_2),
+            flags={"END_HEADERS"},
+        )
+        self.__test_block_action_error_reply_with_conn_close_frames(frame)
+
+    def test_block_action_error_reply_with_conn_close_garbage(self):
+        frame = b"\x00\x0f\x0f\x0f\xff"
+        self.__test_block_action_error_reply_with_conn_close_frames(frame, expected_response=False)
 
 
 class BlockActionH2Drop(BlockActionH2Base):
