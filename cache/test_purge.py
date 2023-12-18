@@ -589,6 +589,10 @@ class TestPurgeGet(TempestaTest):
         cache_purge;
         cache_purge_acl ${client_ip};
 
+        frang_limits {
+          http_methods GET PURGE;
+        }
+
         srv_group sg1 { server ${server_ip}:8000; }
         srv_group sg2 { server ${server_ip}:8001; }
         srv_group sg3 { server ${server_ip}:8002; }
