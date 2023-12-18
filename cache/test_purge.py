@@ -119,6 +119,10 @@ cache_methods GET HEAD;
 cache_purge;
 cache_purge_acl ${client_ip};
 cache_resp_hdr_del set-cookie;
+
+frang_limits {
+  http_methods GET PURGE;
+}
 """,
     }
 
