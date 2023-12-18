@@ -71,6 +71,11 @@ class BaseJSChallenge(tester.TempestaTest):
             authority=host,
         )
 
+    @staticmethod
+    def _java_script_sleep(cookie: str) -> None:
+        """This repeats sleep from JavaScript in response body"""
+        time.sleep((DELAY_MIN + int(cookie[:16], 16) % DELAY_RANGE) / 1000)
+
     def _check_and_get_cookie(self, resp) -> tuple:
         c_header = resp.headers.get("Set-Cookie", None)
         self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
@@ -169,17 +174,14 @@ class JSChallenge(BaseJSChallenge):
         """
     }
 
-    def _java_script_sleep(self, cookie: str) -> None:
-        """This repeats sleep from JavaScript in response body"""
-        time.sleep((DELAY_MIN + int(cookie[:16], 16) % DELAY_RANGE) / 1000)
-
     @parameterize.expand(
         [
             param(name="GET_and_accept_html", method="GET", accept="text/html", status="503"),
-            param(name="GET_and_accept_all", method="GET", accept="*/*", status="400"),
-            param(name="GET_and_accept_image", method="GET", accept="image/*", status="400"),
-            param(name="GET_and_accept_plain", method="GET", accept="text/plain", status="400"),
-            param(name="POST", accept="text/html", method="POST", status="400"),
+            param(name="GET_and_accept_all", method="GET", accept="*/*", status="503"),
+            param(name="GET_and_accept_text_all", method="GET", accept="text/*", status="503"),
+            param(name="GET_and_accept_image", method="GET", accept="image/*", status="429"),
+            param(name="GET_and_accept_plain", method="GET", accept="text/plain", status="429"),
+            param(name="POST", accept="text/html", method="POST", status="429"),
         ]
     )
     def test_first_request(self, name, method, accept, status):
@@ -244,7 +246,7 @@ class JSChallenge(BaseJSChallenge):
             param(name="too_small", sleep=False, second_status="503"),
         ]
     )
-    def test_delay(self, name, sleep, second_status, conn_is_closed):
+    def test_delay(self, name, sleep, second_status):
         """
         The client MUST repeat a request between min_time and max_time when:
             - min_time = delay_min + (value between 0 and delay_range);
@@ -305,7 +307,7 @@ class JSChallenge(BaseJSChallenge):
 
         # make third request without cookie, request misses = 3
         self._java_script_sleep(cookie[1])
-        client.send_request(self.prepare_first_req(client), expected_status_code="400")
+        client.send_request(self.prepare_first_req(client), expected_status_code="429")
         client.wait_for_connection_close(strict=True)
 
     def test_disable_challenge_on_reload(self):

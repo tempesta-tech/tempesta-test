@@ -281,7 +281,7 @@ class CookiesMaxMisses(tester.TempestaTest):
         for _ in range(self.max_misses + 1):
             client.send_request(request)
 
-        self.assertEqual(client.last_response.status, "400")
+        self.assertEqual(client.last_response.status, "429")
         self.assertTrue(client.conn_is_closed)
 
 
