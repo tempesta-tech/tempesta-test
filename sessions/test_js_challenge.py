@@ -46,16 +46,16 @@ class BaseJSChallenge(tester.TempestaTest):
         remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.tpl {workdir}/js1.tpl")
 
     @staticmethod
-    def client_send_pipelined_requests(client, reqs) -> list:
+    def client_send_pipelined_requests(client, reqs, error_expected) -> list:
         client.make_requests(reqs, pipelined=True)
         client.wait_for_response(strict=True)
 
-        return client.responses[-len(reqs) :]
+        return client.responses[-len(reqs) :] if not error_expected else client.responses[-1:]
 
     @staticmethod
-    def prepare_first_req(client, host=tf_cfg.cfg.get("Tempesta", "hostname")):
+    def prepare_first_req(client, method="GET", host=tf_cfg.cfg.get("Tempesta", "hostname")):
         return client.create_request(
-            method="GET",
+            method=method,
             headers=[("accept", "text/html")],
             authority=host,
         )
@@ -179,9 +179,9 @@ class JSChallenge(BaseJSChallenge):
             param(name="GET_and_accept_html", method="GET", accept="text/html", status="503"),
             param(name="GET_and_accept_all", method="GET", accept="*/*", status="503"),
             param(name="GET_and_accept_text_all", method="GET", accept="text/*", status="503"),
-            param(name="GET_and_accept_image", method="GET", accept="image/*", status="429"),
-            param(name="GET_and_accept_plain", method="GET", accept="text/plain", status="429"),
-            param(name="POST", accept="text/html", method="POST", status="429"),
+            param(name="GET_and_accept_image", method="GET", accept="image/*", status="403"),
+            param(name="GET_and_accept_plain", method="GET", accept="text/plain", status="403"),
+            param(name="POST", accept="text/html", method="POST", status="403"),
         ]
     )
     def test_first_request(self, name, method, accept, status):
@@ -200,7 +200,7 @@ class JSChallenge(BaseJSChallenge):
         )
         resp = client.last_response
 
-        cookie = (resp.headers.get("Set-Cookie", None),)
+        cookie = resp.headers.get("Set-Cookie", None)
 
         if status == "503":
             self.assertIsNotNone(
@@ -302,12 +302,10 @@ class JSChallenge(BaseJSChallenge):
         cookie = self.process_first_js_challenge_req(client)
 
         # make second request without cookie, request misses = 2
-        self._java_script_sleep(cookie[1])
         cookie = self.process_first_js_challenge_req(client)
 
         # make third request without cookie, request misses = 3
-        self._java_script_sleep(cookie[1])
-        client.send_request(self.prepare_first_req(client), expected_status_code="429")
+        client.send_request(self.prepare_first_req(client), expected_status_code="403")
         client.wait_for_connection_close(strict=True)
 
     def test_disable_challenge_on_reload(self):
@@ -405,7 +403,7 @@ class JSChallenge(BaseJSChallenge):
         client = self.get_client("client-1")
 
         request = self.prepare_first_req(client)
-        responses = self.client_send_pipelined_requests(client, [request, request, request])
+        responses = self.client_send_pipelined_requests(client, [request, request], False)
 
         cookies = []
         for response in responses:
@@ -420,16 +418,94 @@ class JSChallenge(BaseJSChallenge):
             self._java_script_sleep(cookies[0][1])
 
         requests = [self.prepare_second_req(client, cookie) for cookie in cookies]
-        responses = self.client_send_pipelined_requests(client, requests)
+        responses = self.client_send_pipelined_requests(
+            client, requests, True if conn_is_closed else False
+        )
 
         if conn_is_closed:
-            self.assertEqual(client.last_response.status, "200", "unexpected response status code")
+            self.assertEqual(client.last_response.status, "403", "unexpected response status code")
             self.assertEqual(len(responses), 1)
         else:
-            self.assertEqual(len(responses), 3)
+            self.assertEqual(len(responses), 2)
             for resp in responses:
                 self.assertEqual(resp.status, "200", "unexpected response status code")
         self.assertEqual(client.conn_is_closed, conn_is_closed)
+
+    def test_first_post_request_pipelined(self):
+        self.start_all_services()
+
+        client = self.get_client("client-1")
+
+        request1 = self.prepare_first_req(client, method="POST")
+        request2 = self.prepare_first_req(client, method="GET")
+        responses = self.client_send_pipelined_requests(client, [request1, request2], False)
+
+        self.assertEqual(len(responses), 2)
+
+        self.assertEqual(
+            responses[0].status,
+            "403",
+            "Tempesta returned a invalid status code for the pipelined requests.",
+        )
+        c_header = responses[0].headers.get("Set-Cookie", None)
+        self.assertIsNone(c_header, "Post request is challenged")
+
+        self.assertEqual(
+            responses[1].status,
+            "503",
+            "Tempesta returned a invalid status code for the pipelined requests.",
+        )
+        cookie = self._check_and_get_cookie(responses[1])
+
+        self._java_script_sleep(cookie[1])
+
+        self.assertEqual(client.conn_is_closed, False)
+        client.send_request(
+            client.create_request(method="POST", headers=[("cookie", f"{cookie[0]}={cookie[1]}")]),
+            "200",
+        )
+        client.send_request(
+            client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")]),
+            "200",
+        )
+
+    @parameterize.expand(
+        [
+            param(name="multiple_in_one", single=True),
+            param(name="multiple_in_two", single=False),
+        ]
+    )
+    def test_cookies_in_request(self, name, single):
+        if isinstance(self, JSChallengeHttp) and not single:
+            return
+
+        self.start_all_services()
+
+        client = self.get_client("client-1")
+
+        cookie1 = self.process_first_js_challenge_req(client)
+        self._java_script_sleep(cookie1[1])
+        cookie2 = self.process_first_js_challenge_req(client)
+        self._java_script_sleep(cookie2[1])
+
+        self.assertNotEqual(cookie1[1], cookie2[1])
+
+        request = None
+        if single:
+            request = client.create_request(
+                method="GET",
+                headers=[("cookie", f"{cookie1[0]}={cookie1[1]}; {cookie2[0]}={cookie2[1]}")],
+            )
+        else:
+            request = client.create_request(
+                method="GET",
+                headers=[
+                    ("cookie", f"{cookie1[0]}={cookie1[1]}"),
+                    ("cookie", f"{cookie2[0]}={cookie2[1]}"),
+                ],
+            )
+
+        client.send_request(request, "500")
 
     @parameterize.expand(
         [
