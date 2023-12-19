@@ -155,6 +155,24 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertTrue(deproxy_cl.wait_for_response(timeout=0.5))
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
+    def test_duplicate_headers(self):
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.start_all_services()
+        client.send_request(
+            request=client.create_request(
+                method="GET",
+                headers=[
+                    ("cookie", "name1=value1"),
+                    ("cookie", "name2=value2"),
+                ],
+            ),
+            expected_status_code="200",
+        )
+
+        self.assertEqual(server.last_request.headers.get("cookie"), "name1=value1; name2=value2")
+
     def test_parsing_make_request(self):
         self.start_all()
 
