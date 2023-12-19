@@ -119,6 +119,10 @@ cache_methods GET HEAD;
 cache_purge;
 cache_purge_acl ${client_ip};
 cache_resp_hdr_del set-cookie;
+
+frang_limits {
+  http_methods GET PURGE;
+}
 """,
     }
 
@@ -588,6 +592,10 @@ class TestPurgeGet(TempestaTest):
         listen 80;
         cache_purge;
         cache_purge_acl ${client_ip};
+
+        frang_limits {
+          http_methods GET PURGE;
+        }
 
         srv_group sg1 { server ${server_ip}:8000; }
         srv_group sg2 { server ${server_ip}:8001; }
