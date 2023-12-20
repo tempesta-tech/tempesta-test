@@ -3,15 +3,18 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
+import time
 
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from framework.x509 import CertGenerator
-from helpers import remote
+from helpers import analyzer, dmesg, remote
+from helpers.analyzer import PSH, RST, TCP
 from helpers.tf_cfg import cfg
 
 SERVER_IP = cfg.get("Server", "ip")
 GENERAL_WORKDIR = cfg.get("General", "workdir")
+DMESG_WARNING = "An unexpected number of warnings were received"
 
 
 class TestTempestaReconfiguring(tester.TempestaTest):
@@ -494,4 +497,487 @@ http_chain {{
         self.assertIsNotNone(
             server_2.last_request,
             "Tempesta did not forward a request to a new server/srv_group after reload.",
+        )
+
+
+class TestServerOptionsReconf(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    sniffer_timeout = 5
+
+    def setUp(self):
+        super().setUp()
+        self.dmesg = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.sniffer = analyzer.Sniffer(
+            node=remote.tempesta, host="Tempesta", timeout=self.sniffer_timeout, ports=[8000]
+        )
+
+    def _set_tempesta_config_with_server_retry_nonidempotent(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+            
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries 3;
+    server_retry_nonidempotent;
+}}
+
+location prefix "/" {{
+    nonidempotent GET prefix "/";
+}}
+"""
+        )
+
+    def _set_tempesta_config_without_server_retry_nonidempotent(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries 3;
+}}
+
+location prefix "/" {{
+    nonidempotent GET prefix "/";
+}}
+"""
+        )
+
+    def _set_tempesta_config_without_health(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+server_failover_http 502 5 10;
+
+health_check h_monitor1 {{
+    request		"GET / HTTP/1.0";
+    request_url	"/status/";
+    resp_code	200;
+    resp_crc32	auto;
+    timeout		10;
+}}
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+}}
+"""
+        )
+
+    def _set_tempesta_config_with_health(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+server_failover_http 502 5 10;
+
+health_check h_monitor1 {{
+    request		"GET / HTTP/1.0";
+    request_url	"/status/";
+    resp_code	200;
+    resp_crc32	auto;
+    timeout		10;
+}}
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+    health h_monitor1;
+}}
+"""
+        )
+
+    def _set_tempesta_config_server_forward_timeout_enabled(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries 1000;
+    server_forward_timeout 1;
+}}
+"""
+        )
+
+    def _set_tempesta_config_server_forward_timeout_disabled(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries 1000;
+    server_forward_timeout 60;
+}}
+"""
+        )
+
+    def _set_tempesta_config_server_queue_size_2(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000 conns_n=1;
+    server_forward_retries 1000;
+    server_queue_size 0;
+}}
+"""
+        )
+
+    def _set_tempesta_config_server_queue_size_1(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000 conns_n=1;
+    server_forward_retries 1000;
+    server_queue_size 1;
+}}
+"""
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="with_conns_n_1",
+                conns_n=1,
+                old_srv_conn_retries="server_connect_retries 10;",
+            ),
+            param(
+                name="with_conns_n_3",
+                conns_n=3,
+                old_srv_conn_retries="server_connect_retries 10;",
+            ),
+            param(
+                name="from_default",
+                conns_n=1,
+                old_srv_conn_retries="",
+            ),
+            param(
+                name="from_0",
+                conns_n=1,
+                old_srv_conn_retries="server_connect_retries 0;",
+            ),
+        ]
+    )
+    def test_reconf_server_connect_retries(self, name, conns_n, old_srv_conn_retries):
+        new_srv_conn_retries = 3
+        tempesta = self.get_tempesta()
+        server = self.get_server("deproxy")
+        server.conns_n = conns_n
+
+        tempesta.config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000 conns_n={conns_n};
+    {old_srv_conn_retries}
+}}
+"""
+        )
+
+        self.start_all_services(client=False)
+
+        tempesta.config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000 conns_n={conns_n};
+    server_connect_retries {new_srv_conn_retries};
+}}
+"""
+        )
+
+        # sniffer MUST be started and Tempesta MUST be reloaded before disconnecting server
+        # else sniffer result maybe incorrect.
+        self.sniffer.start()
+        tempesta.reload()
+        server.stop()
+        self.sniffer.stop()
+
+        self.assertTrue(
+            self.dmesg.find(
+                f"sock_srv: cannot establish connection for {SERVER_IP}:8000: "
+                f"{new_srv_conn_retries + 1} tries, keep trying",
+                cond=dmesg.amount_equals(conns_n),
+            ),
+            DMESG_WARNING,
+        )
+        connection_tries = len([p for p in self.sniffer.packets if p[TCP].flags & RST])
+        self.assertEqual(
+            (new_srv_conn_retries + 1) * conns_n,
+            connection_tries,
+            "Tempesta made connection attempts not equal "
+            "to `server_connect_retries` after reload.",
+        )
+
+    @parameterize.expand(
+        [
+            param(name="from_default", old_srv_forward_retries=""),
+            param(name="from_0", old_srv_forward_retries="server_forward_retries 0;"),
+            param(name="from_1", old_srv_forward_retries="server_forward_retries 1;"),
+            param(name="from_x", old_srv_forward_retries="server_forward_retries 10;"),
+        ]
+    )
+    def test_reconf_server_forward_retries(self, name, old_srv_forward_retries):
+        server_forward_retries = 3
+
+        client = self.get_client("deproxy")
+        tempesta = self.get_tempesta()
+        self.get_server("deproxy").drop_conn_when_receiving_data(True)
+
+        tempesta.config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+    {old_srv_forward_retries}
+}}
+"""
+        )
+
+        self.start_all_services()
+
+        tempesta.config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries {server_forward_retries};
+}}
+"""
+        )
+
+        self.sniffer.start()
+        tempesta.reload()
+        client.send_request(client.create_request(method="GET", headers=[]), "504")
+        self.sniffer.stop()
+
+        self.assertTrue(
+            self.dmesg.find(
+                "Warning: request evicted: the number of retries exceeded, status 504:"
+            ),
+            DMESG_WARNING,
+        )
+
+        forward_tries = len([p for p in self.sniffer.packets if p[TCP].flags & PSH])
+        self.assertEqual(
+            server_forward_retries + 1,
+            forward_tries,
+            "Tempesta made forward attempts not equal to `server_forward_retries` after reload.",
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="enabled",
+                first_config=_set_tempesta_config_server_forward_timeout_disabled,
+                second_config=_set_tempesta_config_server_forward_timeout_enabled,
+                dmesg_cond=dmesg.amount_one,
+                expect_response=True,
+            ),
+            param(
+                name="disabled",
+                first_config=_set_tempesta_config_server_forward_timeout_enabled,
+                second_config=_set_tempesta_config_server_forward_timeout_disabled,
+                dmesg_cond=dmesg.amount_zero,
+                expect_response=False,
+            ),
+        ]
+    )
+    def test_reconf_server_forward_timeout(
+        self, name, first_config, second_config, dmesg_cond, expect_response
+    ):
+        client = self.get_client("deproxy")
+        self.get_server("deproxy").drop_conn_when_receiving_data(True)
+
+        first_config(self)
+        self.start_all_services()
+        second_config(self)
+        self.get_tempesta().reload()
+
+        client.make_request(client.create_request(method="GET", headers=[]))
+        client.wait_for_response(timeout=2, strict=expect_response)
+
+        self.assertTrue(
+            self.dmesg.find("request evicted: timed out, status", cond=dmesg_cond),
+            DMESG_WARNING,
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="enabled",
+                first_config=_set_tempesta_config_without_server_retry_nonidempotent,
+                second_config=_set_tempesta_config_with_server_retry_nonidempotent,
+                expected_warning="the number of retries exceeded",
+            ),
+            param(
+                name="disabled",
+                first_config=_set_tempesta_config_with_server_retry_nonidempotent,
+                second_config=_set_tempesta_config_without_server_retry_nonidempotent,
+                expected_warning="non-idempotent requests aren't re-forwarded or re-scheduled",
+            ),
+        ]
+    )
+    def test_reconf_server_retry_nonidempotent(
+        self, name, first_config, second_config, expected_warning
+    ):
+        client = self.get_client("deproxy")
+        self.get_server("deproxy").drop_conn_when_receiving_data(True)
+
+        first_config(self)
+        self.start_all_services()
+        second_config(self)
+        self.get_tempesta().reload()
+
+        client.send_request(client.create_request(method="GET", headers=[]), "504")
+        self.assertTrue(self.dmesg.find(expected_warning), DMESG_WARNING)
+
+    @parameterize.expand(
+        [
+            param(
+                name="enabled",
+                first_config=_set_tempesta_config_without_health,
+                second_config=_set_tempesta_config_with_health,
+                dmesg_cond=dmesg.amount_one,
+            ),
+            param(
+                name="disabled",
+                first_config=_set_tempesta_config_with_health,
+                second_config=_set_tempesta_config_without_health,
+                dmesg_cond=dmesg.amount_zero,
+            ),
+        ]
+    )
+    def test_reconf_health(self, name, first_config, second_config, dmesg_cond):
+        client = self.get_client("deproxy")
+        self.get_server("deproxy").set_response(
+            "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n"
+        )
+
+        first_config(self)
+        self.start_all_services()
+        second_config(self)
+        self.get_tempesta().reload()
+
+        request = client.create_request(method="GET", headers=[], uri="/status/")
+        client.make_requests(requests=[request] * 6)  # server_failover_http 502 5 10
+        client.wait_for_response(strict=True)
+
+        self.assertTrue(
+            self.dmesg.find(
+                pattern="server has been suspended: limit for bad responses is exceeded",
+                cond=dmesg_cond,
+            ),
+            DMESG_WARNING,
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="enabled",
+                first_config=_set_tempesta_config_server_queue_size_1,
+                second_config=_set_tempesta_config_server_queue_size_2,
+                dmesg_cond=dmesg.amount_zero,
+                expect_502_statuses=0,
+            ),
+            param(
+                name="disabled",
+                first_config=_set_tempesta_config_server_queue_size_2,
+                second_config=_set_tempesta_config_server_queue_size_1,
+                dmesg_cond=dmesg.amount_positive,
+                expect_502_statuses=5,
+            ),
+        ]
+    )
+    def test_reconf_server_queue_size(
+        self, name, first_config, second_config, dmesg_cond, expect_502_statuses
+    ):
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.get_server("deproxy").sleep_when_receiving_data(1)
+
+        first_config(self)
+        self.start_all_services()
+        second_config(self)
+        self.get_tempesta().reload()
+
+        request = client.create_request(method="GET", headers=[], uri="/")
+        client.make_requests(requests=[request] * 5)
+        client.wait_for_response(strict=True)
+
+        self.assertLessEqual(
+            client.statuses.get(502, 0),
+            expect_502_statuses,
+        )
+
+        self.assertTrue(
+            self.dmesg.find(
+                pattern="request dropped: processing error, status 502", cond=dmesg_cond
+            ),
+            DMESG_WARNING,
         )
