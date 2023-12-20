@@ -78,11 +78,11 @@ class HttpTablesTest(tester.TempestaTest):
         "config": """
         listen 80;
         listen 443 proto=h2;
-        
+
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
-        
+
         block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
@@ -704,6 +704,177 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker
 
         self.assertTrue(client.wait_for_response(timeout=5, strict=False, adjust_timeout=False))
         self.assertTrue(client.last_response.status, "200")
+
+
+class HttpTablesTestMultipleCookies(tester.TempestaTest):
+    backends = [
+        {
+            "id": 0,
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 1,
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 2,
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 3,
+            "type": "deproxy",
+            "port": "8003",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 4,
+            "type": "deproxy",
+            "port": "8004",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        block_action attack reply;
+        srv_group grp1 {
+            server ${server_ip}:8000;
+        }
+        srv_group grp2 {
+            server ${server_ip}:8001;
+        }
+        srv_group grp3 {
+            server ${server_ip}:8002;
+        }
+        srv_group grp4 {
+            server ${server_ip}:8003;
+        }
+        srv_group grp5 {
+            server ${server_ip}:8004;
+        }
+        vhost vh1 {
+            proxy_pass grp1;
+        }
+        vhost vh2 {
+            proxy_pass grp2;
+        }
+        vhost vh3 {
+            proxy_pass grp3;
+        }
+        vhost vh4 {
+            proxy_pass grp4;
+        }
+        vhost vh5 {
+            proxy_pass grp5;
+        }
+        http_chain {
+            cookie "tempesta_good" == "*" -> vh2;
+            cookie "tempesta" == "good" -> vh1;
+            cookie "tempesta_bad" == "*" -> block;
+            cookie "tempesta" == "bad" -> block;
+            -> vh5;
+        }
+        """
+    }
+
+    clients = [
+        {"id": 0, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 1, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 2, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 3, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {"id": 4, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+    ]
+
+    """
+    We match rules from http chain in the order in which they are defined.
+    When one of the rule is matched we stop this process and apply the rule.
+    For HTTP1 we can set several cookie values in one cookie header separated
+    by ';'
+    """
+    requests_opt = [
+        # first applied rule is tempesta=good
+        {"cookie": ["rule1=action1; rule2=action2; tempesta=good"], "block": False},
+        # first applied rule is tempesta_good=test since it is first in the http_chain
+        {"cookie": ["rule1=action1; tempesta_bad=test; tempesta_good=test"], "block": False},
+        # first applyed rule is tempesta_bad=test
+        {"cookie": ["rule1=action1; tempesta_bad=test; rule2=action2"], "block": True},
+        # first applyed rule is tempesta=bad
+        {"cookie": ["rule1=action1; tempesta=bad; rule2=action2"], "block": True},
+        # No rules matched
+        {"cookie": ["rule1=action1; tempesta=test; rule2=action2"], "block": False},
+    ]
+
+    chains = []
+
+    def init_chain(self, request_opt):
+        uri = "/baz/index.html"
+        block = request_opt["block"]
+        cookie = request_opt["cookie"]
+
+        ch = chains.base(uri=uri)
+        if block:
+            ch.request.headers.delete_all("cookie")
+            for c in cookie:
+                ch.request.headers.add("cookie", c)
+            ch.request.update()
+            ch.fwd_request = None
+        else:
+            for request in [ch.request, ch.fwd_request]:
+                request.headers.delete_all("cookie")
+                for c in cookie:
+                    request.headers.add("cookie", c)
+                request.update()
+        self.chains.append(ch)
+
+    def setUp(self):
+        del self.chains[:]
+        count = len(self.requests_opt)
+        for i in range(count):
+            self.init_chain(self.requests_opt[i])
+        tester.TempestaTest.setUp(self)
+
+    def process(self, client, server, chain):
+        client.make_request(chain.request.msg)
+        client.wait_for_response()
+        if chain.fwd_request:
+            chain.fwd_request.set_expected()
+        self.assertEqual(server.last_request, chain.fwd_request)
+        # Check if the connection alive (general case) or
+        # not (case of 'block' rule matching) after the main
+        # message processing. Response 404 is enough here.
+        if chain.fwd_request:
+            post_chain = chains.base()
+            client.make_request(post_chain.request.msg)
+            self.assertTrue(client.wait_for_response())
+        else:
+            self.assertTrue(client.wait_for_connection_close())
+
+    def test_chains(self):
+        """Test for matching rules in HTTP chains: according to
+        test configuration of HTTP tables, requests must be
+        forwarded to the right vhosts according to it's
+        headers content.
+        """
+        self.start_all_services()
+        count = len(self.chains)
+        for i in range(count):
+            self.process(self.get_client(i), self.get_server(i), self.chains[i])
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
