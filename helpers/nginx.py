@@ -95,8 +95,9 @@ http {
 
     def set_resourse_location(self, location=""):
         if not location:
-            location = tf_cfg.cfg.get("Server", "resources")
-        self.location = "root %s" % location
+            self.location = "return 200"
+        else:
+            self.location = "root %s" % location
         self.update_config()
 
     def set_return_code(self, code=200):

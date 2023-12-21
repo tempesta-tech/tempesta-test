@@ -15,7 +15,7 @@ end
 
 local_response = function(status, headers, body)
    if not cookie and status == 302 then
-      cookie = headers["Set-Cookie"]
+      cookie = headers["set-cookie"]
       wrk.headers["Cookie"] = cookie
    end
 end

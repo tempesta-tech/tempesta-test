@@ -159,5 +159,5 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
-            expected_status_code="503",
+            expected_status_code="403",
         )

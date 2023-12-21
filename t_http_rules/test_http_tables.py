@@ -782,6 +782,8 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
             cookie "tempesta" == "good" -> vh1;
             cookie "tempesta_bad" == "*" -> block;
             cookie "tempesta" == "bad" -> block;
+            cookie "*good_suffix" == "g*" -> vh2;
+            cookie "good_prefix*" == "g*" -> vh2;
             -> vh5;
         }
         """
@@ -818,6 +820,22 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
                 cookie=["tempesta=action1", "tempesta=test", "tempesta=action2"],
                 expected_status_code="200",
                 server_id=4,
+            ),
+            param(
+                name="good_suffix",
+                cookie=[
+                    "aaa_good_suffix_1=ggg",
+                    "bbb_good_suffix=gaction",
+                    "ccc_good_suffix=action1",
+                ],
+                expected_status_code="200",
+                server_id=1,
+            ),
+            param(
+                name="good_prefix",
+                cookie=["good_prefix_1=ggg", "1_good_prefix=gaction", "good_prefix=gaction2"],
+                expected_status_code="200",
+                server_id=1,
             ),
         ]
     )
