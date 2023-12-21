@@ -162,5 +162,5 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         client.start()
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
-            expected_status_code="503",
+            expected_status_code="403",
         )

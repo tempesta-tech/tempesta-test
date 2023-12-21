@@ -206,42 +206,46 @@ sticky {
 
     @parameterize.expand(
         [
-            param(name="single_cookie", cookies="{0}"),
+            param(name="single_cookie", cookies="{0}", expected_status_code="200"),
             param(
                 name="many_cookie_first",
                 cookies="{0}; cookie1=value1; cookie2=value2",
+                expected_status_code="200",
             ),
             param(
                 name="many_cookie_last",
                 cookies="cookie1=value1; cookie2=value2; {0}",
+                expected_status_code="200",
             ),
             param(
                 name="many_cookie_between",
                 cookies="cookie1=value1; {0}; cookie2=value2",
+                expected_status_code="200",
             ),
-            param(
-                name="duplicate_cookie",
-                cookies="{0}; {0}",
-            ),
+            param(name="duplicate_cookie", cookies="{0}; {0}", expected_status_code="500"),
             param(
                 name="many_cookie_and_name_as_substring_other_name_1",
                 cookies="cookie1__tfw=value1; {0}",
+                expected_status_code="200",
             ),
             param(
                 name="many_cookie_and_name_as_substring_other_name_2",
                 cookies="__tfwcookie1=value1; {0}",
+                expected_status_code="200",
             ),
             param(
                 name="many_cookie_and_name_as_substring_other_value_1",
                 cookies="cookie1=value1__tfw; {0}",
+                expected_status_code="200",
             ),
             param(
                 name="many_cookie_and_name_as_substring_other_value_2",
                 cookies="cookie1=__tfwvalue1; {0}",
+                expected_status_code="200",
             ),
         ]
     )
-    def test(self, name, cookies):
+    def test(self, name, cookies, expected_status_code):
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -257,8 +261,11 @@ sticky {
                     method="GET",
                     headers=[("cookie", cookies.format(sticky_cookie))],
                 ),
-                expected_status_code="200",
+                expected_status_code=expected_status_code,
             )
+            if expected_status_code != "200":
+                self.assertTrue(client.wait_for_connection_close())
+                break
 
 
 class DuplicateSingularHeader(H2Base):
@@ -1412,12 +1419,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         ):
             request = client.create_request(
                 method="POST",
-                headers=[
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    ("content-type", content_type.format(*state)),
-                ],
+                headers=[("content-type", content_type.format(*state))],
             )
 
             client.send_request(request, "200")
@@ -1432,12 +1434,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         request = client.create_request(
             method="POST",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-                ("content-length", "10"),
-            ],
+            headers=[("content-length", "10")],
             body="aaaaaaaaaa",
         )
 
@@ -1464,12 +1461,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         request = client.create_request(
             method="GET",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-                ("x-http-method-override", "HEAD"),
-            ],
+            headers=[("x-http-method-override", "HEAD")],
         )
 
         tempesta = self.get_tempesta()
@@ -1491,12 +1483,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         request = client.create_request(
             method="GET",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-                ("pragma", "no-cache"),
-            ],
+            headers=[("pragma", "no-cache")],
         )
 
         tempesta = self.get_tempesta()
@@ -1507,14 +1494,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client.send_request(request, "200")
         self.assertEqual(2, len(server.requests))
 
-        request = client.create_request(
-            method="GET",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-            ],
-        )
+        request = client.create_request(method="GET", headers=[])
 
         client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))

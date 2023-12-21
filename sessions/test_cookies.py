@@ -281,7 +281,7 @@ class CookiesMaxMisses(tester.TempestaTest):
         for _ in range(self.max_misses + 1):
             client.send_request(request)
 
-        self.assertEqual(client.last_response.status, "429")
+        self.assertEqual(client.last_response.status, "403")
         self.assertTrue(client.conn_is_closed)
 
 
@@ -306,7 +306,7 @@ class VhostCookies(CookiesNotEnabled):
             proxy_pass vh_1_srvs;
 
             sticky {
-                cookie name=c_vh1 enforce;
+                cookie name=c_vh1 enforce max_misses=0;
             }
         }
 
@@ -314,7 +314,7 @@ class VhostCookies(CookiesNotEnabled):
             proxy_pass vh_2_srvs;
 
             sticky {
-                cookie name=c_vh2 enforce;
+                cookie name=c_vh2 enforce max_misses=0;
             }
         }
 
@@ -448,7 +448,7 @@ class CookiesInherit(VhostCookies):
         }
 
         sticky {
-            cookie name=c_vh1 enforce;
+            cookie name=c_vh1 enforce max_misses=0;
         }
 
         vhost vh_1 {
@@ -456,7 +456,7 @@ class CookiesInherit(VhostCookies):
         }
 
         sticky {
-            cookie name=c_vh2 enforce;
+            cookie name=c_vh2 enforce max_misses=0;
         }
 
         vhost vh_2 {
