@@ -1,55 +1,133 @@
 """
-Live reconfiguration stress test for grace shutdown.
+On the fly reconfiguration test for grace shutdown.
 """
 
-from helpers import control, tf_cfg
-
-from . import reconf_stress
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework import tester
 
-class SchedStickyGraceRatioSched(reconf_stress.LiveReconfStress):
-    sg_name = "default"
-    sched = "ratio static"
-    defconfig = (
-        "cache 0;\n"
-        "sticky {\n"
-        "   cookie enforce;\n"
-        '   secret "f00)9eR59*_/22";\n'
-        "   sticky_sessions;\n"
-        "}\n"
-        "grace_shutdown_time %d;\n"
-        "\n" % int(tf_cfg.cfg.get("General", "Duration"))
-    )
-    clients_num = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 1000)
-    auto_vhosts = False
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
 
-    def create_clients(self):
-        # See test_sticky_sess_stress
-        self.wrk = control.Wrk(threads=self.clients_num)
-        self.wrk.connections = self.wrk.threads
-        self.wrk.set_script("cookie-many-clients")
-        self.clients = [self.wrk]
+events {
+    worker_connections   1024;
+    use epoll;
+}
 
-    def configure_srvs_start(self):
-        reconf_stress.LiveReconfStress.configure_srvs_start(self)
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests 1000000000;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
 
-    def configure_srvs_del(self):
-        config = self.make_config(self.sg_name, [])
-        self.tempesta.config = config
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
 
-    def test_ratio_del_srvs(self):
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:${port};
+
+        location / {
+            root ${server_resources};
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+TEMPESTA_CONFIG = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+cache 0;
+server ${server_ip}:8000;
+server ${server_ip}:8001;
+server ${server_ip}:8002;
+server ${server_ip}:8003;
+server ${server_ip}:8004;
+server ${server_ip}:8005;
+server ${server_ip}:8006;
+server ${server_ip}:8007;
+server ${server_ip}:8008;
+server ${server_ip}:8009;
+
+grace_shutdown_time 10;
+
+"""
+
+TEMPESTA_ORIG_CONFIG = """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+cache 0;
+
+"""
+
+SRV_COUNT = 10
+
+
+class TestTempestaGraceShutdownReconfig(tester.TempestaTest):
+    # 10 backend servers, only difference between them - listen port.
+    backends = [
+        {
+            "id": f"nginx_800{num}",
+            "type": "nginx",
+            "port": f"800{num}",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+        for num in range(SRV_COUNT)
+    ]
+
+    clients = [
+        {
+            "id": "client",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
+        },
+    ]
+
+    tempesta = {
+        "config": TEMPESTA_CONFIG,
+    }
+
+    def test_grace_shutdown_reconfig(self):
         """All servers are removed from configuration, but a relatively long
         grace shutdown period is set, since no new sessions are established
         test client should receive just a bit of errors."""
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del)
 
+        client = self.get_client("client")
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
 
-class SchedStickyGraceHashSched(SchedStickyGraceRatioSched):
-    sched = "hash"
+        self.wait_while_busy(client)
+
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(TEMPESTA_ORIG_CONFIG)
+        tempesta.reload()
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
