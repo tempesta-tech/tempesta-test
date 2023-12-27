@@ -71,6 +71,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         self.server_data = []
         self.full_hs = False
         self.hs_state = False
+        self.alert_received = False
         self.session_ticket = None
         TLSClientAutomaton.__init__(self, *args, **kwargs)
 
@@ -106,8 +107,9 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     @ATMT.state()
     def TLSALERT_RECIEVED(self):
         tf_cfg.dbg(3, "Recieve TLSAlert from the server...")
+        self.alert_received = True
         self.hs_state = False
-        raise TLSAlert
+        raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERFLIGHT1, prio=1)
     def should_handle_ServerHello(self):
@@ -258,6 +260,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         # self.socket.shutdown(1)
         tf_cfg.dbg(3, "Closing client socket...")
         tf_cfg.dbg(3, "Ending TLS client automaton.")
+        self.socket.close()
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
