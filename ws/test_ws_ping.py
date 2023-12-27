@@ -292,14 +292,21 @@ class WsPing(tester.TempestaTest):
         self.p1 = None
         self.p2 = None
         super().setUp()
+        self.addCleanup(self.cleanup_p1)
+        self.addCleanup(self.cleanup_p2)
 
     def tearDown(self):
+        pass
+
+    def cleanup_p1(self):
         if self.p1:
             self.p1.terminate()
+            self.p1 = None
+
+    def cleanup_p2(self):
         if self.p2:
             self.p2.terminate()
-        super().tearDown()
-
+            self.p2 = None
 
 class WssPing(WsPing):
 
