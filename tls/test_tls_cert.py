@@ -493,7 +493,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         hs = TlsHandshake()
         hs.sni = sni
         hs.do_12()
-        self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED", "Alert not recieved")
+        self.assertTrue(hs.hs.alert_received, "Alert not recieved")
 
     def test_sni_matched(self):
         """SAN certificate matches the passed SNI."""
@@ -774,7 +774,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 hs = TlsHandshake()
                 hs.sni = sni
                 hs.do_12()
-                self.assertEqual(hs.hs.state.state, "TLSALERT_RECIEVED")
+                self.assertTrue(hs.hs.alert_received, "Alert not recieved")
 
         # After Tempesta reload, certificates are provided as at the beginning of the test
         self.reload_with_config(original_config)
