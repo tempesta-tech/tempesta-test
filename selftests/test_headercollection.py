@@ -14,9 +14,14 @@ class TestHeaderCollection(unittest.TestCase):
     def setUp(self):
         deproxy.HeaderCollection._disable_report_wrong_is_expected = True
         self.headers = deproxy.HeaderCollection()
+        self.addCleanup(self.clenup_header_collection)
+
+    def clenup_header_collection(self):
+        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
+        self.headers = None
 
     def tearDown(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
+        pass
 
     def test_length(self):
         self.assertEqual(len(self.headers), 0)
