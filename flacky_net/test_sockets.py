@@ -77,16 +77,26 @@ class CloseOnShutdown(stress.StressTest):
     def setUp(self):
         stress.StressTest.setUp(self)
         self.filter = None
+        # Cleanup part
+        self.addCleanup(self.cleanup_parent_teardown)
+        self.addCleanup(self.cleanup_stop_tempesta)
+        self.addCleanup(self.cleanup_filter)
 
-    def tearDown(self):
+    def cleanup_filter(self):
         if self.filter:
             self.filter.clean_up()
+
+    def cleanup_stop_tempesta(self):
         if hasattr(self, "dummy_servers"):
             # No need to stop servers.
             if self.tempesta:
                 self.tempesta.stop()
-        else:
-            stress.StressTest.tearDown(self)
+
+    def cleanup_parent_teardown(self):
+        stress.StressTest.tearDown(self)
+
+    def tearDown(self):
+        pass
 
     def init_filter(self):
         node = self.servers[0].node
