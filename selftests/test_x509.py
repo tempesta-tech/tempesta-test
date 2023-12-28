@@ -19,10 +19,11 @@ class TestX509CertGenerator(unittest.TestCase):
 
     def setUp(self):
         self.cgen = CertGenerator()
-        self.remove_certs()
+        self.remove_certs()  # initial certs cleanup before testing
+        self.addCleanup(self.remove_certs)
 
     def tearDown(self):
-        self.remove_certs()
+        pass
 
     def remove_certs(self):
         for path in self.cgen.get_file_paths():
