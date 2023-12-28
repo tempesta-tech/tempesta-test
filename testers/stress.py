@@ -73,6 +73,36 @@ class StressTest(unittest.TestCase):
         self.create_clients()
         self.create_servers()
         self.create_tempesta()
+        # Cleanup part
+        self.addCleanup(self.cleanup_check_dmesg)
+        self.addCleanup(self.cleanup_servers)
+        self.addCleanup(self.cleanup_tempesta)
+
+    def cleanup_tempesta(self):
+        if self.tempesta:
+            self.tempesta.stop()
+            if self.tempesta.state == stateful.STATE_ERROR:
+                raise Exception("Error during stopping tempesta")
+
+    def cleanup_servers(self):
+        if self.servers:
+            control.servers_stop(self.servers)
+            for server in self.servers:
+                if server.state == stateful.STATE_ERROR:
+                    raise Exception("Error during stopping servers")
+
+    def cleanup_check_dmesg(self):
+        self.oops.update()
+        for err in ["Oops", "WARNING", "ERROR"]:
+            if err in self.oops_ignore:
+                continue
+            if len(self.oops.log_findall(err)) > 0:
+                self.oops_ignore = []
+                raise Exception(f"{err} happened during test on Tempesta")
+        # Drop the list of ignored errors to allow set different errors masks
+        # for different tests.
+        self.oops_ignore = []
+        del self.oops
 
     def force_stop(self):
         """Forcefully stop all servers."""
@@ -84,33 +114,7 @@ class StressTest(unittest.TestCase):
             control.servers_force_stop(self.servers)
 
     def tearDown(self):
-        """Carefully stop all servers. Error on stop will make next test fail,
-        so mark test as failed even if everything other is fine.
-        """
-        # Call functions only if variables not None: there might be an error
-        # before tempesta would be created.
-        if self.tempesta:
-            self.tempesta.stop()
-        if self.servers:
-            control.servers_stop(self.servers)
-
-        if self.tempesta.state == stateful.STATE_ERROR:
-            raise Exception("Error during stopping tempesta")
-        for server in self.servers:
-            if server.state == stateful.STATE_ERROR:
-                raise Exception("Error during stopping servers")
-
-        self.oops.update()
-        for err in ["Oops", "WARNING", "ERROR"]:
-            if err in self.oops_ignore:
-                continue
-            if len(self.oops.log_findall(err)) > 0:
-                self.oops_ignore = []
-                raise Exception("%s happened during test on Tempesta" % err)
-        # Drop the list of ignored errors to allow set different errors masks
-        # for different tests.
-        self.oops_ignore = []
-        del self.oops
+        pass
 
     def show_performance(self):
         if tf_cfg.v_level() < 2:
