@@ -23,13 +23,22 @@ class ShutdownTest(functional.FunctionalTest):
 
     def setUp(self):
         self.clients = []
-        functional.FunctionalTest.setUp(self)
+        super().setUp()
+        # Cleanup part
+        self.addCleanup(super().tearDown)
+        self.addCleanup(self.cleanup_tester)
+        self.addCleanup(self.cleanup_tempesta)
 
-    def tearDown(self):
+    def cleanup_tempesta(self):
         if self.tempesta:
             self.tempesta.stop("Tempesta")
+
+    def cleanup_tester(self):
         if self.tester:
             self.tester.stop("Tester")
+
+    def tearDown(self):
+        pass
 
     def create_tester(self):
         pass
