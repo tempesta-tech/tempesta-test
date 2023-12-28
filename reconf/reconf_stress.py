@@ -19,6 +19,19 @@ class LiveReconfStress(stress.StressTest):
     sg_name = "default"
     auto_vhosts = True
 
+    def setUp(self):
+        self.addCleanup(self.cleanup_parent_teardown)
+        self.addCleanup(self.cleanup_reconfig_thread)
+
+    def cleanup_reconfig_thread(self):
+        # Wait for reconfig thread if it's not finished (exception was thrown
+        # during stress_reconfig_generic()
+        if hasattr(self, "r_thread"):
+            self.r_thread.join()
+
+    def cleanup_parent_teardown(self):
+        stress.StressTest.tearDown(self)
+
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
         rm_srv_n = tempesta.servers_in_group() / 3
@@ -94,11 +107,7 @@ class LiveReconfStress(stress.StressTest):
         self.assert_clients()
 
     def tearDown(self):
-        # Wait for reconfig thread if it's not finished (exception was thrown
-        # during stress_reconfig_generic()
-        if hasattr(self, "r_thread"):
-            self.r_thread.join()
-        stress.StressTest.tearDown(self)
+        pass
 
     def configure_srvs_start(self):
         srvs = self.const_srvs + self.rm_srvs
