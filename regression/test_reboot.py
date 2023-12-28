@@ -25,6 +25,15 @@ class RebootUnderLoadTest(stress.StressTest):
     # Timeout before first reboot.
     warm_timeout = 0
 
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(super().tearDown)
+        self.addCleanup(self.cleanup_r_thread)
+
+    def cleanup_r_thread(self):
+        if hasattr(self, "r_thread"):
+            self.r_thread.join()
+
     def create_clients(self):
         self.wrk = control.Wrk()
         self.wrk.set_script("foo", content="")
@@ -57,9 +66,7 @@ class RebootUnderLoadTest(stress.StressTest):
         self.show_performance()
 
     def tearDown(self):
-        if hasattr(self, "r_thread"):
-            self.r_thread.join()
-        stress.StressTest.tearDown(self)
+        pass
 
     def test_proxy(self):
         config = "cache 0;\n"
