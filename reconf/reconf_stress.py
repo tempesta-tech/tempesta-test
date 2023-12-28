@@ -77,7 +77,7 @@ class LiveReconfStress(stress.StressTest):
             self.assertLess(err, max_err)
 
     def stress_reconfig_generic(self, configure_func, reconfigure_func):
-        """Generic test routinr for reconfig."""
+        """Generic test routine for reconfig."""
         self.reconfigure_func = reconfigure_func
         control.servers_start(self.servers)
         configure_func()
