@@ -19,10 +19,20 @@ from hyperframe.frame import (
 )
 
 import run_config
-from framework.custom_error_page import CustomErrorPageGenerator
+from framework import tester
 from framework.deproxy_client import HuffmanEncoder
+from framework.parameterize import param, parameterize, parameterize_class
 from helpers import analyzer, asserts, remote, tf_cfg
+from helpers.custom_error_page import CustomErrorPageGenerator
 from http2_general.helpers import H2Base
+
+
+def generate_custom_error_page(data):
+    workdir = tf_cfg.cfg.get("General", "workdir")
+    cpage_gen = CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
+    path = cpage_gen.get_file_path()
+    remote.tempesta.copy_file(path, data)
+    return path
 
 
 class BlockActionH2Base(H2Base, asserts.Sniffer):
@@ -47,6 +57,8 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
 
         block_action attack %s;
         block_action error %s;
+        %s
+
         http_chain {
             host == "bad.com"   -> block;
             host == "good.com"  -> good;
@@ -59,17 +71,6 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(443,))
         sniffer.start()
         return sniffer
-
-
-class BlockActionH2Reply(BlockActionH2Base):
-    ERROR_RESPONSE_BODY = ""
-    INITIAL_WINDOW_SIZE = 65535
-
-    def setUp(self):
-        self.tempesta = {
-            "config": self.tempesta_tmpl % ("reply", "reply"),
-        }
-        H2Base.setUp(self)
 
     def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
         sniffer.stop()
@@ -86,31 +87,10 @@ class BlockActionH2Reply(BlockActionH2Base):
         self.assert_reset_socks(sniffer.packets)
         self.assert_fin_socks(sniffer.packets)
 
-    def setup_sniffer_for_attack_reply(self, client):
-        """
-        In case of TCP segmentation and attack we can't be sure that
-        kernel doesn't send TCP RST when we receive some data on the
-        DEAD sock.
-        """
-        if not run_config.TCP_SEGMENTATION:
-            if len(self.ERROR_RESPONSE_BODY) == 0:
-                self.save_must_fin_socks([client])
-                self.save_must_not_reset_socks([client])
-            elif self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-                self.save_must_fin_socks([client])
-                self.save_must_reset_socks([client])
-            else:
-                self.save_must_not_fin_socks([client])
-                self.save_must_reset_socks([client])
-
-    def check_sniffer_for_attack_reply(self, sniffer):
-        if not run_config.TCP_SEGMENTATION:
-            if len(self.ERROR_RESPONSE_BODY) == 0:
-                self.check_fin_no_rst_in_sniffer(sniffer)
-            elif self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-                self.check_fin_and_rst_in_sniffer(sniffer)
-            else:
-                self.check_rst_no_fin_in_sniffer(sniffer)
+    def check_no_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_unreset_socks(sniffer.packets)
 
     def start_services_and_initiate_conn(self, client):
         self.start_all_services()
@@ -122,6 +102,62 @@ class BlockActionH2Reply(BlockActionH2Base):
             client.wait_for_ack_settings(),
             "Tempesta foes not returns SETTINGS frame with ACK flag.",
         )
+
+
+@parameterize_class(
+    [
+        {
+            "name": "ReplyWithCustomErrorPage",
+            "resp_tempesta_conf": "response_body 4* {0};",
+            "ERROR_RESPONSE_BODY": "a" * 1000,
+            "INITIAL_WINDOW_SIZE": 65535,
+        },
+        {
+            "name": "ReplyWithCustomErrorPageSmallWindow",
+            "resp_tempesta_conf": "response_body 4* {0};",
+            "ERROR_RESPONSE_BODY": "a" * 1000,
+            "INITIAL_WINDOW_SIZE": 100,
+        },
+    ]
+)
+class BlockActionH2(BlockActionH2Base):
+    def setUp(self):
+        path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
+        self.tempesta = {
+            "config": self.tempesta_tmpl % ("reply", "reply", self.resp_tempesta_conf.format(path)),
+        }
+        H2Base.setUp(self)
+
+    def setup_sniffer_for_attack_reply(self, client):
+        """
+        In case of TCP segmentation and attack we can't be sure that
+        kernel doesn't send TCP RST when we receive some data on the
+        DEAD sock.
+        """
+        if not run_config.TCP_SEGMENTATION:
+            if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
+                """
+                If response body size is less then INITIAL_WINDOW_SIZE
+                we expect both TCP FIN and TCP RST. Kernel sends TCP RST
+                when Tempesta receive WINDOW UPDATE frame on the DEAD sock.
+                """
+                self.save_must_fin_socks([client])
+                self.save_must_reset_socks([client])
+            else:
+                """
+                If INITIAL_WINDOW_SIZE is less then response body
+                we expect only TCP RST from the kernel, because we
+                can't process WINDOW UPDATE frames on the DEAD sock.
+                """
+                self.save_must_not_fin_socks([client])
+                self.save_must_reset_socks([client])
+
+    def check_sniffer_for_attack_reply(self, sniffer):
+        if not run_config.TCP_SEGMENTATION:
+            if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
+                self.check_fin_and_rst_in_sniffer(sniffer)
+            else:
+                self.check_rst_no_fin_in_sniffer(sniffer)
 
     def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
         """
@@ -179,7 +215,7 @@ class BlockActionH2Reply(BlockActionH2Base):
             ],
             expected_status_code="400",
         )
-        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
+        self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
         self.assertFalse(client.connection_is_closed())
 
         client.send_request(
@@ -214,7 +250,7 @@ class BlockActionH2Reply(BlockActionH2Base):
             ],
             expected_status_code="400",
         )
-        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
+        self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
         self.assertTrue(client.wait_for_connection_close())
 
         self.check_fin_no_rst_in_sniffer(sniffer)
@@ -258,7 +294,7 @@ class BlockActionH2Reply(BlockActionH2Base):
         self.check_sniffer_for_attack_reply(sniffer)
 
 
-class BlockActionH2ReplyWithCustomErrorPage(BlockActionH2Reply):
+class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockActionH2Base):
     tempesta_tmpl = """
         listen 443 proto=h2;
         srv_group default {
@@ -290,73 +326,73 @@ class BlockActionH2ReplyWithCustomErrorPage(BlockActionH2Reply):
     """
 
     ERROR_RESPONSE_BODY = "a" * 1000
-    INITIAL_WINDOW_SIZE = 65535
-
-    def __generate_custom_error_page(self, data):
-        workdir = tf_cfg.cfg.get("General", "workdir")
-        cpage_gen = CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
-        path = cpage_gen.get_file_path()
-        remote.tempesta.copy_file(path, data)
-
-        return path
+    INITIAL_WINDOW_SIZE = 100
 
     def setUp(self):
-        path = self.__generate_custom_error_page(self.ERROR_RESPONSE_BODY)
+        path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
         self.tempesta = {
             "config": self.tempesta_tmpl % ("reply", "reply", path),
         }
         H2Base.setUp(self)
-
-
-class BlockActionH2ReplyWithCustomErrorPageSmallWindow(BlockActionH2ReplyWithCustomErrorPage):
-    ERROR_RESPONSE_BODY = "a" * 1000
-    INITIAL_WINDOW_SIZE = 100
-
-    def test_block_action_error_reply_with_conn_close_multiple_requests(self):
-        client = self.get_client("deproxy")
-
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
-        self.save_must_fin_socks([client])
-        self.save_must_not_reset_socks([client])
-
-        good_req = [
-            HeaderTuple(":authority", "good.com"),
-            HeaderTuple(":path", "/"),
-            HeaderTuple(":scheme", "https"),
-            HeaderTuple(":method", "GET"),
-        ]
-        curr_responses = len(client.responses)
-
-        client.make_requests(
-            requests=[
-                [
-                    HeaderTuple(":authority", "good.com"),
-                    HeaderTuple(":path", "/"),
-                    HeaderTuple(":scheme", "https"),
-                    HeaderTuple(":method", "GET"),
-                    HeaderTuple("Content-Type", "invalid"),
-                ],
-                good_req,
-                good_req,
-                good_req,
-            ]
-        )
-        client.wait_for_response(3)
-
-        self.assertEqual(curr_responses + 1, len(client.responses))
-        self.assertEqual(client._last_response.status, "400")
-        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
-        self.assertTrue(client.wait_for_connection_close())
-
-        self.check_fin_no_rst_in_sniffer(sniffer)
 
     """
     Check that all frames except WINDOW_UPDATE are ignored after connection
     is closed by shutdown.
     """
 
-    def __test_block_action_error_reply_with_conn_close_frames(self, frame, expected_response=True):
+    @parameterize.expand(
+        [
+            param(
+                name="data_frame",
+                frame=DataFrame(stream_id=1, data=b"request body"),
+                expected_response=True,
+            ),
+            param(
+                name="priority_frame",
+                frame=PriorityFrame(stream_id=1),
+                expected_response=True,
+            ),
+            param(
+                name="rst_frame",
+                frame=RstStreamFrame(1),
+                expected_response=True,
+            ),
+            param(
+                name="settings_frame",
+                frame=SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 0}),
+                expected_response=True,
+            ),
+            param(
+                name="goaway_frame",
+                frame=GoAwayFrame(stream_id=0, last_stream_id=12, error_code=3),
+                expected_response=True,
+            ),
+            param(
+                name="headers_frame",
+                frame=HeadersFrame(
+                    stream_id=100,
+                    data=HuffmanEncoder().encode(H2Base.post_request),
+                    flags=["END_HEADERS", "END_STREAM"],
+                ),
+                expected_response=True,
+            ),
+            param(
+                name="continuation_frame",
+                frame=ContinuationFrame(
+                    100,
+                    HuffmanEncoder().encode([("header", "header_value")]),
+                    flags={"END_HEADERS"},
+                ),
+                expected_response=True,
+            ),
+            param(
+                name="garbage",
+                frame=b"\x00\x0f\x0f\x0f\xff",
+                expected_response=False,
+            ),
+        ]
+    )
+    def test_block_action_error_reply_with_conn_close(self, name, frame, expected_response):
         client = self.get_client("deproxy")
 
         sniffer = self.setup_sniffer()
@@ -364,96 +400,46 @@ class BlockActionH2ReplyWithCustomErrorPageSmallWindow(BlockActionH2ReplyWithCus
         if expected_response:
             self.save_must_fin_socks([client])
             self.save_must_not_reset_socks([client])
+        else:
+            self.save_must_not_fin_socks([client])
+            self.save_must_not_reset_socks([client])
 
         curr_responses = len(client.responses)
 
         client.make_request(
-            request=[
-                HeaderTuple(":authority", "good.com"),
-                HeaderTuple(":path", "/"),
-                HeaderTuple(":scheme", "https"),
-                HeaderTuple(":method", "GET"),
-                HeaderTuple("Content-Type", "invalid"),
-            ]
+            client.create_request(
+                method="GET", authority="good.com", headers=[("Content-Type", "invalid")]
+            )
         )
 
         client.send_bytes(frame.serialize() if isinstance(frame, Frame) else frame)
-        client.wait_for_response(3)
 
         if expected_response:
-            self.assertEqual(curr_responses + 1, len(client.responses))
-            self.assertEqual(client._last_response.status, "400")
-            self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
             self.assertTrue(client.wait_for_connection_close())
+            self.assertIsNotNone(client.last_response)
+            self.assertEqual(client.last_response.status, "400")
+            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
             self.check_fin_no_rst_in_sniffer(sniffer)
-
-    def test_block_action_error_reply_with_conn_close_data(self):
-        frame = DataFrame(stream_id=1, data=b"request body")
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_good_priority(self):
-        frame = PriorityFrame(stream_id=1)
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_rst(self):
-        frame = RstStreamFrame(stream_id=1)
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_settings(self):
-        new_settings = dict()
-        new_settings[SettingCodes.INITIAL_WINDOW_SIZE] = 0
-        frame = SettingsFrame(0)
-        frame.settings = new_settings
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_goaway(self):
-        frame = GoAwayFrame(0)
-        frame.last_stream_id = 12
-        frame.error_code = 3
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_headers(self):
-        encoder = HuffmanEncoder()
-        frame = HeadersFrame(
-            stream_id=100,
-            data=encoder.encode(self.post_request),
-            flags=["END_HEADERS", "END_STREAM"],
-        )
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_continuation(self):
-        encoder = HuffmanEncoder()
-        request_segment_2 = [("header", "header_value")]
-        frame = ContinuationFrame(
-            100,
-            encoder.encode(request_segment_2),
-            flags={"END_HEADERS"},
-        )
-        self.__test_block_action_error_reply_with_conn_close_frames(frame)
-
-    def test_block_action_error_reply_with_conn_close_garbage(self):
-        frame = b"\x00\x0f\x0f\x0f\xff"
-        self.__test_block_action_error_reply_with_conn_close_frames(frame, expected_response=False)
+        else:
+            self.assertFalse(client.wait_for_connection_close())
+            self.assertIsNone(client.last_response)
+            self.check_no_fin_no_rst_in_sniffer(sniffer)
 
 
 class BlockActionH2Drop(BlockActionH2Base):
+    INITIAL_WINDOW_SIZE = 65535
+
     def setUp(self):
         self.tempesta = {
-            "config": self.tempesta_tmpl % ("drop", "drop"),
+            "config": self.tempesta_tmpl % ("drop", "drop", ""),
         }
         H2Base.setUp(self)
-
-    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        self.assert_reset_socks(sniffer.packets)
-        self.assert_not_fin_socks(sniffer.packets)
 
     def test_block_action_attack_drop(self):
         client = self.get_client("deproxy")
 
         sniffer = self.setup_sniffer()
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        self.start_services_and_initiate_conn(client)
         self.save_must_reset_socks([client])
         self.save_must_not_fin_socks([client])
 
@@ -468,14 +454,13 @@ class BlockActionH2Drop(BlockActionH2Base):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_rst_no_fin_in_sniffer(sniffer)
 
     def test_block_action_error_drop(self):
         client = self.get_client("deproxy")
 
         sniffer = self.setup_sniffer()
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        self.start_services_and_initiate_conn(client)
         self.save_must_reset_socks([client])
         self.save_must_not_fin_socks([client])
 
@@ -491,4 +476,4 @@ class BlockActionH2Drop(BlockActionH2Base):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_rst_no_fin_in_sniffer(sniffer)

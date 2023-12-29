@@ -6,8 +6,8 @@ __license__ = "GPL2"
 
 import run_config
 from framework import tester
-from framework.custom_error_page import CustomErrorPageGenerator
 from helpers import analyzer, asserts, remote, tf_cfg
+from helpers.custom_error_page import CustomErrorPageGenerator
 
 
 class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
@@ -66,6 +66,17 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
         sniffer.start()
         return sniffer
 
+    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        if not run_config.TCP_SEGMENTATION:
+            self.assert_fin_socks(sniffer.packets)
+            self.assert_unreset_socks(sniffer.packets)
+
+    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_reset_socks(sniffer.packets)
+        self.assert_not_fin_socks(sniffer.packets)
+
 
 class BlockActionReply(BlockActionBase):
     ERROR_RESPONSE_BODY = ""
@@ -75,12 +86,6 @@ class BlockActionReply(BlockActionBase):
             "config": self.tempesta_tmpl % ("reply", "reply"),
         }
         tester.TempestaTest.setUp(self)
-
-    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        if not run_config.TCP_SEGMENTATION:
-            self.assert_fin_socks(sniffer.packets)
-            self.assert_unreset_socks(sniffer.packets)
 
     def check_last_error_response(self, client, expected_status_code):
         """
@@ -107,7 +112,7 @@ class BlockActionReply(BlockActionBase):
         self.check_last_error_response(client, expected_status_code="403")
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_fin_no_rst_in_sniffer(sniffer)
 
     def test_block_action_error_reply_with_conn_close(self):
         client = self.get_client("deproxy")
@@ -121,10 +126,10 @@ class BlockActionReply(BlockActionBase):
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
             expected_status_code="400",
         )
-        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
+        self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_fin_no_rst_in_sniffer(sniffer)
 
     def test_block_action_error_reply(self):
         client = self.get_client("deproxy")
@@ -138,7 +143,7 @@ class BlockActionReply(BlockActionBase):
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nX-Forwarded-For: 1.1.1.1.1.1\r\n\r\n",
             expected_status_code="400",
         )
-        self.assertEqual(client._last_response.body, self.ERROR_RESPONSE_BODY)
+        self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
         self.assertFalse(client.connection_is_closed())
 
@@ -199,10 +204,10 @@ class BlockActionReply(BlockActionBase):
         self.check_last_error_response(client, expected_status_code="403")
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_fin_no_rst_in_sniffer(sniffer)
 
 
-class BlockActionReplyWithCustomErrorPage(BlockActionReply):
+class BlockActionReplyWithCustomErrorPage(BlockActionBase):
     tempesta_tmpl = """
         listen 80;
         srv_group default {
@@ -247,6 +252,23 @@ class BlockActionReplyWithCustomErrorPage(BlockActionReply):
         }
         tester.TempestaTest.setUp(self)
 
+    def test_block_action_error_reply_with_conn_close(self):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_all_services()
+        self.save_must_fin_socks([client])
+        self.save_must_not_reset_socks([client])
+
+        client.send_request(
+            request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
+            expected_status_code="400",
+        )
+        self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
+
+        self.assertTrue(client.wait_for_connection_close())
+        self.check_fin_no_rst_in_sniffer(sniffer)
+
 
 class BlockActionDrop(BlockActionBase):
     def setUp(self):
@@ -254,11 +276,6 @@ class BlockActionDrop(BlockActionBase):
             "config": self.tempesta_tmpl % ("drop", "drop"),
         }
         tester.TempestaTest.setUp(self)
-
-    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        self.assert_reset_socks(sniffer.packets)
-        self.assert_not_fin_socks(sniffer.packets)
 
     def test_block_action_attack_drop(self):
         client = self.get_client("deproxy")
@@ -274,7 +291,7 @@ class BlockActionDrop(BlockActionBase):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_rst_no_fin_in_sniffer(sniffer)
 
     def test_block_action_error_drop(self):
         client = self.get_client("deproxy")
@@ -290,4 +307,4 @@ class BlockActionDrop(BlockActionBase):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
-        self.check_fin_and_rst_in_sniffer(sniffer)
+        self.check_rst_no_fin_in_sniffer(sniffer)
