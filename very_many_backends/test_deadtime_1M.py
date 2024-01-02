@@ -143,27 +143,30 @@ class DontModifyBackend(stress.StressTest):
         self.ips = sysnet.create_interfaces(
             self.interface, self.base_ip, self.num_extra_interfaces + 1
         )
-        stress.StressTest.setUp(self)
+        super().setUp()
+        # Cleanup part
+        self.addCleanup(self.cleanup_interfaces)
+        self.addCleanup(self.cleanup_servers)
+        self.addCleanup(self.cleanup_tempesta)
+        self.addCleanup(self.cleanup_check_client_error)
+        self.addCleanup(self.cleanup_client)
 
-    def tearDown(self):
-        has_base_excpt = False
-        # stopping client
-        if self.client != None:
+    def cleanup_client(self):
+        if self.client is not None:
             self.client.stop()
-        # stopping tempesta and servers
-        try:
-            stress.StressTest.tearDown(self)
-        except Exception as exc:
-            has_base_excpt = True
-            excpt = exc
-        tf_cfg.dbg(2, "Removing interfaces")
+
+    def cleanup_interfaces(self):
+        tf_cfg.dbg(2, "Cleanup: Removing interfaces")
         for ip in self.ips:
             sysnet.remove_interface(self.interface, ip)
         self.ips = []
-        if has_base_excpt:
-            raise excpt
+
+    def cleanup_check_client_error(self):
         if self.client.state == stateful.STATE_ERROR:
             raise Exception("Error while stopping client")
+
+    def tearDown(self):
+        pass
 
     def configure_tempesta(self):
         """Configure tempesta 1 port in group"""
