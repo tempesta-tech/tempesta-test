@@ -20,9 +20,14 @@ class ParseResponse(unittest.TestCase):
 
         self.trailer = deproxy.Response(TRAILER)
         self.o_trailer = deproxy.Response(OTHER_TRAILER)
+        # Cleanup part
+        self.addCleanup(self.cleanup_HeaderCollection)
+
+    def cleanup_HeaderCollection(self):
+        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
 
     def tearDown(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
+        pass
 
     def test_equal(self):
         # Reordering of headers is allowed.
