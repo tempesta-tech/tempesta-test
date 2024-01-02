@@ -114,14 +114,20 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         self.abs_path = os.path.join(location, "long_body.bin")
         remote.client.copy_file(self.abs_path, "x" * BODY_SIZE)
         super().setUp()
+        # Cleanup part
+        self.addCleanup(self.cleanup_file)
+        self.addCleanup(self.cleanup_verbose)
+        self.addCleanup(super().tearDown)
 
-    def tearDown(self):
-        super().tearDown()
-
+    def cleanup_verbose(self):
         tf_cfg.cfg.set_option("General", "verbose", self.verbose)
 
+    def cleanup_file(self):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
+
+    def tearDown(self):
+        pass
 
     def _test(self, client_id: str, header: str):
         """Send request with long body and check that Tempesta does not crash."""
