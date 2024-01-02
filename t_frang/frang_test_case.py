@@ -68,10 +68,15 @@ block_action attack reply;
         super().setUp()
         self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(super().tearDown)
+        self.addCleanup(self.cleanup_klog)
+
+    def cleanup_klog(self):
+        del self.klog
 
     def tearDown(self):
-        super().tearDown()
-        del self.klog
+        pass
 
     # TODO: rename to set_frang_cfg_and_start
     def set_frang_config(self, frang_config: str):
