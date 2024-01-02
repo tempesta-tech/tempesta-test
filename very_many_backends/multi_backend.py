@@ -262,6 +262,20 @@ class MultipleBackends(stress.StressTest):
 
     base_port = 16384
 
+    def setUp(self):
+        super().setUp()
+        self.create_servers()
+        self.configure_tempesta()
+        # Cleanup part
+        self.addCleanup(self.cleanup_interfaces)
+        self.addCleanup(self.cleanup_servers)
+        self.addCleanup(self.cleanup_tempesta)
+
+    def cleanup_interfaces(self):
+        tf_cfg.dbg(2, "Cleanup: Removing interfaces")
+        sysnet.remove_interfaces(self.interface, self.ips)
+        self.ips = []
+
     def create_servers(self):
         self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
         self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
@@ -283,18 +297,7 @@ class MultipleBackends(stress.StressTest):
                 sgid = sgid + 1
 
     def tearDown(self):
-        """Stop nginx and tempesta, clear interfaces after this"""
-        has_base_excpt = False
-        try:
-            super(MultipleBackends, self).tearDown()
-        except Exception as exc:
-            has_base_excpt = True
-            excpt = exc
-        tf_cfg.dbg(2, "Removing interfaces")
-        sysnet.remove_interfaces(self.interface, self.ips)
-        self.ips = []
-        if has_base_excpt:
-            raise excpt
+        pass
 
     def test(self):
         """Test 1M backends"""
