@@ -143,10 +143,12 @@ class LargePageNginxBackendMixin:
         ]
         super().setUp()
         self.create_large_page()
+        # Cleanup part
+        self.addCleanup(self.remove_large_page)
+        self.addCleanup(super().tearDown)
 
     def tearDown(self):
-        super().tearDown()
-        self.remove_large_page()
+        pass
 
     def create_large_page(self):
         server = self.get_server("nginx-large-page")
@@ -184,14 +186,17 @@ class CustomMtuMixin:
             destination_ip=tf_cfg.cfg.get("Tempesta", "ip"),
             mtu=self.server_to_tempesta_mtu,
         )
+        # Cleanup part
+        self.addCleanup(super().tearDown)
+        self.addCleanup(self.cleanup_mtus)
+
+    def cleanup_mtus(self):
+        # Restore previous MTU values
+        for args in self._prev_mtu.values():
+            sysnet.change_mtu(*args)
 
     def tearDown(self):
-        # Restore previous MTU values
-        try:
-            for args in self._prev_mtu.values():
-                sysnet.change_mtu(*args)
-        finally:
-            super().tearDown()
+        pass
 
     def set_mtu(self, node, destination_ip, mtu):
         if mtu:
@@ -574,11 +579,16 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
     def setUp(self):
         remote.client.copy_file(self.fullname, "x" * LARGE_CONTENT_LENGTH)
         super().setUp()
+        # Cleanup part
+        self.addCleanup(self.cleanup_test_file)
+        self.addCleanup(super().tearDown)
 
-    def tearDown(self):
-        super().tearDown()
+    def cleanup_test_file(self):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.fullname}")
+
+    def tearDown(self):
+        pass
 
     def _test_wrk(self, client_id: str, method: str):
         """
