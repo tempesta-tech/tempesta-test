@@ -255,11 +255,16 @@ class HttpTablesTestMarkRules(HttpTablesTest):
     def setUp(self):
         self.marked = None
         HttpTablesTest.setUp(self)
+        # Cleanup part
+        self.addCleanup(super().tearDown)
+        self.addCleanup(self.cleanup_marked)
 
-    def tearDown(self):
+    def cleanup_marked(self):
         if self.marked:
             self.del_nf_mark(self.marked)
-        tester.TempestaTest.tearDown(self)
+
+    def tearDown(self):
+        pass
 
     def test_chains(self):
         """Test for mark rules in HTTP chains: requests must
