@@ -15,9 +15,14 @@ class ParseRequest(unittest.TestCase):
         self.plain = deproxy.Request(PLAIN)
         self.reordered = deproxy.Request(REORDERED)
         self.duplicated = deproxy.Request(DUPLICATED)
+        # Cleanup part
+        self.addCleanup(self.cleanup_deproxy)
+
+    def cleanup_deproxy(self):
+        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
 
     def tearDown(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
+        pass
 
     def test_equal(self):
         # Reordering of headers is allowed.
