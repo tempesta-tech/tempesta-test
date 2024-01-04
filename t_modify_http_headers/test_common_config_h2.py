@@ -1,7 +1,7 @@
 """Functional tests for adding user difined headers in h2 connection."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from t_modify_http_headers import test_common_config
