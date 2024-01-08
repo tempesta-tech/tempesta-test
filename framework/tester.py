@@ -369,6 +369,7 @@ class TempestaTest(unittest.TestCase):
         sysnet.remove_routes(interface, self.__ips)
         sysnet.remove_interfaces(interface, self.__ips)
         self.__ips = []
+
     def cleanup_stop_tcpdump(self):
         tf_cfg.dbg(3, "\tCleanup: stopping tcpdump")
         self.__stop_tcpdump()
