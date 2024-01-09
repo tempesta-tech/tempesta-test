@@ -504,3 +504,78 @@ class TestManyCachedResponseHeadersH2(H2Config, TestManyRequestHeaders):
     directive = "resp"
     h2 = True
     requests_n = 2
+
+
+class TestReqHdrSetHost(tester.TempestaTest):
+    """
+    Case for `Host` header.
+
+    `Host` header in the request must be replaced with header - "host: host-overriden"
+    """
+
+    tempesta = TestLogicBase.tempesta
+
+    clients = TestLogicBase.clients
+
+    backends = TestLogicBase.backends
+
+    directive = "req"
+    h2 = False
+
+    def get_expected_request_no_host(self, expected_headers: list) -> Request:
+        tempesta_headers = [
+            ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
+            ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
+        ]
+
+        request = (
+            f"GET / HTTP/1.1\r\n"
+            + "".join(
+                f"{header[0]}: {header[1]}\r\n" for header in expected_headers + tempesta_headers
+            )
+            + ("Connection: keep-alive\r\n" if not self.h2 else "")
+            + "\r\n"
+        )
+
+        expected_request = Request(request)
+        expected_request.set_expected()
+
+        return expected_request
+
+    def test_req_hdr_set_host(self):
+        expected_headers = [("host", "host-overriden")]
+        config = f'{self.directive}_hdr_set host "host-overriden";\n'
+        update_tempesta_config(tempesta=self.get_tempesta(), config=config, cache=False)
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy-1")
+
+        server.set_response(generate_response())
+
+        client.send_request(
+            generate_h2_request() if self.h2 else generate_http1_request(),
+            "200",
+        )
+
+        expected_response = get_expected_response(
+            [], expected_headers, client, False, self.directive
+        )
+        expected_request = self.get_expected_request_no_host(expected_headers)
+
+        client.last_response.headers.delete_all("Date")
+        expected_response.headers.delete_all("Date")
+        msg_resp = f"\nExpected:\n{expected_response}\nReceived:\n{client.last_response}"
+        msg_req = f"\nExpected:\n{expected_request}\nReceived:\n{server.last_request}"
+        self.assertEqual(expected_response, client.last_response, msg=msg_resp)
+        self.assertEqual(expected_request, server.last_request, msg=msg_req)
+
+
+class TestReqHdrSetHostH2(H2Config, TestReqHdrSetHost):
+    """
+    Case for `Host` header.
+
+    `Host` header in the request must be replaced with header - "host: host-overriden"
+    """
+
+    h2 = True
