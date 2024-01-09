@@ -1,7 +1,7 @@
 """Functional tests of header modification logic."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import helpers
@@ -378,7 +378,6 @@ class TestManyRequestHeaders(tester.TempestaTest):
     directive = "req"
     h2 = False
     requests_n = 1
-    __max_headers = 64
     __headers_n = 64 // 4
 
     def test_many_headers(self):
