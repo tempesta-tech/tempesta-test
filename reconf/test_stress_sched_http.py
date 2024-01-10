@@ -1,35 +1,98 @@
 """
-Live reconfiguration stress test for http scheduler.
+On the fly reconfiguration test for http scheduler.
 """
 
-from helpers import tempesta
-
-from . import reconf_stress
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework import tester
 
-class SchedHttp(reconf_stress.LiveReconfStress):
 
-    orig_sg = "origin"
-    alt_sg = "alternate"
+class TestSchedHttpReconf(tester.TempestaTest):
+    tempesta_orig = {
+        "config": """
+        listen 80 proto=http;
 
-    def configure_http_sched(self, active_group):
-        defconfig = "http_chain {\n" "  -> %s;\n" "}\n" "\n" % active_group
-        config = self.make_config(self.orig_sg, self.const_srvs, defconfig)
-        self.add_sg(config, self.alt_sg, self.add_srvs)
-        self.tempesta.config = config
+        cache 0;
 
-    def configure_start(self):
-        self.configure_http_sched(self.orig_sg)
+        srv_group origin {
+            server ${server_ip}:8080;
+        }
 
-    def configure_reconfig(self):
-        self.configure_http_sched(self.alt_sg)
+        vhost origin{
+            proxy_pass origin;
+        }
 
-    def test_hash_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_start, self.configure_reconfig)
+        http_chain {
+            -> origin;
+        }
+        """
+    }
+
+    tempesta_add_srv = {
+        "config": """
+        listen 80 proto=http;
+
+        cache 0;
+        
+        srv_group origin {
+            server ${server_ip}:8080;
+        }
+        
+        srv_group alternate {
+            server ${server_ip}:8081;
+        }
+        
+        vhost origin{
+            proxy_pass origin;
+        }
+        
+        vhost alternate{
+            proxy_pass alternate;
+        }
+        
+        http_chain {
+            uri == "/origin" -> origin;
+            uri == "/alternate" -> alternate;
+        }
+        """
+    }
+
+    backends = [
+        {
+            "id": f"server-{uri}",
+            "type": "deproxy",
+            "port": f"808{num}",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                f"From: /{uri}\r\n"
+                "Server: debian\r\n"
+                "Content-length: 9\r\n"
+                "\r\n"
+                "test-data"
+            ),
+        }
+        for num, uri in [(0, "origin"), (1, "alternate")]
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def test_reconfig_add_srvs(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
+
+        tempesta.config.set_defconfig(self.tempesta_add_srv["config"])
+        tempesta.reload()
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
