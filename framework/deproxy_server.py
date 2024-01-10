@@ -238,7 +238,11 @@ def deproxy_srv_factory(server, name, tester):
     sg = server.get("segment_gap", 0)
     rtype = server["response"]
     if rtype == "static":
-        content = fill_template(server["response_content"], server)
+        content = (
+            fill_template(server["response_content"], server)
+            if "response_content" in server
+            else None
+        )
         srv = StaticDeproxyServer(
             port=port, response=content, keep_original_data=ko, segment_size=ss, segment_gap=sg
         )

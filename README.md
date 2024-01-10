@@ -471,4 +471,4 @@ Use `git commit -v --all` to format all changed python files or just use `git co
 There are not so much good references about best practices in development of
 testing framework.
 
-* [Why Good Developers Write Bad Tests](https://www.youtube.com/watch?v=oO-FMAdjY68)
+* [Why Good Developers Write Bad Tests](https://www.youtube.com/watch?v=hM_ex4-xu4E)

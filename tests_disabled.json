@@ -118,8 +118,8 @@
             "reason" : "Disabled by issue #1836"
         },
         {
-            "name" : "health_monitoring",
-            "reason" : "Disabled by issue #273"
+            "name" : "health_monitoring.test_health_monitor.TestHealthMonitor",
+            "reason" : "Disabled by issue #1864"
         },
         {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",

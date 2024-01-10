@@ -5,7 +5,9 @@ Tests for health monitoring functionality.
 from __future__ import print_function
 
 from access_log.test_access_log_h2 import backends
-from framework import tester
+from framework import templates, tester
+from framework.parameterize import param, parameterize, parameterize_class
+from helpers import tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -201,3 +203,140 @@ return 200;
         res = self.run_curl(REQ_COUNT)
         self.assertTrue(sorted(list(set(res))) == [200], "Not valid status")
         back3.stop()
+
+
+DEPROXY_CLIENT = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "80",
+}
+
+DEPROXY_CLIENT_H2 = {
+    "id": "deproxy",
+    "type": "deproxy_h2",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
+}
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestHealthStat(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+        },
+    ]
+
+    def setUp(self):
+        tempesta_config = """
+            listen 80;
+            listen 443 proto=h2;
+            server ${server_ip}:8000;
+            vhost default {
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
+                tls_match_any_server_name;
+            }
+
+            health_stat 200 5*;
+        """
+        if self._testMethodName == self.test_cached_responses_included.__name__:
+            tempesta_config += """
+                cache 1;
+                cache_fulfill * *;
+            """
+        self.tempesta["config"] = tempesta_config
+        super().setUp()
+
+    def test_smoke(self):
+        self.start_all_services()
+        c = self.get_client("deproxy")
+        s = self.get_server("deproxy")
+        tfw = self.get_tempesta()
+
+        for status in [400, 200, 500, 502, 504, 200, 404]:
+            s.set_response(f"HTTP/1.1 {status} FOO\r\nContent-Length: 0\r\n\r\n")
+            c.send_request(c.simple_get, expected_status_code=str(status))
+
+        tfw.get_stats()
+        self.assertEqual(tfw.stats.health_statuses[200], 2)
+        self.assertEqual(tfw.stats.health_statuses[5], 3)
+
+    def test_cached_responses_included(self):
+        self.start_all_services()
+        c = self.get_client("deproxy")
+        s = self.get_server("deproxy")
+        tfw = self.get_tempesta()
+
+        s.set_response(f"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+        for status in range(3):
+            c.send_request(c.simple_get, expected_status_code="200")
+
+        tfw.get_stats()
+        # cached responses are accounted
+        self.assertEqual(tfw.stats.health_statuses[200], 3)
+        self.assertEqual(tfw.stats.cache_hits, 2)
+        self.assertEqual(tfw.stats.cache_misses, 1)
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestHealthStatServer(tester.TempestaTest):
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2;
+            server ${server_ip}:8000;
+            vhost default {
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
+                tls_match_any_server_name;
+            }
+
+            health_stat_server 400 5*;
+            server_failover_http 404 999 999;
+        """,
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+        },
+    ]
+
+    def test_smoke(self):
+        self.start_all_services()
+        c = self.get_client("deproxy")
+        s = self.get_server("deproxy")
+        stats = tempesta.ServerStats(
+            self.get_tempesta(), "default", tf_cfg.cfg.get("Server", "ip"), 8000
+        )
+
+        for status in [200, 400, 500, 502, 504, 400, 404, 403]:
+            s.set_response(f"HTTP/1.1 {status} FOO\r\nContent-Length: 0\r\n\r\n")
+            c.send_request(c.simple_get, expected_status_code=str(status))
+
+        stats.collect()
+        # 200 is always enabled, even if another status codes are configured explicitly
+        self.assertEqual(stats.health_statuses[200], 1)
+        self.assertEqual(stats.health_statuses[400], 2)
+        self.assertEqual(stats.health_statuses[5], 3)
+        # server_failover_http works too for health monitoring
+        self.assertEqual(stats.health_statuses[404], 1)
