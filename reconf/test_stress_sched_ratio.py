@@ -1,100 +1,220 @@
 """
-Live reconfiguration stress test for ratio scheduler.
+On the fly reconfiguration test for ratio scheduler.
 """
 
-from helpers import tempesta
-
-from . import reconf_stress
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-# Ratio Static tests
+from framework import tester
 
 
-class SchedRatioStaticImplDefaultSg(reconf_stress.LiveReconfStress):
+class TestSchedRatioReconf(tester.TempestaTest):
+    tempesta_orig = {
+        "config": """
+        listen 80;
+        server ${server_ip}:8000 conns_n=1 weight=75;
+        server ${server_ip}:8001 conns_n=1 weight=50;
 
-    sg_name = "default"
-    sched = "ratio static"
+        cache 0;
+        sched ratio static;
+        """
+    }
 
-    def set_ratio_sched(self):
-        for sg in self.tempesta.config.server_groups:
-            sg.sched = self.sched
+    tempesta_add_srv = {
+        "config": """
+        listen 80;
+        server ${server_ip}:8000 conns_n=1 weight=90;
+        server ${server_ip}:8001 conns_n=1 weight=75;
+        server ${server_ip}:8002 conns_n=1 weight=50;
+        server ${server_ip}:8003 conns_n=1 weight=50;
 
-    def configure_srvs_start(self):
-        reconf_stress.LiveReconfStress.configure_srvs_start(self)
-        self.set_ratio_sched()
+        cache 0;
+        sched ratio static;
+        """
+    }
 
-    def configure_srvs_add(self):
-        reconf_stress.LiveReconfStress.configure_srvs_add(self)
-        self.set_ratio_sched()
+    tempesta_del_srv = {
+        "config": """
+        listen 80;
+        server ${server_ip}:8000;
 
-    def configure_srvs_del(self):
-        reconf_stress.LiveReconfStress.configure_srvs_del(self)
-        self.set_ratio_sched()
+        cache 0;
+        """
+    }
 
-    def configure_srvs_del_add(self):
-        reconf_stress.LiveReconfStress.configure_srvs_del_add(self)
-        self.set_ratio_sched()
+    tempesta_add_sg = {
+        "config": """
+        listen 80 proto=http;
 
-    def test_ratio_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_add)
+        cache 0;
 
-    def test_ratio_del_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del)
+        srv_group custom {
+            server ${server_ip}:8000 conns_n=1 weight=10;
+            server ${server_ip}:8001 conns_n=1 weight=9;
+            
+            sched ratio static;
+        }
 
-    def test_ratio_del_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del_add)
+        vhost app{
+            proxy_pass custom;
+        }
 
+        http_chain {
+            -> app;
+        }
+        """
+    }
 
-class SchedRatioStaticExplDefaultSg(SchedRatioStaticImplDefaultSg):
-    def set_ratio_sched(self):
-        for sg in self.tempesta.config.server_groups:
-            sg.sched = self.sched
-            sg.implicit = False
+    tempesta_dyn_sched = {
+        "config": """
+        listen 80;
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
 
+        cache 0;
+        sched ratio dynamic;
+        """
+    }
 
-class SchedRatioStaticCustomSg(SchedRatioStaticImplDefaultSg):
+    tempesta_dyn_sched_for_sg = {
+        "config": """
+        listen 80 proto=http;
 
-    sg_name = "custom"
-    defconfig = "http_chain {\n" "  -> custom;\n" "}\n" "\n"
+        cache 0;
 
+        srv_group custom {
+            server ${server_ip}:8000;
+            server ${server_ip}:8001;
+            
+            sched ratio dynamic;
+        }
 
-# Ratio Dynamic tests
+        vhost app{
+            proxy_pass custom;
+        }
 
+        http_chain {
+            -> app;
+        }
+        """
+    }
 
-class SchedRatioDynamicImplDefaultSg(SchedRatioStaticImplDefaultSg):
+    tempesta_pre_sched = {
+        "config": """
+        listen 80;
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
 
-    sched = "ratio dynamic"
+        cache 0;
+        sched predict percentile 75 past=60 rate=20 ahead=2;
+        """
+    }
 
+    tempesta_pre_sched_for_sg = {
+        "config": """
+        listen 80 proto=http;
 
-class SchedRatioDynamicExplDefaultSg(SchedRatioStaticExplDefaultSg):
+        cache 0;
 
-    sched = "ratio dynamic"
+        srv_group custom {
+            server ${server_ip}:8080;
+            server ${server_ip}:8081;
+            
+            sched predict percentile 75 past=60 rate=20 ahead=2;
+        }
 
+        vhost app{
+            proxy_pass custom;
+        }
 
-class SchedRatioDynamicCustomSg(SchedRatioStaticCustomSg):
+        http_chain {
+            -> app;
+        }
+        """
+    }
 
-    sched = "ratio dynamic"
+    backends = [
+        {
+            "id": f"server-{num}",
+            "type": "deproxy",
+            "port": f"800{num}",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Server: debian\r\n"
+                "Content-length: 9\r\n"
+                "\r\n"
+                "test-data"
+            ),
+        }
+        for num in range(4)
+    ]
 
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
 
-# Ratio Predict tests
+    def test_reconfig_add_srv(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
 
+        tempesta.config.set_defconfig(self.tempesta_add_srv["config"])
+        tempesta.reload()
 
-class SchedRatioPredictImplDefaultSg(SchedRatioStaticImplDefaultSg):
+    def test_reconfig_del_srv(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
 
-    sched = "ratio predict"
+        tempesta.config.set_defconfig(self.tempesta_del_srv["config"])
+        tempesta.reload()
 
+    def test_reconfig_add_sg(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
 
-class SchedRatioPredictExplDefaultSg(SchedRatioStaticExplDefaultSg):
+        tempesta.config.set_defconfig(self.tempesta_add_sg["config"])
+        tempesta.reload()
 
-    sched = "ratio predict"
+    def test_reconfig_dyn_sched(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
 
+        tempesta.config.set_defconfig(self.tempesta_dyn_sched["config"])
+        tempesta.reload()
 
-class SchedRatioPredictCustomSg(SchedRatioStaticCustomSg):
+    def test_reconfig_dyn_sched_for_sg(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
 
-    sched = "ratio predict"
+        tempesta.config.set_defconfig(self.tempesta_dyn_sched_for_sg["config"])
+        tempesta.reload()
+
+    def test_reconfig_pre_sched(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
+
+        tempesta.config.set_defconfig(self.tempesta_pre_sched["config"])
+        tempesta.reload()
+
+    def test_reconfig_pre_sched_for_sg(self):
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
+
+        tempesta.config.set_defconfig(self.tempesta_pre_sched_for_sg["config"])
+        tempesta.reload()
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
