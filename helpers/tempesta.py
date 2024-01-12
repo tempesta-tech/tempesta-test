@@ -116,6 +116,10 @@ class Stats(object):
         self.srv_conns_active = self.parse_option(stats, "Server connections active")
         self.srv_rx_bytes = self.parse_option(stats, "Server RX bytes")
 
+        s = r"HTTP '(\d+)' code\s+: (\d+)"
+        matches = re.findall(s.encode("ascii"), stats)
+        self.health_statuses = {int(status): int(total) for status, total in matches}
+
     @staticmethod
     def parse_option(stats, name):
         s = r"%s\s+: (\d+)" % name
@@ -130,12 +134,21 @@ class ServerStats(object):
         self.tempesta = tempesta
         self.path = "%s/%s:%s" % (sg_name, srv_ip, srv_port)
 
-    def get_server_health(self):
-        stats, _ = self.tempesta.get_server_stats(self.path)
+    def collect(self):
+        self.stats, _ = self.tempesta.get_server_stats(self.path)
+
+    @property
+    def server_health(self):
         name = "HTTP availability"
-        health = Stats.parse_option(stats, name)
+        health = Stats.parse_option(self.stats, name)
         assert health >= 0, 'Cannot find "%s" in server stats: %s\n' % (name, stats)
         return health
+
+    @property
+    def health_statuses(self):
+        s = r"HTTP '(\d+)' code\s+: \d+ \((\d+) total\)"
+        matches = re.findall(s.encode("ascii"), self.stats)
+        return {int(status): int(total) for status, total in matches}
 
 
 # -------------------------------------------------------------------------------

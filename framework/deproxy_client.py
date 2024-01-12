@@ -58,6 +58,8 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.parsing = True
         self._reinit_variables()
 
+        self.simple_get = self.create_request("GET", headers=[])
+
     @property
     def statuses(self) -> Dict[int, int]:
         """
