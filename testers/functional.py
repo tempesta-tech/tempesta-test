@@ -67,58 +67,6 @@ class FunctionalTest(unittest.TestCase):
         self.create_tempesta()
         self.create_client()
         self.create_tester()
-        # Cleanup part
-        self.addCleanup(self.cleanup_check_oops, oops_list=["Oops", "WARNING", "ERROR"])
-        self.addCleanup(self.cleanup_check_errors)
-        self.addCleanup(self.cleanup_deproxy)
-        self.addCleanup(self.cleanup_servers)
-        self.addCleanup(self.cleanup_tester)
-        self.addCleanup(self.cleanup_tempesta)
-        self.addCleanup(self.cleanup_client)
-
-    def cleanup_client(self):
-        # Close client connection before stopping the TempestaFW.
-        if self.client:
-            self.client.stop("Client")
-
-    def cleanup_tempesta(self):
-        if self.tempesta:
-            self.tempesta.stop("Tempesta")
-
-    def cleanup_tester(self):
-        if self.tester:
-            self.tester.stop("Tester")
-
-    def cleanup_servers(self):
-        for server in self.servers:
-            server.stop("Deproxy server")
-
-    def cleanup_deproxy(self):
-        try:
-            deproxy.finish_all_deproxy()
-        except:
-            print("Unknown exception in stopping deproxy")
-
-    def cleanup_check_errors(self):
-        for proc in [self.client, self.tempesta, self.tester]:
-            if proc.state == stateful.STATE_ERROR:
-                raise Exception(f"Error during stopping {proc.__class__.__name__}")
-        for server in self.servers:
-            if server.state == stateful.STATE_ERROR:
-                raise Exception("Error during stopping server")
-
-    def cleanup_check_oops(self, oops_list):
-        self.oops.update()
-        for err in oops_list:
-            if err in self.oops_ignore:
-                continue
-            if len(self.oops.log_findall(err)) > 0:
-                self.oops_ignore = []
-                raise Exception(f"{err} happened during test on Tempesta")
-        # Drop the list of ignored errors to allow set different errors masks
-        # for different tests.
-        self.oops_ignore = []
-        del self.oops
 
     def force_stop(self):
         # Close client connection before stopping the TempestaFW.
@@ -140,7 +88,7 @@ class FunctionalTest(unittest.TestCase):
             print("Unknown exception in stopping deproxy")
 
     def tearDown(self):
-
+        # Close client connection before stopping the TempestaFW.
         if self.client:
             self.client.stop("Client")
 
