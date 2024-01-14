@@ -247,7 +247,7 @@ class TempestaTest(unittest.TestCase):
 
     def __create_clients(self):
         if not remote.wait_available():
-            raise Exception("Client node is unavaliable")
+            raise Exception("Client node is unavailable")
         for client in self.clients:
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
@@ -333,7 +333,7 @@ class TempestaTest(unittest.TestCase):
 
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
-            raise Exception("Tempesta node is unavaliable")
+            raise Exception("Tempesta node is unavailable")
         self.oops = dmesg.DmesgFinder()
         self.oops_ignore = []
         self.__create_servers()
@@ -360,7 +360,6 @@ class TempestaTest(unittest.TestCase):
             dbg(
                 self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
             )
-        # TODO it should be changed after #534 issue
         self.deproxy_manager.check_exceptions()
 
     def cleanup_interfaces(self):
