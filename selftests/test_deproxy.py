@@ -30,20 +30,12 @@ class DeproxyDummyTest(functional.FunctionalTest):
         self.tester = None
         tf_cfg.dbg(3)  # Step to the next line after name of test case.
         tf_cfg.dbg(3, "\tInit test case...")
-        # Cleanup part
-        self.addCleanup(self.cleanup_tester)
-        self.addCleanup(self.cleanup_client)
-
-    def cleanup_client(self):
-        if self.client:
-            self.client.stop()
-
-    def cleanup_tester(self):
-        if self.tester:
-            self.tester.stop()
 
     def tearDown(self):
-        pass
+        if self.client:
+            self.client.stop()
+        if self.tester:
+            self.tester.stop()
 
     def create_clients(self):
         port = tempesta.upstream_port_start_from()
