@@ -263,9 +263,6 @@ class HttpTablesTestMarkRules(HttpTablesTest):
         if self.marked:
             self.del_nf_mark(self.marked)
 
-    def tearDown(self):
-        pass
-
     def test_chains(self):
         """Test for mark rules in HTTP chains: requests must
         arrive to backends in reverse order, since mark rules are
@@ -578,9 +575,6 @@ http_chain {
             % (request_uri, host),
         )
     }
-
-    def tearDown(self):
-        pass
 
     def test(self):
         self.oops_ignore = ["ERROR"]

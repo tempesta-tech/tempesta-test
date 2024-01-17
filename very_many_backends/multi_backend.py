@@ -1,7 +1,7 @@
 """ Test template """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
@@ -295,9 +295,6 @@ class MultipleBackends(stress.StressTest):
                 server_group.add_server(server.ip, listener.port, server.conns_n)
                 self.tempesta.config.add_sg(server_group)
                 sgid = sgid + 1
-
-    def tearDown(self):
-        pass
 
     def test(self):
         """Test 1M backends"""

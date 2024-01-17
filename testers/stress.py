@@ -5,7 +5,7 @@ import unittest
 from helpers import control, dmesg, remote, stateful, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -112,9 +112,6 @@ class StressTest(unittest.TestCase):
             self.tempesta.force_stop()
         if self.servers:
             control.servers_force_stop(self.servers)
-
-    def tearDown(self):
-        pass
 
     def show_performance(self):
         if tf_cfg.v_level() < 2:

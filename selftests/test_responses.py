@@ -5,7 +5,7 @@ import unittest
 from helpers import deproxy
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -25,9 +25,6 @@ class ParseResponse(unittest.TestCase):
 
     def cleanup_HeaderCollection(self):
         deproxy.HeaderCollection._disable_report_wrong_is_expected = False
-
-    def tearDown(self):
-        pass
 
     def test_equal(self):
         # Reordering of headers is allowed.

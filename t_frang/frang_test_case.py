@@ -76,9 +76,6 @@ block_action attack reply;
         if hasattr(self, "klog"):
             del self.klog
 
-    def tearDown(self):
-        pass
-
     # TODO: rename to set_frang_cfg_and_start
     def set_frang_config(self, frang_config: str):
         self.tempesta["config"] = self.tempesta_template["config"] % {

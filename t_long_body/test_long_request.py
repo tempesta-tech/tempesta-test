@@ -1,7 +1,7 @@
 """Tests for long body in request."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
@@ -125,9 +125,6 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
     def cleanup_file(self):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
-
-    def tearDown(self):
-        pass
 
     def _test(self, client_id: str, header: str):
         """Send request with long body and check that Tempesta does not crash."""

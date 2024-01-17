@@ -20,7 +20,7 @@ from framework.templates import fill_template, populate_properties
 from helpers import control, dmesg, remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.deproxy import dbg
@@ -396,9 +396,6 @@ class TempestaTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
-
-    def tearDown(self):
-        pass
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:

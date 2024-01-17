@@ -9,12 +9,11 @@ from helpers import control, tempesta, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class LiveReconfStress(stress.StressTest):
-
     defconfig = ""
     sg_name = "default"
     auto_vhosts = True
@@ -105,9 +104,6 @@ class LiveReconfStress(stress.StressTest):
 
         self.r_thread.join()
         self.assert_clients()
-
-    def tearDown(self):
-        pass
 
     def configure_srvs_start(self):
         srvs = self.const_srvs + self.rm_srvs

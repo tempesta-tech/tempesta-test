@@ -14,9 +14,6 @@ class TestDeproxyMessage(unittest.TestCase):
     def cleanup_deproxy(self):
         deproxy.HeaderCollection._disable_report_wrong_is_expected = False
 
-    def tearDown(self):
-        pass
-
     def test_incomplite(self):
         message_1 = "HTTP/1.1 20"
         message_2 = (

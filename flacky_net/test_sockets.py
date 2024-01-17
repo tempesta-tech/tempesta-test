@@ -8,12 +8,11 @@ from helpers import control, flacky, tempesta, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class CloseOnShutdown(stress.StressTest):
-
     timeout = 180
 
     config = "cache 0;\n" "\n"
@@ -94,9 +93,6 @@ class CloseOnShutdown(stress.StressTest):
 
     def cleanup_parent_teardown(self):
         stress.StressTest.tearDown(self)
-
-    def tearDown(self):
-        pass
 
     def init_filter(self):
         node = self.servers[0].node

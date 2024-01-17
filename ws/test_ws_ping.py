@@ -14,7 +14,7 @@ from framework.x509 import CertGenerator
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 GENERAL_WORKDIR = tf_cfg.cfg.get("General", "workdir")
@@ -295,9 +295,6 @@ class WsPing(tester.TempestaTest):
         self.addCleanup(self.cleanup_p1)
         self.addCleanup(self.cleanup_p2)
 
-    def tearDown(self):
-        pass
-
     def cleanup_p1(self):
         if self.p1:
             self.p1.terminate()
@@ -307,6 +304,7 @@ class WsPing(tester.TempestaTest):
         if self.p2:
             self.p2.terminate()
             self.p2 = None
+
 
 class WssPing(WsPing):
 

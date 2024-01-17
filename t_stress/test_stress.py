@@ -9,7 +9,7 @@ from framework import tester
 from helpers import dmesg, remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -147,9 +147,6 @@ class LargePageNginxBackendMixin:
         self.addCleanup(self.remove_large_page)
         self.addCleanup(super().tearDown)
 
-    def tearDown(self):
-        pass
-
     def create_large_page(self):
         server = self.get_server("nginx-large-page")
         server.node.run_cmd(f"fallocate -l {self.nginx_backend_page_size} {self.large_page_path}")
@@ -194,9 +191,6 @@ class CustomMtuMixin:
         # Restore previous MTU values
         for args in self._prev_mtu.values():
             sysnet.change_mtu(*args)
-
-    def tearDown(self):
-        pass
 
     def set_mtu(self, node, destination_ip, mtu):
         if mtu:
@@ -586,9 +580,6 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
     def cleanup_test_file(self):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.fullname}")
-
-    def tearDown(self):
-        pass
 
     def _test_wrk(self, client_id: str, method: str):
         """

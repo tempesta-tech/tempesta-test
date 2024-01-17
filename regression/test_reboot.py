@@ -11,7 +11,7 @@ from helpers import control, remote, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -64,9 +64,6 @@ class RebootUnderLoadTest(stress.StressTest):
 
         control.client_run_blocking(self.wrk)
         self.show_performance()
-
-    def tearDown(self):
-        pass
 
     def test_proxy(self):
         config = "cache 0;\n"

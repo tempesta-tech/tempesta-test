@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import asyncore
@@ -164,9 +164,6 @@ class DontModifyBackend(stress.StressTest):
     def cleanup_check_client_error(self):
         if self.client.state == stateful.STATE_ERROR:
             raise Exception("Error while stopping client")
-
-    def tearDown(self):
-        pass
 
     def configure_tempesta(self):
         """Configure tempesta 1 port in group"""

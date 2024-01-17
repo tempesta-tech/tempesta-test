@@ -31,6 +31,3 @@ class NetfilterMarkMixin:
         tf_cfg.dbg(3, f"Delete Netfiler mark: {mark}")
         remote.tempesta.run_cmd(cmd, timeout=30)
         self._nf_mark = None
-
-    def tearDown(self):
-        pass
