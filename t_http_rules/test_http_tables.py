@@ -4,10 +4,10 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (in separate tests).
 """
 from framework import tester
-from helpers import chains, remote
+from helpers import chains, remote, dmesg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -583,6 +583,7 @@ http_chain {
         pass
 
     def test(self):
+        self.oops_ignore = ["ERROR"]
         try:
             self.start_tempesta()
             started = True
@@ -590,6 +591,10 @@ http_chain {
             started = False
         finally:
             self.assertFalse(started)
+            self.oops.find(
+                "ERROR: http_tbl: too many vars (more 8) in redirection url:",
+                cond=dmesg.amount_positive,
+            )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
