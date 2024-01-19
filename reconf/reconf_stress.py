@@ -19,7 +19,7 @@ class LiveReconfStress(stress.StressTest):
     auto_vhosts = True
 
     def setUp(self):
-        self.addCleanup(self.cleanup_parent_teardown)
+        super().setUp()
         self.addCleanup(self.cleanup_reconfig_thread)
 
     def cleanup_reconfig_thread(self):

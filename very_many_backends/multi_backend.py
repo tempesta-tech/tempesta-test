@@ -267,8 +267,6 @@ class MultipleBackends(stress.StressTest):
         self.create_servers()
         self.configure_tempesta()
         # Cleanup part
-        self.addCleanup(self.cleanup_interfaces)
-        self.addCleanup(self.cleanup_servers)
         self.addCleanup(self.cleanup_tempesta)
 
     def cleanup_interfaces(self):

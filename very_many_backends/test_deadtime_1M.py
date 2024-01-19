@@ -146,10 +146,7 @@ class DontModifyBackend(stress.StressTest):
         super().setUp()
         # Cleanup part
         self.addCleanup(self.cleanup_interfaces)
-        self.addCleanup(self.cleanup_servers)
-        self.addCleanup(self.cleanup_tempesta)
         self.addCleanup(self.cleanup_check_client_error)
-        self.addCleanup(self.cleanup_client)
 
     def cleanup_client(self):
         if self.client is not None:
