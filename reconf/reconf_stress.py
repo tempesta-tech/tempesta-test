@@ -28,9 +28,6 @@ class LiveReconfStress(stress.StressTest):
         if hasattr(self, "r_thread"):
             self.r_thread.join()
 
-    def cleanup_parent_teardown(self):
-        stress.StressTest.tearDown(self)
-
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
         rm_srv_n = tempesta.servers_in_group() / 3

@@ -13,7 +13,6 @@ class NetfilterMarkMixin:
             self.skipTest("This is an abstract class")
         self._nf_mark = None
         super().setUp()
-        self.addCleanup(super().tearDown)
         self.addCleanup(self.cleanup_del_nf_mark)
 
     def cleanup_del_nf_mark(self):

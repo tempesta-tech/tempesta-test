@@ -255,8 +255,8 @@ class HttpTablesTestMarkRules(HttpTablesTest):
     def setUp(self):
         self.marked = None
         HttpTablesTest.setUp(self)
+        super().setUp()
         # Cleanup part
-        self.addCleanup(super().tearDown)
         self.addCleanup(self.cleanup_marked)
 
     def cleanup_marked(self):

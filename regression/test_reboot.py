@@ -27,7 +27,6 @@ class RebootUnderLoadTest(stress.StressTest):
 
     def setUp(self):
         super().setUp()
-        self.addCleanup(super().tearDown)
         self.addCleanup(self.cleanup_r_thread)
 
     def cleanup_r_thread(self):

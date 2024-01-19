@@ -145,7 +145,6 @@ class LargePageNginxBackendMixin:
         self.create_large_page()
         # Cleanup part
         self.addCleanup(self.remove_large_page)
-        self.addCleanup(super().tearDown)
 
     def create_large_page(self):
         server = self.get_server("nginx-large-page")
@@ -184,7 +183,6 @@ class CustomMtuMixin:
             mtu=self.server_to_tempesta_mtu,
         )
         # Cleanup part
-        self.addCleanup(super().tearDown)
         self.addCleanup(self.cleanup_mtus)
 
     def cleanup_mtus(self):
@@ -575,7 +573,6 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
         super().setUp()
         # Cleanup part
         self.addCleanup(self.cleanup_test_file)
-        self.addCleanup(super().tearDown)
 
     def cleanup_test_file(self):
         if not remote.DEBUG_FILES:

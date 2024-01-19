@@ -117,7 +117,6 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         # Cleanup part
         self.addCleanup(self.cleanup_file)
         self.addCleanup(self.cleanup_verbose)
-        self.addCleanup(super().tearDown)
 
     def cleanup_verbose(self):
         tf_cfg.cfg.set_option("General", "verbose", self.verbose)
