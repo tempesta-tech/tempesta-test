@@ -3,23 +3,13 @@ On the fly reconfiguration stress test for http scheduler.
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import tester
 from framework.external_client import ExternalTester
-from helpers import tf_cfg
 from helpers.control import Tempesta
-
-# Number of open connections
-CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
-# Number of threads to use for wrk and h2load tests
-THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
-
-# Number of requests to make
-REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
-# Time to wait for single request completion
-DURATION = int(tf_cfg.cfg.get("General", "duration"))
+from reconf.reconf_stress_base import LiveReconfStressTestCase
+from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
 HTTP_RULES_START = 'uri == "/alternate" -> block;'
 HTTP_RULES_AFTER_RELOAD = 'uri == "/alternate" -> alternate;'
@@ -61,9 +51,12 @@ http_chain {
 """
 
 
-class TestSchedHttpReconfStress(tester.TempestaTest):
+class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
     """
     This class tests on-the-fly reconfig of Tempesta for the http scheduler.
+    This test covers the case of modify HTTPtables rules to change load
+    distribution across virtual hosts for to update load balancing rules
+    on the fly.
     """
 
     backends = [
@@ -119,7 +112,11 @@ class TestSchedHttpReconfStress(tester.TempestaTest):
         tempesta: Tempesta = self.get_tempesta()
 
         # start config Tempesta check (before reload)
-        self._check_start_config(tempesta)
+        self._check_start_config(
+            tempesta,
+            HTTP_RULES_START,
+            HTTP_RULES_AFTER_RELOAD,
+        )
 
         # launch H2Load
         client_h2: ExternalTester = self.get_client("h2load")
@@ -133,17 +130,16 @@ class TestSchedHttpReconfStress(tester.TempestaTest):
         response = self.make_curl_request("curl-alternate-h2")
         self.assertIn(STATUS_FORBIDDEN, response, msg=ERR_MSG)
 
-        # config change and reload Tempesta
-        tempesta.config.defconfig = tempesta.config.defconfig.replace(
+        # config Tempesta change,
+        # reload Tempesta, check logs,
+        # and check config Tempesta after reload
+        self.reload_config(
+            tempesta,
             HTTP_RULES_START,
             HTTP_RULES_AFTER_RELOAD,
         )
-        tempesta.reload()
 
-        # check logs Tempesta after reload
-        self._check_tfw_log()
-
-        # check config Tempesta after reload
+        # additional check config Tempesta after reload
         self._check_config_after_reload(tempesta)
 
         # sending curl requests after reconfig Tempesta
@@ -156,54 +152,6 @@ class TestSchedHttpReconfStress(tester.TempestaTest):
 
         self.assertEqual(client_h2.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client_h2.response_msg)
-
-    def make_curl_request(self, curl_client_id: str) -> str:
-        """
-        Make `curl` request.
-
-        Args:
-            curl_client_id (str): curl client id to make request for
-
-        Returns:
-            str: server response to the request as string
-        """
-        client: ExternalTester = self.get_client(curl_client_id)
-        client.start()
-        self.wait_while_busy(client)
-        self.assertEqual(
-            0,
-            client.returncode,
-            msg=(f"Curl return code is not 0. Received - {client.returncode}."),
-        )
-        client.stop()
-        return client.response_msg
-
-    def _check_tfw_log(self) -> None:
-        """Checking the Tempesta log."""
-        self.oops.update()
-        self.assertFalse(len(self.oops.log_findall("ERROR")))
-        self.assertIn(
-            b"[tempesta fw] Live reconfiguration of Tempesta.",
-            self.oops.log,
-        )
-
-    def _check_start_config(self, tempesta: Tempesta) -> None:
-        """
-        Checking the Tempesta start configuration.
-
-        Args:
-            tempesta: object of working Tempesta
-
-        """
-        self.assertIn(
-            HTTP_RULES_START,
-            tempesta.config.get_config(),
-        )
-
-        self.assertNotIn(
-            HTTP_RULES_AFTER_RELOAD,
-            tempesta.config.get_config(),
-        )
 
     def _check_config_after_reload(self, tempesta: Tempesta) -> None:
         """

@@ -150,6 +150,11 @@ class ServerStats(object):
         matches = re.findall(s.encode("ascii"), self.stats)
         return {int(status): int(total) for status, total in matches}
 
+    @property
+    def is_enable_health_monitor(self) -> bool:
+        name = "HTTP health monitor is enabled"
+        return bool(Stats.parse_option(self.stats, name))
+
 
 # -------------------------------------------------------------------------------
 # Config Helpers

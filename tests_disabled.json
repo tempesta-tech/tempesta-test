@@ -82,10 +82,6 @@
             "reason" : "#988"
         },
         {
-            "name" : "reconf.test_stress_sched_ratio",
-            "reason" : "#988"
-        },
-        {
             "name" : "reconf.test_stress_health_monitor",
             "reason" : "#988"
         },
@@ -115,7 +111,7 @@
         },
         {
             "name" : "health_monitoring.test_health_monitor.TestHealthMonitor",
-            "reason" : "Disabled by issue #1864"
+            "reason" : "Disabled by issue #1684"
         },
         {
             "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
