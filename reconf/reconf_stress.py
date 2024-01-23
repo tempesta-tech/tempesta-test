@@ -9,15 +9,24 @@ from helpers import control, tempesta, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class LiveReconfStress(stress.StressTest):
-
     defconfig = ""
     sg_name = "default"
     auto_vhosts = True
+
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(self.cleanup_reconfig_thread)
+
+    def cleanup_reconfig_thread(self):
+        # Wait for reconfig thread if it's not finished (exception was thrown
+        # during stress_reconfig_generic()
+        if hasattr(self, "r_thread"):
+            self.r_thread.join()
 
     def create_servers(self):
         port = tempesta.upstream_port_start_from()
@@ -77,7 +86,7 @@ class LiveReconfStress(stress.StressTest):
             self.assertLess(err, max_err)
 
     def stress_reconfig_generic(self, configure_func, reconfigure_func):
-        """Generic test routinr for reconfig."""
+        """Generic test routine for reconfig."""
         self.reconfigure_func = reconfigure_func
         control.servers_start(self.servers)
         configure_func()
@@ -92,13 +101,6 @@ class LiveReconfStress(stress.StressTest):
 
         self.r_thread.join()
         self.assert_clients()
-
-    def tearDown(self):
-        # Wait for reconfig thread if it's not finished (exception was thrown
-        # during stress_reconfig_generic()
-        if hasattr(self, "r_thread"):
-            self.r_thread.join()
-        stress.StressTest.tearDown(self)
 
     def configure_srvs_start(self):
         srvs = self.const_srvs + self.rm_srvs

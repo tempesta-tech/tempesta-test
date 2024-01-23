@@ -8,8 +8,10 @@ from helpers import deproxy, error
 class TestDeproxyMessage(unittest.TestCase):
     def setUp(self):
         deproxy.HeaderCollection._disable_report_wrong_is_expected = True
+        # Cleanup part
+        self.addCleanup(self.cleanup_deproxy)
 
-    def tearDown(self):
+    def cleanup_deproxy(self):
         deproxy.HeaderCollection._disable_report_wrong_is_expected = False
 
     def test_incomplite(self):
@@ -78,7 +80,7 @@ class TestDeproxyMessage(unittest.TestCase):
             (message_6, "body: too short"),
         ]
         for message, reason in incomplite:
-            msg = "Message parsed, but it has incomplite %s. Message:\n%s" % (reason, message)
+            msg = "Message parsed, but it has incomplete %s. Message:\n%s" % (reason, message)
             parsed = True
             try:
                 deproxy.Response(message)

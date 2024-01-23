@@ -4,10 +4,10 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (in separate tests).
 """
 from framework import tester
-from helpers import chains, remote
+from helpers import chains, remote, dmesg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -255,11 +255,13 @@ class HttpTablesTestMarkRules(HttpTablesTest):
     def setUp(self):
         self.marked = None
         HttpTablesTest.setUp(self)
+        super().setUp()
+        # Cleanup part
+        self.addCleanup(self.cleanup_marked)
 
-    def tearDown(self):
+    def cleanup_marked(self):
         if self.marked:
             self.del_nf_mark(self.marked)
-        tester.TempestaTest.tearDown(self)
 
     def test_chains(self):
         """Test for mark rules in HTTP chains: requests must
@@ -574,10 +576,8 @@ http_chain {
         )
     }
 
-    def tearDown(self):
-        pass
-
     def test(self):
+        self.oops_ignore = ["ERROR"]
         try:
             self.start_tempesta()
             started = True
@@ -585,6 +585,10 @@ http_chain {
             started = False
         finally:
             self.assertFalse(started)
+            self.oops.find(
+                "ERROR: http_tbl: too many vars (more 8) in redirection url:",
+                cond=dmesg.amount_positive,
+            )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

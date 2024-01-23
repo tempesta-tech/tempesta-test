@@ -8,12 +8,11 @@ from helpers import control, flacky, tempesta, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class CloseOnShutdown(stress.StressTest):
-
     timeout = 180
 
     config = "cache 0;\n" "\n"
@@ -75,18 +74,21 @@ class CloseOnShutdown(stress.StressTest):
         self.check_after_stop()
 
     def setUp(self):
-        stress.StressTest.setUp(self)
+        super().setUp()
         self.filter = None
+        # Cleanup part
+        self.addCleanup(self.cleanup_stop_tempesta)
+        self.addCleanup(self.cleanup_filter)
 
-    def tearDown(self):
+    def cleanup_filter(self):
         if self.filter:
             self.filter.clean_up()
+
+    def cleanup_stop_tempesta(self):
         if hasattr(self, "dummy_servers"):
             # No need to stop servers.
             if self.tempesta:
                 self.tempesta.stop()
-        else:
-            stress.StressTest.tearDown(self)
 
     def init_filter(self):
         node = self.servers[0].node

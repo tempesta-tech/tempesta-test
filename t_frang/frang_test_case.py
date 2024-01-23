@@ -1,7 +1,7 @@
 """Basic file for frang functional tests."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -68,10 +68,12 @@ block_action attack reply;
         super().setUp()
         self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(self.cleanup_klog)
 
-    def tearDown(self):
-        super().tearDown()
-        del self.klog
+    def cleanup_klog(self):
+        if hasattr(self, "klog"):
+            del self.klog
 
     # TODO: rename to set_frang_cfg_and_start
     def set_frang_config(self, frang_config: str):

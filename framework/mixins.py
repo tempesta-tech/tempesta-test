@@ -13,6 +13,11 @@ class NetfilterMarkMixin:
             self.skipTest("This is an abstract class")
         self._nf_mark = None
         super().setUp()
+        self.addCleanup(self.cleanup_del_nf_mark)
+
+    def cleanup_del_nf_mark(self):
+        if self._nf_mark:
+            self.del_nf_mark(self._nf_mark)
 
     def set_nf_mark(self, mark):
         cmd = "iptables -t mangle -A PREROUTING -p tcp -j MARK --set-mark %s" % mark
@@ -25,8 +30,3 @@ class NetfilterMarkMixin:
         tf_cfg.dbg(3, f"Delete Netfiler mark: {mark}")
         remote.tempesta.run_cmd(cmd, timeout=30)
         self._nf_mark = None
-
-    def tearDown(self):
-        super().tearDown()
-        if self._nf_mark:
-            self.del_nf_mark(self._nf_mark)

@@ -20,7 +20,7 @@ from framework.templates import fill_template, populate_properties
 from helpers import control, dmesg, remote, sysnet, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.deproxy import dbg
@@ -247,7 +247,7 @@ class TempestaTest(unittest.TestCase):
 
     def __create_clients(self):
         if not remote.wait_available():
-            raise Exception("Client node is unavaliable")
+            raise Exception("Client node is unavailable")
         for client in self.clients:
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
@@ -333,33 +333,48 @@ class TempestaTest(unittest.TestCase):
 
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
-            raise Exception("Tempesta node is unavaliable")
+            raise Exception("Tempesta node is unavailable")
         self.oops = dmesg.DmesgFinder()
         self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
         self.__create_clients()
         self.__run_tcpdump()
+        # Cleanup part
+        self.addCleanup(self.cleanup_check_dmesg)
+        self.addCleanup(self.cleanup_stop_tcpdump)
+        self.addCleanup(self.cleanup_interfaces)
+        self.addCleanup(self.cleanup_deproxy)
+        self.addCleanup(self.cleanup_services)
 
-    def tearDown(self):
-        tf_cfg.dbg(3, "\tTeardown")
-
+    def cleanup_services(self):
+        tf_cfg.dbg(3, "\tCleanup: services")
         for service in self.get_all_services():
             service.stop()
 
+    def cleanup_deproxy(self):
+        tf_cfg.dbg(3, "\tCleanup: deproxy")
         try:
             deproxy_manager.finish_all_deproxy()
         except Exception as e:
             dbg(
                 self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
             )
+        self.deproxy_manager.check_exceptions()
 
-        tf_cfg.dbg(3, "Removing interfaces")
+    def cleanup_interfaces(self):
+        tf_cfg.dbg(3, "\tCleanup: Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
         sysnet.remove_routes(interface, self.__ips)
         sysnet.remove_interfaces(interface, self.__ips)
         self.__ips = []
 
+    def cleanup_stop_tcpdump(self):
+        tf_cfg.dbg(3, "\tCleanup: stopping tcpdump")
+        self.__stop_tcpdump()
+
+    def cleanup_check_dmesg(self):
+        tf_cfg.dbg(3, "\tCleanup: checking dmesg")
         self.oops.update()
 
         tf_cfg.dbg(
@@ -377,15 +392,10 @@ class TempestaTest(unittest.TestCase):
             if len(self.oops.log_findall(err)) > 0:
                 self.oops.show()
                 self.oops_ignore = []
-                raise Exception("%s happened during test on Tempesta" % err)
+                raise Exception(f"{err} happened during test on Tempesta")
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
-        del self.oops
-        self.__stop_tcpdump()
-
-        # TODO it should be change after #534 issue
-        self.deproxy_manager.check_exceptions()
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:

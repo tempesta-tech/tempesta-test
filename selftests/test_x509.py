@@ -5,7 +5,7 @@ from pathlib import Path
 from framework.x509 import CertGenerator
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -19,10 +19,8 @@ class TestX509CertGenerator(unittest.TestCase):
 
     def setUp(self):
         self.cgen = CertGenerator()
-        self.remove_certs()
-
-    def tearDown(self):
-        self.remove_certs()
+        self.remove_certs()  # initial certs cleanup before testing
+        self.addCleanup(self.remove_certs)
 
     def remove_certs(self):
         for path in self.cgen.get_file_paths():

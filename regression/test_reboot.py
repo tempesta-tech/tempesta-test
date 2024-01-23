@@ -11,7 +11,7 @@ from helpers import control, remote, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -24,6 +24,14 @@ class RebootUnderLoadTest(stress.StressTest):
     restart_timeout = 10
     # Timeout before first reboot.
     warm_timeout = 0
+
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(self.cleanup_r_thread)
+
+    def cleanup_r_thread(self):
+        if hasattr(self, "r_thread"):
+            self.r_thread.join()
 
     def create_clients(self):
         self.wrk = control.Wrk()
@@ -55,11 +63,6 @@ class RebootUnderLoadTest(stress.StressTest):
 
         control.client_run_blocking(self.wrk)
         self.show_performance()
-
-    def tearDown(self):
-        if hasattr(self, "r_thread"):
-            self.r_thread.join()
-        stress.StressTest.tearDown(self)
 
     def test_proxy(self):
         config = "cache 0;\n"

@@ -1,7 +1,7 @@
 """Tests for long body in request."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
@@ -114,12 +114,14 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         self.abs_path = os.path.join(location, "long_body.bin")
         remote.client.copy_file(self.abs_path, "x" * BODY_SIZE)
         super().setUp()
+        # Cleanup part
+        self.addCleanup(self.cleanup_file)
+        self.addCleanup(self.cleanup_verbose)
 
-    def tearDown(self):
-        super().tearDown()
-
+    def cleanup_verbose(self):
         tf_cfg.cfg.set_option("General", "verbose", self.verbose)
 
+    def cleanup_file(self):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
 
