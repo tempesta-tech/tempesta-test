@@ -475,11 +475,11 @@ http_chain {{
         server_2.start()
         self.assertTrue(
             server_1.wait_for_connections(),
-            "Tempesta removed connections to a server/srv_group after reload. "
+            "Tempesta removed connections to a old server/srv_group after reload. "
             + "But this server/srv_group was not removed.",
         )
         self.assertTrue(
-            server_1.wait_for_connections(),
+            server_2.wait_for_connections(),
             "Tempesta did not create connections to a new server/srv_group after reload.",
         )
 
@@ -491,7 +491,7 @@ http_chain {{
 
         self.assertIsNotNone(
             server_1.last_request,
-            "Tempesta did not forward a request to a server/srv_group after reload."
+            "Tempesta did not forward a request to a old server/srv_group after reload."
             + "But this server/srv_group was not removed.",
         )
         self.assertIsNotNone(
@@ -980,4 +980,590 @@ srv_group default {{
                 pattern="request dropped: processing error, status 502", cond=dmesg_cond
             ),
             DMESG_WARNING,
+        )
+
+
+class TestVhostReconf(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nVhost: grp1\r\n\r\n",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nVhost: grp2\r\n\r\n",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    def _set_tempesta_config_with_1_vhost(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+    listen 443 proto=h2;
+    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_match_any_server_name;        
+    
+    block_action attack reply;
+    srv_group grp1 {{
+        server {SERVER_IP}:8000;
+    }}
+
+    vhost grp1 {{
+        proxy_pass grp1;
+    }}
+
+    http_chain {{
+        -> grp1;
+    }}
+    """
+        )
+
+    def _set_tempesta_config_with_2_vhost(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+    listen 443 proto=h2;
+    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_match_any_server_name;
+    
+    block_action attack reply;
+
+    srv_group grp1 {{
+        server {SERVER_IP}:8000;
+    }}
+    srv_group grp2 {{
+        server {SERVER_IP}:8001;
+    }}
+
+    vhost grp1 {{
+        proxy_pass grp1;
+    }}
+    vhost grp2 {{
+        proxy_pass grp2;
+    }}
+
+    http_chain {{
+        host == "grp1" -> grp1;
+        host == "grp2" -> grp2;
+        -> block;
+    }}
+    """
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="add_vhost",
+                first_config=_set_tempesta_config_with_1_vhost,
+                second_config=_set_tempesta_config_with_2_vhost,
+                server_headers=("grp1", "grp2"),
+            ),
+            param(
+                name="remove_vhost",
+                first_config=_set_tempesta_config_with_2_vhost,
+                second_config=_set_tempesta_config_with_1_vhost,
+                server_headers=("grp1", "grp1"),
+            ),
+        ]
+    )
+    def test(self, name, first_config, second_config, server_headers):
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        self.get_server("deproxy-1").start()
+        self.get_server("deproxy-2").start()
+        self.deproxy_manager.start()
+
+        first_config(self)
+        tempesta.start()
+        second_config(self)
+        tempesta.reload()
+        self.wait_all_connections()
+
+        for authority, server_header in zip(["grp1", "grp2"], server_headers):
+            client.restart()
+            client.send_request(
+                client.create_request(method="GET", headers=[], authority=authority), "200"
+            )
+            self.assertEqual(client.last_response.headers.get("Vhost"), server_header)
+
+    def test_change_vhost_name(self):
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy-1")
+
+        tempesta.config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;        
+
+block_action attack reply;
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+"""
+        )
+        server.start()
+        tempesta.start()
+        self.deproxy_manager.start()
+        server.wait_for_connections()
+        client.start()
+
+        tempesta.config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+block_action attack reply;
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+
+vhost grp2 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp2;
+}}
+"""
+        )
+
+        tempesta.reload()
+
+        client.send_request(
+            client.create_request(method="GET", headers=[], authority="grp2"), "200"
+        )
+        self.assertIsNotNone(server.last_request)
+
+
+class TestProxyPassReconf(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nVhost: grp1\r\nContent-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nVhost: grp2\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    def _set_tempesta_config_with_proxy_pass(self, proxy_pass: str) -> None:
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+block_action attack reply;
+
+server {SERVER_IP}:8000;
+
+srv_group grp1 {{
+    server {SERVER_IP}:8001;
+}}
+
+vhost grp1 {{
+    proxy_pass {proxy_pass};
+}}
+
+http_chain {{
+    host == "grp1" -> grp1;
+    -> block;
+}}
+"""
+        )
+
+    def _set_tempesta_config_with_backup_group(self, backup_group: str) -> None:
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 443 proto=h2;
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+block_action attack reply;
+
+server {SERVER_IP}:8000;
+
+srv_group grp1 {{
+    server {SERVER_IP}:8001;
+}}
+
+srv_group grp2 {{
+    server {SERVER_IP}:8001;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1 backup={backup_group};
+}}
+
+http_chain {{
+    host == "grp1" -> grp1;
+    -> block;
+}}
+"""
+        )
+
+    def test_reconf_group(self):
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy-1")
+
+        self._set_tempesta_config_with_proxy_pass(proxy_pass="grp1")
+        self.start_all_services()
+        self._set_tempesta_config_with_proxy_pass(proxy_pass="default")
+        self.get_tempesta().reload()
+
+        client.send_request(
+            client.create_request(method="GET", headers=[], authority="grp1"), "200"
+        )
+        client.send_request(
+            client.create_request(method="GET", headers=[], authority="grp2"), "403"
+        )
+        self.assertEqual(len(server.requests), 1)
+
+    def test_reconf_backup_group(self):
+        client = self.get_client("deproxy")
+        default_server = self.get_server("deproxy-1")
+        server_grp1 = self.get_server("deproxy-2")
+
+        self._set_tempesta_config_with_backup_group(backup_group="grp2")
+        self.start_all_services()
+        self._set_tempesta_config_with_backup_group(backup_group="default")
+        self.get_tempesta().reload()
+
+        server_grp1.stop()
+
+        client.send_request(
+            client.create_request(method="GET", headers=[], authority="grp1"), "200"
+        )
+        self.assertIsNotNone(default_server.last_request)
+
+
+class TestLocationReconf(tester.TempestaTest):
+    """
+    The syntax from wiki:
+    location <OP> "<string>" {
+        <directive>;
+        ...
+        <directive>;
+    }
+    """
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        }
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    def _set_tempesta_config_with_1_location(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+    listen 443 proto=h2;
+    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_match_any_server_name;        
+
+    block_action attack reply;
+    
+    server {SERVER_IP}:8000;
+
+    location prefix "/static/" {{
+        resp_hdr_add x-my-hdr /static/;
+    }}
+    """
+        )
+
+    def _set_tempesta_config_with_2_location(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+    listen 443 proto=h2;
+    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_match_any_server_name;
+
+    block_action attack reply;
+
+    server {SERVER_IP}:8000;
+
+    location prefix "/static/" {{
+        resp_hdr_add x-my-hdr /static/;
+    }}
+    location prefix "/dynamic/" {{
+        resp_hdr_add x-my-hdr /dynamic/;
+    }}
+    """
+        )
+
+    def _set_tempesta_config_with_directive(self, directive: str):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+    listen 443 proto=h2;
+    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_match_any_server_name;        
+
+    block_action attack reply;
+
+    server {SERVER_IP}:8000;
+
+    location prefix "/static/" {{
+        {directive}
+    }}
+    """
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="add_location",
+                first_config=_set_tempesta_config_with_1_location,
+                second_config=_set_tempesta_config_with_2_location,
+                expected_headers=("/static/", "/dynamic/"),
+            ),
+            param(
+                name="remove_location",
+                first_config=_set_tempesta_config_with_2_location,
+                second_config=_set_tempesta_config_with_1_location,
+                expected_headers=("/static/", None),
+            ),
+        ]
+    )
+    def test(self, name, first_config, second_config, expected_headers):
+        first_config(self)
+        self.start_all_services()
+        second_config(self)
+        self.get_tempesta().reload()
+
+        client = self.get_client("deproxy")
+        for uri, expected_header in zip(["/static/", "/dynamic/"], expected_headers):
+            client.restart()
+            client.send_request(client.create_request(method="GET", headers=[], uri=uri), "200")
+            self.assertEqual(client.last_response.headers.get("x-my-hdr"), expected_header)
+
+
+class TestHttpTablesReconf(tester.TempestaTest):
+    """
+    The syntax from wiki:
+    http_chain NAME {
+        [ FIELD [FIELD_NAME] == (!=) ARG ] -> ACTION [ = VAL];
+        ...
+    }
+    """
+
+    backends = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "deproxy-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def _set_tempesta_config_with_http_rule(self, rule: str) -> None:
+        self.get_tempesta().config.set_defconfig(
+            f"""
+        block_action error reply;
+        block_action attack reply;
+
+        srv_group grp1 {{
+            server {SERVER_IP}:8000;
+        }}
+        srv_group grp2 {{
+            server {SERVER_IP}:8001;
+        }}
+
+        vhost grp1 {{
+            proxy_pass grp1;
+        }}
+        vhost grp2 {{
+            proxy_pass grp2;
+        }}
+
+        http_chain {{
+            {rule};
+            -> grp2;
+        }}
+        """
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="field_arg",
+                first_rule='cookie "__cookie" == "value_1" -> grp1',
+                second_rule='cookie "__cookie" == "value_2" -> grp1',
+                cookies=["__cookie=value_1", "__cookie=value_2", "__cookie=value_2"],
+            ),
+            param(
+                name="field_name",
+                first_rule='cookie "__old" == "value_1" -> grp1',
+                second_rule='cookie "__new" == "value_1" -> grp1',
+                cookies=["__old=value_1", "__new=value_1", "__new=value_1"],
+            ),
+            param(
+                name="condition",
+                first_rule='cookie "__old" == "value_1" -> grp1',
+                second_rule='cookie "__old" != "value_1" -> grp1',
+                cookies=["__old=value_1", "__old=value_2", "__old=value_2"],
+            ),
+        ]
+    )
+    def test_reconf(self, name, first_rule, second_rule, cookies):
+        self._set_tempesta_config_with_http_rule(rule=first_rule)
+        self.start_all_services()
+        self._set_tempesta_config_with_http_rule(rule=second_rule)
+        self.get_tempesta().reload()
+
+        client = self.get_client("deproxy")
+        server_1 = self.get_server("deproxy-1")
+        server_2 = self.get_server("deproxy-2")
+
+        for cookie in cookies:
+            client.send_request(
+                request=client.create_request(method="GET", headers=[("cookie", cookie)]),
+                expected_status_code="200",
+            )
+
+        self.assertEqual(len(server_1.requests), 2)
+        self.assertEqual(len(server_2.requests), 1)
+
+    def test_reconf_action(self):
+        self._set_tempesta_config_with_http_rule(rule='cookie "__old" == "value_1" -> grp1')
+        self.start_all_services()
+        self._set_tempesta_config_with_http_rule(rule='cookie "__old" == "value_1" -> block')
+        self.get_tempesta().reload()
+
+        client = self.get_client("deproxy")
+        server_1 = self.get_server("deproxy-1")
+        server_2 = self.get_server("deproxy-2")
+
+        for cookie in ["__old=value_2", "__old=value_1"]:
+            client.send_request(
+                request=client.create_request(method="GET", headers=[("cookie", cookie)]),
+            )
+
+        self.assertEqual(len(server_1.requests), 0)
+        self.assertEqual(len(server_2.requests), 1)
+
+    def test_reconf_val(self):
+        self._set_tempesta_config_with_http_rule(rule='uri == "*/services.html" -> 303=/services_1')
+        self.start_all_services()
+        self._set_tempesta_config_with_http_rule(rule='uri == "*/services.html" -> 303=/services_2')
+        self.get_tempesta().reload()
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=client.create_request(method="GET", headers=[], uri="/services.html"),
+            expected_status_code="303",
+        )
+
+        self.assertEqual(client.last_response.headers.get("location"), "/services_2")
+
+    @parameterize.expand(
+        [
+            param(
+                name="add_rule",
+                first_rule='uri == "*/services.html" -> 303 = /services',
+                second_rule='method == "HEAD" -> block;\nuri == "*/services.html" -> 303 = /services',
+                expected_status="403",
+            ),
+            param(
+                name="remove_rule",
+                first_rule='method == "HEAD" -> block;\nuri == "*/services.html" -> 303 = /services',
+                second_rule='uri == "*/services.html" -> 303 = /services',
+                expected_status="303",
+            ),
+        ]
+    )
+    def test(self, name, first_rule, second_rule, expected_status):
+        self._set_tempesta_config_with_http_rule(rule=first_rule)
+        self.start_all_services()
+        self._set_tempesta_config_with_http_rule(rule=second_rule)
+        self.get_tempesta().reload()
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=client.create_request(method="GET", headers=[], uri="/services.html"),
+            expected_status_code="303",
+        )
+        client.send_request(
+            request=client.create_request(method="HEAD", headers=[], uri="/services.html"),
+            expected_status_code=expected_status,
         )
