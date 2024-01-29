@@ -125,7 +125,7 @@ class ServerConnection(asyncore.dispatcher):
             self.handle_close()
 
 
-class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
+class BaseDeproxyServer(deproxy.Server):
     def __init__(self, *args, **kwargs):
         # This parameter controls whether to keep original data with the request
         # (See deproxy.HttpMessage.original_data)
@@ -146,6 +146,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         self.node = remote.host
         self.__drop_conn_when_receiving_data = False
         self.__sleep_when_receiving_data = 0
+        self.port_checker = port_checks.FreePortsChecker()
 
     def drop_conn_when_receiving_data(self, drop_conn: bool) -> None:
         self.__drop_conn_when_receiving_data = drop_conn
@@ -179,7 +180,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
     def run_start(self):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
-        self.check_ports_status()
+        self.port_checker.check_ports_status()
         self.polling_lock.acquire()
 
         try:

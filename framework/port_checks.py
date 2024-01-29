@@ -2,33 +2,49 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import re
+import ipaddress
 from typing import List
 
 from helpers import remote, tf_cfg
+from helpers.remote import Node
 
 
 class FreePortsChecker(object):
+    def __init__(self):
+        self.node = remote.server
+        self.__port_checks = []
+        super().__init__()
 
-    node = remote.server
-    port_checks = []
+    @property
+    def node(self) -> Node:
+        return self.__node
+
+    @node.setter
+    def node(self, node: Node) -> None:
+        self.__node = node
+
+    def add_port_to_checks(self, ip: str, port: int) -> None:
+        if port <= 0:
+            raise ValueError("Port MUST be greater than 0.")
+        ipaddress.ip_address(ip)
+
+        self.__port_checks.append((ip, port))
+
+    def clean_ports_to_checks(self) -> None:
+        self.__port_checks = []
 
     def check_ports_status(self):
-        cmd = "netstat --inet -apn"
+        cmd = "netstat -tlnp"
         netstat, _ = self.node.run_cmd(cmd)
 
         listen = []
 
-        for line in netstat.decode().splitlines():
+        for line in netstat.decode().splitlines()[2:]:
             portline = line.split()
-            if portline[0] != "tcp":
-                continue
-            if portline[5] != "LISTEN":
-                continue
             tf_cfg.dbg(5, "\tListen %s" % str(portline))
             listen.append(portline)
 
-        for addrport in self.port_checks:
+        for addrport in self.__port_checks:
             ip = addrport[0]
             port = addrport[1]
 

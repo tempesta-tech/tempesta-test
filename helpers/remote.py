@@ -42,8 +42,10 @@ class Node(object, metaclass=abc.ABCMeta):
         return self.host != "localhost"
 
     @abc.abstractmethod
-    def run_cmd(self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False, err_msg="", env={}):
-        pass
+    def run_cmd(
+        self, cmd, timeout=DEFAULT_TIMEOUT, ignore_stderr=False, err_msg="", env={}
+    ) -> (bytes, bytes):
+        ...
 
     @abc.abstractmethod
     def mkdir(self, path):
@@ -307,10 +309,10 @@ def get_max_thread_count(node):
 # Global accessible SSH/Local connections
 # -------------------------------------------------------------------------------
 
-client = None
-tempesta = None
-server = None
-host = None
+client: Node = None
+tempesta: Node = None
+server: Node = None
+host: Node = None
 
 
 def connect():
