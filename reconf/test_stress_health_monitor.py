@@ -1,71 +1,202 @@
 """
-Live reconfiguration stress test for custom server group
-with health monitor.
+On the fly reconfiguration stress test for health monitor.
 """
 
-from helpers import tempesta
-
-from . import reconf_stress
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from typing import List
 
-class HealthMonitorCustomSg(reconf_stress.LiveReconfStress):
+from framework.external_client import ExternalTester
+from helpers.control import Tempesta
+from helpers.tempesta import ServerStats
+from helpers.tf_cfg import cfg
+from reconf.reconf_stress_base import LiveReconfStressTestCase
+from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
-    sg_name = "custom"
-    hmonitor = "monitor1"
-    defconfig = (
-        "server_failover_http 404 500 30;\n"
-        "health_check monitor1 {\n"
-        '  request "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";\n'
-        '  request_url "/page.html";\n'
-        "  resp_code 200;\n"
-        "  timeout 15;\n"
-        "}\n"
-        "http_chain {\n"
-        "  -> custom;\n"
-        "}\n"
-        "\n"
-    )
+HEALTH_MONITOR_START = "health h_monitor1;"
+HEALTH_MONITOR_AFTER_RELOAD = "health h_monitor2;"
 
-    def add_sg(self, config, sg_name, servers):
-        sg = tempesta.ServerGroup(sg_name)
-        for s in servers:
-            sg.add_server(s.ip, s.config.port, s.conns_n)
-        sg.options = " health %s;" % self.hmonitor
-        config.add_sg(sg)
+TEMPESTA_CONFIG = """
+listen ${tempesta_ip}:443 proto=h2;
 
-    def test_hm_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_add)
+server_failover_http 404 50 5;
+server_failover_http 502 50 5;
+server_failover_http 403 50 5;
 
-    def test_hm_del_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del)
+health_check h_monitor1 {
+    request		"GET / HTTP/1.1\r\n\r\n";
+    request_url	"/";
+    resp_code	200;
+    timeout		1;
+}
 
-    def test_hm_del_add_srvs(self):
-        self.stress_reconfig_generic(self.configure_srvs_start, self.configure_srvs_del_add)
+health_check h_monitor2 {
+    request		"GET / HTTP/1.1\r\n\r\n";
+    request_url	"/monitor/";
+    resp_code	200;
+    resp_crc32	auto;
+    timeout		5;
+}
+
+srv_group main {
+    server ${server_ip}:8000;
+    server ${server_ip}:8001;
+
+    health h_monitor1;
+}
+
+vhost main{
+    proxy_pass main;
+}
+
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+http_chain {
+    -> main;
+}
+"""
+
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests ${server_keepalive_requests};
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:${port};
+
+        location / {
+            return 200;
+        }
+
+        location /monitor/ {
+            return 200;
+        }
+
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
 
 
-class HealthMonitorChangedAutoCustomSg(HealthMonitorCustomSg):
+class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
+    """This class stress tests on-the-fly reconfig of Tempesta for the health monitor."""
 
-    hmonitor_new = "auto"
+    backends = [
+        {
+            "id": f"nginx{step}",
+            "type": "nginx",
+            "port": f"800{step}",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+        for step in range(2)
+    ]
 
-    def set_hmonitor(self, hm):
-        for sg in self.tempesta.config.server_groups:
-            sg.options = " health %s;" % hm
+    clients = [
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443/"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {REQUESTS_COUNT}"
+                f" --duration {DURATION}"
+            ),
+        },
+    ]
 
-    def configure_srvs_add(self):
-        reconf_stress.LiveReconfStress.configure_srvs_add(self)
-        self.set_hmonitor(self.hmonitor_new)
+    tempesta = {"config": TEMPESTA_CONFIG}
 
-    def configure_srvs_del(self):
-        reconf_stress.LiveReconfStress.configure_srvs_del(self)
-        self.set_hmonitor(self.hmonitor_new)
+    def test_reconf_on_the_fly_for_health_monitor(self):
+        # launch all services except clients and getting Tempesta instance
+        self.start_all_services(client=False)
+        tempesta: Tempesta = self.get_tempesta()
 
-    def configure_srvs_del_add(self):
-        reconf_stress.LiveReconfStress.configure_srvs_del_add(self)
-        self.set_hmonitor(self.hmonitor_new)
+        # start config Tempesta check (before reload)
+        self._check_start_config(
+            tempesta,
+            HEALTH_MONITOR_START,
+            HEALTH_MONITOR_AFTER_RELOAD,
+        )
+
+        # launch H2Load client - HTTP/2 benchmarking tool
+        client: ExternalTester = self.get_client("h2load")
+        client.start()
+
+        stats_srvs: List[ServerStats] = [
+            ServerStats(tempesta, "main", cfg.get("Server", "ip"), port) for port in (8000, 8001)
+        ]
+
+        self.check_servers_stats(stats_srvs)
+
+        # config Tempesta change,
+        # reload Tempesta, check logs,
+        # and check config Tempesta after reload
+        self.reload_config(
+            tempesta,
+            HEALTH_MONITOR_START,
+            HEALTH_MONITOR_AFTER_RELOAD,
+        )
+
+        self.check_servers_stats(stats_srvs, timeout=5)
+
+        # H2Load stop
+        self.wait_while_busy(client)
+        client.stop()
+
+        self.assertEqual(client.returncode, 0)
+        self.assertNotIn(" 0 2xx, ", client.response_msg)
+
+    def check_servers_stats(
+        self,
+        stats_srvs: List[ServerStats],
+        timeout: int = 1,
+    ) -> None:
+        """
+        Checking the servers statistics.
+
+        Args:
+            stats_srvs: list of ServerStats objects
+        Kwargs:
+            timeout: integer object is the time in seconds until the next
+                monitoring request is sent to the server. Defaults to 1.
+
+        """
+        for srv in stats_srvs:
+            self.assertTrue(srv.server_health)
+            self.assertTrue(srv.is_enable_health_monitor)
+            self.assertEqual(srv.health_request_timeout, timeout)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

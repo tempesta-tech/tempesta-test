@@ -133,27 +133,38 @@ class ServerStats(object):
     def __init__(self, tempesta, sg_name, srv_ip, srv_port):
         self.tempesta = tempesta
         self.path = "%s/%s:%s" % (sg_name, srv_ip, srv_port)
+        self.stats = None
 
     def collect(self):
         self.stats, _ = self.tempesta.get_server_stats(self.path)
 
     @property
     def server_health(self):
+        self.collect()
         name = "HTTP availability"
         health = Stats.parse_option(self.stats, name)
-        assert health >= 0, 'Cannot find "%s" in server stats: %s\n' % (name, stats)
+        assert health >= 0, 'Cannot find "%s" in server stats: %s\n' % (name, self.stats)
         return health
 
     @property
     def health_statuses(self):
-        s = r"HTTP '(\d+)' code\s+: \d+ \((\d+) total\)"
-        matches = re.findall(s.encode("ascii"), self.stats)
+        self.collect()
+        pattern = r"HTTP '(\d+)' code\s+: \d+ \((\d+) total\)"
+        matches = re.findall(pattern.encode("ascii"), self.stats)
         return {int(status): int(total) for status, total in matches}
 
     @property
     def is_enable_health_monitor(self) -> bool:
-        name = "HTTP health monitor is enabled"
-        return bool(Stats.parse_option(self.stats, name))
+        self.collect()
+        record = "HTTP health monitor is enabled"
+        return bool(Stats.parse_option(self.stats, record))
+
+    @property
+    def health_request_timeout(self) -> int:
+        self.collect()
+        pattern = r"Time until next health check(?:ing)?\t:\s+\d+"
+        result = re.findall(pattern.encode("ascii"), self.stats)
+        return int(result[0].split()[-1])
 
 
 # -------------------------------------------------------------------------------

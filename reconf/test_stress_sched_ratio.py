@@ -94,7 +94,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
             "binary": "h2load",
             "ssl": True,
             "cmd_args": (
-                " https://${tempesta_ip}/443/"
+                " https://${tempesta_ip}:443/"
                 f" --clients {CONCURRENT_CONNECTIONS}"
                 f" --threads {THREADS}"
                 f" --max-concurrent-streams {REQUESTS_COUNT}"

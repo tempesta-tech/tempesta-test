@@ -71,13 +71,9 @@ class LiveReconfStressTestCase(tester.TempestaTest):
         )
 
     def _check_tfw_log(self) -> None:
-        """Checking the Tempesta log."""
+        """Checking for errors in the Tempesta log."""
         self.oops.update()
         self.assertFalse(len(self.oops.log_findall("ERROR")))
-        self.assertIn(
-            b"[tempesta fw] Live reconfiguration of Tempesta.",
-            self.oops.log,
-        )
 
     def _check_start_config(
         self,

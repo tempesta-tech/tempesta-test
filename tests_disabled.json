@@ -82,10 +82,6 @@
             "reason" : "#988"
         },
         {
-            "name" : "reconf.test_stress_health_monitor",
-            "reason" : "#988"
-        },
-        {
             "name" : "reconf.test_stress_sticky",
             "reason" : "#988"
         },
