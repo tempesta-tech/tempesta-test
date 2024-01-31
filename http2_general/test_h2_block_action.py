@@ -412,7 +412,10 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
             )
         )
 
-        client.send_bytes(frame.serialize() if isinstance(frame, Frame) else frame)
+        client.send_bytes(
+            frame.serialize() if isinstance(frame, Frame) else frame,
+            expect_response=expected_response,
+        )
 
         if expected_response:
             self.assertTrue(client.wait_for_connection_close())
