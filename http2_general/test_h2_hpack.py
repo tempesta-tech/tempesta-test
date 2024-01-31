@@ -12,9 +12,11 @@ from h2.errors import ErrorCodes
 from h2.exceptions import ProtocolError
 from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
+from hpack.hpack import encode_integer
 from hyperframe.frame import HeadersFrame
 
 import helpers
+from framework.deproxy_client import HuffmanEncoder
 from framework.parameterize import param, parameterize
 from http2_general.helpers import H2Base
 
@@ -838,6 +840,70 @@ class TestFramePayloadLength(H2Base):
 
         self.assertEqual(client.last_response.status, "400")
         self.assertTrue(client.wait_for_connection_close())
+
+
+SIZE_BYTES = encode_integer(10, 5)
+SIZE_BYTES[0] |= 0x20
+
+
+class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
+    @parameterize.expand(
+        [
+            param(
+                name="begin",
+                data=bytes(SIZE_BYTES) + HuffmanEncoder().encode(H2Base.post_request),
+                expected_status_code="200",
+            ),
+            param(
+                name="middle",
+                data=HuffmanEncoder().encode([(":authority", "example.com"), (":path", "/")])
+                + bytes(SIZE_BYTES)
+                + HuffmanEncoder().encode([(":scheme", "https"), (":method", "POST")]),
+                expected_status_code="400",
+            ),
+            param(
+                name="end",
+                data=HuffmanEncoder().encode(H2Base.post_request) + bytes(SIZE_BYTES),
+                expected_status_code="400",
+            ),
+        ]
+    )
+    def test(self, name, data, expected_status_code):
+        """
+        A change in the maximum size of the dynamic table is signaled
+        via a dynamic table size update (see Section 6.3). This dynamic
+        table size update MUST occur at the beginning of the first
+        header block following the change to the dynamic table size.
+        In HTTP/2, this follows a settings acknowledgment (see Section
+        6.5.3 of [HTTP2]).
+        In this test we send maximum size of the dynamic table in the
+        middle and at the end of the of the first header block.
+        """
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        self.initiate_h2_connection(client)
+
+        stream = client.h2_connection._get_or_create_stream(
+            1, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        frame = None
+        frame = HeadersFrame(
+            stream_id=1,
+            data=data,
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+
+        client.send_bytes(
+            client.h2_connection.data_to_send() + frame.serialize(), expect_response=True
+        )
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, expected_status_code)
+        if expected_status_code != "200":
+            self.assertIn(ErrorCodes.COMPRESSION_ERROR, client.error_codes)
+            self.assertTrue(client.wait_for_connection_close())
 
 
 class TestHpackBomb(TestHpackBase):
