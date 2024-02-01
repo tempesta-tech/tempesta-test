@@ -226,14 +226,6 @@
             "reason": "Disabled by PR #1917"
         },
         {
-            "name": "t_stress.test_stress.WrkStressMTU80",
-            "reason": "Disabled by issue #1867"
-        },
-        {
-            "name": "t_stress.test_stress.TlsWrkStressMTU80",
-            "reason": "Disabled by issue #1867"
-        },
-        {
             "name": "t_stress.test_stress.H2LoadStressMTU80",
             "reason": "Disabled by issue #1867"
         },
