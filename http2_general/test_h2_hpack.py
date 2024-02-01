@@ -825,7 +825,7 @@ class TestFramePayloadLength(H2Base):
         client.send_request(self.get_request, "400")
 
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        self.assertIn(ErrorCodes.COMPRESSION_ERROR, client.error_codes)
 
     def test_invalid_data(self):
         self.start_all_services()
