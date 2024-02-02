@@ -8,44 +8,45 @@ from access_log.test_access_log_h2 import backends
 from framework import templates, tester
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import tempesta, tf_cfg
+from helpers.tf_cfg import cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 REQ_COUNT = 100
+SERVER_IP = cfg.get("Server", "ip")
 
-TEMPESTA_CONFIG = """
+TEMPESTA_CONFIG = f"""
 
 server_failover_http 404 50 5;
 server_failover_http 502 50 5;
 server_failover_http 403 50 5;
 cache 0;
 
-health_check h_monitor1 {
+health_check h_monitor1 {{
     request "GET / HTTP/1.1\r\n\r\n";
     request_url	"/";
     resp_code	200;
     resp_crc32	auto;
     timeout		1;
-}
+}}
 
-
-srv_group srv_grp1 {
-        server ${server_ip}:8080;
-        server ${server_ip}:8081;
-        server ${server_ip}:8082;
+srv_group srv_grp1 {{
+        server {SERVER_IP}:8080;
+        server {SERVER_IP}:8081;
+        server {SERVER_IP}:8082;
 
         health h_monitor1;
-}
+}}
 
-vhost srv_grp1{
+vhost srv_grp1 {{
         proxy_pass srv_grp1;
-}
+}}
 
-http_chain {
+http_chain {{
 -> srv_grp1;
-}
+}}
 %s
 """
 
@@ -90,6 +91,10 @@ http {
 }
 """
 
+TEMPESTA_CONFIG_INVALID = """
+TEMPESTA_CONFIG_INVALID
+"""
+
 
 class TestHealthMonitor(tester.TempestaTest):
     """Test for health monitor functionality with stress option.
@@ -103,10 +108,6 @@ class TestHealthMonitor(tester.TempestaTest):
     and responses become 502 for the old and 200 for the new backends
     4. Now 403/404 backends are marked unhealthy and must be gone
     """
-
-    tempesta = {
-        "config": TEMPESTA_CONFIG % "",
-    }
 
     backends = [
         {
@@ -177,9 +178,17 @@ return 200;
             res.append(int((curl.proc_results[0].decode("utf-8"))[:-1]))
         return res
 
-    def test(self):
+    @parameterize.expand([param(name="reload", reload=True), param(name="no_reload", reload=False)])
+    def test(self, name, reload):
         """Test health monitor functionality with described stages"""
-        self.start_tempesta()
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(TEMPESTA_CONFIG % "")
+        tempesta.start()
+
+        if reload:
+            self.oops_ignore = ["ERROR"]
+            tempesta.config.set_defconfig(TEMPESTA_CONFIG_INVALID)
+            tempesta.reload()
 
         # 1
         back1 = self.get_server("nginx1")
