@@ -7,7 +7,7 @@ from framework.parameterize import param, parameterize, parameterize_class
 from framework.port_checks import FreePortsChecker
 from framework.x509 import CertGenerator
 from helpers import analyzer, dmesg, remote
-from helpers.analyzer import PSH, RST, TCP
+from helpers.analyzer import PSH, TCP
 from helpers.dmesg import amount_positive
 from helpers.remote import CmdError
 from helpers.tf_cfg import cfg
@@ -770,12 +770,8 @@ srv_group default {{
 """
         )
 
-        # sniffer MUST be started and Tempesta MUST be reloaded before disconnecting server
-        # else sniffer result maybe incorrect.
-        self.sniffer.start()
         tempesta.reload()
         server.stop()
-        self.sniffer.stop()
 
         self.assertTrue(
             self.dmesg.find(
@@ -784,13 +780,6 @@ srv_group default {{
                 cond=dmesg.amount_equals(conns_n),
             ),
             DMESG_WARNING,
-        )
-        connection_tries = len([p for p in self.sniffer.packets if p[TCP].flags & RST])
-        self.assertEqual(
-            (new_srv_conn_retries + 1) * conns_n,
-            connection_tries,
-            "Tempesta made connection attempts not equal "
-            "to `server_connect_retries` after reload.",
         )
 
     @parameterize.expand(

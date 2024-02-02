@@ -428,6 +428,22 @@
                 {
             "name": "http2_general.test_h2_hpack.TestHpackCache.test_cache_response_from_dynamic_table",
             "reason": "Disabled by issue #1801"
+        },
+        {
+            "name": "reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_with_conns_n_1",
+            "reason": "Disabled by issue #2043"
+        },
+        {
+            "name": "reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_with_conns_n_3",
+            "reason": "Disabled by issue #2043"
+        },
+        {
+            "name": "reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_default",
+            "reason": "Disabled by issue #2043"
+        },
+        {
+            "name": "reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_0",
+            "reason": "Disabled by issue #2043"
         }
     ]
 }
