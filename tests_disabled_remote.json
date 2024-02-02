@@ -10,6 +10,10 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
+            "name": "reconf.test_reconf_base.TestTempestaReconfiguring.test_reconf_bad_socks",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
             "name": "t_frang.test_ip_block",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },

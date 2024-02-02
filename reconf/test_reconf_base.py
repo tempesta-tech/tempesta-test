@@ -5,6 +5,7 @@ __license__ = "GPL2"
 import os
 
 from framework import tester
+from helpers.remote import CmdError
 
 
 class TestTempestaReconfiguring(tester.TempestaTest):
@@ -90,6 +91,7 @@ class TestTempestaReconfiguring(tester.TempestaTest):
 
         tempesta.config.set_defconfig(self.tempesta_alt_bad_socks["config"])
         self.oops_ignore = ["ERROR"]
-        tempesta.reload()
+        with self.assertRaises(CmdError):
+            tempesta.reload()
         tempesta.config.set_defconfig(self.tempesta_orig["config"])
         tempesta.run_start()
