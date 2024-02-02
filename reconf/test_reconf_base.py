@@ -2,14 +2,14 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import os
-import time
-
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
+from framework.port_checks import FreePortsChecker
 from framework.x509 import CertGenerator
 from helpers import analyzer, dmesg, remote
 from helpers.analyzer import PSH, RST, TCP
+from helpers.dmesg import amount_positive
+from helpers.remote import CmdError
 from helpers.tf_cfg import cfg
 
 SERVER_IP = cfg.get("Server", "ip")
@@ -17,7 +17,7 @@ GENERAL_WORKDIR = cfg.get("General", "workdir")
 DMESG_WARNING = "An unexpected number of warnings were received"
 
 
-class TestTempestaReconfiguring(tester.TempestaTest):
+class TestListenCommonReconf(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
@@ -31,40 +31,14 @@ class TestTempestaReconfiguring(tester.TempestaTest):
     tempesta_orig = {
         "config": """
         listen 443 proto=http;
-        listen 444 proto=http;
-        listen 445 proto=http;
         """
     }
 
-    tempesta_alt_gt_socks = {
+    tempesta_busy_socks = {
         "config": """
         listen 443 proto=http;
-        listen 444 proto=http;
-        listen 446 proto=http;
-        listen 447 proto=http;
-        """
-    }
-
-    tempesta_alt_le_socks = {
-        "config": """
-        listen 443 proto=http;
-        listen 446 proto=http;
-        """
-    }
-
-    tempesta_alt_bad_socks = {
-        "config": """
-        listen 500 proto=http;
-        listen 501 proto=http;
-        listen 502 proto=http;
-        listen 503 proto=http;
-        listen 504 proto=http;
         listen 8000 proto=http;
-        listen 505 proto=http;
-        listen 506 proto=http;
-        listen 507 proto=http;
-        listen 508 proto=http;
-        listen 509 proto=http;
+        listen 4433 proto=http;
         """
     }
 
@@ -73,8 +47,29 @@ class TestTempestaReconfiguring(tester.TempestaTest):
         tempesta.config.set_defconfig(self.tempesta_orig["config"])
         self.start_tempesta()
 
-        os.system("sysctl -e -w net.tempesta.state=stop")
+        remote.tempesta.run_cmd("sysctl -e -w net.tempesta.state=stop")
         tempesta.run_start()
+
+    def test_reconf_busy_socks(self):
+        """The user is trying to add listen to a busy port by another service."""
+        tempesta = self.get_tempesta()
+        port_checker = FreePortsChecker()
+
+        self.start_all_servers()
+
+        # Tempesta listen 443 port and Nginx listen 8000 port
+        tempesta.config.set_defconfig(self.tempesta_orig["config"])
+        self.start_tempesta()
+
+        # Tempesta listen 443, 8000, 4433 port and Nginx listen 8000 port
+        tempesta.config.set_defconfig(self.tempesta_busy_socks["config"])
+        self.oops_ignore = ["ERROR"]
+        with self.assertRaises(CmdError):
+            tempesta.reload()
+
+        port_checker.node = remote.tempesta
+        port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=443)
+        port_checker.check_ports_status()
 
 
 @parameterize_class(
@@ -118,7 +113,7 @@ class TestListenReconf(tester.TempestaTest):
         },
     ]
 
-    server_config = f"""
+    base_tempesta_config = f"""
 server {SERVER_IP}:8000;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
@@ -138,10 +133,10 @@ tls_match_any_server_name;
     def _start_all_services_and_reload_tempesta(self, first_config: str, second_config: str):
         tempesta = self.get_tempesta()
 
-        tempesta.config.set_defconfig(first_config + self.server_config)
+        tempesta.config.set_defconfig(first_config + self.base_tempesta_config)
         self.start_all_services(client=False)
 
-        tempesta.config.set_defconfig(second_config + self.server_config)
+        tempesta.config.set_defconfig(second_config + self.base_tempesta_config)
         tempesta.reload()
 
     @parameterize.expand([param("http"), param("https"), param("h2")])
@@ -227,6 +222,39 @@ tls_match_any_server_name;
         with self.subTest(msg=f"Tempesta continued listening to old IP after reload."):
             with self.assertRaises(AssertionError):
                 client.send_request(request, "200")
+
+    @parameterize.expand(
+        [
+            param(
+                name="add_listen",
+                first_config="listen 443 proto={0};\n",
+                second_config="listen 443 proto={0};\nlisten 444 proto={0};\n",
+                expected_response_on_444_port=True,
+            ),
+            param(
+                name="remove_listen",
+                first_config="listen 443 proto={0};\nlisten 444 proto={0};\n",
+                second_config="listen 443 proto={0};\n",
+                expected_response_on_444_port=False,
+            ),
+        ]
+    )
+    def test_reconf(self, name, first_config, second_config, expected_response_on_444_port):
+        self._start_all_services_and_reload_tempesta(
+            first_config.format(self.proto),
+            second_config.format(self.proto),
+        )
+
+        client = self.get_client(self.proto)
+        request = client.create_request(method="GET", headers=[])
+
+        client.start()
+        client.send_request(request, "200")
+
+        client.port = 444
+        client.restart()
+        client.make_request(request)
+        client.wait_for_response(strict=expected_response_on_444_port, timeout=1)
 
 
 class TestServerReconf(tester.TempestaTest):
@@ -1567,3 +1595,138 @@ class TestHttpTablesReconf(tester.TempestaTest):
             request=client.create_request(method="HEAD", headers=[], uri="/services.html"),
             expected_status_code=expected_status,
         )
+
+
+class TestNegativeReconf(tester.TempestaTest):
+    @parameterize.expand(
+        [
+            param(
+                name="server",
+                valid_config=f"server {SERVER_IP}:8000;\n",
+                invalid_config=f"server {SERVER_IP}:8000:443;\n",
+            ),
+            param(
+                name="srv_group",
+                valid_config=f"srv_group default {{\nserver {SERVER_IP}:8000;\n}}\n",
+                invalid_config=f"srv_group default grp2 {{\nserver {SERVER_IP}:8000;\n}}\n",
+            ),
+            param(
+                name="srv_group_options",
+                valid_config=f"""
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries 1000;
+}}
+""",
+                invalid_config=f"""
+srv_group default {{
+    server {SERVER_IP}:8000;
+    server_forward_retries 1000 100;
+}}
+""",
+            ),
+            param(
+                name="vhost",
+                valid_config=f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+            """,
+                invalid_config=f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+
+vhost prefix "/" {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+            """,
+            ),
+            param(
+                name="proxy_pass",
+                valid_config=f"""
+server {SERVER_IP}:8000;
+srv_group grp1 {{
+    server {SERVER_IP}:8001;
+}}
+vhost grp1 {{
+    proxy_pass grp1 backup=default;
+}}
+http_chain {{
+    -> grp1;
+}}
+""",
+                invalid_config=f"""
+server {SERVER_IP}:8000;
+srv_group grp1 {{
+    server {SERVER_IP}:8001;
+}}
+vhost grp1 {{
+    proxy_pass grp1 backup=;
+}}
+http_chain {{
+    -> grp1;
+}}
+""",
+            ),
+            param(
+                name="location",
+                valid_config=f'location prefix "/static/" {{\nresp_hdr_add x-my-hdr /;\n}}\n',
+                invalid_config=f"location {{\nresp_hdr_add x-my-hdr /;\n}}\n",
+            ),
+            param(
+                name="http_chain",
+                valid_config=f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+http_chain {{
+    cookie "__cookie" == "value_1" -> grp1;
+}}
+""",
+                invalid_config=f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+}}
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+http_chain {{
+    cookie "__cookie" == "value_1";
+}}
+""",
+            ),
+        ]
+    )
+    def test_negative_reconf(self, name, valid_config, invalid_config):
+        tempesta = self.get_tempesta()
+        self.oops_ignore = ["ERROR"]
+
+        tempesta.config.set_defconfig(valid_config)
+        tempesta.start()
+        tempesta.config.set_defconfig(invalid_config)
+        with self.assertRaises(CmdError):
+            tempesta.reload()
+
+        port_checker = FreePortsChecker()
+        with self.assertRaises(Exception):
+            port_checker.node = remote.tempesta
+            port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=80)
+            port_checker.check_ports_status()
+
+        self.assertTrue(self.oops.find("ERROR: configuration parsing error", amount_positive))
