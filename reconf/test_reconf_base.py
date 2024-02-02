@@ -1587,6 +1587,25 @@ class TestHttpTablesReconf(tester.TempestaTest):
 
 
 class TestNegativeReconf(tester.TempestaTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    backends = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
     @parameterize.expand(
         [
             param(
@@ -1672,31 +1691,52 @@ http_chain {{
             ),
             param(
                 name="location",
-                valid_config=f'location prefix "/static/" {{\nresp_hdr_add x-my-hdr /;\n}}\n',
-                invalid_config=f"location {{\nresp_hdr_add x-my-hdr /;\n}}\n",
+                valid_config=f"""
+server {SERVER_IP}:8000;
+location prefix "/static/" {{
+    resp_hdr_add x-my-hdr /;
+}}
+""",
+                invalid_config=f"""
+server {SERVER_IP}:8000;
+location {{
+    resp_hdr_add x-my-hdr /;
+}}
+""",
             ),
             param(
                 name="http_chain",
                 valid_config=f"""
-srv_group grp1 {{
+srv_group default {{
     server {SERVER_IP}:8000;
+}}
+srv_group grp1 {{
+    server {SERVER_IP}:8001;
+}}
+vhost default {{
+    proxy_pass default;
 }}
 vhost grp1 {{
     proxy_pass grp1;
 }}
 http_chain {{
     cookie "__cookie" == "value_1" -> grp1;
+    -> default;
 }}
 """,
                 invalid_config=f"""
-srv_group grp1 {{
+srv_group default {{
     server {SERVER_IP}:8000;
+}}
+srv_group grp1 {{
+    server {SERVER_IP}:8001;
 }}
 vhost grp1 {{
     proxy_pass grp1;
 }}
 http_chain {{
     cookie "__cookie" == "value_1";
+    -> default;
 }}
 """,
             ),
@@ -1719,3 +1759,7 @@ http_chain {{
             port_checker.check_ports_status()
 
         self.assertTrue(self.oops.find("ERROR: configuration parsing error", amount_positive))
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.send_request(client.create_request(method="GET", headers=[], uri="/"), "200")
