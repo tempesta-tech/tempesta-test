@@ -26,23 +26,23 @@ class ServerConnection(asyncore.dispatcher):
         keep_alive: int = 0,
     ):
         super().__init__(sock=sock)
-        self.server = server
-        self.keep_alive = keep_alive
-        self.last_segment_time: int = 0
-        self.responses_done: int = 0
-        self.request_buffer: str = ""
-        self.response_buffer: list[bytes] = []
+        self.__server = server
+        self.__keep_alive = keep_alive
+        self.__last_segment_time: int = 0
+        self.__responses_done: int = 0
+        self.__request_buffer: str = ""
+        self.__response_buffer: list[bytes] = []
         self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
         self.sleep_when_receiving_data = sleep_when_receiving_data
         dbg(self, 6, "New server connection", prefix="\t")
 
     def writable(self):
         if (
-            self.server.segment_gap != 0
-            and time.time() - self.last_segment_time < self.server.segment_gap / 1000.0
+            self.__server.segment_gap != 0
+            and time.time() - self.__last_segment_time < self.__server.segment_gap / 1000.0
         ):
             return False
-        return (not self.connected) or len(self.response_buffer) > self.responses_done
+        return (not self.connected) or len(self.__response_buffer) > self.__responses_done
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
@@ -51,28 +51,28 @@ class ServerConnection(asyncore.dispatcher):
     def handle_close(self):
         dbg(self, 6, "Close connection", prefix="\t")
         self.close()
-        if self.server:
+        if self.__server:
             try:
-                self.server.connections.remove(self)
+                self.__server.connections.remove(self)
             except ValueError:
                 pass
 
     def handle_read(self):
-        self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
+        self.__request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
 
         dbg(self, 4, "Receive data:", prefix="\t")
-        tf_cfg.dbg(5, self.request_buffer)
+        tf_cfg.dbg(5, self.__request_buffer)
 
-        if self.request_buffer and self.sleep_when_receiving_data:
+        if self.__request_buffer and self.sleep_when_receiving_data:
             time.sleep(self.sleep_when_receiving_data)
 
         if self.drop_conn_when_receiving_data:
             self.close()
 
-        while self.request_buffer:
+        while self.__request_buffer:
             try:
                 request = deproxy.Request(
-                    self.request_buffer, keep_original_data=self.server.keep_original_data
+                    self.__request_buffer, keep_original_data=self.__server.keep_original_data
                 )
             except deproxy.IncompleteMessage:
                 return None
@@ -80,45 +80,45 @@ class ServerConnection(asyncore.dispatcher):
                 dbg(
                     self,
                     4,
-                    ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.request_buffer),
+                    ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.__request_buffer),
                 )
                 return None
 
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
-            response, need_close = self.server.receive_request(request)
+            response, need_close = self.__server.receive_request(request)
             if response:
                 dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
-                self.response_buffer.append(response)
+                self.__response_buffer.append(response)
 
             if need_close:
                 self.close()
-            self.request_buffer = self.request_buffer[request.original_length :]
+            self.__request_buffer = self.__request_buffer[request.original_length :]
         # Handler will be called even if buffer is empty.
         else:
             return None
 
     def handle_write(self):
-        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
-            self.server.segment_size = run_config.TCP_SEGMENTATION
+        if run_config.TCP_SEGMENTATION and self.__server.segment_size == 0:
+            self.__server.segment_size = run_config.TCP_SEGMENTATION
 
         segment_size = (
-            self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
+            self.__server.segment_size if self.__server.segment_size else deproxy.MAX_MESSAGE_SIZE
         )
 
-        resp = self.response_buffer[self.responses_done]
+        resp = self.__response_buffer[self.__responses_done]
         sent = self.socket.send(resp[:segment_size])
 
         if sent < 0:
             return
-        self.response_buffer[self.responses_done] = resp[sent:]
+        self.__response_buffer[self.__responses_done] = resp[sent:]
 
-        self.last_segment_time = time.time()
-        if self.response_buffer[self.responses_done] == b"":
-            self.responses_done += 1
+        self.__last_segment_time = time.time()
+        if self.__response_buffer[self.__responses_done] == b"":
+            self.__responses_done += 1
 
-        if self.responses_done == self.keep_alive and self.keep_alive:
+        if self.__responses_done == self.__keep_alive and self.__keep_alive:
             self.handle_close()
 
 
