@@ -86,10 +86,6 @@
             "reason" : "#988"
         },
         {
-            "name" : "reconf.test_stress_sched_hash",
-            "reason" : "#988"
-        },
-        {
             "name" : "flacky_net",
             "reason" : "Disabled by issue #114"
         },

@@ -37,7 +37,7 @@ health_check h_monitor2 {
     request_url	"/monitor/";
     resp_code	200;
     resp_crc32	auto;
-    timeout		5;
+    timeout		3;
 }
 
 srv_group main {
@@ -169,7 +169,7 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
             HEALTH_MONITOR_AFTER_RELOAD,
         )
 
-        self.check_servers_stats(stats_srvs, timeout=5)
+        self.check_servers_stats(stats_srvs, timeout=3)
 
         # H2Load stop
         self.wait_while_busy(client)
