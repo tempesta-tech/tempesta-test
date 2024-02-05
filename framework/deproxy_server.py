@@ -1,10 +1,7 @@
-import abc
 import asyncore
 import socket
 import sys
-import threading
 import time
-from typing import List, Union
 
 import framework.port_checks as port_checks
 import run_config
@@ -15,29 +12,29 @@ dbg = deproxy.dbg
 from .templates import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class ServerConnection(asyncore.dispatcher):
     def __init__(
         self,
-        server: "BaseDeproxyServer",
+        server: "StaticDeproxyServer",
         drop_conn_when_receiving_data: bool,
         sleep_when_receiving_data: float,
-        sock=None,
-        keep_alive=None,
+        sock: socket.socket,
+        keep_alive: int = 0,
     ):
         super().__init__(sock=sock)
         self.server = server
         self.keep_alive = keep_alive
-        self.last_segment_time = 0
-        self.responses_done = 0
-        self.request_buffer = ""
-        self.response_buffer: List[bytes] = []
-        dbg(self, 6, "New server connection", prefix="\t")
+        self.last_segment_time: int = 0
+        self.responses_done: int = 0
+        self.request_buffer: str = ""
+        self.response_buffer: list[bytes] = []
         self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
         self.sleep_when_receiving_data = sleep_when_receiving_data
+        dbg(self, 6, "New server connection", prefix="\t")
 
     def writable(self):
         if (
@@ -125,24 +122,37 @@ class ServerConnection(asyncore.dispatcher):
             self.handle_close()
 
 
-class BaseDeproxyServer(deproxy.Server):
-    def __init__(self, *args, **kwargs):
-        # This parameter controls whether to keep original data with the request
-        # (See deproxy.HttpMessage.original_data)
-        self.keep_original_data = kwargs.pop("keep_original_data", None)
+class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
+    def __init__(
+        self,
+        port: int,
+        response: str | bytes | deproxy.Response = "",
+        ip: str = tf_cfg.cfg.get("Server", "ip"),
+        conns_n: int = tempesta.server_conns_default(),
+        keep_alive: int = 0,
+        segment_size: int = 0,
+        segment_gap: int = 0,
+        keep_original_data: bool = False,
+    ):
+        # Initialize the base `dispatcher`
+        asyncore.dispatcher.__init__(self)
+
+        self.port = port
+        self.ip = ip
+        self.response = response
+        self.conns_n = conns_n
+        self.keep_alive = keep_alive
+        self.keep_original_data = keep_original_data
 
         # Following 2 parameters control heavy chunked testing
         # You can set it programmaticaly or via client config
         # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
-        self.segment_size = kwargs.pop("segment_size", 0)
+        self.segment_size = segment_size
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
-        self.segment_gap = kwargs.pop("segment_gap", 0)
+        self.segment_gap = segment_gap
 
-        deproxy.Server.__init__(self, *args, **kwargs)
         self.stop_procedures = [self.__stop_server]
-        self.is_polling = threading.Event()
-        self.sockets_changing = threading.Event()
         self.node = remote.host
         self.__drop_conn_when_receiving_data = False
         self.__sleep_when_receiving_data = 0
@@ -157,6 +167,13 @@ class BaseDeproxyServer(deproxy.Server):
         self.__sleep_when_receiving_data = sleep
         for connection in self.connections:
             connection.sleep_when_receiving_data = sleep
+
+        self._reinit_variables()
+
+    def _reinit_variables(self):
+        self.connections: list[ServerConnection] = list()
+        self.last_request: deproxy.Request | None = None
+        self.requests: list[deproxy.Request] = list()
 
     def handle_accept(self):
         pair = self.accept()
@@ -178,8 +195,18 @@ class BaseDeproxyServer(deproxy.Server):
             # So we can have case with > expected amount of connections
             # It's not a error case, it's a problem of polling
 
+    def handle_error(self):
+        type_, v, _ = sys.exc_info()
+        self.handle_close()
+        raise v
+
+    def handle_close(self):
+        self.close()
+        self.state = stateful.STATE_STOPPED
+
     def run_start(self):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
+        self._reinit_variables()
         self.port_checker.check_ports_status()
         self.polling_lock.acquire()
 
@@ -203,8 +230,6 @@ class BaseDeproxyServer(deproxy.Server):
         connections = [conn for conn in self.connections]
         for conn in connections:
             conn.handle_close()
-        if self.tester:
-            self.tester.servers.remove(self)
 
         self.polling_lock.release()
 
@@ -219,34 +244,15 @@ class BaseDeproxyServer(deproxy.Server):
             lambda: len(self.connections) < self.conns_n, timeout, poll_freq=0.001
         )
 
-    @abc.abstractmethod
-    def receive_request(self, request):
-        raise NotImplementedError("Not implemented 'receive_request()'")
-
-
-class StaticDeproxyServer(BaseDeproxyServer):
-    __response: str or bytes
-
-    def __init__(self, *args, **kwargs):
-        self.set_response(kwargs["response"])
-        kwargs.pop("response", None)
-        BaseDeproxyServer.__init__(self, *args, **kwargs)
-        self.last_request = None
-        self.requests = []
-
-    def run_start(self):
-        self.requests = []
-        BaseDeproxyServer.run_start(self)
-
     @property
     def response(self) -> str:
         return self.__response.decode(errors="ignore")
 
     @response.setter
-    def response(self, response: str or bytes) -> None:
+    def response(self, response: str | bytes) -> None:
         self.set_response(response)
 
-    def set_response(self, response: Union[str, bytes, deproxy.Response]) -> None:
+    def set_response(self, response: str | bytes | deproxy.Response) -> None:
         if isinstance(response, str):
             self.__response = response.encode()
         elif isinstance(response, bytes):
