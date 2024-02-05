@@ -1,6 +1,9 @@
 import asyncore
+import copy
+import ipaddress
 import socket
 import sys
+import threading
 import time
 
 import framework.port_checks as port_checks
@@ -51,11 +54,6 @@ class ServerConnection(asyncore.dispatcher):
     def handle_close(self):
         dbg(self, 6, "Close connection", prefix="\t")
         self.close()
-        if self.__server:
-            try:
-                self.__server.connections.remove(self)
-            except ValueError:
-                pass
 
     def handle_read(self):
         self.__request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
@@ -152,11 +150,19 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         # You usualy do not need it; update timeouts if you use it.
         self.segment_gap = segment_gap
 
-        self.stop_procedures = [self.__stop_server]
-        self.node = remote.host
+        self.stop_procedures: list[callable] = [self.__stop_server]
+        self.node: remote.Node = remote.host
+        self.__polling_lock: threading.Lock | None = None
         self.__drop_conn_when_receiving_data = False
         self.__sleep_when_receiving_data = 0
         self.port_checker = port_checks.FreePortsChecker()
+
+        self._reinit_variables()
+
+    def _reinit_variables(self):
+        self.__connections: list[ServerConnection] = list()
+        self.__last_request: deproxy.Request | None = None
+        self.__requests: list[deproxy.Request] = list()
 
     def drop_conn_when_receiving_data(self, drop_conn: bool) -> None:
         self.__drop_conn_when_receiving_data = drop_conn
@@ -167,13 +173,6 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.__sleep_when_receiving_data = sleep
         for connection in self.connections:
             connection.sleep_when_receiving_data = sleep
-
-        self._reinit_variables()
-
-    def _reinit_variables(self):
-        self.connections: list[ServerConnection] = list()
-        self.last_request: deproxy.Request | None = None
-        self.requests: list[deproxy.Request] = list()
 
     def handle_accept(self):
         pair = self.accept()
@@ -188,7 +187,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
                 sock=sock,
                 keep_alive=self.keep_alive,
             )
-            self.connections.append(handler)
+            self.__connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
             # performed before removing old connection.
@@ -208,7 +207,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
         self._reinit_variables()
         self.port_checker.check_ports_status()
-        self.polling_lock.acquire()
+        self.__polling_lock.acquire()
 
         try:
             self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -217,39 +216,40 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             self.listen(socket.SOMAXCONN)
         except Exception as e:
             tf_cfg.dbg(2, "Error while creating socket: %s" % str(e))
-            self.polling_lock.release()
+            self.__polling_lock.release()
             raise e
 
-        self.polling_lock.release()
+        self.__polling_lock.release()
 
     def __stop_server(self):
         dbg(self, 3, "Stop", prefix="\t")
-        self.polling_lock.acquire()
+        self.__polling_lock.acquire()
 
         self.close()
-        connections = [conn for conn in self.connections]
+        connections = [conn for conn in self.__connections]
         for conn in connections:
             conn.handle_close()
+            self.__connections.remove(conn)
 
-        self.polling_lock.release()
+        self.__polling_lock.release()
 
     def set_events(self, polling_lock):
-        self.polling_lock = polling_lock
+        self.__polling_lock = polling_lock
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
             return False
 
         return util.wait_until(
-            lambda: len(self.connections) < self.conns_n, timeout, poll_freq=0.001
+            lambda: len(self.__connections) < self.conns_n, timeout, poll_freq=0.001
         )
 
     @property
-    def response(self) -> str:
-        return self.__response.decode(errors="ignore")
+    def response(self) -> bytes:
+        return self.__response
 
     @response.setter
-    def response(self, response: str | bytes) -> None:
+    def response(self, response: str | bytes | deproxy.Response) -> None:
         self.set_response(response)
 
     def set_response(self, response: str | bytes | deproxy.Response) -> None:
@@ -260,9 +260,80 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         elif isinstance(response, deproxy.Response):
             self.__response = response.msg.encode()
 
-    def receive_request(self, request):
-        self.requests.append(request)
-        self.last_request = request
+    @property
+    def port(self) -> int:
+        return self.__port
+
+    @port.setter
+    def port(self, port: int) -> None:
+        if port <= 0:
+            raise ValueError("The server port MUST be greater than 0.")
+        self.__port = port
+
+    @property
+    def ip(self) -> str:
+        return self.__ip
+
+    @ip.setter
+    def ip(self, ip: str) -> None:
+        ipaddress.ip_address(ip)
+        self.__ip = ip
+
+    @property
+    def conns_n(self) -> int:
+        return self.__conns_n
+
+    @conns_n.setter
+    def conns_n(self, conns_n: int) -> None:
+        if conns_n <= 0:
+            raise ValueError("`conns_n` MUST be greater than 0.")
+        self.__conns_n = conns_n
+
+    @property
+    def keep_alive(self) -> int:
+        return self.__keep_alive
+
+    @keep_alive.setter
+    def keep_alive(self, keep_alive: int) -> None:
+        if keep_alive < 0:
+            raise ValueError("`keep_alive` MUST be greater than or equal to 0.")
+        self.__keep_alive = keep_alive
+
+    @property
+    def segment_size(self) -> int:
+        return self.__segment_size
+
+    @segment_size.setter
+    def segment_size(self, segment_size: int) -> None:
+        if segment_size < 0:
+            raise ValueError("`segment_size` MUST be greater than or equal to 0.")
+        self.__segment_size = segment_size
+
+    @property
+    def segment_gap(self) -> int:
+        return self.__segment_gap
+
+    @segment_gap.setter
+    def segment_gap(self, segment_gap: int) -> None:
+        if segment_gap < 0:
+            raise ValueError("`segment_gap` MUST be greater than or equal to 0.")
+        self.__segment_gap = segment_gap
+
+    @property
+    def last_request(self) -> deproxy.Request:
+        return copy.deepcopy(self.__last_request)
+
+    @property
+    def requests(self) -> list[deproxy.Request]:
+        return list(self.__requests)
+
+    @property
+    def connections(self) -> list[ServerConnection]:
+        return list(self.__connections)
+
+    def receive_request(self, request: deproxy.Request) -> (bytes, bool):
+        self.__requests.append(request)
+        self.__last_request = request
         return self.__response, False
 
 
