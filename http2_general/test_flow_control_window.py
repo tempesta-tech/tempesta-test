@@ -44,6 +44,44 @@ class TestFlowControl(H2Base):
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
         )
 
+    def test_zero_initial_flow_control_window(self):
+        """
+        Client sets SETTINGS_INITIAL_WINDOW_SIZE = 1k bytes and backend returns response
+        with 2k bytes body.
+        Tempesta must forward DATA frame with 1k bytes and wait WindowUpdate from client.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 2000\r\n\r\n"
+            + ("x" * 2000)
+        )
+
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        stream_id = client.stream_id
+
+        client.make_request(self.post_request)
+        client.wait_for_response(3)
+        self.assertNotIn(
+            FlowControlError, client.error_codes, "Tempesta ignored flow control window for stream."
+        )
+        self.assertFalse(client.connection_is_closed())
+        client.h2_connection.increment_flow_control_window(increment=2000, stream_id=stream_id)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_response(3)
+
+        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
+        self.assertEqual(
+            len(client.last_response.body), 2000, "Tempesta did not return full response body."
+        )
+
     def test_request_body_greater_than_initial_window_size(self):
         self.start_all_services()
 

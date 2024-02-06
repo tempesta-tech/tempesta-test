@@ -11,6 +11,7 @@ from hyperframe.frame import PriorityFrame
 
 import run_config
 from helpers import util
+from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
 
@@ -30,20 +31,47 @@ def wair_for_headers():
 
 
 class TestPriorityBase(H2Base, NetWorker):
-    def setup_test_priority(self, extra_header=""):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            http_max_header_list_size 0;
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+            }
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    def setup_test_priority(self, extra_header="", initial_window_size=0):
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + extra_header
             + "Content-Length: 100000\r\n\r\n"
             + ("x" * 100000)
         )
 
-        client.update_initial_settings(initial_window_size=0)
+        client.update_initial_settings(initial_window_size=initial_window_size)
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
         return client, server
@@ -541,6 +569,11 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            http_max_header_list_size 0;
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+            }
 
             block_action attack reply;
             block_action error reply;
@@ -608,6 +641,11 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            http_max_header_list_size 0;
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+            }
 
             block_action attack reply;
             block_action error reply;
@@ -682,7 +720,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         this stream. But according to RFC we can't reset idle streams, so Tempesta FW just
         close the connetion with PROTOCOL_ERROR.
         """
-        client, server = self.setup_test_priority()
+        client, server = self.setup_test_priority(initial_window_size=100)
 
         self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams - 1):

@@ -11,6 +11,7 @@ from typing import (  # TODO: use | instead when we move to python3.10
 )
 
 import h2.connection
+from h2.connection import ConnectionState
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
@@ -603,9 +604,10 @@ class DeproxyClientH2(BaseDeproxyClient):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
-                    self.h2_connection.increment_flow_control_window(
-                        increment=event.flow_controlled_length, stream_id=None
-                    )
+                    if not (self.h2_connection.state_machine.state == ConnectionState.CLOSED):
+                        self.h2_connection.increment_flow_control_window(
+                            increment=event.flow_controlled_length, stream_id=None
+                        )
                     if (
                         self.h2_connection._get_stream_by_id(event.stream_id).state_machine.state
                         != h2.stream.StreamState.CLOSED
@@ -632,8 +634,9 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.last_stream_id = event.last_stream_id
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
-                    # TODO should be changed by issue #358
-                    self.handle_read()
+                    if event == events[-1]:
+                        # TODO should be changed by issue #358
+                        self.handle_read()
                 elif isinstance(event, WindowUpdated):
                     if event == events[-1]:
                         # TODO should be changed by issue #358

@@ -98,19 +98,6 @@ class H2Spec(tester.TempestaTest):
 
     def test_h2_specs(self):
         h2spec = self.get_client("h2spec")
-        # For different reasons there's still a bunch of `h2spec` tests that fail.
-        # To let the vast majority of the remaining passing test to work and help us catch
-        # unexpected regressions, we only disable some specific tests. We will enable those
-        # again after Tempesta gets required updates.
-        # FYI: there are tests that would fail just occasionally, not every time, so please
-        # before enabling a test from this list, ensure that it actually passes a decent
-        # amount of runs in a row.
-        h2spec.options.extend(
-            [
-                "-x generic/2/2",  # Our version TestHalfClosedStreamStateWindowUpdate
-            ]
-        )
-
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
