@@ -6,10 +6,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.external_client import ExternalTester
 from helpers.control import Tempesta
 from reconf.reconf_stress_base import LiveReconfStressTestCase
-from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
 SCHED_OPTS_START = "hash"
 SCHED_OPTS_AFTER_RELOAD = "ratio dynamic"
@@ -91,33 +89,17 @@ class TestSchedHashLiveReconf(LiveReconfStressTestCase):
         for step in range(backends_count)
     ]
 
-    clients = [
-        {
-            "id": "h2load",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": (
-                " https://${tempesta_ip}:443/"
-                f" --clients {CONCURRENT_CONNECTIONS}"
-                f" --threads {THREADS}"
-                f" --max-concurrent-streams {REQUESTS_COUNT}"
-                f" --duration {DURATION}"
-            ),
-        },
-    ]
-
     def test_reconf_on_the_fly_for_hash_sched(self):
         """Test of changing the scheduler attached to a server group."""
         # launch all services and getting Tempesta instance
         self.start_all_services()
-        tempesta: Tempesta = self.get_tempesta()
+        tempesta = self.get_tempesta()
 
         # check Tempesta config (before reload)
-        self._check_start_config(tempesta, SCHED_OPTS_START, SCHED_OPTS_AFTER_RELOAD)
+        self._check_start_tfw_config(SCHED_OPTS_START, SCHED_OPTS_AFTER_RELOAD)
 
         # launch H2Load
-        client: ExternalTester = self.get_client("h2load")
+        client = self.get_client("h2load")
         self.wait_while_busy(client)
         client.stop()
 
@@ -134,8 +116,7 @@ class TestSchedHashLiveReconf(LiveReconfStressTestCase):
         # config Tempesta change,
         # reload Tempesta, check logs,
         # and check config Tempesta after reload
-        self.reload_config(
-            tempesta,
+        self.reload_tfw_config(
             SCHED_OPTS_START,
             SCHED_OPTS_AFTER_RELOAD,
         )
@@ -161,7 +142,7 @@ class TestSchedHashLiveReconf(LiveReconfStressTestCase):
         Other servers may also receive some requests while primary connection is not live.
 
         Args:
-            tempesta: object of working Tempesta.
+            tempesta: Object of working Tempesta.
 
         Returns:
             Number of requests received by the server.

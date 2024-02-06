@@ -10,7 +10,6 @@ import http
 from typing import Dict, List, Optional
 
 from framework.curl_client import CurlResponse
-from helpers.control import Tempesta
 from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from reconf.reconf_stress_base import LiveReconfStressTestCase
@@ -141,11 +140,11 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestCase):
         """Test of sticky sessions to a server group."""
         # launch all services except clients
         self.start_all_services(client=False)
-        tempesta: Tempesta = self.get_tempesta()
+        tempesta = self.get_tempesta()
         client = self.get_client("h2load")
 
         # check Tempesta config (before reload)
-        self._check_start_config(tempesta, SRV_START, SRV_AFTER_RELOAD)
+        self._check_start_tfw_config(SRV_START, SRV_AFTER_RELOAD)
 
         # perform curl request
         response = self.make_curl_request("curl", headers={"Host": "app.com"})
@@ -166,8 +165,7 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestCase):
         # config Tempesta change,
         # reload Tempesta, check logs,
         # and check config Tempesta after reload
-        self.reload_config(
-            tempesta,
+        self.reload_tfw_config(
             SRV_START,
             SRV_AFTER_RELOAD,
         )

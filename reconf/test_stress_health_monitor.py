@@ -8,12 +8,9 @@ __license__ = "GPL2"
 
 from typing import List
 
-from framework.external_client import ExternalTester
-from helpers.control import Tempesta
 from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from reconf.reconf_stress_base import LiveReconfStressTestCase
-from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
 HEALTH_MONITOR_START = "health h_monitor1;"
 HEALTH_MONITOR_AFTER_RELOAD = "health h_monitor2;"
@@ -120,38 +117,21 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
         for step in range(2)
     ]
 
-    clients = [
-        {
-            "id": "h2load",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": (
-                " https://${tempesta_ip}:443/"
-                f" --clients {CONCURRENT_CONNECTIONS}"
-                f" --threads {THREADS}"
-                f" --max-concurrent-streams {REQUESTS_COUNT}"
-                f" --duration {DURATION}"
-            ),
-        },
-    ]
-
     tempesta = {"config": TEMPESTA_CONFIG}
 
     def test_reconf_on_the_fly_for_health_monitor(self):
         # launch all services except clients and getting Tempesta instance
         self.start_all_services(client=False)
-        tempesta: Tempesta = self.get_tempesta()
+        tempesta = self.get_tempesta()
 
         # start config Tempesta check (before reload)
-        self._check_start_config(
-            tempesta,
+        self._check_start_tfw_config(
             HEALTH_MONITOR_START,
             HEALTH_MONITOR_AFTER_RELOAD,
         )
 
         # launch H2Load client - HTTP/2 benchmarking tool
-        client: ExternalTester = self.get_client("h2load")
+        client = self.get_client("h2load")
         client.start()
 
         stats_srvs: List[ServerStats] = [
@@ -163,8 +143,7 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
         # config Tempesta change,
         # reload Tempesta, check logs,
         # and check config Tempesta after reload
-        self.reload_config(
-            tempesta,
+        self.reload_tfw_config(
             HEALTH_MONITOR_START,
             HEALTH_MONITOR_AFTER_RELOAD,
         )

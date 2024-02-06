@@ -6,10 +6,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.external_client import ExternalTester
-from helpers.control import Tempesta, servers_get_stats
+from helpers.control import servers_get_stats
 from reconf.reconf_stress_base import LiveReconfStressTestCase
-from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
 SRV_WEIGHT_START = ":8001;"
 SRV_WEIGHT_AFTER_RELOAD = ":8001 weight=90;"
@@ -87,22 +85,6 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
         for count in range(2)
     ]
 
-    clients = [
-        {
-            "id": "h2load",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": (
-                " https://${tempesta_ip}:443/"
-                f" --clients {CONCURRENT_CONNECTIONS}"
-                f" --threads {THREADS}"
-                f" --max-concurrent-streams {REQUESTS_COUNT}"
-                f" --duration {DURATION}"
-            ),
-        },
-    ]
-
     tempesta = {
         "config": TEMPESTA_CONFIG,
     }
@@ -117,20 +99,19 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
     def test_reconf_on_the_fly_for_static_ratio_sched(self) -> None:
         # launch all services except clients
         self.start_all_services(client=False)
-        # getting Tempesta and servers instances
-        tempesta: Tempesta = self.get_tempesta()
+        # getting servers instances
         servers = self.get_servers()
 
         # check Tempesta config (before reload)
-        self._check_start_config(tempesta, SRV_WEIGHT_START, SRV_WEIGHT_AFTER_RELOAD)
+        self._check_start_tfw_config(SRV_WEIGHT_START, SRV_WEIGHT_AFTER_RELOAD)
 
         # launch h2load client - HTTP/2 benchmarking tool
-        client: ExternalTester = self.get_client("h2load")
+        client = self.get_client("h2load")
         client.start()
         self.wait_while_busy(client)
 
         # get statistics on expected requests
-        s_reqs_expected: float = self.get_n_expected_reqs(tempesta, servers)
+        s_reqs_expected: float = self.get_n_expected_reqs(servers)
         delta: float = max(self.precision * s_reqs_expected, self.min_delta)
 
         for srv in servers:
@@ -149,8 +130,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
         # config Tempesta change,
         # reload Tempesta, check logs,
         # and check config Tempesta after reload
-        self.reload_config(
-            tempesta,
+        self.reload_tfw_config(
             SRV_WEIGHT_START,
             SRV_WEIGHT_AFTER_RELOAD,
         )
@@ -164,7 +144,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
         self.wait_while_busy(client)
 
         # get statistics on expected requests
-        s_reqs_expected: float = self.get_n_expected_reqs(tempesta, servers)
+        s_reqs_expected: float = self.get_n_expected_reqs(servers)
         delta: float = max(self.precision * s_reqs_expected, self.min_delta)
 
         for srv in servers:
@@ -184,7 +164,8 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
         client.stop()
         self.assertEqual(client.returncode, 0)
 
-    def get_n_expected_reqs(self, tempesta: Tempesta, servers) -> float:
+    def get_n_expected_reqs(self, servers) -> float:
+        tempesta = self.get_tempesta()
         tempesta.get_stats()
         servers_get_stats(servers)
         return tempesta.stats.cl_msg_forwarded / len(servers)

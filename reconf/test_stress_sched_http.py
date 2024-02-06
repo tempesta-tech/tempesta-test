@@ -6,8 +6,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.external_client import ExternalTester
-from helpers.control import Tempesta
 from reconf.reconf_stress_base import LiveReconfStressTestCase
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
@@ -107,19 +105,17 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
 
     def test_reconfig_on_the_fly_for_sched_http(self) -> None:
         """Test Tempesta for change config on the fly."""
-        # launch all services except clients and getting Tempesta instance
+        # launch all services except clients
         self.start_all_services(client=False)
-        tempesta: Tempesta = self.get_tempesta()
 
         # start config Tempesta check (before reload)
-        self._check_start_config(
-            tempesta,
+        self._check_start_tfw_config(
             HTTP_RULES_START,
             HTTP_RULES_AFTER_RELOAD,
         )
 
         # launch H2Load
-        client_h2: ExternalTester = self.get_client("h2load")
+        client_h2 = self.get_client("h2load")
         client_h2.start()
         self.wait_while_busy(client_h2)
 
@@ -133,14 +129,13 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
         # config Tempesta change,
         # reload Tempesta, check logs,
         # and check config Tempesta after reload
-        self.reload_config(
-            tempesta,
+        self.reload_tfw_config(
             HTTP_RULES_START,
             HTTP_RULES_AFTER_RELOAD,
         )
 
         # additional check config Tempesta after reload
-        self._check_config_after_reload(tempesta)
+        self._check_tfw_config_after_reload()
 
         # sending curl requests after reconfig Tempesta
         for client in self.clients[:2]:
@@ -153,14 +148,10 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
         self.assertEqual(client_h2.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client_h2.response_msg)
 
-    def _check_config_after_reload(self, tempesta: Tempesta) -> None:
-        """
-        Checking the Tempesta configuration after reload.
+    def _check_tfw_config_after_reload(self) -> None:
+        """Checking the Tempesta configuration after reload."""
+        tempesta = self.get_tempesta()
 
-        Args:
-            tempesta: object of working Tempesta
-
-        """
         for vhost in VHOSTS:
             self.assertIn(
                 f'uri == "/{vhost}" -> {vhost};',

@@ -7,14 +7,29 @@ __copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import tester
-from framework.external_client import ExternalTester
-from helpers.control import Tempesta
+from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
 
 class LiveReconfStressTestCase(tester.TempestaTest):
     """Class extending Basic tempesta test class with methods
     used for testing reconfiguration on the fly.
     """
+
+    clients = [
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443/"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {REQUESTS_COUNT}"
+                f" --duration {DURATION}"
+            ),
+        },
+    ]
 
     def make_curl_request(self, curl_client_id: str) -> str:
         """
@@ -26,7 +41,7 @@ class LiveReconfStressTestCase(tester.TempestaTest):
         Returns:
             str: server response to the request as string
         """
-        client: ExternalTester = self.get_client(curl_client_id)
+        client = self.get_client(curl_client_id)
         client.start()
         self.wait_while_busy(client)
         self.assertEqual(
@@ -37,9 +52,8 @@ class LiveReconfStressTestCase(tester.TempestaTest):
         client.stop()
         return client.response_msg
 
-    def reload_config(
+    def reload_tfw_config(
         self,
-        tempesta: Tempesta,
         start_conf_item: str,
         reloaded_conf_item: str,
     ) -> None:
@@ -52,6 +66,7 @@ class LiveReconfStressTestCase(tester.TempestaTest):
             reloaded_conf_item: string object
 
         """
+        tempesta = self.get_tempesta()
         # config Tempesta change
         tempesta.config.defconfig = tempesta.config.defconfig.replace(
             start_conf_item,
@@ -75,9 +90,8 @@ class LiveReconfStressTestCase(tester.TempestaTest):
         self.oops.update()
         self.assertFalse(len(self.oops.log_findall("ERROR")))
 
-    def _check_start_config(
+    def _check_start_tfw_config(
         self,
-        tempesta: Tempesta,
         start_conf_item: str,
         reloaded_conf_item: str,
     ) -> None:
@@ -85,11 +99,12 @@ class LiveReconfStressTestCase(tester.TempestaTest):
         Checking the Tempesta start configuration.
 
         Args:
-            tempesta: object of working Tempesta
-            start_conf_item: string object
-            reloaded_conf_item: string object
+            start_conf_item: String object.
+            reloaded_conf_item: String object.
 
         """
+        tempesta = self.get_tempesta()
+
         self.assertIn(
             start_conf_item,
             tempesta.config.get_config(),

@@ -6,8 +6,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.external_client import ExternalTester
-from helpers.control import Tempesta
 from helpers.tf_cfg import cfg
 from reconf.reconf_stress_base import LiveReconfStressTestCase
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
@@ -74,19 +72,17 @@ class TestLiveReconf(LiveReconfStressTestCase):
 
     def test_stress_reconfig_on_the_fly(self) -> None:
         """Test Tempesta for change config on the fly."""
-        # launch all services except clients and getting Tempesta instance
+        # launch all services except clients
         self.start_all_services(client=False)
-        tempesta: Tempesta = self.get_tempesta()
 
         # start config Tempesta check (before reload)
-        self._check_start_config(
-            tempesta,
+        self._check_start_tfw_config(
             SOCKET_START,
             SOCKET_AFTER_RELOAD,
         )
 
         # launch h2load - HTTP/2 benchmarking tool
-        client: ExternalTester = self.get_client("h2load")
+        client = self.get_client("h2load")
         client.start()
 
         # sending curl requests before reconfig Tempesta
@@ -99,8 +95,7 @@ class TestLiveReconf(LiveReconfStressTestCase):
         # config Tempesta change,
         # reload Tempesta, check logs,
         # and check config Tempesta after reload
-        self.reload_config(
-            tempesta,
+        self.reload_tfw_config(
             SOCKET_START,
             SOCKET_AFTER_RELOAD,
         )
@@ -127,8 +122,7 @@ class TestLiveReconf(LiveReconfStressTestCase):
         Check that socket is not working.
 
         Args:
-            tempesta: object of working Tempesta
-            socket: socket for checking
+            socket: Socket for checking.
         """
         self.assertRaises(
             Exception,

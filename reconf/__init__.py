@@ -1,6 +1,8 @@
 __all__ = [
+    "reconf_stress_base",
     "reconf_stress",
     "test_reconf_base",
+    "test_stress_sched_dynamic",
     "test_stress_sched_hash",
     "test_stress_sched_http",
     "test_stress_sched_ratio",
