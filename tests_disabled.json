@@ -254,10 +254,6 @@
             "reason": "Disabled by issue #1103"
         },
         {
-            "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
-            "reason": "Disabled by issue #1196"
-        },
-        {
             "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
             "reason": "Disabled by issue #1961"
         },
@@ -296,10 +292,6 @@
         {
             "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_0",
             "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_disabled",
-            "reason": "Disabled by PR #1973"
         },
         {
             "name": "t_custom_branges.test_http_brange.TestConfigParsing",

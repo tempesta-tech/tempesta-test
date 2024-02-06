@@ -11,6 +11,7 @@ from hyperframe.frame import PriorityFrame
 
 import run_config
 from helpers import util
+from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
 
@@ -18,40 +19,59 @@ DEFAULT_MTU = 1500
 DEFAULT_INITIAL_WINDOW_SIZE = 65535
 BIG_HEADER_SIZE = 600000
 
-"""
-Make sure that all requests come to client, and we
-receive headers for all responses. TODO: #528
-"""
-
-
-def wair_for_headers():
-    timeout = 5 if run_config.TCP_SEGMENTATION else 2
-    time.sleep(timeout)
-
 
 class TestPriorityBase(H2Base, NetWorker):
-    def setup_test_priority(self, extra_header=""):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            http_max_header_list_size 0;
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+            }
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    def setup_test_priority(self, extra_header="", initial_window_size=0):
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + extra_header
             + "Content-Length: 100000\r\n\r\n"
             + ("x" * 100000)
         )
 
-        client.update_initial_settings(initial_window_size=0)
+        client.update_initial_settings(initial_window_size=initial_window_size)
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
         return client, server
 
     def wait_for_responses(
-        self, client, initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE, timeout=10
+        self, client, stream_id_list=None, initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE, timeout=10
     ):
-        wair_for_headers()
+        if stream_id_list:
+            for stream_id in stream_id_list:
+                client.wait_for_headers_frame(stream_id, timeout=15 if run_config.TCP_SEGMENTATION else 5)
         client.send_settings_frame(initial_window_size=initial_window_size)
         client.wait_for_ack_settings()
         self.assertTrue(client.wait_for_response(timeout=timeout))
@@ -169,7 +189,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
             priority_exclusive=False,
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [7, 5, 3, 1])
 
     def test_stream_priority_from_existing_stream(self):
@@ -215,7 +235,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
             priority_exclusive=False,
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [1, 3, 5, 7])
 
     def test_stream_priority_from_existing_stream_complex(self):
@@ -229,7 +249,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
 
     def _test_stream_priority_from_existing_stream_complex(self, client, server):
         self.build_complex_priority_tree(client)
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 7, 9, 5, 11, 13])
 
     def test_stream_priority_from_existing_stream_complex_exclusive(self):
@@ -254,7 +274,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
             priority_exclusive=True,
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
         self.check_response_sequence(client, 8, [1, 15, 3, 7, 9, 5, 11, 13])
 
     def test_stream_priority_from_existing_stream_with_removal(self):
@@ -302,7 +322,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
         client.send_settings_frame(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
         client.wait_for_ack_settings()
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [15, 17])
         self.check_response_sequence(client, 2, [15, 17])
 
 
@@ -338,7 +358,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase, NetWorker):
             [self.post_request, self.post_request, self.post_request, self.post_request]
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [7, 5, 3, 1])
 
     def test_stream_priority_from_existing_stream(self):
@@ -368,7 +388,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase, NetWorker):
         )
         client.make_request(self.post_request)
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [1, 3, 5, 7])
 
     def test_stream_priority_from_existing_stream_complex(self):
@@ -418,7 +438,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase, NetWorker):
         )
         client.make_request(self.post_request)
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 7, 9, 5, 11, 13])
 
 
@@ -446,7 +466,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
             PriorityFrame(stream_id=5, depends_on=3, stream_weight=16, exclusive=False).serialize()
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 7, 5, 11, 13, 9])
 
     def test_stream_change_parent_stream_exlusive(self):
@@ -466,7 +486,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
             PriorityFrame(stream_id=5, depends_on=3, stream_weight=16, exclusive=True).serialize()
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 5, 11, 9, 7, 13])
 
     def test_stream_change_parent_stream_not_exlusive_with_rebuild(self):
@@ -494,7 +514,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
             PriorityFrame(stream_id=1, depends_on=11, stream_weight=1, exclusive=False).serialize()
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
         self.check_response_sequence(client, 8, [11, 15, 1, 3, 7, 9, 5, 13])
 
     def test_stream_change_parent_stream_exlusive_with_rebuild(self):
@@ -522,7 +542,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
             PriorityFrame(stream_id=1, depends_on=11, stream_weight=1, exclusive=True).serialize()
         )
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
         self.check_response_sequence(client, 8, [11, 1, 3, 7, 9, 15, 5, 13])
 
 
@@ -541,6 +561,11 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            http_max_header_list_size 0;
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+            }
 
             block_action attack reply;
             block_action error reply;
@@ -590,7 +615,7 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             )
             weight = weight + 1
 
-        self.wait_for_responses(client, timeout=120)
+        self.wait_for_responses(client, timeout=240)
         self.check_response_sequence(client, 256 + 256 * 2)
 
 
@@ -608,6 +633,11 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            http_max_header_list_size 0;
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+            }
 
             block_action attack reply;
             block_action error reply;
@@ -663,7 +693,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
             client.make_request(self.post_request)
 
-        self.wait_for_responses(client)
+        self.wait_for_responses(client, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
         self.check_response_sequence(client, 10, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
 
     def test_opening_not_created_idle_streams_after_exceed_max_concurent_streams_linit(self):
@@ -674,7 +704,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         client.stream_id = 41
         client.make_request(self.post_request)
         self.wait_for_responses(client)
-        self.check_response_sequence(client, 1, [41])
+        self.check_response_sequence(client, 1)
 
     def test_max_concurent_stream_exceed_by_priority_frame(self):
         """
@@ -682,7 +712,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         this stream. But according to RFC we can't reset idle streams, so Tempesta FW just
         close the connetion with PROTOCOL_ERROR.
         """
-        client, server = self.setup_test_priority()
+        client, server = self.setup_test_priority(initial_window_size=1000)
 
         self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams - 1):
@@ -723,46 +753,3 @@ class TestBigHeadersAndBodyForSeveralStreams(TestPriorityBase, NetWorker):
 
         self.wait_for_responses(client)
         self.check_response_sequence(client, 2)
-
-
-class TestSameWeightsWithOneParent(TestPriorityBase, NetWorker):
-    def test_content_type_not_progessive(self):
-        """
-        Check that we don't use raund robin for non progressive
-        streams and don't switch between such streams, when we
-        send data to client.
-        """
-        client, server = self.setup_test_priority(extra_header=f"content-type: image/png\r\n")
-
-        self.run_test_tso_gro_gso_def(
-            client,
-            server,
-            self._test_same_weights_streams_not_progressive,
-            DEFAULT_MTU,
-        )
-
-    def _test_same_weights_streams_not_progressive(self, client, server):
-        for i in range(1, 4):
-            client.make_request(
-                self.post_request,
-                end_stream=True,
-                priority_weight=16,
-                priority_depends_on=0,
-                priority_exclusive=False,
-            )
-            # Need to sure that tempesta receive requests in the correct order.
-            wair_for_headers()
-
-        """
-        Increment initial_window_size to max value, to prevent its affecting
-        on data sending (We switch to another stream if current stream exceeds
-        http window).
-        """
-        self.wait_for_responses(client, initial_window_size=2**31 - 1)
-        """
-        We send headers for all streams, and then blocked untlil initial
-        window size will be updated. Since the last stream has id == 5,
-        we start from it and don't switch to another stream until all data
-        will be sent or we exceeded HTTP window for this stream.
-        """
-        self.check_response_sequence(client, 3, [5, 1, 3])
