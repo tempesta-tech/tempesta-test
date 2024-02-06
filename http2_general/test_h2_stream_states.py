@@ -46,7 +46,7 @@ class TestClosedStreamState(H2Base):
         self.__base_scenario(RstStreamFrame(stream_id=1))
 
     def test_window_update_frame_in_closed_state(self):
-        self.__base_scenario(WindowUpdateFrame(stream_id=1))
+        self.__base_scenario(WindowUpdateFrame(stream_id=1, window_increment=1))
 
     def test_priority_frame_in_closed_state(self):
         """
@@ -131,10 +131,13 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
                 + DataFrame(stream_id=1, data=b"request body").serialize()
                 + frame.serialize()
             ),
-            expect_response=True,
+            expect_response=False,
         )
 
-        self.assertTrue(client.wait_for_reset_stream(stream_id=1))
+        # When Tempesta receive RST STREAM frame, it immediately
+        # close and delete stream
+        if not isinstance(frame, RstStreamFrame):
+            self.assertTrue(client.wait_for_reset_stream(stream_id=1))
 
         client.stream_id += 2
         client.send_request(self.get_request, "200")
@@ -146,7 +149,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         self.__base_scenario(frame=RstStreamFrame(stream_id=1))
 
     def test_window_update_frame_in_half_closed_state(self):
-        self.__base_scenario(frame=WindowUpdateFrame(stream_id=1))
+        self.__base_scenario(frame=WindowUpdateFrame(stream_id=1, window_increment=1))
 
 
 class TestHalfClosedStreamStateWindowUpdate(H2Base):
