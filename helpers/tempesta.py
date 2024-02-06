@@ -148,9 +148,8 @@ class ServerStats(object):
 
     @property
     def health_statuses(self):
-        self.collect()
         pattern = r"HTTP '(\d+)' code\s+: \d+ \((\d+) total\)"
-        matches = re.findall(pattern.encode("ascii"), self.stats)
+        matches = self._parse(pattern)
         return {int(status): int(total) for status, total in matches}
 
     @property
@@ -161,10 +160,19 @@ class ServerStats(object):
 
     @property
     def health_request_timeout(self) -> int:
-        self.collect()
         pattern = r"Time until next health check(?:ing)?\t:\s+\d+"
-        result = re.findall(pattern.encode("ascii"), self.stats)
+        result = self._parse(pattern)
         return int(result[0].split()[-1])
+
+    @property
+    def total_pinned_sessions(self) -> int:
+        pattern = r"Total pinned sessions\t\t:\s+\d+"
+        result = self._parse(pattern)
+        return int(result[0].split()[-1])
+
+    def _parse(self, pattern: str):
+        self.collect()
+        return re.findall(pattern.encode("ascii"), self.stats)
 
 
 # -------------------------------------------------------------------------------
