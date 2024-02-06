@@ -135,29 +135,17 @@ class BlockActionH2(BlockActionH2Base):
         DEAD sock.
         """
         if not run_config.TCP_SEGMENTATION:
-            if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-                """
-                If response body size is less then INITIAL_WINDOW_SIZE
-                we expect both TCP FIN and TCP RST. Kernel sends TCP RST
-                when Tempesta receive WINDOW UPDATE frame on the DEAD sock.
-                """
-                self.save_must_fin_socks([client])
-                self.save_must_reset_socks([client])
-            else:
-                """
-                If INITIAL_WINDOW_SIZE is less then response body
-                we expect only TCP RST from the kernel, because we
-                can't process WINDOW UPDATE frames on the DEAD sock.
-                """
-                self.save_must_not_fin_socks([client])
-                self.save_must_reset_socks([client])
+            """
+            If response body size is less then INITIAL_WINDOW_SIZE
+            we expect both TCP FIN and TCP RST. Kernel sends TCP RST
+            when Tempesta receive WINDOW UPDATE frame on the DEAD sock.
+            """
+            self.save_must_fin_socks([client])
+            self.save_must_reset_socks([client])
 
     def check_sniffer_for_attack_reply(self, sniffer):
         if not run_config.TCP_SEGMENTATION:
-            if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-                self.check_fin_and_rst_in_sniffer(sniffer)
-            else:
-                self.check_rst_no_fin_in_sniffer(sniffer)
+            self.check_fin_and_rst_in_sniffer(sniffer)
 
     def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
         """

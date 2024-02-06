@@ -30,7 +30,7 @@ def wair_for_headers():
 
 
 class TestPriorityBase(H2Base, NetWorker):
-    def setup_test_priority(self, extra_header=""):
+    def setup_test_priority(self, extra_header="", initial_window_size=0):
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
@@ -43,7 +43,7 @@ class TestPriorityBase(H2Base, NetWorker):
             + ("x" * 100000)
         )
 
-        client.update_initial_settings(initial_window_size=0)
+        client.update_initial_settings(initial_window_size=initial_window_size)
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
         return client, server
@@ -682,7 +682,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         this stream. But according to RFC we can't reset idle streams, so Tempesta FW just
         close the connetion with PROTOCOL_ERROR.
         """
-        client, server = self.setup_test_priority()
+        client, server = self.setup_test_priority(initial_window_size=100)
 
         self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
         for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams - 1):
