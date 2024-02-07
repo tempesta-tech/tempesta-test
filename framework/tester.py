@@ -208,16 +208,8 @@ class TempestaTest(unittest.TestCase):
             self.__clients[cid] = self.__create_client_external(client)
 
     def __create_backend(self, server):
-        srv = None
-        checks = []
         sid = server["id"]
         populate_properties(server)
-        if "check_ports" in server:
-            for check in server["check_ports"]:
-                ip = fill_template(check["ip"], server)
-                port = fill_template(check["port"], server)
-                checks.append((ip, port))
-
         stype = server["type"]
         try:
             factory = backend_defs[stype]
@@ -226,7 +218,13 @@ class TempestaTest(unittest.TestCase):
             tf_cfg.dbg(1, "Supported backends: %s" % backend_defs)
             raise e
         srv = factory(server, sid, self)
-        srv.port_checks = checks
+
+        if "check_ports" in server:
+            for check in server["check_ports"]:
+                ip = fill_template(check["ip"], server)
+                port = int(fill_template(check["port"], server))
+                srv.port_checker.add_port_to_checks(ip, port)
+
         self.__servers[sid] = srv
 
     def __create_servers(self):

@@ -11,7 +11,7 @@ __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
+class Nginx(stateful.Stateful):
     """The set of wrappers to manage Nginx, such as to start,
     stop, get statistics etc., from other Python classes."""
 
@@ -38,6 +38,7 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
         self.status_uri = fill_template(props["status_uri"], props)
         self.stop_procedures = [self.stop_nginx, self.remove_config]
         self.weight = int(props["weight"]) if "weight" in props else None
+        self.port_checker = port_checks.FreePortsChecker()
 
         self.clear_stats()
 
@@ -87,7 +88,7 @@ class Nginx(stateful.Stateful, port_checks.FreePortsChecker):
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting Nginx on %s" % self.get_name())
         self.clear_stats()
-        self.check_ports_status()
+        self.port_checker.check_ports_status()
         # Copy nginx config to working directory on 'server' host.
         self.node.copy_file(self.config.config_name, self.config.config)
         # Nginx forks on start, no background threads needed,

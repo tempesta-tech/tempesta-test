@@ -296,6 +296,10 @@ class DeproxyClient(BaseDeproxyClient):
             for request in requests:
                 self.__check_request(request)
 
+            requests = [
+                request if isinstance(request, str) else request.msg for request in requests
+            ]
+
             if pipelined:
                 self._add_to_request_buffers("".join(requests))
                 self.valid_req_num += len(requests)

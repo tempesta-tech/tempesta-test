@@ -20,7 +20,14 @@ __license__ = "GPL2"
 
 
 class ServerConnection(asyncore.dispatcher):
-    def __init__(self, server, sock=None, keep_alive=None):
+    def __init__(
+        self,
+        server: "BaseDeproxyServer",
+        drop_conn_when_receiving_data: bool,
+        sleep_when_receiving_data: float,
+        sock=None,
+        keep_alive=None,
+    ):
         super().__init__(sock=sock)
         self.server = server
         self.keep_alive = keep_alive
@@ -29,6 +36,8 @@ class ServerConnection(asyncore.dispatcher):
         self.request_buffer = ""
         self.response_buffer: List[bytes] = []
         dbg(self, 6, "New server connection", prefix="\t")
+        self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
+        self.sleep_when_receiving_data = sleep_when_receiving_data
 
     def writable(self):
         if (
@@ -56,6 +65,12 @@ class ServerConnection(asyncore.dispatcher):
 
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self.request_buffer)
+
+        if self.request_buffer and self.sleep_when_receiving_data:
+            time.sleep(self.sleep_when_receiving_data)
+
+        if self.drop_conn_when_receiving_data:
+            self.close()
 
         while self.request_buffer:
             try:
@@ -110,7 +125,7 @@ class ServerConnection(asyncore.dispatcher):
             self.handle_close()
 
 
-class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
+class BaseDeproxyServer(deproxy.Server):
     def __init__(self, *args, **kwargs):
         # This parameter controls whether to keep original data with the request
         # (See deproxy.HttpMessage.original_data)
@@ -129,6 +144,19 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
         self.is_polling = threading.Event()
         self.sockets_changing = threading.Event()
         self.node = remote.host
+        self.__drop_conn_when_receiving_data = False
+        self.__sleep_when_receiving_data = 0
+        self.port_checker = port_checks.FreePortsChecker()
+
+    def drop_conn_when_receiving_data(self, drop_conn: bool) -> None:
+        self.__drop_conn_when_receiving_data = drop_conn
+        for connection in self.connections:
+            connection.drop_conn_when_receiving_data = drop_conn
+
+    def sleep_when_receiving_data(self, sleep: float) -> None:
+        self.__sleep_when_receiving_data = sleep
+        for connection in self.connections:
+            connection.sleep_when_receiving_data = sleep
 
     def handle_accept(self):
         pair = self.accept()
@@ -136,7 +164,13 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
             sock, _ = pair
             if self.segment_size:
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-            handler = ServerConnection(server=self, sock=sock, keep_alive=self.keep_alive)
+            handler = ServerConnection(
+                server=self,
+                drop_conn_when_receiving_data=self.__drop_conn_when_receiving_data,
+                sleep_when_receiving_data=self.__sleep_when_receiving_data,
+                sock=sock,
+                keep_alive=self.keep_alive,
+            )
             self.connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
@@ -146,7 +180,7 @@ class BaseDeproxyServer(deproxy.Server, port_checks.FreePortsChecker):
 
     def run_start(self):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
-        self.check_ports_status()
+        self.port_checker.check_ports_status()
         self.polling_lock.acquire()
 
         try:

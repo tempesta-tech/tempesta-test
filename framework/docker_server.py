@@ -42,7 +42,7 @@ class DockerServerArguments:
         return list(cls.__dataclass_fields__.keys())
 
 
-class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePortsChecker):
+class DockerServer(DockerServerArguments, stateful.Stateful):
     """
     The set of wrappers to manage Docker container, such as to start,
     stop, get statistics etc., from other Python classes.
@@ -72,6 +72,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         self.node = remote.server
         self.container_id = None
         self.stop_procedures = [self.stop_server, self.cleanup]
+        self.port_checker = port_checks.FreePortsChecker()
 
     @property
     def image_name(self):
@@ -118,7 +119,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
 
     def run_start(self):
         tf_cfg.dbg(3, f"\tDocker Server: Start {self.id} (image {self.image})")
-        self.check_ports_status()
+        self.port_checker.check_ports_status()
         self._build_image()
         stdout, stderr = self.node.run_cmd(
             self._form_run_command(), err_msg=self._form_error(action="start")
@@ -139,7 +140,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful, port_checks.FreePor
         t0 = time.time()
         t = time.time()
         while t - t0 <= timeout and self.health_status != "unhealthy":
-            if self.health_status == "healthy" and self.check_ports_established(
+            if self.health_status == "healthy" and self.port_checker.check_ports_established(
                 ip=self.server_ip, ports=self.ports.keys()
             ):
                 return True
