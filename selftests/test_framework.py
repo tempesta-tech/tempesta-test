@@ -255,7 +255,7 @@ server ${server_ip}:8000;
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         cl.wait_for_response(timeout=5)
         # expected response
-        send = deproxy.Response(dsrv.response)
+        send = deproxy.Response(dsrv.response.decode())
         send.set_expected()
         self.assertEqual(cl.last_response, send)
 

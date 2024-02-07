@@ -17,7 +17,7 @@ class H2RequestContentLengthBase(H2Config, TestContentLengthBase, base=True):
     response_status = "204 No Content"
     response_headers = ""
     response_body = ""
-    keep_alive = None
+    keep_alive = 0
 
     # expected params for check
     srv_msg_parsing_errors = 0

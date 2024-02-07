@@ -49,7 +49,7 @@ class ResponseCorrectBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "200"
     expected_body_length = len(response_body)
     srv_msg_other_errors = 0
@@ -69,7 +69,7 @@ class ResponseCorrectEmptyBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "200"
     expected_body_length = len(response_body)
     srv_msg_other_errors = 0
@@ -127,7 +127,7 @@ class ResponseSmallBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "200"
     expected_body_length = len(response_body) - 1
     srv_msg_other_errors = 1
@@ -148,7 +148,7 @@ class ResponseForbiddenBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = len(response_body)
     srv_msg_other_errors = 0
@@ -170,7 +170,7 @@ class ResponseSecondBodyLength(ResponseContentLengthBase):
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
         + f"Content-length: {len(response_body)}\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = 0
     srv_msg_other_errors = 0
@@ -191,7 +191,7 @@ class ResponseDuplicateBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = 0
     srv_msg_other_errors = 0
@@ -212,7 +212,7 @@ class ResponseInvalidBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = 0
     srv_msg_other_errors = 0
@@ -233,7 +233,7 @@ class ResponseDecimalBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = 0
     srv_msg_other_errors = 0
@@ -254,7 +254,7 @@ class ResponseNegativeBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = 0
     srv_msg_other_errors = 0
@@ -275,7 +275,7 @@ class ResponseEmptyBodyLength(ResponseContentLengthBase):
         + "Content-type: text/html\r\n"
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
-    keep_alive = None
+    keep_alive = 0
     expected_response_status = "502"
     expected_body_length = 0
     srv_msg_other_errors = 0
