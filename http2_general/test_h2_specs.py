@@ -37,7 +37,8 @@ http {
         listen        ${server_ip}:8000;
 
         location / {
-            return 200;
+            default_type text/html;
+            return 200 'Test data';
         }
         location /nginx_status {
             stub_status on;
@@ -106,14 +107,10 @@ class H2Spec(tester.TempestaTest):
         # amount of runs in a row.
         h2spec.options.extend(
             [
-                "-x generic/2/2",  # Our version TestHalfClosedStreamStateWindowUpdate
-                "-x generic/2/3",  # disabled by issue 1196
                 "-x http2/5.1/5",  # disabled by issue 1828
                 "-x http2/5.1/6",  # disabled by issue 1828
                 "-x http2/5.1/11",  # disabled by issue 1828
                 "-x http2/5.1/12",  # disabled by issue 1828
-                "-x http2/5.3.1/1",  # disabled by issue 1196
-                "-x http2/5.3.1/2",  # disabled by issue 1196
                 "-x http2/5.5/2",  # disabled by issue 1824
                 "-x http2/6.1/2",  # disabled by issue 1828
                 "-x hpack/4.2/1",  # disabled by issue #1825
