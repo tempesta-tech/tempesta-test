@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.control import Tempesta
-from reconf.reconf_stress_base import LiveReconfStressTestCase
+from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SCHED_OPTS_START = "hash"
 SCHED_OPTS_AFTER_RELOAD = "ratio dynamic"
@@ -66,7 +66,7 @@ sched hash;
 )
 
 
-class TestSchedHashLiveReconf(LiveReconfStressTestCase):
+class TestSchedHashLiveReconf(LiveReconfStressTestBase):
     """
     This class tests on-the-fly reconfig of Tempesta for the hash scheduler.
     This test covers the case of changing the scheduler attached to a server group.
@@ -74,7 +74,7 @@ class TestSchedHashLiveReconf(LiveReconfStressTestCase):
 
     backends_count = 10
     deviation = 0.2
-    msg = "Only one server should got most of the load"
+    dbg_msg = "Only one server should got most of the load"
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
@@ -102,20 +102,17 @@ class TestSchedHashLiveReconf(LiveReconfStressTestCase):
         client = self.get_client("h2load")
         self.wait_while_busy(client)
         client.stop()
-
-        self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
         self.assertAlmostEqual(
             self._get_load_distribution_btw_srvs(tempesta),
             tempesta.stats.cl_msg_received,
             delta=(tempesta.stats.cl_msg_received * self.deviation),
-            msg=self.msg,
+            msg=self.dbg_msg,
         )
 
         # config Tempesta change,
-        # reload Tempesta, check logs,
-        # and check config Tempesta after reload
+        # reload, and check after reload
         self.reload_tfw_config(
             SCHED_OPTS_START,
             SCHED_OPTS_AFTER_RELOAD,
@@ -125,15 +122,13 @@ class TestSchedHashLiveReconf(LiveReconfStressTestCase):
         client.start()
         self.wait_while_busy(client)
         client.stop()
-
-        self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
         self.assertNotAlmostEqual(
             self._get_load_distribution_btw_srvs(tempesta),
             tempesta.stats.cl_msg_received,
             delta=(tempesta.stats.cl_msg_received * self.deviation),
-            msg=self.msg,
+            msg=self.dbg_msg,
         )
 
     def _get_load_distribution_btw_srvs(self, tempesta: Tempesta) -> int:

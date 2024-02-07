@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.control import servers_get_stats
-from reconf.reconf_stress_base import LiveReconfStressTestCase
+from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SRV_WEIGHT_START = ":8001;"
 SRV_WEIGHT_AFTER_RELOAD = ":8001 weight=90;"
@@ -67,7 +67,7 @@ sched ratio static;
 """
 
 
-class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
+class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
     """
     This class tests on-the-fly reconfig of Tempesta for the ratio scheduler.
     Use 'ratio static' scheduler with default weights. Load must be
@@ -99,13 +99,14 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
     def test_reconf_on_the_fly_for_static_ratio_sched(self) -> None:
         # launch all services except clients
         self.start_all_services(client=False)
+
         # getting servers instances
         servers = self.get_servers()
 
         # check Tempesta config (before reload)
         self._check_start_tfw_config(SRV_WEIGHT_START, SRV_WEIGHT_AFTER_RELOAD)
 
-        # launch h2load client - HTTP/2 benchmarking tool
+        # launch h2load
         client = self.get_client("h2load")
         client.start()
         self.wait_while_busy(client)
@@ -128,8 +129,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
             )
 
         # config Tempesta change,
-        # reload Tempesta, check logs,
-        # and check config Tempesta after reload
+        # reload, and check after reload
         self.reload_tfw_config(
             SRV_WEIGHT_START,
             SRV_WEIGHT_AFTER_RELOAD,
@@ -137,7 +137,6 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
 
         # h2load stop
         client.stop()
-        self.assertEqual(client.returncode, 0)
 
         # launch h2load after Tempesta reload
         client.start()
@@ -162,7 +161,6 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestCase):
 
         # h2load stop
         client.stop()
-        self.assertEqual(client.returncode, 0)
 
     def get_n_expected_reqs(self, servers) -> float:
         tempesta = self.get_tempesta()

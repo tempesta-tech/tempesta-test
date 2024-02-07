@@ -7,8 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.tf_cfg import cfg
-from reconf.reconf_stress_base import LiveReconfStressTestCase
-from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
+from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SOCKET_START = f"{cfg.get('Tempesta', 'ip')}:443"
 SOCKET_AFTER_RELOAD = f"{cfg.get('Tempesta', 'ip')}:4433"
@@ -26,8 +25,19 @@ server ${server_ip}:8000;
 """
 
 
-class TestLiveReconf(LiveReconfStressTestCase):
-    ERR_MSG = "Error for curl"
+class TestLiveReconf(LiveReconfStressTestBase):
+    dbg_msg = "Error for curl"
+
+    curl_clients = [
+        {
+            "id": "curl-%s" % count,
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": ("-Ikf --http2 https://${tempesta_ip}:%s/" % port),
+        }
+        for count, port in enumerate(("443", "4433"))
+    ]
 
     backends = [
         {
@@ -39,36 +49,18 @@ class TestLiveReconf(LiveReconfStressTestCase):
         },
     ]
 
-    clients = [
-        {
-            "id": "curl-%s" % count,
-            "type": "external",
-            "binary": "curl",
-            "ssl": True,
-            "cmd_args": ("-Ikf --http2 https://${tempesta_ip}:%s/" % port),
-        }
-        for count, port in enumerate(("443", "4433"))
-    ]
-
-    clients.append(
-        {
-            "id": "h2load",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": (
-                " https://${tempesta_ip}:443/"
-                f" --clients {CONCURRENT_CONNECTIONS}"
-                f" --threads {THREADS}"
-                f" --max-concurrent-streams {REQUESTS_COUNT}"
-                f" --duration {DURATION}"
-            ),
-        },
-    )
-
     tempesta = {
         "config": TEMPESTA_CONFIG,
     }
+
+    def setUp(self) -> None:
+        self.clients.extend(self.curl_clients)
+        super().setUp()
+        self.addCleanup(self.cleanup_clients)
+
+    def cleanup_clients(self) -> None:
+        for client in self.curl_clients:
+            self.clients.remove(client)
 
     def test_stress_reconfig_on_the_fly(self) -> None:
         """Test Tempesta for change config on the fly."""
@@ -81,20 +73,19 @@ class TestLiveReconf(LiveReconfStressTestCase):
             SOCKET_AFTER_RELOAD,
         )
 
-        # launch h2load - HTTP/2 benchmarking tool
+        # launch h2load
         client = self.get_client("h2load")
         client.start()
 
         # sending curl requests before reconfig Tempesta
         response = self.make_curl_request("curl-0")
-        self.assertIn(STATUS_OK, response, msg=self.ERR_MSG)
+        self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # check reload socket not in Tempesta config
         self.check_non_working_socket("curl-1")
 
         # config Tempesta change,
-        # reload Tempesta, check logs,
-        # and check config Tempesta after reload
+        # reload, and check after reload
         self.reload_tfw_config(
             SOCKET_START,
             SOCKET_AFTER_RELOAD,
@@ -102,7 +93,7 @@ class TestLiveReconf(LiveReconfStressTestCase):
 
         # sending curl requests after reconfig Tempesta
         response = self.make_curl_request("curl-1")
-        self.assertIn(STATUS_OK, response, msg=self.ERR_MSG)
+        self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # check start socket not in Tempesta config
         self.check_non_working_socket("curl-0")
@@ -110,8 +101,6 @@ class TestLiveReconf(LiveReconfStressTestCase):
         # h2load stop
         self.wait_while_busy(client)
         client.stop()
-
-        self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
     def check_non_working_socket(

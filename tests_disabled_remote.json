@@ -10,7 +10,7 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "reconf",
+            "name": "t_reconf",
             "reason": "These tests should not be run with remote setup."
         },
         {

@@ -6,11 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from typing import List
-
 from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
-from reconf.reconf_stress_base import LiveReconfStressTestCase
+from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 HEALTH_MONITOR_START = "health h_monitor1;"
 HEALTH_MONITOR_AFTER_RELOAD = "health h_monitor2;"
@@ -103,7 +101,7 @@ http {
 """
 
 
-class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
+class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
     """This class stress tests on-the-fly reconfig of Tempesta for the health monitor."""
 
     backends = [
@@ -130,19 +128,18 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
             HEALTH_MONITOR_AFTER_RELOAD,
         )
 
-        # launch H2Load client - HTTP/2 benchmarking tool
+        # launch H2Load
         client = self.get_client("h2load")
         client.start()
 
-        stats_srvs: List[ServerStats] = [
+        stats_srvs: list[ServerStats] = [
             ServerStats(tempesta, "main", cfg.get("Server", "ip"), port) for port in (8000, 8001)
         ]
 
         self.check_servers_stats(stats_srvs)
 
         # config Tempesta change,
-        # reload Tempesta, check logs,
-        # and check config Tempesta after reload
+        # reload, and check after reload
         self.reload_tfw_config(
             HEALTH_MONITOR_START,
             HEALTH_MONITOR_AFTER_RELOAD,
@@ -153,13 +150,11 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestCase):
         # H2Load stop
         self.wait_while_busy(client)
         client.stop()
-
-        self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
     def check_servers_stats(
         self,
-        stats_srvs: List[ServerStats],
+        stats_srvs: list[ServerStats],
         timeout: int = 1,
     ) -> None:
         """

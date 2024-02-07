@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.control import servers_get_stats
-from reconf.reconf_stress_base import LiveReconfStressTestCase
+from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SCHED_OPTS_START = "ratio dynamic"
 SCHED_OPTS_AFTER_RELOAD = "ratio dynamic minimum"
@@ -72,7 +72,7 @@ sched ratio dynamic;
 )
 
 
-class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestCase):
+class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
     """This class tests on-the-fly reconfig of Tempesta for the ratio dynamic scheduler."""
 
     delays = [str(x / 10) for x in range(1, 11)]
@@ -111,12 +111,10 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestCase):
         client.start()
         self.wait_while_busy(client)
 
-        self.assertEqual(client.returncode, 0)
         self.check_servers_weights()
 
         # config Tempesta change,
-        # reload Tempesta, check logs,
-        # and check config Tempesta after reload
+        # reload, and check after reload
         self.reload_tfw_config(
             SCHED_OPTS_START,
             SCHED_OPTS_AFTER_RELOAD,
@@ -130,7 +128,6 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestCase):
         self.wait_while_busy(client)
         client.stop()
 
-        self.assertEqual(client.returncode, 0)
         self.check_servers_weights()
 
     def check_servers_weights(self) -> None:

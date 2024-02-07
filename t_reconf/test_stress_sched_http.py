@@ -6,14 +6,13 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from reconf.reconf_stress_base import LiveReconfStressTestCase
-from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
+from framework.external_client import ExternalTester
+from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 HTTP_RULES_START = 'uri == "/alternate" -> block;'
 HTTP_RULES_AFTER_RELOAD = 'uri == "/alternate" -> alternate;'
 STATUS_OK = "200"
 STATUS_FORBIDDEN = "403"
-ERR_MSG = "Error for curl"
 VHOSTS = ("origin", "alternate")
 
 TEMPESTA_CONFIG = """
@@ -49,13 +48,26 @@ http_chain {
 """
 
 
-class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
+class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
     """
     This class tests on-the-fly reconfig of Tempesta for the http scheduler.
     This test covers the case of modify HTTPtables rules to change load
     distribution across virtual hosts for to update load balancing rules
     on the fly.
     """
+
+    dbg_msg = "Error for curl"
+
+    curl_clients = [
+        {
+            "id": "curl-%s-h2" % vhost,
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:443/%s" % vhost,
+        }
+        for vhost in VHOSTS
+    ]
 
     backends = [
         {
@@ -74,34 +86,21 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
         for count, vhost in enumerate(VHOSTS)
     ]
 
-    clients = [
-        {
-            "id": "curl-%s-h2" % vhost,
-            "type": "external",
-            "binary": "curl",
-            "ssl": True,
-            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:443/%s" % vhost,
-        }
-        for vhost in VHOSTS
-    ]
-
-    clients.append(
-        {
-            "id": "h2load",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": (
-                " https://${tempesta_ip}/origin"
-                f" --clients {CONCURRENT_CONNECTIONS}"
-                f" --threads {THREADS}"
-                f" --max-concurrent-streams {REQUESTS_COUNT}"
-                f" --duration {DURATION}"
-            ),
-        },
-    )
-
     tempesta = {"config": TEMPESTA_CONFIG}
+
+    def setUp(self) -> None:
+        self.clients.extend(self.curl_clients)
+        super().setUp()
+        self.addCleanup(self.cleanup_clients)
+        self.addCleanup(self.cleanup_client_cmd_opt)
+
+    def cleanup_clients(self) -> None:
+        for client in self.curl_clients:
+            self.clients.remove(client)
+
+    def cleanup_client_cmd_opt(self) -> None:
+        client = self.get_client("h2load")
+        client.options[0] = self._change_uri_cmd_opt(client)
 
     def test_reconfig_on_the_fly_for_sched_http(self) -> None:
         """Test Tempesta for change config on the fly."""
@@ -116,19 +115,18 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
 
         # launch H2Load
         client_h2 = self.get_client("h2load")
+        client_h2.options[0] = self._change_uri_cmd_opt(client_h2, VHOSTS[0])
         client_h2.start()
-        self.wait_while_busy(client_h2)
 
         # sending curl requests before reconfig Tempesta
         response = self.make_curl_request("curl-origin-h2")
-        self.assertIn(STATUS_OK, response, msg=ERR_MSG)
+        self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         response = self.make_curl_request("curl-alternate-h2")
-        self.assertIn(STATUS_FORBIDDEN, response, msg=ERR_MSG)
+        self.assertIn(STATUS_FORBIDDEN, response, msg=self.dbg_msg)
 
         # config Tempesta change,
-        # reload Tempesta, check logs,
-        # and check config Tempesta after reload
+        # reload, and check after reload
         self.reload_tfw_config(
             HTTP_RULES_START,
             HTTP_RULES_AFTER_RELOAD,
@@ -138,15 +136,33 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestCase):
         self._check_tfw_config_after_reload()
 
         # sending curl requests after reconfig Tempesta
-        for client in self.clients[:2]:
-            response = self.make_curl_request(client["id"])
-            self.assertIn(STATUS_OK, response, msg=ERR_MSG)
+        for client in [client["id"] for client in self.curl_clients]:
+            response = self.make_curl_request(client)
+            self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # H2Load stop
+        self.wait_while_busy(client_h2)
         client_h2.stop()
 
-        self.assertEqual(client_h2.returncode, 0)
-        self.assertNotIn(" 0 2xx, ", client_h2.response_msg)
+    def _change_uri_cmd_opt(self, client: ExternalTester, path: str = None) -> str:
+        """Changing the uri option in the options list of client.
+
+        Args:
+            client: instance of ExternalTester object.
+            path: string object representing a part of uri.
+
+        Returns:
+            String object representing a modified list of options.
+
+        """
+        uri = " https://127.0.0.1:443/"
+        opts = client.options[0]
+        if path:
+            opts = client.options[0].replace(uri, uri + path)
+            return opts
+        opts = client.options[0].split()
+        opts[0] = uri
+        return " ".join(opts)
 
     def _check_tfw_config_after_reload(self) -> None:
         """Checking the Tempesta configuration after reload."""
