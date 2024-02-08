@@ -54,6 +54,8 @@ class ServerConnection(asyncore.dispatcher):
     def handle_close(self):
         dbg(self, 6, "Close connection", prefix="\t")
         self.close()
+        if self._server and self in self._server.connections:
+            self._server.remove_connection(connection=self)
 
     def handle_read(self):
         self._request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
@@ -220,7 +222,6 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         connections = [conn for conn in self._connections]
         for conn in connections:
             conn.handle_close()
-            self._connections.remove(conn)
 
         self._polling_lock.release()
 
@@ -276,8 +277,8 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
     @conns_n.setter
     def conns_n(self, conns_n: int) -> None:
-        if conns_n <= 0:
-            raise ValueError("`conns_n` MUST be greater than 0.")
+        if conns_n < 0:
+            raise ValueError("`conns_n` MUST be greater than or equal to 0.")
         self._conns_n = conns_n
 
     @property
@@ -321,6 +322,9 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
     @property
     def connections(self) -> list[ServerConnection]:
         return list(self._connections)
+
+    def remove_connection(self, connection: ServerConnection) -> None:
+        self._connections.remove(connection)
 
     @property
     def drop_conn_when_receiving_data(self) -> bool:
