@@ -1,10 +1,10 @@
-import abc
 import asyncore
+import copy
+import ipaddress
 import socket
 import sys
 import threading
 import time
-from typing import List, Union
 
 import framework.port_checks as port_checks
 import run_config
@@ -15,37 +15,37 @@ dbg = deproxy.dbg
 from .templates import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class ServerConnection(asyncore.dispatcher):
     def __init__(
         self,
-        server: "BaseDeproxyServer",
+        server: "StaticDeproxyServer",
         drop_conn_when_receiving_data: bool,
         sleep_when_receiving_data: float,
-        sock=None,
-        keep_alive=None,
+        sock: socket.socket,
+        keep_alive: int = 0,
     ):
         super().__init__(sock=sock)
-        self.server = server
-        self.keep_alive = keep_alive
-        self.last_segment_time = 0
-        self.responses_done = 0
-        self.request_buffer = ""
-        self.response_buffer: List[bytes] = []
+        self._server = server
+        self._keep_alive = keep_alive
+        self._last_segment_time: int = 0
+        self._responses_done: int = 0
+        self._request_buffer: str = ""
+        self._response_buffer: list[bytes] = []
+        self._drop_conn_when_receiving_data = drop_conn_when_receiving_data
+        self._sleep_when_receiving_data = sleep_when_receiving_data
         dbg(self, 6, "New server connection", prefix="\t")
-        self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
-        self.sleep_when_receiving_data = sleep_when_receiving_data
 
     def writable(self):
         if (
-            self.server.segment_gap != 0
-            and time.time() - self.last_segment_time < self.server.segment_gap / 1000.0
+            self._server.segment_gap != 0
+            and time.time() - self._last_segment_time < self._server.segment_gap / 1000.0
         ):
             return False
-        return (not self.connected) or len(self.response_buffer) > self.responses_done
+        return (not self.connected) or len(self._response_buffer) > self._responses_done
 
     def handle_error(self):
         _, v, _ = sys.exc_info()
@@ -54,28 +54,25 @@ class ServerConnection(asyncore.dispatcher):
     def handle_close(self):
         dbg(self, 6, "Close connection", prefix="\t")
         self.close()
-        if self.server:
-            try:
-                self.server.connections.remove(self)
-            except ValueError:
-                pass
+        if self._server and self in self._server.connections:
+            self._server.remove_connection(connection=self)
 
     def handle_read(self):
-        self.request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
+        self._request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
 
         dbg(self, 4, "Receive data:", prefix="\t")
-        tf_cfg.dbg(5, self.request_buffer)
+        tf_cfg.dbg(5, self._request_buffer)
 
-        if self.request_buffer and self.sleep_when_receiving_data:
-            time.sleep(self.sleep_when_receiving_data)
+        if self._request_buffer and self._sleep_when_receiving_data:
+            time.sleep(self._sleep_when_receiving_data)
 
-        if self.drop_conn_when_receiving_data:
+        if self._drop_conn_when_receiving_data:
             self.close()
 
-        while self.request_buffer:
+        while self._request_buffer:
             try:
                 request = deproxy.Request(
-                    self.request_buffer, keep_original_data=self.server.keep_original_data
+                    self._request_buffer, keep_original_data=self._server.keep_original_data
                 )
             except deproxy.IncompleteMessage:
                 return None
@@ -83,80 +80,92 @@ class ServerConnection(asyncore.dispatcher):
                 dbg(
                     self,
                     4,
-                    ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.request_buffer),
+                    ("Can't parse message\n" "<<<<<\n%s>>>>>" % self._request_buffer),
                 )
                 return None
 
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
-            response, need_close = self.server.receive_request(request)
+            response, need_close = self._server.receive_request(request)
             if response:
                 dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
-                self.response_buffer.append(response)
+                self._response_buffer.append(response)
 
             if need_close:
                 self.close()
-            self.request_buffer = self.request_buffer[request.original_length :]
+            self._request_buffer = self._request_buffer[request.original_length :]
         # Handler will be called even if buffer is empty.
         else:
             return None
 
     def handle_write(self):
-        if run_config.TCP_SEGMENTATION and self.server.segment_size == 0:
-            self.server.segment_size = run_config.TCP_SEGMENTATION
+        if run_config.TCP_SEGMENTATION and self._server.segment_size == 0:
+            self._server.segment_size = run_config.TCP_SEGMENTATION
 
         segment_size = (
-            self.server.segment_size if self.server.segment_size else deproxy.MAX_MESSAGE_SIZE
+            self._server.segment_size if self._server.segment_size else deproxy.MAX_MESSAGE_SIZE
         )
 
-        resp = self.response_buffer[self.responses_done]
+        resp = self._response_buffer[self._responses_done]
         sent = self.socket.send(resp[:segment_size])
 
         if sent < 0:
             return
-        self.response_buffer[self.responses_done] = resp[sent:]
+        self._response_buffer[self._responses_done] = resp[sent:]
 
-        self.last_segment_time = time.time()
-        if self.response_buffer[self.responses_done] == b"":
-            self.responses_done += 1
+        self._last_segment_time = time.time()
+        if self._response_buffer[self._responses_done] == b"":
+            self._responses_done += 1
 
-        if self.responses_done == self.keep_alive and self.keep_alive:
+        if self._responses_done == self._keep_alive and self._keep_alive:
             self.handle_close()
 
 
-class BaseDeproxyServer(deproxy.Server):
-    def __init__(self, *args, **kwargs):
-        # This parameter controls whether to keep original data with the request
-        # (See deproxy.HttpMessage.original_data)
-        self.keep_original_data = kwargs.pop("keep_original_data", None)
+class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
+    def __init__(
+        self,
+        port: int,
+        response: str | bytes | deproxy.Response = "",
+        ip: str = tf_cfg.cfg.get("Server", "ip"),
+        conns_n: int = tempesta.server_conns_default(),
+        keep_alive: int = 0,
+        segment_size: int = 0,
+        segment_gap: int = 0,
+        keep_original_data: bool = False,
+        drop_conn_when_receiving_data: bool = False,
+        sleep_when_receiving_data: float = 0,
+    ):
+        # Initialize the base `dispatcher`
+        asyncore.dispatcher.__init__(self)
+
+        self._reinit_variables()
+        self.port = port
+        self.ip = ip
+        self.response = response
+        self.conns_n = conns_n
+        self.keep_alive = keep_alive
+        self.keep_original_data = keep_original_data
+        self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
+        self.sleep_when_receiving_data = sleep_when_receiving_data
+        self._port_checker = port_checks.FreePortsChecker()
 
         # Following 2 parameters control heavy chunked testing
         # You can set it programmaticaly or via client config
         # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
-        self.segment_size = kwargs.pop("segment_size", 0)
+        self.segment_size = segment_size
         # Inter-segment gap, ms, 0 for disable.
         # You usualy do not need it; update timeouts if you use it.
-        self.segment_gap = kwargs.pop("segment_gap", 0)
+        self.segment_gap = segment_gap
 
-        deproxy.Server.__init__(self, *args, **kwargs)
-        self.stop_procedures = [self.__stop_server]
-        self.is_polling = threading.Event()
-        self.sockets_changing = threading.Event()
-        self.node = remote.host
-        self.__drop_conn_when_receiving_data = False
-        self.__sleep_when_receiving_data = 0
-        self.port_checker = port_checks.FreePortsChecker()
+        self.stop_procedures: list[callable] = [self.__stop_server]
+        self.node: remote.Node = remote.host
+        self._polling_lock: threading.Lock | None = None
 
-    def drop_conn_when_receiving_data(self, drop_conn: bool) -> None:
-        self.__drop_conn_when_receiving_data = drop_conn
-        for connection in self.connections:
-            connection.drop_conn_when_receiving_data = drop_conn
-
-    def sleep_when_receiving_data(self, sleep: float) -> None:
-        self.__sleep_when_receiving_data = sleep
-        for connection in self.connections:
-            connection.sleep_when_receiving_data = sleep
+    def _reinit_variables(self):
+        self._connections: list[ServerConnection] = list()
+        self._last_request: deproxy.Request | None = None
+        self._requests: list[deproxy.Request] = list()
 
     def handle_accept(self):
         pair = self.accept()
@@ -166,22 +175,32 @@ class BaseDeproxyServer(deproxy.Server):
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             handler = ServerConnection(
                 server=self,
-                drop_conn_when_receiving_data=self.__drop_conn_when_receiving_data,
-                sleep_when_receiving_data=self.__sleep_when_receiving_data,
+                drop_conn_when_receiving_data=self._drop_conn_when_receiving_data,
+                sleep_when_receiving_data=self._sleep_when_receiving_data,
                 sock=sock,
                 keep_alive=self.keep_alive,
             )
-            self.connections.append(handler)
+            self._connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
             # performed before removing old connection.
             # So we can have case with > expected amount of connections
             # It's not a error case, it's a problem of polling
 
+    def handle_error(self):
+        type_, v, _ = sys.exc_info()
+        self.handle_close()
+        raise v
+
+    def handle_close(self):
+        self.close()
+        self.state = stateful.STATE_STOPPED
+
     def run_start(self):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
+        self._reinit_variables()
         self.port_checker.check_ports_status()
-        self.polling_lock.acquire()
+        self._polling_lock.acquire()
 
         try:
             self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -190,63 +209,42 @@ class BaseDeproxyServer(deproxy.Server):
             self.listen(socket.SOMAXCONN)
         except Exception as e:
             tf_cfg.dbg(2, "Error while creating socket: %s" % str(e))
-            self.polling_lock.release()
+            self._polling_lock.release()
             raise e
 
-        self.polling_lock.release()
+        self._polling_lock.release()
 
     def __stop_server(self):
         dbg(self, 3, "Stop", prefix="\t")
-        self.polling_lock.acquire()
+        self._polling_lock.acquire()
 
         self.close()
-        connections = [conn for conn in self.connections]
+        connections = [conn for conn in self._connections]
         for conn in connections:
             conn.handle_close()
-        if self.tester:
-            self.tester.servers.remove(self)
 
-        self.polling_lock.release()
+        self._polling_lock.release()
 
     def set_events(self, polling_lock):
-        self.polling_lock = polling_lock
+        self._polling_lock = polling_lock
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
             return False
 
         return util.wait_until(
-            lambda: len(self.connections) < self.conns_n, timeout, poll_freq=0.001
+            lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
         )
 
-    @abc.abstractmethod
-    def receive_request(self, request):
-        raise NotImplementedError("Not implemented 'receive_request()'")
-
-
-class StaticDeproxyServer(BaseDeproxyServer):
-    __response: str or bytes
-
-    def __init__(self, *args, **kwargs):
-        self.set_response(kwargs["response"])
-        kwargs.pop("response", None)
-        BaseDeproxyServer.__init__(self, *args, **kwargs)
-        self.last_request = None
-        self.requests = []
-
-    def run_start(self):
-        self.requests = []
-        BaseDeproxyServer.run_start(self)
-
     @property
-    def response(self) -> str:
-        return self.__response.decode(errors="ignore")
+    def response(self) -> bytes:
+        return self.__response
 
     @response.setter
-    def response(self, response: str or bytes) -> None:
+    def response(self, response: str | bytes | deproxy.Response) -> None:
         self.set_response(response)
 
-    def set_response(self, response: Union[str, bytes, deproxy.Response]) -> None:
+    def set_response(self, response: str | bytes | deproxy.Response) -> None:
         if isinstance(response, str):
             self.__response = response.encode()
         elif isinstance(response, bytes):
@@ -254,9 +252,107 @@ class StaticDeproxyServer(BaseDeproxyServer):
         elif isinstance(response, deproxy.Response):
             self.__response = response.msg.encode()
 
-    def receive_request(self, request):
-        self.requests.append(request)
-        self.last_request = request
+    @property
+    def port(self) -> int:
+        return self._port
+
+    @port.setter
+    def port(self, port: int) -> None:
+        if port <= 0:
+            raise ValueError("The server port MUST be greater than 0.")
+        self._port = port
+
+    @property
+    def ip(self) -> str:
+        return self._ip
+
+    @ip.setter
+    def ip(self, ip: str) -> None:
+        ipaddress.ip_address(ip)
+        self._ip = ip
+
+    @property
+    def conns_n(self) -> int:
+        return self._conns_n
+
+    @conns_n.setter
+    def conns_n(self, conns_n: int) -> None:
+        if conns_n < 0:
+            raise ValueError("`conns_n` MUST be greater than or equal to 0.")
+        self._conns_n = conns_n
+
+    @property
+    def keep_alive(self) -> int:
+        return self._keep_alive
+
+    @keep_alive.setter
+    def keep_alive(self, keep_alive: int) -> None:
+        if keep_alive < 0:
+            raise ValueError("`keep_alive` MUST be greater than or equal to 0.")
+        self._keep_alive = keep_alive
+
+    @property
+    def segment_size(self) -> int:
+        return self._segment_size
+
+    @segment_size.setter
+    def segment_size(self, segment_size: int) -> None:
+        if segment_size < 0:
+            raise ValueError("`segment_size` MUST be greater than or equal to 0.")
+        self._segment_size = segment_size
+
+    @property
+    def segment_gap(self) -> int:
+        return self._segment_gap
+
+    @segment_gap.setter
+    def segment_gap(self, segment_gap: int) -> None:
+        if segment_gap < 0:
+            raise ValueError("`segment_gap` MUST be greater than or equal to 0.")
+        self._segment_gap = segment_gap
+
+    @property
+    def last_request(self) -> deproxy.Request:
+        return copy.deepcopy(self._last_request)
+
+    @property
+    def requests(self) -> list[deproxy.Request]:
+        return list(self._requests)
+
+    @property
+    def connections(self) -> list[ServerConnection]:
+        return list(self._connections)
+
+    def remove_connection(self, connection: ServerConnection) -> None:
+        self._connections.remove(connection)
+
+    @property
+    def drop_conn_when_receiving_data(self) -> bool:
+        return self._drop_conn_when_receiving_data
+
+    @drop_conn_when_receiving_data.setter
+    def drop_conn_when_receiving_data(self, drop_conn: bool) -> None:
+        self._drop_conn_when_receiving_data = drop_conn
+        for connection in self.connections:
+            connection._drop_conn_when_receiving_data = drop_conn
+
+    @property
+    def sleep_when_receiving_data(self) -> float:
+        return self._sleep_when_receiving_data
+
+    @sleep_when_receiving_data.setter
+    def sleep_when_receiving_data(self, sleep: float) -> None:
+        self._sleep_when_receiving_data = sleep
+        for connection in self.connections:
+            connection._sleep_when_receiving_data = sleep
+
+    @property
+    def port_checker(self) -> port_checks.FreePortsChecker:
+        return self._port_checker
+
+    def receive_request(self, request: deproxy.Request) -> (bytes, bool):
+        self._requests.append(request)
+        self._last_request = request
         return self.__response, False
 
 
