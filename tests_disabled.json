@@ -250,10 +250,6 @@
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_uppercase_in_header_name",
-            "reason": "Disabled by issue #1729"
-        },
-        {
             "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_0x20_and_0x09_in_header_value",
             "reason": "Disabled by issue #1882"
         },
@@ -308,10 +304,6 @@
         {
             "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
             "reason": "Disabled by issue #1196"
-        },
-        {
-            "name": "cache.test_cache.TestH2CacheHdrDel.test_cache_bypass",
-            "reason": "Disabled by issue #1900"
         },
         {
             "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",

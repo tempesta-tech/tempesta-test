@@ -58,18 +58,6 @@
             "reason": "Disabled by issue #1103"
         },
         {
-            "name": "encoding.test_encoding.TestH2BodyDechunking",
-            "reason": "Disabled by issue #1934"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking",
-            "reason": "Disabled by issue #1934"
-        },
-        {
-            "name": "encoding.test_encoding.TestH2LargeResponseBodyDechunking2",
-            "reason": "Disabled by issue #1934"
-        },
-        {
             "name": "http2_general.test_h2_headers.TestIPv6",
             "reason": "Disabled by test issue #508"
         },
