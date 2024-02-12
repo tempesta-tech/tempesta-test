@@ -8,7 +8,7 @@ from typing import Dict, List
 
 import framework.port_checks as port_checks
 from framework.templates import fill_template
-from helpers import remote, stateful, tf_cfg
+from helpers import error, remote, stateful, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

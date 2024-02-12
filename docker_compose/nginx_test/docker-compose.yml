@@ -1,0 +1,9 @@
+version: '3'
+
+name: nginx-test
+
+services:
+  nginx-test:
+    image: nginx
+    ports:
+      - 8000:80
