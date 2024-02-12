@@ -150,10 +150,6 @@
             "reason": "Disabled by test issue #450"
         },
         {
-            "name": "t_malformed.test_h2_malformed_headers.H2MalformedRequestsTest.test_missing_name",
-            "reason": "Disabled by PR #1926"
-        },
-        {
             "name": "t_sched.test_hash_func.HashScheduler",
             "reason": "Disabled by issue #1103"
         },
