@@ -233,3 +233,16 @@ class H2Redirects(tester.TempestaTest):
             client = self.get_client("deproxy")
             client.send_request(request, status)
             self.assertEqual(client.last_response.headers["location"], location)
+
+
+class HttpTablesTestMarkRuleH2(test_http_tables.HttpTablesTestMarkRule):
+    clients = [
+        {
+            "id": 0,
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        }
+    ]
