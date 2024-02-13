@@ -218,12 +218,13 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         if expect_response:
             self.valid_req_num += 1
 
-    def wait_for_connection_close(self, timeout=5, strict=False):
+    def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        timeout = adjust_timeout_for_tcp_segmentation(timeout)
+        if adjust_timeout:
+            timeout = adjust_timeout_for_tcp_segmentation(timeout)
         timeout_not_exceeded = util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
@@ -235,12 +236,13 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
-    def wait_for_response(self, timeout=5, strict=False):
+    def wait_for_response(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        timeout = adjust_timeout_for_tcp_segmentation(timeout)
+        if adjust_timeout:
+            timeout = adjust_timeout_for_tcp_segmentation(timeout)
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < self.valid_req_num,
             timeout,

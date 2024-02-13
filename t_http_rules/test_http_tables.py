@@ -4,7 +4,10 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (in separate tests).
 """
 from framework import tester
-from helpers import chains, remote, dmesg
+from framework.parameterize import param, parameterize
+from helpers import chains, dmesg, remote
+from helpers.networker import NetWorker
+from helpers.remote import LocalNode
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
@@ -239,29 +242,45 @@ class HttpTablesTest(tester.TempestaTest):
             self.process(self.get_client(i), self.get_server(i), self.chains[i], step=i)
 
 
-class HttpTablesTestMarkRules(HttpTablesTest):
-    match_rules_test = False
+class HttpTablesMarkSetup:
+    nf_mark = []
+    reject_nf_mark = []
 
     def set_nf_mark(self, mark):
         cmd = "iptables -t mangle -A PREROUTING -p tcp -j MARK --set-mark %s" % mark
         remote.tempesta.run_cmd(cmd, timeout=30)
-        self.marked = mark
+        self.nf_mark.append(mark)
 
     def del_nf_mark(self, mark):
         cmd = "iptables -t mangle -D PREROUTING -p tcp -j MARK --set-mark %s" % mark
         remote.tempesta.run_cmd(cmd, timeout=30)
-        self.marked = None
+        self.nf_mark.remove(mark)
+
+    def set_reject_nf_mark(self, mark):
+        cmd = "iptables -t mangle -A POSTROUTING -p tcp -m mark --mark %s -j DROP" % mark
+        remote.tempesta.run_cmd(cmd, timeout=30)
+        self.reject_nf_mark.append(mark)
+
+    def del_reject_nf_mark(self, mark):
+        cmd = "iptables -t mangle -D POSTROUTING -p tcp -m mark --mark %s -j DROP" % mark
+        remote.tempesta.run_cmd(cmd, timeout=30)
+        self.reject_nf_mark.remove(mark)
+
+    def cleanup_marked(self):
+        for mark in self.nf_mark:
+            self.del_nf_mark(mark)
+        for mark in self.reject_nf_mark:
+            self.del_reject_nf_mark(mark)
+
+
+class HttpTablesTestMarkRules(HttpTablesTest, HttpTablesMarkSetup):
+    match_rules_test = False
 
     def setUp(self):
-        self.marked = None
         HttpTablesTest.setUp(self)
         super().setUp()
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
-
-    def cleanup_marked(self):
-        if self.marked:
-            self.del_nf_mark(self.marked)
 
     def test_chains(self):
         """Test for mark rules in HTTP chains: requests must
@@ -589,6 +608,102 @@ http_chain {
                 "ERROR: http_tbl: too many vars (more 8) in redirection url:",
                 cond=dmesg.amount_positive,
             )
+
+
+class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker):
+    backends = [
+        {
+            "id": 0,
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        }
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+        
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        
+        block_action attack reply;
+
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+
+        vhost default {
+            proxy_pass default;
+        }
+
+        http_chain {
+        hdr User-Agent == "Mozilla*" -> mark = 1;
+        -> default;
+        }
+        """
+    }
+
+    clients = [
+        {"id": 0, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+    ]
+
+    def setUp(self):
+        super().setUp()
+        # Cleanup part
+        self.addCleanup(self.cleanup_marked)
+
+    @parameterize.expand(
+        [
+            param(
+                name="enable_tso_gro_gso",
+                mtu=100 if isinstance(remote.tempesta, LocalNode) else 1500,
+                enable=True,
+            ),
+            param(
+                name="disable_tso_gro_gso",
+                mtu=100 if isinstance(remote.tempesta, LocalNode) else 1500,
+                enable=False,
+            ),
+        ]
+    )
+    def test_reject_by_mark(self, name, mtu, enable):
+        """
+        Check how Tempesta set mark to skb according config.
+        First of all block all skbs with mark == 1, using iptables,
+        check that that response is blokced. Then unblock skbs with
+        mark == 1 and check that response received.
+        We should run this test with MTU = 100 with and without
+        tso, gro, gso, because we wan't to check how
+        tso_fragment/tsp_fragment works with mark in linux kernel.
+        """
+        self.start_all_services()
+        client = self.get_client(0)
+        server = self.get_server(0)
+        if enable:
+            self.run_test_tso_gro_gso_enabled(client, server, self.__test_reject_by_mark, mtu)
+        else:
+            self.run_test_tso_gro_gso_disabled(client, server, self.__test_reject_by_mark, mtu)
+
+    def __test_reject_by_mark(self, client, server):
+        self.set_reject_nf_mark(1)
+
+        request = client.create_request(
+            method="GET", uri="/", headers=[("User-Agent", "Mozilla/60.0")]
+        )
+
+        client.make_request(request)
+
+        self.assertFalse(client.wait_for_response(timeout=3, strict=False, adjust_timeout=False))
+        self.assertFalse(client.last_response)
+
+        self.del_reject_nf_mark(1)
+
+        self.assertTrue(client.wait_for_response(timeout=5, strict=False, adjust_timeout=False))
+        self.assertTrue(client.last_response.status, "200")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
