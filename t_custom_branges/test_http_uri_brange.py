@@ -77,6 +77,14 @@ class TestUriBrange(HttpUriBrangeBase):
                 expected_status="200",
             ),
             param(
+                name="issue_2030_1",
+                # Example from issue #2030:
+                # Allow only following characters in URI (no '%'): /a-zA-Z0-9&?:-._=
+                custom_uri_branch="0x2f 0x41-0x5a 0x61-0x7a 0x30-0x39 0x26 0x3f 0x3a 0x2d 0x2e 0x5f 0x3d",
+                uri="/wp-login.php?redirect_to=https://tempesta-tech.com/wp-admin/&reauth=1",
+                expected_status="200",
+            ),
+            param(
                 name="blocked_percent",
                 custom_uri_branch="0x41-0x7a",
                 uri="js%a",
@@ -98,5 +106,6 @@ class TestUriBrange(HttpUriBrangeBase):
         self.start_all_services()
         client = self.get_client("deproxy")
 
+        print(uri)
         request = client.create_request(method="GET", uri=uri, headers=[])
         client.send_request(request, expected_status_code=expected_status)
