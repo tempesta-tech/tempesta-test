@@ -44,3 +44,6 @@ autoreconf -fi
 make
 make install
 ldconfig
+
+# mhddos
+git clone https://github.com/MHProDev/MHDDoS.git /usr/mhddos
