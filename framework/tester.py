@@ -19,6 +19,10 @@ from framework.docker_compose_server import (
     DockerComposeServer,
     docker_compose_srv_factory,
 )
+from framework.lxc_server import (
+    LXCServer,
+    lxc_srv_factory,
+)
 from framework.docker_server import DockerServer, docker_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.templates import fill_template, populate_properties
@@ -266,9 +270,7 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
 
-    def get_client(
-        self, cid
-    ) -> typing.Union[
+    def get_client(self, cid) -> typing.Union[
         deproxy_client.DeproxyClientH2,
         deproxy_client.DeproxyClient,
         curl_client.CurlClient,
