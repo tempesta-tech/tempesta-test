@@ -14,6 +14,10 @@ import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
+from framework.lxc_server import (
+    LXCServer,
+    lxc_srv_factory,
+)
 from framework.docker_compose_server import (
     DockerComposeServer,
     docker_compose_srv_factory,
@@ -94,6 +98,7 @@ register_tempesta("tempesta", default_tempesta_factory)
 register_backend("deproxy", deproxy_srv_factory)
 register_backend("docker", docker_srv_factory)
 register_backend("docker_compose", docker_compose_srv_factory)
+register_backend("lxc", lxc_srv_factory)
 register_backend("nginx", nginx_srv_factory)
 
 
@@ -255,9 +260,7 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
 
-    def get_client(
-        self, cid
-    ) -> typing.Union[
+    def get_client(self, cid) -> typing.Union[
         deproxy_client.DeproxyClientH2,
         deproxy_client.DeproxyClient,
         curl_client.CurlClient,

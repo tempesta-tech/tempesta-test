@@ -14,10 +14,10 @@ class TestTempestaTechSite(tester.TempestaTest):
     backends = [
         {
             "id": "tempesta_tech_site",
-            "type": "docker_compose",
-            "project_name": "tempesta-tech.com",
-            "ports": [8001],
-            "env": {"T": "1"},
+            "type": "lxc",
+            "container_name": "tempesta-site-stage",
+            "ports": {8003: 80},
+            "server_ip": "192.168.122.53",
         },
     ]
 
@@ -64,7 +64,7 @@ class TestTempestaTechSite(tester.TempestaTest):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             srv_group default {
-                    server ${server_ip}:8001;
+                    server ${server_ip}:8003;
             }
 
             vhost default {
