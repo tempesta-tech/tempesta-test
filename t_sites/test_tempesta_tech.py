@@ -4,11 +4,6 @@ from framework import docker_server, tester
 from framework.curl_client import CurlResponse
 from helpers import tf_cfg
 
-# Number of open connections
-CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
-# Number of requests to make
-REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
-
 
 class TestTempestaTechSite(tester.TempestaTest):
     backends = [
