@@ -99,6 +99,7 @@ register_tempesta("tempesta", default_tempesta_factory)
 register_backend("deproxy", deproxy_srv_factory)
 register_backend("docker", docker_srv_factory)
 register_backend("nginx", nginx_srv_factory)
+register_backend("lxc", lxc_srv_factory)
 
 
 class TempestaTest(unittest.TestCase):
