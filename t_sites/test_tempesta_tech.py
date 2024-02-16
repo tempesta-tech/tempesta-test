@@ -1,8 +1,5 @@
-import unittest
-
-from framework import docker_server, tester
+from framework import tester
 from framework.curl_client import CurlResponse
-from helpers import tf_cfg
 
 
 class TestTempestaTechSite(tester.TempestaTest):
