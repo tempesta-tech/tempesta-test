@@ -18,6 +18,7 @@ class TestTempestaTechSite(tester.TempestaTest):
             "container_name": "tempesta-site-stage",
             "ports": {8003: 80},
             "server_ip": "192.168.122.53",
+            "healthcheck_command": "curl --fail localhost",
         },
     ]
 

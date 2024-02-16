@@ -26,6 +26,8 @@ class LXCServerArguments:
     id: str
     container_name: str
     server_ip: str
+    healthcheck_command: str
+    healthcheck_timeout: int = 10
     ports: Dict[int, int] = field(default_factory=dict)
 
     @classmethod
@@ -40,6 +42,8 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
       id: backend server ID
       container_name: argument to lxc start/stop
       server_ip: IP address of the server (set from config)
+      healthcheck_command: executed inside the container, should return exit code 0 when container is ready
+      healthcheck_timeout: how many seconds to wait for a container to start before giving up
       ports: dict of external/internal ports to proxy to/from container
     """
 
@@ -51,23 +55,36 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         self.host = remote.host
         self.stop_procedures = [self.stop_server]
 
-    def _construct_cmd(self, action: str) -> list[str]:
-        return ["bash", "-c", f"lxc {action}"]
+    def _construct_cmd(self, args: list[str]) -> list[str]:
+        c = ["lxc", *args]
+        tf_cfg.dbg(3, f"\tlxc cmd: {c}")
+        return c
 
     def run_start(self):
-        tf_cfg.dbg(3, f"\tlxc Server: Start {self.id}")
+        tf_cfg.dbg(3, f"\tlxc server: start {self.id}")
         p = subprocess.run(
-            args=self._construct_cmd(f"start {self.container_name}"),
+            args=self._construct_cmd(["start", self.container_name]),
         )
         if p.returncode != 0:
             error.bug("unable to start lxc container server.")
         self._proxy_setup()
-        return False
+        t0 = time.time()
+        while time.time() - t0 < self.healthcheck_timeout:
+            p = subprocess.run(
+                args=self._construct_cmd(
+                    ["exec", self.container_name, "--", "bash", "-c", self.healthcheck_command]
+                ),
+                timeout=self.healthcheck_timeout,
+            )
+            if p.returncode == 0:
+                return False
+            time.sleep(1)
+        error.bug("lxc container is unhealthy.")
 
     @property
     def status(self):
         """Status of the container: 'starting', 'running', 'stopped'."""
-        p = subprocess.run(self._construct_cmd("list -f json"), capture_output=True)
+        p = subprocess.run(self._construct_cmd(["list", "-f", "json"]), capture_output=True)
         if p.stderr or not p.stdout:
             error.bug("error running lxc list", p.stdout, p.stderr)
         status: str | None = None
@@ -78,7 +95,6 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
                     status = c["status"].lower()
         except json.JSONDecodeError:
             error.bug("unable to parse output of lxc list")
-
         return status
 
     def _proxy_setup(self):
@@ -86,7 +102,16 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
             proxy_name = f"{LXC_PROXY_PREFIX}-{ext_port}-{int_port}"
             p = subprocess.run(
                 self._construct_cmd(
-                    f"config device add {self.container_name} {proxy_name} proxy listen=tcp:{self.server_ip}:{ext_port} connect=tcp:127.0.0.1:{int_port}"
+                    [
+                        "config",
+                        "device",
+                        "add",
+                        self.container_name,
+                        proxy_name,
+                        "proxy",
+                        f"listen=tcp:{self.server_ip}:{ext_port}",
+                        f"connect=tcp:127.0.0.1:{int_port}",
+                    ]
                 ),
                 capture_output=True,
             )
@@ -95,7 +120,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
 
     def _proxy_teardown(self):
         p = subprocess.run(
-            self._construct_cmd(f"config device list {self.container_name}"),
+            self._construct_cmd(["config", "device", "list", self.container_name]),
             capture_output=True,
         )
         if p.stderr or not p.stdout:
@@ -104,7 +129,9 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
             device = d.decode()
             if device.startswith(LXC_PROXY_PREFIX):
                 p = subprocess.run(
-                    self._construct_cmd(f"config device remove {self.container_name} {device}"),
+                    self._construct_cmd(
+                        ["config", "device", "remove", self.container_name, device]
+                    ),
                     capture_output=True,
                 )
                 if p.stderr or not p.stdout:
@@ -119,20 +146,18 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
             return False
 
         t0 = time.time()
-        t = time.time()
-        while t - t0 < timeout:
+        while time.time() - t0 < timeout:
             if self.status == "running":
                 if self.check_ports_established(ip=self.server_ip, ports=self.ports.keys()):
                     return True
             time.sleep(0.1)  # to prevent redundant CPU usage
-            t = time.time()
         return False
 
     def stop_server(self):
         tf_cfg.dbg(3, f"\tlxc server: Stop {self.id}")
         self._proxy_teardown()
         p = subprocess.run(
-            self._construct_cmd(f"stop {self.container_name}"),
+            self._construct_cmd(["stop", self.container_name]),
         )
         if p.returncode != 0:
             error.bug("unable to stop lxc server")
