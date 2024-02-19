@@ -294,54 +294,6 @@
             "reason": "Disabled by test issue #1968"
         },
         {
-            "name": "cache.test_conditional.TestConditionalHttp.test_none_match_nc_HEAD",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_conditional.TestConditionalH2.test_none_match_nc_HEAD",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_conditional.TestConditionalHttp.test_none_match_POST",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_conditional.TestConditionalH2.test_none_match_POST",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_conditional.TestConditionalHttp.test_none_match_HEAD",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_conditional.TestConditionalH2.test_none_match_HEAD",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_update_cache_via_PUT_request",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_update_cache_via_PUT_request",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_update_cache_via_DELETE_request",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_update_cache_via_DELETE_request",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_cache_POST_request_with_location_HEAD",
-            "reason": "PR #2062"
-        },
-        {
-            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_cache_POST_request_with_location_HEAD",
-            "reason": "PR #2062"
-        },
-        {
             "name": "http2_general.test_h2_hpack.TestHpackCache.test_cache_response_from_dynamic_table_for_different_client",
             "reason": "Disabled by issue #1801"
         },
