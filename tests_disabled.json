@@ -22,14 +22,6 @@
             "reason" : ""
         },
         {
-            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown",
-            "reason" : ""
-        },
-        {
-            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic",
-            "reason" : ""
-        },
-        {
             "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
             "reason" : "Read errors"
         },
