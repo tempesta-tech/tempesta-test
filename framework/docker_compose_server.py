@@ -1,12 +1,10 @@
 """Docker Compose backend server."""
+
 import json
 import subprocess
 import time
-from audioop import add
 from dataclasses import dataclass, field
-from os import path
 from pathlib import Path
-from subprocess import Popen
 from typing import Dict, List
 
 from framework import port_checks
