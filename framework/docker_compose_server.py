@@ -9,7 +9,7 @@ from typing import Dict, List
 
 from framework import port_checks
 from framework.templates import fill_template
-from helpers import error, remote, stateful, tf_cfg
+from helpers import error, remote, stateful, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
@@ -47,7 +47,6 @@ class DockerComposeServer(
 
       server_ip: IP address of the server (set from config)
       server_workdir: Path to temporary files on the server node (set from config)
-      server_ip: IP address of the server (set from config)
     """
 
     def __init__(self, **kwargs):
@@ -89,12 +88,14 @@ class DockerComposeServer(
         try:
             for line in p.stdout.splitlines():
                 ps: dict = json.loads(line.decode())
-                health.append(ps.get("Health"))
+                health.append(ps.get("Health", "").lower())
         except json.JSONDecodeError:
             error.bug("unable to parse output of docker compose ps")
 
-        status = "unhealthy" if "unhealthy" in health else "healthy"
-        status = "starting" if "starting" in health else "healthy"
+        status = "unhealthy" if "unhealthy" in health else None
+        status = "starting" if "starting" in health else None
+        status = "healthy" if "healthy" in health else None
+        status = "healthy" if health == [""] else None
         return status
 
     def wait_for_connections(self, timeout=10):
@@ -105,14 +106,10 @@ class DockerComposeServer(
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        t = time.time()
-        while t - t0 <= timeout and self.health_status != "unhealthy":
-            if self.health_status == "healthy":
-                if self.check_ports_established(ip=self.server_ip, ports=self.ports):
-                    return True
-            time.sleep(0.1)  # to prevent redundant CPU usage
-            t = time.time()
+        util.wait_until(wait_cond=lambda: self.health_status != "unhealthy", timeout=timeout)
+        if self.health_status == "healthy":
+            if self.check_ports_established(ip=self.server_ip, ports=self.ports):
+                return True
         return False
 
     def stop_server(self):

@@ -44,3 +44,6 @@ autoreconf -fi
 make
 make install
 ldconfig
+
+# docker
+./install-docker.sh

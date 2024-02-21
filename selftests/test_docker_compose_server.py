@@ -1,4 +1,5 @@
 """Tests for `framework.docker_server.DockerComposeServer`."""
+
 import unittest
 
 from framework import docker_server, tester
@@ -54,9 +55,6 @@ class TestDockerComposeServer(tester.TempestaTest):
 
     def test_request_to_server_completed(self):
         self.start_all()
-
-        with self.subTest("nginx-test"):
-            response = self.get_response("nginx-test")
-            self.assertEqual(response.status, 200)
-            self.assertIn("nginx", response.stdout)
-
+        response = self.get_response("nginx-test")
+        self.assertEqual(response.status, 200)
+        self.assertIn("nginx", response.stdout)
