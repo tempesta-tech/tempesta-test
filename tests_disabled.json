@@ -14,14 +14,6 @@
             "reason" : "Docker compose backend does not use in tests now."
         },
         {
-            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
-            "reason" : ""
-        },
-        {
-            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
-            "reason" : ""
-        },
-        {
             "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
             "reason" : "Read errors"
         },
