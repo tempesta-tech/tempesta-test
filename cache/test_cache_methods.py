@@ -354,7 +354,7 @@ class TestMultipleMethods(TempestaTest):
         srv.set_response(RESPONSE_OK_EMPTY)
 
         client.send_request(self.generate_request("HEAD"), "200")
-        self.assertNotIn("age", client.last_response.headers)
+        self.assertIn("age", client.last_response.headers)
 
         client.send_request(self.generate_request("GET"), "200")
         response_get = client.last_response
@@ -364,21 +364,21 @@ class TestMultipleMethods(TempestaTest):
         response_head = client.last_response
         self.assertIn("age", client.last_response.headers)
 
-        self.assertNotEqual(
+        self.assertEqual(
             response_get.headers["Content-Length"],
             response_head.headers["Content-Length"],
-            "Responses has received from a single cache.",
+            "Responses has not received from a single cache.",
         )
 
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
-            cache_hits=2,
-            cache_misses=2,
-            cl_msg_served_from_cache=2,
+            cache_hits=3,
+            cache_misses=1,
+            cl_msg_served_from_cache=3,
         )
         self.assertEqual(
             len(self.get_server("deproxy").requests),
-            2,
+            1,
             "Server has received unexpected number of requests.",
         )
 
