@@ -1,7 +1,7 @@
 #! /bin/sh
 
 apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev \
-    apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl docker.io \
+    apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl \
     tcpdump -y
 
 # stop and disable installed nginx
@@ -30,7 +30,7 @@ make
 cp /tmp/wrk/wrk /bin/wrk
 
 # h2spec
-apt  install golang-go -y
+apt install golang-go -y
 git clone https://github.com/tempesta-tech/h2spec.git /tmp/h2spec
 cd /tmp/h2spec
 make build
@@ -44,3 +44,6 @@ autoreconf -fi
 make
 make install
 ldconfig
+
+# docker
+./install-docker.sh
