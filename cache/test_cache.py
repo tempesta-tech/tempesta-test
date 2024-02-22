@@ -709,24 +709,33 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
-            + "Content-Length: 10\r\n"
+            + "Content-Length: 11\r\n"
             + "\r\n"
             + "First body."
         )
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
-            + "Content-Length: 11\r\n"
+            + "Content-Length: 12\r\n"
             + "\r\n"
             + "Second body."
         )
-        client.send_request(client.create_request(method=method, uri="/index.html", headers=[]))
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method=method, uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
 
         self.assertEqual(
-            "Second body",
+            "Second body.",
             client.last_response.body,
             f"The response was not updated in the cache after a request with {method} method.",
         )
