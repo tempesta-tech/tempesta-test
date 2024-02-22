@@ -346,14 +346,6 @@
             "reason": "Disabled by issue #1995"
         },
         {
-            "name": "cache.test_cache.TestQueryParamsAndRedirectHttp.test_redirect_308_permanent_redirect",
-            "reason": "Disabled by issue #1995"
-        },
-        {
-            "name": "cache.test_cache.TestQueryParamsAndRedirectH2.test_redirect_308_permanent_redirect",
-            "reason": "Disabled by issue #1995"
-        },
-        {
             "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_update_cache_via_PUT_request",
             "reason": "Disabled by issue #1995"
         },
