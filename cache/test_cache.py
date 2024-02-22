@@ -733,7 +733,14 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             f"The response was not updated in the cache after a request with {method} method.",
         )
 
-    def test_cache_POST_request(self):
+    @parameterize.expand(
+        [
+            param(name="GET", second_method="GET", should_be_cached=True),
+            param(name="HEAD", second_method="HEAD", should_be_cached=True),
+            param(name="POST", second_method="POST", should_be_cached=False),
+        ]
+    )
+    def test_cache_POST_request_with_location(self, name, second_method, should_be_cached):
         """
         Responses to POST requests are only cacheable when they include explicit
         freshness information and a Content-Location header field that has the same
@@ -750,7 +757,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
-            + "Content-Length: 10\r\n"
+            + "Content-Length: 11\r\n"
             + "Content-Location: /index.html\r\n"
             + "Cache-Control: public, s-maxage=5\r\n"
             + "\r\n"
@@ -758,10 +765,50 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         )
 
         client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method=second_method, uri="/index.html", headers=[])
+        )
 
-        self.assertIn("age", client.last_response.headers.keys())
-        self.assertEqual(len(server.requests), 1)
+        if should_be_cached:
+            self.assertIn("age", client.last_response.headers.keys())
+            self.assertEqual(len(server.requests), 1)
+        else:
+            self.assertNotIn("age", client.last_response.headers.keys())
+            self.assertEqual(len(server.requests), 2)
+
+    @parameterize.expand(
+        [
+            param(
+                name="not_same_location",
+                extra_header="Content-Location: /index1.html\r\n"
+                + "Cache-Control: public, s-maxage=5\r\n",
+            ),
+            param(name="no_cache_control", extra_header="Content-Location: /index.html\r\n"),
+        ]
+    )
+    def test_cache_POST_request_not_cached(self, name, extra_header):
+        """
+        Responses to POST requests are only cacheable when they include explicit freshness
+        information and a Content-Location header field that has the same value as the POST's
+        target URI.
+        """
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 0\r\n"
+            + extra_header
+            + "\r\n"
+        )
+
+        client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
+        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        self.assertNotIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 2)
 
 
 class TestH2CacheHdrDel(tester.TempestaTest):

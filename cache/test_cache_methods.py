@@ -159,12 +159,6 @@ cache_fulfill * *;
             server_response=RESPONSE_OK_EMPTY,
         )
 
-    def test_post(self):
-        self._test(
-            method="POST",
-            server_response=self.response_no_content,
-        )
-
     def test_copy(self):
         self._test(
             method="COPY",
