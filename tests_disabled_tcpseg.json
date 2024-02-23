@@ -156,6 +156,10 @@
         {
             "name": "t_sched.test_hash_func.HashScheduler",
             "reason": "Disabled by issue #1103"
+        },
+        {
+            "name": "http2_general.test_h2_block_action.BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow.test_block_action_error_reply_with_conn_close_garbage",
+            "reason": "Disabled by issue #525"
         }
     ]
 }
