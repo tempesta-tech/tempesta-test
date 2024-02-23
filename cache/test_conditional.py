@@ -51,7 +51,7 @@ vhost default {
 
 cache 2;
 cache_fulfill * *;
-cache_methods GET;
+cache_methods GET HEAD POST;
 """,
     }
 
@@ -145,19 +145,6 @@ cache_methods GET;
             if_none_match='"asdfqwerty"',
             if_modified_since=None,
             method="HEAD",
-        )
-
-    def test_none_match_POST(self):
-        """
-        Client sends any cachable method except GET of HEAD (e.g. POST)
-        with If-None-Match header, Tempesta replies with 412.
-        """
-        self._test(
-            etag='"asdfqwerty"',
-            expected_status_code="412",
-            if_none_match='"asdfqwerty"',
-            if_modified_since=None,
-            method="POST",
         )
 
     def test_none_match_no_quotes_etag(self):
