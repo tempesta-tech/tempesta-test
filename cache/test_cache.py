@@ -771,9 +771,13 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "First body."
         )
 
-        client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
         client.send_request(
-            client.create_request(method=second_method, uri="/index.html", headers=[])
+            client.create_request(method="POST", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+        client.send_request(
+            client.create_request(method=second_method, uri="/index.html", headers=[]),
+            expected_status_code="200",
         )
 
         if should_be_cached:
@@ -812,10 +816,239 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
         )
 
-        client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method="POST", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
         self.assertNotIn("age", client.last_response.headers.keys())
         self.assertEqual(len(server.requests), 2)
+
+    @parameterize.expand(
+        [
+            param(
+                name="GET_POST",
+                first_method="GET",
+                second_method="POST",
+                second_headers=[],
+                sleep_interval=0,
+            ),
+            param(
+                name="GET_GET",
+                first_method="GET",
+                second_method="GET",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+            param(
+                name="GET_HEAD",
+                first_method="GET",
+                second_method="HEAD",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+            param(
+                name="POST_POST",
+                first_method="POST",
+                second_method="POST",
+                second_headers=[],
+                sleep_interval=0,
+            ),
+            param(
+                name="POST_GET",
+                first_method="POST",
+                second_method="GET",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+            param(
+                name="POST_HEAD",
+                first_method="POST",
+                second_method="HEAD",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+        ]
+    )
+    def test_cache_eviction_after_200_response(
+        self, name, first_method, second_method, second_headers, sleep_interval
+    ):
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 11\r\n"
+            + "Content-Location: /index.html\r\n"
+            + "Cache-Control: public, s-maxage=5\r\n"
+            + "\r\n"
+            + "First body."
+        )
+
+        client.send_request(
+            client.create_request(method=first_method, uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+        self.assertNotIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 1)
+        self.assertEqual("First body.", client.last_response.body)
+
+        time.sleep(sleep_interval)
+
+        second_response = (
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 12\r\n"
+            + "Content-Location: /index.html\r\n"
+            + "Cache-Control: public, s-maxage=5\r\n"
+            + "\r\n"
+        )
+
+        if second_method != "HEAD":
+            second_response += "Second body."
+
+        server.set_response(second_response)
+
+        client.send_request(
+            client.create_request(method=second_method, uri="/index.html", headers=second_headers),
+            expected_status_code="200",
+        )
+        self.assertNotIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 2)
+        self.assertEqual(
+            "Second body." if second_method != "HEAD" else "", client.last_response.body
+        )
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 11\r\n"
+            + "Content-Location: /index.html\r\n"
+            + "Cache-Control: public, s-maxage=5\r\n"
+            + "\r\n"
+            + "Third body."
+        )
+
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+        if second_method != "HEAD":
+            self.assertIn("age", client.last_response.headers.keys())
+        else:
+            self.assertNotIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 2 if second_method != "HEAD" else 3)
+        self.assertEqual(
+            "Second body." if second_method != "HEAD" else "Third body.", client.last_response.body
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="GET_POST",
+                first_method="GET",
+                second_method="POST",
+                second_headers=[],
+                sleep_interval=0,
+            ),
+            param(
+                name="GET_GET",
+                first_method="GET",
+                second_method="GET",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+            param(
+                name="GET_HEAD",
+                first_method="GET",
+                second_method="HEAD",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+            param(
+                name="POST_POST",
+                first_method="POST",
+                second_method="POST",
+                second_headers=[],
+                sleep_interval=0,
+            ),
+            param(
+                name="POST_GET",
+                first_method="POST",
+                second_method="GET",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+            param(
+                name="POST_HEAD",
+                first_method="POST",
+                second_method="HEAD",
+                second_headers=[("cache-control", "max-age=1")],
+                sleep_interval=2,
+            ),
+        ]
+    )
+    def test_cache_eviction_after_not_200_response(
+        self, name, first_method, second_method, second_headers, sleep_interval
+    ):
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 11\r\n"
+            + "Content-Location: /index.html\r\n"
+            + "Cache-Control: public, s-maxage=5\r\n"
+            + "\r\n"
+            + "First body."
+        )
+
+        client.send_request(
+            client.create_request(method=first_method, uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+        self.assertNotIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 1)
+        self.assertEqual("First body.", client.last_response.body)
+
+        time.sleep(sleep_interval)
+
+        server.set_response("HTTP/1.1 400 Bad Request\r\n" + "Content-Length: 0\r\n" + "\r\n")
+
+        client.send_request(
+            client.create_request(method=second_method, uri="/index.html", headers=second_headers),
+            expected_status_code="400",
+        )
+        self.assertNotIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 2)
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 11\r\n"
+            + "Content-Location: /index.html\r\n"
+            + "Cache-Control: public, s-maxage=5\r\n"
+            + "\r\n"
+            + "Third body."
+        )
+
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]),
+            expected_status_code="200",
+        )
+
+        self.assertIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 2)
+        self.assertEqual("First body.", client.last_response.body)
 
 
 class TestH2CacheHdrDel(tester.TempestaTest):
