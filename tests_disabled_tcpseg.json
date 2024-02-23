@@ -18,35 +18,7 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "selftests.test_docker_server",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_framework",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_headercollection",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_port_checks",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_requests",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_responses",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_shell",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "selftests.test_x509",
+            "name": "selftests",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
@@ -63,10 +35,6 @@
         },
         {
             "name": "t_long_body",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "t_sites",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {

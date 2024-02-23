@@ -10,6 +10,10 @@
             "reason" : "Invalid request is parsed as two requests. The second response is not supported by current deproxy architecture."
         },
         {
+            "name" : "selftests.test_docker_compose_server",
+            "reason" : "Docker compose backend does not use in tests now."
+        },
+        {
             "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
             "reason" : ""
         },
@@ -148,10 +152,6 @@
         {
             "name" : "sessions.test_sticky_sess_stress.OneClient",
             "reason" : "Disabled by issue #398"
-        },
-        {
-            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
-            "reason": "Disable by issue #1692"
         },
         {
             "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",

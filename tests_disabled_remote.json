@@ -14,6 +14,10 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
+            "name": "selftests",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
             "name": "t_frang.test_ip_block",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
@@ -83,10 +87,6 @@
         },
         {
             "name": "t_stress.test_wordpress",
-            "reason": "Disabled by test issue #507"
-        },
-        {
-            "name": "selftests.test_docker_server",
             "reason": "Disabled by test issue #507"
         },
         {
