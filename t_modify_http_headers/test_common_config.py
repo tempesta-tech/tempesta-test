@@ -13,11 +13,32 @@ class AddHeaderBase(tester.TempestaTest):
 listen 80;
 listen 443 proto=h2;
 
-server ${server_ip}:8000;
-
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
+
+srv_group default {
+    server ${server_ip}:8000;
+}
+
+vhost default {
+    proxy_pass default;
+}
+
+srv_group test {
+        server ${server_ip}:8000;
+}
+
+vhost test.com {
+        req_hdr_set host "tempesta-tech.com";
+        proxy_pass test;
+}
+
+http_chain {
+    host == "test.com" -> test.com;
+    -> default;
+}
+
 """,
     }
 
@@ -60,7 +81,7 @@ tls_match_any_server_name;
         cache = "cache 2;\ncache_fulfill * *;\n" if self.cache else "cache 0;"
         tempesta.config.defconfig += config + "\n" + cache
 
-    def base_scenario(self, config: str, expected_headers: list):
+    def base_scenario(self, config: str, expected_headers: list, request=None):
         client = self.get_client("deproxy-1")
         server = self.get_server("deproxy")
 
@@ -69,10 +90,11 @@ tls_match_any_server_name;
         self.start_all_services()
 
         for _ in range(2 if self.cache else 1):
-            client.send_request(self.request, "200")
+            client.send_request(request if request else self.request, "200")
 
             for header in expected_headers:
                 if self.directive in ["req_hdr_set", "req_hdr_add"]:
+                    print(server.last_request.headers)
                     self.assertIn(header[1], list(server.last_request.headers.find_all(header[0])))
                     self.assertNotIn(
                         header[1], list(client.last_response.headers.find_all(header[0]))
@@ -141,6 +163,18 @@ class TestReqAddHeader(AddHeaderBase):
             self.assertNotIn(("x-my-hdr", "some text"), server.last_request.headers.items())
         else:
             self.assertNotIn(("x-my-hdr", "some text"), client.last_response.headers.items())
+        return client, server
+
+    def test_x_forwarded_proto(self):
+        client, server = self.base_scenario(
+            config=(f'{self.directive} X-Forwarded-Proto "https";\n'),
+            expected_headers=[("x-forwarded-proto", "https")],
+            request=f"GET / HTTP/1.1\r\n"
+            + "Host: test.com\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Accept: */*\r\n"
+            + "\r\n",
+        )
         return client, server
 
 
