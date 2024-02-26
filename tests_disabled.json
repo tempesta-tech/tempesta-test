@@ -102,22 +102,6 @@
             "reason" : "Disabled by issue #198"
         },
         {
-            "name" : "cache.test_cache.TestCacheLocationHttp.test_nonidempotent_get",
-            "reason": "Disabled by issue #1663"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationHttp.test_nonidempotent_head",
-            "reason": "Disabled by issue #1663"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationH2.test_nonidempotent_get",
-            "reason": "Disabled by issue #1663"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationH2.test_nonidempotent_head",
-            "reason": "Disabled by issue #1663"
-        },
-        {
             "name": "cache.test_purge.TestPurgeGet",
             "reason": "Disabled by issue #1692"
         },
