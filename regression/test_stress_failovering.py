@@ -1,73 +1,177 @@
 """
-Stress failovering testing: generate HTTP traffic with wrk, all requests must
-be served correctly. No matter how much keep-alive request are configured on
-the server.
-
-Refer to issue #383 for more information.
+Stress failovering testing.
 """
 
-from __future__ import print_function
-
-import sys
-import unittest
-
-from helpers import control, tempesta
-from testers import stress
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import sys
 
-class RatioFailovering(stress.StressTest):
-    """Use ratio scheduler (default) with different keep-alive requests
+from framework import tester
+from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
+
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   20;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests %s;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    error_log /dev/null emerg;
+    access_log off;
+
+    server {
+        listen        ${server_ip}:${port};
+
+        location / {
+            return 200;
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+
+class TestStressRatioFailovering(tester.TempestaTest):
+    """Use ratio (default) scheduler with small keep-alive requests
     configuration on HTTP server.
 
-    Use one server with default connections count. Since overall amount of
-    connections are small, failovering procedure will be loaded a lot.
-    We do not need a lot of connections for this test: it will just make
-    connections to live a little bit more under load.
+    Since overall amount of connections are small, failovering procedure
+    will be loaded a lot.
     """
 
-    def create_servers(self):
-        """Create sever with very little connections count."""
-        port = tempesta.upstream_port_start_from()
-        server = control.Nginx(listen_port=port)
-        server.config.set_return_code(200)
-        server.conns_n = 4
-        self.servers = [server]
+    clients = [
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443/"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {REQUESTS_COUNT}"
+                f" --duration {DURATION}"
+            ),
+        },
+    ]
 
-    def run_test(self, ka_reqs):
-        """Configure server's keep-alive requests count for one session and
-        start generic test.
-        """
-        for s in self.servers:
-            s.config.set_ka(ka_reqs)
-        self.generic_test_routine("cache 0;\n")
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG % 10,
+        },
+    ]
 
-    def test_limited_ka(self):
+    tempesta = {
+        "config": """
+            listen ${tempesta_ip}:443 proto=h2;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            cache 0;
+            server ${server_ip}:8000;
+
+            sched ratio;
+        """,
+    }
+
+    def run_test(self) -> None:
+        # launch all services except clients
+        self.start_all_services(client=False)
+
+        # launch H2Load
+        client = self.get_client("h2load")
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        self.assertNotIn(" 0 2xx, ", client.response_msg)
+
+    def test_failovering(self) -> None:
         """Small amount of keep-alive requests, make Tempesta failover
         connections on a high rates.
         """
-        self.run_test(100)
+        self.run_test()
 
-    def test_unlimited_ka(self):
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+
+        self.assertNotEqual(
+            tempesta.stats.cl_msg_received,
+            tempesta.stats.cl_msg_forwarded,
+        )
+        self.assertTrue(tempesta.stats.cl_msg_other_errors > 0)
+
+
+class TestStressUnlimKeepAliveReq(TestStressRatioFailovering):
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:${port}/nginx_status",
+            "config": NGINX_CONFIG % sys.maxsize,  # 2**63 - 1
+        },
+    ]
+
+    def test_failovering(self) -> None:
         """Almost unlimited maximum amount of requests during one connection.
         No connections failovering in this case.
         """
-        self.run_test(sys.maxsize)
+        self.run_test()
+
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+
+        self.assertEqual(
+            tempesta.stats.cl_msg_received,
+            tempesta.stats.cl_msg_forwarded,
+        )
+        self.assertEqual(tempesta.stats.cl_msg_other_errors, 0)
 
 
-class HashFailovering(RatioFailovering):
-    """Absolutely the same as RatioFailovering, bus uses `hash` scheduler
-    instead.
+class TestStressHashFailovering(TestStressRatioFailovering):
+    """Absolutely the same as TestStressRatioFailovering,
+    bus uses `hash` scheduler instead.
     """
 
-    def configure_tempesta(self):
-        """Configure Tempesta to use hash scheduler instead of default one."""
-        stress.StressTest.configure_tempesta(self)
-        for sg in self.tempesta.config.server_groups:
-            sg.sched = "hash"
+    tempesta = {
+        "config": """
+            listen ${tempesta_ip}:443 proto=h2;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            cache 0;
+            server ${server_ip}:8000;
+
+            sched hash;
+        """,
+    }
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
