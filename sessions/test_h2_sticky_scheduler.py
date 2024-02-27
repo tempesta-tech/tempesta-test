@@ -1,7 +1,13 @@
 """Test module for http2 and Sticky Cookie Scheduler."""
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import http
 
 from framework import tester
+from helpers import dmesg
 
 
 class H2StickySchedulerTestCase(tester.TempestaTest):
@@ -84,6 +90,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         },
     ]
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_h2_cookie_scheduler(self):
         """
         Test for sticky cookie scheduler by issue.
@@ -135,10 +142,9 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
 
         # check request is filtering out
-        # TODO uncomment by test issue 525
-        # self.assertTrue(
-        #     self.oops.find(
-        #         "request has been filtered out via http table",
-        #     ),
-        #     "Filtered request warning is not shown",
-        # )
+        self.assertTrue(
+            self.oops.find(
+                "request has been filtered out via http table",
+            ),
+            "Filtered request warning is not shown",
+        )
