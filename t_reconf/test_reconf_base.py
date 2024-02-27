@@ -416,6 +416,60 @@ http_chain {{
 
     @parameterize.expand(
         [
+            param(name="increase", conns_n_1=32, conns_n_2=64),
+            param(name="decrease", conns_n_1=32, conns_n_2=16),
+        ]
+    )
+    def test_conns_n_for_srv_group(self, name, conns_n_1, conns_n_2):
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy-1")
+        tempesta = self.get_tempesta()
+
+        tempesta.config.set_defconfig(
+            f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000 conns_n={conns_n_1};
+}}
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+            """
+        )
+        server.conns_n = conns_n_1
+
+        self._start_all(servers=[server], client=False)
+
+        tempesta.config.set_defconfig(
+            f"""
+srv_group grp1 {{
+    server {SERVER_IP}:8000 conns_n={conns_n_2};
+}}
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    -> grp1;
+}}
+            """
+        )
+        server.conns_n = conns_n_2
+
+        tempesta.reload()
+        self.assertTrue(
+            server.wait_for_connections(),
+            "Tempesta did not change number of connections with server after reload.",
+        )
+
+        client.start()
+        client.send_request(client.create_request(method="GET", headers=[]), "200")
+
+    @parameterize.expand(
+        [
             param(
                 name="server_from_default_srv_group",
                 first_config=_set_tempesta_config_with_2_srv_in_default_srv_group,
