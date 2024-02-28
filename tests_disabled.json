@@ -388,6 +388,42 @@
         {
             "name": "t_malformed.test_h2_malformed_headers.H2MalformedRequestsWithoutStrictParsingTest.test_content_encoding",
             "reason": "Disabled by issue #2081"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeHttp.test_http_token_brange_negative",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeH2.test_http_token_brange_negative",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeHttp.test_http_qetoken_brange_negative",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeH2.test_http_qetoken_brange_negative",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeHttp.test_http_qetoken_brange_disallow_equal",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeH2.test_http_qetoken_brange_disallow_equal",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeHttp.test_http_nctl_brange_negative",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestBrangeH2.test_http_nctl_brange_negative",
+            "reason": "Disabled by issue #2069"
         }
     ]
 }
