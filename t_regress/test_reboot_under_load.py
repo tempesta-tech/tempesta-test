@@ -52,8 +52,30 @@ TEMPESTA_WITH_CACHE = {
 
 @parameterize_class(
     [
-        {"name": "tfw_no_cache", "tempesta": TEMPESTA_NO_CACHE},
-        {"name": "tfw_with_cache", "tempesta": TEMPESTA_WITH_CACHE},
+        {
+            "name": "TfwNoCache",
+            "tempesta": TEMPESTA_NO_CACHE,
+            "restart_timeout": 10,
+            "warm_timeout": 0,
+        },
+        {
+            "name": "TfwWithCache",
+            "tempesta": TEMPESTA_WITH_CACHE,
+            "restart_timeout": 10,
+            "warm_timeout": 0,
+        },
+        {
+            "name": "NoTimeoutTfwNoCache",
+            "tempesta": TEMPESTA_NO_CACHE,
+            "restart_timeout": 0,
+            "warm_timeout": 5,
+        },
+        {
+            "name": "NoTimeoutTfwWithCache",
+            "tempesta": TEMPESTA_WITH_CACHE,
+            "restart_timeout": 0,
+            "warm_timeout": 5,
+        },
     ]
 )
 class TestRebootUnderLoad(tester.TempestaTest):
@@ -163,13 +185,6 @@ class TestRebootUnderLoad(tester.TempestaTest):
         """Checking for errors in the Tempesta log."""
         self.oops.update()
         self.assertFalse(len(self.oops.log_findall("ERROR")))
-
-
-class TestRebootUnderLoadNoTimeout(TestRebootUnderLoad):
-    """No timeout between reboots"""
-
-    restart_timeout = 0
-    warm_timeout = 5
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

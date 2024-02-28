@@ -2,10 +2,6 @@
     "disable" : true,
     "disabled" : [
         {
-            "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
-            "reason" : "Problems with stap, see tempesta-test#45"
-        },
-        {
             "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
             "reason" : "Invalid request is parsed as two requests. The second response is not supported by current deproxy architecture."
         },
