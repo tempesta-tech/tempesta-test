@@ -156,6 +156,10 @@
         {
             "name": "http2_general.test_h2_block_action.BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow.test_block_action_error_reply_with_conn_close_garbage",
             "reason": "Disabled by issue #525"
+        },
+        {
+            "name": "tls.test_tls_cert.WrkTestsMultipleVhosts.test_wrk",
+            "reason": "Disabled by issue #525"
         }
     ]
 }
