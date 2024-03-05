@@ -51,7 +51,7 @@ vhost default {
 
 cache 2;
 cache_fulfill * *;
-cache_methods GET;
+cache_methods GET HEAD POST;
 """,
     }
 
@@ -124,8 +124,25 @@ cache_methods GET;
             expected_status_code=expected_status_code,
         )
 
-        self.assertIn(expected_etag_304, client.last_response.headers["etag"])
+        if expected_status_code != "412":
+            self.assertIn(expected_etag_304, client.last_response.headers["etag"])
         self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
+
+    """
+    According to RFC 9110 13.1.2:
+    To evaluate a received If-None-Match header field:
+    1. If the field value is "*", the condition is false if the origin server
+       has a current representation for the target resource.
+    2. If the field value is a list of entity tags, the condition is false if
+       one of the listed tags matches the entity tag of the selected representation.
+    3. Otherwise, the condition is true.
+
+    An origin server that evaluates an If-None-Match condition MUST NOT perform the
+    requested method if the condition evaluates to false; instead, the origin server
+    MUST respond with either a) the 304 (Not Modified) status code if the request method
+    is GET or HEAD or b) the 412 (Precondition Failed) status code for all other request
+    methods.
+    """
 
     def test_none_match(self):
         """Client has cached resource, send 304."""
@@ -147,17 +164,34 @@ cache_methods GET;
             method="HEAD",
         )
 
-    def test_none_match_POST(self):
+    def test_none_match_PUT(self):
         """
-        Client sends any cachable method except GET of HEAD (e.g. POST)
-        with If-None-Match header, Tempesta replies with 412.
+        Conditionals requests can also be applied to state-changing methods,
+        such as PUT and DELETE. The 412 (Precondition Failed) status code
+        indicates that one or more conditions given in the request header
+        fields evaluated to false when tested on the server
         """
         self._test(
             etag='"asdfqwerty"',
             expected_status_code="412",
             if_none_match='"asdfqwerty"',
             if_modified_since=None,
-            method="POST",
+            method="PUT",
+        )
+
+    def test_none_match_DELETE(self):
+        """
+        Conditionals requests can also be applied to state-changing methods,
+        such as PUT and DELETE. The 412 (Precondition Failed) status code
+        indicates that one or more conditions given in the request header
+        fields evaluated to false when tested on the server
+        """
+        self._test(
+            etag='"asdfqwerty"',
+            expected_status_code="412",
+            if_none_match='"asdfqwerty"',
+            if_modified_since=None,
+            method="DELETE",
         )
 
     def test_none_match_no_quotes_etag(self):
