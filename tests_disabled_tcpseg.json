@@ -98,10 +98,6 @@
             "reason": "Disabled by issue #1884"
         },
         {
-            "name": "regression",
-            "reason": "Disabled by issue #56"
-        },
-        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

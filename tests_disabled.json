@@ -2,32 +2,12 @@
     "disable" : true,
     "disabled" : [
         {
-            "name" : "regression.test_stress_pipeline.PipelineFaultInjection",
-            "reason" : "Problems with stap, see tempesta-test#45"
-        },
-        {
             "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
             "reason" : "Invalid request is parsed as two requests. The second response is not supported by current deproxy architecture."
         },
         {
             "name" : "selftests.test_docker_compose_server",
             "reason" : "Docker compose backend does not use in tests now."
-        },
-        {
-            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_close",
-            "reason" : ""
-        },
-        {
-            "name" : "regression.test_srv_failovering.FailoveringTest.test_on_shutdown",
-            "reason" : ""
-        },
-        {
-            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown",
-            "reason" : ""
-        },
-        {
-            "name" : "regression.test_shutdown.ShutdownTest.test_shutdown_with_traffic",
-            "reason" : ""
         },
         {
             "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
