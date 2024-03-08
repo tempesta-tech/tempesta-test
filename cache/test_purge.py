@@ -629,6 +629,31 @@ class TestPurge(TestPurgeBase):
         self.assertEqual(len(srv.requests), 4, "Server has lost requests.")
 
 
+class TestPurgeImmediate(TestPurge):
+    tempesta = {
+        "config": """
+listen 80;
+
+server ${server_ip}:8000;
+
+vhost default {
+    proxy_pass default;
+}
+
+cache 2;
+cache_fulfill * *;
+cache_methods GET HEAD;
+cache_purge immediate;
+cache_purge_acl ${client_ip};
+cache_resp_hdr_del set-cookie;
+
+frang_limits {
+  http_methods GET PURGE;
+}
+""",
+    }
+
+
 class TestPurgeGet(TempestaTest):
     backends = [
         # /server-1: default transfer encoding
