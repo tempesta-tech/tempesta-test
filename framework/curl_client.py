@@ -98,6 +98,7 @@ class CurlArguments:
     curl_iface: str = None
     insecure: bool = True
     parallel: int = None
+    method: str = ""
 
     @classmethod
     def get_arg_names(cls) -> List[str]:
@@ -131,6 +132,7 @@ class CurlClient(CurlArguments, client.Client):
       insecure (bool): Ignore SSL certificate errors. Enabled by default.
       parallel (int): Enable parallel mode, with maximum <int> simultaneous transfers.
                       In combination with dump_headers can provide inaccurate results #488.
+      method (str): Specify HTTP method for request.
     """
 
     def __init__(self, **kwargs):
@@ -302,6 +304,9 @@ class CurlClient(CurlArguments, client.Client):
             options.append("--parallel")
             options.append("--parallel-immediate")
             options.append(f"--parallel-max {self.parallel}")
+
+        if self.method:
+            options.append(f"--request {self.method}")
 
         cmd = " ".join([self.bin] + options + self.options + [f"'{self.uri}'"])
         tf_cfg.dbg(2, f"Curl command formatted: {cmd}")
