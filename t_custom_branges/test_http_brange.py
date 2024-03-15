@@ -8,6 +8,7 @@ import random
 
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
+from helpers import deproxy
 from helpers.remote import CmdError, HttpMessage
 
 DEPROXY_CLIENT = {
@@ -436,23 +437,24 @@ tls_match_any_server_name;
         [
             param(
                 name="positive",
-                header_value="unknown-value",
+                header_value="unknown=value",
                 expected_status="200",
             ),
             param(
                 name="negative",
-                header_value="unknown-value%",
+                header_value="unknown%=value",
                 expected_status="400",
             ),
         ]
     )
     def test_http_token_brange(self, name, header_value, expected_status):
-        self._update_tempesta_config(directive="http_token_brange", characters="0x2d-0x7a")
+        self._update_tempesta_config(directive="http_token_brange", characters="0x41-0x7a")
         self.start_all_services()
 
         client = self.get_client("deproxy")
+        client.parsing = False
         client.send_request(
-            request=client.create_request(method="GET", headers=[]),
+            request=client.create_request(method="GET", headers=[("cookie", f"{header_value}")]),
             expected_status_code=expected_status,
         )
         self.assertEqual(
@@ -483,7 +485,7 @@ tls_match_any_server_name;
         ]
     )
     def test_http_qetoken_brange(self, name, characters, cache_control, expected_status):
-        self._update_tempesta_config(directive="http_token_brange", characters=characters)
+        self._update_tempesta_config(directive="http_qetoken_brange", characters=characters)
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -513,21 +515,54 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_nctl_brange(self, name, characters, date, expected_status):
+    def test_http_nctl_brange_request(self, name, characters, date, expected_status):
         self._update_tempesta_config(directive="http_nctl_brange", characters=characters)
-        self.start_all_services(client=False)
+        self.start_all_services()
 
         client = self.get_client("deproxy")
 
-        for header in ["date", "expires", "last-modified", "if-modified-since"]:
-            with self.subTest(msg=f"subTest with {header}' header."):
-                client.restart()
-                client.send_request(
-                    request=client.create_request(method="GET", headers=[(header, date)]),
-                    expected_status_code=expected_status,
-                )
+        client.send_request(
+            request=client.create_request(method="GET", headers=[("if-modified-since", date)]),
+            expected_status_code=expected_status,
+        )
 
-                self.assertEqual(
-                    client.connection_is_closed(),
-                    True if expected_status == "400" else False,
+        self.assertEqual(
+            client.connection_is_closed(),
+            True if expected_status == "400" else False,
+        )
+
+    @parameterize.expand(
+        [
+            param(
+                name="positive",
+                characters="0x20-0x7f",
+                date="Mon, 12 Dec 2016 13:59:39 GMT",
+                expected_status="200",
+            ),
+            param(
+                name="negative",
+                characters="0x20 0x2c 0x2e 0x30-0x3b 0x41-0x5a 0x61-0x7a",
+                date="Mon, 12 Dec 2016% 13:59:39 GMT",
+                expected_status="502",
+            ),
+        ]
+    )
+    def test_http_nctl_brange_response(self, name, characters, date, expected_status):
+        self._update_tempesta_config(directive="http_nctl_brange", characters=characters)
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        for header in ["date", "expires", "last-modified"]:
+            with self.subTest(msg=f"subTest with '{header}' header."):
+                server.set_response(
+                    deproxy.Response.create(
+                        status="200",
+                        headers=[(header, date), ("content-length", "0")],
+                    )
+                )
+                client.send_request(
+                    request=client.create_request(method="GET", headers=[]),
+                    expected_status_code=expected_status,
                 )
