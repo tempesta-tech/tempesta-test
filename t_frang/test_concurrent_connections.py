@@ -47,6 +47,7 @@ frang_limits {
         self.disable_deproxy_auto_parser()
         for client in clients:
             client.start()
+            time.sleep(0.2)
 
         for client in clients:
             client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")

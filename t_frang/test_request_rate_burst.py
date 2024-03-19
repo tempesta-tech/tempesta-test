@@ -130,8 +130,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         self.sniffer.stop()
         self.assert_reset_socks(self.sniffer.packets)
-        self.assertFrangWarning(warning="Warning: block client:", expected=1)
-        self.assertFrangWarning(warning=self.error_msg, expected=1)
+        self.assertFrangWarning(warning="Warning: block client:", expected=range(1, 2))
+        self.assertFrangWarning(warning=self.error_msg, expected=range(1, 2))
 
 
 class FrangRequestBurstTestCase(FrangRequestRateTestCase):
