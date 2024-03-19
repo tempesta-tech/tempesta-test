@@ -96,7 +96,7 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         client.start()
 
         for rps, requests in [
-            (3, [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 7),
+            (2.8, [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 7),
             (10, [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg] * 10),
         ]:
             with self.subTest():
