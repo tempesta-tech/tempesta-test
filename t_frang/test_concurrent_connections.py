@@ -79,6 +79,7 @@ frang_limits {
     def _base_scenario(self, clients: list, responses: int):
         for client in clients:
             client.start()
+            time.sleep(0.2)
 
         for client in clients:
             client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
