@@ -130,14 +130,6 @@
             "reason": "Disable by issue #1692"
         },
         {
-            "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
-            "reason": "Disabled by issue #480"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTls.test_connection_rate",
-            "reason": "Disabled by issue #480"
-        },
-        {
             "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
             "reason": "Disabled by issue #1719"
         },

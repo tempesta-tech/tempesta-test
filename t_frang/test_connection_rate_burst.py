@@ -7,9 +7,12 @@ are ranged):
 but not more than 2 times."
 """
 
+import socket
+import ssl
+import threading
 import time
 
-from helpers import util
+from helpers import tf_cfg, util
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -20,22 +23,147 @@ ERROR = "Warning: frang: new connections {0} exceeded for"
 ERROR_TLS = "Warning: frang: new TLS connections {0} exceeded for"
 
 
-class FrangTls(FrangTestCase):
-    """Tests for 'tls_connection_burst' and 'tls_connection_rate'."""
+def is_socket_closed(sock: socket.socket) -> bool:
+    try:
+        # this will try to read bytes without blocking and
+        # also without removing them from buffer (peek only)
+        data = sock.recv(16, socket.MSG_DONTWAIT | socket.MSG_PEEK)
+        if len(data) == 0:
+            return True
+    except BlockingIOError:
+        # socket is open and reading from it would block
+        return False
+    except ConnectionResetError:
+        # socket was closed for some other reason
+        return True
+    else:
+        return False
 
-    clients = [
-        {
-            "id": "curl-1",
-            "type": "curl",
-            "ssl": True,
-            "addr": "${tempesta_ip}:443",
-            "cmd_args": "-v",
-            "headers": {
-                "Connection": "close",
-                "Host": "localhost",
-            },
-        },
-    ]
+
+def is_tls_socket_closed(sock: socket.socket) -> bool:
+    sock.settimeout(0)
+    try:
+        # this will try to read bytes without blocking and
+        # also without removing them from buffer (peek only)
+        data = sock.recv(16)
+        if len(data) == 0:
+            return True
+    except ssl.SSLWantReadError:
+        return False
+    except:
+        return True
+    else:
+        return False
+
+
+class Connection:
+    def __init__(self, port, protocols=None):
+        self.port = port
+        self.protocols = protocols
+        self.tcp_conn = None
+        self.tls_conn = None
+
+    def __del__(self):
+        if self.tls_conn:
+            self.tls_conn.close()
+        elif self.tcp_conn:
+            self.tcp_conn.close()
+
+    def __tls_wrap_client_server_connection(self, protocols: list):
+        context = ssl.create_default_context()
+
+        context.set_alpn_protocols(protocols)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+        try:
+            self.tls_conn = context.wrap_socket(
+                self.tcp_conn, server_hostname=tf_cfg.cfg.get("Client", "hostname")
+            )
+        except:
+            self.tls_conn = None
+
+    def establish_client_server_connection(self):
+        try:
+            self.tcp_conn = socket.create_connection((tf_cfg.cfg.get("Tempesta", "ip"), self.port))
+        except:
+            self.tcp_conn = None
+
+    def establish_client_server_tls_connection(self):
+        self.establish_client_server_connection()
+        if self.tcp_conn and not is_socket_closed(self.tcp_conn):
+            self.__tls_wrap_client_server_connection(self.protocols)
+
+    def establish_client_server_connection_in_thead(self):
+        thread = threading.Thread(target=self.establish_client_server_connection)
+        return thread
+
+    def establish_client_server_tls_connection_in_thead(self):
+        thread = threading.Thread(target=self.establish_client_server_tls_connection)
+        return thread
+
+
+def calculate_tls_reset_conn_n(conns):
+    reset_conn_n = 0
+    for conn in conns:
+        if not conn.tls_conn or is_tls_socket_closed(conn.tls_conn):
+            reset_conn_n += 1
+    return reset_conn_n
+
+
+def calculate_tcp_reset_conn_n(conns):
+    reset_conn_n = 0
+    for conn in conns:
+        if not conn.tcp_conn or is_socket_closed(conn.tcp_conn):
+            reset_conn_n += 1
+    return reset_conn_n
+
+
+def start_and_wait_threads(threads):
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+
+def create_connections(count, tls_enabled, sleep_time=None):
+    connections = []
+    port = 443 if tls_enabled else 80
+
+    for _ in range(count):
+        conn = Connection(port, ["http/1.1"])
+        connections.append(conn)
+        if tls_enabled:
+            conn.establish_client_server_tls_connection()
+        else:
+            conn.establish_client_server_connection()
+        if sleep_time:
+            time.sleep(sleep_time)
+
+    return connections
+
+
+def create_connections_and_threads(count, tls_enabled):
+    connections = []
+    threads = []
+    port = 443 if tls_enabled else 80
+
+    for _ in range(count):
+        conn = Connection(port, ["http/1.1"])
+        connections.append(conn)
+        if tls_enabled:
+            threads.append(conn.establish_client_server_tls_connection_in_thead())
+        else:
+            threads.append(conn.establish_client_server_connection_in_thead())
+
+    return connections, threads
+
+
+class FrangTls(FrangTestCase):
+    tls_connection = True
+
+    """Tests for 'tls_connection_burst' and 'tls_connection_rate'."""
 
     tempesta = {
         "config": """
@@ -70,97 +198,74 @@ class FrangTls(FrangTestCase):
     burst_warning = ERROR_TLS.format("burst")
     rate_warning = ERROR_TLS.format("rate")
     burst_config = "tls_connection_burst 5;\n\ttls_connection_rate 20;"
-    rate_config = "tls_connection_burst 2;\n\ttls_connection_rate 4;"
+    rate_config = "tls_connection_burst 20;\n\ttls_connection_rate 5;"
 
-    def _base_burst_scenario(self, connections: int):
+    def _base_burst_scenario(self, conn_n: int):
         """
-        Create several client connections and send request.
-        If number of connections is more than 3 they will be blocked.
+        Create several client connections, if number of
+        connections is more than 5 some of them will be
+        blocked. We don't know real count of blocked
+        connections because connnection is blocked only if
+        connection count per 0.125 sec is greater then 5.
         """
-        curl = self.get_client("curl-1")
-        curl.uri += f"[1-{connections}]"
-        curl.parallel = connections
-
         self.set_frang_config(self.burst_config)
 
-        curl.start()
-        self.wait_while_busy(curl)
-        curl.stop()
-
-        time.sleep(self.timeout)
-
-        # we need to set 11=10+1 to guarantee burst 5
-        warns_expected = range(max(connections - 10, 0), max(connections - 5, 0))
-
-        self.check_connections([curl], self.burst_warning, warns_expected)
-        self.assertFrangWarning(self.rate_warning, expected=0)
-
-    def _base_rate_scenario(self, connections: int, disable_hshc: bool = False):
-        """
-        Create several client connections and send request.
-        If number of connections is more than 3m they will be blocked.
-        """
-        curl = self.get_client("curl-1")
-        self.set_frang_config(
-            "\n".join(
-                [self.rate_config] + (["http_strict_host_checking false;"] if disable_hshc else [])
-            )
+        connections, threads = create_connections_and_threads(conn_n, self.tls_connection)
+        start_and_wait_threads(threads)
+        reset_conn_n = (
+            calculate_tls_reset_conn_n(connections)
+            if self.tls_connection
+            else calculate_tcp_reset_conn_n(connections)
         )
 
-        # TODO #480: doesn't work properly,
-        # very slow execution to fit in a second
-        for step in range(connections):
-            curl.start()
-            self.wait_while_busy(curl)
-            curl.stop()
+        warns_expected = range(1, conn_n - 5) if conn_n - 5 > 0 else 0
+        warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        self.assertEqual(reset_conn_n, warns_occured)
+        self.assertFrangWarning(self.rate_warning, expected=0)
 
-            time.sleep(DELAY)
+    def _base_rate_scenario(self, conn_n: int):
+        """
+        Create several client connections, if number of
+        connections is more than 5 some of them will be
+        blocked. We don't know real count of blocked
+        connections because connnection is blocked only if
+        connection count per 1 sec is greater then 5.
+        """
+        self.set_frang_config(self.rate_config)
+        connections = create_connections(conn_n, self.tls_connection, 0.01)
+        reset_conn_n = (
+            calculate_tls_reset_conn_n(connections)
+            if self.tls_connection
+            else calculate_tcp_reset_conn_n(connections)
+        )
 
-        time.sleep(self.timeout)
-
-        # until rate limit is reached
-        if connections <= 4:  # rate limit 4
-            self.assertFrangWarning(warning=self.rate_warning, expected=0)
-            self.assertEqual(curl.last_response.status, 200)
-        else:
-            # rate limit is reached
-            self.check_connections([curl], self.rate_warning, resets_expected=connections - 4)
-
+        warns_expected = range(1, conn_n - 5) if conn_n - 5 > 0 else 0
+        warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
         self.assertFrangWarning(self.burst_warning, expected=0)
 
     def test_connection_burst(self):
-        self._base_burst_scenario(connections=11)
+        self._base_burst_scenario(conn_n=20)
 
     def test_connection_burst_without_reaching_the_limit(self):
-        self._base_burst_scenario(connections=2)
+        self._base_burst_scenario(conn_n=2)
 
     def test_connection_burst_on_the_limit(self):
-        self._base_burst_scenario(connections=5)
+        self._base_burst_scenario(conn_n=5)
 
     def test_connection_rate(self):
-        self._base_rate_scenario(connections=5)
+        self._base_rate_scenario(conn_n=20)
 
     def test_connection_rate_without_reaching_the_limit(self):
-        self._base_rate_scenario(connections=2, disable_hshc=True)
+        self._base_rate_scenario(conn_n=2)
 
     def test_connection_rate_on_the_limit(self):
-        self._base_rate_scenario(connections=4)
+        self._base_rate_scenario(conn_n=5)
 
 
 class FrangTcp(FrangTls):
-    """Tests for 'tcp_connection_burst' and 'tcp_connection_rate'."""
+    tls_connection = False
 
-    clients = [
-        {
-            "id": "curl-1",
-            "type": "curl",
-            "addr": "${tempesta_ip}:80",
-            "headers": {
-                "Connection": "close",
-                "Host": "localhost",
-            },
-        },
-    ]
+    """Tests for 'tcp_connection_burst' and 'tcp_connection_rate'."""
 
     tempesta = {
         "config": """
@@ -180,35 +285,11 @@ class FrangTcp(FrangTls):
     burst_warning = ERROR.format("burst")
     rate_warning = ERROR.format("rate")
     burst_config = "tcp_connection_burst 5;\n\ttcp_connection_rate 20;"
-    rate_config = "tcp_connection_burst 2;\n\ttcp_connection_rate 4;"
+    rate_config = "tcp_connection_burst 20;\n\ttcp_connection_rate 5;"
 
 
 class FrangTlsVsBoth(FrangTestCase):
     """Tests for tls and non-tls connections 'tls_connection_burst' and 'tls_connection_rate'"""
-
-    clients = [
-        {
-            "id": "curl-https",
-            "type": "curl",
-            "ssl": True,
-            "addr": "${tempesta_ip}:443",
-            "cmd_args": "-v",
-            "headers": {
-                "Connection": "close",
-                "Host": "localhost",
-            },
-        },
-        {
-            "id": "curl-http",
-            "type": "curl",
-            "addr": "${tempesta_ip}:80",
-            "cmd_args": "-v",
-            "headers": {
-                "Connection": "close",
-                "Host": "localhost",
-            },
-        },
-    ]
 
     tempesta = {
         "config": """
@@ -230,32 +311,10 @@ class FrangTlsVsBoth(FrangTestCase):
         """,
     }
 
-    base_client_id = "curl-https"
-    opt_client_id = "curl-http"
     burst_warning = ERROR_TLS.format("burst")
     rate_warning = ERROR_TLS.format("rate")
     burst_config = "tls_connection_burst 3;"
     rate_config = "tls_connection_rate 3;"
-    no_shc_config = "http_strict_host_checking false;"
-
-    def _arrange_clients(self, conns_n):
-        base_client = self.get_client(self.base_client_id)
-        opt_client = self.get_client(self.opt_client_id)
-
-        base_client.uri += f"[1-{conns_n}]"
-        opt_client.uri += f"[1-{conns_n}]"
-        base_client.parallel = conns_n
-        opt_client.parallel = conns_n
-
-        return base_client, opt_client
-
-    def _act(self, base_client, opt_client):
-        base_client.start()
-        opt_client.start()
-        self.wait_while_busy(base_client, opt_client)
-        self.wait_while_busy(opt_client)
-        base_client.stop()
-        opt_client.stop()
 
     def test_burst(self):
         """
@@ -263,34 +322,41 @@ class FrangTlsVsBoth(FrangTestCase):
         Only tls connections will be blocked.
         """
         self.set_frang_config(frang_config=self.burst_config)
-        # we need to set 7=6+1 to guarantee burst 3
-        conns_n = 7
-        base_client, opt_client = self._arrange_clients(conns_n)
+        conn_n = 7
 
-        self._act(base_client, opt_client)
+        tls_connections, tls_threads = create_connections_and_threads(conn_n, True)
+        tcp_connections, tcp_threads = create_connections_and_threads(conn_n, False)
+        threads = tls_threads + tcp_threads
 
-        resets_expected = range(conns_n - 3 * 2, conns_n - 3)
-        self.check_connections([base_client], self.burst_warning, resets_expected)
-        self.assertEqual(
-            opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
-        )
+        start_and_wait_threads(threads)
+        tls_reset_conn_n = calculate_tls_reset_conn_n(tls_connections)
+        tcp_reset_conn_n = calculate_tcp_reset_conn_n(tcp_connections)
+
+        warns_expected = range(1, conn_n - 3)
+        warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        self.assertEqual(tls_reset_conn_n, warns_occured)
+        self.assertEqual(tcp_reset_conn_n, 0)
+        self.assertFrangWarning(self.rate_warning, expected=0)
 
     def test_rate(self):
         """
-        Set `tls_connection_rate 3` and create 4 tls and 4 non-tls connections.
+        Set `tls_connection_rate 3` and create 7 tls and 7 non-tls connections.
         Only tls connections will be blocked.
         """
-        self.set_frang_config(frang_config=self.rate_config + self.no_shc_config)
-        # limit rate 3
-        conns_n = 4
-        base_client, opt_client = self._arrange_clients(conns_n)
+        self.set_frang_config(frang_config=self.rate_config)
+        conn_n = 7
 
-        self._act(base_client, opt_client)
+        tls_connections = create_connections(conn_n, True, 0.01)
+        tcp_connections = create_connections(conn_n, False, 0.01)
 
-        self.check_connections([base_client], self.rate_warning, resets_expected=conns_n - 3)
-        self.assertEqual(
-            opt_client.statuses_from_stats(), {200: conns_n}, "Client has been unexpectely reset"
-        )
+        tls_reset_conn_n = calculate_tls_reset_conn_n(tls_connections)
+        tcp_reset_conn_n = calculate_tcp_reset_conn_n(tcp_connections)
+
+        warns_expected = range(1, conn_n - 3)
+        warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        self.assertEqual(tls_reset_conn_n, warns_occured)
+        self.assertEqual(tcp_reset_conn_n, 0)
+        self.assertFrangWarning(self.burst_warning, expected=0)
 
 
 class FrangTcpVsBoth(FrangTlsVsBoth):
@@ -326,29 +392,40 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
 
     def test_burst(self):
         """
-        Set `tcp_connection_burst 3` and create 4 tls and 4 non-tls connections.
-        Connections of both types will be blocked (4+4 > 3*2).
+        Set `tcp_connection_burst 3` and create 7 tls and 7 non-tls connections.
+        Connections of both types will be blocked.
         """
         self.set_frang_config(frang_config=self.burst_config)
-        conn_n = 4
-        base_client, opt_client = self._arrange_clients(conn_n)
+        conn_n = 7
 
-        self._act(base_client, opt_client)
+        tls_connections, tls_threads = create_connections_and_threads(conn_n, True)
+        tcp_connections, tcp_threads = create_connections_and_threads(conn_n, False)
+        threads = tls_threads + tcp_threads
 
-        resets_expected = range(conn_n * 2 - 3 * 2, conn_n * 2 - 3)
-        self.check_connections([base_client, opt_client], self.burst_warning, resets_expected)
+        start_and_wait_threads(threads)
+        tls_reset_conn_n = calculate_tls_reset_conn_n(tls_connections)
+        tcp_reset_conn_n = calculate_tcp_reset_conn_n(tcp_connections)
+
+        warns_expected = range(1, 2 * conn_n - 3)
+        warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
+        self.assertFrangWarning(self.rate_warning, expected=0)
 
     def test_rate(self):
         """
-        Set tcp_connection_rate 3` and create 2 tls and 2 non-tls connections.
-        Connections of both types will be blocked (2+2 > 3).
+        Set tcp_connection_rate 3` and create 7 tls and 7 non-tls connections.
+        Connections of both types will be blocked.
         """
-        self.set_frang_config(frang_config=self.rate_config + self.no_shc_config)
-        conns_n = 2
-        base_client, opt_client = self._arrange_clients(conns_n)
+        self.set_frang_config(frang_config=self.rate_config)
+        conn_n = 7
 
-        self._act(base_client, opt_client)
+        tls_connections = create_connections(conn_n, True, 0.01)
+        tcp_connections = create_connections(conn_n, False, 0.01)
 
-        self.check_connections(
-            [base_client, opt_client], self.rate_warning, resets_expected=conns_n * 2 - 3
-        )
+        tls_reset_conn_n = calculate_tls_reset_conn_n(tls_connections)
+        tcp_reset_conn_n = calculate_tcp_reset_conn_n(tcp_connections)
+
+        warns_expected = range(1, 2 * conn_n - 3)
+        warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
+        self.assertFrangWarning(self.burst_warning, expected=0)
