@@ -78,7 +78,7 @@ class StickySessions(tester.TempestaTest):
 
     def client_send_req(self, client, req):
         curr_responses = len(client.responses)
-        client.make_requests(req)
+        client.make_request(req)
         client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses))
 

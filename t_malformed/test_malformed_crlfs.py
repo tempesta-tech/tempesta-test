@@ -77,9 +77,6 @@ server ${server_ip}:8000 conns_n=1;
 
         deproxy_cl.make_requests(request, True)
 
-        if isinstance(request, list):
-            deproxy_cl.valid_req_num = 2
-
         self.assertTrue(deproxy_cl.wait_for_response(timeout=5), "Response not received")
 
         status = int(deproxy_cl.last_response.status)
@@ -112,7 +109,7 @@ server ${server_ip}:8000 conns_n=1;
         Request should be passed to backed with stripped CRLF
         Proxy should return positive response
         """
-        request = "\r\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+        request = ["\r\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 200, expect)
 
@@ -135,7 +132,7 @@ server ${server_ip}:8000 conns_n=1;
         Request should be passed to backed with stripped LF
         Proxy should return positive response
         """
-        request = "\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+        request = ["\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         self.common_check(request, 200, expect)
 
@@ -157,7 +154,7 @@ server ${server_ip}:8000 conns_n=1;
         Test double CRLF before request
         Request should be rejected by the proxy
         """
-        request = "\r\n" "\r\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+        request = ["\r\n" "\r\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = None
         self.common_check(request, 400, expect)
 
@@ -179,7 +176,7 @@ server ${server_ip}:8000 conns_n=1;
         Test double LF before request
         Request should be rejected by the proxy
         """
-        request = "\n" "\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+        request = ["\n" "\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = None
         self.common_check(request, 400, expect)
 
