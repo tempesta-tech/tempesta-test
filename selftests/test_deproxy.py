@@ -375,7 +375,7 @@ server ${server_ip}:8000;
         request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
 
         messages = 5
-        client.make_requests(request * messages)
+        client.make_requests([request] * messages)
         client.wait_for_response(timeout=3)
 
         self.assertEqual(len(client.responses), messages)

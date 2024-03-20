@@ -202,8 +202,8 @@ frang_limits {
 """,
     }
 
-    requests = "GET /uri1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-    requests2 = "GET /uri2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+    requests = ["GET /uri1 HTTP/1.1\r\nHost: localhost\r\n\r\n"]
+    requests2 = ["GET /uri2 HTTP/1.1\r\nHost: localhost\r\n\r\n"]
 
     def test_two_clients_one_ip(self):
         """
