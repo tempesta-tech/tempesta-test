@@ -28,6 +28,14 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
+    def test_not_accepted_request_shipping_cfg(self):
+        client = self.base_scenario(
+            frang_config="",
+            requests=["DELETE / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="403", warning_msg=self.error)
+
     def test_not_accepted_request_register(self):
         client = self.base_scenario(
             frang_config="http_methods get post;",
@@ -81,6 +89,21 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
     def test_not_accepted_request(self):
         client = self.base_scenario(
             frang_config="http_methods get post;",
+            requests=[
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "DELETE"),
+                ],
+            ],
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="403", warning_msg=self.error)
+
+    def test_not_accepted_request_shipping_cfg(self):
+        client = self.base_scenario(
+            frang_config="",
             requests=[
                 [
                     (":authority", "example.com"),
