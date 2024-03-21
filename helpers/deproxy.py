@@ -434,6 +434,10 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
 
+    def convert_chunked_body(self):
+        chunked_lines = self.body.split("\r\n")
+        self.body = "".join(chunked_lines[1::2])
+
     def read_sized_body(self, stream):
         """RFC 7230. 3.3.3 #5"""
         size = int(self.headers["Content-Length"])
@@ -796,6 +800,20 @@ class H2Response(Response):
     def parse_headers(self, stream):
         self.headers = HeaderCollection.from_stream(stream, is_h2=True)
         self.status = self.headers.get(":status")
+
+    @staticmethod
+    def convert_http1_to_http2(response: Response) -> "H2Response":
+        new_response = H2Response()
+        new_response.method = response.method
+        new_response.status = response.status
+
+        new_response.headers = copy.deepcopy(response.headers)
+        new_response.headers.add(name=":status", value=new_response.status)
+        new_response.add_tempesta_headers()
+
+        new_response.trailer = copy.deepcopy(response.trailer)
+        new_response.body = response.body
+        return new_response
 
     @staticmethod
     def create(
