@@ -793,6 +793,7 @@ cache 2;
     ):
         tempesta = self.get_tempesta()
         tempesta.config.defconfig += tempesta_config
+        self.disable_deproxy_auto_parser()
 
         self.start_all_services()
 

@@ -95,11 +95,12 @@ block_action attack reply;
         client = self.get_client("deproxy-1")
         client.parsing = False
         client.start()
-        if isinstance(client, DeproxyClientH2):
-            client.make_requests(requests, huffman=huffman)
-        else:
-            client.make_requests(requests)
-        client.wait_for_response(3)
+        for request in requests:
+            if isinstance(client, DeproxyClientH2):
+                client.make_request(request, huffman=huffman)
+            else:
+                client.make_request(request)
+            client.wait_for_response(3)
         return client
 
     def _check_frang_warning(self, client, status_code: str, warning_msg: str):

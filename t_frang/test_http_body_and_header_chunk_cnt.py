@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework.deproxy_client import DeproxyClient
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
 CLIENT = {
@@ -25,33 +26,44 @@ class HttpHeaderChunkCnt(FrangTestCase):
         "Content-type: text/plain\r\n" "Content-Length: 0\r\n\r\n",
     ]
 
-    def test_header_chunk_cnt_ok(self):
+    def base_scenario(self, frang_config: str, requests: list[str], **kwargs):
+        self.set_frang_config("\n".join([frang_config, "http_strict_host_checking false;"]))
+
+        client = self.get_client("deproxy-1")
+        client.parsing = False
+        client.start()
+        for data in requests:
+            client.make_request(data)
+        client.valid_req_num = 1
+        client.wait_for_response()
+        return client
+
+    def test_chunk_cnt_ok(self):
         """Set up `http_header_chunk_cnt 3;` and make request with 3 header chunk"""
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(
             frang_config="http_header_chunk_cnt 3;",
             requests=self.requests,
-            disable_hshc=True,
         )
         self.check_response(client, "200", self.error)
 
-    def test_header_chunk_cnt_ok_2(self):
+    def test_chunk_cnt_ok_2(self):
         """Set up `http_header_chunk_cnt 5;` and make request with 3 header chunk"""
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(
             frang_config="http_header_chunk_cnt 5;",
             requests=self.requests,
-            disable_hshc=True,
         )
         self.check_response(client, "200", self.error)
 
-    def test_header_chunk_cnt_invalid(self):
+    def test_chunk_cnt_invalid(self):
         """Set up `http_header_chunk_cnt 2;` and make request with 3 header chunk"""
-        client = self.base_scenario(
-            frang_config="http_header_chunk_cnt 2;", requests=self.requests, disable_hshc=True
-        )
+        self.disable_deproxy_auto_parser()
+        client = self.base_scenario(frang_config="http_header_chunk_cnt 2;", requests=self.requests)
         self.check_response(client, "403", self.error)
 
 
-class HttpBodyChunkCnt(FrangTestCase):
+class HttpBodyChunkCnt(HttpHeaderChunkCnt):
     error = "Warning: frang: HTTP body chunk count exceeded"
     clients = [CLIENT]
 
@@ -63,18 +75,21 @@ class HttpBodyChunkCnt(FrangTestCase):
         "4",
     ]
 
-    def test_body_chunk_cnt_ok(self):
+    def test_chunk_cnt_ok(self):
         """Set up `http_body_chunk_cnt 4;` and make request with 4 body chunk"""
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(frang_config="http_body_chunk_cnt 4;", requests=self.requests)
         self.check_response(client, "200", self.error)
 
-    def test_body_chunk_cnt_ok_2(self):
+    def test_chunk_cnt_ok_2(self):
         """Set up `http_body_chunk_cnt 10;` and make request with 4 body chunk"""
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(frang_config="http_body_chunk_cnt 10;", requests=self.requests)
         self.check_response(client, "200", self.error)
 
-    def test_body_chunk_cnt_invalid(self):
+    def test_chunk_cnt_invalid(self):
         """Set up `http_body_chunk_cnt 3;` and make request with 4 body chunk"""
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(frang_config="http_body_chunk_cnt 3;", requests=self.requests)
         self.check_response(client, "403", self.error)
 

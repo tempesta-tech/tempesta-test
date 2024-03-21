@@ -6,6 +6,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers.deproxy import HttpMessage
+
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
 pid ${pid};
@@ -113,7 +115,9 @@ def build_deproxy_drop(server, name, tester):
 
     if rtype == "static":
         content = fill_template(server["response_content"], server)
-        srv = DeproxyDropServer(port=port, response=content)
+        srv = DeproxyDropServer(
+            port=port, response=content, deproxy_auto_parser=tester._deproxy_auto_parser
+        )
     else:
         raise Exception("Invalid response type: %s" % str(rtype))
     tester.deproxy_manager.add_server(srv)
@@ -220,7 +224,7 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
             "response_content": "HTTP/1.1 200 OK\r\n"
             "Content-Length: 0\r\n"
             "Content-Type: text/html\r\n"
-            "Date: 2022-01-02\r\n"
+            f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
             "Server: deproxy\r\n\r\n",
         }
     ]
@@ -247,6 +251,7 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
         self.assertTrue(self.wait_all_connections())
 
     def test(self):
+        self.disable_deproxy_auto_parser()
         self.start_all()
 
         deproxy_cl = self.get_client("deproxy")
@@ -273,7 +278,7 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
             "response_content": "HTTP/1.1 200 OK\r\n"
             "Content-Length: 0\r\n"
             "Content-Type: text/html\r\n"
-            "Date: 2022-01-02\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             "Server: deproxy\r\n\r\n",
         }
     ]
@@ -299,6 +304,7 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
         self.assertTrue(self.wait_all_connections())
 
     def test(self):
+        self.disable_deproxy_auto_parser()
         self.start_all()
 
         deproxy_cl = self.get_client("deproxy")
@@ -389,7 +395,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
             "response_content": "HTTP/1.1 200 OK\r\n"
             "Content-Length: 0\r\n"
             "Content-Type: text/html\r\n"
-            "Date: 2022-01-02\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             "Server: deproxy\r\n\r\n",
         }
     ]
@@ -419,6 +425,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         will be turned into regular request, because non-idempotent followed
         by another request. See RFC 7230 6.3.2.
         """
+        self.disable_deproxy_auto_parser()
         self.start_all()
 
         deproxy_cl = self.get_client("deproxy")
@@ -466,7 +473,7 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
             "response_content": "HTTP/1.1 200 OK\r\n"
             "Content-Length: 0\r\n"
             "Content-Type: text/html\r\n"
-            "Date: 2022-01-02\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             "Server: deproxy\r\n\r\n",
         }
     ]
@@ -490,6 +497,7 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         self.assertTrue(self.wait_all_connections())
 
     def test(self):
+        self.disable_deproxy_auto_parser()
         self.start_all()
 
         deproxy_cl = self.get_client("deproxy")
