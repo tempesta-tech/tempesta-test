@@ -24,3 +24,6 @@ REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 TCP_SEGMENTATION = 0
+
+# Enable or disable deproxy auto parser. Enable if True
+AUTO_PARSER = True
