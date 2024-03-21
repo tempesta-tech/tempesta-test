@@ -11,26 +11,19 @@ __license__ = "GPL2"
 
 class ParseRequest(unittest.TestCase):
     def setUp(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = True
         self.plain = deproxy.Request(PLAIN)
         self.reordered = deproxy.Request(REORDERED)
         self.duplicated = deproxy.Request(DUPLICATED)
-        # Cleanup part
-        self.addCleanup(self.cleanup_deproxy)
-
-    def cleanup_deproxy(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
 
     def test_equal(self):
         # Reordering of headers is allowed.
-        self.assertTrue(self.plain == self.reordered)
-        self.assertFalse(self.plain != self.reordered)
-
-        self.assertFalse(self.plain == self.duplicated)
-        self.assertTrue(self.plain != self.duplicated)
-
-        self.assertFalse(self.reordered == self.duplicated)
-        self.assertTrue(self.reordered != self.duplicated)
+        self.plain.set_expected()
+        self.assertEqual(self.plain, self.reordered)
+        with self.assertRaises(AssertionError, msg="Requests are unexpectedly equal"):
+            self.assertEqual(self.plain, self.duplicated)
+        self.reordered.set_expected()
+        with self.assertRaises(AssertionError, msg="Requests are unexpectedly equal"):
+            self.assertEqual(self.reordered, self.duplicated)
 
     def test_parse(self):
         self.assertEqual(self.plain.method, "GET")

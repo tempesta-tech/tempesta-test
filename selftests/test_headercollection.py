@@ -12,13 +12,8 @@ __license__ = "GPL2"
 
 class TestHeaderCollection(unittest.TestCase):
     def setUp(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = True
         self.headers = deproxy.HeaderCollection()
-        self.addCleanup(self.clenup_header_collection)
-
-    def clenup_header_collection(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
-        self.headers = None
+        self.headers.set_expected()
 
     def test_length(self):
         self.assertEqual(len(self.headers), 0)
@@ -103,6 +98,7 @@ class TestHeaderCollection(unittest.TestCase):
         self.assertEqual(expect_headers, parsed_headers.items())
 
     def test_is_equal(self):
+        error_msg = "Headers are unexpectedly equal."
         self.headers.add("A", "qwerty")
         self.headers.add("B", "asdf")
         self.headers.add("C", "zxcv")
@@ -124,22 +120,22 @@ class TestHeaderCollection(unittest.TestCase):
         same_keys_reorderd.add("A", "jkl;")
         same_keys_reorderd.add("A", "qwerty")
         same_keys_reorderd.add("B", "asdf")
-        self.assertTrue(self.headers != same_keys_reorderd)
-        self.assertFalse(self.headers == same_keys_reorderd)
+        with self.assertRaises(AssertionError, msg=error_msg):
+            self.assertEqual(self.headers, same_keys_reorderd)
 
         other = deproxy.HeaderCollection()
         other.add("C", "zxcv")
         other.add("A", "uiop")
         other.add("A", "jkl;")
-        self.assertTrue(self.headers != other)
-        self.assertFalse(self.headers == other)
+        with self.assertRaises(AssertionError, msg=error_msg):
+            self.assertEqual(self.headers, other)
 
         same_keys = deproxy.HeaderCollection()
         same_keys.add("C", "zxcv")
         same_keys.add("B", "uiop")
         same_keys.add("A", "jkl;")
-        self.assertTrue(self.headers != same_keys)
-        self.assertFalse(self.headers == same_keys)
+        with self.assertRaises(AssertionError, msg=error_msg):
+            self.assertEqual(self.headers, same_keys)
 
         twice = deproxy.HeaderCollection()
         twice.add("A", "qwerty")
@@ -148,8 +144,8 @@ class TestHeaderCollection(unittest.TestCase):
         twice.add("A", "uiop")
         twice.add("A", "jkl;")
         twice.add("C", "zxcv")
-        self.assertTrue(self.headers != twice)
-        self.assertFalse(self.headers == twice)
+        with self.assertRaises(AssertionError, msg=error_msg):
+            self.assertEqual(self.headers, twice)
 
         lowed = deproxy.HeaderCollection()
         lowed.add("c", "zxcv")
@@ -157,8 +153,7 @@ class TestHeaderCollection(unittest.TestCase):
         lowed.add("a", "uiop")
         lowed.add("A", "jkl;")
         lowed.add("b", "asdf")
-        self.assertTrue(self.headers == lowed)
-        self.assertFalse(self.headers != lowed)
+        self.assertEqual(self.headers, lowed)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
