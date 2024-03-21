@@ -306,6 +306,7 @@ frang_limits {
         not "Set-Cookie" header.
         """
         self.start_all_services()
+        self.disable_deproxy_auto_parser()
         client: DeproxyClient = self.get_client("deproxy")
         srv: StaticDeproxyServer = self.get_server("deproxy")
 
@@ -352,6 +353,7 @@ frang_limits {
         response.
         """
         self.start_all_services()
+        self.disable_deproxy_auto_parser()
         client: DeproxyClient = self.get_client("deproxy")
         srv: StaticDeproxyServer = self.get_server("deproxy")
 

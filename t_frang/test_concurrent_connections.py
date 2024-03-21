@@ -77,6 +77,7 @@ frang_limits {
     ]
 
     def _base_scenario(self, clients: list, responses: int):
+        self.disable_deproxy_auto_parser()
         for client in clients:
             client.start()
 

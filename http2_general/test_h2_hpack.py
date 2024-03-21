@@ -5,19 +5,18 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
-from ssl import SSLWantWriteError
 
 from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
-from h2.exceptions import ProtocolError
 from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 from hpack.hpack import encode_integer
 from hyperframe.frame import HeadersFrame
 
 import helpers
-from framework.deproxy_client import HuffmanEncoder
+from framework.deproxy_client import DeproxyClientH2, HuffmanEncoder
 from framework.parameterize import param, parameterize
+from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 
@@ -28,7 +27,7 @@ class TestHpackBase(H2Base):
 
     def setup_settings_header_table_tests(self):
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
         client.update_initial_settings()
@@ -115,7 +114,7 @@ class TestHpack(TestHpackBase):
         Tempesta must not encode headers larger than set size.
         """
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
         new_table_size = 512
@@ -125,7 +124,7 @@ class TestHpack(TestHpackBase):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             "Server: Debian\r\n"
-            "Date: test\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             f"x: {header}\r\n"
             "Content-Length: 0\r\n"
             "\r\n"
@@ -162,7 +161,7 @@ class TestHpack(TestHpackBase):
         RFC 7541 4.4
         """
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
         headers = [
@@ -223,16 +222,17 @@ class TestHpack(TestHpackBase):
         RFC 7541 4.4
         """
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
         client.parsing = False
 
+        date = HttpMessage.date_time_string()
         # Tempesta rewrites headers in dynamic table and saves 4064 bytes header last.
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             f"qwerty: {'x' * 4058}\r\n"
             "Content-Length: 0\r\n"
-            "Date: test\r\n"
+            f"Date: {date}\r\n"
             "\r\n"
         )
 
@@ -245,7 +245,7 @@ class TestHpack(TestHpackBase):
         for header in (
             f"2.0 tempesta_fw (Tempesta FW {helpers.tempesta.version()})".encode(),  # Via header
             f"Tempesta FW/{helpers.tempesta.version()}".encode(),  # Server header
-            b"test",  # Date header
+            date.encode(),  # Date header
             b"x" * 4058,  # optional header
         ):
             self.assertTrue(
@@ -262,7 +262,7 @@ class TestHpack(TestHpackBase):
         RFC 7541 4.4
         """
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
         client.send_request(
@@ -303,7 +303,7 @@ class TestHpack(TestHpackBase):
         RFC 7541 4.2
         """
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
 
         # Tempesta forwards response with via header and saves it in dynamic table.
         client.send_request(request=self.post_request, expected_status_code="200")
@@ -352,7 +352,7 @@ class TestHpack(TestHpackBase):
             server.set_response(
                 "HTTP/1.1 200 OK\r\n"
                 "Server: Debian\r\n"
-                "Date: test\r\n"
+                f"Date: {HttpMessage.date_time_string()}\r\n"
                 f"x: {header}\r\n"
                 "Content-Length: 0\r\n"
                 "\r\n"
@@ -364,7 +364,7 @@ class TestHpack(TestHpackBase):
             server.set_response(
                 "HTTP/1.1 200 OK\r\n"
                 "Server: Debian\r\n"
-                "Date: test\r\n"
+                f"Date: {HttpMessage.date_time_string()}\r\n"
                 f"x: {header}\r\n"
                 "Content-Length: 0\r\n"
                 "\r\n"
@@ -460,7 +460,7 @@ class TestHpack(TestHpackBase):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             "Server: Debian\r\n"
-            "Date: test\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             f"{header[0]}: {header[1]}\r\n"
             "Content-Length: 0\r\n\r\n"
         )
@@ -480,7 +480,7 @@ class TestHpack(TestHpackBase):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             "Server: Debian\r\n"
-            "Date: test\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
             f"{header[0]}: {header[1]}\r\n"
             "Content-Length: 0\r\n\r\n"
         )
@@ -503,7 +503,7 @@ class TestHpack(TestHpackBase):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Server: Debian\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + f"{header[0]}: {header[1]}\r\n"
             + "Content-Length: 0\r\n\r\n"
         )
@@ -527,7 +527,7 @@ class TestHpack(TestHpackBase):
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Server: Debian\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + f"{header[0]}: {header[1]}\r\n"
             + f"Content-Length: {len(response_body)}\r\n\r\n"
             + response_body
@@ -649,7 +649,7 @@ class TestHpackCache(TestHpackBase):
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + "x-my-hdr: value\r\n"
             + "Content-Length: 0\r\n\r\n"
@@ -674,7 +674,7 @@ class TestHpackCache(TestHpackBase):
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + "x-my-hdr: value\r\n"
             + "Content-Length: 0\r\n\r\n"
@@ -786,7 +786,7 @@ class TestFramePayloadLength(H2Base):
 
     def test_small_frame_payload_length(self):
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
 
         # Tempesta and deproxy must save headers in dynamic table.
         client.send_request(self.get_request + [("asd", "qwe")], "200")
@@ -807,7 +807,7 @@ class TestFramePayloadLength(H2Base):
 
     def test_large_frame_payload_length(self):
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
 
         # Tempesta and deproxy must save headers in dynamic table.
         client.send_request(self.get_request + [("asd", "qwe")], "200")
@@ -829,7 +829,7 @@ class TestFramePayloadLength(H2Base):
 
     def test_invalid_data(self):
         self.start_all_services()
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
 
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
@@ -940,7 +940,7 @@ class TestHpackBomb(TestHpackBase):
         error code ENHANCE_YOUR_CALM.
         """
         self.start_all_services(client=False)
-        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
         # Send 4096 byte header and save in dynamic table.

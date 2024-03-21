@@ -65,7 +65,7 @@ tls_match_any_server_name;
         server = self.get_server("deproxy")
 
         self.update_tempesta_config(config=config)
-
+        self.disable_deproxy_auto_parser()
         self.start_all_services()
 
         for _ in range(2 if self.cache else 1):

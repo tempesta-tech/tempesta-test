@@ -22,8 +22,7 @@ Content-Length: 8
 Content-Type: text/plain
 Connection: keep-alive
 
-THE PAGE
-""",
+THE PAGE""",
         },
     ]
 

@@ -60,8 +60,7 @@ Content-Length: %d
 Content-Type: text/plain
 Connection: keep-alive
 
-%s
-""" % (
+%s""" % (
             self.BODY_LENGTH,
             body,
         )

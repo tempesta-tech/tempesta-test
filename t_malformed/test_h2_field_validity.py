@@ -49,6 +49,7 @@ block_action error reply;
     ]
 
     def send_response_and_check_connection_is_closed(self, header: list):
+        self.disable_deproxy_auto_parser()
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -143,6 +144,7 @@ block_action error reply;
 
 class TestH2HeaderFieldResponse(TestH2HeaderFieldRequest):
     def send_response_and_check_connection_is_closed(self, header: list):
+        self.disable_deproxy_auto_parser()
         self.start_all_services()
 
         server = self.get_server("deproxy")

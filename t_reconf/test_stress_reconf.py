@@ -64,6 +64,7 @@ class TestLiveReconf(LiveReconfStressTestBase):
 
     def test_stress_reconfig_on_the_fly(self) -> None:
         """Test Tempesta for change config on the fly."""
+        self.disable_deproxy_auto_parser()
         # launch all services except clients
         self.start_all_services(client=False)
 

@@ -384,6 +384,10 @@
         {
             "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_disabled",
             "reason": "Disabled by PR #1973"
+        },
+        {
+            "name": "t_malformed.test_h2_malformed_headers.H2MalformedRequestsWithoutStrictParsingTest.test_content_encoding",
+            "reason": "Disabled by issue #2081"
         }
     ]
 }

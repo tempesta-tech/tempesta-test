@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_client, tester
+from helpers.deproxy import HttpMessage
 
 
 class H2Base(tester.TempestaTest):
@@ -14,7 +15,7 @@ class H2Base(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),

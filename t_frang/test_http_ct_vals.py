@@ -107,7 +107,6 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
             frang_config="http_ct_vals text/html;",
             requests=[
                 self.post_request + [("content-type", "text/plain")],
-                self.post_request + [("content-type", "text/plain")],  # as byte
             ],
             disable_hshc=True,
         )
@@ -119,7 +118,6 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
             frang_config="http_ct_vals text/*;",
             requests=[
                 self.post_request + [("content-type", "text/html")],
-                self.post_request + [("content-type", "text/html")],  # as byte
             ],
             disable_hshc=True,
         )
