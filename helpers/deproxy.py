@@ -199,7 +199,7 @@ class HeaderCollection(object):
                 % (self.is_expected, other.is_expected)
             )
 
-    def __eq__(self, other):
+    def __eq__(self, other: "HeaderCollection"):
         h_self = self._as_dict_lower()
         h_other = other._as_dict_lower()
 
@@ -208,28 +208,108 @@ class HeaderCollection(object):
         else:
             if self.is_expected:
                 h_expected, h_received = h_self, h_other
+                expected_time_delta = self.expected_time_delta
             else:
                 h_expected, h_received = h_other, h_self
+                expected_time_delta = other.expected_time_delta
 
-            # Special-case "Date: " header if both headers have it and it looks OK
-            # (i. e. not duplicated):
-            if len(h_expected.get("date", [])) == 1 and len(h_received.get("date", [])) == 1:
-                ts_expected = HttpMessage.parse_date_time_string(h_expected.pop("date")[0])
-                ts_received = HttpMessage.parse_date_time_string(h_received.pop("date")[0])
-                if not (
-                    ts_received >= ts_expected
-                    and ts_received <= ts_expected + self.expected_time_delta
-                ):
-                    return False
+            self.__check_date_header(h_expected, h_received, expected_time_delta)
+            self.__check_age_header(h_expected, h_received)
+            self.__check_connection_header(h_expected, h_received)
+            self.__check_warning_header(h_expected, h_received)
+            self.__check_other_headers(h_expected, h_received)
+            return True
 
-            # Special-case "Age:" header if both headers must have it:
-            if len(h_expected.get("age", [])) == 1 and len(h_received.get("age", [])) == 1:
-                age_expected = int(h_expected.pop("age")[0])
-                age_received = int(h_received.pop("age")[0])
-                if not (age_expected <= age_received):
-                    return False
+    @staticmethod
+    def __check_date_header(h_expected: dict, h_received: dict, expected_time_delta: int) -> None:
+        """
+        Special-case "Date:" header if both headers have it and it looks OK (i. e. not duplicated)
+        """
+        if len(h_expected.get("date", [])) == 1 and len(h_received.get("date", [])) == 1:
+            date_expected = h_expected.pop("date")[0]
+            date_received = h_received.pop("date")[0]
+            ts_expected = HttpMessage.parse_date_time_string(date_expected)
+            ts_received = HttpMessage.parse_date_time_string(date_received)
+            assert ts_expected <= ts_received <= ts_expected + expected_time_delta, (
+                f"Header 'date' is invalid."
+                f"\nReceived: {date_received}."
+                f"\nExpected: {date_expected}."
+            )
 
-        return h_self == h_other
+    @staticmethod
+    def __check_age_header(h_expected: dict, h_received: dict) -> None:
+        """
+        Special-case "Age:". Expected message MAY not contain this header
+            - compare values if 'age' header is present in expected message or;
+            - check value in received message. Value MUST be integer and greater than 0.
+        """
+        r_age = h_received.pop("age", [])
+        e_age = h_expected.pop("age", [])
+
+        if len(r_age) == 1 and len(e_age) == 1:
+            assert int(r_age[0]) >= int(
+                e_age[0]
+            ), f"Header 'Age' is invalid.\nReceived: {r_age}\nExpected: {e_age}"
+        elif r_age:
+            assert len(r_age) <= 1, "Tempesta forwarded a response with several 'age' headers."
+
+            age = int(r_age[0])
+            assert age >= 0, f"Header 'age' is invalid.\nReceived: {age}."
+
+    @staticmethod
+    def __check_connection_header(h_expected: dict, h_received: dict) -> None:
+        """
+        Special-case "Connection:" it is hop-by-hop header and Tempesta MAY remove it
+            - compare values if 'connection' header is present in expected message or;
+            - check value in received message. Value MUST be 'keep-alive' or 'close'.
+        """
+        r_connections = h_received.pop("connection", [])
+        e_connections = h_expected.pop("connection", [])
+
+        if r_connections and e_connections:
+            assert r_connections == e_connections, "Invalid 'Connection' header."
+        else:
+            assert (
+                len(r_connections) <= 1
+            ), "Tempesta forwarded a response with several 'Connection' headers."
+            if r_connections:
+                assert r_connections[0] in ["close", "keep-alive"], (
+                    "Tempesta forwarded a response with invalid"
+                    f" 'Conneciton' header - {r_connections[0]}."
+                )
+
+    @staticmethod
+    def __check_warning_header(h_expected: dict, h_received: dict) -> None:
+        """Special-case "Warning:". Tempesta MAY add it in some cases."""
+        r_warnings = h_received.pop("warning", [])
+        e_warnings = h_expected.pop("warning", [])
+
+        if r_warnings and e_warnings:
+            assert (
+                r_warnings == e_warnings
+            ), f"Header 'Warning' is invalid.\nReceived: {r_warnings}\nExpected: {e_warnings}"
+        elif r_warnings:
+            for r_warning in r_warnings:
+                assert r_warning in [
+                    "110 - Response is stale",
+                    "111 - Revalidation Failed",
+                    "112 - Disconnected Operation",
+                    "113 - Heuristic Expiration",
+                    "199 - Miscellaneous Warning",
+                    "214 - Transformation Applied",
+                    "299 - Miscellaneous Persistent Warning",
+                ], f"Tempesta add a invalid 'Warning' header - {r_warning}"
+
+    @staticmethod
+    def __check_other_headers(h_expected: dict, h_received: dict) -> None:
+        headers = h_expected if len(h_expected) > len(h_received) else h_received
+        for header_name in headers.keys():
+            received_header_value = h_received.get(header_name, None)
+            expected_header_value = h_expected.get(header_name, None)
+            assert received_header_value == expected_header_value, (
+                f'Invalid header in headers or trailers.\nHeader name: "{header_name}"'
+                f"\nReceived: {received_header_value}\nExpected: {expected_header_value}"
+            )
 
     def __ne__(self, other):
         return not HeaderCollection.__eq__(self, other)
@@ -276,6 +356,8 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         self.body = ""
         if self.body_parsing:
             self.parse_body(stream)
+        else:
+            self.body = stream.read()
 
     def build_message(self):
         self.msg = str(self)
@@ -318,7 +400,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
 
             self.body += line
             try:
-                size = int(line.rstrip("\r\n"), 16)
+                size = int(line.rstrip("\r\n").split(";")[0], 16)  # parse for value "9;extensions"
                 assert size >= 0
                 if size == 0:
                     break
@@ -367,12 +449,13 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
 
     @abc.abstractmethod
-    def __eq__(self, other):
-        return (
-            (self.headers == other.headers)
-            and (self.body == other.body)
-            and (self.trailer == other.trailer)
-        )
+    def __eq__(self, other: "HttpMessage"):
+        assert (
+            self.body == other.body
+        ), f"Invalid http body. \nReceived:\n{self.body}\nExpected:\n{other.body}"
+        self.headers.__eq__(other.headers)
+        self.trailer.__eq__(other.trailer)
+        return True
 
     @abc.abstractmethod
     def __ne__(self, other):
@@ -478,7 +561,7 @@ class Request(HttpMessage):
     def parse_firstline(self, stream):
         requestline = stream.readline()
         if requestline[-1] != "\n":
-            raise IncompleteMessage("Incomplete request line!")
+            raise IncompleteMessage(f"Incomplete request line!. First line - '{requestline}'.")
 
         # Skip optional empty lines
         while re.match("^[\r]?$", requestline) and len(requestline) > 0:
@@ -510,23 +593,22 @@ class Request(HttpMessage):
         # 3.3.3 6
         self.body = ""
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return (
-            (self.method == other.method)
-            and (self.version == other.version)
-            and (self.uri == other.uri)
-            and HttpMessage.__eq__(self, other)
-        )
+    def __eq__(self, other: "Request"):
+        msg = "Invalid request {0}.\nReceived: {1}.\nExpected: {2}."
+        assert self.method == other.method, msg.format("method", self.method, other.method)
+        assert self.version == other.version, msg.format("version", self.version, other.version)
+        assert self.uri == other.uri, msg.format("uri", self.uri, other.uri)
+        super().__eq__(other)
+        return True
 
     def __ne__(self, other):
         return not Request.__eq__(self, other)
 
-    def add_tempesta_headers(self):
-        self.headers.add("Via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)")
+    def add_tempesta_headers(self, x_forwarded_for: str | None = None):
+        self.headers.add("Via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})")
         self.headers.delete_all("X-Forwarded-For")
-        self.headers.add("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip"))
+        x_forwarded_for = x_forwarded_for if x_forwarded_for else tf_cfg.cfg.get("Client", "ip")
+        self.headers.add("X-Forwarded-For", x_forwarded_for)
 
     @staticmethod
     def create(
@@ -566,11 +648,6 @@ class H2Request(Request):
         self.uri = self.headers.get(":path")
         self.method = self.headers.get(":method")
 
-    def add_tempesta_headers(self):
-        self.headers.add("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)")
-        self.headers.delete_all("x-forwarded-for")
-        self.headers.add("x-forwarded-for", tf_cfg.cfg.get("Client", "ip"))
-
     @staticmethod
     def create(
         method: str or None,
@@ -609,6 +686,8 @@ class Response(HttpMessage):
         self.status = None  # Status-Code
         self.reason = None  # Reason-Phrase
         HttpMessage.__init__(self, *args, **kwargs)
+        self._via_header = f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"
+        self._server_header = f"Tempesta FW/{tempesta.version()}"
 
     def parse_firstline(self, stream):
         statusline = stream.readline()
@@ -658,23 +737,24 @@ class Response(HttpMessage):
         reason = BaseHTTPRequestHandler.responses[status][0]
         return " ".join([self.version, self.status, reason])
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return (
-            (self.status == other.status)
-            and (self.version == other.version)
-            and (self.reason == other.reason)
-            and HttpMessage.__eq__(self, other)
-        )
+    def __eq__(self, other: "Response"):
+        msg = "Invalid response {0}.\nReceived: {1}.\nExpected: {2}."
+        assert self.status == other.status, msg.format("status", self.status, other.status)
+        assert self.version == other.version, msg.format("version", self.version, other.version)
+        assert self.reason == other.reason, msg.format("reason", self.reason, other.reason)
+        super().__eq__(other)
+        return True
 
     def __ne__(self, other):
         return not Response.__eq__(self, other)
 
     def add_tempesta_headers(self):
-        self.headers.add("via", "1.1 tempesta_fw (Tempesta FW pre-0.7.0)")
+        self.headers.delete_all("via")
+        self.headers.add("via", self._via_header)
         self.headers.delete_all("server")
-        self.headers.add("server", "Tempesta FW/pre-0.7.0")
+        self.headers.add("server", self._server_header)
+        if self.headers.get("date", None) is None:
+            self.headers.add("date", self.date_time_string())
 
     @staticmethod
     def create(
@@ -702,8 +782,10 @@ class Response(HttpMessage):
 
 class H2Response(Response):
     def __init__(self, *args, **kwargs):
-        self.version = "HTTP/2"
         Response.__init__(self, *args, **kwargs)
+        self.version = "HTTP/2"
+        self._via_header = f"2.0 tempesta_fw (Tempesta FW {tempesta.version()})"
+        self._server_header = f"Tempesta FW/{tempesta.version()}"
 
     def parse_firstline(self, stream):
         pass
@@ -714,11 +796,6 @@ class H2Response(Response):
     def parse_headers(self, stream):
         self.headers = HeaderCollection.from_stream(stream, is_h2=True)
         self.status = self.headers.get(":status")
-
-    def add_tempesta_headers(self):
-        self.headers.add("via", f"2.0 tempesta_fw (Tempesta FW {tempesta.version()})")
-        self.headers.delete_all("server")
-        self.headers.add("server", f"Tempesta FW/{tempesta.version()}")
 
     @staticmethod
     def create(

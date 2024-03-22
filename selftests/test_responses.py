@@ -11,7 +11,6 @@ __license__ = "GPL2"
 
 class ParseResponse(unittest.TestCase):
     def setUp(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = True
         self.plain = deproxy.Response(PLAIN)
         self.reordered = deproxy.Response(REORDERED)
         self.o_body = deproxy.Response(OTHER_BODY)
@@ -20,34 +19,33 @@ class ParseResponse(unittest.TestCase):
 
         self.trailer = deproxy.Response(TRAILER)
         self.o_trailer = deproxy.Response(OTHER_TRAILER)
-        # Cleanup part
-        self.addCleanup(self.cleanup_HeaderCollection)
-
-    def cleanup_HeaderCollection(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
 
     def test_equal(self):
         # Reordering of headers is allowed.
-        self.assertTrue(self.plain == self.reordered)
-        self.assertFalse(self.plain != self.reordered)
+        self.plain.set_expected()
+        self.assertEqual(self.plain, self.reordered)
 
         for resp in [self.o_body, self.duplicated, self.o_status]:
-            self.assertFalse(self.plain == resp)
-            self.assertTrue(self.plain != resp)
+            with self.assertRaises(AssertionError, msg="Responses are unexpectedly equal"):
+                self.assertEqual(self.plain, resp)
 
+        self.reordered.set_expected()
         for resp in [self.o_body, self.duplicated, self.o_status]:
-            self.assertFalse(self.reordered == resp)
-            self.assertTrue(self.reordered != resp)
+            with self.assertRaises(AssertionError, msg="Responses are unexpectedly equal"):
+                self.assertEqual(self.reordered == resp)
 
+        self.o_body.set_expected()
         for resp in [self.duplicated, self.o_status]:
-            self.assertFalse(self.o_body == resp)
-            self.assertTrue(self.o_body != resp)
+            with self.assertRaises(AssertionError, msg="Responses are unexpectedly equal"):
+                self.assertEqual(self.o_body, resp)
 
-        self.assertFalse(self.duplicated == self.o_status)
-        self.assertTrue(self.duplicated != self.o_status)
+        self.duplicated.set_expected()
+        with self.assertRaises(AssertionError, msg="Statuses are unexpectedly equal"):
+            self.assertEqual(self.duplicated, self.o_status)
 
-        self.assertFalse(self.trailer == self.o_trailer)
-        self.assertTrue(self.trailer != self.o_trailer)
+        self.trailer.set_expected()
+        with self.assertRaises(AssertionError, msg="Trailers are unexpectedly equal"):
+            self.assertEqual(self.trailer, self.o_trailer)
 
     def test_parse(self):
         self.assertEqual(self.plain.status, "200")

@@ -630,7 +630,7 @@ class DeproxyClientH2(BaseDeproxyClient):
                     response.parse_text(str(response.headers) + "\r\n" + response.body + trailers)
                 elif isinstance(event, StreamEnded):
                     response = self.active_responses.pop(event.stream_id, None)
-                    if response == None:
+                    if response is None:
                         return
                     self.receive_response(response)
                     self.nrresp += 1
