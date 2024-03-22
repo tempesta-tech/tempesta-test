@@ -1092,14 +1092,18 @@ class Client(TlsClient, stateful.Stateful):
         self.error_codes.append(type_error)
         dbg(self, 2, f"Receive error - {type_error} with message - {v}", prefix="\t")
 
-        if type_error == ParseError or type_error == AssertionError:
+        if type_error == ParseError:
             self.handle_close()
             raise v
-        elif type_error == ssl.SSLWantReadError or type_error == ssl.SSLWantWriteError:
-            # Need to receive more data before decryption can start.
-            pass
-        elif type_error == ConnectionRefusedError:
-            # RST is legitimate case
+        elif type_error in (
+            ssl.SSLWantReadError,
+            ssl.SSLWantWriteError,
+            ConnectionRefusedError,
+            AssertionError,
+        ):
+            # SSLWantReadError and SSLWantWriteError - Need to receive more data before decryption
+            # can start.
+            # ConnectionRefusedError and AssertionError - RST is legitimate case
             pass
         elif type_error == ssl.SSLEOFError:
             # This may happen if a TCP socket is closed without sending TLS close alert. See #1778
