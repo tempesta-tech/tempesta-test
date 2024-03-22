@@ -355,6 +355,8 @@ class TempestaTest(unittest.TestCase):
         self.__create_clients()
         self.__run_tcpdump()
         # Cleanup part
+        self.addCleanup(self.cleanup_deproxy_auto_parser)
+        self.addCleanup(self.check_exceptions_in_deproxy_auto_parser)
         self.addCleanup(self.cleanup_check_dmesg)
         self.addCleanup(self.cleanup_stop_tcpdump)
         self.addCleanup(self.cleanup_interfaces)
@@ -410,6 +412,12 @@ class TempestaTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+
+    def cleanup_deproxy_auto_parser(self):
+        self._deproxy_auto_parser.cleanup()
+
+    def check_exceptions_in_deproxy_auto_parser(self):
+        self._deproxy_auto_parser.check_exceptions()
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:

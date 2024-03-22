@@ -1,8 +1,10 @@
 import copy
+import sys
 
 import run_config
 from framework.deproxy_client import BaseDeproxyClient
 from framework.deproxy_manager import DeproxyManager
+from helpers import error
 from helpers.deproxy import (
     H2Request,
     H2Response,
@@ -22,6 +24,18 @@ class DeproxyAutoParser:
         self.__client_request: Request | H2Request | None = None
         self.__parsing: bool = run_config.AUTO_PARSER
         self.__dbg_msg = "\tDeproxy: AutoParser: {0}"
+        self.__exceptions: list[AssertionError] = list()
+
+    def cleanup(self) -> None:
+        self.__parsing = run_config.AUTO_PARSER
+        self.__expected_response = None
+        self.__expected_request = None
+        self.__client_request = None
+        self.__exceptions = list()
+
+    def check_exceptions(self) -> None:
+        for exception in self.__exceptions:
+            raise exception
 
     @property
     def parsing(self) -> bool:
@@ -36,7 +50,10 @@ class DeproxyAutoParser:
             dbg(4, self.__dbg_msg.format("Check expected request."))
             dbg(6, self.__dbg_msg.format(f"Received request:\n{request.msg}"))
             dbg(6, self.__dbg_msg.format(f"Expected request:\n{self.__expected_request.msg}"))
-            assert request == self.__expected_request
+            try:
+                assert request == self.__expected_request
+            except AssertionError:
+                self.__exceptions.append(sys.exc_info()[1])
             dbg(4, self.__dbg_msg.format("Received request is valid."))
         else:
             dbg(4, self.__dbg_msg.format("Request is not checked."))
@@ -61,7 +78,10 @@ class DeproxyAutoParser:
             dbg(6, self.__dbg_msg.format(f"Received response:\n{response.msg}"))
             dbg(6, self.__dbg_msg.format(f"Expected response:\n{expected_response.msg}"))
 
-            assert response == expected_response
+            try:
+                assert response == expected_response
+            except AssertionError:
+                self.__exceptions.append(sys.exc_info()[1])
             dbg(4, self.__dbg_msg.format("Received response is valid."))
         else:
             dbg(4, self.__dbg_msg.format("Response is not checked."))
