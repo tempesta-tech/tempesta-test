@@ -6,6 +6,7 @@ import re
 import time
 
 from framework import tester
+from framework.parameterize import param, parameterize
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
@@ -220,6 +221,66 @@ class CookiesEnforced(CookiesNotEnabled):
         )
 
 
+class CookiesMaxMisses(tester.TempestaTest):
+    max_misses = 2
+    tempesta = {
+        "config": f"""
+        server ${{server_ip}}:8000;
+
+        block_action attack reply;
+        block_action error reply;
+
+        sticky {{
+            cookie enforce max_misses={max_misses};
+        }}
+
+        """
+    }
+
+    clients = [
+        {
+            "id": "client",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+    ]
+
+    backends = [
+        {
+            "id": "server",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Server-id: deproxy\r\n"
+            "Content-Length: 0\r\n\r\n",
+        }
+    ]
+
+    @parameterize.expand(
+        [
+            param(name="no_cookie", headers=[]),
+            param(name="with_invalid_cookie", headers=[("cookie", "__tfw=0000db26d9f76f8c40ba5c")]),
+        ]
+    )
+    def test_max_misses_(self, name, headers):
+        """
+        Tempesta MUST close connection when requests of client does not contain cookie
+        (or contain invalid cookie) and the number of requests greater than max_misses.
+        """
+        self.start_all_services()
+
+        client = self.get_client("client")
+        request = client.create_request(method="GET", headers=headers)
+
+        for _ in range(self.max_misses + 1):
+            client.send_request(request)
+
+        self.assertEqual(client.last_response.status, "403")
+        self.assertTrue(client.conn_is_closed)
+
+
 class VhostCookies(CookiesNotEnabled):
     """Cookies are configured per-vhost, and clients may get the requested
     resources only if valid cookie name and value is set.
@@ -241,7 +302,7 @@ class VhostCookies(CookiesNotEnabled):
             proxy_pass vh_1_srvs;
 
             sticky {
-                cookie name=c_vh1 enforce;
+                cookie name=c_vh1 enforce max_misses=0;
             }
         }
 
@@ -249,7 +310,7 @@ class VhostCookies(CookiesNotEnabled):
             proxy_pass vh_2_srvs;
 
             sticky {
-                cookie name=c_vh2 enforce;
+                cookie name=c_vh2 enforce max_misses=0;
             }
         }
 
@@ -382,7 +443,7 @@ class CookiesInherit(VhostCookies):
         }
 
         sticky {
-            cookie name=c_vh1 enforce;
+            cookie name=c_vh1 enforce max_misses=0;
         }
 
         vhost vh_1 {
@@ -390,7 +451,7 @@ class CookiesInherit(VhostCookies):
         }
 
         sticky {
-            cookie name=c_vh2 enforce;
+            cookie name=c_vh2 enforce max_misses=0;
         }
 
         vhost vh_2 {
@@ -421,7 +482,6 @@ class CookiesInherit(VhostCookies):
 
 
 class CookieLifetime(CookiesNotEnabled):
-
     tempesta = {
         "config": """
         server ${server_ip}:8000;

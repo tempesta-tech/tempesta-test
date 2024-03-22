@@ -65,7 +65,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
                 sticky {
                     cookie enforce name=cname;
                     js_challenge resp_code=503 delay_min=1000 delay_range=1500
-                    delay_limit=100 ${tempesta_workdir}/js_challenge.html;
+                    ${tempesta_workdir}/js_challenge.html;
                 }
                 proxy_pass sg1;
             }
@@ -159,5 +159,5 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
-            expected_status_code="503",
+            expected_status_code="403",
         )

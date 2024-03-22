@@ -130,10 +130,6 @@
             "reason": "Disabled by test issue #529."
         },
         {
-            "name": "sessions.test_redir_mark",
-            "reason": "Disabled by issue #1102."
-        },
-        {
             "name": "very_many_backends.test_deadtime_1M.RemovingBackendSG",
             "reason": "Disabled by test issue #56."
         }
