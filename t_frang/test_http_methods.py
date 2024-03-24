@@ -29,6 +29,10 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         self.check_response(client, status_code="403", warning_msg=self.error)
 
     def test_not_accepted_request_shipping_cfg(self):
+        """
+        Test that a DELETE request is not accepted according to shipping configuration.
+        According to task 2058, the DELETE method should be forbidden.
+        """
         client = self.base_scenario(
             frang_config="",
             requests=["DELETE / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
@@ -102,6 +106,10 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         self.check_response(client, status_code="403", warning_msg=self.error)
 
     def test_not_accepted_request_shipping_cfg(self):
+        """
+        Test that a DELETE request is not accepted according to shipping configuration.
+        According to task 2058, the DELETE method should be forbidden.
+        """
         client = self.base_scenario(
             frang_config="",
             requests=[
