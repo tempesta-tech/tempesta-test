@@ -59,8 +59,8 @@ vhost default {
     proxy_pass default;
 }
 
-block_action attack reply;
-block_action error reply;
+block_action attack drop;
+block_action error drop;
 cache 0;
 
 """
