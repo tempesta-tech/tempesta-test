@@ -3,7 +3,7 @@ from framework.templates import fill_template
 from helpers import deproxy, tempesta
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -353,14 +353,10 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         """
     }
 
-    requests = (
-        "GET /nip/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-        "GET /regular/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-    )
+    requests = [
+        "GET /nip/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ]
 
     def test(self):
         """
@@ -372,7 +368,7 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         self.start_all()
 
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.make_requests(self.requests)
+        deproxy_cl.make_requests(self.requests, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
@@ -408,14 +404,10 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         """
     }
 
-    requests = (
-        "GET /nip/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-        "GET /regular/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-    )
+    requests = [
+        "GET /nip/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ]
 
     def start_all(self):
         NonIdempotentH1TestBase.start_all(self)
@@ -440,15 +432,10 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
 
 
 class RetryNonIdempotentPostH1Test(RetryNonIdempotentH1Test):
-    requests = (
-        "POST /nonidem/drop/ HTTP/1.1\r\n"
-        "content-length: 0\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-        "GET /regular/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-    )
+    requests = [
+        "POST /nonidem/drop/ HTTP/1.1\r\ncontent-length: 0\r\nHost: localhost\r\n\r\n",
+        "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ]
 
 
 class RetryNonIdempotenRevOrderH1Test(RetryNonIdempotentH1Test):
@@ -463,14 +450,10 @@ class RetryNonIdempotenRevOrderH1Test(RetryNonIdempotentH1Test):
         """
     }
 
-    requests = (
-        "GET /regular/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-        "GET /nip/drop/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-    )
+    requests = [
+        "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /nip/drop/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ]
 
 
 class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
@@ -497,14 +480,10 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         """
     }
 
-    requests = (
-        "GET /regular/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-        "GET /nip/drop/ HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "\r\n"
-    )
+    requests = [
+        "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /nip/drop/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ]
 
     def start_all(self):
         NonIdempotentH1TestBase.start_all(self)

@@ -29,7 +29,7 @@ from helpers import deproxy, stateful, tf_cfg, util
 dbg = deproxy.dbg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -287,14 +287,16 @@ class DeproxyClient(BaseDeproxyClient):
     def last_response(self) -> deproxy.Response:
         return self._last_response
 
-    def make_requests(self, requests: list or str, pipelined=False) -> None:
+    def make_requests(self, requests: list[deproxy.Request | str], pipelined=False) -> None:
         """
-        Send pipelined HTTP requests. Requests parsing can be disabled only for list.
-        Invalid pipelined requests works with list only.
+        if pipelined is True:
+            This method try to send requests in one TCP frame.
+            Frame size - 64 KB for local setup and 1500 B for remote.
+        Invalid pipelined requests works with list[str].
         """
-        self._clear_request_stats()
+        if pipelined:
+            self._clear_request_stats()
 
-        if isinstance(requests, list):
             for request in requests:
                 self.__check_request(request)
 
@@ -302,43 +304,13 @@ class DeproxyClient(BaseDeproxyClient):
                 request if isinstance(request, str) else request.msg for request in requests
             ]
 
-            if pipelined:
-                self._add_to_request_buffers("".join(requests))
-                self.valid_req_num += len(requests)
-            else:
-                self._add_to_request_buffers(requests)
-                self.valid_req_num += len(self.request_buffers)
+            self._add_to_request_buffers("".join(requests))
+            self.valid_req_num += len(requests)
 
             self.nrreq += len(self.request_buffers)
-
-        elif isinstance(requests, str):
-            request_buffers = []
-            valid_req_num = 0
-            while len(requests) > 0:
-                try:
-                    tf_cfg.dbg(2, "Request parsing is running.")
-                    req = deproxy.Request(requests)
-                    tf_cfg.dbg(3, "Request parsing is complete.")
-                except Exception as e:
-                    tf_cfg.dbg(2, f"Can't parse request. Error msg: {e}")
-                    req = None
-                if req is None:
-                    break
-
-                request_buffers.append(requests[: req.original_length])
-                self.methods.append(req.method)
-                valid_req_num += 1
-                requests = requests[req.original_length :]
-
-            if len(requests) > 0:
-                request_buffers.append(requests)
-                self.methods.append("INVALID")
-
-            self._add_to_request_buffers(request_buffers)
-            self.valid_req_num += valid_req_num
-            self.nrreq += len(self.methods)
         else:
-            raise TypeError("Use list or str for request.")
+            for request in requests:
+                self.make_request(request)
 
     def make_request(self, request: Union[str, deproxy.Request], **kwargs) -> None:
         """Send one HTTP request"""

@@ -1,23 +1,21 @@
-import os
-
 from framework import deproxy_server, tester
 from framework.templates import fill_template
 from helpers import control, deproxy, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
-    def receive_request(self, request):
+    def receive_request(self, request) -> (bytes, bool):
         id = request.uri
         r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request)
-        resp = deproxy.Response(r)
+        resp = deproxy.Response(r.decode())
         resp.body = id
         resp.headers["Content-Length"] = len(resp.body)
         resp.build_message()
-        return resp.msg, close
+        return resp.msg.encode(), close
 
 
 class DeproxyKeepaliveServer(DeproxyEchoServer):
@@ -32,18 +30,18 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
         self.nka = 0
         DeproxyEchoServer.run_start(self)
 
-    def receive_request(self, request):
+    def receive_request(self, request) -> (bytes, bool):
         self.nka += 1
         tf_cfg.dbg(5, "\trequests = %i of %i" % (self.nka, self.ka))
         r, close = DeproxyEchoServer.receive_request(self, request)
         if self.nka < self.ka and not close:
             return r, False
-        resp = deproxy.Response(r)
+        resp = deproxy.Response(r.decode())
         resp.headers["Connection"] = "close"
         resp.build_message()
         tf_cfg.dbg(3, "\tDeproxy: keepalive closing")
         self.nka = 0
-        return resp.msg, True
+        return resp.msg.encode(), True
 
 
 def build_deproxy_echo(server, name, tester):
@@ -134,20 +132,12 @@ server ${server_ip}:8000;
     def test_pipelined(self):
         # Check that responses goes in the same order as requests
 
-        request = (
-            "GET /0 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /1 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /2 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /3 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         deproxy_srv = self.get_server("deproxy")
         deproxy_srv.start()
         self.assertEqual(0, len(deproxy_srv.requests))
@@ -156,7 +146,7 @@ server ${server_ip}:8000;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_requests(request)
+        deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
@@ -169,28 +159,16 @@ server ${server_ip}:8000;
 
     def test_2_pipelined(self):
         # Check that responses goes in the same order as requests
-        request = (
-            "GET /0 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /1 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /2 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /3 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
-        request2 = (
-            "GET /4 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /5 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
+        request2 = [
+            "GET /4 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /5 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         deproxy_srv = self.get_server("deproxy")
         deproxy_srv.start()
         self.assertEqual(0, len(deproxy_srv.requests))
@@ -199,9 +177,9 @@ server ${server_ip}:8000;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_requests(request)
+        deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
-        deproxy_cl.make_requests(request2)
+        deproxy_cl.make_requests(request2, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(6, len(deproxy_cl.responses))
@@ -216,29 +194,15 @@ server ${server_ip}:8000;
         # Check that responses goes in the same order as requests
         # This test differs from previous ones in server: it closes connections
         # every 4 requests
-        request = (
-            "GET /0 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /1 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /2 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /3 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /4 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /5 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /6 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /4 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /5 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /6 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         deproxy_srv = self.get_server("deproxy_ka")
         deproxy_srv.start()
         self.assertEqual(0, len(deproxy_srv.requests))
@@ -247,7 +211,7 @@ server ${server_ip}:8000;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_requests(request)
+        deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(7, len(deproxy_cl.responses))
@@ -303,20 +267,12 @@ server ${server_ip}:8000;
 
     def test_pipelined(self):
         # Check that responses goes in the same order as requests
-        request = (
-            "GET /0 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /1 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /2 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /3 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         deproxy_srv = self.get_server("deproxy")
         deproxy_srv.start()
         self.assertEqual(0, len(deproxy_srv.requests))
@@ -325,7 +281,7 @@ server ${server_ip}:8000;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_requests(request)
+        deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
@@ -340,29 +296,15 @@ server ${server_ip}:8000;
         # Check that responses goes in the same order as requests
         # This test differs from previous one in server: it closes connections
         # every 4 requests
-        request = (
-            "GET /0 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /1 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /2 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /3 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /4 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /5 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-            "GET /6 HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "\r\n"
-        )
+        request = [
+            "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /1 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /4 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /5 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+            "GET /6 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
+        ]
         deproxy_srv = self.get_server("deproxy_ka")
         deproxy_srv.start()
         self.assertEqual(0, len(deproxy_srv.requests))
@@ -371,7 +313,7 @@ server ${server_ip}:8000;
         deproxy_cl.start()
         self.deproxy_manager.start()
         self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_request(request)
+        deproxy_cl.make_request(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(7, len(deproxy_cl.responses))
