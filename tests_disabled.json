@@ -342,12 +342,12 @@
             "reason": "Disabled by issue #1995"
         },
         {
-            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_cache_POST_request",
-            "reason": "Disabled by issue #1995"
+            "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_cache_POST_request_with_location_HEAD",
+            "reason": "PR #2062"
         },
         {
-            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_cache_POST_request",
-            "reason": "Disabled by issue #1995"
+            "name": "cache.test_cache.TestCacheMultipleMethodsH2.test_cache_POST_request_with_location_HEAD",
+            "reason": "PR #2062"
         },
         {
             "name": "cache.test_cache.TestCacheMultipleMethodsHttp.test_HEAD_after_GET",
