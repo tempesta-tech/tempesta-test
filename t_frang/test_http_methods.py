@@ -28,14 +28,33 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
+    def test_accepted_request_shipping_cfg(self):
+        client = self.base_scenario(
+            # Task #2058: On the shipping cfg only GET/POST/HEAD allowed.
+            frang_config="",
+            requests=[
+                "GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "POST / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "HEAD / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+            ],
+        )
+        self.check_response(client, status_code="200", warning_msg=self.error)
+
     def test_not_accepted_request_shipping_cfg(self):
         """
-        Test that a DELETE request is not accepted according to shipping configuration.
-        According to task 2058, the DELETE method should be forbidden.
+        Test that HTTP methods DELETE, PUT, OPTIONS, PATCH, TRACE and CONNECT are not
+        accepted on the shipping configuration.
         """
         client = self.base_scenario(
             frang_config="",
-            requests=["DELETE / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
+            requests=[
+                "DELETE / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "PUT / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "OPTIONS / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "PATCH / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "TRACE / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+                "CONNECT / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
+            ],
             disable_hshc=True,
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
@@ -106,10 +125,38 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         )
         self.check_response(client, status_code="403", warning_msg=self.error)
 
+    def test_accepted_request_shipping_cfg(self):
+        # Task #2058: On the shipping cfg only GET/POST/HEAD allowed.
+        client = self.base_scenario(
+            frang_config="",
+            requests=[
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "GET"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "POST"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "HEAD"),
+                ],
+            ],
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="200", warning_msg=self.error)
+
     def test_not_accepted_request_shipping_cfg(self):
         """
-        Test that a DELETE request is not accepted according to shipping configuration.
-        According to task 2058, the DELETE method should be forbidden.
+        Test that HTTP methods DELETE, PUT, OPTIONS, PATCH, TRACE and CONNECT are not
+        accepted on the shipping configuration.
         """
         client = self.base_scenario(
             frang_config="",
@@ -119,6 +166,36 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
                     (":path", "/"),
                     (":scheme", "https"),
                     (":method", "DELETE"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "PUT"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "OPTIONS"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "PATCH"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "TRACE"),
+                ],
+                [
+                    (":authority", "example.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "CONNECT"),
                 ],
             ],
             disable_hshc=True,
