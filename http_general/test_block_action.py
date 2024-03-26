@@ -6,7 +6,7 @@ __license__ = "GPL2"
 
 import run_config
 from framework import tester
-from helpers import analyzer, asserts, remote, tf_cfg
+from helpers import analyzer, asserts, deproxy, remote, tf_cfg
 from helpers.custom_error_page import CustomErrorPageGenerator
 
 
@@ -19,7 +19,7 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),

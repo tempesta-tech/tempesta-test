@@ -13,6 +13,7 @@ import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
+from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.docker_compose_server import (
     DockerComposeServer,
@@ -130,6 +131,14 @@ class TempestaTest(unittest.TestCase):
         self.__ips = []
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
+        self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
+
+    def disable_deproxy_auto_parser(self) -> None:
+        """
+        Disable Http parser for each response/request in tests.
+        This method disables automatic checks in tests.
+        """
+        self._deproxy_auto_parser.parsing = False
 
     def __create_client_deproxy(self, client, ssl, bind_addr, socket_family):
         addr = fill_template(client["addr"], client)
@@ -142,6 +151,7 @@ class TempestaTest(unittest.TestCase):
                 bind_addr=bind_addr,
                 proto="h2",
                 socket_family=socket_family,
+                deproxy_auto_parser=self._deproxy_auto_parser,
             )
         else:
             clt = deproxy_client.DeproxyClient(
@@ -150,6 +160,7 @@ class TempestaTest(unittest.TestCase):
                 ssl=ssl,
                 bind_addr=bind_addr,
                 socket_family=socket_family,
+                deproxy_auto_parser=self._deproxy_auto_parser,
             )
         if ssl and "ssl_hostname" in client:
             # Don't set SNI by default, do this only if it was specified in
@@ -344,6 +355,8 @@ class TempestaTest(unittest.TestCase):
         self.__create_clients()
         self.__run_tcpdump()
         # Cleanup part
+        self.addCleanup(self.cleanup_deproxy_auto_parser)
+        self.addCleanup(self.check_exceptions_in_deproxy_auto_parser)
         self.addCleanup(self.cleanup_check_dmesg)
         self.addCleanup(self.cleanup_stop_tcpdump)
         self.addCleanup(self.cleanup_interfaces)
@@ -399,6 +412,12 @@ class TempestaTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+
+    def cleanup_deproxy_auto_parser(self):
+        self._deproxy_auto_parser.cleanup()
+
+    def check_exceptions_in_deproxy_auto_parser(self):
+        self._deproxy_auto_parser.check_exceptions()
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:

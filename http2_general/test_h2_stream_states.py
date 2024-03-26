@@ -17,6 +17,7 @@ from hyperframe.frame import (
 )
 
 from framework.parameterize import parameterize_class
+from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 
@@ -109,7 +110,7 @@ class TestHalfClosedStreamStateWindowUpdate(H2Base):
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + "Content-Length: 2000\r\n\r\n"
             + ("x" * 2000)
@@ -157,7 +158,7 @@ class TestStreamState(H2Base):
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + "Content-Length: 2000\r\n\r\n"
             + ("x" * 2000)
@@ -247,12 +248,13 @@ class TestStreamState(H2Base):
 
 class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
     def test(self):
+        self.disable_deproxy_auto_parser()
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + "Content-Length: 2000\r\n\r\n"
             + ("x" * 2000)

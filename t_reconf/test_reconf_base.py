@@ -1461,6 +1461,7 @@ class TestLocationReconf(tester.TempestaTest):
     )
     def test(self, name, first_config, second_config, expected_headers):
         first_config(self)
+        self.disable_deproxy_auto_parser()
         self.start_all_services()
         second_config(self)
         self.get_tempesta().reload()

@@ -146,16 +146,20 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
     )
     def test_reaching_limit_headers_as_bytes(self, name, huffman):
         """
-        We set up for Tempesta `http_header_cnt 2` and
+        We set up for Tempesta `http_header_cnt 5` and
         made request with 4 headers as index from dynamic table.
         """
         client = self.base_scenario(
-            frang_config="http_header_cnt 2;",
+            frang_config="http_header_cnt 5;",
             requests=self.requests_with_same_header,
             huffman=huffman,
         )
-        client.responses.pop(0)
-        self.check_response(client, status_code="403", warning_msg=ERROR)
+        self.assertEqual(
+            client.responses[0].status,
+            "200",
+            "Tempesta block a request with 5 (4 pseudo + 1) headers for http_header_cnt 5.",
+        )
+        self.check_last_response(client, status_code="403", warning_msg=ERROR)
 
     @parameterize.expand(
         [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]

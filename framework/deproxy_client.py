@@ -40,8 +40,9 @@ def adjust_timeout_for_tcp_segmentation(timeout):
 
 
 class BaseDeproxyClient(deproxy.Client, abc.ABC):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, deproxy_auto_parser, *args, **kwargs):
         deproxy.Client.__init__(self, *args, **kwargs)
+        self._deproxy_auto_parser = deproxy_auto_parser
         self.polling_lock = None
         self.stop_procedures = [self.__stop_client]
         self.rps = 0
@@ -259,6 +260,11 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self._last_response = response
         self.clear_last_response_buffer = True
 
+        if self._deproxy_auto_parser.parsing:
+            self._deproxy_auto_parser.check_expected_response(
+                self.last_response, is_http2=isinstance(self, DeproxyClientH2)
+            )
+
     def _clear_request_stats(self):
         if self.cur_req_num >= self.nrreq:
             self.nrresp = 0
@@ -322,18 +328,25 @@ class DeproxyClient(BaseDeproxyClient):
         self._add_to_request_buffers(request if isinstance(request, str) else request.msg)
         self.nrreq += 1
 
-    def __check_request(self, request: Union[str, deproxy.Request]) -> None:
-        req_is_str = isinstance(request, str)
-        if self.parsing and req_is_str:
+    def __check_request(self, request: str | deproxy.Request) -> None:
+        if self.parsing and isinstance(request, str):
             tf_cfg.dbg(2, "Request parsing is running.")
             req = deproxy.Request(request)
+            expected_request = request.encode()
             self.methods.append(req.method)
             if request[req.original_length :]:
                 raise deproxy.ParseError("Request has excess symbols.")
             tf_cfg.dbg(3, "Request parsing is complete.")
+        elif isinstance(request, deproxy.Request):
+            self.methods.append(request.method)
+            expected_request = request.msg.encode()
         else:
             tf_cfg.dbg(2, "Request parsing has been disabled.")
-            self.methods.append(request.split(" ")[0] if req_is_str else request.method)
+            self.methods.append(request.split(" ")[0])
+            expected_request = request.encode()
+
+        if self._deproxy_auto_parser.parsing:
+            self._deproxy_auto_parser.prepare_expected_request(expected_request, client=self)
 
     @staticmethod
     def create_request(
@@ -756,6 +769,11 @@ class DeproxyClientH2(BaseDeproxyClient):
             self.h2_connection.send_headers(self.stream_id, data, end_stream)
             self._request_buffers.append(self.h2_connection.data_to_send())
             self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
+
+        if self._deproxy_auto_parser.parsing and end_stream and isinstance(data, (tuple, list)):
+            self._deproxy_auto_parser.prepare_expected_request(
+                self._deproxy_auto_parser.create_request_from_list_or_tuple(data), client=self
+            )
 
     def __calculate_frame_length(self, pos):
         #: The type byte defined for CONTINUATION frames.

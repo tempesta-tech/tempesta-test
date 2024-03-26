@@ -10,6 +10,7 @@ from h2.stream import StreamInputs
 
 from framework import deproxy_client, tester
 from helpers import tf_cfg
+from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 
@@ -227,7 +228,7 @@ class TestMultiplexing(tester.TempestaTest):
         for client, server in list(zip(clients, servers)):
             server.set_response(
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + f"Large_header: {'12345' * 4000}\r\n"
                 + f"Content-Length: {step}\r\n\r\n"

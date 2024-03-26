@@ -155,7 +155,7 @@ t_retry = False
 try:
     options, testname_args = getopt.getopt(
         sys.argv[1:],
-        "hv:HFdt:T:fr:ER:a:nl:LCDZpIi:sS",
+        "hv:HFdt:T:fr:ER:a:nl:LCDZpPIi:sS",
         [
             "help",
             "verbose=",
@@ -179,7 +179,8 @@ try:
             "identifier=",
             "save-tcpdump",
             "save-secrets",
-            "--tcp-segmentation=",
+            "tcp-segmentation=",
+            "disable-auto-parser",
         ],
     )
     testname_args = filter(None, testname_args)
@@ -247,6 +248,8 @@ for opt, arg in options:
             run_config.TCP_SEGMENTATION = int(arg)
         else:
             raise ValueError("tcp-segmentation argument must be greater than 0.")
+    elif opt in ("-P", "--disable-auto-parser"):
+        run_config.AUTO_PARSER = False
 
 tf_cfg.cfg.check()
 

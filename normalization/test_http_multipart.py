@@ -51,6 +51,7 @@ class ContentTypeTestBase(tester.TempestaTest):
         content_type may contain any number of placeholders ({}) which will be
         replaced by combinations of whitespace characters in cycle.
         """
+        self.disable_deproxy_auto_parser()
         number_of_whitespace_places = content_type.count("{}")
         request_tmpl = (
             "POST / HTTP/1.1\r\n"

@@ -9,6 +9,7 @@ import time
 from framework import deproxy_client, tester
 from framework.templates import fill_template, populate_properties
 from helpers import remote, tempesta, tf_cfg
+from helpers.deproxy import HttpMessage
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
@@ -157,7 +158,7 @@ class JSChallenge(BaseJSChallenge):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "Server: deproxy\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
