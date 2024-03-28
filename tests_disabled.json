@@ -134,14 +134,6 @@
             "reason" : "Disabled by issue #398"
         },
         {
-            "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
-            "reason": "Disabled by issue #480"
-        },
-        {
-            "name": "t_frang.test_connection_rate_burst.FrangTls.test_connection_rate",
-            "reason": "Disabled by issue #480"
-        },
-        {
             "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
             "reason": "Disabled by issue #1719"
         },
@@ -380,10 +372,6 @@
         {
             "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_0",
             "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_disabled",
-            "reason": "Disabled by PR #1973"
         }
     ]
 }
