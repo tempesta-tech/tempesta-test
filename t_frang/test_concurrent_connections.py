@@ -79,6 +79,12 @@ frang_limits {
     def _base_scenario(self, clients: list, responses: int):
         for client in clients:
             client.start()
+            """
+            We need to be sure that previous client is establish or fail
+            to establish connection because of limit exceeded. Otherwise
+            there can be a race and we don't know what client fails because
+            of limit violation.
+            """
             time.sleep(0.2)
 
         for client in clients:
