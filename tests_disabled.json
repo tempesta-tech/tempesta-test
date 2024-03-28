@@ -150,10 +150,6 @@
             "reason": "Disabled by issue #1719"
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
-            "reason": "Disabled by issue #1740"
-        },
-        {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_empty_last_data_frame",
             "reason": "Disabled by issue #1775"
         },
