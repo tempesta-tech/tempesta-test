@@ -8,7 +8,35 @@ from t_wrong_body_length import test_request_wrong_length as t
 from t_wrong_body_length.utils import H2Config, TestContentLengthBase
 
 
-class H2RequestContentLengthBase(H2Config, TestContentLengthBase, base=True):
+class H2RequestContentLengthBase(TestContentLengthBase, base=True):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            server ${server_ip}:8000;
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
+                }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            cache 0;
+            block_action error reply;
+            block_action attack reply;
+            """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
     # request params
     uri = "/"
     request_body = "PUT / HTTP/1.1\r\nHost: localhost\r\n"

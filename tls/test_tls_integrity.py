@@ -1,4 +1,4 @@
-"""
+"""test_tls_integrity
 Tests for data integrity transferred via Tempesta TLS.
 """
 import hashlib
@@ -142,6 +142,10 @@ class Proxy(TlsIntegrityTester):
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
             server ${server_ip}:8000;
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
+            }
         """
     }
 
@@ -237,6 +241,10 @@ class Cache(TlsIntegrityTester):
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
             server ${server_ip}:8000;
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
+                }
         """
     }
 
@@ -348,6 +356,10 @@ class ManyClientsH2(H2Base, ManyClients):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             server ${server_ip}:8000;
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
+            }
         """
     }
 
@@ -380,6 +392,10 @@ class CloseConnection(tester.TempestaTest):
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
             server ${server_ip}:8000;
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
+            }
         """
     }
 

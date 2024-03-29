@@ -517,9 +517,12 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
     tempesta = {
         "config": """
     listen 80;
+    frang_limits {
+        http_strict_host_checking false;
+        http_methods POST PUT GET DELETE;
+        }
     listen 443 proto=https;
     listen 4433 proto=h2;
-
     server ${server_ip}:8000;
 
     tls_certificate ${tempesta_workdir}/tempesta.crt;

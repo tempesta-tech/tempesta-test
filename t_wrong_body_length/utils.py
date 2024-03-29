@@ -27,7 +27,6 @@ class TestContentLengthBase(TempestaTest, base=True):
     tempesta = {
         "config": """
             listen 80;
-
             srv_group default {
                 server ${server_ip}:8000;
             }
@@ -131,7 +130,6 @@ class H2Config:
     tempesta = {
         "config": """
             listen 443 proto=h2;
-
             server ${server_ip}:8000;
             
             tls_certificate ${tempesta_workdir}/tempesta.crt;
