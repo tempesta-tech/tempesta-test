@@ -3,7 +3,7 @@ Test for 'Paired request missing, HTTP Response Splitting attack?' error
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import tester

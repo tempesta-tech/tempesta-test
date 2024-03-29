@@ -1,7 +1,7 @@
 """ Example tests and checking functionality of services """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_server, external_client, nginx_server, tester, wrk_client

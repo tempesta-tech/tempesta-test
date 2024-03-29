@@ -12,7 +12,7 @@ from helpers import remote, tempesta, tf_cfg
 from helpers.deproxy import HttpMessage
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2020-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 

@@ -1,10 +1,13 @@
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import copy
 import sys
 
 import run_config
 from framework.deproxy_client import BaseDeproxyClient
 from framework.deproxy_manager import DeproxyManager
-from helpers import error
 from helpers.deproxy import (
     H2Request,
     H2Response,
@@ -17,6 +20,17 @@ from helpers.tf_cfg import dbg
 
 
 class DeproxyAutoParser:
+    """
+    This class prepares and checks HTTP responses/requests for deproxy.
+    All functionality is called inside deproxy server/client automatically.
+    Auto parser works in deproxy manager's thread.
+
+    The main tasks - check all HTTP messages between deproxy server and client because
+    Tempesta may damage message when forwarding.
+
+    Please do not create class objects in tests!!!
+    """
+
     def __init__(self, deproxy_manager: DeproxyManager):
         self.__deproxy_manager: DeproxyManager = deproxy_manager
         self.__expected_response: Response | None = None

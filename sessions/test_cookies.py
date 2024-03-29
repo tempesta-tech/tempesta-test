@@ -9,7 +9,7 @@ from framework import tester
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 DFLT_COOKIE_NAME = "__tfw"

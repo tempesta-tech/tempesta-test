@@ -1,7 +1,7 @@
 """Functional tests for `client_body_timeout` and `client_header_timeout` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time

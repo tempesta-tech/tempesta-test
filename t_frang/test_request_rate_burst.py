@@ -8,7 +8,7 @@ from helpers import analyzer, asserts, remote
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 ERROR_MSG_RATE = "Warning: frang: request rate exceeded"

@@ -8,7 +8,7 @@ import textwrap
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 

@@ -17,7 +17,7 @@ from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
