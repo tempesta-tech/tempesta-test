@@ -13,7 +13,7 @@ from hyperframe.frame import HeadersFrame
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
-ERROR = "Warning: frang: HTTP headers number exceeded for"
+ERROR = "Warning: frang: HTTP headers count exceeded for"
 
 
 class FrangHttpHeaderCountTestCase(FrangTestCase):
@@ -48,7 +48,7 @@ class FrangHttpHeaderCountTestCase(FrangTestCase):
             requests=self.requests,
             disable_hshc=True,
         )
-        self.check_response(client, status_code="403", warning_msg=ERROR)
+        self.check_response(client, status_code="400", warning_msg=ERROR)
 
     def test_not_reaching_the_limit(self):
         """
@@ -120,6 +120,18 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
     ]
     request_with_many_headers[0].extend([(f"header{step}", f"value{step}") for step in range(10)])
 
+    def test_not_reaching_the_limit(self):
+        """
+        We set up for Tempesta `http_header_cnt 8` and
+        made request with 8 headers
+        """
+        client = self.base_scenario(
+            frang_config="http_header_cnt 8;",
+            requests=self.requests,
+            disable_hshc=True,
+        )
+        self.check_response(client, status_code="200", warning_msg=ERROR)
+
     def test_settings_max_header_list_size(self):
         """
         Tempesta MUST send SETTINGS_MAX_HEADER_LIST_SIZE in SETTINGS frame when client initiate
@@ -153,11 +165,11 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
 
     def test_not_reaching_limit_headers_as_bytes(self):
         """
-        We set up for Tempesta `http_header_cnt 4` and
-        made request with 4 headers as index from dynamic table.
+        We set up for Tempesta `http_header_cnt 8` and
+        made request with 8 headers as index from dynamic table.
         """
         client = self.base_scenario(
-            frang_config="http_header_cnt 4;",
+            frang_config="http_header_cnt 8;",
             requests=self.requests_with_same_header,
             disable_hshc=True,
         )
@@ -165,11 +177,11 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
 
     def test_not_reaching_the_limit_2(self):
         """
-        We set up for Tempesta `http_header_cnt 6` and
-        made request with 4 headers as index from dynamic table.
+        We set up for Tempesta `http_header_cnt 8` and
+        made request with 8 headers as index from dynamic table.
         """
         client = self.base_scenario(
-            frang_config="http_header_cnt 6;",
+            frang_config="http_header_cnt 8;",
             requests=self.requests_with_same_header,
             disable_hshc=True,
         )

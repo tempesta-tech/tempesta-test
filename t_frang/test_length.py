@@ -1,4 +1,5 @@
 """Tests for Frang  length related directives."""
+
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
 __author__ = "Tempesta Technologies, Inc."
@@ -53,55 +54,55 @@ class FrangLengthTestCase(FrangTestCase):
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
         )
 
-    def test_field_len(self):
+    def test_header_len(self):
         """
-        Test 'http_field_len'.
+        Test 'http_hdr_len'.
 
-        Set up `http_field_len 300;` and make request with header greater length
+        Set up `http_hdr_len 300;` and make request with header greater length
 
         """
         client = self.base_scenario(
-            frang_config="http_field_len 300;",
+            frang_config="http_hdr_len 300;",
             requests=[f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nX-Long: {'1' * 320}\r\n\r\n"],
         )
         self.check_response(
             client,
-            status_code="403",
-            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
+            status_code="400",
+            warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    def test_field_without_reaching_the_limit(self):
+    def test_header_without_reaching_the_limit(self):
         """
-        Test 'http_field_len'.
+        Test 'http_hdr_len'.
 
-        Set up `http_field_len 300; and make request with header 200 length
+        Set up `http_hdr_len 300; and make request with header 200 length
 
         """
         client = self.base_scenario(
-            frang_config="http_field_len 300;",
+            frang_config="http_hdr_len 300;",
             requests=[f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nX-Long: {'1' * 200}\r\n\r\n"],
         )
         self.check_response(
             client,
             status_code="200",
-            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
+            warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    def test_field_without_reaching_the_limit_2(self):
+    def test_header_without_reaching_the_limit_2(self):
         """
-        Test 'http_field_len'.
+        Test 'http_hdr_len'.
 
-        Set up `http_field_len 300; and make request with header 300 length
+        Set up `http_hdr_len 300; and make request with header 300 length
 
         """
         client = self.base_scenario(
-            frang_config="http_field_len 300;",
+            frang_config="http_hdr_len 300;",
             requests=[f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nX-Long: {'1' * 292}\r\n\r\n"],
         )
         self.check_response(
             client,
             status_code="200",
-            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
+            warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
     def test_body_len(self):
@@ -212,48 +213,48 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
         )
 
-    def test_field_len(self):
+    def test_header_len(self):
         """
-        Set up `http_field_len 300;` and make request with header greater length
+        Set up `http_hdr_len 300;` and make request with header greater length
         """
         client = self.base_scenario(
-            frang_config="http_field_len 300;",
+            frang_config="http_hdr_len 300;",
             requests=[self.post_request + [("header", "x" * 320)]],
         )
         self.check_response(
             client,
-            status_code="403",
-            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
+            status_code="400",
+            warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    def test_field_without_reaching_the_limit(self):
+    def test_header_without_reaching_the_limit(self):
         """
-        Set up `http_field_len 300; and make request with header 200 length
+        Set up `http_hdr_len 300; and make request with header 200 length
         """
         client = self.base_scenario(
-            frang_config="http_field_len 300;",
+            frang_config="http_hdr_len 300;",
             requests=[self.post_request + [("header", "x" * 200)]],
             disable_hshc=True,
         )
         self.check_response(
             client,
             status_code="200",
-            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
+            warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    def test_field_without_reaching_the_limit_2(self):
+    def test_header_without_reaching_the_limit_2(self):
         """
-        Set up `http_field_len 300; and make request with header 300 length
+        Set up `http_hdr_len 300; and make request with header 300 length
         """
         client = self.base_scenario(
-            frang_config="http_field_len 300;",
-            requests=[self.post_request + [("header", "x" * 294)]],
+            frang_config="http_hdr_len 300;",
+            requests=[self.post_request + [("header", "x" * 262)]],
             disable_hshc=True,
         )
         self.check_response(
             client,
             status_code="200",
-            warning_msg="frang: HTTP (in-progress )?field length exceeded for",
+            warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
     def test_body_len(self):
