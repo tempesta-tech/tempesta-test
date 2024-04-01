@@ -342,8 +342,8 @@
             "reason": "Disabled by issue #1780"
         },
         {
-            "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
-            "reason": "Disabled by issue #1346"
+	     "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
+	     "reason": "Incompatible with current deproxy client."
         },
         {
             "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_response",
@@ -496,6 +496,18 @@
         {
             "name": "http2_general.test_h2_hpack.TestFramePayloadLength.test_large_frame_payload_length",
             "reason": "Disabled by PR #1926"
+        },
+	{
+            "name": "tls.test_tls_integrity.ProxyH2.test_various_req_resp_sizes",
+            "reason": "Deproxy client not support flow control"
+        },
+	{
+            "name": "tls.test_tls_integrity.ManyClientsH2.test_various_req_resp_sizes",
+            "reason": "Deproxy client not support flow control"
+        },
+	{
+            "name": "tls.test_tls_integrity.CacheH2.test_various_req_resp_sizes",
+            "reason": "Deproxy client not support flow control"
         }
     ]
 }
