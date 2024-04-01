@@ -170,10 +170,6 @@
             "reason": "Disabled by issue #1773"
         },
         {
-            "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
-            "reason": "Disabled by issue #1346"
-        },
-        {
             "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_response",
             "reason": "Disabled by PR #1917"
         },

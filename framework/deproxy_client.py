@@ -17,6 +17,7 @@ from h2.events import (
     ResponseReceived,
     SettingsAcknowledged,
     StreamEnded,
+    StreamReset,
     TrailersReceived,
     WindowUpdated,
 )
@@ -619,6 +620,8 @@ class DeproxyClientH2(BaseDeproxyClient):
                         return
                     self.receive_response(response)
                     self.nrresp += 1
+                elif isinstance(event, StreamReset):
+                    self.error_codes.append(event.error_code)
                 elif isinstance(event, ConnectionTerminated):
                     self.error_codes.append(event.error_code)
                     self.last_stream_id = event.last_stream_id
