@@ -4,12 +4,15 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import AllowedStreamIDs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
+from h2.stream import StreamInputs
 from hpack import HeaderTuple
-from hyperframe.frame import DataFrame, HeadersFrame
+from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame
 
 from framework import deproxy_client, tester
+from framework.parameterize import param, parameterize
 from helpers import checks_for_tests as checks
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
@@ -46,20 +49,203 @@ class TestH2Frame(H2Base):
 
         self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
 
-    def test_empty_data_frame(self):
+    def test_empty_data_frame_mixed(self):
         """
-        Send request with empty data frame. It is valid request. RFC 9113 10.5.
+        Send request with empty DATA frame after non empty.
+        Tempesta treats empty DATA frames without END_STREAM as inavalid.
         """
         self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
         request_body = "123"
 
+        deproxy_cl.update_initial_settings()
+        deproxy_cl.send_bytes(deproxy_cl.h2_connection.data_to_send())
+        deproxy_cl.wait_for_ack_settings()
+
+        deproxy_cl.make_request(request=self.post_request, end_stream=False)
+        deproxy_cl.make_request(request=request_body, end_stream=False)
+        deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
+        deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
+
+        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+
+    def test_empty_data_frame(self):
+        """
+        Send request with empty DATA frame.
+        Tempesta treats empty DATA frames without END_STREAM as inavalid.
+        """
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+        request_body = "123"
+
+        deproxy_cl.update_initial_settings()
+        deproxy_cl.send_bytes(deproxy_cl.h2_connection.data_to_send())
+        deproxy_cl.wait_for_ack_settings()
+
         deproxy_cl.make_request(request=self.post_request, end_stream=False)
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize())
-        deproxy_cl.make_request(request=request_body, end_stream=True)
 
-        self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
+        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+
+    def test_multiple_empty_headers_frames(self):
+        """
+        An endpoint that receives a HEADERS frame without the END_STREAM flag set
+        after receiving the HEADERS frame that opens a request or after receiving
+        a final (non-informational) status code MUST treat the corresponding
+        request or response as malformed (Section 8.1.1).
+        """
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+
+        self.initiate_h2_connection(deproxy_cl)
+        # create stream and change state machine in H2Connection object
+        stream = deproxy_cl.h2_connection._get_or_create_stream(
+            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        hf_empty = HeadersFrame(
+            stream_id=1,
+        )
+
+        hf_end = HeadersFrame(
+            stream_id=1,
+            data=deproxy_cl.h2_connection.encoder.encode(self.get_request),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+
+        for i in range(20):
+            deproxy_cl.send_bytes(hf_empty.serialize())
+        deproxy_cl.send_bytes(hf_end.serialize(), expect_response=True)
+
+        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+
+    @parameterize.expand(
+        [
+            param(name="end_headers", flags=["END_HEADERS"]),
+            param(name="no_end_headers", flags=[]),
+        ]
+    )
+    def test_empty_headers_frame(self, name, flags):
+        """
+        An endpoint that receives a HEADERS frame without the END_STREAM flag set
+        after receiving the HEADERS frame that opens a request or after receiving
+        a final (non-informational) status code MUST treat the corresponding
+        request or response as malformed (Section 8.1.1).
+        """
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+
+        self.initiate_h2_connection(deproxy_cl)
+        # create stream and change state machine in H2Connection object
+        stream = deproxy_cl.h2_connection._get_or_create_stream(
+            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        hf_start = HeadersFrame(
+            stream_id=1,
+            data=deproxy_cl.h2_connection.encoder.encode(self.get_request),
+            flags=flags,
+        )
+        hf_empty = HeadersFrame(stream_id=1)
+        deproxy_cl.send_bytes(hf_start.serialize())
+        deproxy_cl.send_bytes(hf_empty.serialize())
+
+        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+
+    def test_empty_headers_empty_continuation_multiple(self):
+        """
+        Test flooding multiple CONTINUATION with END_HEADERS
+        that sends after empty HEADERS frame.
+        """
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+
+        self.initiate_h2_connection(deproxy_cl)
+        # create stream and change state machine in H2Connection object
+        stream = deproxy_cl.h2_connection._get_or_create_stream(
+            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        hf_empty = HeadersFrame(stream_id=1)
+        cf_empty = ContinuationFrame(stream_id=1, flags=["END_HEADERS"])
+        deproxy_cl.send_bytes(hf_empty.serialize())
+        deproxy_cl.send_bytes(cf_empty.serialize())
+        deproxy_cl.send_bytes(cf_empty.serialize())
+
+        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+
+    def test_empty_continuation_end_headers(self):
+        """
+        Test handling empty CONTINUATION frame with END_HEADERS
+        END_HEADERS that used for closing HEADERS block.
+        """
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+
+        self.initiate_h2_connection(deproxy_cl)
+        # create stream and change state machine in H2Connection object
+        stream = deproxy_cl.h2_connection._get_or_create_stream(
+            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream.state_machine.process_input(StreamInputs.SEND_END_STREAM)
+
+        hf_start = HeadersFrame(
+            stream_id=1, data=deproxy_cl.h2_connection.encoder.encode(self.post_request)
+        )
+        cf_empty = ContinuationFrame(stream_id=1, flags=["END_HEADERS"])
+        df_end = DataFrame(stream_id=1, data=b"", flags=["END_STREAM"])
+
+        deproxy_cl.send_bytes(hf_start.serialize())
+        deproxy_cl.send_bytes(cf_empty.serialize(), expect_response=False)
+        deproxy_cl.send_bytes(df_end.serialize(), expect_response=True)
+        self.__assert_test(client=deproxy_cl, request_body="", request_number=1)
+
+    def test_empty_continuation_frame(self):
+        """
+        Test handling empty CONTINUATION frame w/o END_HEADERS.
+        PROTOCOL_ERROR is expected.
+        """
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.parsing = False
+
+        self.initiate_h2_connection(deproxy_cl)
+        # create stream and change state machine in H2Connection object
+        stream = deproxy_cl.h2_connection._get_or_create_stream(
+            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream.state_machine.process_input(StreamInputs.SEND_END_STREAM)
+
+        hf_start = HeadersFrame(
+            stream_id=1, data=deproxy_cl.h2_connection.encoder.encode(self.post_request)
+        )
+        cf_empty = ContinuationFrame(stream_id=1)
+        cf_empty_end = ContinuationFrame(stream_id=1, flags=["END_HEADERS"])
+        df_end = DataFrame(stream_id=1, data=b"", flags=["END_STREAM"])
+
+        deproxy_cl.send_bytes(hf_start.serialize())
+        deproxy_cl.send_bytes(cf_empty.serialize(), expect_response=False)
+        deproxy_cl.send_bytes(cf_empty_end.serialize(), expect_response=False)
+        deproxy_cl.send_bytes(df_end.serialize(), expect_response=False)
+
+        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
 
     def test_settings_frame(self):
         """

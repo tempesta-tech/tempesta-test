@@ -150,10 +150,6 @@
             "reason": "Disabled by issue #1719"
         },
         {
-            "name": "http2_general.test_h2_frame.TestH2Frame.test_empty_last_data_frame",
-            "reason": "Disabled by issue #1775"
-        },
-        {
             "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1771"
         },
@@ -231,10 +227,6 @@
         },
         {
             "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_with_pseudo_headers_in_request",
-            "reason": "Disabled by issue #1881"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_with_continuation_frame_in_request",
             "reason": "Disabled by issue #1881"
         },
         {
