@@ -6,6 +6,7 @@ __license__ = "GPL2"
 
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
+from helpers.deproxy import HttpMessage
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
@@ -32,7 +33,7 @@ class HttpUriBrangeBase(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "Server: deproxy\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),

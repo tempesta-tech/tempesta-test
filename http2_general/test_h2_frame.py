@@ -1,7 +1,7 @@
 """Functional tests for h2 frames."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
@@ -11,6 +11,7 @@ from hyperframe.frame import DataFrame, HeadersFrame
 
 from framework import deproxy_client, tester
 from helpers import checks_for_tests as checks
+from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
 
@@ -160,6 +161,7 @@ class TestH2Frame(H2Base):
          - open streams must not be closed;
          - new streams must be accepted.
         """
+        self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy")
         client.parsing = False
 
@@ -280,7 +282,7 @@ class TestH2Frame(H2Base):
             client.wait_for_response(), "Tempesta closed connection after receiving GOAWAY frame."
         )
 
-    def test_triple_header_frame_in_single_stream(self):
+    def test_trailer_header_frame_without_end_stream(self):
         """
         The RFC allows 2 headers frame in one stream - first for headers and second for trailers.
         """
@@ -296,7 +298,6 @@ class TestH2Frame(H2Base):
             flags=["END_HEADERS"],
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
-        client.make_request([("header1", "header value1")], end_stream=True)
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
@@ -396,8 +397,10 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
     def _test_headers_data_frames(self, client, server, header_len, body_len):
         header = ("qwerty", "x" * header_len)
         server.set_response(
-            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
-            f"{header[0]}: {header[1]}\r\n"
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
             + f"Content-Length: {body_len}\r\n\r\n"
             + ("x" * body_len)
         )
@@ -474,8 +477,10 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
     ):
         header = ("qwerty", "x" * header_len)
         server.set_response(
-            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
-            f"{header[0]}: {header[1]}\r\n"
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
             + f"Content-Length: {body_len}\r\n\r\n"
             + ("x" * body_len)
         )
@@ -572,8 +577,10 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
     ):
         header = ("qwerty", "x" * header_len)
         server.set_response(
-            "HTTP/1.1 200 OK\r\n" + "Date: test\r\n" + "Server: debian\r\n"
-            f"{header[0]}: {header[1]}\r\n"
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
             + f"Content-Length: {body_len}\r\n\r\n"
             + ("x" * body_len)
         )

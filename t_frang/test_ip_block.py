@@ -5,7 +5,7 @@ from helpers import analyzer, asserts, remote, util
 from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -72,6 +72,7 @@ block_action attack drop;
     BAD_REQ = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
 
     def test_on(self):
+        self.disable_deproxy_auto_parser()
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
         c3 = self.get_client("same-ip3")
@@ -107,6 +108,7 @@ block_action attack drop;
         self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
 
     def test_off(self):
+        self.disable_deproxy_auto_parser()
         self.tempesta = {
             "config": """
 frang_limits {
@@ -162,6 +164,7 @@ block_action attack drop;
     REQ = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
 
     def test_on(self):
+        self.disable_deproxy_auto_parser()
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
         c3 = self.get_client("another-ip")
@@ -194,6 +197,7 @@ block_action attack drop;
         self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)
 
     def test_off(self):
+        self.disable_deproxy_auto_parser()
         self.tempesta = {
             "config": """
 frang_limits {

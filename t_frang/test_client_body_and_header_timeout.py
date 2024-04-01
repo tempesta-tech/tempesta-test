@@ -1,7 +1,7 @@
 """Functional tests for `client_body_timeout` and `client_header_timeout` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -22,6 +22,7 @@ class TestTimeoutBase(FrangTestCase):
     frang_config: str
 
     def send_request_with_sleep(self, sleep: float):
+        self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy-1")
         client.parsing = False
         client.start()
@@ -95,6 +96,7 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         client.send_bytes(client.h2_connection.data_to_send())
 
     def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
+        self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy-1")
         client.start()
         client.parsing = False

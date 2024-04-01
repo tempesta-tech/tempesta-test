@@ -8,7 +8,7 @@ from helpers import analyzer, asserts, remote
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
@@ -90,6 +90,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             - 6 requests for client with 4 rps and receive 6 responses with 200 status;
             - 6 requests for client with rps greater than 4 and get ip block;
         """
+        self.disable_deproxy_auto_parser()
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("another-ip")
 

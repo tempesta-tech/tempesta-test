@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import unittest
@@ -250,6 +250,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         "invalid" doesn't match neither current date format RFC5322 neither obsolete RFC850
         """
+        self.disable_deproxy_auto_parser()
         self.common_check(headers=("Date", "invalid"))
 
     def test_expect1(self):
@@ -678,6 +679,7 @@ class MalformedResponseWithoutStrictParsingTest(MalformedResponseBase):
         https://tools.ietf.org/html/rfc7231#section-7.1.1.1
         "not a date" is invalid date
         """
+        self.disable_deproxy_auto_parser()
         response = "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" "Date: not a date\r\n" "\r\n"
         self.common_check(response, self.request)
 

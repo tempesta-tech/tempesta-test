@@ -34,7 +34,7 @@ import run_config
 from . import error, stateful, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # -------------------------------------------------------------------------------
@@ -434,6 +434,10 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
 
+    def convert_chunked_body(self):
+        chunked_lines = self.body.split("\r\n")
+        self.body = "".join(chunked_lines[1::2])
+
     def read_sized_body(self, stream):
         """RFC 7230. 3.3.3 #5"""
         size = int(self.headers["Content-Length"])
@@ -798,6 +802,20 @@ class H2Response(Response):
         self.status = self.headers.get(":status")
 
     @staticmethod
+    def convert_http1_to_http2(response: Response) -> "H2Response":
+        new_response = H2Response()
+        new_response.method = response.method
+        new_response.status = response.status
+
+        new_response.headers = copy.deepcopy(response.headers)
+        new_response.headers.add(name=":status", value=new_response.status)
+        new_response.add_tempesta_headers()
+
+        new_response.trailer = copy.deepcopy(response.trailer)
+        new_response.body = response.body
+        return new_response
+
+    @staticmethod
     def create(
         status: str,
         headers: list,
@@ -1074,14 +1092,18 @@ class Client(TlsClient, stateful.Stateful):
         self.error_codes.append(type_error)
         dbg(self, 2, f"Receive error - {type_error} with message - {v}", prefix="\t")
 
-        if type_error == ParseError or type_error == AssertionError:
+        if type_error == ParseError:
             self.handle_close()
             raise v
-        elif type_error == ssl.SSLWantReadError or type_error == ssl.SSLWantWriteError:
-            # Need to receive more data before decryption can start.
-            pass
-        elif type_error == ConnectionRefusedError:
-            # RST is legitimate case
+        elif type_error in (
+            ssl.SSLWantReadError,
+            ssl.SSLWantWriteError,
+            ConnectionRefusedError,
+            AssertionError,
+        ):
+            # SSLWantReadError and SSLWantWriteError - Need to receive more data before decryption
+            # can start.
+            # ConnectionRefusedError and AssertionError - RST is legitimate case
             pass
         elif type_error == ssl.SSLEOFError:
             # This may happen if a TCP socket is closed without sending TLS close alert. See #1778

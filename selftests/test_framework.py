@@ -1,7 +1,7 @@
 """ Example tests and checking functionality of services """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_server, external_client, nginx_server, tester, wrk_client
@@ -241,6 +241,7 @@ server ${server_ip}:8000;
         cl = self.get_client("deproxy_direct")
         cl.start()
         self.deproxy_manager.start()
+        self.disable_deproxy_auto_parser()
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         cl.wait_for_response(timeout=5)
         tf_cfg.dbg(3, "deproxy response:\n%s" % str(cl.last_response))
@@ -252,6 +253,7 @@ server ${server_ip}:8000;
         cl = self.get_client("deproxy_direct")
         cl.start()
         self.deproxy_manager.start()
+        self.disable_deproxy_auto_parser()
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         cl.wait_for_response(timeout=5)
         # expected response

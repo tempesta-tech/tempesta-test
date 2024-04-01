@@ -1,11 +1,12 @@
 """Functional tests for flow control window."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.exceptions import FlowControlError
 
+from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 
@@ -21,7 +22,7 @@ class TestFlowControl(H2Base):
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + "Content-Length: 2000\r\n\r\n"
             + ("x" * 2000)
@@ -50,7 +51,7 @@ class TestFlowControl(H2Base):
         server.set_response(
             response=(
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             )

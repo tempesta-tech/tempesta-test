@@ -11,7 +11,7 @@ from helpers.error import Error
 from helpers.networker import NetWorker
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -46,7 +46,7 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "dummy",
+            "response_content": "",
         }
     ]
 
@@ -369,7 +369,7 @@ class CloseConnection(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "dummy",
+            "response_content": "",
         }
     ]
 

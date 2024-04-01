@@ -2,7 +2,7 @@
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -107,7 +107,6 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
             frang_config="http_ct_vals text/html;",
             requests=[
                 self.post_request + [("content-type", "text/plain")],
-                self.post_request + [("content-type", "text/plain")],  # as byte
             ],
             disable_hshc=True,
         )
@@ -119,7 +118,6 @@ class FrangHttpCtValsH2(H2Config, FrangHttpCtValsTestCase):
             frang_config="http_ct_vals text/*;",
             requests=[
                 self.post_request + [("content-type", "text/html")],
-                self.post_request + [("content-type", "text/html")],  # as byte
             ],
             disable_hshc=True,
         )

@@ -14,12 +14,13 @@ from framework import tester
 from framework.templates import fill_template, populate_properties
 from framework.x509 import CertGenerator
 from helpers import dmesg, remote, tempesta, tf_cfg
+from helpers.deproxy import HttpMessage
 from helpers.error import Error
 
 from .handshake import TlsHandshake, x509_check_cn
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -1139,7 +1140,7 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
                 "Server: server-1\r\n"
-                "Date: test\r\n"
+                f"Date: {HttpMessage.date_time_string()}\r\n"
                 "Content-Length: 8\r\n\r\n"
                 "server-1"
             ),
@@ -1152,7 +1153,7 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
                 "Server: server-2\r\n"
-                "Date: test\r\n"
+                f"Date: {HttpMessage.date_time_string()}\r\n"
                 "Content-Length: 8\r\n\r\n"
                 "server-2"
             ),

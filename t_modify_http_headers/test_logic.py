@@ -141,6 +141,7 @@ class TestLogicBase(tester.TempestaTest, base=True):
     def base_scenario(self, config: str, optional_headers: list, expected_headers: list):
         update_tempesta_config(tempesta=self.get_tempesta(), config=config, cache=self.cache)
         self.start_all_services()
+        self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
         client = self.get_client("deproxy-1")
@@ -546,6 +547,7 @@ class TestReqHdrSetHost(tester.TempestaTest):
         config = f'{self.directive}_hdr_set host "host-overriden";\n'
         update_tempesta_config(tempesta=self.get_tempesta(), config=config, cache=False)
         self.start_all_services()
+        self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
         client = self.get_client("deproxy-1")

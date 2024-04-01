@@ -9,7 +9,7 @@ from framework.deproxy_server import StaticDeproxyServer
 from helpers import deproxy, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 TEMPESTA_CONFIG = """
@@ -228,6 +228,10 @@ class CacheHdrDelCached(TestCacheControl, SingleTest):
     cached_headers = {"Set-Cookie": None, "Remove-me-2": None}
     should_be_cached = True
 
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
+
 
 class CacheHdrDelCached2(TestCacheControl, SingleTest):
     tempesta_config = """
@@ -237,6 +241,10 @@ class CacheHdrDelCached2(TestCacheControl, SingleTest):
     response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": "2"}
     cached_headers = {"Set-Cookie": None, "Remove-me-2": None}
     should_be_cached = True
+
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
 
 
 # This test does a regular caching without additional processing,
@@ -777,6 +785,10 @@ class CCArgNoCacheCached(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
+
 
 class CCArgNoCacheCached2(TestCacheControl, SingleTest):
     tempesta_config = """
@@ -794,6 +806,10 @@ class CCArgNoCacheCached2(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
+
 
 class CCArgNoCacheCached3(TestCacheControl, SingleTest):
     tempesta_config = """
@@ -808,6 +824,10 @@ class CCArgNoCacheCached3(TestCacheControl, SingleTest):
         "Set-Cookie": None,
     }
     should_be_cached = True
+
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
 
 
 #############
@@ -840,6 +860,10 @@ class CCArgPrivateCached(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
+
 
 class CCArgPrivateCached2(TestCacheControl, SingleTest):
     tempesta_config = """
@@ -856,6 +880,10 @@ class CCArgPrivateCached2(TestCacheControl, SingleTest):
         "Cache-control": 'private="set-cookie"',
     }
     should_be_cached = True
+
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
 
 
 # erase two headers
@@ -874,6 +902,10 @@ class CCArgBothNoCacheCached(TestCacheControl, SingleTest):
         "Cache-control": 'no-cache="set-cookie, Remove-me-2"',
     }
     should_be_cached = True
+
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
 
 
 #########################################################

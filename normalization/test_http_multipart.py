@@ -8,7 +8,7 @@ import textwrap
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -51,6 +51,7 @@ class ContentTypeTestBase(tester.TempestaTest):
         content_type may contain any number of placeholders ({}) which will be
         replaced by combinations of whitespace characters in cycle.
         """
+        self.disable_deproxy_auto_parser()
         number_of_whitespace_places = content_type.count("{}")
         request_tmpl = (
             "POST / HTTP/1.1\r\n"

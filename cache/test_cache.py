@@ -1,7 +1,7 @@
 """Functional tests of caching config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -14,6 +14,7 @@ from framework.parameterize import param, parameterize, parameterize_class
 from helpers import checks_for_tests as checks
 from helpers import deproxy
 from helpers.control import Tempesta
+from helpers.deproxy import HttpMessage
 
 MIXED_CONFIG = (
     "cache {0};\r\n"
@@ -89,6 +90,7 @@ vhost default {
             + "Connection: keep-alive\r\n"
             + "Content-Length: 13\r\n"
             + "Content-Type: text/html\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "\r\n"
             + "<html></html>"
         )
@@ -793,6 +795,7 @@ cache 2;
     ):
         tempesta = self.get_tempesta()
         tempesta.config.defconfig += tempesta_config
+        self.disable_deproxy_auto_parser()
 
         self.start_all_services()
 

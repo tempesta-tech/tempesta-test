@@ -8,6 +8,7 @@ import time
 
 import framework.port_checks as port_checks
 import run_config
+from framework.deproxy_auto_parser import DeproxyAutoParser
 from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
@@ -126,6 +127,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
     def __init__(
         self,
         port: int,
+        deproxy_auto_parser: DeproxyAutoParser,
         response: str | bytes | deproxy.Response = "",
         ip: str = tf_cfg.cfg.get("Server", "ip"),
         conns_n: int = tempesta.server_conns_default(),
@@ -140,6 +142,8 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         asyncore.dispatcher.__init__(self)
 
         self._reinit_variables()
+        self._deproxy_auto_parser = deproxy_auto_parser
+        self._expected_response: deproxy.Response | None = None
         self.port = port
         self.ip = ip
         self.response = response
@@ -353,19 +357,17 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
     def receive_request(self, request: deproxy.Request) -> (bytes, bool):
         self._requests.append(request)
         self._last_request = request
+
+        if self._deproxy_auto_parser.parsing:
+            self._deproxy_auto_parser.check_expected_request(self.last_request)
+            # Server sets expected response after receiving a request
+            self._deproxy_auto_parser.prepare_expected_response(self.__response)
+
         return self.__response, False
 
 
 def deproxy_srv_factory(server, name, tester):
     port = server["port"]
-    if port == "default":
-        port = tempesta.upstream_port_start_from()
-    else:
-        port = int(port)
-    srv = None
-    ko = server.get("keep_original_data", None)
-    ss = server.get("segment_size", 0)
-    sg = server.get("segment_gap", 0)
     rtype = server["response"]
     if rtype == "static":
         content = (
@@ -374,7 +376,12 @@ def deproxy_srv_factory(server, name, tester):
             else None
         )
         srv = StaticDeproxyServer(
-            port=port, response=content, keep_original_data=ko, segment_size=ss, segment_gap=sg
+            port=tempesta.upstream_port_start_from() if port == "default" else int(port),
+            response=content,
+            keep_original_data=server.get("keep_original_data", None),
+            segment_size=server.get("segment_size", 0),
+            segment_gap=server.get("segment_gap", 0),
+            deproxy_auto_parser=tester._deproxy_auto_parser,
         )
     else:
         raise Exception("Invalid response type: %s" % str(rtype))

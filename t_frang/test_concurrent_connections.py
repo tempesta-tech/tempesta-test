@@ -1,7 +1,7 @@
 """Functional tests for `concurrent_tcp_connections` in Tempesta config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -77,6 +77,7 @@ frang_limits {
     ]
 
     def _base_scenario(self, clients: list, responses: int):
+        self.disable_deproxy_auto_parser()
         for client in clients:
             client.start()
 

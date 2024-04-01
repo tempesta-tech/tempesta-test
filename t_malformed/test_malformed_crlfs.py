@@ -1,7 +1,7 @@
 from framework import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2021-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2021-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -96,6 +96,7 @@ server ${server_ip}:8000 conns_n=1;
 
     def test_02_no_crlf_pipeline(self):
         """Test 2 normal requests in pipeline."""
+        self.disable_deproxy_auto_parser()
         request = [
             "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -119,6 +120,7 @@ server ${server_ip}:8000 conns_n=1;
         Request should be passed to the backend with stripped CRLF
         Proxy should return positive response
         """
+        self.disable_deproxy_auto_parser()
         request = [
             "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             "\r\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -142,6 +144,7 @@ server ${server_ip}:8000 conns_n=1;
         Request should be passed to backed with stripped LF
         Proxy should return positive response
         """
+        self.disable_deproxy_auto_parser()
         request = [
             "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             "\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -164,6 +167,7 @@ server ${server_ip}:8000 conns_n=1;
         The 1st request should be passed to backend
         The 2nd request should be rejected by the proxy
         """
+        self.disable_deproxy_auto_parser()
         request = [
             "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             "\r\n" "\r\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -186,6 +190,7 @@ server ${server_ip}:8000 conns_n=1;
         The 1st request should be sent to backed
         The 2nd request should be rejected by the proxy
         """
+        self.disable_deproxy_auto_parser()
         request = [
             "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n" "\n" "\n",
             "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",

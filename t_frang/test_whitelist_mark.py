@@ -5,7 +5,7 @@ from framework.mixins import NetfilterMarkMixin
 from helpers import remote, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -60,8 +60,6 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
             }
 
             vhost vh1 {
-                resp_hdr_set Strict-Transport-Security "max-age=31536000; includeSubDomains";
-                resp_hdr_set Content-Security-Policy "upgrade-insecure-requests";
                 sticky {
                     cookie enforce name=cname;
                     js_challenge resp_code=503 delay_min=1000 delay_range=1500
@@ -90,9 +88,10 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
 
     def test_whitelisted_basic_request(self):
         self.set_nf_mark(1)
-        self.start_all_services()
+        self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.start()
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="200",
@@ -100,9 +99,10 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
 
     def test_whitelisted_basic_request_xforwarded_for(self):
         self.set_nf_mark(1)
-        self.start_all_services()
+        self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.start()
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[("x-forwarded-for", "1.2.3.4")]),
             expected_status_code="200",
@@ -110,9 +110,10 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
 
     def test_whitelisted_frang_http_uri_len(self):
         self.set_nf_mark(1)
-        self.start_all_services()
+        self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.start()
         client.send_request(
             # very long uri
             client.create_request(uri="/" + "a" * 25, method="GET", headers=[]),
@@ -121,9 +122,10 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
 
     def test_whitelisted_frang_http_uri_len_xforwarded_for(self):
         self.set_nf_mark(1)
-        self.start_all_services()
+        self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.start()
         client.send_request(
             # very long uri
             client.create_request(
@@ -154,9 +156,10 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         )
 
     def test_non_whitelisted_request_are_js_challenged(self):
-        self.start_all_services()
+        self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
+        client.start()
         client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="503",

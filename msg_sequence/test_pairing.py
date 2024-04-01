@@ -3,13 +3,12 @@ Test for 'Paired request missing, HTTP Response Splitting attack?' error
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import tester
 from framework.parameterize import parameterize_class
 from helpers import dmesg, util
-
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
@@ -56,10 +55,10 @@ vhost default {
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n",
+            "response_content": "",
         }
     ]
-    
+
     @dmesg.unlimited_rate_on_tempesta_node
     def test_disconnect_client(self):
         """Tempesta forwards requests from client to backend, but client
@@ -71,7 +70,7 @@ vhost default {
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
-        
+
         request = client.create_request(method="GET", headers=[])
         for _ in range(chain_size):
             client.make_request(request)

@@ -3,9 +3,10 @@ Tests for correct handling of HTTP/1.1 headers.
 """
 
 from framework import tester
+from helpers import deproxy
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -209,7 +210,7 @@ class TestHost(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
@@ -302,7 +303,7 @@ class TestHeadersParsing(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
@@ -350,7 +351,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 server = self.get_server("deproxy")
                 server.set_response(
                     "HTTP/1.1 200 OK\r\n"
-                    + "Date: test\r\n"
+                    + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
                     + "Server: debian\r\n"
                     + f"{'a' * length}: text\r\n"
                     + "Content-Length: 0\r\n\r\n"
@@ -412,7 +413,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + "Date: test\r\n"
+                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),

@@ -1,7 +1,7 @@
 """Tests for Frang directive `http_methods`."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
@@ -29,6 +29,7 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         self.check_response(client, status_code="403", warning_msg=self.error)
 
     def test_not_accepted_request_register(self):
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(
             frang_config="http_methods get post;",
             requests=["gEt / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"],
@@ -94,6 +95,7 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         self.check_response(client, status_code="403", warning_msg=self.error)
 
     def test_not_accepted_request_register(self):
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(
             frang_config="http_methods get post;",
             requests=[
@@ -139,6 +141,7 @@ class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
         self.check_response(client, status_code="200", warning_msg=self.error)
 
     def test_not_accepted_request_zero_byte(self):
+        self.disable_deproxy_auto_parser()
         client = self.base_scenario(
             frang_config="http_methods get post;",
             requests=[

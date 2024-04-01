@@ -13,10 +13,11 @@ from hyperframe import frame
 from framework import tester
 from framework.parameterize import param, parameterize
 from helpers import tf_cfg
+from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -142,7 +143,7 @@ class HeadersParsing(H2Base):
                 server = self.get_server("deproxy")
                 server.set_response(
                     "HTTP/1.1 200 OK\r\n"
-                    + "Date: test\r\n"
+                    + f"Date: {HttpMessage.date_time_string()}\r\n"
                     + "Server: debian\r\n"
                     + f"{'a' * length}: text\r\n"
                     + "Content-Length: 0\r\n\r\n"
@@ -351,7 +352,7 @@ class TestConnectionHeaders(H2Base):
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + f"{header[0].capitalize()}: {header[1]}\r\n"
             + "Content-Length: 0\r\n\r\n"
@@ -458,7 +459,7 @@ class TestIPv6(H2Base):
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
-            + "Date: test\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + f"{response_header[0]}: {response_header[1]}\r\n"
             + f"Content-Length: {len(response_body)}\r\n\r\n"
@@ -1334,6 +1335,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client.send_request(request, "200")
 
     def test_content_type_from_hpack_table(self):
+        self.disable_deproxy_auto_parser()
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")

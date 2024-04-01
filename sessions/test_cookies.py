@@ -9,7 +9,7 @@ from framework import tester
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 DFLT_COOKIE_NAME = "__tfw"
@@ -184,6 +184,10 @@ class CookiesEnabled(CookiesNotEnabled):
         """
     }
 
+    def test_cookie(self):
+        self.disable_deproxy_auto_parser()
+        super().test_cookie()
+
 
 class CookiesEnforced(CookiesNotEnabled):
     """Implicit 'default' vhost with sticky cookies enabled. Enforce mode of
@@ -350,6 +354,7 @@ class VhostCookies(CookiesNotEnabled):
             "Client accessed resource without cookie challenge",
         )
 
+        self.disable_deproxy_auto_parser()
         tf_cfg.dbg(3, "Send requests to vhost_3...")
         # Enforce mode is disabled for vhost_3, cookie challenge is not required
         self.assertTrue(
