@@ -227,7 +227,10 @@ tls_match_any_server_name;
         request = client.create_request(method="GET", uri=uri, headers=[])
         client.send_request(request, expected_status_code=expected_status)
 
-        self.assertEqual(client.connection_is_closed(), True if expected_status == "400" else False)
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -251,7 +254,10 @@ tls_match_any_server_name;
             expected_status_code=expected_status,
         )
 
-        self.assertEqual(client.connection_is_closed(), True if expected_status == "400" else False)
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -274,7 +280,10 @@ tls_match_any_server_name;
             expected_status_code=expected_status,
         )
 
-        self.assertEqual(client.connection_is_closed(), True if expected_status == "400" else False)
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -314,10 +323,10 @@ tls_match_any_server_name;
             request=client.create_request(method="GET", headers=[("if-none-match", etag)]),
             expected_status_code=expected_status,
         )
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -350,10 +359,10 @@ tls_match_any_server_name;
             request=client.create_request(method="GET", headers=[("cookie", cookie)]),
             expected_status_code=expected_status,
         )
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -398,10 +407,10 @@ tls_match_any_server_name;
             request=client.create_request(method="GET", headers=[("x-forwarded-for", ip_)]),
             expected_status_code=expected_status,
         )
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -428,10 +437,10 @@ tls_match_any_server_name;
             request=client.create_request(method="GET", headers=[("user-agent", header)]),
             expected_status_code=expected_status,
         )
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -457,10 +466,10 @@ tls_match_any_server_name;
             request=client.create_request(method="GET", headers=[("cookie", f"{header_value}")]),
             expected_status_code=expected_status,
         )
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -494,10 +503,10 @@ tls_match_any_server_name;
             request=client.create_request(method="GET", headers=[("cache-control", cache_control)]),
             expected_status_code=expected_status,
         )
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
@@ -526,10 +535,10 @@ tls_match_any_server_name;
             expected_status_code=expected_status,
         )
 
-        self.assertEqual(
-            client.connection_is_closed(),
-            True if expected_status == "400" else False,
-        )
+        if expected_status == "200":
+            self.assertTrue(client.conn_is_active)
+        else:
+            self.assertTrue(client.wait_for_connection_close())
 
     @parameterize.expand(
         [
