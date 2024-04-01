@@ -46,6 +46,7 @@ vhost main{
     proxy_pass main;
 }
 
+max_concurrent_streams 2147483647;
 tls_match_any_server_name;
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;

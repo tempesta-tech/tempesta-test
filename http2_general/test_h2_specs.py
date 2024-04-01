@@ -110,6 +110,7 @@ class H2Spec(tester.TempestaTest):
                 "-x generic/2/3",  # disabled by issue 1196
                 "-x http2/5.3.1/1",  # disabled by issue 1196
                 "-x http2/5.3.1/2",  # disabled by issue 1196
+                "-x http2/5.1.2",  # disabled by issue 1196
             ]
         )
 

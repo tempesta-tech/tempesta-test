@@ -25,17 +25,19 @@ class TestH2Stream(H2Base):
         self.start_all_services()
         client = self.get_client("deproxy")
 
-        # TODO need change after fix issue #1394
-        max_streams = 128
+        max_streams = 100
 
         for _ in range(max_streams):
             client.make_request(request=self.post_request, end_stream=False)
             client.stream_id += 2
 
-        client.make_request(request=self.post_request, end_stream=True)
-        client.wait_for_response(1)
+        client.h2_connection.remote_settings.max_concurrent_streams = max_streams + 1
+        client.h2_connection.remote_settings.acknowledge()
 
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR or ErrorCodes.REFUSED_STREAM, client.error_codes)
+        client.make_request(request=self.post_request, end_stream=True)
+        self.assertTrue(client.wait_for_reset_stream(stream_id=client.stream_id - 2))
+
+        self.assertIn(ErrorCodes.REFUSED_STREAM, client.error_codes)
 
     def test_reuse_stream_id(self):
         """
@@ -205,7 +207,8 @@ class TestMultiplexing(tester.TempestaTest):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
-            
+            http_max_header_list_size 134217728; #128 KB
+
             block_action attack reply;
             block_action error reply;
             
