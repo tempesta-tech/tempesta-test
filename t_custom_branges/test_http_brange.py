@@ -9,7 +9,7 @@ import random
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import deproxy
-from helpers.remote import CmdError, HttpMessage
+from helpers.remote import CmdError
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
@@ -33,7 +33,7 @@ DEPROXY_SERVER = {
     "response": "static",
     "response_content": (
         "HTTP/1.1 200 OK\r\n"
-        + f"Date: {HttpMessage.date_time_string()}\r\n"
+        + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
         + "Server: deproxy\r\n"
         + "Content-Length: 0\r\n\r\n"
     ),
