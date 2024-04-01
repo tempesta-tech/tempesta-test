@@ -7,6 +7,7 @@ analises its return code.
 import itertools
 
 from h2.connection import AllowedStreamIDs
+from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 from hyperframe import frame
 
@@ -580,6 +581,7 @@ class TestTrailers(H2Base):
         (":path", "/"),
         (":scheme", "https"),
         (":method", "POST"),
+        (":authority", "localhost"),
     ]
 
     def __create_connection_and_get_client(self):
@@ -632,12 +634,14 @@ class TestTrailers(H2Base):
         client = self.__create_connection_and_get_client()
         self.__send_headers_and_data_frames(client)
 
-        # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
+        # create and send trailers into HEADERS frame with END_STREAM and not END_HEADERS
         tf = frame.HeadersFrame(
             stream_id=client.stream_id,
-            data=client.h2_connection.encoder.encode([("host", "localhost")]),
+            data=client.h2_connection.encoder.encode([("hdr", "val")]),
             flags=["END_STREAM"],
         )
+
+        client.send_bytes(data=tf.serialize(), expect_response=False)
 
         # create and send CONTINUATION frame with trailers
         cf = frame.ContinuationFrame(
@@ -649,6 +653,44 @@ class TestTrailers(H2Base):
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
+
+    @parameterize.expand(
+        [
+            param(name="end_headers", flags=["END_HEADERS"]),
+            param(name="no_end_headers", flags=[]),
+        ]
+    )
+    def test_trailers_with_empty_continuation_frame_in_request(self, name, flags):
+        """
+        Send trailers (HEADER and empty CONTINUATION frames) after DATA
+        frame and receive a 200 response in case when CONTINUATION has
+        END_HEADERS flag and GO_AWAY protocol error otherwise.
+        """
+        client = self.__create_connection_and_get_client()
+        self.__send_headers_and_data_frames(client)
+
+        # create and send trailers into HEADERS frame with END_STREAM and not END_HEADERS
+        tf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("hdr1", "val")]),
+            flags=["END_STREAM"],
+        )
+
+        client.send_bytes(data=tf.serialize(), expect_response=False)
+
+        # create and send empty CONTINUATION frame in trailer
+        cf = frame.ContinuationFrame(stream_id=client.stream_id, flags=flags)
+
+        # response expected when end_headers is set.
+        expected_response = flags == ["END_HEADERS"]
+        client.send_bytes(data=cf.serialize(), expect_response=expected_response)
+
+        if expected_response:
+            self.assertTrue(client.wait_for_response())
+            self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
+        else:
+            self.assertTrue(client.wait_for_connection_close(timeout=5))
+            self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
 
     def test_trailers_with_pseudo_headers_in_request(self):
         """
