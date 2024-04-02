@@ -1,6 +1,7 @@
 """
 HTTP Stress tests - load Tempesta FW with multiple connections.
 """
+
 import os
 import time
 from pathlib import Path
@@ -634,6 +635,55 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
 
     def test_h2_put_request(self):
         self._test_h2load(method="PUT")
+
+
+class ContinuationFlood(tester.TempestaTest):
+    """
+    Test stability against CONTINUATION frame flood.
+    """
+
+    clients = [
+        {
+            "id": "gflood",
+            "type": "external",
+            "binary": "gflood",
+            "ssl": True,
+            "cmd_args": "-address ${tempesta_ip}:443 -host tempesta-tech.com -threads 4 -connections 10000 -streams 100 -headers_cnt 7",
+        },
+    ]
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
+
+    tempesta = {
+        "config": """
+        listen 443 proto=h2;
+
+        server ${server_ip}:8000;
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        cache 0;
+    """
+    }
+
+    def test(self):
+        client = self.get_client("gflood")
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.wait_while_busy(client)
+        client.stop()
+        self.assertEqual(0, client.returncode)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
