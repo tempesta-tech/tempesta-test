@@ -35,6 +35,15 @@ cd /tmp/h2spec
 make build
 cp ./h2spec /usr/bin/h2spec
 
+#gflood - CONTINUATION frame flooder
+mkdir /tmp/gflood
+cp gflood/main.go /tmp/gflood/
+cd /tmp/gflood
+go mod init gflood
+go mod tidy
+go build
+cp ./gflood /usr/bin/gflood
+
 # curl
 git clone --depth=1 --branch curl-7_85_0 https://github.com/curl/curl.git /tmp/curl
 cd /tmp/curl
