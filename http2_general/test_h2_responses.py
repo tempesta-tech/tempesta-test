@@ -71,7 +71,13 @@ class H2ResponsesTestCase(tester.TempestaTest):
                     server {
                         listen        ${server_ip}:8000;
                         location / {
-                            return 200;
+                            if ($http_content_encoding = "") {
+                                return 200;
+                            }
+                            if ($http_content_encoding = "foo") {
+                                return 200;
+                            }
+                            return 400;
                         }
                         location /nginx_status {
                             stub_status on;
@@ -114,3 +120,10 @@ class H2ResponsesTestCase(tester.TempestaTest):
 
         # perform request with invalid X-Forwarded-For header
         self.__test_h2_response(curl, "X-Forwarded-For", "1.1.1.1.1.1", http.HTTPStatus.BAD_REQUEST)
+
+    def test_h2_duplicated_content_encoding(self):
+        curl = self.__setup_h2_responses_test()
+
+        # perform and check `good` request.
+        self.__test_h2_response(curl, "Host", "good.com", http.HTTPStatus.OK)
+        self.__test_h2_response(curl, "Content-Encoding", "foo", http.HTTPStatus.OK)

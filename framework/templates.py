@@ -13,4 +13,5 @@ def populate_properties(user_properties):
 
 
 def fill_template(template, properties):
+    properties["http_content_encoding"] = "$http_content_encoding"
     return Template(template).substitute(properties)
