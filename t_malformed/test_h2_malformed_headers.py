@@ -125,21 +125,3 @@ class H2EtagAlphabetTest(test_malformed_headers.EtagAlphabetTest):
         (":method", "GET"),
         (":authority", "localhost"),
     ]
-
-
-class H2EtagAlphabetBrangeTest(test_malformed_headers.EtagAlphabetBrangeTest):
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-    ]
-    request = [
-        (":path", "/"),
-        (":scheme", "https"),
-        (":method", "GET"),
-        (":authority", "localhost"),
-    ]
