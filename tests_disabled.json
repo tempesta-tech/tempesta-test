@@ -274,10 +274,6 @@
             "reason": "Disabled by issue #1103"
         },
         {
-            "name": "encoding.test_encoding.TestH2ChunkedWithTrailer",
-            "reason": "Disabled by issue #1902"
-        },
-        {
             "name": "http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
             "reason": "Disabled by issue #1196"
         },
