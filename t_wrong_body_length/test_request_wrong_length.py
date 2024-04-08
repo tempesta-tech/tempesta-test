@@ -36,27 +36,6 @@ class RequestCorrectBodyLength(RequestContentLengthBase):
     Check that server has received request and client has received response.
     """
 
-    tempesta = {
-        "config": """
-            listen 80;
-            frang_limits {
-                http_strict_host_checking false;
-                http_methods GET PUT POST;
-                }
-            srv_group default {
-                server ${server_ip}:8000;
-            }
-
-            vhost default {
-                proxy_pass default;
-            }
-
-            cache 0;
-            block_action error reply;
-            block_action attack reply;
-            """
-    }
-
     request_headers = (
         "Connection: keep-alive\r\n"
         + "Accept: */*\r\n"

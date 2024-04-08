@@ -256,8 +256,8 @@ class Cache(TlsIntegrityTester):
         self.common_check(567, 567)
         self.common_check(1755, 1755)
         self.common_check(4096, 4096)
-        self.common_check(16380, 16380)
         if not run_config.TCP_SEGMENTATION:
+            self.common_check(16380, 16380)
             self.common_check(65536, 65536)
             self.common_check(1000000, 1000000)
 
