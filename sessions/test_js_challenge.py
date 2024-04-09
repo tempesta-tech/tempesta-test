@@ -9,7 +9,7 @@ from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from framework.templates import fill_template, populate_properties
 from helpers import remote, tf_cfg
-
+from helpers.deproxy import HttpMessage
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020-2024 Tempesta Technologies, Inc."

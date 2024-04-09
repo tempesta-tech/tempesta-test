@@ -37,7 +37,7 @@ class LearnSessionsBase(tester.TempestaTest):
 
     def client_send_req(self, client, req):
         curr_responses = len(client.responses)
-        client.make_requests(req)
+        client.make_request(req)
         client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses))
 
@@ -160,30 +160,6 @@ class LearnSessions(LearnSessionsBase):
             srv.set_response(
                 "HTTP/1.1 %s\r\n" "Server-id: %s\r\n" "Content-Length: 0\r\n\r\n" % (status, sid)
             )
-
-    def client_send_req(self, client, req):
-        curr_responses = len(client.responses)
-        client.make_request(req)
-        client.wait_for_response(timeout=1)
-        self.assertEqual(curr_responses + 1, len(client.responses))
-
-        return client.responses[-1]
-
-    def client_send_first_req(self, client):
-        req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        response = self.client_send_req(client, req)
-
-        self.assertEqual(response.status, "200", "unexpected response status code")
-        c_header = response.headers.get("Set-Cookie", None)
-        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
-        match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
-        self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
-        cookie = (match.group(1), match.group(2))
-
-        s_id = response.headers.get("Server-id", None)
-        self.assertIsNotNone(s_id, "Server-id header is missing in the response")
-
-        return (s_id, cookie)
 
     def client_send_next_req(self, client, cookie):
         req = (
