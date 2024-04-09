@@ -156,6 +156,10 @@
         {
             "name": "tls.test_tls_cert.WrkTestsMultipleVhosts.test_wrk",
             "reason": "Disabled by issue #525"
+        },
+        {
+            "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
+            "reason": "Disabled by test issue #525"
         }
     ]
 }

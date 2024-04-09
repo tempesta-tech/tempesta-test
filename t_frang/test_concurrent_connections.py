@@ -6,6 +6,7 @@ __license__ = "GPL2"
 
 import time
 
+from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase
 
 ERROR = "Warning: frang: connections max num. exceeded"
@@ -25,55 +26,21 @@ frang_limits {
 
     clients = [
         {
-            "id": "deproxy-1",
+            "id": f"deproxy-{id_}",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
-        },
+        }
+        for id_ in range(10)
+    ] + [
         {
-            "id": "deproxy-2",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-        {
-            "id": "deproxy-3",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-        {
-            "id": "deproxy-interface-1",
+            "id": f"deproxy-interface-{id_}",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
             "interface": True,
-        },
-        {
-            "id": "deproxy-interface-2",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
-        },
-        {
-            "id": "deproxy-interface-3",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
-        },
-        {
-            "id": "parallel-curl",
-            "type": "curl",
-            "uri": "/[1-2]",
-            "parallel": 2,
-            "headers": {
-                "Connection": "close",
-                "Host": "debian",
-            },
-            "cmd_args": " --verbose",
-        },
+        }
+        for id_ in range(3)
     ]
 
     def _base_scenario(self, clients: list, responses: int):
@@ -115,9 +82,9 @@ frang_limits {
 
         self._base_scenario(
             clients=[
+                self.get_client("deproxy-0"),
                 self.get_client("deproxy-1"),
                 self.get_client("deproxy-2"),
-                self.get_client("deproxy-3"),
             ],
             responses=2,
         )
@@ -132,9 +99,9 @@ frang_limits {
         self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
         self._base_scenario(
             clients=[
+                self.get_client("deproxy-interface-0"),
                 self.get_client("deproxy-interface-1"),
                 self.get_client("deproxy-interface-2"),
-                self.get_client("deproxy-interface-3"),
             ],
             responses=3,
         )
@@ -149,43 +116,48 @@ frang_limits {
         self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block on;")
         self._base_scenario(
             clients=[
+                self.get_client("deproxy-0"),
                 self.get_client("deproxy-1"),
                 self.get_client("deproxy-2"),
-                self.get_client("deproxy-3"),
             ],
             responses=0,
         )
 
         self.assertFrangWarning(warning=ERROR, expected=1)
 
-    def test_clear_client_connection_stats(self):
+    @parameterize.expand(
+        [
+            param(name="equal", clients_n=2, warning_n=0),
+            param(name="greater", clients_n=10, warning_n=8),
+        ]
+    )
+    def test_clear_client_connection_stats(self, name, clients_n: int, warning_n: int):
         """
         Establish connections for many clients with same IP, then close them.
         Check that Tempesta cleared client connection stats and
         new connections are established.
         """
-        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block on;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
 
-        client = self.get_client("parallel-curl")
+        non_blocked_clients = [self.get_client(f"deproxy-{n}") for n in range(2)]
+        blocked_clients = [self.get_client(f"deproxy-{n}") for n in range(2, clients_n)]
 
-        client.start()
-        self.wait_while_busy(client)
-        client.stop()
+        for n in [warning_n, warning_n * 2]:
+            for client in non_blocked_clients + blocked_clients:  # establish 2 or more connections
+                client.start()
+                client.make_request(client.create_request(method="GET", headers=[]))
 
-        time.sleep(self.timeout)
+            for client in blocked_clients:
+                self.assertTrue(
+                    client.wait_for_connection_close(),
+                    "Tempesta did not block concurrent TCP connections.",
+                )
+            for client in non_blocked_clients:
+                self.assertTrue(client.wait_for_response())
+                self.assertTrue(
+                    client.conn_is_active, "Deproxy clients did not open connections with Tempesta."
+                )
+            self.assertFrangWarning(warning=ERROR, expected=n)
 
-        self.assertFrangWarning(warning=ERROR, expected=0)
-        self.assertIn("Closing connection 1", client.last_response.stderr)
-        self.assertIn("Closing connection 0", client.last_response.stderr)
-
-        time.sleep(1)
-
-        client.start()
-        self.wait_while_busy(client)
-        client.stop()
-
-        time.sleep(self.timeout)
-
-        self.assertFrangWarning(warning=ERROR, expected=0)
-        self.assertIn("Closing connection 1", client.last_response.stderr)
-        self.assertIn("Closing connection 0", client.last_response.stderr)
+            for client in non_blocked_clients + blocked_clients:
+                client.stop()

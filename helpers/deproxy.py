@@ -12,6 +12,7 @@ Our Request/Response implementation differs from http.lib. We use these classes
 like a wrapper for http message and in some cases we can manually instantiate
 objects of these classes to construct message.
 """
+
 from __future__ import print_function
 
 import abc
@@ -230,7 +231,11 @@ class HeaderCollection(object):
             date_received = h_received.pop("date")[0]
             ts_expected = HttpMessage.parse_date_time_string(date_expected)
             ts_received = HttpMessage.parse_date_time_string(date_received)
-            assert ts_expected <= ts_received <= ts_expected + expected_time_delta, (
+
+            # Tempesta and general VMs (remote setup) may have different timestamp
+            # and Tempesta may add a date less than expected
+            half_time_delta = expected_time_delta / 2
+            assert ts_expected - half_time_delta <= ts_received <= ts_expected + half_time_delta, (
                 f"Header 'date' is invalid."
                 f"\nReceived: {date_received}."
                 f"\nExpected: {date_expected}."
