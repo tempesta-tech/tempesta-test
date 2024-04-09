@@ -80,16 +80,14 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def last_response(self):
-        ...
+    def last_response(self): ...
 
     @property
     def request_buffers(self) -> List[bytes]:
         return self._request_buffers
 
     @abc.abstractmethod
-    def _add_to_request_buffers(self, *args, **kwargs) -> None:
-        ...
+    def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -150,8 +148,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     @abc.abstractmethod
-    def handle_read(self):
-        ...
+    def handle_read(self): ...
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
@@ -416,9 +413,9 @@ class HuffmanEncoder(Encoder):
 
 @dataclasses.dataclass
 class ReqBodyBuffer:
-    body: bytes
-    stream_id: int or None
-    end_stream: bool or None
+    body: bytes | None
+    stream_id: int | None
+    end_stream: bool | None
 
 
 class DeproxyClientH2(BaseDeproxyClient):
@@ -668,7 +665,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             super().handle_write()
 
         body = self.req_body_buffers[cur_req_num].body
-        if self.request_buffers[cur_req_num] == b"" and body:
+        if self.request_buffers[cur_req_num] == b"" and body is not None:
             stream_id = self.req_body_buffers[cur_req_num].stream_id
             end_stream = self.req_body_buffers[cur_req_num].end_stream
 
@@ -679,12 +676,14 @@ class DeproxyClientH2(BaseDeproxyClient):
                 self.cur_req_num -= 1
 
             data_to_send, size = self.__prepare_data_frames(body, end_stream, stream_id)
-            if size == 0:
+            # we must use data_to_send here because size may be 0 when DATA frame is empty.
+            # For example: make_request(request=b""). In this case size is 0, but data_to_send is
+            # empty DATA frame
+            if not data_to_send:
                 return None
             self._request_buffers[cur_req_num] = data_to_send
-            self._req_body_buffers[cur_req_num].body = self._req_body_buffers[cur_req_num].body[
-                size:
-            ]
+            body = self._req_body_buffers[cur_req_num].body
+            self._req_body_buffers[cur_req_num].body = None if len(body) == size else body[size:]
 
     @staticmethod
     def __headers_to_string(headers):
@@ -745,7 +744,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return data_to_send, size
 
     def _add_to_body_buffers(
-        self, *, body: bytes, stream_id: int = None, end_stream: bool = None
+        self, *, body: bytes | None, stream_id: int = None, end_stream: bool = None
     ) -> None:
         self._req_body_buffers.append(ReqBodyBuffer(body, stream_id, end_stream))
 
@@ -753,7 +752,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         if isinstance(data, bytes):
             # in case when you use `send_bytes` method
             self._request_buffers.append(data)
-            self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
+            self._add_to_body_buffers(body=None, stream_id=None, end_stream=None)
         elif isinstance(data, str):
             # in case when you use `make_request` to sending body
             self._request_buffers.append(b"")
@@ -771,7 +770,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             # in case when you use `make_request` to sending headers
             self.h2_connection.send_headers(self.stream_id, data, end_stream)
             self._request_buffers.append(self.h2_connection.data_to_send())
-            self._add_to_body_buffers(body=b"", stream_id=None, end_stream=None)
+            self._add_to_body_buffers(body=None, stream_id=None, end_stream=None)
 
         if self._deproxy_auto_parser.parsing and end_stream and isinstance(data, (tuple, list)):
             self._deproxy_auto_parser.prepare_expected_request(
