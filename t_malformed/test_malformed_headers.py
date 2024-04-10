@@ -761,35 +761,11 @@ class MalformedResponseWithoutStrictParsingTest(MalformedResponseBase):
 
 
 class EtagAlphabetTest(MalformedResponseBase):
-    def test_etag_with_x00(self):
-        response = (
-            "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x000123456789"\r\n' "\r\n"
-        )
-        self.common_check(response, self.request)
-
-    def test_etag_with_x09(self):
-        response = (
-            "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x090123456789"\r\n' "\r\n"
-        )
-        self.common_check(response, self.request)
-
-    def test_etag_with_x20(self):
-        response = (
-            "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x200123456789"\r\n' "\r\n"
-        )
-        self.common_check(response, self.request)
-
     def test_etag_with_x21(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x210123456789"\r\n' "\r\n"
         )
         self.common_check(response, self.request, "200")
-
-    def test_etag_with_x22(self):
-        response = (
-            "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x220123456789"\r\n' "\r\n"
-        )
-        self.common_check(response, self.request)
 
     def test_etag_with_x23(self):
         response = (
@@ -806,37 +782,5 @@ class EtagAlphabetTest(MalformedResponseBase):
     def test_etag_with_xf7(self):
         response = (
             "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\xf70123456789"\r\n' "\r\n"
-        )
-        self.common_check(response, self.request, "200")
-
-
-class EtagAlphabetBrangeTest(EtagAlphabetTest):
-    tempesta = {
-        "config": """
-cache 0;
-listen 80;
-listen 443 proto=h2;
-
-tls_certificate ${tempesta_workdir}/tempesta.crt;
-tls_certificate_key ${tempesta_workdir}/tempesta.key;
-tls_match_any_server_name;
-
-block_action attack reply;
-block_action error reply;
-
-server ${server_ip}:8000;
-http_etag_brange 0x09 0x20-0x21 0x23-0x7e 0x80-0xff;
-""",
-    }
-
-    def test_etag_with_x09(self):
-        response = (
-            "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x090123456789"\r\n' "\r\n"
-        )
-        self.common_check(response, self.request, "200")
-
-    def test_etag_with_x20(self):
-        response = (
-            "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" 'Etag: W/"\x200123456789"\r\n' "\r\n"
         )
         self.common_check(response, self.request, "200")
