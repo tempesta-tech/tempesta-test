@@ -376,6 +376,14 @@
         {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats_greater",
             "reason": "Disabled by issue #2084"
+        },
+        {
+            "name": "sessions.test_js_challenge.JSChallengeHttp.test_servicing_non_challengeble_request_from_cache_HEAD",
+            "reason": "Disabled by PR #2062"
+        },
+        {
+            "name": "sessions.test_js_challenge.JSChallengeH2.test_servicing_non_challengeble_request_from_cache_HEAD",
+            "reason": "Disabled by PR #2062"
         }
     ]
 }

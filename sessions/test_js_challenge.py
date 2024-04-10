@@ -165,6 +165,9 @@ class JSChallenge(BaseJSChallenge):
         
         block_action attack reply;
         block_action error reply;
+
+        cache 2;
+        cache_fulfill * *;
         
         sticky {{
             cookie enforce name=cname max_misses={MAX_MISSES};
@@ -218,6 +221,26 @@ class JSChallenge(BaseJSChallenge):
                 f"accept header - {accept}",
             )
         self.assertFalse(client.conn_is_closed)
+
+    @parameterize.expand(
+        [
+            param(name="GET", method="GET", status="200"),
+            param(name="HEAD", method="HEAD", status="200"),
+            param(name="POST", method="POST", status="403"),
+        ]
+    )
+    def test_servicing_non_challengeble_request_from_cache(self, name, method, status):
+        """
+        Tempesta try to service non-challengeable requests from the cache. If Tempesta
+        can't service such request from the cache drop it
+        """
+        self.test_second_request_GET_and_accept_all()
+
+        client = self.get_client("client-1")
+        client.send_request(
+            client.create_request(method=method, headers=[("accept", "image/*")]),
+            status,
+        )
 
     @parameterize.expand(
         [
