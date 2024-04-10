@@ -125,11 +125,7 @@ class LocalNode(Node):
         return stdout, stderr
 
     def mkdir(self, path):
-        try:
-            os.makedirs(path)
-        except OSError:
-            if not os.path.isdir(path):
-                raise
+        os.makedirs(path, exist_ok=True)
 
     def copy_file(self, filename, content):
         # workdir will be ignored if an absolute filename is passed
@@ -307,10 +303,10 @@ def get_max_thread_count(node):
 # Global accessible SSH/Local connections
 # -------------------------------------------------------------------------------
 
-client = None
-tempesta = None
-server = None
-host = None
+client: Node = None
+tempesta: Node = None
+server: Node = None
+host: Node = None
 
 
 def connect():

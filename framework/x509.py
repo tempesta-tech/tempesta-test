@@ -10,7 +10,6 @@ Without loss of generality we use self-signed certificates
 to make things simple in tests.
 """
 from datetime import datetime, timedelta
-from os import makedirs
 from typing import Optional
 
 from cryptography import x509
@@ -19,7 +18,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 
-from helpers import tf_cfg
+from helpers import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -43,8 +42,9 @@ class CertGenerator(object):
             "/".join(self.f_cert.split("/")[:-1]),
             "/".join(self.f_key.split("/")[:-1]),
         ]
-        for dir in dirs:
-            makedirs(dir, exist_ok=True)
+        for dir_ in dirs:
+            # We must create dir on host node because we cannot run this class on another node
+            remote.host.mkdir(dir_)
         # Define the certificate fields data supposed for mutation by a caller.
         self.C = "US"
         self.ST = "Washington"
