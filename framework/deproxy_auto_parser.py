@@ -232,11 +232,6 @@ class DeproxyAutoParser:
             expected_response.convert_chunked_body()
             expected_response.headers.add("content-length", str(len(expected_response.body)))
 
-            for name, value in expected_response.trailer.headers:
-                dbg(4, self.__dbg_msg.format(f"Response: Trailer '{name}' moved to headers."))
-                expected_response.trailer.delete_all(name)
-                expected_response.headers.add(name, value)
-
     def __add_content_length_header_to_expected_response(
         self, expected_response: Response | H2Response
     ) -> None:

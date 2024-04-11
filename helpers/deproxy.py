@@ -12,6 +12,7 @@ Our Request/Response implementation differs from http.lib. We use these classes
 like a wrapper for http message and in some cases we can manually instantiate
 objects of these classes to construct message.
 """
+
 from __future__ import print_function
 
 import abc
@@ -448,6 +449,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
             raise IncompleteMessage()
+        self.parse_trailer(stream)
 
     def parse_trailer(self, stream):
         self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)

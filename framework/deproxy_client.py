@@ -80,16 +80,14 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def last_response(self):
-        ...
+    def last_response(self): ...
 
     @property
     def request_buffers(self) -> List[bytes]:
         return self._request_buffers
 
     @abc.abstractmethod
-    def _add_to_request_buffers(self, *args, **kwargs) -> None:
-        ...
+    def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -150,8 +148,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     @abc.abstractmethod
-    def handle_read(self):
-        ...
+    def handle_read(self): ...
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
@@ -613,7 +610,9 @@ class DeproxyClientH2(BaseDeproxyClient):
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
-                    response.parse_text(str(response.headers) + "\r\n" + response.body + trailers)
+                    response.parse_text(
+                        str(response.headers) + "\r\n" + response.body + trailers + "\r\n"
+                    )
                 elif isinstance(event, StreamEnded):
                     response = self.active_responses.pop(event.stream_id, None)
                     if response is None:
@@ -688,7 +687,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     @staticmethod
     def __headers_to_string(headers):
-        return "".join(["%s: %s\r\n" % (h, v) for h, v in headers])
+        return "".join(["%s: %s\r\n" % (h.decode("utf-8"), v.decode("utf-8")) for h, v in headers])
 
     @staticmethod
     def __binary_headers_to_string(headers):
