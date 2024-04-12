@@ -19,6 +19,69 @@ from t_frang.frang_test_case import FrangTestCase, H2Config
 ERROR = "Warning: frang: HTTP headers count exceeded for"
 
 
+class FrangVhostOverrideGlobal(FrangTestCase):
+    tempesta_template = {
+        "config": """
+cache 0;
+listen 80;
+listen 81;
+listen 443 proto=h2;
+frang_limits {
+    %(frang_config)s
+    ip_block off;
+}
+
+srv_group default {
+    server ${server_ip}:8000;
+}
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+block_action attack reply;
+
+vhost debian {
+    frang_limits {
+        http_methods get post head;
+        http_header_cnt 50;
+        http_hdr_len 1000;
+    }
+
+    proxy_pass default;
+}
+
+http_chain {
+    -> debian;
+}
+""",
+    }
+
+    requests = [
+        "POST / HTTP/1.1\r\n"
+        "Host: debian\r\n"
+        "Content-Type: text/html\r\n"
+        "Connection: keep-alive\r\n"
+        "Content-Length: 0\r\n\r\n"
+    ]
+
+    @parameterize.expand(
+        [
+            param(name="header_cnt", frang_config="http_header_cnt 2;"),
+            param(name="header_len", frang_config="http_hdr_len 10;"),
+        ]
+    )
+    def test(self, name, frang_config):
+        # Check that vhost frang settings override global settings
+        client = self.base_scenario(
+            frang_config=frang_config,
+            requests=self.requests,
+            disable_hshc=False,
+        )
+
+        self.check_response(client, status_code="200", warning_msg=ERROR)
+
+
 class FrangHttpHeaderCountTestCase(FrangTestCase):
     """Tests for 'http_header_cnt' directive."""
 
