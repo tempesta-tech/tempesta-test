@@ -4,6 +4,8 @@ Tests for health monitoring functionality.
 
 from __future__ import print_function
 
+import time
+
 from access_log.test_access_log_h2 import backends
 from framework import templates, tester
 from framework.parameterize import param, parameterize, parameterize_class
@@ -340,3 +342,65 @@ class TestHealthStatServer(tester.TempestaTest):
         self.assertEqual(stats.health_statuses[5], 3)
         # server_failover_http works too for health monitoring
         self.assertEqual(stats.health_statuses[404], 1)
+
+
+class TestHealthMonitorForDisabledServer(tester.TempestaTest):
+    tempesta = {
+        "config": """
+            listen 80;
+            health_check h_monitor1 {
+                request "GET / HTTP/1.1\r\n\r\n";
+                request_url "/";
+                resp_code   200;
+                resp_crc32  auto;
+                timeout     1;
+            }
+
+            srv_group srv_grp1 {
+                server ${server_ip}:8000;
+                health h_monitor1;
+            }
+
+            vhost srv_grp1{
+                proxy_pass srv_grp1;
+            }
+
+            http_chain {
+                -> srv_grp1;
+            }
+        """
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n\r\n",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+    ]
+
+    def test(self):
+        """
+        This test reproduce crash from #2066 issue in Tempesta FW:
+        When health monitor is enabled Tempesta FW sends request to
+        server to check it status every @timeout seconds.
+        Since drop_conn_when_receiving_data is set to True, server
+        drops requests from Tempesta FW. Tempesta FW tries to resend
+        request and because health motinor requests have no connection
+        pointer kernel BUG occurs.
+        """
+        self.start_all_services()
+        s = self.get_server("deproxy")
+        s.drop_conn_when_receiving_data = True
+        time.sleep(1)
