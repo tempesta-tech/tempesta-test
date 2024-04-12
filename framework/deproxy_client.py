@@ -608,11 +608,9 @@ class DeproxyClientH2(BaseDeproxyClient):
                         )
                     self.send_bytes(self.h2_connection.data_to_send())
                 elif isinstance(event, TrailersReceived):
-                    trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
-                    response.parse_text(
-                        str(response.headers) + "\r\n" + response.body + trailers + "\r\n"
-                    )
+                    for trailer in event.headers:
+                        response.trailer.add(trailer[0].decode(), trailer[1].decode())
                 elif isinstance(event, StreamEnded):
                     response = self.active_responses.pop(event.stream_id, None)
                     if response is None:
@@ -687,7 +685,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     @staticmethod
     def __headers_to_string(headers):
-        return "".join(["%s: %s\r\n" % (h.decode("utf-8"), v.decode("utf-8")) for h, v in headers])
+        return "".join(["%s: %s\r\n" % (h, v) for h, v in headers])
 
     @staticmethod
     def __binary_headers_to_string(headers):
