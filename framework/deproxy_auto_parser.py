@@ -205,10 +205,8 @@ class DeproxyAutoParser:
         """
         For http2:
             - Tempesta convert Transfer-Encoding header to Content-Encoding
-            - Tempesta moves trailers to headers
         For cache response:
             - Tempesta store response with Content-Encoding and Content-length headers
-            - Tempesta moves trailers to headers
         """
         if "Transfer-Encoding" in expected_response.headers:
             dbg(
