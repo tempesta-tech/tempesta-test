@@ -449,12 +449,6 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
             raise IncompleteMessage()
-        pos = stream.tell()
-        ss = stream.readline()
-        stream.seek(pos)
-        if not ss or not (":" in ss):
-            return
-        self.parse_trailer(stream)
 
     def parse_trailer(self, stream):
         self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
