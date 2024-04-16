@@ -1,6 +1,7 @@
 import re
 
 from framework import tester
+from helpers import dmesg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -267,14 +268,38 @@ class LearnSessionsMultipleSameSetCookie(LearnSessionsBase):
         }
     ]
 
+    def setUp(self):
+        super().setUp()
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(self.cleanup_klog)
+
+    def cleanup_klog(self):
+        if hasattr(self, "klog"):
+            del self.klog
+
+    @dmesg.unlimited_rate_on_tempesta_node
     def test(self):
+        """
+        Check that we stop processing Set-Cookie header if there are
+        more than one Set-Cookie header field in the same response with
+        the same cookie-name, but don't drop response, just write warning
+        in dmesg.
+        """
         self.start_all()
         client = self.get_client("deproxy")
 
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
         response = self.client_send_req(client, req)
+        self.assertEqual(response.status, "200", "unexpected response status code")
 
-        self.assertEqual(response.status, "500", "unexpected response status code")
+        self.assertTrue(
+            self.klog.find(
+                "Multiple sticky cookies found in response: 2", cond=dmesg.amount_equals(1)
+            ),
+            1,
+        )
 
 
 class LearnSessionsMultipleDiffSetCookie(LearnSessions):

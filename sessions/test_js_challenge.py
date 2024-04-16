@@ -8,7 +8,7 @@ import time
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from framework.templates import fill_template, populate_properties
-from helpers import remote, tf_cfg
+from helpers import dmesg, remote, tf_cfg
 from helpers.deproxy import HttpMessage
 
 __author__ = "Tempesta Technologies, Inc."
@@ -72,9 +72,13 @@ class BaseJSChallenge(tester.TempestaTest):
         )
 
     @staticmethod
+    def _java_script_sleep_time(cookie: str):
+        return (DELAY_MIN + int(cookie[:16], 16) % DELAY_RANGE) / 1000
+
+    @staticmethod
     def _java_script_sleep(cookie: str) -> None:
         """This repeats sleep from JavaScript in response body"""
-        time.sleep((DELAY_MIN + int(cookie[:16], 16) % DELAY_RANGE) / 1000)
+        time.sleep(BaseJSChallenge._java_script_sleep_time(cookie))
 
     def _check_and_get_cookie(self, resp) -> tuple:
         c_header = resp.headers.get("Set-Cookie", None)
@@ -162,6 +166,10 @@ class JSChallenge(BaseJSChallenge):
         tls_certificate ${{tempesta_workdir}}/tempesta.crt;
         tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
         tls_match_any_server_name;
+
+        frang_limits {{
+            http_method_override_allowed true;
+        }}
         
         block_action attack reply;
         block_action error reply;
@@ -176,6 +184,32 @@ class JSChallenge(BaseJSChallenge):
         }}
         """
     }
+
+    def _test_first_request(self, client, request, method, accept, status, conn_is_closed=False):
+        client.send_request(request, status)
+        resp = client.last_response
+
+        cookie = resp.headers.get("Set-Cookie", None)
+
+        if status == "503":
+            self.assertIsNotNone(
+                cookie, "Tempesta did not added a Set-Cookie header for a JS challenge."
+            )
+            self.check_resp_body_and_cookie(resp)
+        else:
+            self.assertIsNone(
+                cookie, "Tempesta added a Set-Cookie header in a 4xx response for JS challenge."
+            )
+            self.assertEqual(
+                resp.body,
+                "",
+                f"Tempesta send a response body for a reqeust with {method} method and "
+                f"accept header - {accept}",
+            )
+        if conn_is_closed:
+            self.assertTrue(client.wait_for_connection_close())
+        else:
+            self.assertFalse(client.conn_is_closed)
 
     @parameterize.expand(
         [
@@ -197,30 +231,8 @@ class JSChallenge(BaseJSChallenge):
         self.start_all_services()
 
         client = self.get_client("client-1")
-        client.send_request(
-            client.create_request(method=method, headers=[("accept", accept)]),
-            status,
-        )
-        resp = client.last_response
-
-        cookie = resp.headers.get("Set-Cookie", None)
-
-        if status == "503":
-            self.assertIsNotNone(
-                cookie, "Tempesta did not added a Set-Cookie header for a JS challenge."
-            )
-            self.check_resp_body_and_cookie(resp)
-        else:
-            self.assertIsNone(
-                cookie, "Tempesta added a Set-Cookie header in a 4xx response for JS challenge."
-            )
-            self.assertEqual(
-                resp.body,
-                "",
-                f"Tempesta send a response body for a reqeust with {method} method and "
-                f"accept header - {accept}",
-            )
-        self.assertFalse(client.conn_is_closed)
+        request = client.create_request(method=method, headers=[("accept", accept)])
+        self._test_first_request(client, request, method, accept, status)
 
     @parameterize.expand(
         [
@@ -546,3 +558,147 @@ class JSChallenge(BaseJSChallenge):
         client = self.get_client("client-1")
         client.send_request(self.prepare_first_req(client), expected_status)
         self.check_resp_body_and_cookie(client.last_response)
+
+    @parameterize.expand(
+        [
+            param(
+                name="GET_POST", method="GET", override="POST", status="400", conn_is_closed=True
+            ),
+            param(
+                name="GET_HEAD", method="GET", override="HEAD", status="403", conn_is_closed=False
+            ),
+            param(
+                name="HEAD_POST", method="HEAD", override="POST", status="400", conn_is_closed=True
+            ),
+            param(
+                name="HEAD_GET", method="HEAD", override="GET", status="503", conn_is_closed=False
+            ),
+            param(
+                name="POST_HEAD", method="POST", override="HEAD", status="403", conn_is_closed=False
+            ),
+            param(
+                name="POST_GET", method="POST", override="GET", status="503", conn_is_closed=False
+            ),
+        ]
+    )
+    def test_method_override(self, name, method, override, status, conn_is_closed):
+        self.start_all_services()
+
+        client = self.get_client("client-1")
+        request = client.create_request(
+            method=method, headers=[("accept", "text/html"), ("X-HTTP-Method-Override", override)]
+        )
+        self._test_first_request(client, request, method, "text/html", status, conn_is_closed)
+
+    @parameterize.expand(
+        [
+            param(name="GET_POST", method="GET", override="POST", status="400"),
+            param(name="GET_HEAD", method="GET", override="HEAD", status="200"),
+            param(name="HEAD_POST", method="HEAD", override="POST", status="400"),
+            param(name="HEAD_GET", method="HEAD", override="GET", status="200"),
+            param(name="POST_HEAD", method="POST", override="HEAD", status="200"),
+            param(name="POST_GET", method="POST", override="GET", status="200"),
+        ]
+    )
+    def test_method_override_with_cache(self, name, method, override, status):
+        self.test_second_request_GET_and_accept_all()
+
+        client = self.get_client("client-1")
+        client.send_request(
+            client.create_request(
+                method=method, headers=[("accept", "image/*"), ("X-HTTP-Method-Override", override)]
+            ),
+            status,
+        )
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class JSChallengeCookieExpiresAndMethodOverride(BaseJSChallenge):
+    backends = [
+        {
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: deproxy\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        },
+    ]
+
+    tempesta = {
+        "config": f"""
+        server ${{server_ip}}:8000;
+
+        listen 80;
+        listen 443 proto=h2;
+
+        tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+        tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+        tls_match_any_server_name;
+
+        block_action attack reply;
+        block_action error reply;
+
+        cache 2;
+        cache_fulfill * *;
+
+        sticky {{
+            cookie enforce name=cname max_misses={MAX_MISSES};
+            js_challenge resp_code=503 delay_min={DELAY_MIN} delay_range={DELAY_RANGE}
+                        ${{tempesta_workdir}}/js1.html;
+            sess_lifetime 3;
+        }}
+        """
+    }
+
+    def setUp(self):
+        super().setUp()
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(self.cleanup_klog)
+
+    def cleanup_klog(self):
+        if hasattr(self, "klog"):
+            del self.klog
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_cookie_expires(self):
+        self.start_all_services()
+
+        client = self.get_client("client-1")
+        client.send_request(
+            client.create_request(method="GET", headers=[("accept", "text/html")]),
+            "503",
+        )
+        resp = client.last_response
+
+        cookie = resp.headers.get("Set-Cookie", None)
+        cookie_opt = cookie.split("; ")
+        self.assertIn("Max-Age=3", cookie_opt)
+
+        cookie = self._check_and_get_cookie(resp)
+        self.assertLess(self._java_script_sleep_time(cookie[1]), 3)
+        time.sleep(3.1)
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[("accept", "text/html"), ("cookie", f"{cookie[0]}={cookie[1]}")],
+            ),
+            "503",
+        )
+
+        self.assertTrue(
+            self.klog.find("http_sess: sticky cookie value expired", cond=dmesg.amount_equals(1)),
+            1,
+        )
