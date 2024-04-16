@@ -248,11 +248,12 @@ class JSChallenge(BaseJSChallenge):
         """
         self.test_second_request_GET_and_accept_all()
 
-        client = self.get_client("client-1")
-        client.send_request(
-            client.create_request(method=method, headers=[("accept", "image/*")]),
-            status,
-        )
+        for _ in range(1, 2 * MAX_MISSES):
+            client = self.get_client("client-1")
+            client.send_request(
+                client.create_request(method=method, headers=[("accept", "image/*")]),
+                status,
+            )
 
     @parameterize.expand(
         [
