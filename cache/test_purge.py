@@ -184,22 +184,18 @@ frang_limits {
         # All cacheable method to the resource must be cached
         client.send_request(self.request_template.format("GET"), "200")
         self.assertNotIn("age", client.last_response.headers)
-        client.send_request(self.request_template.format("HEAD"), "200")
-        self.assertNotIn("age", client.last_response.headers)
 
         client.send_request(self.request_template.format("GET"), "200")
         self.assertIn("age", client.last_response.headers)
         client.send_request(self.request_template.format("HEAD"), "200")
         self.assertIn("age", client.last_response.headers)
 
-        self.assertEqual(len(srv.requests), 2)
+        self.assertEqual(len(srv.requests), 1)
         client.send_request(self.request_template.format("PURGE"), "200")
-        self.assertEqual(len(srv.requests), 2)
+        self.assertEqual(len(srv.requests), 1)
 
         # All cached responses was removed, expect re-caching them
         client.send_request(self.request_template.format("GET"), "200")
-        self.assertNotIn("age", client.last_response.headers)
-        client.send_request(self.request_template.format("HEAD"), "200")
         self.assertNotIn("age", client.last_response.headers)
 
         client.send_request(self.request_template.format("GET"), "200")
@@ -208,9 +204,9 @@ frang_limits {
         self.assertIn("age", client.last_response.headers)
 
         checks.check_tempesta_cache_stats(
-            self.get_tempesta(), cache_hits=4, cache_misses=4, cl_msg_served_from_cache=4
+            self.get_tempesta(), cache_hits=4, cache_misses=2, cl_msg_served_from_cache=4
         )
-        self.assertEqual(len(self.get_server("deproxy").requests), 4)
+        self.assertEqual(len(self.get_server("deproxy").requests), 2)
 
     def test_purge_get_basic(self):
         """
@@ -225,8 +221,6 @@ frang_limits {
         # All cacheable method to the resource must be cached
         client.send_request(self.request_template.format("GET"), "200")
         self.assertNotIn("age", client.last_response.headers)
-        client.send_request(self.request_template.format("HEAD"), "200")
-        self.assertNotIn("age", client.last_response.headers)
 
         client.send_request(self.request_template.format("GET"), "200")
         self.assertIn("age", client.last_response.headers)
@@ -235,16 +229,14 @@ frang_limits {
 
         # PURGE + GET works like a cache update, so all following requests
         # must be served from the cache.
-        self.assertEqual(len(srv.requests), 2)
+        self.assertEqual(len(srv.requests), 1)
         client.send_request(self.request_template_x_tempesta_cache.format("PURGE", "GET"), "200")
-        self.assertEqual(len(srv.requests), 3)
+        self.assertEqual(len(srv.requests), 2)
 
         # Note that due to how Tempesta handles HEAD this doesn't help us
         # with HEAD pre-caching.
         client.send_request(self.request_template.format("GET"), "200")
         self.assertIn("age", client.last_response.headers)
-        client.send_request(self.request_template.format("HEAD"), "200")
-        self.assertNotIn("age", client.last_response.headers)
 
         client.send_request(self.request_template.format("HEAD"), "200")
         self.assertIn("age", client.last_response.headers)
@@ -252,10 +244,10 @@ frang_limits {
         checks.check_tempesta_cache_stats(
             self.get_tempesta(),
             cache_hits=4,
-            cache_misses=3,
+            cache_misses=1,
             cl_msg_served_from_cache=4,
         )
-        self.assertEqual(len(srv.requests), 4)
+        self.assertEqual(len(srv.requests), 2)
 
     def test_purge_get_update(self):
         """
