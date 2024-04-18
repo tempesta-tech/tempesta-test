@@ -90,6 +90,14 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "sessions.test_cookies.StickyCookieConfigGlobal",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "sessions.test_cookies.StickyCookieConfigVhost",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "reconf",
             "reason": "These tests should not be run with TCP segmentation."
         },

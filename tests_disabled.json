@@ -378,36 +378,12 @@
             "reason": "Disabled by issue #2084"
         },
         {
-            "name": "sessions.test_js_challenge.JSChallengeHttp.test_servicing_non_challengeble_request_from_cache_HEAD",
-            "reason": "Disabled by PR #2062"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeH2.test_servicing_non_challengeble_request_from_cache_HEAD",
-            "reason": "Disabled by PR #2062"
-        },
-        {
             "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
         },
         {
             "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_with_cache_GET_HEAD",
-            "reason": "Disabled by PR #2062"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_with_cache_GET_HEAD",
-            "reason": "Disabled by PR #2062"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_with_cache_POST_HEAD",
-            "reason": "Disabled by PR #2062"
-        },
-        {
-            "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_with_cache_POST_HEAD",
-            "reason": "Disabled by PR #2062"
         }
     ]
 }

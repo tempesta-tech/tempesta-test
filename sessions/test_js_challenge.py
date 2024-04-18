@@ -169,12 +169,14 @@ class JSChallenge(BaseJSChallenge):
 
         frang_limits {{
             http_method_override_allowed true;
+            http_strict_host_checking false;
         }}
         
         block_action attack reply;
         block_action error reply;
 
         cache 2;
+        cache_methods GET HEAD POST;
         cache_fulfill * *;
         
         sticky {{
@@ -214,8 +216,8 @@ class JSChallenge(BaseJSChallenge):
     @parameterize.expand(
         [
             param(name="GET_and_accept_html", method="GET", accept="text/html", status="503"),
-            param(name="GET_and_accept_all", method="GET", accept="*/*", status="503"),
-            param(name="GET_and_accept_text_all", method="GET", accept="text/*", status="503"),
+            param(name="GET_and_accept_all", method="GET", accept="*/*", status="403"),
+            param(name="GET_and_accept_text_all", method="GET", accept="text/*", status="403"),
             param(name="GET_and_accept_image", method="GET", accept="image/*", status="403"),
             param(name="GET_and_accept_plain", method="GET", accept="text/plain", status="403"),
             param(name="POST", accept="text/html", method="POST", status="403"),
@@ -435,6 +437,7 @@ class JSChallenge(BaseJSChallenge):
     )
     def test_delay_pipelined(self, name, sleep, conn_is_closed):
         self.start_all_services()
+        self.disable_deproxy_auto_parser()
 
         client = self.get_client("client-1")
 
