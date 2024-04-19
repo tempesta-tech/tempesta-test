@@ -4,10 +4,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from h2.connection import AllowedStreamIDs
+from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 from hyperframe.frame import (
+    ContinuationFrame,
     DataFrame,
     Frame,
     HeadersFrame,
@@ -16,7 +17,8 @@ from hyperframe.frame import (
     WindowUpdateFrame,
 )
 
-from framework.parameterize import parameterize_class
+from framework.parameterize import param, parameterize, parameterize_class
+from helpers import dmesg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
@@ -54,6 +56,59 @@ class TestClosedStreamState(H2Base):
         self.__base_scenario(PriorityFrame(stream_id=1))
 
 
+class TestLocHalfClosedStreamState(H2Base):
+
+    PARSER_WARN = "HTTP/2 request dropped"
+
+    def test_headers(self):
+        """
+        Send HEADERS frame to stream in LOC_CLOSED(internal Tempesta's state) state.
+        The frame must be ignored by parser.
+        """
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
+
+        hf = HeadersFrame(
+            stream_id=stream.stream_id,
+            data=client.h2_connection.encoder.encode(self.get_request),
+            flags=["END_HEADERS"],
+        )
+        # Send first HEADERS to create stream.
+        client.send_bytes(
+            hf.serialize(),
+            expect_response=False,
+        )
+
+        hf2 = HeadersFrame(
+            stream_id=stream.stream_id,
+            data=client.h2_connection.encoder.encode([("abc", "z<>")]),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+
+        prio = PriorityFrame(stream_id=stream.stream_id, depends_on=stream.stream_id)
+        # Send invalid PRIORITY frame to close the stream, after send invalid HEADERS frame.
+        # If HEADERS frame will be passed to parser error message will be printed to log.
+        client.send_bytes(
+            prio.serialize() + hf2.serialize(),
+            expect_response=True,
+        )
+
+        self.assertTrue(client.wait_for_reset_stream(stream_id=stream.stream_id))
+        # If error message found test fails.
+        self.assertFalse(
+            klog.find(self.PARSER_WARN), "Frame is passed to parser in a CLOSED state."
+        )
+
+
 class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
     def __base_scenario(self, frame: Frame):
         """
@@ -65,10 +120,10 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         Tempesta MUST not close connection.
         """
         client = self.get_client("deproxy")
-        client.h2_connection.encoder.huffman = True
 
         self.start_all_services()
         self.initiate_h2_connection(client)
+        client.h2_connection.encoder.huffman = True
 
         client.h2_connection.send_headers(stream_id=1, headers=self.get_request, end_stream=True)
         client.send_bytes(
