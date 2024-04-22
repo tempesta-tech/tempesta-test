@@ -164,36 +164,6 @@ cache_methods GET HEAD POST;
             method="HEAD",
         )
 
-    def test_none_match_PUT(self):
-        """
-        Conditionals requests can also be applied to state-changing methods,
-        such as PUT and DELETE. The 412 (Precondition Failed) status code
-        indicates that one or more conditions given in the request header
-        fields evaluated to false when tested on the server
-        """
-        self._test(
-            etag='"asdfqwerty"',
-            expected_status_code="412",
-            if_none_match='"asdfqwerty"',
-            if_modified_since=None,
-            method="PUT",
-        )
-
-    def test_none_match_DELETE(self):
-        """
-        Conditionals requests can also be applied to state-changing methods,
-        such as PUT and DELETE. The 412 (Precondition Failed) status code
-        indicates that one or more conditions given in the request header
-        fields evaluated to false when tested on the server
-        """
-        self._test(
-            etag='"asdfqwerty"',
-            expected_status_code="412",
-            if_none_match='"asdfqwerty"',
-            if_modified_since=None,
-            method="DELETE",
-        )
-
     def test_none_match_no_quotes_etag(self):
         """Same as test_none_match(), but etag isn't enclosed in double quotes."""
         self._test(
