@@ -127,11 +127,7 @@ class LocalNode(Node):
         return stdout, stderr
 
     def mkdir(self, path):
-        try:
-            os.makedirs(path)
-        except OSError:
-            if not os.path.isdir(path):
-                raise
+        os.makedirs(path, exist_ok=True)
 
     def copy_file(self, filename, content):
         # workdir will be ignored if an absolute filename is passed

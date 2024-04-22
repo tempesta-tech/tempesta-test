@@ -1,9 +1,8 @@
 """
 HTTP Stress tests with NGINX in place of Tempesta FW - to compare results.
 """
-from pathlib import Path
-
 from framework.x509 import CertGenerator
+from helpers.tf_cfg import cfg
 from t_stress.test_stress import BaseCurlStress, BaseWrkStress
 
 __author__ = "Tempesta Technologies, Inc."
@@ -77,10 +76,9 @@ class NginxProxyMixin:
 
     def create_cert(self):
         server = self.get_server("nginx_proxy")
-        workdir = Path(server.workdir)
-        cert_path = workdir / "nginx_proxy.crt"
-        key_path = workdir / "nginx_proxy.key"
-        workdir.mkdir(parents=True, exist_ok=True)
+        workdir = cfg.get("Server", "workdir")
+        cert_path = f"{workdir}/nginx_proxy.crt"
+        key_path = f"{workdir}/nginx_proxy.key"
 
         cgen = CertGenerator(cert_path, key_path, default=True)
         server.node.copy_file(cert_path, cgen.serialize_cert().decode())

@@ -10,6 +10,7 @@ Without loss of generality we use self-signed certificates
 to make things simple in tests.
 """
 from datetime import datetime, timedelta
+from typing import Optional
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -17,7 +18,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 
-from helpers import tf_cfg
+from helpers import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -25,10 +26,25 @@ __license__ = "GPL2"
 
 
 class CertGenerator(object):
-    def __init__(self, cert_path=None, key_path=None, default=False):
+    def __init__(
+        self,
+        cert_path: Optional[str] = None,
+        key_path: Optional[str] = None,
+        default: bool = False,
+    ):
         workdir = tf_cfg.cfg.get("General", "workdir")
         self.f_cert = cert_path if cert_path else workdir + "/tempesta.crt"
         self.f_key = key_path if key_path else workdir + "/tempesta.key"
+        # Create directories if don't exist
+        dirs = [
+            workdir,
+            # Get only directory from full path
+            "/".join(self.f_cert.split("/")[:-1]),
+            "/".join(self.f_key.split("/")[:-1]),
+        ]
+        for dir_ in dirs:
+            # We must create dir on host node because we cannot run this class on another node
+            remote.host.mkdir(dir_)
         # Define the certificate fields data supposed for mutation by a caller.
         self.C = "US"
         self.ST = "Washington"
