@@ -4,9 +4,17 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from h2.connection import AllowedStreamIDs
+from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
+from hyperframe.frame import (
+    DataFrame,
+    Frame,
+    HeadersFrame,
+    PriorityFrame,
+    RstStreamFrame,
+    WindowUpdateFrame,
+)
 
 from framework import deproxy_client, tester
 from helpers import tf_cfg
@@ -133,6 +141,56 @@ class TestH2Stream(H2Base):
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
+
+
+class TestH2StreamRstStreamAttack(H2Base):
+    def test_reset_by_prio(self):
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        stream = client.h2_connection._get_or_create_stream(
+            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
+
+        hf = HeadersFrame(
+            stream_id=stream.stream_id,
+            data=client.h2_connection.encoder.encode(self.get_request),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(
+            hf.serialize(),
+            expect_response=False,
+        )
+
+        prio = PriorityFrame(stream_id=stream.stream_id, depends_on=stream.stream_id)
+        client.send_bytes(
+            prio.serialize(),
+            expect_response=True,
+        )
+
+        self.assertTrue(client.wait_for_reset_stream(stream_id=1))
+        self.assertFalse(client.wait_for_connection_close())
+
+    def test_reset_by_req(self):
+        client = self.get_client("deproxy")
+
+        self.start_all_services()
+        self.initiate_h2_connection(client)
+
+        client.make_request(
+            self.get_request,
+            end_stream=True,
+            priority_weight=1,
+            priority_depends_on=1,
+            priority_exclusive=False,
+        )
+
+        self.assertTrue(client.wait_for_reset_stream(stream_id=1))
+        self.assertFalse(client.wait_for_connection_close())
 
 
 class TestMultiplexing(tester.TempestaTest):
