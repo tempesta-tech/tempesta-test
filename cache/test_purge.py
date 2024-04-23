@@ -100,10 +100,8 @@ cache_purge;
         self.assertEqual(len(srv.requests), 2)
 
 
-class TestPurge(TempestaTest):
-    """This class contains checks for PURGE method operation."""
-
-    tempesta = {
+class TestPurgeBase(TempestaTest):
+    tempesta_template = {
         "config": """
 listen 80;
 
@@ -113,7 +111,7 @@ vhost default {
     proxy_pass default;
 }
 
-cache 2;
+cache %(cache_val)s;
 cache_fulfill * *;
 cache_methods GET HEAD;
 cache_purge;
@@ -163,6 +161,29 @@ frang_limits {
         + "\r\n"
     )
 
+    def set_cache_val(self, cache_val):
+        self.tempesta["config"] = self.tempesta_template["config"] % {
+            "cache_val": cache_val,
+        }
+        TempestaTest.setUp(self)
+        self.start_all_services()
+
+
+class TestPurgeNoCache(TestPurgeBase):
+    def setUp(self):
+        self.set_cache_val(0)
+
+    def test_purge(self):
+        client: DeproxyClient = self.get_client("deproxy")
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+
+        client.send_request(self.request_template.format("PURGE"), "403")
+        self.assertEqual(len(srv.requests), 0)
+
+
+class TestPurge(TestPurgeBase):
+    """This class contains checks for PURGE method operation."""
+
     request_template_x_tempesta_cache = (
         "{0} /page.html HTTP/1.1\r\n"
         + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
@@ -171,6 +192,9 @@ frang_limits {
         + "x-tempesta-cache: {1}\r\n"
         + "\r\n"
     )
+
+    def setUp(self):
+        self.set_cache_val(2)
 
     def test_purge(self):
         """
