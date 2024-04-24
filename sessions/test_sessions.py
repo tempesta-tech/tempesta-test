@@ -76,20 +76,10 @@ class StickySessions(tester.TempestaTest):
         }
     ]
 
-    def client_send_req(self, client, req):
-        curr_responses = len(client.responses)
-        client.make_request(req)
-        client.wait_for_response(timeout=1)
-        self.assertEqual(curr_responses + 1, len(client.responses))
-
-        return client.responses[-1]
-
     def client_send_first_req(self, client):
-        req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        response = self.client_send_req(client, req)
+        client.send_request(client.create_request(method="GET", headers=[]), "302")
 
-        self.assertEqual(response.status, "302", "unexpected response status code")
-        c_header = response.headers.get("Set-Cookie", None)
+        c_header = client.last_response.headers.get("Set-Cookie", None)
         self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
         match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
         self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
@@ -98,15 +88,11 @@ class StickySessions(tester.TempestaTest):
         return cookie
 
     def client_send_next_req(self, client, cookie):
-        req = (
-            "GET / HTTP/1.1\r\n"
-            "Host: localhost\r\n"
-            "Cookie: %s=%s\r\n"
-            "\r\n" % (cookie[0], cookie[1])
+        client.send_request(
+            client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")]),
+            "200",
         )
-        response = self.client_send_req(client, req)
-        self.assertEqual(response.status, "200", "unexpected response status code")
-        s_id = response.headers.get("Server-id", None)
+        s_id = client.last_response.headers.get("Server-id", None)
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
 
@@ -262,15 +248,9 @@ class StickySessionsPersistense(StickySessions):
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
+        req = client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")])
         for _ in range(ATTEMPTS):
-            req = (
-                "GET / HTTP/1.1\r\n"
-                "Host: localhost\r\n"
-                "Cookie: %s=%s\r\n"
-                "\r\n" % (cookie[0], cookie[1])
-            )
-            resp = self.client_send_req(client, req)
-            self.assertEqual(resp.status, "502", "unexpected response status code")
+            client.send_request(req, "502")
         srv.start()
         self.assertTrue(srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
