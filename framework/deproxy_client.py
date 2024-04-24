@@ -80,16 +80,14 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def last_response(self):
-        ...
+    def last_response(self): ...
 
     @property
     def request_buffers(self) -> List[bytes]:
         return self._request_buffers
 
     @abc.abstractmethod
-    def _add_to_request_buffers(self, *args, **kwargs) -> None:
-        ...
+    def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -150,8 +148,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     @abc.abstractmethod
-    def handle_read(self):
-        ...
+    def handle_read(self): ...
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
@@ -266,22 +263,16 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
                 self.last_response, is_http2=isinstance(self, DeproxyClientH2)
             )
 
-    def _clear_request_stats(self):
-        if self.cur_req_num >= self.nrreq:
-            self.nrresp = 0
-            self.nrreq = 0
-            self._request_buffers = []
-            self.methods = []
-            self.start_time = time.time()
-            self.cur_req_num = 0
-
     def _reinit_variables(self):
-        self.nrresp = 0
-        self.nrreq = 0
+        self.nrresp = 0  # number of responses that the client received
+        self.nrreq = 0  # number of requests that the client must send
         self._request_buffers: List[bytes] = []
+        # The HTTP1 client must be informed about a request method to parse body.
+        # So we store all request methods. See `parse_body` method in Response.
         self.methods = []
         self.start_time = 0
-        self.valid_req_num = 0
+        self.valid_req_num = 0  # number of requests that are expected to receive responses
+        # number of the current request to send. It needed for RPS and TCP segmentation
         self.cur_req_num = 0
         # This state variable contains a timestamp of the last segment sent
         self.last_segment_time = 0
@@ -302,8 +293,6 @@ class DeproxyClient(BaseDeproxyClient):
         Invalid pipelined requests works with list[str].
         """
         if pipelined:
-            self._clear_request_stats()
-
             for request in requests:
                 self.__check_request(request)
 
@@ -321,8 +310,6 @@ class DeproxyClient(BaseDeproxyClient):
 
     def make_request(self, request: Union[str, deproxy.Request], **kwargs) -> None:
         """Send one HTTP request"""
-        self._clear_request_stats()
-
         self.__check_request(request)
 
         self.valid_req_num += 1
