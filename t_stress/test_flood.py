@@ -9,12 +9,24 @@ import unittest
 
 import h2
 from h2.settings import SettingCodes
+from hyperframe.frame import HeadersFrame, PriorityFrame
 
 from framework import tester
+from framework.parameterize import param, parameterize
 from helpers import tf_cfg
 
 
 class TestH2ControlFramesFlood(tester.TempestaTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",  # "deproxy" for HTTP/1
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
     backends = [
         {
             "id": "deproxy",
@@ -44,40 +56,17 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         """
     }
 
-    def test_ping(self):
-        self.oops_ignore = ["ERROR"]
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
-        port = 443
-
-        context = ssl.create_default_context()
-        context.set_alpn_protocols(["h2"])
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-
-        with socket.create_connection((hostname, port)) as sock:
-            with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
-                conn = h2.connection.H2Connection()
-                ping_data = b"\x00\x01\x02\x03\x04\x05\x06\x07"
-
-                conn.initiate_connection()
-
-                for _ in range(1000_0000):
-                    conn.ping(ping_data)
-                    try:
-                        ssock.sendall(conn.data_to_send())
-                    except ssl.SSLEOFError:
-                        return
-        self.oops.find(
-            "ERROR: Too many control frames in send queue, closing connection",
-            cond=dmesg.amount_positive,
-        )
-
-    def test_settings(self):
+    @parameterize.expand(
+        [
+            param(
+                name="ping",
+            ),
+            param(
+                name="settings",
+            ),
+        ]
+    )
+    def test(self, name):
         self.oops_ignore = ["ERROR"]
         self.start_all_servers()
         self.start_tempesta()
@@ -94,6 +83,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
 
         new_settings = dict()
         new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = 100
+        ping_data = b"\x00\x01\x02\x03\x04\x05\x06\x07"
 
         with socket.create_connection((hostname, port)) as sock:
             with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
@@ -101,7 +91,10 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
                 conn.initiate_connection()
 
                 for _ in range(1000_0000):
-                    conn.update_settings(new_settings)
+                    if name == "ping":
+                        conn.ping(ping_data)
+                    else:
+                        conn.update_settings(new_settings)
                     try:
                         ssock.sendall(conn.data_to_send())
                     except ssl.SSLEOFError:
@@ -111,7 +104,8 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             cond=dmesg.amount_positive,
         )
 
-    def test_rst_stream_flood(self):
+    def test_reset_stream(self):
+        self.oops_ignore = ["ERROR"]
         self.start_all_services()
         self.start_all_servers()
         self.start_tempesta()
@@ -147,4 +141,11 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
                         flags=["END_HEADERS"],
                     ).serialize()
                     prio = PriorityFrame(stream_id=i, depends_on=i).serialize()
-                    s.sendall(hf + prio)
+                    try:
+                        s.sendall(hf + prio)
+                    except ssl.SSLEOFError:
+                        return
+        self.oops.find(
+            "ERROR: Too many control frames in send queue, closing connection",
+            cond=dmesg.amount_positive,
+        )
