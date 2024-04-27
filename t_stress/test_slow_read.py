@@ -6,6 +6,7 @@ import socket
 import ssl
 import time
 import unittest
+from pathlib import Path
 from threading import Thread
 
 import h2
@@ -31,11 +32,49 @@ class TestH2SlowRead(tester.TempestaTest):
 
     backends = [
         {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "",
+            "id": "nginx",
+            "type": "nginx",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests 10;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:8000;
+
+        location / {
+            root ${server_resources};
+        }
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+""",
         }
     ]
 
@@ -56,6 +95,10 @@ class TestH2SlowRead(tester.TempestaTest):
            tls_certificate_key ${tempesta_workdir}/tempesta.key;
            proxy_pass default;
         }
+
+        frang_limits {
+            http_body_len 1000000;
+        }
         """
     }
 
@@ -72,31 +115,21 @@ class TestH2SlowRead(tester.TempestaTest):
         ]
     )
     def test(self, name):
-        # self.oops_ignore = ["ERROR"]
-
         self.start_all_services()
 
-        server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
+        # 100 MB
         BODY_SIZE = 1024 * 1024 * 100
         body = "x" * BODY_SIZE
-        server.set_response(
-            "HTTP/1.1 200 OK\r\n"
-            + "Connection: keep-alive\r\n"
-            + "Content-type: text/html\r\n"
-            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
-            + "Server: Deproxy Server\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Content-Length: {BODY_SIZE}\r\n"
-            + "\r\n"
-            + body
-        )
+
+        with open(str(Path(tf_cfg.cfg.get("Server", "resources")) / "large.file"), "w") as f:
+            f.write(body)
 
         client = self.get_client("deproxy")
         client.h2_connection.encoder.huffman = True
 
         headers = [
             (":method", "GET"),
-            (":path", "/"),
+            (":path", "/large.file"),
             (":authority", "tempesta-tech.com"),
             (":scheme", "https"),
         ]
