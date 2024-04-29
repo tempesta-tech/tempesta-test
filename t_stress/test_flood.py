@@ -4,8 +4,6 @@ __license__ = "GPL2"
 
 import socket
 import ssl
-import time
-import unittest
 
 import h2
 from h2.settings import SettingCodes
@@ -68,10 +66,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
     )
     def test(self, name):
         self.oops_ignore = ["ERROR"]
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
+        self.start_all_services()
 
         hostname = tf_cfg.cfg.get("Tempesta", "hostname")
         port = 443
@@ -107,12 +102,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
     def test_reset_stream(self):
         self.oops_ignore = ["ERROR"]
         self.start_all_services()
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
         client = self.get_client("deproxy")
-        client.h2_connection.encoder.huffman = True
 
         hostname = tf_cfg.cfg.get("Tempesta", "hostname")
         port = 443
