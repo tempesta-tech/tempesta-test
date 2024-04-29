@@ -61,6 +61,13 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self._reinit_variables()
 
         self.simple_get = self.create_request("GET", headers=[])
+        self.__readable = True
+
+    def disable_readable(self):
+        self.__readable = False
+
+    def readable(self):
+        return super().readable() if self.__readable else False
 
     @property
     def statuses(self) -> Dict[int, int]:
@@ -80,16 +87,14 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def last_response(self):
-        ...
+    def last_response(self): ...
 
     @property
     def request_buffers(self) -> List[bytes]:
         return self._request_buffers
 
     @abc.abstractmethod
-    def _add_to_request_buffers(self, *args, **kwargs) -> None:
-        ...
+    def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -150,8 +155,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     @abc.abstractmethod
-    def handle_read(self):
-        ...
+    def handle_read(self): ...
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
