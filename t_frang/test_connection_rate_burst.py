@@ -243,6 +243,8 @@ class TestFrang(FrangTestCase):
 
         connections, threads = create_connections_and_threads(conn_n, self.tls_connection)
         start_and_wait_threads(threads)
+        # This is necessary to be shure that connection is closed.
+        time.sleep(0.5)
         reset_conn_n = self.calculate_reset_function(connections)
 
         warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
@@ -266,6 +268,8 @@ class TestFrang(FrangTestCase):
         """
         self.set_frang_config(self.rate_config)
         connections = create_connections(conn_n, self.tls_connection, 0.01)
+        # This is necessary to be shure that connection is closed.
+        time.sleep(0.5)
         reset_conn_n = self.calculate_reset_function(connections)
 
         warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
@@ -314,6 +318,8 @@ class FrangTlsVsBoth(FrangTestCase):
         threads = tls_threads + tcp_threads
 
         start_and_wait_threads(threads)
+        # This is necessary to be shure that connection is closed.
+        time.sleep(0.5)
         tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
         tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
 
@@ -334,6 +340,8 @@ class FrangTlsVsBoth(FrangTestCase):
         tls_connections = create_connections(conn_n, True, 0.01)
         tcp_connections = create_connections(conn_n, False, 0.01)
 
+        # This is necessary to be shure that connection is closed.
+        time.sleep(0.5)
         tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
         tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
 
@@ -386,6 +394,8 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         threads = tls_threads + tcp_threads
 
         start_and_wait_threads(threads)
+        # This is necessary to be shure that connection is closed.
+        time.sleep(0.5)
         tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
         tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
 
@@ -405,6 +415,8 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         tls_connections = create_connections(conn_n, True, 0.01)
         tcp_connections = create_connections(conn_n, False, 0.01)
 
+        # This is necessary to be shure that connection is closed.
+        time.sleep(0.5)
         tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
         tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
 
