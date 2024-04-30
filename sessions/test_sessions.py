@@ -1,4 +1,5 @@
 import re
+import time
 
 from framework import tester
 
@@ -425,6 +426,11 @@ class StickySessionsFailover(StickySessions):
         srv1.stop()
         srv2 = self.get_server("server-2")
         srv2.stop()
+
+        # We need this sleep to be shure that srv1 and srv2 is
+        # really stopped and all connections is closed.
+        # (Remove after #2111 in Tempesta)
+        time.sleep(1)
 
         failovered_s_id = self.client_send_next_req(client, cookie)
         self.assertIn(
