@@ -372,10 +372,6 @@
         {
             "name": "t_custom_branges.test_http_brange.TestConfigParsing",
             "reason": "Disabled by issue #2069"
-        },
-        {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats_greater",
-            "reason": "Disabled by issue #2084"
         }
     ]
 }
