@@ -283,7 +283,7 @@ class CookiesMaxMisses(tester.TempestaTest):
             client.send_request(request)
 
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(client.conn_is_closed)
+        self.assertTrue(client.wait_for_connection_close())
 
 
 class VhostCookies(CookiesNotEnabled):
@@ -678,7 +678,7 @@ class StickyCookieOptions(tester.TempestaTest):
 
     @parameterize.expand(
         [
-            # If no options are set, session lifetime is equal to INT_MAX (4294967295)
+            # If no options are set, session lifetime is equal to UINT_MAX (4294967295)
             # and Max-Age is set to 4294967295 also. Path is not set, default Path="/"
             # is used.
             param(

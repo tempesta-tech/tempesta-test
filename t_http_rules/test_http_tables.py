@@ -3,6 +3,7 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (via sereral HTTP chains). Mark rules and match rules are also tested here
 (in separate tests).
 """
+
 from framework import deproxy_client, tester
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import chains, dmesg, remote
@@ -873,7 +874,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
             client.send_request(client.create_request(method="GET", headers=[]), "200")
         else:
             self.assertIsNone(server.last_request)
-            self.assertTrue(client.connection_is_closed())
+            self.assertTrue(client.wait_for_connection_close())
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -1,6 +1,7 @@
 from h2.exceptions import ProtocolError
 
 from framework import deproxy_client, tester
+from framework.parameterize import param, parameterize
 from helpers import chains, deproxy, tempesta, tf_cfg
 from testers import functional
 
@@ -385,20 +386,26 @@ server ${server_ip}:8000;
         self.assertEqual(client.last_response.status, "400")
         self.assertEqual(len(client.responses), 1)
 
-    def test_make_requests(self):
+    def __send_requests(self, client, request, count, expected_len, pipelined):
+        client.make_requests([request] * count, pipelined=pipelined)
+        client.wait_for_response(timeout=3)
+
+        self.assertEqual(len(client.responses), expected_len)
+        for res in client.responses:
+            self.assertEqual(res.status, "200")
+
+    @parameterize.expand(
+        [param(name="not_pipelined", pipelined=False), param(name="pipelined", pipelined=True)]
+    )
+    def test_make_requests(self, name, pipelined):
         self.start_all()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
         request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
 
-        messages = 5
-        client.make_requests([request] * messages)
-        client.wait_for_response(timeout=3)
-
-        self.assertEqual(len(client.responses), messages)
-        for res in client.responses:
-            self.assertEqual(res.status, "200")
+        self.__send_requests(client, request, 3, 3, pipelined)
+        self.__send_requests(client, request, 3, 6, pipelined)
 
     def test_parsing_make_requests(self):
         self.start_all()
