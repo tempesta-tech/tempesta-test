@@ -774,7 +774,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             self.assertEqual(len(server.requests), 1)
         else:
             self.assertNotIn("age", client.last_response.headers.keys())
-            self.assertEqual(len(server.requests), 2)        
+            self.assertEqual(len(server.requests), 2)
 
     @parameterize.expand(
         [
@@ -863,6 +863,8 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         client = self.get_client("deproxy")
 
         self.start_all_services()
+        if second_method == "HEAD":
+            self.disable_deproxy_auto_parser()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -887,7 +889,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         second_response = (
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
-            + "Content-Length: 12\r\n"
+            + ("Content-Length: %d\r\n" % (12 if second_method != "HEAD" else 0))
             + "Content-Location: /index.html\r\n"
             + "Cache-Control: public, s-maxage=5\r\n"
             + "\r\n"
@@ -922,13 +924,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             client.create_request(method="GET", uri="/index.html", headers=[]),
             expected_status_code="200",
         )
-        if second_method != "HEAD":
-            self.assertIn("age", client.last_response.headers.keys())
-        else:
-            self.assertNotIn("age", client.last_response.headers.keys())
-        self.assertEqual(len(server.requests), 2 if second_method != "HEAD" else 3)
+        self.assertIn("age", client.last_response.headers.keys())
+        self.assertEqual(len(server.requests), 2)
         self.assertEqual(
-            "Second body." if second_method != "HEAD" else "Third body.", client.last_response.body
+            "Second body." if second_method != "HEAD" else "First body.", client.last_response.body
         )
 
 
