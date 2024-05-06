@@ -96,6 +96,9 @@ class TestFrameworkCfg(object):
                     "keepalive_timeout": "60",
                     "keepalive_requests": "100",
                     "unavaliable_timeout": "300",
+                    "lxc_container_name": "tempesta-site-stage",
+                    "website_user": "",
+                    "website_password": "",
                 },
             }
         )

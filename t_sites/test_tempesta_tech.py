@@ -1,88 +1,64 @@
-import json
-import time
+"""The basic tests for tempesta-tech.com with TempestaFW."""
 
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+
+import run_config
 from framework import tester
 from framework.curl_client import CurlClient, CurlResponse
-from helpers import tf_cfg
-
-# Number of open connections
-CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
-# Number of requests to make
-REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
+from framework.mixins import NetfilterMarkMixin
 
 
-class TestTempestaTechSite(tester.TempestaTest):
-    proto = "https"
-
+class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
     backends = [
-        {
-            "id": "tempesta_tech_site",
-            "type": "lxc",
-            "container_name": "tempesta-site-stage",
-            "ports": {8003: 80},
-            "server_ip": "192.168.122.53",
-            "healthcheck_command": "curl --fail localhost",
-            # "container_create_command": [
-            #     "/home/user/tempesta-tech.com/container/lxc/create.py",
-            #     "--type=stage",
-            # ],
-            # "container_delete_command": [
-            #     "/home/user/tempesta-tech.com/container/lxc/delete.sh",
-            #     "tempesta-site-stage",
-            # ],
-            "make_snapshot": False,
-        },
+        {"id": "tempesta_tech_site", "type": "lxc", "external_port": "8000"},
     ]
 
     clients = [
         {
             "id": "get",
+            "type": "curl",
+            "http2": True,
         },
         {
             "id": "get_authenticated",
+            "type": "curl",
+            "http2": True,
             "load_cookies": True,
         },
         {
             "id": "login",
+            "type": "curl",
+            "http2": True,
             "save_cookies": True,
             "uri": "/wp-login.php",
         },
         {
-            "id": "get_nonce",
-            "load_cookies": True,
-            "uri": "/wp-admin/admin-ajax.php?action=rest-nonce",
-        },
-        {
-            "id": "get_admin",
-            "load_cookies": True,
-            "uri": "/wp-admin/",
-        },
-        {
-            "id": "blog_post",
-            "load_cookies": True,
-            "uri": "/index.php?rest_route=/wp/v2/posts",
-        },
-        {
-            "id": "post_form",
-            "headers": {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-        },
-        {
-            "id": "post_admin_form",
-            "headers": {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-        },
-        {
             "id": "purge_cache",
+            "type": "curl",
+            "http2": True,
             # Set max-time to prevent hang caused by Tempesta FW #1692
             "cmd_args": "--request PURGE --max-time 1",
         },
+        {
+            "id": "nghttp",
+            "type": "external",
+            "binary": "nghttp",
+            "cmd_args": (
+                " --no-verify-peer"
+                " --get-assets"
+                " --null-out"
+                " --header 'Cache-Control: no-cache'"
+                " https://${tempesta_ip}"
+            ),
+        },
     ]
 
-    tempesta_tmpl = """
-            listen 443 proto=%s;
+    tempesta = {
+        "config": """
+            listen 192.168.122.1:443 proto=h2;
 
             cache 2;
             cache_fulfill * *;
@@ -112,7 +88,7 @@ class TestTempestaTechSite(tester.TempestaTest):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             srv_group default {
-                    server ${server_ip}:8001;
+                    server ${server_ip}:8000;
 
             }
             vhost default {
@@ -135,162 +111,34 @@ class TestTempestaTechSite(tester.TempestaTest):
 
                     -> default;
             }
-    """
-
-    def setUp(self):
-        if self._base:
-            self.skipTest("This is an abstract class")
-        self.tempesta = {
-            "config": self.tempesta_tmpl % (self.proto),
-        }
-        curl_clients = [client for client in self.clients if not client.get("type")]
-        for client in curl_clients:
-            client.update(
-                {
-                    "type": "curl",
-                    "ssl": True,
-                }
-            )
-        super().setUp()
-        self.get_client("get").clear_cookies()
-        self.start_all_servers()
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(10))
+        """
+    }
 
     def get_response(self, client: CurlClient) -> CurlResponse:
         client.headers["Host"] = "tempesta-tech.com"
-        self.restart_client(client)
+        client.start()
         self.wait_while_busy(client)
         client.stop()
         return client.last_response
 
-    def restart_client(self, client: CurlClient):
-        if client.is_running():
-            client.stop()
-        client.start()
-        if not client.is_running():
-            raise Exception("Can not start client")
-
-    def check_cached_headers(self, headers):
+    @staticmethod
+    def check_cached_headers(headers):
         """Return True if headers are from cached response."""
         return "age" in headers
 
-    def login(self, user="ak@tempesta-tech.com", load_cookies=False):
+    def login(self, load_cookies=False):
         client: CurlClient = self.get_client("login")
         client.clear_cookies()
-        client.data = f"log={user}&pwd=testpass"
+        client.data = f"log={run_config.WEBSITE_USER}&pwd={run_config.WEBSITE_PASSWORD}"
         client.load_cookies = load_cookies
 
         response = self.get_response(client)
         self.assertEqual(response.status, 302)
         # Login page set multiple cookies
         self.assertGreater(len(response.multi_headers["set-cookie"]), 1)
-        self.assertIn("/wp-admin/", response.headers["location"])
+        self.assertIn("wp-admin", response.headers["location"])
         self.assertFalse(self.check_cached_headers(response.headers))
         return response
-
-    def post_form(self, uri, data, anonymous=True):
-        client = self.get_client("post_form" if anonymous else "post_admin_form")
-        client.load_cookies = not anonymous
-        client.set_uri(uri)
-        client.data = data
-        response = self.get_response(client)
-        self.assertFalse(self.check_cached_headers(response.headers))
-        return response
-
-    def post_blog_post(self, title, nonce):
-        client = self.get_client("blog_post")
-        client.data = json.dumps(
-            {
-                "title": title,
-                "status": "draft",
-                "content": "...",
-                "excerpt": "",
-                "status": "publish",
-            }
-        )
-        client.headers = {
-            "Content-Type": "application/json",
-            "X-WP-Nonce": nonce,
-        }
-        response = self.get_response(client)
-        self.assertEqual(response.status, 201)
-        self.assertFalse(self.check_cached_headers(response.headers))
-        try:
-            post_id = re.search(r"=/wp/v2/posts/(\d+)", response.headers["location"]).group(1)
-        except (IndexError, AttributeError):
-            raise Exception(f"Can't find blog ID, headers: {response.headers}")
-        tf_cfg.dbg(3, f"New post ID: {post_id}")
-        return post_id
-
-    def post_comment(self, post_id, text="Test", anonymous=True):
-        data = (
-            f"comment_post_ID={post_id}"
-            f"&comment={text}"
-            "&author=anonymous"
-            "&email=guest%40example.com"
-            "&submit=Post+Comment"
-            "&comment_parent=0"
-        )
-        response = self.post_form(uri="/wp-comments-post.php", data=data, anonymous=anonymous)
-        self.assertEqual(response.status, 302, response)
-        self.assertFalse(self.check_cached_headers(response.headers))
-        return response
-
-    def approve_comment(self, comment_id):
-        data = f"id={comment_id}&action=dim-comment&dimClass=unapproved&new=approved"
-        response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
-        self.assertEqual(response.status, 200, response)
-        self.assertFalse(self.check_cached_headers(response.headers))
-
-    def delete_comment(self, comment_id, action_nonce):
-        data = f"id={comment_id}" f"&_ajax_nonce={action_nonce}" "&action=delete-comment" "&trash=1"
-        response = self.post_form(uri="/wp-admin/admin-ajax.php", data=data, anonymous=False)
-        self.assertEqual(response.status, 200, response)
-        self.assertFalse(self.check_cached_headers(response.headers))
-
-    def get_page_content(self, uri):
-        client = self.get_client("get")
-        client.set_uri(uri)
-        response = self.get_response(client)
-        self.assertEqual(response.status, 200)
-        self.assertFalse(response.stderr)
-        return response.stdout
-
-    def get_index(self):
-        return self.get_page_content("/")
-
-    def get_comments_feed(self):
-        return self.get_page_content("/?feed=comments-rss2")
-
-    def get_post(self, post_id):
-        client = self.get_client("get")
-        client.set_uri(f"/?p={post_id}")
-        response = self.get_response(client)
-        self.assertEqual(response.status, 200)
-        return response
-
-    def get_nonce(self):
-        client = self.get_client("get_nonce")
-        response = self.get_response(client)
-        self.assertEqual(response.status, 200)
-        nonce = response.stdout
-        self.assertTrue(nonce)
-        self.assertFalse(self.check_cached_headers(response.headers))
-        return nonce
-
-    def get_comment_deletion_nonce(self, comment_id):
-        client = self.get_client("get_authenticated")
-        client.set_uri(f"/wp-admin/comment.php?action=editcomment&c={comment_id}")
-        response = self.get_response(client)
-        self.assertEqual(response.status, 200)
-        nonce = re.search(r"action=trashcomment[^']+_wpnonce=([^']+)", response.stdout).group(1)
-        self.assertTrue(nonce)
-        self.assertFalse(self.check_cached_headers(response.headers))
-        return nonce
 
     def purge_cache(self, uri, fetch=False):
         """
@@ -304,8 +152,9 @@ class TestTempestaTechSite(tester.TempestaTest):
         self.assertEqual(response.status, 200)
 
     def test_get_resource(self):
-        # self.start_all()
+        self.start_all_services(client=False)
         client = self.get_client("get")
+
         for uri, expected_code in [
             ("/license.txt", 200),
             (
@@ -318,8 +167,6 @@ class TestTempestaTechSite(tester.TempestaTest):
             ),  # large image
             ("/", 200),  # index
             ("/knowledge-base/DDoS-mitigation/", 200),  # blog post
-            # ("/?page_id=2", 200),  # page
-            # ("/generated.php", 200),
             ("/404-absolutely/doesnt-exist", 404),
         ]:
             with self.subTest("GET", uri=uri):
@@ -334,7 +181,8 @@ class TestTempestaTechSite(tester.TempestaTest):
 
     def test_page_cached(self):
         uri = "/license.txt"  # Main
-        # self.start_all()
+
+        self.start_all_services(client=False)
         client = self.get_client("get")
         client.set_uri(uri)
 
@@ -365,7 +213,7 @@ class TestTempestaTechSite(tester.TempestaTest):
 
     def test_auth_not_cached(self):
         """Authorisation requests must not be cached."""
-        # self.start_all()
+        self.start_all_services(client=False)
         for i, load_cookies in enumerate((False, True, True), 1):
             with self.subTest("Login attempt", i=i, load_cookies=load_cookies):
                 response = self.login(load_cookies=load_cookies)
@@ -375,79 +223,93 @@ class TestTempestaTechSite(tester.TempestaTest):
                     f"Response headers: {response.headers}",
                 )
 
-    def test_blog_post_flow(self):
-        post_title = f"@{time.time()}_post_title@"
-        user_comment = f"@{time.time()}_user_comment@"
-        guest_comment = f"@{time.time()}_guest_comment@"
-        # self.start_all()
+    def test_blog_post_cached(self):
+        self.start_all_services(client=False)
 
-        # Check index page
-        self.assertNotIn(post_title, self.get_index())
+        client = self.get_client("get")
+        client.set_uri("/blog/cdn-non-hierarchical-caching/")
+        # Check that the first response is not from the cache,
+        # and subsequent ones are from the cache
+        for i, cached in enumerate([False, True, True], 1):
+            with self.subTest("Get blog post", i=i, expect_cached=cached):
+                response = self.get_response(client)
+                self.assertEqual(response.status, 200)
+                self.assertFalse(response.stderr)
+                self.assertTrue(response.stdout.endswith("</html>"))
+                self.assertGreater(len(response.stdout), 65000, len(response.stdout))
+                length = response.headers.get("content-length")
+                if length:
+                    self.assertEqual(len(response.stdout_raw), int(length))
+                elif cached:
+                    raise Exception("No Content-Length for cached response", response.headers)
+                self.assertEqual(
+                    self.check_cached_headers(response.headers),
+                    cached,
+                    f"Response headers: {response.headers}",
+                )
 
-        # Login
+    def test_blog_post_not_cached_for_authenticated_user(self):
+        self.start_all_services(client=False)
         self.login()
+        client = self.get_client("get_authenticated")
+        client.set_uri("/blog/cdn-non-hierarchical-caching/")
+        for i in range(3):
+            with self.subTest("Get blog post", i=i):
+                response = self.get_response(client)
+                self.assertEqual(response.status, 200)
+                self.assertFalse(response.stderr)
+                self.assertFalse(self.check_cached_headers(response.headers))
 
-        # Obtain nonce
-        nonce = self.get_nonce()
+    def test_get_resource_with_assets(self):
+        self.start_all_services(client=False)
+        client = self.get_client("nghttp")
+        cmd_args = client.options[0]
 
-        # Publish new blog post
-        post_id = self.post_blog_post(title=post_title, nonce=nonce)
+        curl = self.get_client("get")
+        for uri in [
+            "/license.txt",  # small file
+            "/",  # index
+            "/network-security-performance-analysis/",
+            "/blog/cdn-non-hierarchical-caching/",  # blog post
+            "/blog/nginx-tail-latency/",  # page with a multiple images
+        ]:
+            with self.subTest("GET", uri=uri):
+                curl.set_uri(uri)
+                response = self.get_response(curl)
+                self.assertEqual(response.status, 200, response)
 
-        # Post title presented on the blog
-        self.assertIn(post_title, self.get_index())
+                client.options = [cmd_args + uri]
+                client.start()
+                self.wait_while_busy(client)
+                client.stop()
+                self.assertNotIn("Some requests were not processed", client.response_msg)
+                self.assertFalse(client.response_msg)
 
-        # Get new blog post content
-        content = self.get_page_content(f"/?p={post_id}")
-        self.assertIn(post_title, content)
+    def test_get_admin_resource_with_assets(self):
+        self.start_all_services(client=False)
+        nghttp = self.get_client("nghttp")
+        curl = self.get_client("get_authenticated")
+        cmd_args = nghttp.options[0]
 
-        # No comments yet
-        self.assertNotIn(guest_comment, content)
-        self.assertNotIn(user_comment, content)
-        feed = self.get_comments_feed()
-        self.assertNotIn(user_comment, feed)
-        self.assertNotIn(guest_comment, feed)
+        # Login with cURL to get authentication cookies
+        self.login()
+        cookie = self.get_client("login").cookie_string
+        self.assertTrue(cookie)
 
-        # Post comment from user
-        self.post_comment(post_id, anonymous=False, text=user_comment)
-        response = self.get_post(post_id)
-        # Check user commend present
-        self.assertIn(user_comment, response.stdout)
-        # Comment presented in the comments feed
-        self.assertIn(user_comment, self.get_comments_feed())
-
-        # Post comment from anonymous
-        response = self.post_comment(post_id, anonymous=True, text=guest_comment)
-        try:
-            comment_id = re.search(r"#comment-(\d+)$", response.headers["location"]).group(1)
-        except (AttributeError, KeyError):
-            raise Exception(f"Can't find comment ID, headers: {response.headers}")
-
-        # Approve comment
-        client = self.get_client("post_admin_form")
-        self.approve_comment(comment_id)
-
-        # Purge cache
-        self.purge_cache(f"/?p={post_id}", fetch=True)
-        self.purge_cache(f"/?feed=comments-rss2", fetch=True)
-
-        # Check anonymous commend present
-        self.assertIn(guest_comment, self.get_post(post_id).stdout)
-        self.assertIn(guest_comment, self.get_comments_feed())
-
-        # Delete comment
-        self.delete_comment(
-            comment_id=comment_id,
-            action_nonce=self.get_comment_deletion_nonce(comment_id),
-        )
-
-        # Check deleted comment still present (cache not purged yet)
-        self.assertIn(guest_comment, self.get_post(post_title).stdout)
-        self.assertIn(guest_comment, self.get_comments_feed())
-
-        # Purge cache
-        self.purge_cache(f"/?p={post_id}", fetch=True)
-        self.purge_cache(f"/?feed=comments-rss2", fetch=True)
-
-        # Check comment removed from the page
-        self.assertNotIn(guest_comment, self.get_post(post_title).stdout)
-        self.assertNotIn(guest_comment, self.get_comments_feed())
+        for uri in [
+            "/wp-admin/index.php",  # Dashboard
+            "/wp-admin/profile.php",
+            "/wp-admin/edit-comments.php",
+            "/wp-admin/edit.php",
+        ]:
+            with self.subTest("GET", uri=uri):
+                curl.set_uri(uri)
+                response = self.get_response(curl)
+                self.assertEqual(response.status, 200, response)
+                # Construct command with the Cookie header
+                nghttp.options = [f"{cmd_args}'{uri}' --header 'Cookie: {cookie}'"]
+                nghttp.start()
+                self.wait_while_busy(nghttp)
+                nghttp.stop()
+                self.assertNotIn("Some requests were not processed", nghttp.response_msg)
+                self.assertFalse(nghttp.response_msg)
