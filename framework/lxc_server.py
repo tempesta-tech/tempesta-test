@@ -1,14 +1,11 @@
 """lxc backend server."""
 
 import json
-import subprocess
-import time
-from dataclasses import dataclass, field
-from typing import List, Dict
+from dataclasses import dataclass
 
 from framework import port_checks
 from framework.templates import fill_template
-from helpers import error, remote, stateful, tf_cfg
+from helpers import error, remote, stateful, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -19,50 +16,47 @@ LXC_PREFIX = "tempesta-test"
 
 @dataclass
 class LXCServerArguments:
-    """Interface class for LXC container server.
+    """
+    Interface class for LXC container server.
     Contains all accepted arguments (fields) supported by `LXCServer`.
+    Args:
+      id: backend server ID
+      external_port: external port of the container
+      internal_port: a port inside a container
+      container_name: argument to lxc start/stop
+      container_ip: IP address of the server (set from config)
+      conns_n: number of TCP connection to TempestaFW
+      make_snapshot: when set to true, tests will make a snapshot, run, then restore container
+                     to its previous state
     """
 
     id: str
-    container_name: str
-    server_ip: str
-    healthcheck_command: str
+    external_port: str
+    internal_port: str = "80"
+    container_name: str = tf_cfg.cfg.get("Server", "lxc_container_name")
+    container_ip: str = tf_cfg.cfg.get("Server", "ip")
+    conns_n: int = tempesta.server_conns_default()
     healthcheck_timeout: int = 10
-    ports: Dict[int, int] = field(default_factory=dict)
     make_snapshot: bool = False
-    container_create_command: list[str] | None = None
-    container_delete_command: list[str] | None = None
 
     @classmethod
-    def get_arg_names(cls) -> List[str]:
+    def get_arg_names(cls) -> list[str]:
         """Returns list of `LXCServer` supported argument names."""
         return list(cls.__dataclass_fields__.keys())
 
 
 class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChecker):
-    """
-    Args:
-      id: backend server ID
-      container_name: argument to lxc start/stop
-      container_create_command: executed to create a container
-      container_delete_command: executed to delete a container after test
-      make_snapshot: when set to true, tests will make a snapshot, run, then restore container to its previous state
-      server_ip: IP address of the server (set from config)
-      healthcheck_command: executed inside the container, should return exit code 0 when container is ready
-      healthcheck_timeout: how many seconds to wait for a container to start before giving up
-      ports: dict of external/internal ports to proxy to/from container
-    """
-
     def __init__(self, **kwargs):
         # Initialize using the `LXCServerArguments` interface,
         # with only supported arguments
         super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
         self.node = remote.server
-        self.host = remote.host
         self.stop_procedures = [self.stop_server]
+        self._proxy_name = f"{LXC_PREFIX}-{self.external_port}-{self.internal_port}"
 
-    def _construct_cmd(self, args: list[str]) -> list[str]:
-        c = ["lxc", *args]
+    @staticmethod
+    def _construct_cmd(args: list[str]) -> str:
+        c = " ".join(["lxc", *args])
         tf_cfg.dbg(3, f"\tlxc cmd: {c}")
         return c
 
@@ -70,39 +64,16 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         tf_cfg.dbg(3, f"\tlxc server: start {self.id}")
         if self.make_snapshot:
             self._make_pretest_snapshot()
-        if self.container_create_command:
-            p = subprocess.run(self.container_create_command)
-            if p.returncode != 0:
-                error.bug("unable to create lxc container")
-        else:
-            p = subprocess.run(
-                args=self._construct_cmd(["start", self.container_name]),
-            )
-            if p.returncode != 0:
-                error.bug("unable to start lxc container server")
+        self.node.run_cmd(self._construct_cmd(["start", self.container_name]))
         self._proxy_setup()
-        t0 = time.time()
-        while time.time() - t0 < self.healthcheck_timeout:
-            p = subprocess.run(
-                args=self._construct_cmd(
-                    ["exec", self.container_name, "--", "bash", "-c", self.healthcheck_command]
-                ),
-                timeout=self.healthcheck_timeout,
-            )
-            if p.returncode == 0:
-                return False
-            time.sleep(1)
-        error.bug("lxc container is unhealthy.")
 
     @property
     def status(self):
         """Status of the container: 'starting', 'running', 'stopped'."""
-        p = subprocess.run(self._construct_cmd(["list", "-f", "json"]), capture_output=True)
-        if p.stderr or not p.stdout:
-            error.bug("error running lxc list", p.stdout, p.stderr)
+        stdout, stderr = self.node.run_cmd(self._construct_cmd(["list", "-f", "json"]))
         status: str | None = None
         try:
-            lxc_list = json.loads(p.stdout)
+            lxc_list = json.loads(stdout)
             for c in lxc_list:
                 if c["name"] == self.container_name:
                     status = c["status"].lower()
@@ -111,61 +82,52 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         return status
 
     def _make_pretest_snapshot(self):
-        p = subprocess.run(
+        self.node.run_cmd(
             self._construct_cmd(["snapshot", self.container_name, LXC_PREFIX, "--reuse"]),
-            capture_output=True,
+            timeout=20,
         )
-        if p.stderr or not p.stdout:
-            error.bug("error making lxc snapshot", p.stdout, p.stderr)
 
     def _restore_pretest_snapshot(self):
-        p = subprocess.run(
-            self._construct_cmd(["restore", self.container_name, LXC_PREFIX]), capture_output=True
-        )
-        if p.stderr or not p.stdout:
-            error.bug("error restoring lxc snapshot", p.stdout, p.stderr)
+        self.node.run_cmd(self._construct_cmd(["restore", self.container_name, LXC_PREFIX]))
 
     def _proxy_setup(self):
-        for ext_port, int_port in self.ports.items():
-            proxy_name = f"{LXC_PREFIX}-{ext_port}-{int_port}"
-            p = subprocess.run(
-                self._construct_cmd(
-                    [
-                        "config",
-                        "device",
-                        "add",
-                        self.container_name,
-                        proxy_name,
-                        "proxy",
-                        f"listen=tcp:{self.server_ip}:{ext_port}",
-                        f"connect=tcp:127.0.0.1:{int_port}",
-                    ]
-                ),
-                capture_output=True,
+        """Create a connection between the internal port and the external port."""
+        self.node.run_cmd(
+            self._construct_cmd(
+                [
+                    "config",
+                    "device",
+                    "add",
+                    self.container_name,
+                    self._proxy_name,
+                    "proxy",
+                    f"listen=tcp:{self.container_ip}:{self.external_port}",
+                    f"connect=tcp:127.0.0.1:{self.internal_port}",
+                ]
             )
-            if p.stderr or not p.stdout:
-                error.bug("error setting up lxc proxy", p.stdout, p.stderr)
+        )
 
     def _proxy_teardown(self):
-        p = subprocess.run(
-            self._construct_cmd(["config", "device", "list", self.container_name]),
-            capture_output=True,
+        self.node.run_cmd(
+            self._construct_cmd(
+                ["config", "device", "remove", self.container_name, self._proxy_name]
+            )
         )
-        if p.stderr or not p.stdout:
-            error.bug("error tearing down lxc proxy", p.stdout, p.stderr)
-        for d in p.stdout.splitlines():
-            device = d.decode()
-            if device.startswith(LXC_PREFIX):
-                p = subprocess.run(
-                    self._construct_cmd(
-                        ["config", "device", "remove", self.container_name, device]
-                    ),
-                    capture_output=True,
-                )
-                if p.stderr or not p.stdout:
-                    error.bug("error tearing down lxc proxy", p.stdout, p.stderr)
 
-    def wait_for_connections(self, timeout=10):
+    def __check_connection(self):
+        """Wait for the both checks to be False."""
+        try:
+            self.node.run_cmd(f"curl -If {self.container_ip}:{self.external_port}")
+            first_check = False
+        except remote.CmdError:
+            first_check = True
+
+        second_check = (
+            self.number_of_tcp_connections(self.container_ip, self.external_port) < self.conns_n
+        )
+        return first_check or second_check
+
+    def wait_for_connections(self, timeout=None):
         """
         Wait until the container becomes running
         and Tempesta establishes connections to the server ports.
@@ -173,28 +135,19 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        while time.time() - t0 < timeout:
-            if self.status == "running":
-                if self.check_ports_established(ip=self.server_ip, ports=self.ports.keys()):
-                    return True
-            time.sleep(0.1)  # to prevent redundant CPU usage
-        return False
+        return util.wait_until(
+            wait_cond=self.__check_connection,
+            timeout=timeout or self.healthcheck_timeout,
+            poll_freq=0.1,
+            abort_cond=lambda: self.status != "running",
+        )
 
     def stop_server(self):
         tf_cfg.dbg(3, f"\tlxc server: stop {self.id}")
         self._proxy_teardown()
-        p = subprocess.run(
-            self._construct_cmd(["stop", self.container_name]),
-        )
-        if p.returncode != 0:
-            error.bug("unable to stop lxc server")
+        self.node.run_cmd(self._construct_cmd(["stop", self.container_name]))
         if self.make_snapshot:
             self._restore_pretest_snapshot()
-        if self.container_delete_command:
-            p = subprocess.run(self.container_delete_command)
-            if p.returncode != 0:
-                error.bug("unable to delete lxc container")
 
 
 def lxc_srv_factory(server, name, tester):
