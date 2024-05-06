@@ -78,6 +78,7 @@ listen 443 proto=h2;
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
+max_concurrent_streams 10000;
 
 cache 0;
 server ${server_ip}:8000;
@@ -101,6 +102,7 @@ listen 443 proto=h2;
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
+max_concurrent_streams 10000;
 
 cache 0;
 server ${server_ip}:8000;

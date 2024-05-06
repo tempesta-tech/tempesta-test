@@ -471,6 +471,7 @@ class H2LoadStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTe
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            max_concurrent_streams 10000;
             cache 0;
         """
     }
@@ -524,6 +525,7 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
     tls_certificate ${tempesta_workdir}/tempesta.crt;
     tls_certificate_key ${tempesta_workdir}/tempesta.key;
     tls_match_any_server_name;
+    max_concurrent_streams 10000;
     cache 0;
     """
     }

@@ -60,6 +60,7 @@ TFW_CONFIF_WITH_DEFAULT_SCHED = f"""
     tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
     tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
+    max_concurrent_streams 10000;
 
     cache 0;
     server {SERVER_IP}:8000;
@@ -73,6 +74,7 @@ TFW_CONFIF_WITH_HASH_SCHED = f"""
     tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
     tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
+    max_concurrent_streams 10000;
 
     cache 0;
     server {SERVER_IP}:8000;
