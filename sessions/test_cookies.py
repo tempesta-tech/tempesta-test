@@ -607,6 +607,11 @@ class StickyCookieConfig(tester.TempestaTest):
                 msg="http_sess: JavaScript challenge requires sticky cookies enabled and explicitly defined in the same section",
             ),
             param(
+                name="empty_js_challenge",
+                cookie_config="js_challenge;\ncookie enforce;",
+                msg="js_challenge: required argument 'delay_min' not set",
+            ),
+            param(
                 name="cookie_options_with_cookie",
                 cookie_config="cookie_options Path=/;\ncookie enforce;",
                 msg=None,
@@ -688,6 +693,15 @@ class StickyCookieOptions(tester.TempestaTest):
                 options_global_in_response=["Path=/", "Max-Age=4294967295"],
                 options_vhost_in_response=["Path=/", "Max-Age=4294967295"],
             ),
+            # Same as previous but cookie_options is in config without any
+            # values.
+            param(
+                name="empty_options_1",
+                cookie_options_global="cookie_options;",
+                cookie_options_vhost="cookie_options;",
+                options_global_in_response=["Path=/", "Max-Age=4294967295"],
+                options_vhost_in_response=["Path=/", "Max-Age=4294967295"],
+            ),
             # Global session lifetime is set and vhost session lifetime is
             # empty. Global session lifetime is used to set Max-Age for global
             # and vhost cookies.
@@ -744,6 +758,21 @@ class StickyCookieOptions(tester.TempestaTest):
                 cookie_options_vhost="cookie_options Max-Age=111;",
                 options_global_in_response=["Path=/", "Max-Age=5"],
                 options_vhost_in_response=["Path=/", "Max-Age=111"],
+            ),
+            # A lot of different options
+            param(
+                name="cookie_options_all_in_one",
+                cookie_options_global="cookie_options Max-Age=111 Expires=3 Path=/etc Secure HttpOnly Domain=example.com;",
+                cookie_options_vhost="",
+                options_global_in_response=[
+                    "Max-Age=111",
+                    "Expires=3",
+                    "Path=/etc",
+                    "Secure",
+                    "HttpOnly",
+                    "Domain=example.com",
+                ],
+                options_vhost_in_response=["Max-Age=4294967295", "Path=/"],
             ),
         ]
     )
