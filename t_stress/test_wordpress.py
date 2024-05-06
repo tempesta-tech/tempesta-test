@@ -1,5 +1,5 @@
 """
-HTTP Stress tests with WordPress Docker image.
+HTTP Stress tests with WordPress LXC container.
 """
 
 from framework import tester

@@ -54,9 +54,6 @@ make
 make install
 ldconfig
 
-# docker
-./install-docker.sh
-
 # install lxc
 snap install lxd
 lxd init --auto
