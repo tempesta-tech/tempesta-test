@@ -24,6 +24,7 @@ TEMPESTA_NO_CACHE = {
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
+        max_concurrent_streams 10000;
         
         cache 0;
         block_action error reply;
@@ -40,6 +41,7 @@ TEMPESTA_WITH_CACHE = {
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
+        max_concurrent_streams 10000;
         
         cache 2;
         cache_fulfill * *;
