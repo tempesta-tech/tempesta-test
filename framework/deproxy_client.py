@@ -300,10 +300,11 @@ class DeproxyClient(BaseDeproxyClient):
                 request if isinstance(request, str) else request.msg for request in requests
             ]
 
+            req_buf_len = len(self.request_buffers)
             self._add_to_request_buffers("".join(requests))
             self.valid_req_num += len(requests)
 
-            self.nrreq += len(self.request_buffers)
+            self.nrreq += len(self.request_buffers) - req_buf_len
         else:
             for request in requests:
                 self.make_request(request)

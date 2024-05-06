@@ -3,8 +3,9 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (via sereral HTTP chains). Mark rules and match rules are also tested here
 (in separate tests).
 """
-from framework import tester
-from framework.parameterize import param, parameterize
+
+from framework import deproxy_client, tester
+from framework.parameterize import param, parameterize, parameterize_class
 from helpers import chains, dmesg, remote
 from helpers.networker import NetWorker
 from helpers.remote import LocalNode
@@ -78,11 +79,11 @@ class HttpTablesTest(tester.TempestaTest):
         "config": """
         listen 80;
         listen 443 proto=h2;
-        
+
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
-        
+
         block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
@@ -704,6 +705,176 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker
 
         self.assertTrue(client.wait_for_response(timeout=5, strict=False, adjust_timeout=False))
         self.assertTrue(client.last_response.status, "200")
+
+
+@parameterize_class(
+    [
+        {
+            "name": "Http",
+            "clients": [{"id": 0, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}],
+        },
+        {
+            "name": "H2",
+            "clients": [
+                {
+                    "id": 0,
+                    "type": "deproxy_h2",
+                    "addr": "${tempesta_ip}",
+                    "port": "443",
+                    "ssl": True,
+                }
+            ],
+        },
+    ]
+)
+class HttpTablesTestMultipleCookies(tester.TempestaTest):
+    backends = [
+        {
+            "id": 0,
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 1,
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 4,
+            "type": "deproxy",
+            "port": "8004",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        block_action attack reply;
+        srv_group grp1 {
+            server ${server_ip}:8000;
+        }
+        srv_group grp2 {
+            server ${server_ip}:8001;
+        }
+        srv_group grp5 {
+            server ${server_ip}:8004;
+        }
+        vhost vh1 {
+            proxy_pass grp1;
+        }
+        vhost vh2 {
+            proxy_pass grp2;
+        }
+        vhost vh5 {
+            proxy_pass grp5;
+        }
+        http_chain {
+            cookie "tempesta_good" == "*" -> vh2;
+            cookie "tempesta" == "good" -> vh1;
+            cookie "tempesta_bad" == "*" -> block;
+            cookie "tempesta" == "bad" -> block;
+            cookie "*good_suffix" == "g*" -> vh2;
+            cookie "good_prefix*" == "g*" -> vh2;
+            -> vh5;
+        }
+        """
+    }
+
+    @parameterize.expand(
+        [
+            param(
+                name="tempesta_good",
+                cookie=["rule1=action1", "rule2=action2", "tempesta=good"],
+                expected_status_code="200",
+                server_id=0,
+            ),
+            param(
+                name="tempesta_good_is_last",
+                cookie=["rule1=action1", "tempesta_bad=test", "tempesta_good=test"],
+                expected_status_code="200",
+                server_id=1,
+            ),
+            param(
+                name="tempesta_bad",
+                cookie=["rule1=action1", "tempesta_bad=test", "rule2=action2"],
+                expected_status_code="403",
+                server_id=4,
+            ),
+            param(
+                name="tempesta_bad_2",
+                cookie=["rule1=action1", "tempesta=bad", "rule2=action2"],
+                expected_status_code="403",
+                server_id=4,
+            ),
+            param(
+                name="no_rules_matched",
+                cookie=["tempesta=action1", "tempesta=test", "tempesta=action2"],
+                expected_status_code="200",
+                server_id=4,
+            ),
+            param(
+                name="good_suffix",
+                cookie=[
+                    "aaa_good_suffix_1=ggg",
+                    "bbb_good_suffix=gaction",
+                    "ccc_good_suffix=action1",
+                ],
+                expected_status_code="200",
+                server_id=1,
+            ),
+            param(
+                name="good_prefix",
+                cookie=["good_prefix_1=ggg", "1_good_prefix=gaction", "good_prefix=gaction2"],
+                expected_status_code="200",
+                server_id=1,
+            ),
+        ]
+    )
+    def test_cookie(self, name, cookie, expected_status_code, server_id):
+        """Test for matching rules in HTTP chains: according to
+        test configuration of HTTP tables, requests must be
+        forwarded to the right vhosts according to it's
+        headers content.
+        """
+        self.start_all_services()
+        client = self.get_client(0)
+        server = self.get_server(server_id)
+
+        """
+        We match rules from http chain in the order in which they are defined.
+        When one of the rule is matched we stop this process and apply the rule.
+        For HTTP1 we can set several cookie values in one cookie header separated
+        by ';'
+        """
+        if isinstance(client, deproxy_client.DeproxyClient):
+            headers = [("cookie", "; ".join(cookie))]
+        else:
+            headers = [("cookie", cookie) for cookie in cookie]
+
+        client.send_request(
+            request=client.create_request(method="GET", uri="/baz/index.html", headers=headers),
+            expected_status_code=expected_status_code,
+        )
+
+        if expected_status_code == "200":
+            self.assertIsNotNone(server.last_request)
+            # Check if the connection alive (general case) or
+            # not (case of 'block' rule matching) after the main
+            # message processing. Response 404 is enough here.
+            client.send_request(client.create_request(method="GET", headers=[]), "200")
+        else:
+            self.assertIsNone(server.last_request)
+            self.assertTrue(client.wait_for_connection_close())
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

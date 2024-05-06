@@ -681,9 +681,9 @@ class H2Request(Request):
         request.method = method
         request.uri = uri
         request.version = version
-        request.headers = HeaderCollection(
-            **{header[0]: header[1] for header in pseudo_headers + headers}
-        )
+        request.headers = HeaderCollection()
+        for header in pseudo_headers + headers:
+            request.headers.add(name=header[0], value=header[1])
         request.body = body
         request.build_message()
 

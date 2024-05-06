@@ -1,6 +1,7 @@
 import re
 
 from framework import tester
+from helpers import dmesg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -13,7 +14,74 @@ DFLT_COOKIE_NAME = "__tfw"
 ATTEMPTS = 64
 
 
-class LearnSessions(tester.TempestaTest):
+class LearnSessionsBase(tester.TempestaTest):
+    def wait_all_connections(self, tmt=1):
+        sids = self.get_servers_id()
+        for sid in sids:
+            srv = self.get_server(sid)
+            if not srv.wait_for_connections(timeout=tmt):
+                return False
+        return True
+
+    def reconfigure_responses(self, sid_resp_sent):
+        for sid in ["server-1", "server-2", "server-3"]:
+            srv = self.get_server(sid)
+            if not srv:
+                continue
+            if sid == sid_resp_sent:
+                status = "200 OK"
+            else:
+                status = "503 Service Unavailable"
+            srv.set_response(
+                "HTTP/1.1 %s\r\n" "Server-id: %s\r\n" "Content-Length: 0\r\n\r\n" % (status, sid)
+            )
+
+    def client_send_req(self, client, req):
+        curr_responses = len(client.responses)
+        client.make_request(req)
+        client.wait_for_response(timeout=1)
+        self.assertEqual(curr_responses + 1, len(client.responses))
+
+        return client.responses[-1]
+
+    def client_send_first_req(self, client):
+        req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+        response = self.client_send_req(client, req)
+
+        self.assertEqual(response.status, "200", "unexpected response status code")
+        c_header = response.headers.get("Set-Cookie", None)
+        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
+        match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
+        self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
+        cookie = (match.group(1), match.group(2))
+
+        s_id = response.headers.get("Server-id", None)
+        self.assertIsNotNone(s_id, "Server-id header is missing in the response")
+
+        return (s_id, cookie)
+
+    def client_send_next_req(self, client, cookie):
+        req = (
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Cookie: %s=%s\r\n"
+            "\r\n" % (cookie[0], cookie[1])
+        )
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status, "200", "unexpected response status code")
+        s_id = response.headers.get("Server-id", None)
+        self.assertIsNotNone(s_id, "Server-id header is missing in the response")
+        return s_id
+
+    def start_all(self):
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.deproxy_manager.start()
+        self.assertTrue(self.wait_all_connections(1))
+
+
+class LearnSessions(LearnSessionsBase):
     """
     When a learn option is enabled, then backend server sets a cookie for the
     client and Tempesta creates a session entry for that cookie. All the
@@ -94,30 +162,6 @@ class LearnSessions(tester.TempestaTest):
                 "HTTP/1.1 %s\r\n" "Server-id: %s\r\n" "Content-Length: 0\r\n\r\n" % (status, sid)
             )
 
-    def client_send_req(self, client, req):
-        curr_responses = len(client.responses)
-        client.make_request(req)
-        client.wait_for_response(timeout=1)
-        self.assertEqual(curr_responses + 1, len(client.responses))
-
-        return client.responses[-1]
-
-    def client_send_first_req(self, client):
-        req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        response = self.client_send_req(client, req)
-
-        self.assertEqual(response.status, "200", "unexpected response status code")
-        c_header = response.headers.get("Set-Cookie", None)
-        self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
-        match = re.search(r"([^;\s]+)=([^;\s]+)", c_header)
-        self.assertIsNotNone(match, "Cant extract value from Set-Cookie header")
-        cookie = (match.group(1), match.group(2))
-
-        s_id = response.headers.get("Server-id", None)
-        self.assertIsNotNone(s_id, "Server-id header is missing in the response")
-
-        return (s_id, cookie)
-
     def client_send_next_req(self, client, cookie):
         req = (
             "GET / HTTP/1.1\r\n"
@@ -181,6 +225,148 @@ class LearnSessions(tester.TempestaTest):
         for _ in range(ATTEMPTS):
             new_s_id = self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Sticky session was forwarded to not-pinned server")
+
+
+class LearnSessionsMultipleSameSetCookie(LearnSessionsBase):
+    """
+    RFC 6265 4.1.1:
+    Servers SHOULD NOT include more than one Set-Cookie header
+    field in the same response with the same cookie-name
+    """
+
+    backends = [
+        {
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Server-id: server-1\r\n"
+            "Set-Cookie: client-id=jdsfhrkfj53542njfnjdmdnvjs45343n4nn4b54m\r\n"
+            "Set-Cookie: client-id=543543kjhkjdg445345579gfjdjgkdcedhfbrh12\r\n"
+            "Set-Cookie: client-id=432435645jkfsdhfksjdhfjkd54675jncjnsddjk\r\n"
+            "Content-Length: 0\r\n\r\n",
+        }
+    ]
+
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+        sticky {
+            learn name=client-id;
+        }
+
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(self.cleanup_klog)
+
+    def cleanup_klog(self):
+        if hasattr(self, "klog"):
+            del self.klog
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test(self):
+        """
+        Check that we stop processing Set-Cookie header if there are
+        more than one Set-Cookie header field in the same response with
+        the same cookie-name, but don't drop response, just write warning
+        in dmesg.
+        """
+        self.start_all()
+        client = self.get_client("deproxy")
+
+        req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
+        response = self.client_send_req(client, req)
+        self.assertEqual(response.status, "200", "unexpected response status code")
+
+        self.assertTrue(
+            self.klog.find(
+                "Multiple sticky cookies found in response: 2", cond=dmesg.amount_equals(1)
+            ),
+            1,
+        )
+
+
+class LearnSessionsMultipleDiffSetCookie(LearnSessions):
+    """
+    Same as LearnSessions but multiple Set-Cookie headers
+    """
+
+    backends = [
+        {
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Server-id: server-1\r\n"
+            "Set-Cookie: client-id=jdsfhrkfj53542njfnjdmdnvjs45343n4nn4b54m\r\n"
+            "Set-Cookie: cookie1=server11\r\n"
+            "Set-Cookie: cookie2=server12\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "server-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Server-id: server-2\r\n"
+            "Set-Cookie: client-id=543543kjhkjdg445345579gfjdjgkdcedhfbrh12\r\n"
+            "Set-Cookie: cookie1=server21\r\n"
+            "Set-Cookie: cookie2=server22\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "server-3",
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Server-id: server-3\r\n"
+            "Set-Cookie: client-id=432435645jkfsdhfksjdhfjkd54675jncjnsddjk\r\n"
+            "Set-Cookie: cookie1=server31\r\n"
+            "Set-Cookie: cookie2=server32\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        server ${server_ip}:8000;
+        server ${server_ip}:8001;
+        server ${server_ip}:8002;
+
+        sticky {
+            learn name=client-id;
+        }
+
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+    ]
 
 
 class LearnSessionsVhost(LearnSessions):

@@ -11,7 +11,7 @@ from h2.stream import StreamInputs
 from hyperframe import frame
 
 from framework import tester
-from framework.parameterize import param, parameterize
+from framework.parameterize import param, parameterize, parameterize_class
 from helpers import tf_cfg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
@@ -91,6 +91,21 @@ vhost default {
 %s
 """
 
+DEPROXY_CLIENT_HTTP = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "80",
+}
+
+DEPROXY_CLIENT_H2 = {
+    "id": "deproxy",
+    "type": "deproxy_h2",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
+}
+
 
 class HeadersParsing(H2Base):
     def test_small_header_in_request(self):
@@ -149,6 +164,108 @@ class HeadersParsing(H2Base):
                     + "Content-Length: 0\r\n\r\n"
                 )
                 client.send_request(self.post_request, status_code)
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT_HTTP]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class CookieParsing(tester.TempestaTest):
+    cookie = {"name": "cname", "value": "123456789"}
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        }
+    ]
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+server ${server_ip}:8000;
+
+block_action attack reply;
+
+sticky {
+    cookie enforce;
+}
+"""
+    }
+
+    @parameterize.expand(
+        [
+            param(name="single_cookie", cookies="{0}", expected_status_code="200"),
+            param(
+                name="many_cookie_first",
+                cookies="{0}; cookie1=value1; cookie2=value2",
+                expected_status_code="200",
+            ),
+            param(
+                name="many_cookie_last",
+                cookies="cookie1=value1; cookie2=value2; {0}",
+                expected_status_code="200",
+            ),
+            param(
+                name="many_cookie_between",
+                cookies="cookie1=value1; {0}; cookie2=value2",
+                expected_status_code="200",
+            ),
+            param(name="duplicate_cookie", cookies="{0}; {0}", expected_status_code="500"),
+            param(
+                name="many_cookie_and_name_as_substring_other_name_1",
+                cookies="cookie1__tfw=value1; {0}",
+                expected_status_code="200",
+            ),
+            param(
+                name="many_cookie_and_name_as_substring_other_name_2",
+                cookies="__tfwcookie1=value1; {0}",
+                expected_status_code="200",
+            ),
+            param(
+                name="many_cookie_and_name_as_substring_other_value_1",
+                cookies="cookie1=value1__tfw; {0}",
+                expected_status_code="200",
+            ),
+            param(
+                name="many_cookie_and_name_as_substring_other_value_2",
+                cookies="cookie1=__tfwvalue1; {0}",
+                expected_status_code="200",
+            ),
+        ]
+    )
+    def test(self, name, cookies, expected_status_code):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+
+        client.send_request(client.create_request("GET", []), "302")
+        # get a sticky cookie from a response headers
+        tfw_cookie = client.last_response.headers.get("set-cookie").split("; ")[0].split("=")
+
+        sticky_cookie = f"{tfw_cookie[0]}={tfw_cookie[1]}"
+        for _ in range(2):  # first as string and second as bytes from dynamic table
+            client.send_request(
+                request=client.create_request(
+                    method="GET",
+                    headers=[("cookie", cookies.format(sticky_cookie))],
+                ),
+                expected_status_code=expected_status_code,
+            )
+            if expected_status_code != "200":
+                self.assertTrue(client.wait_for_connection_close())
+                break
 
 
 class DuplicateSingularHeader(H2Base):
@@ -1302,12 +1419,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         ):
             request = client.create_request(
                 method="POST",
-                headers=[
-                    (":authority", "localhost"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    ("content-type", content_type.format(*state)),
-                ],
+                headers=[("content-type", content_type.format(*state))],
             )
 
             client.send_request(request, "200")
@@ -1322,12 +1434,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         request = client.create_request(
             method="POST",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-                ("content-length", "10"),
-            ],
+            headers=[("content-length", "10")],
             body="aaaaaaaaaa",
         )
 
@@ -1354,12 +1461,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         request = client.create_request(
             method="GET",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-                ("x-http-method-override", "HEAD"),
-            ],
+            headers=[("x-http-method-override", "HEAD")],
         )
 
         tempesta = self.get_tempesta()
@@ -1381,12 +1483,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         request = client.create_request(
             method="GET",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-                ("pragma", "no-cache"),
-            ],
+            headers=[("pragma", "no-cache")],
         )
 
         tempesta = self.get_tempesta()
@@ -1397,14 +1494,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client.send_request(request, "200")
         self.assertEqual(2, len(server.requests))
 
-        request = client.create_request(
-            method="GET",
-            headers=[
-                (":authority", "localhost"),
-                (":path", "/"),
-                (":scheme", "https"),
-            ],
-        )
+        request = client.create_request(method="GET", headers=[])
 
         client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))

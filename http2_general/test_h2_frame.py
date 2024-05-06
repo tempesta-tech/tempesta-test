@@ -430,7 +430,7 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
                 proxy_pass default;
                 sticky {
                     sticky_sessions;
-                    cookie enforce;
+                    cookie enforce max_misses=0;
                     secret "f00)9eR59*_/22";
                 }
             }

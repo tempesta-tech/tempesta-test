@@ -130,8 +130,8 @@
             "reason": "Disable by issue #1714"
         },
         {
-            "name" : "sessions.test_sticky_sess_stress.OneClient",
-            "reason" : "Disabled by issue #398"
+            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
+            "reason": "Disable by issue #1692"
         },
         {
             "name": "t_frang.test_connection_rate_burst.FrangTcp.test_connection_rate",
@@ -376,6 +376,14 @@
         {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats_greater",
             "reason": "Disabled by issue #2084"
+        },
+        {
+            "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_HEAD_GET",
+            "reason": "Disabled by issue #613"
+        },
+        {
+            "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
+            "reason": "Disabled by issue #613"
         }
     ]
 }

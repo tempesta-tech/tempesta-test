@@ -99,5 +99,5 @@ class TLSMatchHostSni(tester.TempestaTest):
         self.assertFalse(deproxy_cl.wait_for_response())
         self.assertEqual(2, len(deproxy_cl.responses))
 
-        self.assertTrue(deproxy_cl.connection_is_closed())
+        self.assertTrue(deproxy_cl.wait_for_connection_close())
         self.assertTrue(klog.find(self.TLS_WARN), "Frang limits warning is not shown")
