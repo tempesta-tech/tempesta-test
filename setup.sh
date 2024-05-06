@@ -56,3 +56,14 @@ ldconfig
 
 # docker
 ./install-docker.sh
+
+# install lxc
+snap install lxd
+lxd init --auto
+
+# update submodules
+git submodule update --init --recursive
+
+# create tempesta-site-stage container
+sh tempesta-tech.com/container/lxc/create.py --type=stage
+lxc stop tempesta-site-stage
