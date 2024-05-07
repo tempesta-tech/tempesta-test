@@ -11,6 +11,7 @@ from typing import (  # TODO: use | instead when we move to python3.10
 )
 
 import h2.connection
+from h2.connection import AllowedStreamIDs
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
@@ -22,6 +23,7 @@ from h2.events import (
     WindowUpdated,
 )
 from h2.settings import SettingCodes, Settings
+from h2.stream import StreamInputs
 from hpack import Encoder
 
 import run_config
@@ -831,3 +833,14 @@ class DeproxyClientH2(BaseDeproxyClient):
                 if equal:
                     return True
         return False
+
+    def init_stream_for_send(self, stream_id: int):
+        """
+        Get or create stream then set state in which the stream is ready for sending and receiving
+        data. Used when need to send raw bytes e.g using send_bytes().
+        """
+        stream = self.h2_connection._get_or_create_stream(
+            stream_id, AllowedStreamIDs(self.h2_connection.config.client_side)
+        )
+        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        return stream

@@ -4,7 +4,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from h2.connection import AllowedStreamIDs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from h2.stream import StreamInputs
@@ -104,10 +103,7 @@ class TestH2Frame(H2Base):
 
         self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
-        stream = deproxy_cl.h2_connection._get_or_create_stream(
-            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
         hf_empty = HeadersFrame(
             stream_id=1,
@@ -145,10 +141,7 @@ class TestH2Frame(H2Base):
 
         self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
-        stream = deproxy_cl.h2_connection._get_or_create_stream(
-            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
         hf_start = HeadersFrame(
             stream_id=1,
@@ -173,10 +166,7 @@ class TestH2Frame(H2Base):
 
         self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
-        stream = deproxy_cl.h2_connection._get_or_create_stream(
-            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
         hf_empty = HeadersFrame(stream_id=1)
         cf_empty = ContinuationFrame(stream_id=1, flags=["END_HEADERS"])
@@ -198,11 +188,7 @@ class TestH2Frame(H2Base):
 
         self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
-        stream = deproxy_cl.h2_connection._get_or_create_stream(
-            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
-        stream.state_machine.process_input(StreamInputs.SEND_END_STREAM)
+        stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
         hf_start = HeadersFrame(
             stream_id=1, data=deproxy_cl.h2_connection.encoder.encode(self.post_request)
@@ -226,11 +212,7 @@ class TestH2Frame(H2Base):
 
         self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
-        stream = deproxy_cl.h2_connection._get_or_create_stream(
-            deproxy_cl.stream_id, AllowedStreamIDs(deproxy_cl.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
-        stream.state_machine.process_input(StreamInputs.SEND_END_STREAM)
+        stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
         hf_start = HeadersFrame(
             stream_id=1, data=deproxy_cl.h2_connection.encoder.encode(self.post_request)
