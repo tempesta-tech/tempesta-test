@@ -773,10 +773,7 @@ class TestFramePayloadLength(H2Base):
     def __make_request(client, data: bytes):
         # Create stream for H2Connection to escape error
         client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
         stream.state_machine.process_input(StreamInputs.SEND_END_STREAM)
 
         # add method in list to escape IndexError
@@ -884,10 +881,7 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         client = self.get_client("deproxy")
         self.initiate_h2_connection(client)
 
-        stream = client.h2_connection._get_or_create_stream(
-            1, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
 
         frame = None
         frame = HeadersFrame(
@@ -960,10 +954,7 @@ class TestHpackBomb(TestHpackBase):
 
                 # Generate and send attack frames. It repeatedly refers to the first entry for 16kB.
                 client.stream_id += 2
-                stream = client.h2_connection._get_or_create_stream(
-                    client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-                )
-                stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+                stream = client.init_stream_for_send(client.stream_id)
                 attack_frame = HeadersFrame(
                     stream_id=client.stream_id,
                     data=b"\xbe" * bomb_size,

@@ -6,7 +6,6 @@ __license__ = "GPL2"
 
 import time
 
-from h2.connection import AllowedStreamIDs
 from h2.stream import StreamInputs
 from hyperframe.frame import ContinuationFrame, HeadersFrame
 
@@ -106,10 +105,7 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         # timeout counter is created for each stream.
         client.send_request(self.get_request, "200")
 
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
         header_frame = HeadersFrame(
             client.stream_id,
             client.h2_connection.encoder.encode(self.request_segment_1),

@@ -6,7 +6,6 @@ analises its return code.
 
 import itertools
 
-from h2.connection import AllowedStreamIDs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 from hyperframe import frame
@@ -708,10 +707,7 @@ class TestTrailers(H2Base):
         self.initiate_h2_connection(client)
 
         # create stream and change state machine in H2Connection object
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
 
         return client
 

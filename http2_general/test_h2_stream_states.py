@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from h2.connection import AllowedStreamIDs, ConnectionInputs
+from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 from hyperframe.frame import (
@@ -71,10 +71,7 @@ class TestLocHalfClosedStreamState(H2Base):
         self.start_all_services()
         self.initiate_h2_connection(client)
 
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
         client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
 
         hf = HeadersFrame(
@@ -221,10 +218,7 @@ class TestStreamState(H2Base):
 
         self.initiate_h2_connection(client)
         # create stream and change state machine in H2Connection object
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
 
         request = request if request is not None else self.post_request
         hf = HeadersFrame(
@@ -317,10 +311,7 @@ class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
 
         self.initiate_h2_connection(client)
         # create stream and change state machine in H2Connection object
-        stream = client.h2_connection._get_or_create_stream(
-            client.stream_id, AllowedStreamIDs(client.h2_connection.config.client_side)
-        )
-        stream.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        stream = client.init_stream_for_send(client.stream_id)
 
         hf = HeadersFrame(
             stream_id=client.stream_id,
