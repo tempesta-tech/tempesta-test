@@ -58,7 +58,7 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
 
     tempesta = {
         "config": """
-            listen 192.168.122.1:443 proto=h2;
+            listen 443 proto=h2;
 
             cache 2;
             cache_fulfill * *;
