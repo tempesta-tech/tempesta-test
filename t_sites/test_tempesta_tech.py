@@ -65,7 +65,7 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
             cache_methods GET HEAD;
             cache_purge;
             # Allow purging from the containers (upstream), localhost (VM) and the host.
-            cache_purge_acl ${server_ip} 127.0.0.1;
+            cache_purge_acl ${server_ip} 127.0.0.2;
 
             access_log on;
 
