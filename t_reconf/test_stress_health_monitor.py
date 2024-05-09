@@ -6,6 +6,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers.dmesg import limited_rate_on_tempesta_node
 from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
@@ -118,6 +119,7 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
+    @limited_rate_on_tempesta_node
     def test_reconf_on_the_fly_for_health_monitor(self):
         # launch all services except clients and getting Tempesta instance
         self.start_all_services(client=False)
