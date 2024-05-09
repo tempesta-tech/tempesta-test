@@ -6,6 +6,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers.dmesg import limited_rate_on_tempesta_node
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
@@ -63,6 +64,7 @@ class TestLiveReconf(LiveReconfStressTestBase):
         for client in self.curl_clients:
             self.clients.remove(client)
 
+    @limited_rate_on_tempesta_node
     def test_stress_reconfig_on_the_fly(self) -> None:
         """Test Tempesta for change config on the fly."""
         self.disable_deproxy_auto_parser()

@@ -132,6 +132,17 @@ def wait_for_msg(pattern: str, strict=True):
         tf_cfg.dbg(2, f'No "{pattern}" log record and no ratelimiting')
 
 
+def __change_dmesg_limit_on_tempesta_node(func, rate, *args, **kwargs):
+    node = remote.tempesta
+    cmd = "/proc/sys/net/core/message_cost"
+    current_rate = node.run_cmd(f"cat {cmd}")[0].strip()
+    try:
+        node.run_cmd(f"echo {rate} > {cmd}")
+        return func(*args, **kwargs)
+    finally:
+        node.run_cmd(f"echo {current_rate.decode()} > {cmd}")
+
+
 def unlimited_rate_on_tempesta_node(func):
     """
     The decorator turns off dmesg messages rate limiting to ensure important
@@ -139,15 +150,16 @@ def unlimited_rate_on_tempesta_node(func):
     """
 
     def func_wrapper(*args, **kwargs):
-        node = remote.tempesta
-        get_msg_cost_cmd = "cat /proc/sys/net/core/message_cost"
-        msg_cost = node.run_cmd(get_msg_cost_cmd)[0].strip()
-        try:
-            node.run_cmd("echo 0 > /proc/sys/net/core/message_cost")
-            return func(*args, **kwargs)
-        finally:
-            cmd = "echo {} > /proc/sys/net/core/message_cost".format(msg_cost.decode())
-            node.run_cmd(cmd)
+        return __change_dmesg_limit_on_tempesta_node(func, 0, *args, **kwargs)
+
+    return func_wrapper
+
+
+def limited_rate_on_tempesta_node(func):
+    """The decorator sets a dmesg messages rate limit."""
+
+    def func_wrapper(*args, **kwargs):
+        return __change_dmesg_limit_on_tempesta_node(func, 5, *args, **kwargs)
 
     func_wrapper.__name__ = func.__name__
 

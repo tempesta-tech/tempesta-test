@@ -8,6 +8,7 @@ __license__ = "GPL2"
 
 import http
 
+from helpers.dmesg import limited_rate_on_tempesta_node
 from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
@@ -112,6 +113,7 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
         "config": TEMPESTA_CONFIG,
     }
 
+    @limited_rate_on_tempesta_node
     def test_reconf_on_the_fly_for_sticky_cookie_sched(self) -> None:
         """Test of sticky sessions to a server group."""
         # launch all services except clients

@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.external_client import ExternalTester
+from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 HTTP_RULES_START = 'uri == "/alternate" -> block;'
@@ -14,6 +15,7 @@ HTTP_RULES_AFTER_RELOAD = 'uri == "/alternate" -> alternate;'
 STATUS_OK = "200"
 STATUS_FORBIDDEN = "403"
 VHOSTS = ("origin", "alternate")
+TEMPESTA_IP = cfg.get("Tempesta", "ip")
 
 TEMPESTA_CONFIG = """
 listen 443 proto=h2;
@@ -156,8 +158,7 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
             String object representing a modified list of options.
 
         """
-        uri = " https://127.0.0.1:443/"
-        opts = client.options[0]
+        uri = f" https://{TEMPESTA_IP}:443/"
         if path:
             opts = client.options[0].replace(uri, uri + path)
             return opts
