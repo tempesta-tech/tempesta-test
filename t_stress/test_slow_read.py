@@ -115,19 +115,7 @@ http {
 
         self.addCleanup(lambda: os.remove(fp))
 
-    @parameterize.expand(
-        [
-            param(
-                # CVE-2019-9517 “Internal Data Buffering”
-                name="tcp",
-            ),
-            param(
-                # CVE-2019-9511 “Data Dribble”
-                name="data",
-            ),
-        ]
-    )
-    def test(self, name):
+    def test_window_update(self):
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -144,89 +132,111 @@ http {
         hostname = tf_cfg.cfg.get("Tempesta", "hostname")
         port = 443
 
-        if name == "data":
+        def run_test():
+            context = ssl.create_default_context()
+            context.set_alpn_protocols(["h2"])
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            context.keylog_filename = "secrets.txt"
 
-            def run_test():
-                context = ssl.create_default_context()
-                context.set_alpn_protocols(["h2"])
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
-                context.keylog_filename = "secrets.txt"
+            with socket.create_connection((hostname, port)) as sock:
+                with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as s:
+                    c = h2.connection.H2Connection()
+                    settings = dict()
+                    settings[SettingCodes.INITIAL_WINDOW_SIZE] = 1
+                    c.local_settings = Settings(initial_values=settings)
+                    c.local_settings.update(settings)
+                    c.initiate_connection()
+                    s.sendall(c.data_to_send())
 
-                with socket.create_connection((hostname, port)) as sock:
-                    with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as s:
-                        c = h2.connection.H2Connection()
-                        settings = dict()
-                        settings[SettingCodes.INITIAL_WINDOW_SIZE] = 1
-                        c.local_settings = Settings(initial_values=settings)
-                        c.local_settings.update(settings)
-                        c.initiate_connection()
-                        s.sendall(c.data_to_send())
-
-                        for i in range(1, 190, 2):
-                            c.send_headers(i, headers, end_stream=True)
-                            try:
-                                s.sendall(c.data_to_send())
-                            except ssl.SSLEOFError:
-                                return
-
-                        response_stream_ended = False
-
-                        while not response_stream_ended:
-                            # read raw data from the socket
-                            data = s.recv(65536 * 1024)
-                            if not data:
-                                break
-
-                            # feed raw data into h2, and process resulting events
-                            events = c.receive_data(data)
-                            for event in events:
-                                if isinstance(event, h2.events.DataReceived):
-                                    # update flow control so the server doesn't starve us
-                                    c.acknowledge_received_data(
-                                        event.flow_controlled_length, event.stream_id
-                                    )
-                                    win = WindowUpdateFrame(event.stream_id, 1).serialize()
-                                    s.sendall(win)
-                                    time.sleep(0.003)
-                                if isinstance(event, h2.events.StreamEnded):
-                                    # response body completed, let's exit the loop
-                                    response_stream_ended = True
-                                    break
-                            # send any pending data to the server
+                    for i in range(1, 190, 2):
+                        c.send_headers(i, headers, end_stream=True)
+                        try:
                             s.sendall(c.data_to_send())
+                        except ssl.SSLEOFError:
+                            return
 
-        elif name == "tcp":
+                    response_stream_ended = False
 
-            def run_test():
-                context = ssl.create_default_context()
-                context.set_alpn_protocols(["h2"])
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
+                    while not response_stream_ended:
+                        # read raw data from the socket
+                        data = s.recv(65536 * 1024)
+                        if not data:
+                            break
 
-                with socket.create_connection((hostname, port)) as sock:
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 16)
-                    with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as s:
-                        c = h2.connection.H2Connection()
-                        settings = dict()
-                        settings[SettingCodes.INITIAL_WINDOW_SIZE] = (1 << 31) - 10
-                        c.local_settings = Settings(initial_values=settings)
-                        c.local_settings.update(settings)
-                        c.initiate_connection()
+                        # feed raw data into h2, and process resulting events
+                        events = c.receive_data(data)
+                        for event in events:
+                            if isinstance(event, h2.events.DataReceived):
+                                # update flow control so the server doesn't starve us
+                                c.acknowledge_received_data(
+                                    event.flow_controlled_length, event.stream_id
+                                )
+                                win = WindowUpdateFrame(event.stream_id, 1).serialize()
+                                s.sendall(win)
+                                time.sleep(0.003)
+                            if isinstance(event, h2.events.StreamEnded):
+                                # response body completed, let's exit the loop
+                                response_stream_ended = True
+                                break
+                        # send any pending data to the server
                         s.sendall(c.data_to_send())
 
-                        for i in range(1, 190, 2):
-                            hf = HeadersFrame(
-                                stream_id=i,
-                                data=headers_data,
-                                flags=["END_HEADERS", "END_STREAM"],
-                            ).serialize()
-                            try:
-                                s.sendall(hf)
-                            except ssl.SSLEOFError:
-                                return
+        parallel = 10
+        plist = []
+        for _ in range(parallel):
+            p = Thread(target=run_test, args=())
+            p.start()
+            plist.append(p)
+        for p in plist:
+            p.join()
 
-                        time.sleep(63)
+    def test_tcp(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.h2_connection.encoder.huffman = True
+
+        headers = [
+            (":method", "GET"),
+            (":path", "/large.file"),
+            (":authority", "tempesta-tech.com"),
+            (":scheme", "https"),
+        ]
+        headers_data = client.h2_connection.encoder.encode(headers)
+
+        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
+        port = 443
+
+        def run_test():
+            context = ssl.create_default_context()
+            context.set_alpn_protocols(["h2"])
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+
+            with socket.create_connection((hostname, port)) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 16)
+                with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as s:
+                    c = h2.connection.H2Connection()
+                    settings = dict()
+                    settings[SettingCodes.INITIAL_WINDOW_SIZE] = (1 << 31) - 10
+                    c.local_settings = Settings(initial_values=settings)
+                    c.local_settings.update(settings)
+                    c.initiate_connection()
+                    s.sendall(c.data_to_send())
+
+                    for i in range(1, 190, 2):
+                        hf = HeadersFrame(
+                            stream_id=i,
+                            data=headers_data,
+                            flags=["END_HEADERS", "END_STREAM"],
+                        ).serialize()
+                        try:
+                            s.sendall(hf)
+                        except ssl.SSLEOFError:
+                            return
+
+                    time.sleep(10)
 
         parallel = 10
         plist = []
