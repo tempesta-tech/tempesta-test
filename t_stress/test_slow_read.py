@@ -2,6 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import os
 import socket
 import ssl
 import time
@@ -102,6 +103,18 @@ http {
         """
     }
 
+    def setUp(self):
+        super().setUp()
+
+        BODY_SIZE = 1024 * 1024 * 100  # 100MB
+        body = "x" * BODY_SIZE
+
+        fp = str(Path(tf_cfg.cfg.get("Server", "resources")) / "large.file")
+        with open(fp, "w") as f:
+            f.write(body)
+
+        self.addCleanup(lambda: os.remove(fp))
+
     @parameterize.expand(
         [
             param(
@@ -116,13 +129,6 @@ http {
     )
     def test(self, name):
         self.start_all_services()
-
-        # 100 MB
-        BODY_SIZE = 1024 * 1024 * 100
-        body = "x" * BODY_SIZE
-
-        with open(str(Path(tf_cfg.cfg.get("Server", "resources")) / "large.file"), "w") as f:
-            f.write(body)
 
         client = self.get_client("deproxy")
         client.h2_connection.encoder.huffman = True
@@ -159,7 +165,10 @@ http {
 
                         for i in range(1, 190, 2):
                             c.send_headers(i, headers, end_stream=True)
-                            s.sendall(c.data_to_send())
+                            try:
+                                s.sendall(c.data_to_send())
+                            except ssl.SSLEOFError:
+                                return
 
                         response_stream_ended = False
 
@@ -212,11 +221,14 @@ http {
                                 data=headers_data,
                                 flags=["END_HEADERS", "END_STREAM"],
                             ).serialize()
-                            s.sendall(hf)
+                            try:
+                                s.sendall(hf)
+                            except ssl.SSLEOFError:
+                                return
 
                         time.sleep(63)
 
-        parallel = 3
+        parallel = 10
         plist = []
         for _ in range(parallel):
             p = Thread(target=run_test, args=())
