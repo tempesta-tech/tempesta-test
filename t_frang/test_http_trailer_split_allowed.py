@@ -4,7 +4,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from t_frang.frang_test_case import FrangTestCase
+from hyperframe.frame import ContinuationFrame, HeadersFrame
+
+from framework.parameterize import param, parameterize
+from t_frang.frang_test_case import FrangTestCase, H2Config
 
 WARN = "frang: HTTP field appear in header and trailer"
 
@@ -56,3 +59,51 @@ class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
         """Test with default (false) `http_trailer_split_allowed` directive."""
         client = self.base_scenario(frang_config="", requests=[REQUEST_WITH_TRAILER])
         self.check_response(client, status_code="403", warning_msg=WARN)
+
+
+class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
+    @parameterize.expand(
+        [
+            param(
+                name="accepted_request",
+                config="http_trailer_split_allowed true;\n",
+                expected_status="200",
+            ),
+            param(
+                name="disable_trailer_split_allowed",
+                config="http_trailer_split_allowed false;\n",
+                expected_status="403",
+            ),
+            param(
+                name="default_trailer_split_allowed",
+                config="",
+                expected_status="403",
+            ),
+        ]
+    )
+    def test(self, name, config: str, expected_status: str):
+        self.set_frang_config(f"{config}http_strict_host_checking false;")
+
+        client = self.get_client("deproxy-1")
+        client.start()
+        client.make_request(
+            request=client.create_request(
+                method="POST", headers=[("trailer", "x-my-hdr"), ("x-my-hdr", "value")]
+            ),
+            end_stream=False,
+        )
+
+        tf = HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("x-my-hdr", "value")]),
+            flags=["END_STREAM"],
+        )
+        cf = ContinuationFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode([("x-my-hdr", "value")]),
+            flags=["END_HEADERS"],
+        )
+        client.send_bytes(data=tf.serialize() + cf.serialize(), expect_response=True)
+
+        self.assertTrue(client.wait_for_response())
+        self.check_response(client, status_code=expected_status, warning_msg=WARN)
