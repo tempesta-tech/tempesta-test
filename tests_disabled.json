@@ -126,6 +126,10 @@
             "reason": "Disable by issue #1714"
         },
         {
+            "name": "t_frang.test_config.TestDefaultConfig.test_http_body_len",
+            "reason": "Disable by issue #1714"
+        },
+        {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
             "reason": "Disable by issue #1692"
         },
