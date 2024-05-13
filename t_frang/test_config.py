@@ -458,6 +458,43 @@ block_action error reply;
     @parameterize.expand(
         [
             param(
+                name="location_via_vhost",
+                config="""
+                    vhost vhost_1 {
+                        proxy_pass default;
+                        location prefix "/vhost_1" {cache_fulfill * *; proxy_pass default;}
+                        location prefix "/vhost_2" {cache_fulfill * *; proxy_pass default;}
+                    }
+                    http_chain {-> vhost_1;}
+                """,
+            ),
+            param(
+                name="vhost",
+                config="""
+                    vhost vhost_1 {proxy_pass default;}
+                    vhost vhost_2 {proxy_pass default;}
+                    http_chain {uri == "/vhost_1" -> vhost_1; uri == "/vhost_2" -> vhost_2;}
+                """,
+            ),
+        ]
+    )
+    def test_inheritance_default_to_several(self, name, config: str):
+        """
+        All vhost/location inherits the default `frang_limits` so Tempesta MUST NOT block same
+        requests to different vhost/location because they have same frang_limits.
+        """
+        self.__update_tempesta_config(config)
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "200")
+        client.send_request(client.create_request(method="GET", uri="/vhost_2", headers=[]), "200")
+        self.oops.update()
+        self.assertEqual(0, len(self.oops.log_findall("frang: ")))
+
+    @parameterize.expand(
+        [
+            param(
                 name="global_to_vhost",
                 config="""
                     frang_limits {http_methods get post put;}
