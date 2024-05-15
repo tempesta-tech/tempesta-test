@@ -173,14 +173,20 @@ http {
                                     event.flow_controlled_length, event.stream_id
                                 )
                                 win = WindowUpdateFrame(event.stream_id, 1).serialize()
-                                s.sendall(win)
+                                try:
+                                    s.sendall(win)
+                                except ssl.SSLEOFError:
+                                    return
                                 time.sleep(0.003)
                             if isinstance(event, h2.events.StreamEnded):
                                 # response body completed, let's exit the loop
                                 response_stream_ended = True
                                 break
-                        # send any pending data to the server
-                        s.sendall(c.data_to_send())
+                        try:
+                            # send any pending data to the server
+                            s.sendall(c.data_to_send())
+                        except ssl.SSLEOFError:
+                            return
 
         parallel = 10
         plist = []
