@@ -7,7 +7,7 @@ import ssl
 
 import h2
 from h2.settings import SettingCodes
-from hyperframe.frame import HeadersFrame, PriorityFrame
+from hyperframe.frame import HeadersFrame, PingFrame, PriorityFrame, SettingsFrame
 
 from framework import tester
 from framework.parameterize import param, parameterize
@@ -22,6 +22,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
@@ -58,14 +59,18 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         [
             param(
                 name="ping",
+                frame=PingFrame(0, b"\x00\x01\x02\x03\x04\x05\x06\x07").serialize(),
             ),
             param(
                 name="settings",
+                frame=SettingsFrame(
+                    settings={k: 100 for k in (SettingCodes.MAX_CONCURRENT_STREAMS,)}
+                ).serialize(),
             ),
         ]
     )
-    def test(self, name):
-        self.oops_ignore = ["ERROR"]
+    def test(self, name, frame):
+        self.oops_ignore = ["WARNING"]
         self.start_all_services()
 
         hostname = tf_cfg.cfg.get("Tempesta", "hostname")
@@ -76,31 +81,23 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
 
-        new_settings = dict()
-        new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = 100
-        ping_data = b"\x00\x01\x02\x03\x04\x05\x06\x07"
-
         with socket.create_connection((hostname, port)) as sock:
             with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
                 conn = h2.connection.H2Connection()
                 conn.initiate_connection()
 
                 for _ in range(1000_0000):
-                    if name == "ping":
-                        conn.ping(ping_data)
-                    else:
-                        conn.update_settings(new_settings)
                     try:
-                        ssock.sendall(conn.data_to_send())
+                        ssock.sendall(frame)
                     except ssl.SSLEOFError:
                         return
         self.oops.find(
-            "ERROR: Too many control frames in send queue, closing connection",
+            "Warning: Too many control frames in send queue, closing connection",
             cond=dmesg.amount_positive,
         )
 
     def test_reset_stream(self):
-        self.oops_ignore = ["ERROR"]
+        self.oops_ignore = ["WARNING"]
         self.start_all_services()
         client = self.get_client("deproxy")
 
@@ -111,6 +108,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         context.set_alpn_protocols(["h2"])
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
+
         headers = [
             (":method", "GET"),
             (":path", "/"),
@@ -136,6 +134,6 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
                     except ssl.SSLEOFError:
                         return
         self.oops.find(
-            "ERROR: Too many control frames in send queue, closing connection",
+            "Warning: Too many control frames in send queue, closing connection",
             cond=dmesg.amount_positive,
         )
