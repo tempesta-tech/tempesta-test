@@ -172,6 +172,18 @@
         {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
             "reason": "Disabled by test issue #525"
+        },
+        {
+            "name": "t_stress.test_flood.TestH2ControlFramesFlood.test_ping",
+            "reason": "Disabled by test issue #612"
+        },
+        {
+            "name": "t_stress.test_flood.TestH2ControlFramesFlood.test_settings",
+            "reason": "Disabled by test issue #612"
+        },
+        {
+            "name": "t_stress.test_flood.TestH2ControlFramesFlood.test_reset_stream",
+            "reason": "Disabled by test issue #612"
         }
     ]
 }
