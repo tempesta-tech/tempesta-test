@@ -546,6 +546,15 @@ class DeproxyClientH2(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    def wait_for_headers_frame(self, stream_id: int, timeout=5):
+        """Wait HEADERS frame for stream."""
+        stream: h2.connection.H2Stream = self.h2_connection._get_stream_by_id(stream_id=stream_id)
+        return util.wait_until(
+            lambda: not stream.state_machine.headers_received,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
@@ -566,22 +575,18 @@ class DeproxyClientH2(BaseDeproxyClient):
             tf_cfg.dbg(5, f"\t\t{events}")
             for event in events:
                 if isinstance(event, ResponseReceived):
+                    # H2Connection returns ResponseReceived event when HEADERS and
+                    # all CONTINUATION frames with END_HEADERS flag are received.
                     headers = self.__binary_headers_to_string(event.headers)
 
-                    response = self.active_responses.get(event.stream_id)
-                    if response:
-                        stream = StringIO(headers)
-                        response.parse_headers(stream)
-                        response.update()
-                    else:
-                        response = deproxy.H2Response(
-                            headers + "\r\n",
-                            method="",
-                            body_parsing=False,
-                            keep_original_data=self.keep_original_data,
-                        )
+                    response = deproxy.H2Response(
+                        headers + "\r\n",
+                        method="",
+                        body_parsing=False,
+                        keep_original_data=self.keep_original_data,
+                    )
 
-                        self.active_responses[event.stream_id] = response
+                    self.active_responses[event.stream_id] = response
 
                 elif isinstance(event, DataReceived):
                     body = event.data.decode()

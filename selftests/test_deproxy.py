@@ -286,6 +286,46 @@ class DeproxyTestH2(tester.TempestaTest):
         )
         self.assertIn(b"example.com", client.request_buffers[0])
 
+    def test_wait_for_headers_frame(self):
+        """Tests for `wait_for_headers_frame` method."""
+        self.start_all_services()
+
+        # Response body should be large so that
+        # test has time between END_HEADERS and END_STREAM flag.
+        body_size = 1024 * 1024
+        server = self.get_server("deproxy")
+        # Server return response with headers > 16KB so TempestaFW MUST separate them to
+        # HEADERS and CONTINUATION frames.
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"x-my-hdr: {'a' * 20000}\r\n"
+            + f"Content-Length: {body_size}\r\n\r\n"
+            + ("a" * body_size)
+        )
+
+        client = self.get_client("deproxy")
+        client.make_request(client.create_request(method="GET", headers=[], uri="/large.txt"))
+        self.assertTrue(client.wait_for_headers_frame(stream_id=1))
+
+        # block call to `handle_read` method. we should make this for stability of testing
+        client.readable = lambda: False
+        self.assertIsNotNone(
+            client.active_responses.get(1, None),
+            "`wait_for_headers_frame` returned True, "
+            "but client did not add a new response to buffer.",
+        )
+        self.assertIsNone(
+            client.last_response,
+            "Client received response after call `wait_for_headers_frame`. "
+            "But it only expects to receive headers (not END_STREAM flag)."
+            "Probably you should increase a response body for this test.",
+        )
+
+        # enable call to `handle_read` method to receive response body and END_STREAM flag.
+        client.readable = lambda: True
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
+
 
 class DeproxyClientTest(tester.TempestaTest):
     backends = [
