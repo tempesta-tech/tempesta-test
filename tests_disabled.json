@@ -380,6 +380,10 @@
         {
             "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
+        },
+        {
+            "name": "t_frang.test_http_trailer_split_allowed.TestFrangHttpTrailerSplitAllowedH2",
+            "reason": "Disabled by issue #1881, #2106"
         }
     ]
 }
