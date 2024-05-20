@@ -28,6 +28,7 @@ class TestFailovering(tester.TempestaTest):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            frang_limits {http_strict_host_checking false;}
             
             cache 0;
             block_action error reply;

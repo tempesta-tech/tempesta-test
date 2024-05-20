@@ -1364,6 +1364,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             srv_group default {{
                 server {tf_cfg.cfg.get("Server", "ip")}:8000;
             }}
+            frang_limits {{http_strict_host_checking false;}}
             vhost good {{
                 frang_limits {{
                     http_method_override_allowed false;
@@ -1391,6 +1392,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             srv_group default {{
                 server {tf_cfg.cfg.get("Server", "ip")}:8000;
             }}
+            frang_limits {{http_strict_host_checking false;}}
             vhost good {{
                 frang_limits {{
                     http_method_override_allowed false;
@@ -1421,6 +1423,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             srv_group default {{
                 server {tf_cfg.cfg.get("Server", "ip")}:8000;
             }}
+            frang_limits {{http_strict_host_checking false;}}
             vhost good {{
                 frang_limits {{
                     http_method_override_allowed true;

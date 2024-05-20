@@ -64,12 +64,9 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-}
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 """,
     }
 
@@ -359,12 +356,9 @@ cache_fulfill * *;
 
 server ${server_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-}
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 """,
     }
 
@@ -535,11 +529,12 @@ listen 443 proto=h2;
 server ${server_ip}:8000;
 cache 2;
 
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
 vhost default {
     proxy_pass default;
-    tls_match_any_server_name;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
     
     location suffix ".jpg" {
         proxy_pass default;
@@ -626,12 +621,9 @@ class TestCacheMultipleMethods(tester.TempestaTest):
 
     server ${server_ip}:8000;
 
-    vhost default {
-        proxy_pass default;
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-        tls_match_any_server_name;
-    }
+    tls_match_any_server_name;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
     """,
     }
 
@@ -967,12 +959,9 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-}
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
 cache 2;
 """
     }
@@ -1249,7 +1238,7 @@ tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
 server ${server_ip}:8000;
-
+frang_limits {http_strict_host_checking false;}
 vhost vh1 {
     proxy_pass default;
 }
@@ -1435,7 +1424,7 @@ tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
 server ${server_ip}:8000;
-
+frang_limits {http_strict_host_checking false;}
 vhost vh1 {
     proxy_pass default;
 }
@@ -1537,6 +1526,7 @@ class TestChunkedResponse(tester.TempestaTest):
         tls_match_any_server_name;
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        frang_limits {http_strict_host_checking false;}
         cache 1;
         cache_fulfill * *;
         server ${server_ip}:8000;
@@ -1673,7 +1663,7 @@ class TestCacheVhost(tester.TempestaTest):
         srv_group front {
                 server ${server_ip}:8081;
         }
-
+        frang_limits {http_strict_host_checking false;}
         vhost tempesta-tech.com {
                 tls_certificate ${tempesta_workdir}/tempesta.crt;
                 tls_certificate_key ${tempesta_workdir}/tempesta.key;

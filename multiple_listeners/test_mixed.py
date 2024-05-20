@@ -53,6 +53,7 @@ srv_group default {
 }
 
 vhost tempesta-cat {
+    frang_limits {http_strict_host_checking false;}
     proxy_pass default;
 }
 

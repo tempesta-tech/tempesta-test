@@ -8,7 +8,7 @@ __license__ = "GPL2"
 
 from framework import tester
 from framework.wrk_client import Wrk
-from helpers import tf_cfg
+from helpers import dmesg, tf_cfg
 
 PIPELINE_LUA = r"""-- example script demonstrating HTTP pipelining
 
@@ -94,7 +94,7 @@ class TestStressPipeline(tester.TempestaTest):
         "config": """
             cache 0;
             server ${server_ip}:8000;
-
+            frang_limits {http_strict_host_checking false;}
         """,
     }
 
@@ -234,6 +234,7 @@ class TestStressPipeline(tester.TempestaTest):
         self.assert_clients()
         self.assert_tempesta()
 
+    @dmesg.limited_rate_on_tempesta_node
     def test_pipeline(self) -> None:
         self.routine(PIPELINE_LUA)
         self.generic_asserts_test()
