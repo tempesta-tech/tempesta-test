@@ -80,7 +80,7 @@ srv_group default {
     server ${server_ip}:8000;
     server ${server_ip}:8001;
 }
-
+frang_limits {http_strict_host_checking false;}
 vhost app {
     proxy_pass default;
 }

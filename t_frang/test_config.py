@@ -8,7 +8,11 @@ from hyperframe.frame import DataFrame, HeadersFrame
 
 from framework import tester
 from framework.parameterize import param, parameterize
-from helpers.dmesg import amount_positive
+from helpers.dmesg import (
+    amount_positive,
+    limited_rate_on_tempesta_node,
+    unlimited_rate_on_tempesta_node,
+)
 from helpers.remote import CmdError
 
 
@@ -63,6 +67,7 @@ block_action error reply;
         },
     ]
 
+    @unlimited_rate_on_tempesta_node
     def test_http_body_len(self):
         """
         Client send request with body > 1 GB and Tempest MUST return a 403 response
@@ -88,6 +93,7 @@ block_action error reply;
         self.assertEqual(client.last_response.status, "403")
         self.assertTrue(self.oops.find("frang: HTTP body length exceeded for"))
 
+    @unlimited_rate_on_tempesta_node
     def test_http_strict_host_checking(self):
         """
         Client send request with different host and authority headers. Tempesta MUST return a 403
@@ -106,6 +112,7 @@ block_action error reply;
         )
         self.assertTrue(self.oops.find("frang: Request :authority differs from Host for"))
 
+    @unlimited_rate_on_tempesta_node
     def test_http_ct_required(self):
         """
         Client send request without Content-Type header. Tempesta MUST return a 200 response
@@ -121,6 +128,7 @@ block_action error reply;
         )
         self.assertFalse(self.oops.find("frang: Content-Type header field for"))
 
+    @unlimited_rate_on_tempesta_node
     def test_http_trailer_split_allowed(self):
         """
         Client send request with same header in headers and trailer. Tempesta MUST return a 403
@@ -148,6 +156,7 @@ block_action error reply;
         self.assertEqual(client.last_response.status, "403")
         self.assertTrue(self.oops.find("frang: HTTP field appear in header and trailer"))
 
+    @unlimited_rate_on_tempesta_node
     def test_http_methods(self):
         """
         Client send PUT request. Tempesta MUST return a 403 response because by default
@@ -163,6 +172,7 @@ block_action error reply;
         )
         self.assertTrue(self.oops.find("frang: restricted HTTP method"))
 
+    @limited_rate_on_tempesta_node
     def test_concurrent_tcp_connections(self):
         """
         Client create 1010 connections and Tempesta MUST accept 1000 connections because
@@ -180,6 +190,7 @@ block_action error reply;
         self.assertTrue(self.oops.find("frang: connections max num. exceeded for", amount_positive))
         self.assertGreater(client.statuses[200], 0)
 
+    @unlimited_rate_on_tempesta_node
     def test_http_header_cnt(self):
         """
         Client send request with 60 headers. Tempesta MUST return a 403 response because
@@ -197,6 +208,7 @@ block_action error reply;
         )
         self.assertTrue(self.oops.find("frang: HTTP headers count exceeded for"))
 
+    @unlimited_rate_on_tempesta_node
     def test_ip_block(self):
         """
         Client creates 2 connections and sends an invalid request in the first connection.
@@ -260,6 +272,7 @@ block_action error reply;
         new_config = self.get_tempesta().config.defconfig
         self.get_tempesta().config.defconfig = new_config + frang_config
 
+    @unlimited_rate_on_tempesta_node
     def test_two_connection_frang_limits_in_global_config(self):
         """
         Tempesta config has two global `frang_limits` with `http_hdr_len` (connection limit)
@@ -301,6 +314,7 @@ block_action error reply;
             ),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test_two_message_frang_limits(self, name, config: str):
         """
         Tempesta config has two global/vhost `frang_limits` with `http_methods` (message limit)
@@ -353,6 +367,7 @@ block_action error reply;
             ),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test(self, name, config):
         """
         Tempesta config has double frang_limits in location or connection frang limit in
@@ -397,6 +412,7 @@ block_action error reply;
             ),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test_inheritance(self, name, config: str):
         """
         The vhost/location inherits the last `frang_limits` so Tempesta MUST block request with
@@ -409,10 +425,11 @@ block_action error reply;
         client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
         self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
 
+    @unlimited_rate_on_tempesta_node
     def test_inheritance_global_to_location(self):
         """
-        The global location does not inherit the last `frang_limits` so Tempesta MUST NOT block
-        request with GET method because by default `http_methods` is get post head.
+        The global location inherit the last `frang_limits` so Tempesta MUST block
+        request with GET method because `http_methods` in global config is post put.
         """
         self.__update_tempesta_config(
             """
@@ -423,10 +440,10 @@ block_action error reply;
         self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "200")
-        self.oops.update()
-        self.assertEqual(0, len(self.oops.log_findall("frang: restricted HTTP method for")))
+        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
+        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
 
+    @unlimited_rate_on_tempesta_node
     def test_inheritance_vhost_to_location_limits_after_location(self):
         """
         Tempesta config has a frang_limits in vhost after location and:
@@ -436,6 +453,7 @@ block_action error reply;
         self.__update_tempesta_config(
             """
             vhost vhost_1 {
+                frang_limits {http_strict_host_checking false;}
                 proxy_pass default;
                 location prefix "/vhost_1" {cache_fulfill * *; proxy_pass default;}
                 frang_limits {http_methods post put;}
@@ -461,6 +479,7 @@ block_action error reply;
                 name="location_via_vhost",
                 config="""
                     vhost vhost_1 {
+                        frang_limits {http_strict_host_checking false;}
                         proxy_pass default;
                         location prefix "/vhost_1" {cache_fulfill * *; proxy_pass default;}
                         location prefix "/vhost_2" {cache_fulfill * *; proxy_pass default;}
@@ -471,6 +490,7 @@ block_action error reply;
             param(
                 name="vhost",
                 config="""
+                    frang_limits {http_strict_host_checking false;}
                     vhost vhost_1 {proxy_pass default;}
                     vhost vhost_2 {proxy_pass default;}
                     http_chain {uri == "/vhost_1" -> vhost_1; uri == "/vhost_2" -> vhost_2;}
@@ -478,6 +498,7 @@ block_action error reply;
             ),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test_inheritance_default_to_several(self, name, config: str):
         """
         All vhost/location inherits the default `frang_limits` so Tempesta MUST NOT block same
@@ -544,6 +565,7 @@ block_action error reply;
             ),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test_overriding(self, name, config: str):
         """
         Tempesta has different frang limits in global/vhost/location.

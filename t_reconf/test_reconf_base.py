@@ -127,6 +127,7 @@ server {SERVER_IP}:8000;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
+frang_limits {{http_strict_host_checking false;}}
 """
     proto: str
 
@@ -635,7 +636,10 @@ listen 443 proto=h2;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
-            
+frang_limits {{
+    http_strict_host_checking false;
+    http_methods GET;
+}}
 srv_group default {{
     server {SERVER_IP}:8000;
     server_forward_retries 3;
@@ -655,7 +659,10 @@ listen 443 proto=h2;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
-
+frang_limits {{
+    http_strict_host_checking false;
+    http_methods GET;
+}}
 srv_group default {{
     server {SERVER_IP}:8000;
     server_forward_retries 3;
@@ -1106,7 +1113,8 @@ class TestVhostReconf(tester.TempestaTest):
     listen 443 proto=h2;
     tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
     tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
-    tls_match_any_server_name;        
+    tls_match_any_server_name;    
+    frang_limits {{http_strict_host_checking false;}}    
     
     block_action attack reply;
     srv_group grp1 {{
@@ -1130,6 +1138,7 @@ class TestVhostReconf(tester.TempestaTest):
     tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
     tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
+    frang_limits {{http_strict_host_checking false;}}
     
     block_action attack reply;
 
@@ -1202,7 +1211,7 @@ listen 443 proto=h2;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;        
-
+frang_limits {{http_strict_host_checking false;}}
 block_action attack reply;
 srv_group grp1 {{
     server {SERVER_IP}:8000;
@@ -1229,7 +1238,7 @@ listen 443 proto=h2;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
-
+frang_limits {{http_strict_host_checking false;}}
 block_action attack reply;
 srv_group grp1 {{
     server {SERVER_IP}:8000;
@@ -1288,7 +1297,7 @@ listen 443 proto=h2;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
-
+frang_limits {{http_strict_host_checking false;}}  
 block_action attack reply;
 
 server {SERVER_IP}:8000;
@@ -1315,7 +1324,7 @@ listen 443 proto=h2;
 tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
 tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
-
+frang_limits {{http_strict_host_checking false;}}  
 block_action attack reply;
 
 server {SERVER_IP}:8000;

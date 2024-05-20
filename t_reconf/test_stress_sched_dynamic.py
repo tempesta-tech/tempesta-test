@@ -65,7 +65,7 @@ tls_match_any_server_name;
 max_concurrent_streams 10000;
 
 cache 0;
-
+frang_limits {http_strict_host_checking false;}
 sched ratio dynamic;
 
 """ + "".join(

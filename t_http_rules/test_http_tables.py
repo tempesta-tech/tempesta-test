@@ -109,6 +109,7 @@ class HttpTablesTest(tester.TempestaTest):
         srv_group grp8 {
         server ${server_ip}:8007;
         }
+        frang_limits {http_strict_host_checking false;}
         vhost vh1 {
         proxy_pass grp1;
         }
@@ -768,6 +769,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
         srv_group grp5 {
             server ${server_ip}:8004;
         }
+        frang_limits {http_strict_host_checking false;}
         vhost vh1 {
             proxy_pass grp1;
         }

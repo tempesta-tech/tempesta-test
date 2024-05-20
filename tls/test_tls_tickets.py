@@ -259,17 +259,16 @@ class TlsVhostConfusionDfltVhost(TlsVhostConfusion):
 
             tls_certificate ${tempesta_workdir}/tempesta.com.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.com.key;
-
+            # Vhost name is used in SNI parsing. Match all unknown SNIs to
+            # default vhost.  
+            tls_match_any_server_name;
             vhost tempesta-tech.com {
                 proxy_pass srv_grp1;
                 tls_certificate ${tempesta_workdir}/tempesta-tech.com.crt;
                 tls_certificate_key ${tempesta_workdir}/tempesta-tech.com.key;
             }
-            vhost default {
-            # Vhost name is used in SNI parsing. Match all unknown SNIs to
-            # default vhost.
-                tls_match_any_server_name;
-            }
+            
+            vhost default {proxy_pass default;}
             http_chain {
                 host == "tempesta-tech.com" -> tempesta-tech.com;
                 host == "tempesta.com" -> default;

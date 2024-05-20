@@ -42,7 +42,7 @@ srv_group main {
 
     health h_monitor1;
 }
-
+frang_limits {http_strict_host_checking false;}
 vhost main{
     proxy_pass main;
 }

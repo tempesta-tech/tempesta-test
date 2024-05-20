@@ -50,7 +50,7 @@ srv_group hdr_r_p {server ${server_ip}:8010;}
 srv_group hdr_raw_e {server ${server_ip}:8011;}
 srv_group hdr_raw_p {server ${server_ip}:8012;}
 server ${server_ip}:8013;
-
+frang_limits {http_strict_host_checking false;}
 vhost uri_p {proxy_pass uri_p;}
 vhost uri_s {proxy_pass uri_s;}
 vhost host_p {proxy_pass host_p;}
@@ -173,6 +173,7 @@ class TestHostBase(tester.TempestaTest):
     srv_group host_header {server ${server_ip}:8001;}
     srv_group bad {server ${server_ip}:8002;}
 
+    frang_limits {http_strict_host_checking false;}
     vhost req_host {proxy_pass req_host;}
     vhost host_header {proxy_pass host_header;}
     vhost bad {proxy_pass bad;}

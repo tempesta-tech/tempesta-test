@@ -661,6 +661,7 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
             srv_group default {
                 server ${server_ip}:8000;
             }
+            frang_limits {http_strict_host_checking false;}
             vhost v_good {
                 proxy_pass default;
                 sticky {
@@ -733,6 +734,7 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
             srv_group default {
                 server ${server_ip}:8000;
             }
+            frang_limits {http_strict_host_checking false;}
             vhost v_good {
                 proxy_pass default;
             }

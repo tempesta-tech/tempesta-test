@@ -29,6 +29,7 @@ class H2Base(tester.TempestaTest):
                 server ${server_ip}:8000;
             }
             vhost good {
+                frang_limits {http_strict_host_checking false;}
                 proxy_pass default;
             }
             tls_certificate ${tempesta_workdir}/tempesta.crt;

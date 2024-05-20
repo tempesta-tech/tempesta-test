@@ -6,7 +6,7 @@ from __future__ import print_function
 
 import sys
 
-from helpers import control, tempesta, tf_cfg
+from helpers import control, dmesg, tempesta, tf_cfg
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
@@ -21,7 +21,8 @@ class OneClient(stress.StressTest):
         "   cookie enforce;\n"
         '   secret "f00)9eR59*_/22";\n'
         "   sticky_sessions;\n"
-        "}\n\n"
+        "}\n"
+        "frang_limits {http_strict_host_checking false;}\n\n"
     )
 
     def create_clients(self):
@@ -65,6 +66,7 @@ class OneClient(stress.StressTest):
                 )
         self.assertEqual(loaded, 1)
 
+    @dmesg.limited_rate_on_tempesta_node
     def test(self):
         # Server connections failovering is tested in functional test.
         # It will cause only non-200 responses.

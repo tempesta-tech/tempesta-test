@@ -67,6 +67,7 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
 
     server ${server_ip}:8000;
 
+    frang_limits {http_strict_host_checking false;}
     tls_certificate ${tempesta_workdir}/tempesta.crt;
     tls_certificate_key ${tempesta_workdir}/tempesta.key;
     tls_match_any_server_name;

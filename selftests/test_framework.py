@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_server, external_client, nginx_server, tester, wrk_client
-from helpers import deproxy, tf_cfg
+from helpers import deproxy, dmesg, tf_cfg
 from helpers.control import Tempesta
 
 # Number of bytes to test external client output
@@ -76,7 +76,7 @@ http {
         "config": """
 cache 0;
 listen 80;
-
+frang_limits {http_strict_host_checking false;}
 server ${server_ip}:8000;
 """,
     }
@@ -120,6 +120,7 @@ server ${server_ip}:8000;
         },
     ]
 
+    @dmesg.limited_rate_on_tempesta_node
     def test_wrk_client(self):
         """Check results for 'wrk' client"""
         nginx: nginx_server.Nginx = self.get_server("nginx")
@@ -137,6 +138,7 @@ server ${server_ip}:8000;
             msg='"wrk" client has not sent requests or received results.',
         )
 
+    @dmesg.limited_rate_on_tempesta_node
     def test_double_wrk(self):
         """Check the parallel work of two "wrk" clients"""
         nginx: nginx_server.Nginx = self.get_server("nginx")

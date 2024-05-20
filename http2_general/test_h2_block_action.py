@@ -41,6 +41,7 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         srv_group default {
             server ${server_ip}:8000;
         }
+        frang_limits {http_strict_host_checking false;}
         vhost good {
             proxy_pass default;
         }

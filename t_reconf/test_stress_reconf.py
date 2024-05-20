@@ -16,7 +16,7 @@ STATUS_OK = "200"
 
 TEMPESTA_CONFIG = """
 listen ${tempesta_ip}:443 proto=h2;
-
+frang_limits {http_strict_host_checking false;}
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;

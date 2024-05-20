@@ -222,6 +222,7 @@ class TestHost(tester.TempestaTest):
             listen 80;
             server ${server_ip}:8000;
             
+            frang_limits {http_strict_host_checking false;}
             block_action attack reply;
             block_action error reply;
         """

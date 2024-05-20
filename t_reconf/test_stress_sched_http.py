@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.external_client import ExternalTester
+from helpers import dmesg
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
@@ -27,7 +28,7 @@ srv_group origin {
 srv_group alternate {
     server ${server_ip}:8081;
 }
-
+frang_limits {http_strict_host_checking false;}
 vhost origin{
     proxy_pass origin;
 }
@@ -105,6 +106,7 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
         client = self.get_client("h2load")
         client.options[0] = self._change_uri_cmd_opt(client)
 
+    @dmesg.limited_rate_on_tempesta_node
     def test_reconfig_on_the_fly_for_sched_http(self) -> None:
         """Test Tempesta for change config on the fly."""
         # launch all services except clients
