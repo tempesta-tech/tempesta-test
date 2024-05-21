@@ -26,6 +26,9 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
         server ${server_ip}:8000;
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        frang_limits {
+            http_strict_host_checking false;
+        }
         tls_match_any_server_name;
         cache 0;
     """

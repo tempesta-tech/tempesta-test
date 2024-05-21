@@ -8,7 +8,7 @@ import random
 
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
-from helpers import deproxy
+from helpers import deproxy, dmesg
 from helpers.remote import CmdError
 
 DEPROXY_CLIENT = {
@@ -556,6 +556,7 @@ tls_match_any_server_name;
             ),
         ]
     )
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_http_nctl_brange_response(self, name, characters, date, expected_status):
         self._update_tempesta_config(directive="http_nctl_brange", characters=characters)
         self.start_all_services()

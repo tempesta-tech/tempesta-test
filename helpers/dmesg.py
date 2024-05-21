@@ -149,4 +149,6 @@ def unlimited_rate_on_tempesta_node(func):
             cmd = "echo {} > /proc/sys/net/core/message_cost".format(msg_cost.decode())
             node.run_cmd(cmd)
 
+    func_wrapper.__name__ = func.__name__
+
     return func_wrapper

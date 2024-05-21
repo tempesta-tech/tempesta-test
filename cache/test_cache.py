@@ -31,6 +31,14 @@ DEPROXY_CLIENT = {
     "port": "80",
 }
 
+DEPROXY_CLIENT_SSL = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
+}
+
 DEPROXY_CLIENT_H2 = {
     "id": "deproxy",
     "type": "deproxy_h2",
@@ -1729,6 +1737,65 @@ class TestCacheVhost(tester.TempestaTest):
         tempesta = self.get_tempesta()
         tempesta.config.defconfig = tempesta.config.defconfig.replace("h2", "https")
         self.test_h2()
+
+
+@parameterize_class(
+    [
+        {"name": "Https", "clients": [DEPROXY_CLIENT_SSL]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestCache(tester.TempestaTest):
+    """This class contains checks for tempesta cache config."""
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2,https;
+
+cache 2;
+cache_fulfill * *;
+
+server ${server_ip}:8000;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+frang_limits {
+    http_strict_host_checking false;
+}
+""",
+    }
+
+    backends = [
+        {
+            "id": "python_simple_server",
+            "type": "docker",
+            "image": "python",
+            "ports": {8000: 8000},
+            "cmd_args": "-m http.server",
+        },
+    ]
+
+    def test(self):
+        tempesta: Tempesta = self.get_tempesta()
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        request = client.create_request(method="GET", uri="/", headers=[])
+
+        for _ in range(3):
+            client.send_request(request, expected_status_code="200")
+
+        self.assertNotIn("age", client.responses[0].headers)
+        checks.check_tempesta_cache_stats(
+            tempesta,
+            cache_hits=2,
+            cache_misses=1,
+            cl_msg_served_from_cache=2,
+        )
+        for response in client.responses[1:]:  # Note WPS 440
+            self.assertIn("age", response.headers)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

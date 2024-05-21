@@ -2,6 +2,10 @@
     "disable" : true,
     "disabled" : [
         {
+            "name": "t_fault_injection",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "mixed_requests",
             "reason": "These tests should not be run with TCP segmentation."
         },
