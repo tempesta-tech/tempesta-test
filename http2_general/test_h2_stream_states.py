@@ -107,6 +107,9 @@ class TestLocHalfClosedStreamState(H2Base):
             klog.find(self.PARSER_WARN), "Frame is passed to parser in a CLOSED state."
         )
 
+        client.stream_id += 2
+        client.send_request(self.post_request, "")
+
 
 class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
     def __base_scenario(self, frame: Frame):
