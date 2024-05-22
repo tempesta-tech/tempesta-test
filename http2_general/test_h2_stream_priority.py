@@ -728,7 +728,10 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
                 stream_id=client.stream_id + 2, depends_on=5, stream_weight=255, exclusive=False
             ).serialize()
         )
-        self.assertTrue(client.wait_for_connection_close())
+
+        # Here we should wait for a long time since initial_window_size is small, and connection
+        # will be closed after all pending data will be send.
+        self.assertTrue(client.wait_for_connection_close(timeout=10))
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
 
 
