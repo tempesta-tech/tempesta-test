@@ -1,17 +1,15 @@
+"""The functional tests for `max_queued_control_frames` directive."""
+
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import socket
-import ssl
-
-import h2
 from h2.settings import SettingCodes
 from hyperframe.frame import HeadersFrame, PingFrame, PriorityFrame, SettingsFrame
 
 from framework import tester
 from framework.parameterize import param, parameterize
-from helpers import tf_cfg
+from helpers import dmesg
 
 
 class TestH2ControlFramesFlood(tester.TempestaTest):
@@ -32,7 +30,9 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n\r\n",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n" + "Content-Length: 200000\r\n\r\n" + ("a" * 200000)
+            ),
         }
     ]
 
@@ -46,7 +46,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         srv_group default {
             server ${server_ip}:8000;
         }
-
+        %s
         vhost tempesta-tech.com {
            tls_certificate ${tempesta_workdir}/tempesta.crt;
            tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -54,6 +54,28 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         }
         """
     }
+
+    def __update_tempesta_config(self, limit: int) -> None:
+        limit = "" if limit == 10000 else f"max_queued_control_frames {limit};"
+        self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % limit
+
+    @staticmethod
+    def __fill_tcp_buffer_and_disable_readable(client) -> None:
+        """
+        The client requests a lot of data, but it does not read them.
+        TCP buffer MUST be filled and TempestaFW cannot send other data.
+        """
+        client.make_request(client.create_request(method="GET", headers=[]))
+        client.readable = lambda: False  # disable socket for reading
+
+    @staticmethod
+    def __send_invalid_request(client) -> None:
+        # TODO it should be removed after correcting the log output in dmesg
+        client.restart()
+        client.readable = lambda: True  # enable socket for reading
+        client.send_request(
+            client.create_request(method="GET", headers=[("x-forwarded-for", "123")]), "400"
+        )
 
     @parameterize.expand(
         [
@@ -70,44 +92,38 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         ]
     )
     def test(self, name, frame):
-        self.oops_ignore = ["WARNING"]
-        self.start_all_services()
-
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
-        port = 443
-
-        context = ssl.create_default_context()
-        context.set_alpn_protocols(["h2"])
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-
-        with socket.create_connection((hostname, port)) as sock:
-            with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
-                conn = h2.connection.H2Connection()
-                conn.initiate_connection()
-
-                for _ in range(1000_0000):
-                    try:
-                        ssock.sendall(frame)
-                    except ssl.SSLEOFError:
-                        return
-        self.oops.find(
-            "Warning: Too many control frames in send queue, closing connection",
-            cond=dmesg.amount_positive,
-        )
-
-    def test_reset_stream(self):
-        self.oops_ignore = ["WARNING"]
+        self.__update_tempesta_config(10)
         self.start_all_services()
         client = self.get_client("deproxy")
+        self.__fill_tcp_buffer_and_disable_readable(client)
 
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
-        port = 443
+        # the client should send more frames for stability of test
+        for _ in range(20):  # max_queued_control_frames is 10.
+            client.send_bytes(frame, expect_response=False)
 
-        context = ssl.create_default_context()
-        context.set_alpn_protocols(["h2"])
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
+        self.assertTrue(
+            client.wait_for_connection_close(),
+            "TempestaFW did not block client after exceeding `max_queued_control_frames` limit.",
+        )
+        self.__send_invalid_request(client)
+        self.assertTrue(
+            self.oops.find(
+                "Warning: Too many control frames in send queue, closing connection",
+                cond=dmesg.amount_positive,
+            )
+        )
+
+    @parameterize.expand(
+        [
+            param(name="default_limit", limit=10000),
+            param(name="10_limit", limit=10),
+        ]
+    )
+    def test_reset_stream(self, name, limit: int):
+        self.__update_tempesta_config(limit)
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        self.__fill_tcp_buffer_and_disable_readable(client)
 
         headers = [
             (":method", "GET"),
@@ -116,24 +132,24 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             (":scheme", "https"),
         ]
 
-        with socket.create_connection((hostname, port)) as sock:
-            with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as s:
-                c = h2.connection.H2Connection()
-                c.initiate_connection()
-                s.sendall(c.data_to_send())
+        # the client should send more frames for stability of test
+        for i in range(3, limit * 10, 2):  # max_queued_control_frames is 10.
+            hf = HeadersFrame(
+                stream_id=i,
+                data=client.h2_connection.encoder.encode(headers),
+                flags=["END_HEADERS"],
+            ).serialize()
+            prio = PriorityFrame(stream_id=i, depends_on=i).serialize()
+            client.send_bytes(hf + prio, expect_response=False)
 
-                for i in range(1, 100_0000, 2):
-                    hf = HeadersFrame(
-                        stream_id=i,
-                        data=client.h2_connection.encoder.encode(headers),
-                        flags=["END_HEADERS"],
-                    ).serialize()
-                    prio = PriorityFrame(stream_id=i, depends_on=i).serialize()
-                    try:
-                        s.sendall(hf + prio)
-                    except ssl.SSLEOFError:
-                        return
-        self.oops.find(
-            "Warning: Too many control frames in send queue, closing connection",
-            cond=dmesg.amount_positive,
+        self.assertTrue(
+            client.wait_for_connection_close(),
+            "TempestaFW did not block client after exceeding `max_queued_control_frames` limit.",
+        )
+        self.__send_invalid_request(client)
+        self.assertTrue(
+            self.oops.find(
+                "Warning: Too many control frames in send queue, closing connection",
+                cond=dmesg.amount_positive,
+            )
         )
