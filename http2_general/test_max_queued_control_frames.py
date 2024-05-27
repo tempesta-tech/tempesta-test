@@ -60,11 +60,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % limit
 
     @staticmethod
-    def __fill_tcp_buffer_and_disable_readable(client) -> None:
-        """
-        The client requests a lot of data, but it does not read them.
-        TCP buffer MUST be filled and TempestaFW cannot send other data.
-        """
+    def __init_connection_and_disable_readable(client) -> None:
         client.make_request(client.create_request(method="GET", headers=[]))
         client.readable = lambda: False  # disable socket for reading
 
@@ -96,7 +92,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         self.__update_tempesta_config(10)
         self.start_all_services()
         client = self.get_client("deproxy")
-        self.__fill_tcp_buffer_and_disable_readable(client)
+        self.__init_connection_and_disable_readable(client)
 
         # the client should send more frames for stability of test
         for _ in range(20):  # max_queued_control_frames is 10.
@@ -126,7 +122,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         self.__update_tempesta_config(limit)
         self.start_all_services()
         client = self.get_client("deproxy")
-        self.__fill_tcp_buffer_and_disable_readable(client)
+        self.__init_connection_and_disable_readable(client)
 
         headers = [
             (":method", "GET"),
