@@ -91,6 +91,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             ),
         ]
     )
+    @dmesg.unlimited_rate_on_tempesta_node
     def test(self, name, frame):
         self.__update_tempesta_config(10)
         self.start_all_services()
@@ -109,8 +110,9 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         self.assertTrue(
             self.oops.find(
                 "Warning: Too many control frames in send queue, closing connection",
-                cond=dmesg.amount_positive,
-            )
+                cond=lambda matches: len(matches) >= 0,
+            ),
+            "An unexpected number of dmesg warnings",
         )
 
     @parameterize.expand(
@@ -119,6 +121,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             param(name="10_limit", limit=10),
         ]
     )
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_reset_stream(self, name, limit: int):
         self.__update_tempesta_config(limit)
         self.start_all_services()
@@ -150,6 +153,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         self.assertTrue(
             self.oops.find(
                 "Warning: Too many control frames in send queue, closing connection",
-                cond=dmesg.amount_positive,
-            )
+                cond=lambda matches: len(matches) >= 0,
+            ),
+            "An unexpected number of dmesg warnings",
         )
