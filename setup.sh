@@ -1,5 +1,7 @@
 #! /bin/sh
 
+CURRENT_DIR=$(pwd)
+
 apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev \
     apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl \
     tcpdump lxc -y
@@ -59,8 +61,9 @@ snap install lxd
 lxd init --auto
 
 # update submodules
+cd "${CURRENT_DIR}"
 git submodule update --init --recursive
 
 # create tempesta-site-stage container
-sh tempesta-tech.com/container/lxc/create.py --type=stage
+python3 tempesta-tech.com/container/lxc/create.py --type=stage
 lxc stop tempesta-site-stage
