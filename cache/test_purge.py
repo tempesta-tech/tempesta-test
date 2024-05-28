@@ -99,6 +99,29 @@ cache_purge;
         self.assertNotIn("age", client.last_response.headers)
         self.assertEqual(len(srv.requests), 2)
 
+    def test_purge_fail(self):
+        """
+        Send a request and cache it. Use PURGE and repeat the request. Check that a response is
+        not received from cache, but the request has been cached again.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        # All cacheable method to the resource must be cached
+        client.send_request(client.create_request(method="PURGE", uri="/page.html", headers=[]), "403")
+        self.assertFalse(client.conn_is_closed)
+
+    def test_purge_acl_fail(self):
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+
+        tempesta.config.set_defconfig(tempesta.config.defconfig + f"cache_purge_acl 2.2.2.2;\n")
+        self.start_all_services()
+
+        client.send_request(client.create_request(method="PURGE", uri="/page.html", headers=[]), "403")
+        self.assertFalse(client.conn_is_closed)
+
+
 
 class TestPurgeBase(TempestaTest):
     tempesta_template = {

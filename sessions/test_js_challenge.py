@@ -256,6 +256,7 @@ class JSChallenge(BaseJSChallenge):
                 client.create_request(method=method, headers=[("accept", "image/*")]),
                 status,
             )
+            self.assertFalse(client.conn_is_closed)
 
     @parameterize.expand(
         [
