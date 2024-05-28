@@ -1053,6 +1053,8 @@ srv_group default {{
             DMESG_WARNING,
         )
 
+        self.assertFalse(client.conn_is_closed)
+
 
 class TestVhostReconf(tester.TempestaTest):
     backends = [
