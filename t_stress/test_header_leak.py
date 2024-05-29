@@ -1,8 +1,9 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import random
+import re
 import socket
 import ssl
 import string
@@ -11,7 +12,7 @@ from threading import Thread
 import h2
 
 from framework import tester
-from helpers import tf_cfg
+from helpers import remote, tf_cfg
 
 
 def randomword(length):
@@ -19,7 +20,28 @@ def randomword(length):
     return "".join(random.choice(letters) for i in range(length))
 
 
+def get_memory_lines(*names):
+    """Get values from /proc/meminfo"""
+    [stdout, stderr] = remote.tempesta.run_cmd("cat /proc/meminfo")
+    lines = []
+    for name in names:
+        line = re.search("%s:[ ]+([0-9]+)" % name, str(stdout))
+        if line:
+            lines.append(int(line.group(1)))
+        else:
+            raise Exception("Can not get %s from /proc/meminfo" % name)
+    return lines
+
+
 class TestH2HeaderLeak(tester.TempestaTest):
+    """
+    1. For 0-length header name, tempesta returns 400 and GOAWAY and
+    closes the connection, so no further effect happens after.
+    2. If we send a request followed by RST_STREAM, temepesta will close
+    the connection when the response arrives from the backend,
+    so no further effect too.
+    """
+
     backends = [
         {
             "id": "nginx",
@@ -132,6 +154,8 @@ http {
                             # send any pending data to the server
                             s.sendall(c.data_to_send())
 
+        (mem1,) = get_memory_lines("MemAvailable")
+
         parallel = 2
         plist = []
         for _ in range(parallel):
@@ -140,3 +164,7 @@ http {
             plist.append(p)
         for p in plist:
             p.join()
+
+        (mem2,) = get_memory_lines("MemAvailable")
+        memdiff = abs(mem2 - mem1) / mem1
+        self.assertLess(memdiff, 0.05)
