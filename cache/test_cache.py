@@ -642,10 +642,16 @@ class TestCacheMultipleMethods(tester.TempestaTest):
                 "HEAD_after_GET", first_method="GET", second_method="HEAD", should_be_cached=True
             ),
             param(
+                "POST_after_GET", first_method="GET", second_method="POST", should_be_cached=False
+            ),
+            param(
                 "HEAD_after_HEAD", first_method="HEAD", second_method="HEAD", should_be_cached=True
             ),
             param(
                 "GET_after_HEAD", first_method="HEAD", second_method="GET", should_be_cached=False
+            ),
+            param(
+                "POST_after_HEAD", first_method="HEAD", second_method="POST", should_be_cached=False
             ),
         ]
     )
@@ -859,6 +865,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
     def test_several_entries(
         self, name, first_method, second_method, second_headers, sleep_interval
     ):
+        """
+        Tempesta can save several entries in cache and use more appropriate
+        entry to satisfy the next request.
+        """
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
@@ -876,6 +886,8 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "First body."
         )
 
+        # Send first request. Tempesta FW forward request to backend server and
+        # save response in cache.
         client.send_request(
             client.create_request(method=first_method, uri="/index.html", headers=[]),
             expected_status_code="200",
@@ -884,6 +896,8 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         self.assertEqual(len(server.requests), 1)
         self.assertEqual("First body.", client.last_response.body)
 
+        # Sleep to be shure that second request will be sent to
+        # backend server, because of cache-control header.
         time.sleep(sleep_interval)
 
         second_response = (
@@ -900,6 +914,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
 
         server.set_response(second_response)
 
+        # Send second request. Tempesta FW forward request to backend server and
+        # save response in cache (for some requests we use cache-control directive
+        # to be shure that request will be forwarded to backend server). There
+        # are two cache enries now in Tempesta FW cache.
         client.send_request(
             client.create_request(method=second_method, uri="/index.html", headers=second_headers),
             expected_status_code="200",
@@ -920,12 +938,18 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "Third body."
         )
 
+        # Send third GET request, which can be satisfied from cache.
         client.send_request(
             client.create_request(method="GET", uri="/index.html", headers=[]),
             expected_status_code="200",
         )
         self.assertIn("age", client.last_response.headers.keys())
         self.assertEqual(len(server.requests), 2)
+        # Tempesta FW satisfy request from cache, using the most appropriate
+        # entry. When second request has GET or POST method, Tempesta FW uses
+        # it to satisfy third request, because it is the freshest cache entry.
+        # If second request has HEAD method, we can't use it response to satisfy
+        # GET request, so use first entry.
         self.assertEqual(
             "Second body." if second_method != "HEAD" else "First body.", client.last_response.body
         )
