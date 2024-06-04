@@ -4,6 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import socket
+import time
+
 from h2.settings import SettingCodes
 from hyperframe.frame import HeadersFrame, PingFrame, PriorityFrame, SettingsFrame
 
@@ -59,19 +62,13 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         limit = "" if limit == 10000 else f"max_queued_control_frames {limit};"
         self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % limit
 
-    @staticmethod
-    def __init_connection_and_disable_readable(client) -> None:
+    def __init_connection_and_disable_readable(self, client) -> None:
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        self.assertTrue(client.wait_for_ack_settings())
+
         client.make_request(client.create_request(method="GET", headers=[]))
         client.readable = lambda: False  # disable socket for reading
-
-    @staticmethod
-    def __send_invalid_request(client) -> None:
-        # TODO it should be removed after correcting the log output in dmesg
-        client.restart()
-        client.readable = lambda: True  # enable socket for reading
-        client.send_request(
-            client.create_request(method="GET", headers=[("x-forwarded-for", "123")]), "400"
-        )
 
     @parameterize.expand(
         [
@@ -89,40 +86,60 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
     )
     @dmesg.unlimited_rate_on_tempesta_node
     def test(self, name, frame):
-        self.__update_tempesta_config(10)
-        self.start_all_services()
+        self.__update_tempesta_config(100)
+
         client = self.get_client("deproxy")
+        # Set a small buffer for the client. it is needed for stability of tests.
+        # The different VMs have a different size of buffer
+        client.add_socket_options(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+
+        self.start_all_services()
+        # requests a large data from backend and disable socket for reading.
+        # Tempesta can not send any data to the client until the client enable socket for reading
         self.__init_connection_and_disable_readable(client)
 
+        # wait until the client buffer is full
+        time.sleep(2)
+
         # the client should send more frames for stability of test
-        for _ in range(20):  # max_queued_control_frames is 10.
+        for _ in range(110):  # max_queued_control_frames is 100.
             client.send_bytes(frame, expect_response=False)
 
         self.assertTrue(
-            client.wait_for_connection_close(),
-            "TempestaFW did not block client after exceeding `max_queued_control_frames` limit.",
-        )
-        self.__send_invalid_request(client)
-        self.assertTrue(
             self.oops.find(
                 "Warning: Too many control frames in send queue, closing connection",
-                cond=lambda matches: len(matches) >= 0,
+                dmesg.amount_positive,
             ),
             "An unexpected number of dmesg warnings",
+        )
+        client.readable = lambda: True  # enable socket for reading
+        self.assertTrue(
+            client.wait_for_connection_close(),
+            "TempestaFW did not block client after exceeding `max_queued_control_frames` limit.",
         )
 
     @parameterize.expand(
         [
             param(name="default_limit", limit=10000),
-            param(name="10_limit", limit=10),
+            param(name="100_limit", limit=100),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
     def test_reset_stream(self, name, limit: int):
         self.__update_tempesta_config(limit)
-        self.start_all_services()
+
         client = self.get_client("deproxy")
+        # Set a small buffer for the client. it is needed for stability of tests.
+        # The different VMs have a different size of buffer
+        client.add_socket_options(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+
+        self.start_all_services()
+        # requests a large data from backend and disable socket for reading.
+        # Tempesta can not send any data to the client until the client enable socket for reading
         self.__init_connection_and_disable_readable(client)
+
+        # wait until the client buffer is full
+        time.sleep(2)
 
         headers = [
             (":method", "GET"),
@@ -132,7 +149,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         ]
 
         # the client should send more frames for stability of test
-        for i in range(3, limit * 10, 2):  # max_queued_control_frames is 10.
+        for i in range(3, int(limit * 2.2), 2):
             hf = HeadersFrame(
                 stream_id=i,
                 data=client.h2_connection.encoder.encode(headers),
@@ -142,14 +159,14 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
             client.send_bytes(hf + prio, expect_response=False)
 
         self.assertTrue(
-            client.wait_for_connection_close(),
-            "TempestaFW did not block client after exceeding `max_queued_control_frames` limit.",
-        )
-        self.__send_invalid_request(client)
-        self.assertTrue(
             self.oops.find(
                 "Warning: Too many control frames in send queue, closing connection",
-                cond=lambda matches: len(matches) >= 0,
+                dmesg.amount_positive,
             ),
             "An unexpected number of dmesg warnings",
+        )
+        client.readable = lambda: True  # enable socket for reading
+        self.assertTrue(
+            client.wait_for_connection_close(),
+            "TempestaFW did not block client after exceeding `max_queued_control_frames` limit.",
         )
