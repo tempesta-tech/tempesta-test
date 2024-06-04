@@ -89,6 +89,10 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
     def request_buffers(self) -> List[bytes]:
         return self._request_buffers
 
+    @property
+    def ack_cnt(self):
+        return self._ack_cnt
+
     @abc.abstractmethod
     def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
@@ -281,6 +285,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         self.last_segment_time = 0
         self.responses: List[deproxy.Response] = list()
         self._last_response = None
+        self._ack_cnt = 0
 
 
 class DeproxyClient(BaseDeproxyClient):
@@ -641,6 +646,7 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.last_stream_id = event.last_stream_id
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
+                    self._ack_cnt += 1
                     if event == events[-1]:
                         # TODO should be changed by issue #358
                         self.handle_read()

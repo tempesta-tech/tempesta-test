@@ -5,14 +5,15 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
+from h2.settings import SettingCodes
 from h2.exceptions import StreamClosedError
 from h2.stream import StreamInputs
 from hpack import HeaderTuple
-from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame
+from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame, PriorityFrame
 
 from framework import deproxy_client, tester
 from framework.parameterize import param, parameterize
-from helpers import checks_for_tests as checks
+from helpers import checks_for_tests as checks, util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
@@ -499,12 +500,12 @@ class TestH2FrameEnabledDisabledTsoGroGsoBase(H2Base):
         client.update_initial_settings(header_table_size=512)
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
+        client.h2_connection.clear_outbound_data_buffer()
 
         return client, server
 
 
 DEFAULT_MTU = 1500
-
 
 class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
     def test_headers_frame_with_continuation(self):
@@ -524,6 +525,14 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         self.run_test_tso_gro_gso_enabled(
             client, server, self._test_headers_frame_without_continuation, DEFAULT_MTU
         )
+
+    def test_mixed_frames_long_headers_disabled(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_disabled(client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU)
+
+    def test_mixed_frames_long_headers_enabled(self):
+        client, server = self.setup_tests()
+        self.run_test_tso_gro_gso_enabled(client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU)
 
     def test_data_frame(self):
         client, server = self.setup_tests()
@@ -553,16 +562,20 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             expected_status_code="403",
         )
 
-    def _test_data_frame(self, client, server):
-        self._test_headers_data_frames(client, server, 50000, 100000)
+    def __prepare_hf_to_send(self, client):
+        # create stream and change state machine in H2Connection object
+        stream=client.init_stream_for_send(client.stream_id)
 
-    def _test_headers_frame_with_continuation(self, client, server):
-        self._test_headers_data_frames(client, server, 50000, 0)
+        hf = HeadersFrame(
+            stream_id=stream.stream_id,
+            data=client.h2_connection.encoder.encode(self.post_request),
+            flags=["END_STREAM", "END_HEADERS"],
+        )
+        client.stream_id += 2
 
-    def _test_headers_frame_without_continuation(self, client, server):
-        self._test_headers_data_frames(client, server, 1000, 0)
+        return hf.serialize()
 
-    def _test_headers_data_frames(self, client, server, header_len, body_len):
+    def __send_header_and_data_frames_with_mixed_frames(self, client, server, count, extra_settings_cnt, header_len, body_len, timeout=5):
         header = ("qwerty", "x" * header_len)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -573,16 +586,49 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             + ("x" * body_len)
         )
 
-        client.make_request(self.post_request)
-        client.wait_for_response(5)
+        data_to_send = b""
+        for _ in range(count):
+            data_to_send += self.__prepare_hf_to_send(client)
 
+        client.valid_req_num += count - 1
+        client.send_bytes(data_to_send, expect_response=True)
+        for _ in range(extra_settings_cnt):
+            client.send_bytes(SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 300}).serialize(), expect_response=False)
+
+        client.wait_for_response(timeout)
         self.assertFalse(client.connection_is_closed())
-        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
-        self.assertIsNotNone(client.last_response.headers.get(header[0]))
-        self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
-        self.assertEqual(
-            len(client.last_response.body), body_len, "Tempesta did not return full response body."
+
+        for i in range(count):
+            self.assertEqual(client.responses[i].status, "200", "Status code mismatch.")
+            self.assertIsNotNone(client.responses[i].headers.get(header[0]))
+            self.assertEqual(len(client.responses[i].headers.get(header[0])), len(header[1]))
+            self.assertEqual(
+                len(client.responses[i].body), body_len, "Tempesta did not return full response body."
+            )
+
+        # First ack was received when we establish connection
+        timeout_not_exceeded = util.wait_until(
+            lambda: client.ack_cnt - 1 != extra_settings_cnt,
+            timeout,
+            abort_cond=lambda: client.state != stateful.STATE_STARTED,
         )
+
+    def _test_mixed_frames_long_headers(self, client, server):
+        """
+        Other frames (from any stream) MUST NOT occur between
+        the HEADERS frame and any CONTINUATION frames that might
+        follow.
+        """
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 3, 50, 50000, 1000)
+
+    def _test_data_frame(self, client, server):
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 100000)
+
+    def _test_headers_frame_with_continuation(self, client, server):
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 0)
+
+    def _test_headers_frame_without_continuation(self, client, server):
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 1000, 0)
 
 
 class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
