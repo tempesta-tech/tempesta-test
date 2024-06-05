@@ -620,13 +620,13 @@ class DeproxyClientH2(BaseDeproxyClient):
                         self.h2_connection.increment_flow_control_window(
                             increment=event.flow_controlled_length, stream_id=None
                         )
-                    if (
-                        self.h2_connection._get_stream_by_id(event.stream_id).state_machine.state
-                        != h2.stream.StreamState.CLOSED
-                    ):
-                        self.h2_connection.increment_flow_control_window(
-                            increment=event.flow_controlled_length, stream_id=event.stream_id
-                        )
+                        if (
+                            self.h2_connection._get_stream_by_id(event.stream_id).state_machine.state
+                            != h2.stream.StreamState.CLOSED
+                        ):
+                            self.h2_connection.increment_flow_control_window(
+                                increment=event.flow_controlled_length, stream_id=event.stream_id
+                            )
                     self.send_bytes(self.h2_connection.data_to_send())
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
