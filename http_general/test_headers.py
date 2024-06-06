@@ -276,6 +276,17 @@ class TestHost(TestHostBase):
         )
 
     def test_different_host_in_uri_and_headers(self):
+        """
+        RFC 9112 Section 3.2.2:
+
+        When a proxy receives a request with an absolute-form of
+        request-target, the proxy MUST ignore the received Host header field
+        (if any) and instead replace it with the host information of the
+        request-target. A proxy that forwards such a request MUST generate a
+        new Host field value based on the received request-target rather than
+        forward the received Host field value
+        """
+
         self.start_all_services()
         client = self.get_client("deproxy")
 

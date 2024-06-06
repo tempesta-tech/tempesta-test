@@ -129,6 +129,9 @@ class DeproxyAutoParser:
 
         if not isinstance(client, DeproxyClientH2):
             request.headers.delete_all("trailer")
+
+        self.__prepare_host_for_http1(request, isinstance(client, DeproxyClient))
+
         self.__prepare_hop_by_hop_headers(request)
 
         self.__prepare_method_for_expected_request(request)
@@ -189,6 +192,23 @@ class DeproxyAutoParser:
 
         self.__prepare_body_for_HEAD_request(expected_response)
         return expected_response
+
+    def __prepare_host_for_http1(self, request: Request, is_http1: bool) -> None:
+        """
+        TempestaFW removes the host from the absolute uri
+        and changes the host header for HTTP/1.1.
+        """
+        if is_http1 and request.uri.startswith("http"):
+            dbg(
+                4,
+                self.__dbg_msg.format(
+                    "HTTP/1.1 client has an absolute uri. TempestaFW removes the host from the "
+                    "uri and changes the `Host` header."
+                ),
+            )
+            host, _, url = request.uri.split("://")[1].partition("/")
+            request.uri = f"/{url}" if url else "/"
+            request.headers["host"] = host.rpartition("@")[-1]
 
     def __prepare_method_for_expected_request(self, request: Request) -> None:
         """
