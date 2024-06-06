@@ -6,7 +6,7 @@ from helpers import deproxy, dmesg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -604,6 +604,34 @@ class TestHostWithCache(TestHostBase):
             self.assertIn("age", client.last_response.headers)
 
 
+"""
+Methods known to Tempesta except PURGE it's covered by another tests.
+See tempesta enum tfw_http_meth_t in fw/http.h
+"""
+KNOWN_METHODS = [
+    "COPY",
+    "DELETE",
+    "GET",
+    "HEAD",
+    "LOCK",
+    "MKCOL",
+    "MOVE",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PROPFIND",
+    "PROPPATCH",
+    "PUT",
+    "TRACE",
+    "UNLOCK",
+]
+
+UNKNOWN_METHODS = [
+    "ACL",
+    "UPDATEREDIRECTREF",
+]
+
+
 class TestMethods(tester.TempestaTest):
     backends = [
         {
@@ -638,35 +666,16 @@ class TestMethods(tester.TempestaTest):
         },
     ]
 
-    """
-    Methods known to Tempesta except PURGE it's covered by another tests.
-    See tempesta enum tfw_http_meth_t in fw/http.h
-    """
-    known_methods = [
-        "COPY",
-        "DELETE",
-        "GET",
-        "HEAD",
-        "LOCK",
-        "MKCOL",
-        "MOVE",
-        "OPTIONS",
-        "PATCH",
-        "POST",
-        "PROPFIND",
-        "PROPPATCH",
-        "PUT",
-        "TRACE",
-        "UNLOCK",
-    ]
-
-    unknown_methods = [
-        "ACL",
-        "UPDATEREDIRECTREF",
-    ]
-
-    def process(self, methods, leading_crlf=False):
-        crlf = "\r\n" if leading_crlf else ""
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="known_methods", methods=KNOWN_METHODS, crlf=""),
+            marks.Param(name="known_methods_leading_crlf", methods=KNOWN_METHODS, crlf="\r\n"),
+            marks.Param(name="unknown_methods", methods=UNKNOWN_METHODS, crlf=""),
+            marks.Param(name="unknown_methods_leading_crlf", methods=UNKNOWN_METHODS, crlf="\r\n"),
+        ]
+    )
+    def test(self, name, methods, crlf):
+        self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -686,35 +695,3 @@ class TestMethods(tester.TempestaTest):
                 method,
                 f"Wrong method received on server",
             )
-
-    def test_known_methods(self):
-        """
-        Test correctness of processing all http methods known to Tempesta FW.
-        """
-        self.start_all_services()
-        self.process(self.known_methods)
-
-    def test_known_methods_leading_crlf(self):
-        """
-        Test correctness of processing all http methods known to Tempesta FW.
-        CRLF will be prepended to http request, this leading CRLF must be skipped
-        during parsing, method must not contain leading CRLF.
-        """
-        self.start_all_services()
-        self.process(self.known_methods, True)
-
-    def test_unknown_methods(self):
-        """
-        Test correctness of processing http methods unknown to Tempesta FW.
-        """
-        self.start_all_services()
-        self.process(self.unknown_methods)
-
-    def test_unknown_methods_leading_crlf(self):
-        """
-        Test correctness of processing http methods unknown to Tempesta FW.
-        CRLF will be prepended to http request, this leading CRLF must be skipped
-        during parsing, method must not contain leading CRLF.
-        """
-        self.start_all_services()
-        self.process(self.unknown_methods, True)
