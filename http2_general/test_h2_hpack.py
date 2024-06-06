@@ -572,15 +572,10 @@ class TestHpack(TestHpackBase):
 
         self.start_all_services()
 
-        request = [
-            (":authority", "example.com"),
-            (":path", "/"),
-            (":scheme", "https"),
-            (":method", method),
-        ]
+        request = client.create_request(method=method, headers=[])
 
         # send request two times, header :method must be processed from dynamyc table
-        client.send_request(request, "200")
+        client.send_request(client.create_request(method=method, headers=[]), "200")
         self.assertEqual(server.last_request.method, method)
 
         client.send_request(request, "200")
