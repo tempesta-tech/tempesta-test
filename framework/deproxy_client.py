@@ -2,7 +2,6 @@ import abc
 import dataclasses
 import time
 from collections import defaultdict
-from io import StringIO
 from typing import (  # TODO: use | instead when we move to python3.10
     Dict,
     List,
@@ -12,7 +11,6 @@ from typing import (  # TODO: use | instead when we move to python3.10
 
 import h2.connection
 from h2.connection import AllowedStreamIDs, ConnectionState
-from h2.connection import ConnectionState
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
@@ -579,6 +577,28 @@ class DeproxyClientH2(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    @property
+    def auto_flow_control(self) -> bool:
+        return self._auto_flow_control
+
+    @auto_flow_control.setter
+    def auto_flow_control(self, auto_flow_control: bool) -> None:
+        self._auto_flow_control = auto_flow_control
+
+    def increment_flow_control_window(self, stream_id, flow_controlled_length):
+        if self.h2_connection.state_machine.state != ConnectionState.CLOSED:
+            self.h2_connection.increment_flow_control_window(
+                increment=flow_controlled_length, stream_id=None
+            )
+            if (
+                self.h2_connection._get_stream_by_id(stream_id).state_machine.state
+                != h2.stream.StreamState.CLOSED
+            ):
+                self.h2_connection.increment_flow_control_window(
+                    increment=flow_controlled_length, stream_id=stream_id
+                )
+        self.send_bytes(self.h2_connection.data_to_send())
+
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
@@ -616,18 +636,10 @@ class DeproxyClientH2(BaseDeproxyClient):
                     body = event.data.decode()
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
-                    if not (self.h2_connection.state_machine.state == ConnectionState.CLOSED):
-                        self.h2_connection.increment_flow_control_window(
-                            increment=event.flow_controlled_length, stream_id=None
+                    if self.auto_flow_control:
+                        self.increment_flow_control_window(
+                            event.stream_id, event.flow_controlled_length
                         )
-                        if (
-                            self.h2_connection._get_stream_by_id(event.stream_id).state_machine.state
-                            != h2.stream.StreamState.CLOSED
-                        ):
-                            self.h2_connection.increment_flow_control_window(
-                                increment=event.flow_controlled_length, stream_id=event.stream_id
-                            )
-                    self.send_bytes(self.h2_connection.data_to_send())
                 elif isinstance(event, TrailersReceived):
                     trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
@@ -844,6 +856,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self.clear_last_response_buffer: bool = False
         self.response_sequence = []
         self._req_body_buffers: List[ReqBodyBuffer] = list()
+        self._auto_flow_control = True
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
         if len(header) == 0:
