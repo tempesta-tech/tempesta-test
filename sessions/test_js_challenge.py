@@ -712,3 +712,111 @@ class JSChallengeCookieExpiresAndMethodOverride(BaseJSChallenge):
             self.klog.find("http_sess: sticky cookie value expired", cond=dmesg.amount_equals(1)),
             1,
         )
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class JSChallengeWithCustomRules(BaseJSChallenge):
+    backends = [
+        {
+            "id": "server-1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: deproxy\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        },
+    ]
+
+    tempesta = {
+        "config": f"""
+
+        listen 80;
+        listen 443 proto=h2;
+
+        srv_group default {{
+            server ${{server_ip}}:8000;
+        }}
+
+        tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+        tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+        tls_match_any_server_name;
+
+        block_action attack reply;
+        block_action error reply;
+
+        cache 2;
+        cache_fulfill * *;
+
+        sticky {{
+            cookie enforce name=cname max_misses={MAX_MISSES};
+            js_challenge resp_code=503 delay_min={DELAY_MIN} delay_range={DELAY_RANGE}
+                        ${{tempesta_workdir}}/js1.html;
+            sess_lifetime 3;
+        }}
+
+        vhost default {{
+            tls_match_any_server_name;
+            proxy_pass default;
+        }}
+
+        http_chain {{
+            uri == "*1.html" -> jsch;
+            -> default;
+        }}
+
+        """
+    }
+
+    def setUp(self):
+        super().setUp()
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(self.cleanup_klog)
+
+    def cleanup_klog(self):
+        if hasattr(self, "klog"):
+            del self.klog
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_custom_rules(self):
+        self.start_all_services()
+
+        client = self.get_client("client-1")
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/index.html",
+                headers=[("accept", "text/html")],
+            ),
+            "200",
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/index1.html",
+                headers=[("accept", "text/html")]),
+            "503",
+        )
+
+        cookie = self.check_resp_body_and_cookie(client.last_response)
+        self._java_script_sleep(cookie[1])
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/index1.html",
+                headers=[("accept", "text/html"), ("cookie", f"{cookie[0]}={cookie[1]}")]
+            ),
+            "200",
+        )
