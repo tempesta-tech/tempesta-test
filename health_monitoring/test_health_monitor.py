@@ -9,7 +9,7 @@ import time
 from access_log.test_access_log_h2 import backends
 from framework import templates, tester
 from framework.parameterize import param, parameterize, parameterize_class
-from helpers import tempesta, tf_cfg
+from helpers import dmesg, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -404,3 +404,176 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         s = self.get_server("deproxy")
         s.drop_conn_when_receiving_data = True
         time.sleep(1)
+
+
+class TestHmCrcAutoImplicit(tester.TempestaTest):
+    """
+    Health monitor configuration called "auto" uses "auto" CRC mode.
+    In this mode CRC for comparation calculated on the fly from
+    the first server response.
+    Default HM configuration is "auto".
+    """
+
+    tempesta_implicit_auto = {
+        "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health auto;
+            }
+    """
+    }
+
+    bk_dp = {
+        "id": "deproxy",
+        "type": "deproxy",
+        "port": "8080",
+        "response": "static",
+        "response_content": "HTTP/1.0 200 OK\r\nContent-Length:5\r\n\r\nHello",
+    }
+
+    tempesta = tempesta_implicit_auto
+    backends = [bk_dp]
+
+    def test(self):
+        klog = dmesg.DmesgFinder(disable_ratelimit=False)
+        """
+        Test doesn't use client.
+        The scope of interest is a Tempesta<->Server interchange.
+        """
+        self.start_all_services(client=False)
+        """
+        Default request time out is 10 seconds, so will expect
+        to receive one auto and two regular responses.
+        """
+        delay = 35
+        print(f"\nWait...{delay} sec\n")
+        time.sleep(delay)
+        print("Done\n")
+
+        warning = "Warning: Auto CRC generated"
+        self.assertTrue(klog.find(warning))
+
+
+class TestHmCrcAutoExplicit(tester.TempestaTest):
+    """
+    "Auto" CRC mode in Health Monitor configuration means that CRC calculated
+    on the fly from the first server response.
+    This configuration also can be created explicitly.
+    """
+
+    tempesta_explicit_auto = {
+        "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            health_check auto {
+                request		"GET / HTTP/1.0\r\n\r\n";
+                request_url	"/";
+                resp_code	200;
+                resp_crc32    auto;
+                timeout		3;
+            }
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health auto;
+            }
+    """
+    }
+
+    bk_dp = {
+        "id": "deproxy",
+        "type": "deproxy",
+        "port": "8080",
+        "response": "static",
+        "response_content": "HTTP/1.0 200 OK\r\nContent-Length:5\r\n\r\nHello",
+    }
+
+    tempesta = tempesta_explicit_auto
+    backends = [bk_dp]
+
+    def test(self):
+        klog = dmesg.DmesgFinder(disable_ratelimit=False)
+        """
+        Test doesn't use client.
+        The scope of interest is a Tempesta<->Server interchange.
+        """
+        self.start_all_services(client=False)
+        """
+        Delay for 3 responses.
+        """
+        delay = 10
+        print(f"\nWait...{delay} sec\n")
+        time.sleep(delay)
+        print("Done\n")
+
+        warning = "Warning: Auto CRC generated"
+        self.assertTrue(klog.find(warning))
+
+
+class TestHmCrcRegular(tester.TempestaTest):
+    """
+    "Auto" CRC mode in Health Monitor configuration means that CRC calculated
+    on the fly from the first server response.
+    This test for non-auto HM configuration.
+    """
+
+    tempesta_regular = {
+        "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            health_check hm0 {
+                request		"GET / HTTP/1.0\r\n\r\n";
+                request_url	"/";
+                resp_code	200;
+                resp_crc32  0x31f37e9f;
+                timeout		3;
+            }
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health hm0;
+            }
+    """
+    }
+
+    bk_dp = {
+        "id": "deproxy",
+        "type": "deproxy",
+        "port": "8080",
+        "response": "static",
+        "response_content": "HTTP/1.0 200 OK\r\nContent-Length:5\r\n\r\nHello",
+    }
+
+    tempesta = tempesta_regular
+    backends = [bk_dp]
+
+    def test(self):
+
+        klog = dmesg.DmesgFinder(disable_ratelimit=False)
+
+        """
+        Test doesn't use client.
+        The scope of interest is a Tempesta<->Server interchange.
+        """
+        self.start_all_services(client=False)
+        """
+        Delay for three responses.
+        """
+        delay = 10
+        print(f"\nWait...{delay} sec\n")
+        time.sleep(delay)
+        print("Done\n")
+
+        warning = "Auto CRC generated"
+        self.assertFalse(klog.find(warning))
