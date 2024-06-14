@@ -711,11 +711,11 @@ class TestTrailers(H2Base):
 
         return client
 
-    def __send_headers_and_data_frames(self, client):
+    def __send_headers_and_data_frames(self, client, headers=None):
         # create and send HEADERS frame without END_STREAM and with END_HEADERS
         hf = frame.HeadersFrame(
             stream_id=client.stream_id,
-            data=client.h2_connection.encoder.encode(self.request),
+            data=client.h2_connection.encoder.encode(headers or self.request),
             flags=["END_HEADERS"],
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
@@ -732,13 +732,57 @@ class TestTrailers(H2Base):
         # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
         tf = frame.HeadersFrame(
             stream_id=client.stream_id,
-            data=client.h2_connection.encoder.encode([("host", "localhost")]),
+            data=client.h2_connection.encoder.encode([("x-my-hdr", "value")]),
             flags=["END_STREAM", "END_HEADERS"],
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
+
+    def test_trailers_invalid_header_in_request(self):
+        """
+        A sender MUST NOT generate a trailer that contains a field necessary
+        for message framing (e.g., Transfer-Encoding and Content-Length),
+        routing (e.g., Host), request modifiers (e.g., controls and
+        conditionals in Section 5 of [RFC7231]), authentication (e.g., see
+        [RFC7235] and [RFC6265]), response control data (e.g., see Section
+        7.1 of [RFC7231]), or determining how to process the payload (e.g.,
+        Content-Encoding, Content-Type, Content-Range, and Trailer).
+        """
+        self.start_all_services(client=False)
+        client = self.get_client("deproxy")
+        for header in [
+            ("accept", "*/*"),
+            ("authorization", "Basic QWEasdzxc"),
+            ("cache-control", "no-cache"),
+            ("content-encoding", "gzip"),
+            ("content-length", "3"),
+            ("content-type", "text/html"),
+            ("cookie", "session_id=123"),
+            ("if-none-match", '"qweasd"'),
+            ("host", "localhost"),
+            ("if-modified-since", "Mon, 12 Dec 2016 13:59:39 GMT"),
+            ("referer", "/other-page/"),
+            ("user-agent", "Mozilla/5.0 (Windows NT 6.1;) Gecko/20100101 Firefox/47.0"),
+        ]:
+            with self.subTest(msg=f"The request with trailer - `{header[0]}: {header[1]}`"):
+                client.restart()
+                self.initiate_h2_connection(client)
+                client.init_stream_for_send(1)
+                self.__send_headers_and_data_frames(client)
+
+                # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
+                tf = frame.HeadersFrame(
+                    stream_id=client.stream_id,
+                    data=client.h2_connection.encoder.encode([(header[0], header[1])]),
+                    flags=["END_STREAM", "END_HEADERS"],
+                )
+                client.send_bytes(data=tf.serialize(), expect_response=True)
+
+                self.assertTrue(client.wait_for_response())
+                self.assertEqual("403", client.last_response.status)
+                self.assertTrue(client.connection_is_closed())
 
     def test_trailers_with_continuation_frame_in_request(self):
         """
@@ -811,18 +855,20 @@ class TestTrailers(H2Base):
         RFC 9113 8.1
         """
         client = self.__create_connection_and_get_client()
-        self.__send_headers_and_data_frames(client)
+        self.__send_headers_and_data_frames(
+            client, [(":path", "/"), (":authority", "localhost"), (":method", "POST")]
+        )
 
         # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
         tf = frame.HeadersFrame(
             stream_id=client.stream_id,
-            data=client.h2_connection.encoder.encode([(":authority", "localhost")]),
+            data=client.h2_connection.encoder.encode([(":scheme", "https")]),
             flags=["END_STREAM", "END_HEADERS"],
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
         self.assertTrue(client.wait_for_response())
-        self.assertEqual("400", client.last_response.status, "HTTP response code missmatch.")
+        self.assertEqual("403", client.last_response.status, "HTTP response code missmatch.")
 
     def test_trailers_without_end_stream_in_request(self):
         """

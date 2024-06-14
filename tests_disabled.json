@@ -226,10 +226,6 @@
             "reason": "Disabled by issue #1882"
         },
         {
-            "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_with_pseudo_headers_in_request",
-            "reason": "Disabled by issue #1881"
-        },
-        {
             "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_scheme_header",
             "reason": "Disabled by issue #1883"
         },
@@ -324,10 +320,6 @@
         {
             "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
-        },
-        {
-            "name": "t_frang.test_http_trailer_split_allowed.TestFrangHttpTrailerSplitAllowedH2",
-            "reason": "Disabled by issue #1881, #2106"
         }
     ]
 }
