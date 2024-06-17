@@ -13,12 +13,13 @@ import framework.deproxy_client as deproxy_client
 import framework.deproxy_manager as deproxy_manager
 import framework.external_client as external_client
 import framework.wrk_client as wrk_client
+import run_config
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.templates import fill_template, populate_properties
-from helpers import control, dmesg, remote, sysnet, tf_cfg
+from helpers import control, dmesg, remote, sysnet, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
@@ -114,19 +115,10 @@ class TempestaTest(unittest.TestCase):
         "backends": [],
     }
 
-    def __init_subclass__(cls, base=False, **kwargs):
+    def __init_subclass__(cls, base=False, check_memleak=True, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._base = base
-
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
-        self.__servers = {}
-        self.__clients = {}
-        self.__tcpdump: subprocess.Popen = None
-        self.__ips = []
-        self.__tempesta = None
-        self.deproxy_manager = deproxy_manager.DeproxyManager()
-        self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
+        cls.__check_memleak = check_memleak
 
     def disable_deproxy_auto_parser(self) -> None:
         """
@@ -261,9 +253,7 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
 
-    def get_client(
-        self, cid
-    ) -> typing.Union[
+    def get_client(self, cid) -> typing.Union[
         deproxy_client.DeproxyClientH2,
         deproxy_client.DeproxyClient,
         curl_client.CurlClient,
@@ -343,6 +333,14 @@ class TempestaTest(unittest.TestCase):
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavailable")
+        self.__servers = {}
+        self.__clients = {}
+        self.__tcpdump: subprocess.Popen = None
+        self.__ips = []
+        self.__tempesta = None
+        self.deproxy_manager = deproxy_manager.DeproxyManager()
+        self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
+        self.__save_memory_consumption()
         self.oops = dmesg.DmesgFinder()
         self.oops_ignore = []
         self.__create_servers()
@@ -350,8 +348,9 @@ class TempestaTest(unittest.TestCase):
         self.__create_clients()
         self.__run_tcpdump()
         # Cleanup part
+        self.addCleanup(self.cleanup_check_memory_leaks)
         self.addCleanup(self.cleanup_deproxy_auto_parser)
-        self.addCleanup(self.check_exceptions_in_deproxy_auto_parser)
+        self.addCleanup(self.cleanup_check_exceptions_in_deproxy_auto_parser)
         self.addCleanup(self.cleanup_check_dmesg)
         self.addCleanup(self.cleanup_stop_tcpdump)
         self.addCleanup(self.cleanup_interfaces)
@@ -363,6 +362,10 @@ class TempestaTest(unittest.TestCase):
         for service in self.get_all_services():
             service.stop()
 
+        self.__servers = {}
+        self.__clients = {}
+        self.__tempesta = None
+
     def cleanup_deproxy(self):
         tf_cfg.dbg(3, "\tCleanup: deproxy")
         try:
@@ -372,6 +375,7 @@ class TempestaTest(unittest.TestCase):
                 self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
             )
         self.deproxy_manager.check_exceptions()
+        self.deproxy_manager = None
 
     def cleanup_interfaces(self):
         tf_cfg.dbg(3, "\tCleanup: Removing interfaces")
@@ -407,12 +411,29 @@ class TempestaTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
+        self.oops = None
 
     def cleanup_deproxy_auto_parser(self):
+        tf_cfg.dbg(3, "\tCleanup: Cleanup the deproxy auto parser.")
         self._deproxy_auto_parser.cleanup()
+        self._deproxy_auto_parser = None
 
-    def check_exceptions_in_deproxy_auto_parser(self):
+    def cleanup_check_exceptions_in_deproxy_auto_parser(self):
+        tf_cfg.dbg(3, "\tCleanup: Check exceptions in the deproxy auto parser.")
         self._deproxy_auto_parser.check_exceptions()
+
+    def cleanup_check_memory_leaks(self):
+        if run_config.CHECK_MEMORY_LEAKS and self.__check_memleak:
+            tf_cfg.dbg(3, "\tCleanup: Check memory leaks.")
+            used_memory = util.get_used_memory()
+            delta_used_memory = used_memory - self.__used_memory
+            msg = (
+                f"Used memory before test: {self.__used_memory};\n"
+                f"Used memory after test: {used_memory};\n"
+                f"Delta for memory consumption: {delta_used_memory}."
+            )
+            tf_cfg.dbg(4, f"\tCleanup: memory consumption:\n{msg}")
+            self.assertLessEqual(delta_used_memory, run_config.MEMORY_LEAK_THRESHOLD, msg)
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:
@@ -507,3 +528,8 @@ class TempestaTest(unittest.TestCase):
         else:
             last_test_id = test_id
             return test_id
+
+    def __save_memory_consumption(self) -> None:
+        if run_config.CHECK_MEMORY_LEAKS and self.__check_memleak:
+            self.__used_memory = util.get_used_memory()
+            tf_cfg.dbg(4, f"\tCleanup: used memory {self.__used_memory} KB.")

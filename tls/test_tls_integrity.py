@@ -1,6 +1,7 @@
 """
 Tests for data integrity transferred via Tempesta TLS.
 """
+
 import hashlib
 from contextlib import contextmanager
 
@@ -309,12 +310,11 @@ class ManyClients(Cache):
 
         self.get_server("deproxy").set_response(self.make_resp(resp_body))
 
-        clients = [self.get_client(client["id"]) for client in self.clients]
+        clients = self.get_clients()
 
+        reqeust = clients[0].create_request(method="POST", headers=[], body=req_len * "x")
         for client in clients:
-            client.responses = []
-            client.valid_req_num = 0
-            client.make_request(self.make_req(req_len))
+            client.make_request(reqeust)
 
         for client in clients:
             self.assertTrue(
@@ -323,9 +323,8 @@ class ManyClients(Cache):
             )
 
         for client in clients:
-            for response in client.responses:
-                hash2 = hashlib.md5(response.body.encode()).digest()
-                self.assertTrue(hash1 == hash2, "Bad response checksum")
+            hash2 = hashlib.md5(client.last_response.body.encode()).digest()
+            self.assertEqual(hash1, hash2, "Bad response checksum")
 
 
 class ManyClientsH2(H2Base, ManyClients):

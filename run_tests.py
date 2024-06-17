@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
+import gc
 import getopt
 import inspect
 import os
@@ -8,14 +9,16 @@ import re
 import resource
 import subprocess
 import sys
+import time
 import unittest
 from importlib.machinery import SourceFileLoader
 
 import inquirer
+import psutil
 
 import run_config
 from framework import tester
-from helpers import control, prepare, remote, shell, tf_cfg
+from helpers import prepare, remote, shell, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -52,6 +55,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -R, --repeat <N>                  - Repeat every test for N times
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
+-m, --check-memory-leaks          - Check memory leaks for each test                                    
 -n, --no-resume                   - Do not resume from state file
 -l, --log <file>                  - Duplcate tests' stderr to this file
 -L, --list                        - List all discovered tests subject to filters
@@ -155,7 +159,7 @@ t_retry = False
 try:
     options, testname_args = getopt.getopt(
         sys.argv[1:],
-        "hv:HFdt:T:fr:ER:a:nl:LCDZpPIi:sS",
+        "hv:HFdt:T:fr:ER:a:nl:LCDZpPIi:sSm",
         [
             "help",
             "verbose=",
@@ -250,6 +254,8 @@ for opt, arg in options:
             raise ValueError("tcp-segmentation argument must be greater than 0.")
     elif opt in ("-P", "--disable-auto-parser"):
         run_config.AUTO_PARSER = False
+    elif opt in ("-m", "--check-memory-leaks"):
+        run_config.CHECK_MEMORY_LEAKS = True
 
 tf_cfg.cfg.check()
 
@@ -462,6 +468,9 @@ if test_resume:
         addn_status = " (resuming from %s)" % test_resume.state.last_id
 if n_count != 1:
     addn_status = f" for {n_count} times each"
+used_memory_before = util.get_used_memory()
+python_memory_before = psutil.Process().memory_info().rss // 1024
+
 print(
     """
 ----------------------------------------------------------------------
@@ -522,6 +531,25 @@ Run failed tests again ...
 # check if we finished running the tests
 if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
     state_reader.drop()
+
+# check a memory consumption after all tests
+gc.collect()
+time.sleep(1)
+python_memory_after = psutil.Process().memory_info().rss // 1024
+delta_python = python_memory_after - python_memory_before
+
+used_memory_after = util.get_used_memory()
+memleak_msg = (
+    "Check memory leaks for test suite:\n"
+    f"Before: used memory: {used_memory_before};\n"
+    f"Before: python memory: {python_memory_before};\n"
+    f"After: used memory: {used_memory_after};\n"
+    f"After: python memory: {python_memory_after}"
+)
+tf_cfg.dbg(2, memleak_msg)
+assert (
+    used_memory_after - delta_python - used_memory_before <= run_config.MEMORY_LEAK_THRESHOLD
+), memleak_msg
 
 if len(result.errors) > 0:
     sys.exit(-1)

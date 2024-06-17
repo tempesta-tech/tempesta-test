@@ -1,12 +1,13 @@
 """
 Utils for the testing framework.
 """
+
 import functools
 import time
 from cProfile import Profile
 from pstats import Stats
 
-from . import tf_cfg
+from . import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -104,3 +105,9 @@ def getsockname_safe(s):
     except Exception as e:
         tf_cfg.dbg(6, f"Failed to get socket name: {e}")
         return None
+
+
+def get_used_memory():
+    stdout, _ = remote.tempesta.run_cmd("free")
+    used_memory = int(stdout.decode().split("\n")[1].split()[2])
+    return used_memory
