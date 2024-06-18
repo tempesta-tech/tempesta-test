@@ -80,6 +80,7 @@ class BindToServer(tester.TempestaTest):
     tls_certificate_key ${tempesta_workdir}/tempesta.key;
     tls_match_any_server_name;
     max_concurrent_streams 10000;
+    frang_limits {http_strict_host_checking false;}
 
     sched hash;
     cache 0;

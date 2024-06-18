@@ -242,7 +242,14 @@ class Config(object):
             for sg in self.server_groups:
                 if len(sg.servers) > 0:
                     vhosts.append(
-                        "\n".join(["vhost %s {" % sg.name] + ["proxy_pass %s;" % sg.name] + ["}"])
+                        "\n".join(
+                            [
+                                "vhost %s {\nfrang_limits {http_strict_host_checking false;}\n"
+                                % sg.name
+                            ]
+                            + ["proxy_pass %s;" % sg.name]
+                            + ["}"]
+                        )
                     )
 
         return vhosts

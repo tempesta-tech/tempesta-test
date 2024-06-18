@@ -27,13 +27,17 @@ class TestContentLengthBase(TempestaTest, base=True):
     tempesta = {
         "config": """
             listen 80;
-
-            srv_group default {
-                server ${server_ip}:8000;
-            }
-
-            vhost default {
-                proxy_pass default;
+            listen 443 proto=h2;
+            
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            
+            server ${server_ip}:8000;
+            
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
             }
 
             cache 0;
@@ -128,21 +132,6 @@ class TestContentLengthBase(TempestaTest, base=True):
 
 
 class H2Config:
-    tempesta = {
-        "config": """
-            listen 443 proto=h2;
-
-            server ${server_ip}:8000;
-            
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-            
-            cache 0;
-            block_action error reply;
-            block_action attack reply;
-            """
-    }
 
     clients = [
         {

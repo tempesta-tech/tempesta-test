@@ -1,9 +1,5 @@
-import os
-import unittest
-
 from framework import tester
-from helpers import control, tempesta, tf_cfg
-from testers import stress
+from helpers import dmesg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
@@ -266,11 +262,15 @@ http {
     tempesta = {
         "config": """
 cache 0;
-server ${server_ip}:8600;
-
+server ${server_ip}:8000;
+frang_limits {
+    http_strict_host_checking false;
+    http_methods get post head put patch delete options trace unknown;
+}
 """,
     }
 
+    @dmesg.limited_rate_on_tempesta_node
     def routine(self, lua):
         nginx = self.get_server("nginx")
         wrk = self.get_client("wrk")
@@ -285,7 +285,10 @@ server ${server_ip}:8600;
         wrk.start()
         self.wait_while_busy(wrk)
         wrk.stop()
-        return wrk
+
+        self.assertIn(200, wrk.statuses)
+        self.assertNotIn(403, wrk.statuses)
+        self.assertGreater(wrk.statuses[200], 0)
 
     def test_pipeline(self):
         self.routine(pipeline_lua)
@@ -349,7 +352,6 @@ server ${server_ip}:8600;
         wrk.start()
         self.wait_while_busy(wrk)
         wrk.stop()
-
         self.assertFalse(200 in wrk.statuses)
         self.assertTrue(405 in wrk.statuses)
         self.assertGreater(wrk.statuses[405], 0)

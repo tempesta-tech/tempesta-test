@@ -1,4 +1,5 @@
 """Test module for http2 responses."""
+
 import http
 
 from framework import tester
@@ -26,6 +27,7 @@ class H2ResponsesTestCase(tester.TempestaTest):
                 server ${server_ip}:8000;
             }
 
+            frang_limits {http_strict_host_checking false;}
             vhost v_good {
                 proxy_pass default;
             }

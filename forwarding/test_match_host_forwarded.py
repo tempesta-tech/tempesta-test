@@ -2,6 +2,7 @@
 Tests for verifying correctness of matching
 all host headers (URI, Host, Forwarded).
 """
+
 from framework import tester
 from helpers import chains
 
@@ -48,6 +49,7 @@ class TestMatchHost(tester.TempestaTest):
         srv_group grp3 {
         server ${server_ip}:8002;
         }
+        frang_limits {http_strict_host_checking false;}
         vhost shop {
         proxy_pass grp1;
         }
@@ -132,11 +134,11 @@ class TestMatchHost(tester.TempestaTest):
         {
             "uri": "/foo",
             "headers": [
-                ("Host", "[fd80::1cb2:ad12:ca16:98ef]:8080"), # <--must be matched by "host eq"
+                ("Host", "[fd80::1cb2:ad12:ca16:98ef]:8080"),  # <--must be matched by "host eq"
                 (
                     "Forwarded",
                     'host="forwarded.host.ignored"',
-                ),  
+                ),
             ],
             "block": False,
             "sid": 2,

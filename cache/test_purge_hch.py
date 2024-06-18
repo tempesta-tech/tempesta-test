@@ -34,7 +34,10 @@ cache_fulfill * *;
 cache_methods GET HEAD;
 cache_purge;
 cache_purge_acl ${client_ip};
-
+frang_limits {
+    http_strict_host_checking false;
+    http_methods GET PURGE;
+    }
 """,
     }
 

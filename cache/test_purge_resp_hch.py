@@ -32,6 +32,10 @@ THE PAGE
 
     tempesta = {
         "config": """
+frang_limits {
+    http_strict_host_checking false;
+    http_methods GET PURGE PUT POST;
+    }
 cache 2;
 server ${server_ip}:8000;
 cache_fulfill * *;

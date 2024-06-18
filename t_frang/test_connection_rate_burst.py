@@ -6,6 +6,7 @@ are ranged):
 "Minor bursts also can actually exceed the specified limit,
 but not more than 2 times."
 """
+
 import time
 
 from helpers import util
@@ -143,7 +144,7 @@ class FrangTls(FrangTestCase):
         self._base_rate_scenario(connections=2, disable_hshc=True)
 
     def test_connection_rate_on_the_limit(self):
-        self._base_rate_scenario(connections=4)
+        self._base_rate_scenario(connections=4, disable_hshc=True)
 
 
 class FrangTcp(FrangTls):

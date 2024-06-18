@@ -12,7 +12,7 @@ from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
-SRV_GRP_START = "server 127.0.0.3:8001;"
+SRV_GRP_START = f"server {cfg.get('Server', 'ip')}:8001;"
 SRV_GRP_AFTER_RELOAD = "#"
 
 NGINX_CONFIG = """
@@ -79,7 +79,7 @@ srv_group default {
     server ${server_ip}:8000;
     server ${server_ip}:8001;
 }
-
+frang_limits {http_strict_host_checking false;}
 vhost app {
     proxy_pass default;
 }

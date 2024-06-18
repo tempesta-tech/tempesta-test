@@ -1,9 +1,10 @@
 """
 TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
+
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import remote
+from helpers import dmesg, remote
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 
 __author__ = "Tempesta Technologies, Inc."
@@ -73,11 +74,13 @@ class StressTls(tester.TempestaTest):
 
             # wrk sends IP address in SNI, so we test the option here.
             tls_match_any_server_name;
+            frang_limits {http_strict_host_checking false;}
 
             server ${server_ip}:8000;
         """
     }
 
+    @dmesg.limited_rate_on_tempesta_node
     def test(self):
         self.start_all_servers()
         self.start_tempesta()

@@ -11,6 +11,7 @@ import sys
 
 from framework import tester
 from framework.parameterize import param, parameterize
+from helpers import dmesg
 from helpers.tf_cfg import cfg
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 
@@ -61,6 +62,7 @@ TFW_CONFIF_WITH_DEFAULT_SCHED = f"""
     tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
     max_concurrent_streams 10000;
+    frang_limits {{http_strict_host_checking false;}}
 
     cache 0;
     server {SERVER_IP}:8000;
@@ -75,6 +77,7 @@ TFW_CONFIF_WITH_HASH_SCHED = f"""
     tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
     max_concurrent_streams 10000;
+    frang_limits {{http_strict_host_checking false;}}
 
     cache 0;
     server {SERVER_IP}:8000;
@@ -191,6 +194,7 @@ class TestStressFailoveringWithUnlimKAReq(FailoveringStressTestBase):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            frang_limits {http_strict_host_checking false;}
 
             cache 0;
             server ${server_ip}:8000;

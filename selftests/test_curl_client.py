@@ -165,6 +165,7 @@ class TestCurlClient(tester.TempestaTest):
             listen 443 proto=h2;
             listen 444 proto=https;
             server ${server_ip}:8000;
+            frang_limits {http_strict_host_checking false;}
             tls_certificate ${general_workdir}/tempesta.crt;
             tls_certificate_key ${general_workdir}/tempesta.key;
             tls_match_any_server_name;
