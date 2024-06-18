@@ -404,3 +404,46 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         s = self.get_server("deproxy")
         s.drop_conn_when_receiving_data = True
         time.sleep(1)
+
+
+class TestHealthMonitorCrc32(tester.TempestaTest):
+
+    tempesta = {
+        "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            health_check hm0 {
+                request         "GET / HTTP/1.0\r\n\r\n";
+                request_url     "/";
+                resp_code       200;
+                resp_crc32      auto;
+                timeout         1;
+            }
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health hm0;
+            }
+    """
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8080",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n\r\n",
+        }
+    ]
+
+    def test(self):
+
+        self.start_all_services(client=False)
+        delay = 15
+        print(f"Wait...{delay} sec\n")
+        time.sleep(delay)
+        print("Done\n")
