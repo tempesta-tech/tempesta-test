@@ -201,7 +201,7 @@ class FrangHostRequiredH2TestCase(FrangTestCase):
         },
     ]
 
-    tempesta_template = {
+    tempesta = {
         "config": """
 frang_limits {
     %(frang_config)s

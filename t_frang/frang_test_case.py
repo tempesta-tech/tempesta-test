@@ -29,7 +29,7 @@ class FrangTestCase(tester.TempestaTest):
         },
     ]
 
-    tempesta_template = {
+    tempesta = {
         "config": """
 cache 0;
 listen 80;
@@ -77,10 +77,12 @@ block_action attack reply;
 
     # TODO: rename to set_frang_cfg_and_start
     def set_frang_config(self, frang_config: str):
-        self.tempesta["config"] = self.tempesta_template["config"] % {
-            "frang_config": frang_config,
-        }
-        super().setUp()
+        self.get_tempesta().config.set_defconfig(
+            self.get_tempesta().config.defconfig
+            % {
+                "frang_config": frang_config,
+            }
+        )
         self.start_all_services(client=False)
 
     def base_scenario(
