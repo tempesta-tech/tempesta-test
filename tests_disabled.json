@@ -134,14 +134,6 @@
             "reason": "Disable by issue #1692"
         },
         {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
-            "reason": "Disabled by issue #1719"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_uri",
-            "reason": "Disabled by issue #1719"
-        },
-        {
             "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1771"
         },
