@@ -72,25 +72,32 @@ class FrangHostRequiredTestCase(FrangTestCase):
         )
 
     def test_host_header_mismatch(self):
-        """Test with mismatched header `host`."""
+        """
+        Test with mismatched header `host` and absolute URI. Just ignore `host` header.
+
+        RFC 9112: 3.2.2
+        When a proxy receives a request with an absolute-form of request-target,
+        the proxy MUST ignore the received Host header field (if any) and instead replace it with
+        the host information of the request-target. A proxy that forwards such a request MUST generate
+        a new Host field value based on the received request-target rather than forward the received Host field value.
+        """
         client = self.base_scenario(
             frang_config="http_strict_host_checking true;",
             requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"],
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
+        self.check_response(client, status_code="200", warning_msg=WARN_DIFFER)
 
     def test_host_header_mismatch_empty(self):
         """
-        Test with Host header is empty.
+        Test with Host header is empty. Just ignore `host` header.
 
-        Only authority in uri points to specific virtual host.
-        Not allowed by RFC.
+        Same as `test_host_header_mismatch`, but with empty `host`.
         """
         client = self.base_scenario(
             frang_config="http_strict_host_checking true;",
             requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: \r\n\r\n"],
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
+        self.check_response(client, status_code="200", warning_msg=WARN_DIFFER)
 
     def test_host_header_no_port_in_uri(self):
         """Test with default port in uri."""
@@ -117,22 +124,10 @@ class FrangHostRequiredTestCase(FrangTestCase):
         client = self.base_scenario(
             frang_config="http_strict_host_checking true;",
             requests=[
-                "GET http://tempesta-tech.com:81/ HTTP/1.1\r\nHost: tempesta-tech.com:80\r\n\r\n"
+                "GET http://tempesta-tech.com:80/ HTTP/1.1\r\nHost: tempesta-tech.com:81\r\n\r\n"
             ],
         )
-        self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
-
-    def test_host_header_mismath_port(self):
-        """Test with mismatch port in `Host` header."""
-        client = self.base_scenario(
-            frang_config="http_strict_host_checking true;",
-            requests=[
-                "GET http://tempesta-tech.com:81/ HTTP/1.1\r\nHost: tempesta-tech.com:81\r\n\r\n"
-            ],
-        )
-        self.check_response(
-            client, status_code="403", warning_msg="port from host header doesn't match real port"
-        )
+        self.check_response(client, status_code="200", warning_msg=WARN_DIFFER)
 
     def test_auto_port_mismatch(self):
         """
@@ -144,6 +139,22 @@ class FrangHostRequiredTestCase(FrangTestCase):
         client = self.get_client("deproxy-2")
         client.start()
         client.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
+        client.wait_for_response()
+        self.check_response(client, status_code="403", warning_msg=WARN_PORT)
+
+    def test_auto_port_mismatch_uri(self):
+        """
+        After client send a request that has port mismatch in URI,
+        it is blocked. `host` header must be ignored here. Port is defined from
+        implicit values.
+        """
+        self.set_frang_config(frang_config="http_strict_host_checking true;")
+
+        client = self.get_client("deproxy-2")
+        client.start()
+        client.make_request(
+            "GET http://tempesta-tech.com:80/ HTTP/1.1\r\nHost: tempesta-tech.com:81\r\n\r\n"
+        )
         client.wait_for_response()
         self.check_response(client, status_code="403", warning_msg=WARN_PORT)
 
