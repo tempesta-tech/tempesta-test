@@ -1,7 +1,7 @@
 """TestCase for mixed listening sockets."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import socket
@@ -218,3 +218,65 @@ class TestMixedListeners(tester.TempestaTest):
 
         self.check_curl_response(self.make_curl_request("curl-https-true"), fail=False)
         self.check_curl_response(self.make_curl_request("curl-https-false"), fail=True)
+
+
+class single_port_config(TestMixedListeners):
+    tempesta = {
+        "config": f"""
+
+            listen 443 proto=h2,https;
+
+            srv_group default {{
+                server ${{server_ip}}:8000;
+            }}
+
+            tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+            tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+
+            cache 2;
+            cache_fulfill * *;
+
+            vhost default {{
+                tls_match_any_server_name;
+                proxy_pass default;
+            }}
+
+            http_chain {{
+                -> default;
+            }}
+
+            """
+    }
+
+    clients = [
+        {
+            "id": "curl-h2",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:443/",
+        },
+        {
+            "id": "curl-https",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:443/",
+        },
+    ]
+
+    def test_h2_https_success(self):
+        """
+        Test https success situation.
+
+        According to Tempesta FW configuration, both h2 and HTTPS protocols
+        should be available on a single port.
+        """
+        self.start_all()
+
+        self.check_curl_response(self.make_curl_request("curl-h2"), fail=False)
+        self.check_curl_response(self.make_curl_request("curl-https"), fail=False)
