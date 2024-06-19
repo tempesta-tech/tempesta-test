@@ -139,9 +139,7 @@ class CheckedResponses(tester.TempestaTest):
         curl.headers["host"] = "localhost"
         curl.set_uri("/chunked")
         curl.start()
-        import time
-
-        time.sleep(1)
+        curl.wait_for_finish()
         curl.stop()
         return AccessLogLine.from_dmesg(klog)
 
