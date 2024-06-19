@@ -18,7 +18,7 @@ __license__ = "GPL2"
         {"name": "H2", "proto": "h2", "http2": True},
     ]
 )
-class TestWorpressStress(CustomMtuMixin, tester.TempestaTest):
+class TestWordpressStress(CustomMtuMixin, tester.TempestaTest):
     proto: str
     http2: bool
     tempesta_tmpl = """

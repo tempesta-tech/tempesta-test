@@ -446,7 +446,13 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
         # Obtain nonce
         nonce = self.get_nonce()
 
-        # Publish new blog post
+        # Publish new blog post.
+        # The user is logged in, so the GET following the redirect from
+        # `POST /wp-comment-post.php` must receive the new page with the
+        # published comment. The only logged-in user comments are in interest
+        # because comments for unauthorized clients are sent for moderation
+        # and appear on the page only after approvement in the CMS, so this case
+        # is just equal to cache update for any page from the CMS.
         post_id = self.post_blog_post(title=post_title, nonce=nonce)
 
         # Get new blog post content
