@@ -3,7 +3,6 @@ __all__ = [
     "deproxy_client",
     "deproxy_manager",
     "deproxy_server",
-    "docker_server",
     "nginx_server",
     "templates",
     "tester",

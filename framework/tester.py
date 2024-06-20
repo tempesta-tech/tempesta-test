@@ -15,11 +15,7 @@ import framework.external_client as external_client
 import framework.wrk_client as wrk_client
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
-from framework.docker_compose_server import (
-    DockerComposeServer,
-    docker_compose_srv_factory,
-)
-from framework.docker_server import DockerServer, docker_srv_factory
+from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.templates import fill_template, populate_properties
 from helpers import control, dmesg, remote, sysnet, tf_cfg
@@ -93,9 +89,8 @@ def default_tempesta_factory(tempesta):
 
 register_tempesta("tempesta", default_tempesta_factory)
 register_backend("deproxy", deproxy_srv_factory)
-register_backend("docker", docker_srv_factory)
-register_backend("docker_compose", docker_compose_srv_factory)
 register_backend("nginx", nginx_srv_factory)
+register_backend("lxc", lxc_srv_factory)
 
 
 class TempestaTest(unittest.TestCase):
@@ -248,7 +243,7 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid) -> typing.Union[StaticDeproxyServer, Nginx, DockerServer, None]:
+    def get_server(self, sid) -> StaticDeproxyServer | Nginx | LXCServer | None:
         """Return client with specified id"""
         return self.__servers.get(sid)
 
@@ -433,7 +428,7 @@ class TempestaTest(unittest.TestCase):
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
-    def wait_all_connections(self, tmt=1):
+    def wait_all_connections(self, tmt=5):
         for sid in self.__servers:
             srv = self.__servers[sid]
             if not srv.wait_for_connections(timeout=tmt):

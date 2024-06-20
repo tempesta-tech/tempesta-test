@@ -1,26 +1,26 @@
 """
-HTTP Stress tests with WordPress Docker image.
+HTTP Stress tests with WordPress LXC container.
 """
 
-import time
-from pathlib import Path
-
 from framework import tester
-from helpers import remote, sysnet, tf_cfg
+from framework.parameterize import parameterize_class
+from run_config import CONCURRENT_CONNECTIONS, REQUESTS_COUNT
 from t_stress.test_stress import CustomMtuMixin
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-# Number of open connections
-CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
-# Number of requests to make
-REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
-
-
-class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
+@parameterize_class(
+    [
+        {"name": "Https", "proto": "https", "http2": False},
+        {"name": "H2", "proto": "h2", "http2": True},
+    ]
+)
+class TestWordpressStress(CustomMtuMixin, tester.TempestaTest):
+    proto: str
+    http2: bool
     tempesta_tmpl = """
         listen 443 proto=%s;
         server ${server_ip}:8000;
@@ -30,24 +30,13 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
         cache 0;
     """
 
-    backends = [
-        {
-            "id": "wordpress",
-            "type": "docker",
-            "image": "wordpress",
-            "ports": {8000: 80},
-            "env": {
-                "WP_HOME": "https://${tempesta_ip}/",
-                "WP_SITEURL": "https://${tempesta_ip}/",
-            },
-        },
-    ]
+    backends = [{"id": "wordpress", "type": "lxc", "external_port": "8000"}]
 
     clients = [
         {
             "id": "get_images",
             "type": "curl",
-            "uri": f"/images/2048.jpg?ver=[1-{REQUESTS_COUNT}]",
+            "uri": f"/wp-content/uploads/2023/10/tfw_wp_http2-1536x981.png?ver=[1-{REQUESTS_COUNT}]",
             "ssl": True,
             "parallel": CONCURRENT_CONNECTIONS,
             "headers": {
@@ -58,34 +47,14 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
     ]
 
     def setUp(self):
-        if self._base:
-            self.skipTest("This is an abstract class")
-        self.tempesta = {
-            "config": self.tempesta_tmpl % (self.proto),
-        }
+        self.tempesta = {"config": self.tempesta_tmpl % (self.proto,)}
+        self.clients = [{**client, "http2": self.http2} for client in self.clients]
         super().setUp()
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(5))
-
     def test_get_large_images(self):
-        self.start_all()
+        self.start_all_services(client=False)
         client = self.get_client("get_images")
         client.start()
         self.wait_while_busy(client)
         client.stop()
         self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
-
-
-class TlsWordpressStress(BaseWorpressStress):
-    proto = "https"
-
-
-class H2WordpressStress(BaseWorpressStress):
-    proto = "h2"
-
-    def setUp(self):
-        self.clients = [{**client, "http2": True} for client in self.clients]
-        super().setUp()

@@ -72,3 +72,12 @@ class FreePortsChecker(object):
         established = {int(line.split(":")[-1]) for line in addrport.decode().splitlines() if line}
 
         return expected <= established
+
+    @staticmethod
+    def number_of_tcp_connections(ip: str, port: str) -> int:
+        """Count the number of TCP connections for this port and IP."""
+        stdout, _ = remote.tempesta.run_cmd(
+            f"ss --no-header --tcp --numeric state established dst '{ip}' | awk '{{print $4}}'"
+        )
+
+        return stdout.decode().count(port)

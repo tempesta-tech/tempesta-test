@@ -43,7 +43,7 @@ as root:
 ## Requirements
 
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
-`curl`, `h2load`, `tls-perf`, `netstat`, `docker.io`, `nginx`, web content 
+`curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, web content 
 directory accessible by nginx, nginx should not be running before the tests start.
 See Python libraries in `requirements.txt`
 - All hosts except previous one: `sftp-server`
