@@ -278,7 +278,6 @@ class HttpTablesTestMarkRules(HttpTablesTest, HttpTablesMarkSetup):
     match_rules_test = False
 
     def setUp(self):
-        HttpTablesTest.setUp(self)
         super().setUp()
         # Cleanup part
         self.addCleanup(self.cleanup_marked)

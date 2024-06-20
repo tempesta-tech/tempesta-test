@@ -57,6 +57,7 @@ class TestFrameworkCfg(object):
                     "stress_requests_count": "100",
                     "stress_mtu": "1500",
                     "long_body_size": "500",
+                    "memory_leak_threshold": "65536",
                 },
                 "Client": {
                     "ip": "127.0.0.2",

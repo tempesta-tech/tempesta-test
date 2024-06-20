@@ -43,3 +43,7 @@ TCP_SEGMENTATION = 0
 
 # Enable or disable deproxy auto parser. Enable if True
 AUTO_PARSER = True
+
+# Enable or disable checks for memory leaks for all tests
+CHECK_MEMORY_LEAKS = False
+MEMORY_LEAK_THRESHOLD = int(tf_cfg.cfg.get("General", "memory_leak_threshold"))  # KB

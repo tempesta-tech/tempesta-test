@@ -1,4 +1,5 @@
 """Tests for Frang directive `ip_block`."""
+
 import time
 
 from helpers import analyzer, asserts, remote, util
@@ -50,6 +51,11 @@ class FrangIpBlockBase(FrangTestCase, asserts.Sniffer, base=True):
         super().setUp()
         self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5)
 
+    def set_frang_config(self, frang_config: str):
+        self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % {
+            "frang_config": frang_config,
+        }
+
 
 class FrangIpBlockMsg(FrangIpBlockBase):
     """
@@ -59,8 +65,7 @@ class FrangIpBlockMsg(FrangIpBlockBase):
     tempesta = {
         "config": """
 frang_limits {
-    http_strict_host_checking true;
-    ip_block on;
+    %(frang_config)s
 }
 listen 80;
 server ${server_ip}:8000;
@@ -73,6 +78,7 @@ block_action attack drop;
 
     def test_on(self):
         self.disable_deproxy_auto_parser()
+        self.set_frang_config(frang_config="http_strict_host_checking true;\nip_block on;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
         c3 = self.get_client("same-ip3")
@@ -109,18 +115,7 @@ block_action attack drop;
 
     def test_off(self):
         self.disable_deproxy_auto_parser()
-        self.tempesta = {
-            "config": """
-frang_limits {
-    http_strict_host_checking true;
-    ip_block off;
-}
-listen 80;
-server ${server_ip}:8000;
-block_action attack drop;
-""",
-        }
-        self.setUp()
+        self.set_frang_config(frang_config="http_strict_host_checking true;\nip_block off;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
 
@@ -152,8 +147,7 @@ class FrangIpBlockConn(FrangIpBlockBase):
     tempesta = {
         "config": """
 frang_limits {
-    tcp_connection_rate 2;
-    ip_block on;
+    %(frang_config)s
 }
 listen 80;
 server ${server_ip}:8000;
@@ -165,6 +159,7 @@ block_action attack drop;
 
     def test_on(self):
         self.disable_deproxy_auto_parser()
+        self.set_frang_config(frang_config="tcp_connection_rate 2;\nip_block on;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
         c3 = self.get_client("another-ip")
@@ -198,19 +193,7 @@ block_action attack drop;
 
     def test_off(self):
         self.disable_deproxy_auto_parser()
-        self.tempesta = {
-            "config": """
-frang_limits {
-    tcp_connection_rate 1;
-    ip_block off;
-}
-listen 80;
-server ${server_ip}:8000;
-block_action attack drop;
-""",
-        }
-        self.setUp()
-
+        self.set_frang_config(frang_config="ip_block off;\ntcp_connection_rate 1;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("another-ip")
         c3 = self.get_client("same-ip2")

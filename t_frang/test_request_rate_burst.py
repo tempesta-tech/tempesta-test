@@ -1,4 +1,5 @@
 """Tests for Frang directive `request_rate` and 'request_burst'."""
+
 import time
 
 from hyperframe.frame import RstStreamFrame
@@ -43,7 +44,7 @@ class FrangRequestRateTestCase(FrangTestCase, asserts.Sniffer):
         },
     ]
 
-    tempesta_template = {
+    tempesta = {
         "config": """
 frang_limits {
     %(frang_config)s;

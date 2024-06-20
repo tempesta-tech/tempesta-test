@@ -81,6 +81,9 @@ workdir = /tmp/host
 # Body size in MB for long body tests.
 long_body_size = 500
 
+# the threshold for memory leak checks. in KB
+memory_leak_threshold = 65536
+
 
 [Client]
 # Configuration for the HTTP clients. Clients are always ran locally.

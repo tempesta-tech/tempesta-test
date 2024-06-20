@@ -13,7 +13,7 @@ ERROR = "Warning: frang: connections max num. exceeded"
 
 
 class ConcurrentConnections(FrangTestCase):
-    tempesta_template = {
+    tempesta = {
         "config": """
 server ${server_ip}:8000;
 

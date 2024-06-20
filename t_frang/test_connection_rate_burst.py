@@ -6,6 +6,7 @@ are ranged):
 "Minor bursts also can actually exceed the specified limit,
 but not more than 2 times."
 """
+
 import time
 
 from helpers import util
@@ -36,7 +37,7 @@ class FrangTls(FrangTestCase):
         },
     ]
 
-    tempesta_template = {
+    tempesta = {
         "config": """
             frang_limits {
                 %(frang_config)s
@@ -161,7 +162,7 @@ class FrangTcp(FrangTls):
         },
     ]
 
-    tempesta_template = {
+    tempesta = {
         "config": """
             frang_limits {
                 %(frang_config)s
@@ -209,7 +210,7 @@ class FrangTlsVsBoth(FrangTestCase):
         },
     ]
 
-    tempesta_template = {
+    tempesta = {
         "config": """
             frang_limits {
                 %(frang_config)s
@@ -295,7 +296,7 @@ class FrangTlsVsBoth(FrangTestCase):
 class FrangTcpVsBoth(FrangTlsVsBoth):
     """Tests for tls and non-tls connections 'tcp_connection_burst' and 'tcp_connection_rate'"""
 
-    tempesta_template = {
+    tempesta = {
         "config": """
             frang_limits {
                 %(frang_config)s
