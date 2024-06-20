@@ -220,7 +220,7 @@ class TestMixedListeners(tester.TempestaTest):
         self.check_curl_response(self.make_curl_request("curl-https-false"), fail=True)
 
 
-class single_port_config(TestMixedListeners):
+class TestSinglePortConfig(TestMixedListeners):
     tempesta = {
         "config": f"""
 
