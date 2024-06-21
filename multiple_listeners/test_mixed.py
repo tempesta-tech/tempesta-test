@@ -1,7 +1,7 @@
 """TestCase for mixed listening sockets."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import socket
@@ -47,6 +47,7 @@ http {
 TEMPESTA_CONFIG = """
 listen ${tempesta_ip}:443 proto=h2;
 listen ${tempesta_ip}:4433 proto=https;
+listen ${tempesta_ip}:4444 proto=h2,https;
 
 srv_group default {
     server ${server_ip}:8000;
@@ -139,6 +140,20 @@ class TestMixedListeners(tester.TempestaTest):
             "ssl": True,
             "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:443/",
         },
+        {
+            "id": "curl-h2",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:4444/",
+        },
+        {
+            "id": "curl-https",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf --http1.1 https://${tempesta_ip}:4444/",
+        },
     ]
 
     tempesta = {"config": TEMPESTA_CONFIG}
@@ -218,3 +233,15 @@ class TestMixedListeners(tester.TempestaTest):
 
         self.check_curl_response(self.make_curl_request("curl-https-true"), fail=False)
         self.check_curl_response(self.make_curl_request("curl-https-false"), fail=True)
+
+    def test_h2_https_success(self):
+        """
+        Test https success situation.
+
+        According to Tempesta FW configuration, both h2 and HTTPS protocols
+        should be available on a single port.
+        """
+        self.start_all()
+
+        self.check_curl_response(self.make_curl_request("curl-h2"), fail=False)
+        self.check_curl_response(self.make_curl_request("curl-https"), fail=False)
