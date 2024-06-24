@@ -547,9 +547,10 @@ memleak_msg = (
     f"After: python memory: {python_memory_after}"
 )
 tf_cfg.dbg(2, memleak_msg)
-assert (
-    used_memory_after - delta_python - used_memory_before <= run_config.MEMORY_LEAK_THRESHOLD
-), memleak_msg
+if run_config.CHECK_MEMORY_LEAKS:
+    assert (
+        used_memory_after - delta_python - used_memory_before <= run_config.MEMORY_LEAK_THRESHOLD
+    ), memleak_msg
 
 if len(result.errors) > 0:
     sys.exit(-1)
