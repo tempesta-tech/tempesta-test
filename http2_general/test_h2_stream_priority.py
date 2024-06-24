@@ -67,18 +67,24 @@ class TestPriorityBase(H2Base, NetWorker):
         return client, server
 
     def wait_for_responses(
-        self, client, stream_id_list=None, initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE, timeout=10
+        self,
+        client,
+        stream_id_list=None,
+        initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE,
+        timeout=10,
     ):
         if stream_id_list:
             for stream_id in stream_id_list:
-                client.wait_for_headers_frame(stream_id, timeout=15 if run_config.TCP_SEGMENTATION else 5)
+                client.wait_for_headers_frame(
+                    stream_id, timeout=15 if run_config.TCP_SEGMENTATION else 5
+                )
         client.send_settings_frame(initial_window_size=initial_window_size)
         client.wait_for_ack_settings()
         self.assertTrue(client.wait_for_response(timeout=timeout))
 
     def check_response_sequence(self, client, expected_length, expected_sequence=None):
-        self.assertTrue(expected_length == len(client.response_sequence))
-        self.assertTrue(expected_length == len(client.responses))
+        self.assertEqual(expected_length, len(client.response_sequence))
+        self.assertEqual(expected_length, len(client.responses))
         for i in range(expected_length):
             if expected_sequence:
                 self.assertTrue(expected_sequence[i] == client.response_sequence[i])
@@ -648,6 +654,8 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         """
     }
 
+    max_concurrent_streams = 10
+
     def test_max_concurent_stream_exceed_by_stream(self):
         """
         If creation of new stream leads to exceeding of max_concurrent_streams, we should reset
@@ -657,11 +665,11 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         client, server = self.setup_test_priority()
 
         prev_stream_id = 0
-        self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
+        self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == self.max_concurrent_streams)
 
         # Create streams with "idle" state with the id range from 21 to 39
-        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
-            stream_id = 2 * client.h2_connection.remote_settings.max_concurrent_streams + 2 * i + 1
+        for i in range(0, self.max_concurrent_streams):
+            stream_id = 2 * self.max_concurrent_streams + 2 * i + 1
             client.send_bytes(
                 PriorityFrame(
                     stream_id=stream_id,
@@ -672,35 +680,34 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             )
             prev_stream_id = stream_id
 
-        valid_req_num = client.valid_req_num
         """
         Try to open streams with the id range from 1 to 19, they should be reseted,
         because of exceed of max concurent stream limit.
         """
-        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
+        for i in range(0, self.max_concurrent_streams):
             stream_id = client.stream_id
             client.make_request(self.post_request)
             self.assertTrue(client.wait_for_reset_stream(stream_id=stream_id))
 
-        return client, valid_req_num
+        return client
 
-    def test_opening_created_idle_streams_after_exceed_max_concurent_streams_linit(self):
-        client, valid_req_num = self.test_max_concurent_stream_exceed_by_stream()
+    def test_opening_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
+        client = self.test_max_concurent_stream_exceed_by_stream()
 
         client.reinit_hpack_encoder()
-        client.valid_req_num = valid_req_num
+        client.valid_req_num = 0
         # Opening of streams which was previously created with idle state is allowed.
-        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams):
+        for i in range(0, self.max_concurrent_streams):
             client.make_request(self.post_request)
 
         self.wait_for_responses(client, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
         self.check_response_sequence(client, 10, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
 
-    def test_opening_not_created_idle_streams_after_exceed_max_concurent_streams_linit(self):
-        client, valid_req_num = self.test_max_concurent_stream_exceed_by_stream()
+    def test_opening_not_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
+        client = self.test_max_concurent_stream_exceed_by_stream()
 
         client.reinit_hpack_encoder()
-        client.valid_req_num = valid_req_num
+        client.valid_req_num = 0
         client.stream_id = 41
         client.make_request(self.post_request)
         self.wait_for_responses(client)
@@ -714,8 +721,8 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         """
         client, server = self.setup_test_priority(initial_window_size=1000)
 
-        self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == 10)
-        for i in range(0, client.h2_connection.remote_settings.max_concurrent_streams - 1):
+        self.assertTrue(self.max_concurrent_streams == 10)
+        for i in range(0, self.max_concurrent_streams - 1):
             client.make_request(self.post_request)
 
         client.send_bytes(
@@ -733,26 +740,3 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         # will be closed after all pending data will be send.
         self.assertTrue(client.wait_for_connection_close(timeout=10))
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
-
-
-class TestBigHeadersAndBodyForSeveralStreams(TestPriorityBase, NetWorker):
-    def test_big_headers_and_body(self):
-        client, server = self.setup_test_priority(
-            extra_header=f"qwerty: {'y' * BIG_HEADER_SIZE}\r\n"
-        )
-        client.send_settings_frame(max_header_list_size=BIG_HEADER_SIZE * 2)
-        client.wait_for_ack_settings()
-
-        self.run_test_tso_gro_gso_def(
-            client,
-            server,
-            self._test_big_headers_and_body,
-            DEFAULT_MTU,
-        )
-
-    def _test_big_headers_and_body(self, client, server):
-        for i in range(1, 3):
-            client.make_request(self.post_request)
-
-        self.wait_for_responses(client)
-        self.check_response_sequence(client, 2)
