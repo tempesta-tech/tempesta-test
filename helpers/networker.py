@@ -90,7 +90,7 @@ class NetWorker:
     def run_test_tso_gro_gso_def(self, client, server, test, mtu):
         try:
             dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
-        except Error as err:
+        except Exception as err:
             self.fail(err)
 
         tso = self.get_tso_state(dev)

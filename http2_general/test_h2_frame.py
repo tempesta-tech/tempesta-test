@@ -9,7 +9,13 @@ from h2.settings import SettingCodes
 from h2.exceptions import StreamClosedError
 from h2.stream import StreamInputs
 from hpack import HeaderTuple
-from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame, PriorityFrame
+from hyperframe.frame import (
+    ContinuationFrame,
+    DataFrame,
+    HeadersFrame,
+    SettingsFrame,
+    PriorityFrame,
+)
 
 from framework import deproxy_client, tester
 from framework.parameterize import param, parameterize
@@ -507,6 +513,7 @@ class TestH2FrameEnabledDisabledTsoGroGsoBase(H2Base):
 
 DEFAULT_MTU = 1500
 
+
 class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
     def test_headers_frame_with_continuation(self):
         client, server = self.setup_tests()
@@ -528,11 +535,15 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
 
     def test_mixed_frames_long_headers_disabled(self):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU)
+        self.run_test_tso_gro_gso_disabled(
+            client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU
+        )
 
     def test_mixed_frames_long_headers_enabled(self):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_enabled(client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU)
+        self.run_test_tso_gro_gso_enabled(
+            client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU
+        )
 
     def test_data_frame(self):
         client, server = self.setup_tests()
@@ -564,7 +575,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
 
     def __prepare_hf_to_send(self, client):
         # create stream and change state machine in H2Connection object
-        stream=client.init_stream_for_send(client.stream_id)
+        stream = client.init_stream_for_send(client.stream_id)
 
         hf = HeadersFrame(
             stream_id=stream.stream_id,
@@ -575,7 +586,9 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
 
         return hf.serialize()
 
-    def __send_header_and_data_frames_with_mixed_frames(self, client, server, count, extra_settings_cnt, header_len, body_len, timeout=5):
+    def __send_header_and_data_frames_with_mixed_frames(
+        self, client, server, count, extra_settings_cnt, header_len, body_len, timeout=5
+    ):
         header = ("qwerty", "x" * header_len)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -590,12 +603,16 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         for _ in range(count):
             data_to_send += self.__prepare_hf_to_send(client)
 
-        client.valid_req_num += count - 1
-        client.send_bytes(data_to_send, expect_response=True)
+        client.send_bytes(data_to_send, expect_response=False)
         for _ in range(extra_settings_cnt):
-            client.send_bytes(SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 300}).serialize(), expect_response=False)
-
-        client.wait_for_response(timeout)
+            client.send_bytes(
+                SettingsFrame(
+                    stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 300}
+                ).serialize(),
+                expect_response=False,
+            )
+        client.valid_req_num += count
+        self.assertTrue(client.wait_for_response(timeout))
         self.assertFalse(client.connection_is_closed())
 
         for i in range(count):
@@ -603,14 +620,18 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             self.assertIsNotNone(client.responses[i].headers.get(header[0]))
             self.assertEqual(len(client.responses[i].headers.get(header[0])), len(header[1]))
             self.assertEqual(
-                len(client.responses[i].body), body_len, "Tempesta did not return full response body."
+                len(client.responses[i].body),
+                body_len,
+                "Tempesta did not return full response body.",
             )
 
         # First ack was received when we establish connection
-        timeout_not_exceeded = util.wait_until(
-            lambda: client.ack_cnt - 1 != extra_settings_cnt,
-            timeout,
-            abort_cond=lambda: client.state != stateful.STATE_STARTED,
+        self.assertTrue(
+            util.wait_until(
+                lambda: client.ack_cnt - 1 != extra_settings_cnt,
+                timeout,
+                abort_cond=lambda: client.state != stateful.STATE_STARTED,
+            )
         )
 
     def _test_mixed_frames_long_headers(self, client, server):
