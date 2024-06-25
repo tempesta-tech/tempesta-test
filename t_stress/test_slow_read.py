@@ -90,6 +90,7 @@ http {
         }
 
         frang_limits {
+            # TODO tempesta#498: remove the body length limit
             http_body_len 1000000;
         }
         """
