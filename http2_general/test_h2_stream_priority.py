@@ -540,7 +540,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase, NetWorker):
         client.make_request(
             self.post_request,
             end_stream=True,
-            priority_weight=64,
+            priority_weight=16,
             priority_depends_on=11,
             priority_exclusive=False,
         )

@@ -446,6 +446,7 @@ class JSChallenge(BaseJSChallenge):
         responses = self.client_send_pipelined_requests(client, [request, request], False)
 
         cookies = []
+        self.assertEqual(len(responses), 2)
         for response in responses:
             self.assertEqual(
                 response.status,
@@ -455,7 +456,11 @@ class JSChallenge(BaseJSChallenge):
             cookies.append(self._check_and_get_cookie(response))
 
         if sleep:
-            self._java_script_sleep(cookies[0][1])
+            sleep_time = max(
+                BaseJSChallenge._java_script_sleep_time(cookies[0][1]),
+                BaseJSChallenge._java_script_sleep_time(cookies[1][1]),
+            )
+            time.sleep(sleep_time)
 
         requests = [self.prepare_second_req(client, cookie) for cookie in cookies]
         responses = self.client_send_pipelined_requests(
