@@ -77,6 +77,7 @@ class TestListenCommonReconf(tester.TempestaTest):
         {"name": "Http", "proto": "http"},
         {"name": "Https", "proto": "https"},
         {"name": "H2", "proto": "h2"},
+        {"name": "H2AndHttps", "proto": "h2,https"},
     ]
 )
 class TestListenReconf(tester.TempestaTest):
@@ -111,6 +112,13 @@ class TestListenReconf(tester.TempestaTest):
             "port": "443",
             "ssl": True,
         },
+        {
+            "id": "h2,https",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
     ]
 
     base_tempesta_config = f"""
@@ -139,8 +147,15 @@ tls_match_any_server_name;
         tempesta.config.set_defconfig(second_config + self.base_tempesta_config)
         tempesta.reload()
 
-    @parameterize.expand([param("http"), param("https"), param("h2")])
-    def test_reconf_proto(self, proto):
+    @parameterize.expand(
+        [
+            param(name="http", proto="http"),
+            param(name="https", proto="https"),
+            param(name="h2", proto="h2"),
+            param(name="h2_https", proto="h2,https"),
+        ]
+    )
+    def test_reconf_proto(self, name, proto):
         self._start_all_services_and_reload_tempesta(
             first_config=f"listen 443 proto={self.proto};\n",
             second_config=f"listen 443 proto={proto};\n",
