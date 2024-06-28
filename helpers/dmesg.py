@@ -163,4 +163,6 @@ def limited_rate_on_tempesta_node(func):
 
     func_wrapper.__name__ = func.__name__
 
+    func_wrapper.__name__ = func.__name__
+
     return func_wrapper
