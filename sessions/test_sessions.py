@@ -249,6 +249,8 @@ class StickySessionsPersistense(StickySessions):
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
+        # Remove after 2111 in Tempesta will be implemented
+        time.sleep(1)
         req = client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")])
         for _ in range(ATTEMPTS):
             client.send_request(req, "502")
@@ -396,6 +398,8 @@ class StickySessionsFailover(StickySessions):
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
+        # Remove after 2111 in Tempesta will be implemented
+        time.sleep(1)
 
         failovered_s_id = self.client_send_next_req(client, cookie)
         self.assertIn(

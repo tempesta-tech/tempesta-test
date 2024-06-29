@@ -206,6 +206,8 @@ class LearnSessions(LearnSessionsBase):
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
+        # Remove after 2111 in Tempesta will be implemented
+        time.sleep(1)
         for _ in range(ATTEMPTS):
             req = (
                 "GET / HTTP/1.1\r\n"

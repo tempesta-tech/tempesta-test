@@ -2,6 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from framework.port_checks import FreePortsChecker
@@ -1366,6 +1367,8 @@ http_chain {{
         self.get_tempesta().reload()
 
         server_grp1.stop()
+        # Remove after #2111 in Tempesta
+        time.sleep(1)
 
         client.send_request(
             client.create_request(method="GET", headers=[], authority="grp1"), "200"
