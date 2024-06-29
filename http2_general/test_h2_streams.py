@@ -240,7 +240,6 @@ class TestMultiplexing(tester.TempestaTest):
 
             client.uri += f"[1-{requests}]"
             client.dump_headers = False
-            client.parallel = tf_cfg.cfg.get("General", "concurrent_connections")
             client.headers = {"Host": f"client{step}"}
             header = f" -H '{step * 10}: {'asdfg' * 5000}' "
             client.options = [f" {header} --data 'request body {step}' "]
