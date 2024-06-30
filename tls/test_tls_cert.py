@@ -261,6 +261,27 @@ class ECDSA_SHA256_SECP256(X509):
         self.check_good_cert()
 
 
+class ECDSA_SHA384_SECP256(X509):
+    """Let's Encrypt moved to prime256v1 with SHA384 signed certificates, and
+    Tempesta TLS failed to load the certificate.
+    https://github.com/tempesta-tech/tempesta/issues/2156
+    """
+
+    def setUp(self):
+        self.cgen = CertGenerator()
+        self.cgen.key = {"alg": "ecdsa", "curve": ec.SECP256R1()}
+        self.cgen.sign_alg = "sha384"
+        self.cgen.generate()
+        self.tempesta = {
+            "config": X509.tempesta_tmpl % self.cgen.get_file_paths(),
+            "custom_cert": True,
+        }
+        tester.TempestaTest.setUp(self)
+
+    def test(self):
+        self.check_good_cert()
+
+
 class ECDSA_SHA384_SECP521(X509):
     """The curve secp521r1 isn't recommended by IANA, so it isn't supported
     by Tempesta FW.
