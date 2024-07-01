@@ -622,6 +622,34 @@ class StickyCookieConfig(tester.TempestaTest):
                 % tf_cfg.cfg.get("Tempesta", "workdir"),
                 msg=None,
             ),
+            param(
+                name="dublicate_delay_min",
+                cookie_config="js_challenge resp_code=503 delay_min=1000 delay_min=2000 delay_range=3000 %s/js1.html;\ncookie enforce;"
+                % tf_cfg.cfg.get("Tempesta", "workdir"),
+                msg="Duplicate argument: 'delay_min'",
+            ),
+            param(
+                name="dublicate_delay_range",
+                cookie_config="js_challenge resp_code=503 delay_min=1000 delay_range=2000 delay_range=3000 %s/js1.html;\ncookie enforce;"
+                % tf_cfg.cfg.get("Tempesta", "workdir"),
+                msg="Duplicate argument: 'delay_range'",
+            ),
+            param(
+                name="dublicate_resp_code",
+                cookie_config="js_challenge resp_code=503 resp_code=502 delay_min=2000 delay_range=3000 %s/js1.html;\ncookie enforce;"
+                % tf_cfg.cfg.get("Tempesta", "workdir"),
+                msg="Duplicate argument: 'resp_code'",
+            ),
+            param(
+                name="dublicate_name",
+                cookie_config="cookie name=A name=B enforce;",
+                msg="Duplicate argument: 'name'"
+            ),
+            param(
+                name="dublicate_max_misses",
+                cookie_config="cookie max_misses=3 max_misses=4 enforce;",
+                msg="Duplicate argument: 'max_misses'"
+            ),
         ]
     )
     def test(self, name, cookie_config, msg):
@@ -680,6 +708,15 @@ class StickyCookieOptions(tester.TempestaTest):
             "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
         }
     ]
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def check_cannot_start_impl(self, msg):
+        self.oops_ignore = ["WARNING", "ERROR"]
+        with self.assertRaises(CmdError, msg=""):
+            self.start_tempesta()
+        self.assertTrue(
+            self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
+        )
 
     @parameterize.expand(
         [
@@ -814,3 +851,28 @@ class StickyCookieOptions(tester.TempestaTest):
             self.assertIn(opt, cookie_opt)
         for opt in cookie_opt[1:]:
             self.assertIn(opt, options_vhost_in_response)
+
+    @parameterize.expand(
+        [
+            param(
+                name="path",
+                options="cookie_options Path=/ Path=/etc;",
+                msg="Duplicate argument: 'Path'"
+            ),
+            param(
+                name="max_age",
+                options="cookie_options Max-Age=3 Max-Age=5;",
+                msg="Duplicate argument: 'Max-Age'"
+            ),
+            param(
+                name="expires",
+                options="cookie_options Expires=3 Expires=5;",
+                msg="Duplicate argument: 'Expires'"
+            )
+        ]
+    )
+    def test_dublicate(self, name, options, msg):
+        tempesta_conf = self.get_tempesta().config
+
+        tempesta_conf.set_defconfig(tempesta_conf.defconfig % (options, "cookie_options;"))
+        self.check_cannot_start_impl(msg)

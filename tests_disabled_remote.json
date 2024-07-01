@@ -66,6 +66,18 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
+            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_path",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_max_age",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_expires",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
             "reason": "Disabled by issue #1103"
         },
