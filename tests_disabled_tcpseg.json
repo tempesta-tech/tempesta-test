@@ -102,6 +102,18 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_path",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_max_age",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_expires",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "reconf",
             "reason": "These tests should not be run with TCP segmentation."
         },
