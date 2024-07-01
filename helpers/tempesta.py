@@ -92,6 +92,8 @@ class Stats(object):
 
         self.cache_hits = self.parse_option(stats, "Cache hits")
         self.cache_misses = self.parse_option(stats, "Cache misses")
+        self.cache_objects = self.parse_option(stats, "Cache objects")
+        self.cache_bytes = self.parse_option(stats, "Cache bytes")
 
         self.cl_msg_received = self.parse_option(stats, "Client messages received")
         self.cl_msg_forwarded = self.parse_option(stats, "Client messages forwarded")
