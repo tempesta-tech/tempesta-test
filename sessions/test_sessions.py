@@ -1,4 +1,5 @@
 import re
+import time
 
 from framework import tester
 
@@ -248,6 +249,8 @@ class StickySessionsPersistense(StickySessions):
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
+        # Remove after 2111 in Tempesta will be implemented
+        time.sleep(1)
         req = client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")])
         for _ in range(ATTEMPTS):
             client.send_request(req, "502")
@@ -395,6 +398,8 @@ class StickySessionsFailover(StickySessions):
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
+        # Remove after 2111 in Tempesta will be implemented
+        time.sleep(1)
 
         failovered_s_id = self.client_send_next_req(client, cookie)
         self.assertIn(
@@ -425,6 +430,11 @@ class StickySessionsFailover(StickySessions):
         srv1.stop()
         srv2 = self.get_server("server-2")
         srv2.stop()
+
+        # We need this sleep to be shure that srv1 and srv2 is
+        # really stopped and all connections is closed.
+        # (Remove after #2111 in Tempesta)
+        time.sleep(1)
 
         failovered_s_id = self.client_send_next_req(client, cookie)
         self.assertIn(

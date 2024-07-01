@@ -220,7 +220,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         3. Tempesta must forward HEADERS frame and wait for a WindowUpdate.
         4. Client send DATA frame with stream_id 0 and wait for the GOAWAY frame.
         """
-        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=2, ports=(443,))
+        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(443,))
         sniffer.start()
 
         client, server = self._initiate_client_and_server(

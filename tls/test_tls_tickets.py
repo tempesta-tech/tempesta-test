@@ -118,8 +118,8 @@ class TlsTicketTest(tester.TempestaTest):
         # rejected.
         t_data = ticket.ticket
         index = len(t_data) / 2
-        repl = b"a" if t_data[int(index)] != b"a" else b"b"
-        t_data = t_data[: int(index)] + repl + t_data[int(index) + 1 :]
+        repl = t_data[int(index)] + 1 if t_data[int(index)] < 255 else t_data[int(index)] - 1
+        t_data = t_data[: int(index)] + chr(repl).encode() + t_data[int(index) + 1 :]
         hs = TlsHandshake()
         hs.ticket_data = t_data
         hs.session_id = "\x39" * 32

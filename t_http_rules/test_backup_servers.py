@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from framework import tester
 from helpers import checks_for_tests as checks
 from helpers.deproxy import HttpMessage
@@ -84,6 +86,9 @@ http_chain {
         got_requests = len(primary_server.requests)
 
         primary_server.stop()
+        # Sleep to be shure that server is stopped and connection
+        # is closed (Remove after #2111 in Tempesta)
+        time.sleep(1)
         client.send_request(self.request, "200")
 
         primary_server.start()
