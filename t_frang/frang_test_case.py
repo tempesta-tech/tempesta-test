@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 import run_config
 from framework import tester
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import dmesg
+from helpers import dmesg, tf_cfg
 
 # used to prevent burst
 DELAY = 0.125
@@ -26,6 +26,13 @@ class FrangTestCase(tester.TempestaTest):
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
+        },
+        {
+            "id": "ratechecker",
+            "type": "external",
+            "binary": "ratecheck",
+            "ssl": True,
+            "cmd_args": "",
         },
     ]
 
@@ -165,6 +172,17 @@ block_action attack reply;
             self.assertTrue(self.klog.find(warning, cond=dmesg.amount_equals(expected)), expected)
 
         return len(self.klog.log_findall(warning))
+
+    def run_rate_check(self, client, conn_n, is_tls):
+        tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
+        ctype = "tls" if is_tls else "tcp"
+        client.options = [
+            f" -address {tempesta_ip}:443 -connections {conn_n} -sni tempesta-tech.com -conn_type {ctype}"
+        ]
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+        self.assertEqual(0, client.returncode)
 
 
 class H2Config:

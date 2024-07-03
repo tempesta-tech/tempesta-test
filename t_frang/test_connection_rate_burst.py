@@ -7,6 +7,7 @@ are ranged):
 but not more than 2 times."
 """
 
+import re
 import socket
 import ssl
 import threading
@@ -24,141 +25,13 @@ ERROR = "Warning: frang: new connections {0} exceeded for"
 ERROR_TLS = "Warning: frang: new TLS connections {0} exceeded for"
 
 
-def is_socket_closed(sock: socket.socket) -> bool:
-    try:
-        # this will try to read bytes without blocking and
-        # also without removing them from buffer (peek only)
-        data = sock.recv(16, socket.MSG_DONTWAIT | socket.MSG_PEEK)
-        if len(data) == 0:
-            return True
-    except BlockingIOError:
-        # socket is open and reading from it would block
-        return False
-    except ConnectionResetError:
-        # socket was closed for some other reason
-        return True
-    else:
-        return False
+def parse_out(client):
+    rx = re.compile(r"Errors: ([0-9]+)")
+    reset_conn_n = int(rx.findall(client.stdout.decode())[0])
+    rx = re.compile(r"Finished: ([0-9]+)")
+    total_conn_n = int(rx.findall(client.stdout.decode())[0])
 
-
-def is_tls_socket_closed(sock: socket.socket) -> bool:
-    sock.settimeout(0)
-    try:
-        # this will try to read bytes without blocking and
-        # also without removing them from buffer (peek only)
-        data = sock.recv(16)
-        if len(data) == 0:
-            return True
-    except ssl.SSLWantReadError:
-        return False
-    except:
-        return True
-    else:
-        return False
-
-
-class Connection:
-    def __init__(self, port, protocols=None):
-        self.port = port
-        self.protocols = protocols
-        self.tcp_conn = None
-        self.tls_conn = None
-
-    def __del__(self):
-        if self.tls_conn:
-            self.tls_conn.close()
-        elif self.tcp_conn:
-            self.tcp_conn.close()
-
-    def __tls_wrap_client_server_connection(self, protocols: list):
-        context = ssl.create_default_context()
-
-        context.set_alpn_protocols(protocols)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-
-        try:
-            self.tls_conn = context.wrap_socket(
-                self.tcp_conn, server_hostname=tf_cfg.cfg.get("Client", "hostname")
-            )
-        except:
-            self.tls_conn = None
-
-    def establish_client_server_connection(self):
-        try:
-            self.tcp_conn = socket.create_connection((tf_cfg.cfg.get("Tempesta", "ip"), self.port))
-        except:
-            self.tcp_conn = None
-
-    def establish_client_server_tls_connection(self):
-        self.establish_client_server_connection()
-        if self.tcp_conn and not is_socket_closed(self.tcp_conn):
-            self.__tls_wrap_client_server_connection(self.protocols)
-
-    def establish_client_server_connection_in_thead(self):
-        thread = threading.Thread(target=self.establish_client_server_connection)
-        return thread
-
-    def establish_client_server_tls_connection_in_thead(self):
-        thread = threading.Thread(target=self.establish_client_server_tls_connection)
-        return thread
-
-
-def calculate_tls_reset_conn_n(self, conns):
-    reset_conn_n = 0
-    for conn in conns:
-        if not conn.tls_conn or is_tls_socket_closed(conn.tls_conn):
-            reset_conn_n += 1
-    return reset_conn_n
-
-
-def calculate_tcp_reset_conn_n(self, conns):
-    reset_conn_n = 0
-    for conn in conns:
-        if not conn.tcp_conn or is_socket_closed(conn.tcp_conn):
-            reset_conn_n += 1
-    return reset_conn_n
-
-
-def start_and_wait_threads(threads):
-    for thread in threads:
-        thread.start()
-
-    for thread in threads:
-        thread.join()
-
-
-def create_connections(count, tls_enabled, sleep_time=None):
-    connections = []
-    port = 443 if tls_enabled else 80
-
-    for _ in range(count):
-        conn = Connection(port, ["http/1.1"])
-        connections.append(conn)
-        if tls_enabled:
-            conn.establish_client_server_tls_connection()
-        else:
-            conn.establish_client_server_connection()
-        if sleep_time:
-            time.sleep(sleep_time)
-
-    return connections
-
-
-def create_connections_and_threads(count, tls_enabled):
-    connections = []
-    threads = []
-    port = 443 if tls_enabled else 80
-
-    for _ in range(count):
-        conn = Connection(port, ["http/1.1"])
-        connections.append(conn)
-        if tls_enabled:
-            threads.append(conn.establish_client_server_tls_connection_in_thead())
-        else:
-            threads.append(conn.establish_client_server_connection_in_thead())
-
-    return connections, threads
+    return reset_conn_n, total_conn_n
 
 
 @parameterize_class(
@@ -170,7 +43,6 @@ def create_connections_and_threads(count, tls_enabled):
             "rate_warning": ERROR_TLS.format("rate"),
             "burst_config": "tls_connection_burst 5;\n\ttls_connection_rate 20;",
             "rate_config": "tls_connection_burst 20;\n\ttls_connection_rate 5;",
-            "calculate_reset_function": calculate_tls_reset_conn_n,
         },
         {
             "name": "TCP",
@@ -179,7 +51,6 @@ def create_connections_and_threads(count, tls_enabled):
             "rate_warning": ERROR.format("rate"),
             "burst_config": "tcp_connection_burst 5;\n\ttcp_connection_rate 20;",
             "rate_config": "tcp_connection_burst 20;\n\ttcp_connection_rate 5;",
-            "calculate_reset_function": calculate_tcp_reset_conn_n,
         },
     ]
 )
@@ -241,13 +112,12 @@ class TestFrang(FrangTestCase):
         """
         self.set_frang_config(self.burst_config)
 
-        connections, threads = create_connections_and_threads(conn_n, self.tls_connection)
-        start_and_wait_threads(threads)
-        # This is necessary to be shure that connection is closed.
-        time.sleep(0.5)
-        reset_conn_n = self.calculate_reset_function(connections)
+        client = self.get_client("ratechecker")
+        self.run_rate_check(client, conn_n, self.tls_connection)
 
+        reset_conn_n, total_conn_n = parse_out(client)
         warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        self.assertEqual(total_conn_n, conn_n)
         self.assertEqual(reset_conn_n, warns_occured)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
@@ -267,12 +137,14 @@ class TestFrang(FrangTestCase):
         connection count per 1 sec is greater then 5.
         """
         self.set_frang_config(self.rate_config)
-        connections = create_connections(conn_n, self.tls_connection, 0.01)
-        # This is necessary to be shure that connection is closed.
-        time.sleep(0.5)
-        reset_conn_n = self.calculate_reset_function(connections)
+
+        client = self.get_client("ratechecker")
+        self.run_rate_check(client, conn_n, self.tls_connection)
+
+        reset_conn_n, total_conn_n = parse_out(client)
 
         warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        self.assertEqual(total_conn_n, conn_n)
         self.assertEqual(reset_conn_n, warns_occured)
         self.assertFrangWarning(self.burst_warning, expected=0)
 
@@ -313,18 +185,17 @@ class FrangTlsVsBoth(FrangTestCase):
         self.set_frang_config(frang_config=self.burst_config)
         conn_n = 7
 
-        tls_connections, tls_threads = create_connections_and_threads(conn_n, True)
-        tcp_connections, tcp_threads = create_connections_and_threads(conn_n, False)
-        threads = tls_threads + tcp_threads
+        client = self.get_client("ratechecker")
+        self.run_rate_check(client, conn_n, True)
+        tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        start_and_wait_threads(threads)
-        # This is necessary to be shure that connection is closed.
-        time.sleep(0.5)
-        tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
-        tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
+        self.run_rate_check(client, conn_n, False)
+        tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, conn_n - 3)
         warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        self.assertEqual(tls_total_conn_n, conn_n)
+        self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n, warns_occured)
         self.assertEqual(tcp_reset_conn_n, 0)
         self.assertFrangWarning(self.rate_warning, expected=0)
@@ -337,16 +208,17 @@ class FrangTlsVsBoth(FrangTestCase):
         self.set_frang_config(frang_config=self.rate_config)
         conn_n = 7
 
-        tls_connections = create_connections(conn_n, True, 0.01)
-        tcp_connections = create_connections(conn_n, False, 0.01)
+        client = self.get_client("ratechecker")
+        self.run_rate_check(client, conn_n, True)
+        tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        # This is necessary to be shure that connection is closed.
-        time.sleep(0.5)
-        tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
-        tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
+        self.run_rate_check(client, conn_n, False)
+        tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, conn_n - 3)
         warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        self.assertEqual(tls_total_conn_n, conn_n)
+        self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n, warns_occured)
         self.assertEqual(tcp_reset_conn_n, 0)
         self.assertFrangWarning(self.burst_warning, expected=0)
@@ -389,18 +261,17 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self.set_frang_config(frang_config=self.burst_config)
         conn_n = 7
 
-        tls_connections, tls_threads = create_connections_and_threads(conn_n, True)
-        tcp_connections, tcp_threads = create_connections_and_threads(conn_n, False)
-        threads = tls_threads + tcp_threads
+        client = self.get_client("ratechecker")
+        self.run_rate_check(client, conn_n, True)
+        tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        start_and_wait_threads(threads)
-        # This is necessary to be shure that connection is closed.
-        time.sleep(0.5)
-        tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
-        tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
+        self.run_rate_check(client, conn_n, False)
+        tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, 2 * conn_n - 3)
         warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        self.assertEqual(tls_total_conn_n, conn_n)
+        self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
@@ -412,15 +283,16 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self.set_frang_config(frang_config=self.rate_config)
         conn_n = 7
 
-        tls_connections = create_connections(conn_n, True, 0.01)
-        tcp_connections = create_connections(conn_n, False, 0.01)
+        client = self.get_client("ratechecker")
+        self.run_rate_check(client, conn_n, True)
+        tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        # This is necessary to be shure that connection is closed.
-        time.sleep(0.5)
-        tls_reset_conn_n = calculate_tls_reset_conn_n(None, tls_connections)
-        tcp_reset_conn_n = calculate_tcp_reset_conn_n(None, tcp_connections)
+        self.run_rate_check(client, conn_n, False)
+        tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, 2 * conn_n - 3)
         warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        self.assertEqual(tls_total_conn_n, conn_n)
+        self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
         self.assertFrangWarning(self.burst_warning, expected=0)

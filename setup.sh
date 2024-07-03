@@ -47,6 +47,10 @@ go mod tidy
 go build
 cp ./gflood /usr/bin/gflood
 
+#gutils - Common golang utils
+cd "${CURRENT_DIR}"
+go build -o /usr/bin/ratecheck ./gutils/cmd/ratecheck/main.go
+
 # curl
 git clone --depth=1 --branch curl-7_85_0 https://github.com/curl/curl.git /tmp/curl
 cd /tmp/curl
