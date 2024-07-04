@@ -8,10 +8,6 @@ but not more than 2 times."
 """
 
 import re
-import socket
-import ssl
-import threading
-import time
 
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import tf_cfg
