@@ -3,6 +3,7 @@ Tests for correct handling of HTTP/1.1 headers.
 """
 
 from framework import tester
+from framework.parameterize import param, parameterize
 from helpers import deproxy
 
 __author__ = "Tempesta Technologies, Inc."
@@ -273,6 +274,17 @@ class TestHost(tester.TempestaTest):
         )
 
     def test_different_host_in_uri_and_headers(self):
+        """
+        RFC 9112 Section 3.2.2:
+
+        When a proxy receives a request with an absolute-form of
+        request-target, the proxy MUST ignore the received Host header field
+        (if any) and instead replace it with the host information of the
+        request-target. A proxy that forwards such a request MUST generate a
+        new Host field value based on the received request-target rather than
+        forward the received Host field value
+        """
+
         self.start_all_services()
         client = self.get_client("deproxy")
 
@@ -426,7 +438,6 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             server ${server_ip}:8000;
 
             http_max_header_list_size 23;
-
             block_action attack reply;
             block_action error reply;
         """
@@ -468,3 +479,96 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaa\r\n\r\n",
             expected_status_code="200",
         )
+
+
+"""
+Methods known to Tempesta except PURGE it's covered by another tests.
+See tempesta enum tfw_http_meth_t in fw/http.h
+"""
+KNOWN_METHODS = [
+    "COPY",
+    "DELETE",
+    "GET",
+    "HEAD",
+    "LOCK",
+    "MKCOL",
+    "MOVE",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PROPFIND",
+    "PROPPATCH",
+    "PUT",
+    "TRACE",
+    "UNLOCK",
+]
+
+UNKNOWN_METHODS = [
+    "ACL",
+    "UPDATEREDIRECTREF",
+]
+
+
+class TestMethods(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+            block_action attack reply;
+            block_action error reply;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    @parameterize.expand(
+        [
+            param(name="known_methods", methods=KNOWN_METHODS, crlf=""),
+            param(name="known_methods_leading_crlf", methods=KNOWN_METHODS, crlf="\r\n"),
+            param(name="unknown_methods", methods=UNKNOWN_METHODS, crlf=""),
+            param(name="unknown_methods_leading_crlf", methods=UNKNOWN_METHODS, crlf="\r\n"),
+        ]
+    )
+    def test(self, name, methods, crlf):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        for i, method in enumerate(methods):
+            client.make_request(
+                request=crlf + method + " / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            )
+            client.wait_for_response()
+            self.assertEqual(
+                client.last_response.status,
+                "200",
+                f'Wrong status {client.last_response.status} for method "{method}"',
+            )
+            self.assertEqual(len(client.responses), i + 1, f"Lost response for method {method}")
+            self.assertEqual(
+                server.last_request.method,
+                method,
+                f"Wrong method received on server",
+            )
