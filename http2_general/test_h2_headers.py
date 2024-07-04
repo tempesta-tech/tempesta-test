@@ -782,7 +782,7 @@ class TestTrailers(H2Base):
 
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual("403", client.last_response.status)
-                self.assertTrue(client.connection_is_closed())
+                self.assertTrue(client.wait_for_connection_close())
 
     def test_trailers_with_continuation_frame_in_request(self):
         """
