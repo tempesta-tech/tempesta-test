@@ -11,7 +11,7 @@ import websockets
 
 from framework import tester
 from framework.x509 import CertGenerator
-from helpers import tf_cfg
+from helpers import dmesg, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -439,10 +439,10 @@ class WssStress(WssPing):
         self.p2.join()
 
 
-class WsPipelining(WsPing):
+class WssPipelining(WssPing):
     """
     We sent 3 pipelined requests against websocket.
-    Expected - 101, 502, 502 response codes
+    Expected - Connection closing
     """
 
     clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "81"}]
@@ -488,14 +488,24 @@ class WsPipelining(WsPing):
         self.p1 = Process(target=self.run_ws, args=(8099,))
         self.p1.start()
         self.start_tempesta()
+        self.dmesg = dmesg.DmesgFinder(disable_ratelimit=True)
         time.sleep(5)
 
         self.deproxy_manager.start()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
+        deproxy_cl.ignore_response = True
         deproxy_cl.start()
         deproxy_cl.make_requests(self.request)
-        deproxy_cl.wait_for_response(timeout=5)
+        deproxy_cl.wait_for_connection_close(timeout=5)
+
+        self.assertTrue(
+            self.dmesg.find(
+                pattern="Request dropped: Pipelined request received after UPGRADE request",
+                cond=dmesg.amount_positive,
+            ),
+            "Unexpected number of warnings",
+        )
 
         for resp in deproxy_cl.responses:
             tf_cfg.dbg(3, resp)

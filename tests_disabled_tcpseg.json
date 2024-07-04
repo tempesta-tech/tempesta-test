@@ -50,10 +50,6 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "ws",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
             "name": "http2_general.test_h2_streams.TestMultiplexing",
             "reason": "These tests should not be run with TCP segmentation."
         },
@@ -196,6 +192,34 @@
         {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
             "reason": "Disabled by test issue #525"
+        },
+	{
+	     "name": "ws.test_ws_ping.WsPing",
+             "reason": "Disabled by test issue #672."
+        },
+	{
+	     "name": "ws.test_ws_ping.WssPing",
+             "reason": "Disabled by test issue #672."
+        },
+	{
+	     "name": "ws.test_ws_ping.WssPingProxy",
+             "reason": "Disabled by test issue #672."
+        },
+	{
+	     "name": "ws.test_ws_ping.CacheTest",
+             "reason": "Disabled by test issue #672."
+        },
+	{
+	     "name": "ws.test_ws_ping.WssStress",
+             "reason": "Disabled by test issue #672."
+        },
+	{
+	     "name": "ws.test_ws_ping.WsScheduler",
+             "reason": "Disabled by test issue #672."
+        },
+	{
+	     "name": "ws.test_ws_ping.RestartOnUpgrade",
+             "reason": "Disabled by test issue #672."
         }
     ]
 }
