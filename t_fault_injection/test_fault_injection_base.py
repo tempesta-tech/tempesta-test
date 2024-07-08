@@ -7,7 +7,10 @@ __license__ = "GPL2"
 from framework import tester
 from framework.parameterize import param, parameterize
 from framework.x509 import CertGenerator
-from helpers import dmesg, remote
+from helpers import dmesg, remote, sysnet, tf_cfg
+from helpers.deproxy import HttpMessage
+from helpers.networker import NetWorker
+
 
 
 class TestFailFunctionBase(tester.TempestaTest):
@@ -90,7 +93,7 @@ class TestFailFunctionBase(tester.TempestaTest):
         out = remote.client.run_cmd(cmd)
 
 
-class TestFailFunction(TestFailFunctionBase):
+class TestFailFunction(TestFailFunctionBase, NetWorker):
     @parameterize.expand(
         [
             param(
@@ -99,7 +102,9 @@ class TestFailFunction(TestFailFunctionBase):
                 id="deproxy",
                 msg="can't allocate a new client connection",
                 times=-1,
-                should_fail=True,
+                header_len=0,
+                body_len=0,
+                mtu=None,
                 retval=0,
             ),
             param(
@@ -108,7 +113,9 @@ class TestFailFunction(TestFailFunctionBase):
                 id="deproxy",
                 msg="can't obtain a client for frang accounting",
                 times=-1,
-                should_fail=True,
+                header_len=0,
+                body_len=0,
+                mtu=None,
                 retval=0,
             ),
             param(
@@ -117,40 +124,93 @@ class TestFailFunction(TestFailFunctionBase):
                 id="deproxy_h2",
                 msg="cannot establish a new h2 connection",
                 times=-1,
-                should_fail=True,
+                header_len=0,
+                body_len=0,
+                mtu=None,
+                retval=-12,
+            ),
+            param(
+                name="ss_skb_expand_head_tail",
+                func_name="ss_skb_expand_head_tail",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                header_len=0,
+                body_len=0,
+                mtu=None,
+                retval=-12,
+            ),
+            param(
+                name="ss_skb_expand_head_tail_long_resp",
+                func_name="ss_skb_to_sgvec_with_new_pages",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                header_len=50000,
+                body_len=100000,
+                mtu=100,
+                retval=-12,
+            ),
+            param(
+                name="ss_skb_to_sgvec_with_new_pages",
+                func_name="ss_skb_to_sgvec_with_new_pages",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                header_len=0,
+                body_len=0,
+                mtu=None,
+                retval=-12,
+            ),
+            param(
+                name="ss_skb_to_sgvec_with_new_pages_long_resp",
+                func_name="ss_skb_to_sgvec_with_new_pages",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                header_len=50000,
+                body_len=100000,
+                mtu=100,
                 retval=-12,
             ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, should_fail, retval):
+    def test(self, name, func_name, id, msg, times, header_len, body_len, mtu, retval):
+        if mtu:
+            try:
+                dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+                prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
+                self._test(name, func_name, id, msg, times, header_len, body_len, retval)
+            finally:
+                sysnet.change_mtu(remote.client, dev, prev_mtu)
+        else:
+            self._test(name, func_name, id, msg, times, header_len, body_len, retval)
+
+    def _test(self, name, func_name, id, msg, times, header_len, body_len, retval):
         """
         Basic test to check how Tempesta FW works when some internal
         function fails. Function should be marked as ALLOW_ERROR_INJECTION
         in Tempesta FW source code.
         """
-        srv = self.get_server("deproxy")
-        srv.conns_n = 1
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        if header_len != 0 or body_len != 0:
+            self.set_response(server, header_len, body_len)
         self.start_all_services(client=False)
 
         self.setup_fail_function_test(func_name, times, retval)
-
         client = self.get_client(id)
         request = client.create_request(method="GET", headers=[])
         client.start()
 
-        if should_fail:
-            self.oops_ignore = ["ERROR"]
+        self.oops_ignore = ["ERROR"]
         client.make_request(request)
 
-        if should_fail:
-            # This is necessary to be sure that Tempesta FW write
-            # appropriate message in dmesg.
-            self.assertFalse(client.wait_for_response(3))
-            self.assertTrue(client.wait_for_connection_close())
-        else:
-            self.assertTrue(client.wait_for_response(3))
-            self.assertEqual(client.last_response.status, "200")
+        # This is necessary to be sure that Tempesta FW write
+        # appropriate message in dmesg.
+        self.assertFalse(client.wait_for_response(3))
+        self.assertTrue(client.wait_for_connection_close())
 
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive),
@@ -159,6 +219,24 @@ class TestFailFunction(TestFailFunctionBase):
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()
+
+    @staticmethod
+    def set_response(server, header_len, body_len):
+        response = (
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+        )
+
+        if header_len:
+            header = ("qwerty", "x" * header_len)
+            response += f"{header[0]}: {header[1]}\r\n"
+
+        response += f"Content-Length: {body_len}\r\n\r\n"
+        if body_len:
+            response += "x" * body_len
+
+        server.set_response(response)
 
 
 class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
