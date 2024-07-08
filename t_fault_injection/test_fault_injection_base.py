@@ -54,7 +54,7 @@ class TestFailFunction(tester.TempestaTest):
         [
             param(name="tfw_cli_conn_alloc", id="deproxy", msg="can't allocate a new client connection", retval=0),
             param(name="tfw_client_obtain", id="deproxy", msg="can't obtain a client for frang accounting", retval=0),
-            param(name="tfw_h2_context_init", id="deproxy_h2", msg="cannot establish a new h2 connection", retval=-12)
+            param(name="tfw_hpack_init", id="deproxy_h2", msg="cannot establish a new h2 connection", retval=-12)
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
