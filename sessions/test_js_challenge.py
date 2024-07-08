@@ -777,7 +777,7 @@ class JSChallengeWithCustomRules(BaseJSChallenge):
 
     def setUp(self):
         super().setUp()
-        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.oops = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
         # Cleanup part
         self.addCleanup(self.cleanup_klog)
@@ -788,35 +788,41 @@ class JSChallengeWithCustomRules(BaseJSChallenge):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_custom_rules(self):
-        self.start_all_services()
-
+        self.start_all_services(client=False)
         client = self.get_client("client-1")
 
-        client.send_request(
-            client.create_request(
-                method="GET",
-                uri="/index.html",
-                headers=[("accept", "text/html")],
-            ),
-            "200",
-        )
+        with self.subTest("First without JSChallenge"):
+            request=client.create_request(
+                    method="GET",
+                    uri="/index.html",
+                    headers=[("accept", "text/html")],
+                )
+            client.start()
+            client.make_request(request)
+            client.wait_for_response()
+            self.assertEqual(client.last_response.status, "200")
 
-        client.send_request(
-            client.create_request(
-                method="GET",
-                uri="/index1.html",
-                headers=[("accept", "text/html")]),
-            "503",
-        )
+        with self.subTest("Second with JSChallenge"):
+            request=client.create_request(
+                    method="GET",
+                    uri="/index1.html",
+                    headers=[("accept", "text/html")],
+                )
+            client.start()
+            client.make_request(request)
+            client.wait_for_response()
+            self.assertEqual(client.last_response.status, "503")
 
-        cookie = self.check_resp_body_and_cookie(client.last_response)
-        self._java_script_sleep(cookie[1])
 
-        client.send_request(
-            client.create_request(
+            cookie = self.check_resp_body_and_cookie(client.last_response)
+            self._java_script_sleep(cookie[1])
+            request=client.create_request(
                 method="GET",
-                uri="/index1.html",
-                headers=[("accept", "text/html"), ("cookie", f"{cookie[0]}={cookie[1]}")]
-            ),
-            "200",
-        )
+                    uri="/index1.html",
+                    headers=[("accept", "text/html"), ("cookie", f"{cookie[0]}={cookie[1]}")],
+            )
+            client.start()
+            client.make_request(request)
+            client.wait_for_response()
+            self.assertEqual(client.last_response.status, "200")
+
