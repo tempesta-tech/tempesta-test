@@ -43,6 +43,7 @@ class TestH2ControlFramesFlood(tester.TempestaTest):
         "config": """
         keepalive_timeout 1000;
         listen 443 proto=h2;
+        max_concurrent_streams 20000;
 
         tls_match_any_server_name;
 
