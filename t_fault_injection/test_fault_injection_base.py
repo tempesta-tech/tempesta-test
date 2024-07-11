@@ -8,6 +8,7 @@ from framework import tester
 from framework.parameterize import param, parameterize
 from framework.x509 import CertGenerator
 from helpers import dmesg, remote, sysnet, tf_cfg
+from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 
 
@@ -60,7 +61,8 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
                 msg="can't allocate a new client connection",
                 times=-1,
                 should_fail=True,
-                response_len=0,
+                header_len=0,
+                body_len=0,
                 mtu=None,
                 retval=0,
             ),
@@ -71,7 +73,8 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
                 msg="can't obtain a client for frang accounting",
                 times=-1,
                 should_fail=True,
-                response_len=0,
+                header_len=0,
+                body_len=0,
                 mtu=None,
                 retval=0,
             ),
@@ -82,7 +85,8 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
                 msg="cannot establish a new h2 connection",
                 times=-1,
                 should_fail=True,
-                response_len=0,
+                header_len=0,
+                body_len=0,
                 mtu=None,
                 retval=-12,
             ),
@@ -93,7 +97,8 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 should_fail=False,
-                response_len=0,
+                header_len=0,
+                body_len=0,
                 mtu=None,
                 retval=-12,
             ),
@@ -104,8 +109,21 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 should_fail=False,
-                response_len=0,
+                header_len=0,
+                body_len=0,
                 mtu=None,
+                retval=-12,
+            ),
+            param(
+                name="ss_skb_to_sgvec_with_new_pages_long_resp_no_headers",
+                func_name="ss_skb_to_sgvec_with_new_pages",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                should_fail=False,
+                header_len=0,
+                body_len=100000,
+                mtu=100,
                 retval=-12,
             ),
             param(
@@ -115,25 +133,28 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 should_fail=False,
-                response_len=30000,
+                header_len=50000,
+                body_len=100000,
                 mtu=100,
                 retval=-12,
             ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, should_fail, response_len, mtu, retval):
+    def test(self, name, func_name, id, msg, times, should_fail, header_len, body_len, mtu, retval):
         if mtu:
             try:
                 dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
                 prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-                self._test(name, func_name, id, msg, times, should_fail, response_len, retval)
+                self._test(
+                    name, func_name, id, msg, times, should_fail, header_len, body_len, retval
+                )
             finally:
                 sysnet.change_mtu(remote.client, dev, prev_mtu)
         else:
-            self._test(name, func_name, id, msg, times, should_fail, response_len, retval)
+            self._test(name, func_name, id, msg, times, should_fail, header_len, body_len, retval)
 
-    def _test(self, name, func_name, id, msg, times, should_fail, response_len, retval):
+    def _test(self, name, func_name, id, msg, times, should_fail, header_len, body_len, retval):
         """
         Basic test to check how Tempesta FW works when some internal
         function fails. Function should be marked as ALLOW_ERROR_INJECTION
@@ -141,8 +162,9 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
         """
         self.start_all_services(client=False)
 
-        if response_len != 0:
-            server = self.get_server("deproxy").set_response(self.make_response(response_len))
+        if header_len != 0 or body_len != 0:
+            server = self.get_server("deproxy")
+            self.set_response(server, header_len, body_len)
 
         # Write function name to special debug fs file.
         cmd = f"echo {func_name} > /sys/kernel/debug/fail_function/inject"
@@ -195,10 +217,19 @@ class TestFailFunction(tester.TempestaTest, NetWorker):
         )
 
     @staticmethod
-    def make_response(body_len):
-        body = body_len * "A"
-        return (
+    def set_response(server, header_len, body_len):
+        response = (
             "HTTP/1.1 200 OK\r\n"
-            "Content-Length: " + str(len(body)) + "\r\n"
-            "Connection: keep-alive\r\n\r\n" + body
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
         )
+
+        if header_len:
+            header = ("qwerty", "x" * header_len)
+            response += f"{header[0]}: {header[1]}\r\n"
+
+        response += f"Content-Length: {body_len}\r\n\r\n"
+        if body_len:
+            response += "x" * body_len
+
+        server.set_response(response)
