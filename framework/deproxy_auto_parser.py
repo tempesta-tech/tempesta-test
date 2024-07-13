@@ -166,7 +166,7 @@ class DeproxyAutoParser:
             # Tempesta doesn't cache "set-cookie" header
             expected_response.headers.delete_all("set-cookie")
         if http2 or is_cache:
-            self.__prepare_chunked_expected_response(expected_response)
+            self.__prepare_chunked_expected_response(expected_response, http2)
 
         if not http2:
             self.__add_content_length_header_to_expected_response(expected_response)
@@ -204,14 +204,14 @@ class DeproxyAutoParser:
         message.headers.delete_all("proxy-connection")
         message.headers.delete_all("upgrade")
 
-    def __prepare_chunked_expected_response(self, expected_response: Response | H2Response) -> None:
+    def __prepare_chunked_expected_response(
+        self, expected_response: Response | H2Response, http2: bool
+    ) -> None:
         """
         For http2:
             - Tempesta convert Transfer-Encoding header to Content-Encoding
-            - Tempesta moves trailers to headers
         For cache response:
             - Tempesta store response with Content-Encoding and Content-length headers
-            - Tempesta moves trailers to headers
         """
         if "Transfer-Encoding" in expected_response.headers:
             dbg(
@@ -234,6 +234,9 @@ class DeproxyAutoParser:
                 expected_response.headers.add("content-encoding", ce)
             expected_response.convert_chunked_body()
             expected_response.headers.add("content-length", str(len(expected_response.body)))
+
+            if http2:
+                return
 
             for name, value in expected_response.trailer.headers:
                 dbg(4, self.__dbg_msg.format(f"Response: Trailer '{name}' moved to headers."))
