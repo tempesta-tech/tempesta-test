@@ -10,7 +10,7 @@ from hyperframe.frame import DataFrame
 from helpers import analyzer, remote, util
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
-from test_suite import asserts
+from test_suite import asserts, marks
 
 
 class TestFlowControl(H2Base, asserts.Sniffer):
@@ -28,6 +28,14 @@ class TestFlowControl(H2Base, asserts.Sniffer):
 
         return client, server
 
+    def encode_chunked(self, data, chunk_size=256):
+        result = ""
+        while len(data):
+            chunk, data = data[:chunk_size], data[chunk_size:]
+            result += f"{hex(len(chunk))[2:]}\r\n"
+            result += f"{chunk}\r\n"
+        return result + "0\r\n\r\n"
+
     def _wait_data_frame_and_check_response(self, client, response_body: str, valid_req_num: int):
         client.valid_req_num = valid_req_num  # change the expected number of responses
         client.wait_for_response(strict=True)
@@ -39,7 +47,13 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             "Tempesta returned invalid response body.",
         )
 
-    def test_single_stream(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="no_trailer_in_response", trailer=False),
+            marks.Param(name="trailer_in_response", trailer=True),
+        ]
+    )
+    def test_single_stream(self, name, trailer):
         """
         Client sets SETTINGS_INITIAL_WINDOW_SIZE = 0 bytes and backend returns response
         with 2k bytes body. Client send several WindowUpdate with 1k the flow control window.
@@ -53,15 +67,28 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         6. Client send WindowUpdate with 1K flow control window after receiving first DATA frame;
         7. Tempesta forward second DATA frame with 1k bytes;
         """
-        client, server = self._initiate_client_and_server(
-            response=(
+        if not trailer:
+            response_str = (
                 "HTTP/1.1 200 OK\r\n"
                 + f"Date: {HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 2000\r\n\r\n"
                 + ("x" * 2000)
             )
-        )
+        else:
+            response_str = (
+                "HTTP/1.1 200 OK\r\n"
+                + "Content-type: text/html\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + "Transfer-Encoding: chunked\r\n"
+                + "Trailer: X-Token\r\n\r\n"
+            )
+            response_str += self.encode_chunked(2000 * "x", 16)[:-2] + "X-Token: value\r\n\r\n"
+
+            self.disable_deproxy_auto_parser()
+
+        client, server = self._initiate_client_and_server(response=(response_str))
 
         client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
         client.make_request(self.get_request)
