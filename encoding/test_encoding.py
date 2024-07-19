@@ -598,6 +598,14 @@ class TestH1ChunkedWithTrailer(TestH2ChunkedWithTrailer, CommonUtils):
     )
 
 
+class TestH2ChunkedWithLongTrailer(TestH2ChunkedWithTrailer):
+    token = "a" * 30000
+
+
+class TestH1ChunkedWithLongTrailer(TestH1ChunkedWithTrailer):
+    token = "a" * 30000
+
+
 class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
     """
     Response to HTTP2 client or cacheable with chunked body has chunked extension.
