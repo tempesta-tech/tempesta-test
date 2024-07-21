@@ -1,4 +1,5 @@
-#! /bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
 
 CURRENT_DIR=$(pwd)
 
@@ -40,6 +41,7 @@ cp ./h2spec /usr/bin/h2spec
 
 #gflood - CONTINUATION frame flooder
 mkdir /tmp/gflood
+cd "${CURRENT_DIR}"
 cp gflood/main.go /tmp/gflood/
 cd /tmp/gflood
 go mod init gflood
