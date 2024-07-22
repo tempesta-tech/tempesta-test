@@ -128,13 +128,13 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
 
             srv_group default {
                     server ${server_ip}:8000;
 
             }
             vhost default {
-                    tls_match_any_server_name;
                     proxy_pass default;
             }
 
