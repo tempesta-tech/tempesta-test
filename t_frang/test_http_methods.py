@@ -104,7 +104,6 @@ class FrangHttpMethodsTestCase(FrangTestCase):
 
 
 class FrangHttpMethodsH2(H2Config, FrangHttpMethodsTestCase):
-
     def test_not_accepted_request_register(self):
         self.disable_deproxy_auto_parser()
         client = self.base_scenario(
