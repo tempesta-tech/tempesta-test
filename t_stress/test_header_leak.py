@@ -4,15 +4,13 @@ __license__ = "GPL2"
 
 import random
 import re
-import socket
-import ssl
 import string
-from threading import Thread
 
-import h2
+import psutil
+from hyperframe.frame import HeadersFrame
 
 from framework import tester
-from helpers import remote, tf_cfg
+from helpers import remote
 
 
 def randomword(length):
@@ -41,6 +39,17 @@ class TestH2HeaderLeak(tester.TempestaTest):
     the connection when the response arrives from the backend,
     so no further effect too.
     """
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        },
+    ]
 
     backends = [
         {
@@ -84,6 +93,7 @@ http {
         listen 443 proto=h2;
 
         tls_match_any_server_name;
+        max_concurrent_streams 10000;
 
         srv_group default {
             server ${server_ip}:8000;
@@ -99,72 +109,42 @@ http {
 
     def test(self):
         self.start_all_services()
+        client = self.get_client("deproxy")
 
-        hostname = tf_cfg.cfg.get("Tempesta", "hostname")
-        port = 443
+        request = client.create_request(
+            uri="/", method="GET", headers=[(randomword(100), randomword(100)) for _ in range(50)]
+        )
 
-        def run_test():
-            context = ssl.create_default_context()
-            context.set_alpn_protocols(["h2"])
-            context.check_hostname = False
-            context.keylog_filename = "secrets.txt"
-            context.verify_mode = ssl.CERT_NONE
+        # create http2 connection and stream 1. The stream and connection are open.
+        # It is necessary for check of a memory consumption
+        client.make_request(client.create_request(method="GET", headers=[]), end_stream=False)
 
-            headers = [
-                (":method", "GET"),
-                (":path", "/"),
-                (":authority", "tempesta-tech.com"),
-                (":scheme", "https"),
-            ]
-
-            # memory leak even after the connection closed, if too many big headers
-            for _ in range(50):
-                headers.append((randomword(100), randomword(100)))
-
-            with socket.create_connection((hostname, port)) as sock:
-                with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as s:
-                    c = h2.connection.H2Connection()
-                    c.initiate_connection()
-                    s.sendall(c.data_to_send())
-
-                    # memory grow until OOM even if one active stream at one time
-                    for i in range(1, 50_000, 2):
-                        c.send_headers(i, headers, end_stream=True)
-                        s.sendall(c.data_to_send())
-                        response_stream_ended = False
-
-                        while not response_stream_ended:
-                            # read raw data from the socket
-                            data = s.recv(65536 * 1024)
-                            if not data:
-                                break
-
-                            # feed raw data into h2, and process resulting events
-                            events = c.receive_data(data)
-                            for event in events:
-                                if isinstance(event, h2.events.DataReceived):
-                                    # update flow control so the server doesn't starve us
-                                    c.acknowledge_received_data(
-                                        event.flow_controlled_length, event.stream_id
-                                    )
-                                if isinstance(event, h2.events.StreamEnded):
-                                    # response body completed, let's exit the loop
-                                    response_stream_ended = True
-                                    break
-                            # send any pending data to the server
-                            s.sendall(c.data_to_send())
-
+        # save a memory consumption and make a lot of requests with different headers
         (mem1,) = get_memory_lines("MemAvailable")
+        mem1 = mem1 + psutil.Process().memory_info().rss // 1024  # python memory
+        for stream_id in range(3, 20000, 2):
+            client.stream_id = stream_id
+            client.make_request(request, end_stream=False)
 
-        parallel = 2
-        plist = []
-        for _ in range(parallel):
-            p = Thread(target=run_test, args=())
-            p.start()
-            plist.append(p)
-        for p in plist:
-            p.join()
+            # send trailer headers with invalid `x-forwarded-for` header
+            # it is necessary for calling the RST_STREAM
+            client.send_bytes(
+                HeadersFrame(
+                    stream_id=stream_id,
+                    data=client.h2_connection.encoder.encode([("x-forwarded-for", "1.1.1.1.1.1")]),
+                    flags=["END_STREAM", "END_HEADERS"],
+                ).serialize(),
+                expect_response=True,
+            )
 
+        self.assertTrue(client.wait_for_response(60))
+        # check a memory consumption (http2 connection is still open)
         (mem2,) = get_memory_lines("MemAvailable")
+        mem2 = mem2 + psutil.Process().memory_info().rss // 1024
         memdiff = abs(mem2 - mem1) / mem1
         self.assertLess(memdiff, 0.05)
+
+        # close first stream and http2 connection and finish test
+        client.stream_id = 1
+        client.make_request("data", end_stream=True)
+        self.assertTrue(client.wait_for_response())
