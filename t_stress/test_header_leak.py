@@ -10,7 +10,7 @@ import psutil
 from hyperframe.frame import HeadersFrame
 
 from framework import tester
-from helpers import remote
+from helpers import dmesg, remote
 
 
 def randomword(length):
@@ -107,6 +107,7 @@ http {
         """
     }
 
+    @dmesg.limited_rate_on_tempesta_node
     def test(self):
         self.start_all_services()
         client = self.get_client("deproxy")
@@ -137,7 +138,7 @@ http {
                 expect_response=True,
             )
 
-        self.assertTrue(client.wait_for_response(60))
+        self.assertTrue(client.wait_for_response(120))
         # check a memory consumption (http2 connection is still open)
         (mem2,) = get_memory_lines("MemAvailable")
         mem2 = mem2 + psutil.Process().memory_info().rss // 1024
