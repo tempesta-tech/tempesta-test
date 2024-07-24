@@ -300,6 +300,10 @@
         {
             "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
+        },
+        {
+            "name": "t_stress.test_header_leak.TestH2HeaderLeak",
+            "reason": "Disabled by issue #2181"
         }
     ]
 }
