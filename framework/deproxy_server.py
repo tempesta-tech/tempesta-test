@@ -365,6 +365,19 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
         return self.__response, False
 
+    def wait_for_responses(self, n: int, timeout=5, strict=False) -> bool:
+        """wait for the `n` number of responses to be received"""
+        timeout_not_exceeded = util.wait_until(
+            lambda: len(self.requests) < n,
+            timeout=timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection close: {timeout}"
+        return timeout_not_exceeded
+
 
 def deproxy_srv_factory(server, name, tester):
     port = server["port"]
