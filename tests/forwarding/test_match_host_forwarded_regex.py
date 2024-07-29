@@ -2,18 +2,17 @@
 Tests for verifying correctness of matching
 all host headers (URI, Host, Forwarded).
 """
-import time
 
-from framework import deproxy_client, tester
-from helpers import chains
+from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+
 class BaseRegexMatcher(tester.TempestaTest, base=True):
- 
+
     backends = [
         {
             "id": 0,
@@ -44,28 +43,44 @@ class BaseRegexMatcher(tester.TempestaTest, base=True):
             "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 1\r\n\r\n3",
         },
     ]
-    
+
     blocked_response_status = "403"
     success_response_status = "200"
 
-    def setUp(self):
-        tester.TempestaTest.setUp(self)
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        time.sleep(1) #It is necessary to wait until regexes are compiled
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-            
 @parameterize_class(
     [
-        {"name": "Http", "clients": [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]},
-        {"name": "H2", "clients": [{"id": "deproxy", "type": "deproxy_h2", "addr": "${tempesta_ip}", "port": "443", "ssl": True}]},
+        {
+            "name": "Http",
+            "clients": [
+                {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}
+            ],
+        },
+        {
+            "name": "H2",
+            "clients": [
+                {
+                    "id": "deproxy",
+                    "type": "deproxy_h2",
+                    "addr": "${tempesta_ip}",
+                    "port": "443",
+                    "ssl": True,
+                }
+            ],
+        },
     ]
 )
 class TestMatchLocations(BaseRegexMatcher):
+
+    backends = BaseRegexMatcher.backends + [
+        {
+            "id": 4,
+            "type": "deproxy",
+            "port": "8004",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 1\r\n\r\n4",
+        }
+    ]
 
     tempesta = {
         "config": """
@@ -127,53 +142,53 @@ class TestMatchLocations(BaseRegexMatcher):
         [
             param(
                 name="host_testwiki_uri_testwiki",
-                uri="/testwiki",     # <--The second must be matched by "location ~ "/wiki/"" of vhost test. 
-                host="testwiki.com", #<--The first must be matched by "host ~* "/test/" -> test".
+                uri="/testwiki",  # <--The second must be matched by "location ~ "/wiki/"" of vhost test.
+                host="testwiki.com",  # <--The first must be matched by "host ~* "/test/" -> test".
                 block=False,
-                sid=1
+                sid=1,
             ),
             param(
                 name="host_testapp_uri_testshop",
-                uri="/testshop",    # <--The second must be matched by "location ~ "/shop/"" of vhost test.
-                host="testapp.com", # <--The first must be matched by "host ~* "/test/" -> test".
+                uri="/testshop",  # <--The second must be matched by "location ~ "/shop/"" of vhost test.
+                host="testapp.com",  # <--The first must be matched by "host ~* "/test/" -> test".
                 block=False,
-                sid=0
+                sid=0,
             ),
-            param(                   # <--The second is not matched with anything.
+            param(  # <--The second is not matched with anything.
                 name="host_testapp_uri_testapp",
                 uri="/testapp",
-                host="testapp.com",  #<--The first must be matched by "host ~* "/test/" -> test".
+                host="testapp.com",  # <--The first must be matched by "host ~* "/test/" -> test".
                 block=False,
-                sid=4
+                sid=4,
             ),
             param(
                 name="host_WorkShop_uri_testwiki",
-                uri="/testwiki",     # <--The second must be matched by "location ~ "/wiki/"" of vhost work.
-                host="WorkShop.com", # <--The first must be matched by "host ~* "/work/" -> work".
+                uri="/testwiki",  # <--The second must be matched by "location ~ "/wiki/"" of vhost work.
+                host="WorkShop.com",  # <--The first must be matched by "host ~* "/work/" -> work".
                 block=False,
-                sid=3
+                sid=3,
             ),
             param(
                 name="host_WorkWiki_uri_testshop",
-                uri="/testshop",     # <--The second must be matched by "location ~ "/shop/"" of vhost work.
-                host="WorkWiki.com", # <--The first must be matched by "host ~* "/work/" -> work".
+                uri="/testshop",  # <--The second must be matched by "location ~ "/shop/"" of vhost work.
+                host="WorkWiki.com",  # <--The first must be matched by "host ~* "/work/" -> work".
                 block=False,
-                sid=2
+                sid=2,
             ),
-            param(                  # <--The second is not matched with anything.
+            param(  # <--The second is not matched with anything.
                 name="host_workapp_uri_testapp",
                 uri="/testapp",
-                host="workapp.com", # <--The first must be matched by "host ~* "/work/" -> work".
+                host="workapp.com",  # <--The first must be matched by "host ~* "/work/" -> work".
                 block=False,
-                sid=4
+                sid=4,
             ),
             param(
                 name="host_ordinary_uri_ignored",
                 uri="/ignored",
-                host="ordinary.com", # <--Must fail all matches and be blocked.
+                host="ordinary.com",  # <--Must fail all matches and be blocked.
                 block=True,
-                sid=0
-            ),            
+                sid=0,
+            ),
         ]
     )
     def test(self, name, uri, host, block, sid):
@@ -183,16 +198,8 @@ class TestMatchLocations(BaseRegexMatcher):
         by compare last response body with sid of
         whaiting server.
         """
-        self.backends.append({
-            "id": 4,
-            "type": "deproxy",
-            "port": "8004",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n" "Content-Length: 1\r\n\r\n4",
-        })
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
-        client.restart()
         request = client.create_request(method="GET", uri=uri, authority=host, headers=[])
         client.send_request(request)
         if not block:
@@ -207,12 +214,28 @@ class TestMatchLocations(BaseRegexMatcher):
 
 @parameterize_class(
     [
-        {"name": "Http",  "clients": [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]},
-        {"name": "H2", "clients": [{"id": "deproxy", "type": "deproxy_h2", "addr": "${tempesta_ip}", "port": "443", "ssl": True}]},
+        {
+            "name": "Http",
+            "clients": [
+                {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}
+            ],
+        },
+        {
+            "name": "H2",
+            "clients": [
+                {
+                    "id": "deproxy",
+                    "type": "deproxy_h2",
+                    "addr": "${tempesta_ip}",
+                    "port": "443",
+                    "ssl": True,
+                }
+            ],
+        },
     ]
 )
 class TestMatchHost(BaseRegexMatcher):
-    
+
     tempesta = {
         "config": """
 
@@ -261,16 +284,18 @@ class TestMatchHost(BaseRegexMatcher):
         }
         """
     }
-  
+
     @parameterize.expand(
         [
             param(
                 name="host_testshop_uri_none",
                 uri="/",
-                host="testshop.com", # <--Must be matched by "host ~ "/tsho/"".
-                headers=[("Forwarded", "host=testapp.com"),],
+                host="testshop.com",  # <--Must be matched by "host ~ "/tsho/"".
+                headers=[
+                    ("Forwarded", "host=testapp.com"),
+                ],
                 block=False,
-                sid=0
+                sid=0,
             ),
             param(
                 name="host_testapp_uri_none",
@@ -278,74 +303,86 @@ class TestMatchHost(BaseRegexMatcher):
                 host="testapp.com",  # <--Must be matched by "hdr host ~ "/stap/"".
                 headers=[],
                 block=False,
-                sid=2
+                sid=2,
             ),
-            param(                   # <--Must be blocked.
+            param(  # <--Must be blocked.
                 name="host_bobhost_uri_none",
                 uri="/",
                 host="bobhost.com",
                 headers=[],
                 block=True,
-                sid=0
+                sid=0,
             ),
             param(
                 name="host_testwiki_uri_foo",
                 uri="/foo",
                 host="testwiki.com",
-                headers=[("User-Agent", "Mozilla")],  # <--Must be matched by "hdr User-Agent ~* "/ill/".
+                headers=[
+                    ("User-Agent", "Mozilla")
+                ],  # <--Must be matched by "hdr User-Agent ~* "/ill/".
                 block=False,
-                sid=1
+                sid=1,
             ),
             param(
                 name="host_TesTaPp_uri_foo_fwd_hhh",
                 uri="/foo",
                 host="TesTaPp.cOm",
-                headers=[ ("Forwarded", "host=sent.hhh.ignored"),], # <--Must be matched by "hdr forwarded ~ "/t=se/"".
+                headers=[
+                    ("Forwarded", "host=sent.hhh.ignored"),
+                ],  # <--Must be matched by "hdr forwarded ~ "/t=se/"".
                 block=False,
-                sid=3
+                sid=3,
             ),
             param(
                 name="host_TesTaPp_uri_foo_fwd_host",
                 uri="/foo",
                 host="TesTaPp.cOm",
-                headers=[("Forwarded", "host=forwarded.host.ignored"),], # <--Must be matched by "hdr forwarded ~ "/host./"".
+                headers=[
+                    ("Forwarded", "host=forwarded.host.ignored"),
+                ],  # <--Must be matched by "hdr forwarded ~ "/host./"".
                 block=False,
-                sid=2
+                sid=2,
             ),
             param(
                 name="host_TesTaPp_uri_foo_fwd_hhh2",
                 uri="/foo",
-                host="TesTaPp.cOm", # <--Must be matched by "host ~* "/app|ad12:ca16/"".
-                headers=[ ("Forwarded", "host=forwarded.hhh.ignored"),],
+                host="TesTaPp.cOm",  # <--Must be matched by "host ~* "/app|ad12:ca16/"".
+                headers=[
+                    ("Forwarded", "host=forwarded.hhh.ignored"),
+                ],
                 block=False,
-                sid=2
+                sid=2,
             ),
             param(
                 name="host_fd80_uri_foo",
                 uri="/foo",
-                host="[fd80::1cb2:ad12:ca16:98ef]:8080", # <--Must be matched by "host ~* "/app|ad12:ca16/"".
-                headers=[("Forwarded","host=forwarded.hhh.ignored"),],
+                host="[fd80::1cb2:ad12:ca16:98ef]:8080",  # <--Must be matched by "host ~* "/app|ad12:ca16/"".
+                headers=[
+                    ("Forwarded", "host=forwarded.hhh.ignored"),
+                ],
                 block=False,
-                sid=2
+                sid=2,
             ),
-            param( # <--must be blocked
+            param(  # <--must be blocked
                 name="host_badhost_uri_foo",
                 uri="/foo",
                 host="badhost.com",
-                headers=[("Forwarded", "host=forwarded.host.ignored"),],
+                headers=[
+                    ("Forwarded", "host=forwarded.host.ignored"),
+                ],
                 block=True,
-                sid=0
+                sid=0,
             ),
-            param( # <--must be blocked
+            param(  # <--must be blocked
                 name="host_unkhost_uri_foo",
                 uri="/foo",
                 host="unkhost.com",
                 headers=[],
                 block=True,
-                sid=0
-            ),         
+                sid=0,
+            ),
         ]
-    )   
+    )
     def test(self, name, uri, host, headers, block, sid):
         """
         Send requests with different URI and headers
@@ -353,9 +390,8 @@ class TestMatchHost(BaseRegexMatcher):
         by compare last response body with sid of
         whaiting server.
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
-        client.restart()
         request = client.create_request(method="GET", uri=uri, authority=host, headers=headers)
         client.send_request(request)
         if not block:
