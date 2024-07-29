@@ -713,6 +713,7 @@ class JSChallengeCookieExpiresAndMethodOverride(BaseJSChallenge):
             1,
         )
 
+
 @parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT]},
@@ -733,6 +734,18 @@ class JSChallengeWithCustomRules(BaseJSChallenge):
                 + "Content-Length: 0\r\n\r\n"
             ),
         },
+        {
+            "id": "server-2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: deproxy\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        },
     ]
 
     tempesta = {
@@ -745,15 +758,22 @@ class JSChallengeWithCustomRules(BaseJSChallenge):
             server ${{server_ip}}:8000;
         }}
 
+        srv_group good {{
+            server ${{server_ip}}:8001;
+        }}
+
         tls_certificate ${{tempesta_workdir}}/tempesta.crt;
         tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
-        tls_match_any_server_name;
 
         block_action attack reply;
         block_action error reply;
 
         cache 2;
         cache_fulfill * *;
+
+        vhost good {{
+            proxy_pass good;
+        }}
 
         sticky {{
             cookie enforce name=cname max_misses={MAX_MISSES};
@@ -763,12 +783,13 @@ class JSChallengeWithCustomRules(BaseJSChallenge):
         }}
 
         vhost default {{
-            tls_match_any_server_name;
             proxy_pass default;
+            tls_match_any_server_name true;
         }}
 
         http_chain {{
             uri == "*1.html" -> jsch;
+            host == "good" -> good;
             -> default;
         }}
 
@@ -786,43 +807,46 @@ class JSChallengeWithCustomRules(BaseJSChallenge):
         if hasattr(self, "klog"):
             del self.klog
 
+    @parameterize.expand(
+        [
+            param(name="default", host="default", js_expected=True),
+            param(name="good", host="good", js_expected=False),
+        ]
+    )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_custom_rules(self):
+    def test_custom_rules(self, name, host, js_expected):
         self.start_all_services(client=False)
         client = self.get_client("client-1")
 
         with self.subTest("First without JSChallenge"):
-            request=client.create_request(
-                    method="GET",
-                    uri="/index.html",
-                    headers=[("accept", "text/html")],
-                )
-            client.start()
-            client.make_request(request)
-            client.wait_for_response()
-            self.assertEqual(client.last_response.status, "200")
-
-        with self.subTest("Second with JSChallenge"):
-            request=client.create_request(
-                    method="GET",
-                    uri="/index1.html",
-                    headers=[("accept", "text/html")],
-                )
-            client.start()
-            client.make_request(request)
-            client.wait_for_response()
-            self.assertEqual(client.last_response.status, "503")
-
-
-            cookie = self.check_resp_body_and_cookie(client.last_response)
-            self._java_script_sleep(cookie[1])
-            request=client.create_request(
-                method="GET",
-                    uri="/index1.html",
-                    headers=[("accept", "text/html"), ("cookie", f"{cookie[0]}={cookie[1]}")],
+            request = client.create_request(
+                method="GET", uri="/index.html", headers=[("accept", "text/html")], authority=host
             )
             client.start()
             client.make_request(request)
             client.wait_for_response()
             self.assertEqual(client.last_response.status, "200")
 
+        with self.subTest("Second with JSChallenge"):
+            request = client.create_request(
+                method="GET", uri="/index1.html", headers=[("accept", "text/html")], authority=host
+            )
+            client.start()
+            client.make_request(request)
+            client.wait_for_response()
+            if js_expected:
+                self.assertEqual(client.last_response.status, "503")
+                cookie = self.check_resp_body_and_cookie(client.last_response)
+                self._java_script_sleep(cookie[1])
+                request = client.create_request(
+                    method="GET",
+                    uri="/index1.html",
+                    headers=[("accept", "text/html"), ("cookie", f"{cookie[0]}={cookie[1]}")],
+                    authority=host,
+                )
+                client.start()
+                client.make_request(request)
+                client.wait_for_response()
+                self.assertEqual(client.last_response.status, "200")
+            else:
+                self.assertEqual(client.last_response.status, "200")

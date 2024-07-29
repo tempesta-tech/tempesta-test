@@ -3,6 +3,7 @@ import time
 
 from framework import tester
 from helpers import dmesg
+from framework.parameterize import param, parameterize
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
@@ -124,12 +125,22 @@ class LearnSessions(LearnSessionsBase):
 
     tempesta = {
         "config": """
-        server ${server_ip}:8000;
-        server ${server_ip}:8001;
-        server ${server_ip}:8002;
+        srv_group good {
+            server ${server_ip}:8000;
+            server ${server_ip}:8001;
+            server ${server_ip}:8002;
+        }
 
-        sticky {
-            learn name=client-id;
+        vhost good {
+            proxy_pass good;
+            sticky {
+                learn name=client-id;
+            }
+        }
+
+        http_chain {
+            %s
+            ->good;
         }
 
         """
@@ -183,7 +194,15 @@ class LearnSessions(LearnSessionsBase):
         self.deproxy_manager.start()
         self.assertTrue(self.wait_all_connections(1))
 
-    def test_sessions(self):
+    @parameterize.expand(
+        [
+            param(name="base", js_conf=""),
+            param(name="other_host", js_conf='host == "test" -> jsch;'),
+            param(name="same_host", js_conf='host == "good" -> jsch;'),
+        ]
+    )
+    def test_sessions(self, name, js_conf):
+        self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % js_conf
         self.start_all()
         client = self.get_client("deproxy")
 
@@ -195,12 +214,20 @@ class LearnSessions(LearnSessionsBase):
             new_s_id = self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Learnt session was forwarded to not-pinned server")
 
-    def test_backend_fail(self):
+    @parameterize.expand(
+        [
+            param(name="base", js_conf=""),
+            param(name="other_host", js_conf='host == "test" ->jsch;'),
+            param(name="same_host", js_conf='host == "good" ->jsch;'),
+        ]
+    )
+    def test_backend_fail(self, name, js_conf):
         """
         Backend goes offline, but client still tries to access the resource,
         TempestaFW responds with 502 status code. But when the server is back
         online, it again serves the responses.
         """
+        self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % js_conf
         self.start_all()
         client = self.get_client("deproxy")
         s_id, cookie = self.client_send_first_req(client)

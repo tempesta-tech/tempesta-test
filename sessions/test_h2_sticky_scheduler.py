@@ -8,6 +8,7 @@ import http
 
 from framework import tester
 from helpers import dmesg
+from framework.parameterize import param, parameterize
 
 
 class H2StickySchedulerTestCase(tester.TempestaTest):
@@ -45,7 +46,8 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
             cache_fulfill * *;
             block_action attack reply;
             http_chain {
-                host == "bad.com"	-> block;
+                %s
+                host == "bad.com"  -> block;
                 host == "good.com" -> v_good;
             }
         """,
@@ -90,8 +92,15 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         },
     ]
 
+    @parameterize.expand(
+        [
+            param(name="base", js_conf=""),
+            param(name="other_host", js_conf='host == "test" -> jsch;'),
+            param(name="same_host", js_conf='host == "good" -> jsch;'),
+        ]
+    )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_h2_cookie_scheduler(self):
+    def test_h2_cookie_scheduler(self, name, js_conf):
         """
         Test for sticky cookie scheduler by issue.
 
@@ -106,6 +115,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         6. tempesta filtering out request
 
         """
+        self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig % js_conf
         curl = self.get_client("curl")
 
         self.start_all_servers()

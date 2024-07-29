@@ -643,12 +643,12 @@ class StickyCookieConfig(tester.TempestaTest):
             param(
                 name="dublicate_name",
                 cookie_config="cookie name=A name=B enforce;",
-                msg="Duplicate argument: 'name'"
+                msg="Duplicate argument: 'name'",
             ),
             param(
                 name="dublicate_max_misses",
                 cookie_config="cookie max_misses=3 max_misses=4 enforce;",
-                msg="Duplicate argument: 'max_misses'"
+                msg="Duplicate argument: 'max_misses'",
             ),
         ]
     )
@@ -857,18 +857,18 @@ class StickyCookieOptions(tester.TempestaTest):
             param(
                 name="path",
                 options="cookie_options Path=/ Path=/etc;",
-                msg="Duplicate argument: 'Path'"
+                msg="Duplicate argument: 'Path'",
             ),
             param(
                 name="max_age",
                 options="cookie_options Max-Age=3 Max-Age=5;",
-                msg="Duplicate argument: 'Max-Age'"
+                msg="Duplicate argument: 'Max-Age'",
             ),
             param(
                 name="expires",
                 options="cookie_options Expires=3 Expires=5;",
-                msg="Duplicate argument: 'Expires'"
-            )
+                msg="Duplicate argument: 'Expires'",
+            ),
         ]
     )
     def test_dublicate(self, name, options, msg):
