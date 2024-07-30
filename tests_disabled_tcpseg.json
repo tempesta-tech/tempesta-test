@@ -2,6 +2,10 @@
     "disable" : true,
     "disabled" : [
         {
+            "name": "t_replay",
+            "reason": "These tests should not be run on CI. Run it only to reproduce bugs on production"
+        },
+        {
             "name": "t_fault_injection",
             "reason": "These tests should not be run with TCP segmentation."
         },
