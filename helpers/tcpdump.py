@@ -6,83 +6,141 @@ import signal
 import argparse
 import shutil
 
-class Logger():
-    def __run_tcpdump(self, ethname) -> None:
+
+class Logger:
+    def __run_tcpdump(
+        self, ethname, file_size, file_count, file_name, ports, src, dst, direction
+    ) -> None:
         """
-        Run `tcpdump` before the test if `-s` (--save-tcpdump) option is used.
-        Save result in a <name>.pcap file, where <name> is name of test.
+        Save result in a <file_name>.pcap file.
         """
         path = f"/var/tcpdump/{datetime.date.today()}"
-        file_name = datetime.datetime.now().strftime('%H:%M:%S')
 
         if not os.path.isdir(path):
             os.makedirs(path)
-        self.__tcpdump = subprocess.Popen(
-            [
-                "tcpdump",
-                "-U",
-                "-i",
-                f"{ethname}",
-                "-w",
-                f"{path}/{file_name}.pcap",
-            ],
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
 
-    def __clear_tcpdump_files(self, directory, cur_time, time_to_clear_dump) -> None:
-        for _f in os.listdir(directory):
-            f = os.path.join(directory, _f)
-            t = os.path.getctime(f)
-            if cur_time - t > time_to_clear_dump:
-                os.remove(f)
+        args = [
+            "tcpdump",
+            "-U",
+            "-i",
+            f"{ethname}",
+            "-C",
+            f"{file_size}",
+            "-W",
+            f"{file_count}",
+            "-w",
+            f"{path}/{file_name}-{direction}.pcap",
+            "-Q",
+            f"{direction}",
+            "-Z",
+            "root",
+        ]
 
-    def __clear_tcpdump(self, cur_time, time_to_clear_dump) -> None:
-        path = f"/var/tcpdump/"
-        directory = os.fsencode(path)
+        if ports:
+            args += ["port"]
+            args += [f"{ports[0]}"]
 
-        for _d in os.listdir(directory):
-            d = os.path.join(directory, _d)
-            if d.decode('UTF-8') != f"/var/tcpdump/{datetime.date.today()}":
-                shutil.rmtree(d)
-            else:
-                self.__clear_tcpdump_files(d, cur_time, time_to_clear_dump)
+            for i in range(1, len(ports)):
+                args += ["and"]
+                args += ["port"]
+                args += [f"{ports[i]}"]
 
-    def __stop_tcpdump(self) -> None:
+        if src:
+            args += [f"ip src {src}"]
+        if dst:
+            args += [f"ip dst {dst}"]
+
+        if direction == "in":
+            self.__tcpdump_in = subprocess.Popen(
+                args=args,
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        elif direction == "out":
+            self.__tcpdump_out = subprocess.Popen(
+                args=args,
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        else:
+            print("Fail to start tcpdump - invalid direction")
+            return
+
+    def __stop_tcpdump(self, direction) -> None:
         """
         Stop tcpdump.
-        `wait()` always causes `TimeoutExpired` error because `tcpdump` cannot terminate on
-        its own. But it requires a timeout to flush data from buffer.
+        `wait()` should never causes `TimeoutExpired` error because `tcpdump` can
+        be successfully terminate by SIGINT. But it requires a timeout to flush
+        data from buffer.
         """
+
+        __tcpdump = None
+        if direction == "in":
+            __tcpdump = self.__tcpdump_in
+        elif direction == "out":
+            __tcpdump = self.__tcpdump_out
+        else:
+            print("Fail to stop tcpdump - invalid direction")
+            return
+
         try:
-            self.__tcpdump.send_signal(signal.SIGUSR2)
-            self.__tcpdump.wait(timeout=3)
+            __tcpdump.send_signal(signal.SIGINT)
+            __tcpdump.wait(timeout=3)
         except subprocess.TimeoutExpired:
-            self.__tcpdump.kill()
-            self.__tcpdump.wait()
+            __tcpdump.kill()
+            __tcpdump.wait()
 
-        self.__tcpdump = None
+        if direction == "in":
+            self.__tcpdump_in = None
+        elif direction == "out":
+            self.__tcpdump_out = None
 
-    def run(self, ethname, time_to_new_dump=3600, time_to_clear_dump=21600) -> None:
-        t0 = time.time()
-        self.__run_tcpdump(ethname)
+    def run(
+        self,
+        ethname=None,
+        exec_time=None,
+        file_size=None,
+        file_count=None,
+        file_name=None,
+        ports=None,
+        src=None,
+        dst=None,
+    ) -> None:
+        ethname = ethname if ethname else "lo"
+        exec_time = exec_time if exec_time else 60
+        file_size = file_size if file_size else 50
+        file_count = file_count if file_count else 10
+        file_name = file_name if file_name else f"{datetime.datetime.now().strftime('%H:%M:%S')}"
 
-        while True:
-            t = time.time()
-            self.__clear_tcpdump(t, time_to_clear_dump)
-            if t - t0 > time_to_new_dump:
-                self.__stop_tcpdump()
-                self.__run_tcpdump(ethname)
-                t0 = t
-            time.sleep(time_to_new_dump / 10 if time_to_new_dump > 10 else 1)
+        self.__run_tcpdump(ethname, file_size, file_count, file_name, ports, src, dst, "in")
+        self.__run_tcpdump(ethname, file_size, file_count, file_name, ports, src, dst, "out")
+        time.sleep(exec_time * 60)
+        self.__stop_tcpdump("in")
+        self.__stop_tcpdump("out")
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--ethname", type=str)
-parser.add_argument("-tn", "--time-to-new-dump", type=int)
-parser.add_argument("-tc", "--time-to-clear-dump", type=int)
+parser.add_argument("-t", "--exec-time", type=int)
+parser.add_argument("-s", "--file-size", type=int)
+parser.add_argument("-c", "--file-count", type=int)
+parser.add_argument("-n", "--file-name", type=str)
+parser.add_argument("-p", "--port", action="append", type=int)
+parser.add_argument("--src", type=str)
+parser.add_argument("--dst", type=str)
+
 args = parser.parse_args()
 
 Log = Logger()
-Log.run(args.ethname, args.time_to_new_dump, args.time_to_clear_dump)
-
+Log.run(
+    args.ethname,
+    exec_time=args.exec_time,
+    file_size=args.file_size,
+    file_count=args.file_count,
+    file_name=args.file_name,
+    ports=args.port,
+    src=args.src,
+    dst=args.dst,
+)
