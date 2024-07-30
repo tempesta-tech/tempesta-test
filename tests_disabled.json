@@ -304,6 +304,18 @@
         {
             "name": "t_stress.test_header_leak.TestH2HeaderLeak",
             "reason": "Disabled by issue #2181"
+        },
+        {
+            "name": "t_frang.test_config.TestOverridingInheritance.test_default_not_override_http_resp_code_block_1",
+            "reason": "Disabled by PR #2182"
+        },
+        {
+            "name": "t_frang.test_config.TestOverridingInheritance.test_default_not_override_http_resp_code_block_2",
+            "reason": "Disabled by PR #2182"
+        },
+        {
+            "name": "t_frang.test_config.TestOverridingInheritance.test_default_not_override_http_resp_code_block_3",
+            "reason": "Disabled by PR #2182"
         }
     ]
 }

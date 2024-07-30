@@ -5,6 +5,7 @@ __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
+
 from hyperframe.frame import DataFrame, HeadersFrame
 
 from framework import tester
@@ -594,12 +595,15 @@ block_action error reply;
 
     def _test_not_override_http_methods(self):
         client = self.get_client("deproxy")
+        client.start()
         client.send_request(client.create_request(method="GET", headers=[]), "403")
         self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
 
     def _test_not_override_concurrent_tcp_connections(self):
         client = self.get_client("deproxy")
         client_1 = self.get_client("deproxy_1")
+        client.start()
+        client_1.start()
 
         client.make_request(client.create_request(method="GET", headers=[]))
         client_1.make_request(client.create_request(method="GET", headers=[]))
@@ -607,14 +611,12 @@ block_action error reply;
         client.wait_for_response(timeout=2)
         client_1.wait_for_response(timeout=2)
 
-        time.sleep(2)
-
-        # Message in dmesg, but find not work
-        # self.assertTrue(self.oops.find("frang: connections max num. exceeded for"))
+        self.assertTrue(self.oops.find("frang: connections max num. exceeded for"))
         self.assertEqual(1, len(client.responses) + len(client_1.responses))
 
     def _test_not_override_http_body_len_0(self):
         client = self.get_client("deproxy_http")
+        client.start()
         request = (
             f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1000\r\n\r\n{'x' * 1000}"
         )
@@ -623,18 +625,21 @@ block_action error reply;
 
     def _test_not_override_http_body_len_1(self):
         client = self.get_client("deproxy_http")
+        client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
         client.send_request(request, "403")
         self.assertTrue(self.oops.find("frang: HTTP body length exceeded for"))
 
     def _test_not_override_http_body_len_2(self):
         client = self.get_client("deproxy_http")
+        client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
         client.send_request(request, "200")
         self.assertFalse(self.oops.find("frang: HTTP body length exceeded for"))
 
     def _test_not_override_http_resp_code_block_1(self):
         client = self.get_client("deproxy")
+        client.start()
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
@@ -643,13 +648,12 @@ block_action error reply;
 
     def _test_not_override_http_resp_code_block_2(self):
         client = self.get_client("deproxy")
-        client.make_request(client.create_request(method="GET", headers=[]))
+        client.start()
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         client.wait_for_response(5)
-        # TODO Please check this place why self.assertFalse(self.oops.find("frang: http_resp_code_block limit exceeded for")) is not work,
-        # but I see it in dmesg.
-        self.assertLess(len(client.responses), 3)
+        self.assertTrue(self.oops.find("frang: http_resp_code_block limit exceeded for"))
+        self.assertEqual(len(client.responses), 2)
 
     @parameterize.expand(
         [
@@ -777,11 +781,12 @@ block_action error reply;
         override previoulsy set value.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services()
+        self.start_all_services(client=False)
         test_function(self)
 
     def _test_override_http_methods_after_reload(self):
         client = self.get_client("deproxy")
+        client.start()
         client.send_request(client.create_request(method="GET", headers=[]), "200")
         self.assertFalse(self.oops.find("frang: restricted HTTP method for"))
 
@@ -810,7 +815,7 @@ block_action error reply;
         """
         config = self.get_tempesta().config.defconfig
         self.__update_tempesta_config(first_config)
-        self.start_all_services()
+        self.start_all_services(client=False)
         self.get_tempesta().config.defconfig = config
         self.__update_tempesta_config(second_config)
         self.get_tempesta().reload()
@@ -926,18 +931,20 @@ block_action error reply;
         """
         config = self.get_tempesta().config.defconfig
         self.__update_tempesta_config(first_config)
-        self.start_all_services()
+        self.start_all_services(client=False)
+        self.oops_ignore.append("ERROR")
 
         wrong_config = """
             frang_limits { "wrong_config" }
         """
         self.get_tempesta().config.defconfig = config
         self.__update_tempesta_config(wrong_config)
-        try:
+
+        with self.assertRaises(
+            expected_exception=CmdError, msg="TempestaFW reloads with wrong config"
+        ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().reload()
-        except:
-            pass
 
         self.get_tempesta().config.defconfig = config
         self.__update_tempesta_config(second_config)
