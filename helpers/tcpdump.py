@@ -20,12 +20,12 @@ class Logger:
 
     def __add_ip(self, ip, direction, args):
         if ip:
-            args += [f"{direction}"]
+            args += [f"ip {direction}"]
             args += [f"{ip[0]}"]
 
             for i in range(1, len(ip)):
                 args += ["or"]
-                args += [f"{direction}"]
+                args += [f"ip {direction}"]
                 args += [f"{ip[i]}"]
 
     def __run_tcpdump(
@@ -63,7 +63,7 @@ class Logger:
         self.__add_ports(dst_ports, args)
 
         if (src_ports or dst_ports) and (src or dst):
-            args += ["or"]
+            args += ["and"]
 
         combine = src and dst
         self.__add_ip(src, "src", args)
@@ -129,19 +129,27 @@ class Logger:
         dst_ports=None,
         src=None,
         dst=None,
+        direction=None,
     ) -> None:
         ethname = ethname if ethname else "lo"
         exec_time = exec_time if exec_time else 60
         file_size = file_size if file_size else 50
         file_count = file_count if file_count else 10
         file_name = file_name if file_name else f"{datetime.datetime.now().strftime('%H:%M:%S')}"
+        direction = direction if direction else ["in", "out"]
 
-        self.__run_tcpdump(
-            ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, "in"
-        )
-        self.__run_tcpdump(
-            ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, "out"
-        )
+        if "in" in direction:
+            self.__run_tcpdump(
+                ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, "in"
+            )
+        if "out" in direction:
+            self.__run_tcpdump(
+                ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, "out"
+            )
+        if (not "in" in direction) and (not "out" in direction):
+            print("Invalid direction, (in|out) supported")
+            return
+
         time.sleep(exec_time * 60)
         self.__stop_tcpdump("in")
         self.__stop_tcpdump("out")
@@ -193,6 +201,12 @@ parser.add_argument(
     help="Destination ip addresses, used in tcpdump filtration (empty by default, dump for all destination ip).",
     action="append",
 )
+parser.add_argument(
+    "--direction",
+    type=str,
+    help="Type of collected traffic(in|put)",
+    action="append",
+)
 
 args = parser.parse_args()
 
@@ -207,4 +221,5 @@ Log.run(
     dst_ports=args.dst_port,
     src=args.src,
     dst=args.dst,
+    direction=args.direction,
 )
