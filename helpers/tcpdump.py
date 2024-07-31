@@ -8,8 +8,28 @@ import shutil
 
 
 class Logger:
+    def __add_ports(self, ports, args):
+        if ports:
+            args += ["tcp port"]
+            args += [f"{ports[0]}"]
+
+            for i in range(1, len(ports)):
+                args += ["or"]
+                args += ["tcp port"]
+                args += [f"{ports[i]}"]
+
+    def __add_ip(self, ip, direction, args):
+        if ip:
+            args += [f"{direction}"]
+            args += [f"{ip[0]}"]
+
+            for i in range(1, len(ip)):
+                args += ["or"]
+                args += [f"{direction}"]
+                args += [f"{ip[i]}"]
+
     def __run_tcpdump(
-        self, ethname, file_size, file_count, file_name, ports, src, dst, direction
+        self, ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, direction
     ) -> None:
         """
         Save result in a <file_name>.pcap file.
@@ -36,21 +56,20 @@ class Logger:
             "root",
         ]
 
-        if ports:
-            args += ["port"]
-            args += [f"{ports[0]}"]
+        combine = src_ports and dst_ports
+        self.__add_ports(src_ports, args)
+        if combine:
+            args += ["or"]
+        self.__add_ports(dst_ports, args)
 
-            for i in range(1, len(ports)):
-                args += ["or"]
-                args += ["port"]
-                args += [f"{ports[i]}"]
+        if (src_ports or dst_ports) and (src or dst):
+            args += ["or"]
 
-        if src:
-            args += [f"ip src {src}"]
-        if dst:
-            if src:
-                args += ["or"]
-            args += [f"ip dst {dst}"]
+        combine = src and dst
+        self.__add_ip(src, "src", args)
+        if combine:
+            args += ["or"]
+        self.__add_ip(dst, "dst", args)
 
         if direction == "in":
             self.__tcpdump_in = subprocess.Popen(
@@ -106,7 +125,8 @@ class Logger:
         file_size=None,
         file_count=None,
         file_name=None,
-        ports=None,
+        src_ports=None,
+        dst_ports=None,
         src=None,
         dst=None,
     ) -> None:
@@ -116,8 +136,12 @@ class Logger:
         file_count = file_count if file_count else 10
         file_name = file_name if file_name else f"{datetime.datetime.now().strftime('%H:%M:%S')}"
 
-        self.__run_tcpdump(ethname, file_size, file_count, file_name, ports, src, dst, "in")
-        self.__run_tcpdump(ethname, file_size, file_count, file_name, ports, src, dst, "out")
+        self.__run_tcpdump(
+            ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, "in"
+        )
+        self.__run_tcpdump(
+            ethname, file_size, file_count, file_name, src_ports, dst_ports, src, dst, "out"
+        )
         time.sleep(exec_time * 60)
         self.__stop_tcpdump("in")
         self.__stop_tcpdump("out")
@@ -144,21 +168,30 @@ parser.add_argument(
     "-n", "--file-name", type=str, help="Dump file name (current time in H:M:S by default)."
 )
 parser.add_argument(
-    "-p",
-    "--port",
+    "-ps",
+    "--src-port",
     action="append",
     type=int,
-    help="Ports, used in tcpdump filtration (empty by default, dump for all ports).",
+    help="Source ports, used in tcpdump filtration (empty by default, dump for all ports).",
+)
+parser.add_argument(
+    "-pd",
+    "--dst-port",
+    action="append",
+    type=int,
+    help="Destination ports, used in tcpdump filtration (empty by default, dump for all ports).",
 )
 parser.add_argument(
     "--src",
     type=str,
-    help="Source ip address, used in tcpdump filtration (empty by default, dump for all source ip).",
+    help="Source ip addresses, used in tcpdump filtration (empty by default, dump for all source ip).",
+    action="append",
 )
 parser.add_argument(
     "--dst",
     type=str,
-    help="Destination ip address, used in tcpdump filtration (empty by default, dump for all destination ip).",
+    help="Destination ip addresses, used in tcpdump filtration (empty by default, dump for all destination ip).",
+    action="append",
 )
 
 args = parser.parse_args()
@@ -170,7 +203,8 @@ Log.run(
     file_size=args.file_size,
     file_count=args.file_count,
     file_name=args.file_name,
-    ports=args.port,
+    src_ports=args.src_port,
+    dst_ports=args.dst_port,
     src=args.src,
     dst=args.dst,
 )
