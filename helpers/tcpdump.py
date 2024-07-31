@@ -41,13 +41,15 @@ class Logger:
             args += [f"{ports[0]}"]
 
             for i in range(1, len(ports)):
-                args += ["and"]
+                args += ["or"]
                 args += ["port"]
                 args += [f"{ports[i]}"]
 
         if src:
             args += [f"ip src {src}"]
         if dst:
+            if src:
+                args += ["or"]
             args += [f"ip dst {dst}"]
 
         if direction == "in":
@@ -122,14 +124,42 @@ class Logger:
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--ethname", type=str)
-parser.add_argument("-t", "--exec-time", type=int)
-parser.add_argument("-s", "--file-size", type=int)
-parser.add_argument("-c", "--file-count", type=int)
-parser.add_argument("-n", "--file-name", type=str)
-parser.add_argument("-p", "--port", action="append", type=int)
-parser.add_argument("--src", type=str)
-parser.add_argument("--dst", type=str)
+parser.add_argument("-e", "--ethname", type=str, help="Device name to capture packets.")
+parser.add_argument(
+    "-t", "--exec-time", type=int, help="Execution time in minutes (60 by default)."
+)
+parser.add_argument(
+    "-s",
+    "--file-size",
+    type=int,
+    help="Dump file size in megabytes (50 by default). When size is exceeded new file will be created.",
+)
+parser.add_argument(
+    "-c",
+    "--file-count",
+    type=int,
+    help="Count of dump files (10 by default). When count is exceeded new file overwrite old file.",
+)
+parser.add_argument(
+    "-n", "--file-name", type=str, help="Dump file name (current time in H:M:S by default)."
+)
+parser.add_argument(
+    "-p",
+    "--port",
+    action="append",
+    type=int,
+    help="Ports, used in tcpdump filtration (empty by default, dump for all ports).",
+)
+parser.add_argument(
+    "--src",
+    type=str,
+    help="Source ip address, used in tcpdump filtration (empty by default, dump for all source ip).",
+)
+parser.add_argument(
+    "--dst",
+    type=str,
+    help="Destination ip address, used in tcpdump filtration (empty by default, dump for all destination ip).",
+)
 
 args = parser.parse_args()
 

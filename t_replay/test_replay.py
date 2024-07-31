@@ -12,7 +12,7 @@ from helpers import remote, sysnet, tf_cfg
 
 class TestReplay(tester.TempestaTest):
     clients = [
-        {"id": "tcpreplay", "type": "external", "binary": "tcpreplay", "ssl": True, "cmd_args": ""},
+        {"id": "tcpreplay", "type": "external", "binary": "tcpreplay", "ssl": True, "cmd_args": ""}
     ]
 
     backends = [
@@ -34,8 +34,8 @@ class TestReplay(tester.TempestaTest):
 
     tempesta = {
         "config": """
-            listen 443 proto=https,h2;
-            listen 80 proto=http;
+            listen 192.168.122.100:443 proto=https,h2;
+            listen 192.168.122.100:80 proto=http;
 
             access_log on;
 
@@ -44,6 +44,7 @@ class TestReplay(tester.TempestaTest):
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
 
             srv_group h2 {
                 server ${server_ip}:8443;
@@ -68,15 +69,14 @@ class TestReplay(tester.TempestaTest):
     }
 
     def test_replay(self) -> None:
-        self.start_all_servers()
-        self.start_tempesta()
+        self.start_all_services(client=False)
 
         ETH = sysnet.route_dst_ip(remote.tempesta, tf_cfg.cfg.get("Tempesta", "ip"))
         tcpreplay = self.get_client("tcpreplay")
-        tcpreplay.options = [f"-i {ETH} /tmp/tcpdump/replay.pcap"]
+        tcpreplay.options = [f"-i ens4 /tmp/tcpdump/replay.pcap"]
 
         tcpreplay.start()
-        self.wait_while_busy(tcpreplay)
+        self.wait_while_busy(tcpreplay, timeout=100)
         tcpreplay.stop()
 
         print(tcpreplay.response_msg)
