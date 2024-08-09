@@ -965,6 +965,8 @@ class TlsClient(asyncore.dispatcher):
             # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
             # compression.
             self.context.options |= ssl.OP_NO_COMPRESSION
+        elif self.proto == "http/1.1":
+            self.context.set_alpn_protocols(["http/1.1"])
 
 
 class Client(TlsClient, stateful.Stateful):
