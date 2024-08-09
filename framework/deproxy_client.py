@@ -503,7 +503,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self,
         header_table_size: int = None,
         enable_push: int = None,
-        max_concurrent_stream: int = None,
+        max_concurrent_streams: int = None,
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
@@ -515,7 +515,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         new_settings = self.__generate_new_settings(
             header_table_size,
             enable_push,
-            max_concurrent_stream,
+            max_concurrent_streams,
             initial_window_size,
             max_frame_size,
             max_header_list_size,
@@ -532,7 +532,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self,
         header_table_size: int = None,
         enable_push: int = None,
-        max_concurrent_stream: int = None,
+        max_concurrent_streams: int = None,
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
@@ -542,7 +542,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         new_settings = self.__generate_new_settings(
             header_table_size,
             enable_push,
-            max_concurrent_stream,
+            max_concurrent_streams,
             initial_window_size,
             max_frame_size,
             max_header_list_size,
@@ -733,7 +733,7 @@ class DeproxyClientH2(BaseDeproxyClient):
     def __generate_new_settings(
         header_table_size: int = None,
         enable_push: int = None,
-        max_concurrent_stream: int = None,
+        max_concurrent_streams: int = None,
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
@@ -742,9 +742,9 @@ class DeproxyClientH2(BaseDeproxyClient):
         if header_table_size is not None:
             new_settings[SettingCodes.HEADER_TABLE_SIZE] = header_table_size
         if enable_push is not None:
-            new_settings[SettingCodes.ENABLE_PUSH] = header_table_size
-        if max_concurrent_stream is not None:
-            new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = max_concurrent_stream
+            new_settings[SettingCodes.ENABLE_PUSH] = enable_push
+        if max_concurrent_streams is not None:
+            new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = max_concurrent_streams
         if initial_window_size is not None:
             new_settings[SettingCodes.INITIAL_WINDOW_SIZE] = initial_window_size
         if max_frame_size is not None:
