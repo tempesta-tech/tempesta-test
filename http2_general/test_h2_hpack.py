@@ -152,6 +152,36 @@ class TestHpack(TestHpackBase):
             "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
         )
 
+    def test_relloc_hpack_table(self):
+        """
+        When count of entries in hpack dynamic table exceeded it's size
+        Tempesta FW realloc hpack dynamic table. This test check it.
+        """
+        self.start_all_services()
+        client: DeproxyClientH2 = self.get_client("deproxy")
+        client.parsing = False
+
+        headers = [
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "POST"),
+        ]
+
+        for i in range(0, 125):
+            for j in range(0, 26):
+                key = ord('a') + j
+                val = ord('a') + j
+
+                first_indexed_header = [HeaderTuple(chr(key) * (125 -i), chr(val) * (125 - i))]
+                client.send_request(
+                    request=(
+                        headers
+                        + [NeverIndexedHeaderTuple(":authority", "localhost")]
+                        + first_indexed_header
+                    ),
+                    expected_status_code="200",
+                )
+
     def test_rewrite_dynamic_table_for_request(self):
         """
         "Before a new entry is added to the dynamic table, entries are evicted
