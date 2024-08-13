@@ -12,7 +12,7 @@ __license__ = "GPL2"
 DATE = deproxy.HttpMessage.date_time_string()
 CHUNK_SIZE = 16
 BODY_PAYLOAD = string.ascii_letters
-LARGE_BODY_PAYLOAD = 100000 * "x"
+LARGE_BODY_PAYLOAD = 10000 * "qwertyuiop"
 LARGE_BODY_CHUNK_SIZE_1 = 1000
 LARGE_BODY_CHUNK_SIZE_2 = 10
 
