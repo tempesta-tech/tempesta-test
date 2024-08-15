@@ -28,6 +28,7 @@ class ServerConnection(asyncore.dispatcher):
         sleep_when_receiving_data: float,
         sock: socket.socket,
         keep_alive: int = 0,
+        pipelined: int = 0,
     ):
         super().__init__(sock=sock)
         self._server = server
@@ -38,6 +39,9 @@ class ServerConnection(asyncore.dispatcher):
         self._response_buffer: list[bytes] = []
         self._drop_conn_when_receiving_data = drop_conn_when_receiving_data
         self._sleep_when_receiving_data = sleep_when_receiving_data
+        self._pipelined = pipelined
+        self._cur_pipelined = 0
+        self._cur_responses_list = []
         dbg(self, 6, "New server connection", prefix="\t")
 
     def writable(self):
@@ -91,7 +95,12 @@ class ServerConnection(asyncore.dispatcher):
             if response:
                 dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
-                self._response_buffer.append(response)
+                self._cur_responses_list.append(response)
+                self._cur_pipelined = self._cur_pipelined + 1
+                if self._pipelined == self._cur_pipelined:
+                    self._response_buffer.append(b"".join(self._cur_responses_list))
+                    self._cur_pipelined = 0
+                    self._cur_responses_list = []
 
             if need_close:
                 self.close()
@@ -137,6 +146,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         keep_original_data: bool = False,
         drop_conn_when_receiving_data: bool = False,
         sleep_when_receiving_data: float = 0,
+        pipelined: int = 0,
     ):
         # Initialize the base `dispatcher`
         asyncore.dispatcher.__init__(self)
@@ -153,6 +163,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
         self.sleep_when_receiving_data = sleep_when_receiving_data
         self._port_checker = port_checks.FreePortsChecker()
+        self._pipelined = pipelined
 
         # Following 2 parameters control heavy chunked testing
         # You can set it programmaticaly or via client config
@@ -183,6 +194,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
                 sleep_when_receiving_data=self._sleep_when_receiving_data,
                 sock=sock,
                 keep_alive=self.keep_alive,
+                pipelined=self._pipelined,
             )
             self._connections.append(handler)
             # ATTENTION
@@ -349,6 +361,14 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self._sleep_when_receiving_data = sleep
         for connection in self.connections:
             connection._sleep_when_receiving_data = sleep
+
+    @property
+    def pipelined(self) -> int:
+        return self._pipelined
+
+    @pipelined.setter
+    def pipelined(self, pipelined: int) -> None:
+        self._pipelined = pipelined
 
     @property
     def port_checker(self) -> port_checks.FreePortsChecker:

@@ -1,8 +1,12 @@
 """Test module for http2 responses."""
 
 import http
+import time
 
 from framework import tester
+from framework.parameterize import param, parameterize
+from http2_general.helpers import H2Base
+from helpers.deproxy import HttpMessage
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
@@ -116,3 +120,126 @@ class H2ResponsesTestCase(tester.TempestaTest):
 
         # perform request with invalid X-Forwarded-For header
         self.__test_h2_response(curl, "X-Forwarded-For", "1.1.1.1.1.1", http.HTTPStatus.BAD_REQUEST)
+
+
+class H2ResponsesPipelined(H2Base):
+    clients = [
+        {
+            "id": "deproxy_1",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "deproxy_2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
+            "id": "deproxy_3",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            srv_group default {
+                server ${server_ip}:8000 conns_n=1;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            http_max_header_list_size 134217728; #128 KB
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
+
+    def __setup_and_start(self):
+        srv = self.get_server("deproxy")
+        srv.pipelined = 3
+        srv.conns_n = 1
+        self.start_all_services()
+        return srv
+
+    def test_success_pipelined(self):
+        """
+        Send three requests each from the new client.
+        Server all responses as pipelined.
+        """
+        srv = self.__setup_and_start()
+
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            client.make_request(self.get_request)
+
+        time.sleep(3)
+
+        self.assertEqual(len(srv.requests), 3)
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            self.assertEqual(client._last_response.status, "200")
+
+    @parameterize.expand(
+        [
+            param(name="1", bad_num=1),
+            param(name="2", bad_num=2),
+            param(name="3", bad_num=3),
+        ]
+    )
+    def test_bad_pipelined(self, name, bad_num):
+        srv = self.__setup_and_start()
+        self.disable_deproxy_auto_parser()
+
+        i = 0
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            i = i + 1
+            if i == bad_num:
+                srv.set_response(
+                    "HTTP/1.1 200 OK\r\n"
+                    + f"Date: {HttpMessage.date_time_string()}\r\n"
+                    + "Server: debian\r\n"
+                    + "C ontent-Length: 0\r\n\r\n"
+                )
+            else:
+                srv.set_response(
+                    "HTTP/1.1 200 OK\r\n"
+                    + f"Date: {HttpMessage.date_time_string()}\r\n"
+                    + "Server: debian\r\n"
+                    + "Content-Length: 0\r\n\r\n"
+                )
+            client.make_request(self.get_request)
+            # Make sure that server receive request and use appropriate
+            # response.
+            time.sleep(1)
+
+        time.sleep(1)
+
+        self.assertEqual(len(srv.requests), 3)
+
+        i = 0
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            i = i + 1
+            if i >= bad_num:
+                self.assertEqual(client._last_response.status, "502")
+            else:
+                self.assertEqual(client._last_response.status, "200")
