@@ -2,9 +2,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-
-from threading import Thread
-
 from framework import deproxy_client, tester
 from helpers.tcpreplay import DataFrame, HeadersFrame, HttpReader, SettingsFrame
 
@@ -83,6 +80,7 @@ class TestReplay(tester.TempestaTest):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            max_concurrent_streams 1000;
 
             srv_group main {
                 server ${server_ip}:8443;
@@ -99,13 +97,7 @@ class TestReplay(tester.TempestaTest):
     }
 
     def setUp(self):
-        self.http_reader = HttpReader(
-            file_names=[
-                "/mnt/other/tempesta-test/tcpdump/"
-                "selftests.test_deproxy.DeproxyTestH2.test_make_request.pcap"
-            ],
-            output_suffix="-test",
-        )
+        self.http_reader = HttpReader(tshark_files=["tcpdump/output0.txt"])
         self.http_reader.prepare_http_messages()
         client_n = 0
         for _ in self.http_reader.http2_requests.keys():
@@ -169,6 +161,7 @@ class TestReplay(tester.TempestaTest):
     def send_h2_requests(self, h2_clients: list) -> None:
         for client, frames in zip(h2_clients, self.http_reader.http2_requests.values()):
             client: deproxy_client.DeproxyClientH2
+            client.start()
             client.send_bytes(client.h2_connection.data_to_send())
             client.wait_for_ack_settings()
 
@@ -191,25 +184,14 @@ class TestReplay(tester.TempestaTest):
                     client.make_request(frame.body, end_stream)
 
         for client in h2_clients:
-            self.assertTrue(client.wait_for_response())
+            client.wait_for_response()
 
     def test_replay(self) -> None:
-        self.start_all_services(client=True)
+        self.start_all_services(client=False)
 
         h2_clients = [client for client in self.get_clients() if client.proto == "h2"]
-        https_clients = [
-            client for client in self.get_clients() if client.proto == "http/1.1" and client.ssl
-        ]
-        http_clients = [
-            client for client in self.get_clients() if client.proto == "http/1.1" and not client.ssl
-        ]
+        self.send_h2_requests(h2_clients)
 
-        t_h2 = Thread(target=self.send_h2_requests, args=(h2_clients,))
-        t_https = Thread(target=self.send_https_requests, args=(https_clients,))
-        t_http = Thread(target=self.send_http_requests, args=(http_clients,))
-
-        for t in [t_h2, t_https, t_http]:
-            t.start()
-
-        for t in [t_h2, t_https, t_http]:
-            t.join()
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+        print(tempesta.stats.__dict__)

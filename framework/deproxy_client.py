@@ -217,7 +217,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             )
 
     def send_bytes(self, data: bytes, expect_response=False):
-        self._add_to_request_buffers(data=data, end_stream=None)
+        self._add_to_request_buffers(data=data, end_stream=None, is_body=False)
         self.nrreq += 1
         if expect_response:
             self.valid_req_num += 1
@@ -438,7 +438,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     def make_request(
         self,
-        request: Union[tuple, list, str, deproxy.H2Request],
+        request: Union[tuple, list, str, bytes, deproxy.H2Request],
         end_stream=True,
         priority_weight=None,
         priority_depends_on=None,
@@ -449,7 +449,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         Add request to buffers and change counters.
         Args:
             request:
-                str - send data frame;
+                str or bytes - send data frame;
                 list - send headers frame;
                 tuple - send headers and data frame in one TCP-packet;
             end_stream (bool) - set END_STREAM flag for frame;
@@ -470,6 +470,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             priority_weight=priority_weight,
             priority_depends_on=priority_depends_on,
             priority_exclusive=priority_exclusive,
+            is_body=True if isinstance(request, bytes) else False,
         )
 
         self.nrreq += 1
@@ -792,11 +793,16 @@ class DeproxyClientH2(BaseDeproxyClient):
         priority_weight=None,
         priority_depends_on=None,
         priority_exclusive=None,
+        is_body: bool,
     ) -> None:
-        if isinstance(data, bytes):
+        if isinstance(data, bytes) and not is_body:
             # in case when you use `send_bytes` method
             self._request_buffers.append(data)
             self._add_to_body_buffers(body=None, stream_id=None, end_stream=None)
+        elif isinstance(data, bytes) and is_body:
+            # in case when you use `mak_request` method
+            self._request_buffers.append(b"")
+            self._add_to_body_buffers(body=data, stream_id=self.stream_id, end_stream=end_stream)
         elif isinstance(data, str):
             # in case when you use `make_request` to sending body
             self._request_buffers.append(b"")

@@ -29,18 +29,18 @@ class HeadersFrame:
 @dataclass
 class DataFrame:
     stream_id: int
-    body: str
+    body: bytes
     flags: str
 
 
 @dataclass
 class SettingsFrame:
-    header_table_size: int | None
-    enable_push: int | None
-    initial_window_size: int | None
-    max_frame_size: int | None
-    max_concurrent_streams: int | None
-    max_header_list_size: int | None
+    header_table_size: int | None = None
+    enable_push: int | None = None
+    initial_window_size: int | None = None
+    max_frame_size: int | None = None
+    max_concurrent_streams: int | None = None
+    max_header_list_size: int | None = None
 
 
 class HttpReader:
@@ -48,13 +48,19 @@ class HttpReader:
 
     def __init__(
         self,
-        file_names: list[str],
+        # Example command: tcpdump -U -i any host tempesta_ip -w file_path.pcap
+        tcpdump_files: list[str] | None = None,
+        # Example command: tshark -i any -T ek -J "tcp http2" -Y "http2" >> output
+        tshark_files: list[str] | None = None,
         tempesta_tls_ports: tuple[str] = ("443",),
         tempesta_http_ports: tuple[str] = ("80",),
         output_suffix: str = "",
         home_dir: str = "",
     ):
-        self.__file_names: list[str] = file_names
+        if tcpdump_files is None and tshark_files is None:
+            raise AttributeError("You must set `tcpdump_files` or `tshark_files` args, or both.")
+        self.__tcpdump_files: list[str] = tcpdump_files
+        self.__tshark_files: list[str] = tshark_files
         self.__tempesta_tls_ports: tuple[str] = tempesta_tls_ports
         self.__tempesta_https_ports: tuple[str] = tempesta_http_ports
         self.__output_file: str = f"{home_dir}output{output_suffix}.json"
@@ -65,25 +71,33 @@ class HttpReader:
         self.https_requests: dict = defaultdict(dict)
         self.http_requests: dict = defaultdict(dict)
         self.__remove_old_files()
-        self.__extract_http_and_http2_packets()
+        if self.__tcpdump_files:
+            self.__extract_http_and_http2_packets()
 
     def prepare_http_messages(self) -> None:
         """Prepare h2, https, http requests for sending or saving to files."""
-        with open(self.__output_file, "rb") as file:
-            for line in file:
-                packet = json.loads(line)
-                if packet.get("index") is not None:
-                    continue
+        files = self.__tshark_files
+        if os.path.exists(self.__output_file):
+            files.append(self.__output_file)
 
-                layers: dict = packet["layers"]
-                con_id: str = f"{layers['ip']['ip_ip_src']}:{layers['tcp']['tcp_tcp_srcport']}"
-                dstport: str = layers["tcp"]["tcp_tcp_dstport"]
-                if dstport in self.__tempesta_tls_ports and layers.get("http2") is not None:
-                    self._process_http2_request(packet, con_id)
-                elif dstport in self.__tempesta_tls_ports and layers.get("http") is not None:
-                    self._process_http_request(packet, self.https_requests, con_id)
-                elif dstport in self.__tempesta_https_ports and layers.get("http") is not None:
-                    self._process_http_request(packet, self.http_requests, con_id)
+        for file_name in files:
+            with open(file_name, "rb") as file:
+                for line in file:
+                    packet = json.loads(line.decode(encoding="utf-8", errors="replace"))
+                    if packet.get("index") is not None:
+                        continue
+
+                    layers: dict = packet["layers"]
+                    con_id: str = (
+                        f"{layers['tcp']['tcp_tcp_stream']}:{layers['tcp']['tcp_tcp_srcport']}"
+                    )
+                    dstport: str = layers["tcp"]["tcp_tcp_dstport"]
+                    if dstport in self.__tempesta_tls_ports and layers.get("http2") is not None:
+                        self._process_http2_request(packet, con_id)
+                    elif dstport in self.__tempesta_tls_ports and layers.get("http") is not None:
+                        self._process_http_request(packet, self.https_requests, con_id)
+                    elif dstport in self.__tempesta_https_ports and layers.get("http") is not None:
+                        self._process_http_request(packet, self.http_requests, con_id)
 
     def save_to_files(self) -> None:
         """Save completed messages to separate json files."""
@@ -109,7 +123,7 @@ class HttpReader:
 
     def __extract_http_and_http2_packets(self) -> None:
         """Extract decrypted http and http2 messages from .pcap files"""
-        for name in self.__file_names:
+        for name in self.__tcpdump_files:
             sp.run(f'tshark -r {name} -T ek -Y "http2 or http" >> {self.__output_file}', shell=True)
 
     @staticmethod
@@ -123,11 +137,11 @@ class HttpReader:
     @staticmethod
     def __prepare_field(field: list[str] | str) -> list[str]:
         """As for `__get_segments` method."""
-        return field if type(field) is list else field
+        return field if type(field) is list else [field]
 
     def _process_http2_request(self, packet: dict, con_id: str) -> None:
         for frame in self.__get_segments(packet, "http2"):
-            if not frame:
+            if not frame or frame.get("http2_http2_magic") is not None:
                 continue
 
             frame_types = self.__prepare_field(frame["http2_http2_type"])
@@ -179,7 +193,7 @@ class HttpReader:
                     self.http2_requests[con_id].append(
                         DataFrame(
                             stream_id=int(stream_id),
-                            body=bytes.fromhex(body.replace(":", "")).decode(),
+                            body=bytes.fromhex(body.replace(":", "")),
                             flags=frame_flags,
                         )
                     )
