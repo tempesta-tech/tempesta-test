@@ -1,10 +1,10 @@
+import argparse
 import datetime
 import os
-import time
-import subprocess
-import signal
-import argparse
 import shutil
+import signal
+import subprocess
+import time
 
 
 class Logger:

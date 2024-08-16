@@ -2,7 +2,7 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "t_replay",
+            "name": "scripts",
             "reason": "These tests should not be run on CI. Run it only to reproduce bugs on production"
         },
         {

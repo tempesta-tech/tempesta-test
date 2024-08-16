@@ -3,7 +3,7 @@ __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_client, tester
-from helpers.tcpreplay import DataFrame, HeadersFrame, HttpReader, SettingsFrame
+from scripts.tcpreplay import DataFrame, HeadersFrame, HttpReader, SettingsFrame
 
 NGINX_CONFIG = """
 pid ${pid};
