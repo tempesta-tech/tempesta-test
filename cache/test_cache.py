@@ -5,6 +5,7 @@ __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
+import string
 from http import HTTPStatus
 
 from framework.curl_client import CurlResponse
@@ -2069,6 +2070,91 @@ cache_fulfill * *;
             self.start_tempesta()
 
         self.assertTrue(self.loggers.dmesg.find(expected_msg))
+
+
+@marks.parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestCacheResponseWithCache(tester.TempestaTest):
+    """This class contains checks for tempesta cache config."""
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+server ${server_ip}:8000;
+cache 2;
+cache_fulfill * *;
+
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+    tls_match_any_server_name;
+}
+""",
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n",
+        }
+    ]
+
+    def encode_chunked(self, data, chunk_size=256):
+        result = ""
+        while len(data):
+            chunk, data = data[:chunk_size], data[chunk_size:]
+            result += f"{hex(len(chunk))[2:]}\r\n"
+            result += f"{chunk}\r\n"
+        return result + "0\r\n\r\n"
+
+    def test(self):
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"X-Token: value\r\n\r\n"
+        )
+
+        client = self.get_client("deproxy")
+        request = client.create_request(method="GET", headers=[])
+        client.send_request(request, "200")
+
+        self.assertEqual(
+            # headers for h2 and trailer for http1
+            client.last_response.headers.get("X-Token")
+            or client.last_response.trailer.get("X-Token"),
+            "value",
+            "Moved trailer header value mismatch the original one",
+        )
+
+        client.send_request(request, "200")
+        self.assertIn("age", client.last_response.headers)
+
+        self.assertEqual(
+            # headers for h2 and trailer for http1
+            client.last_response.headers.get("X-Token")
+            or client.last_response.trailer.get("X-Token"),
+            "value",
+            "Moved trailer header value mismatch the original one",
+        )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
