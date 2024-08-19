@@ -421,6 +421,8 @@ class ReqBodyBuffer:
 
 
 class DeproxyClientH2(BaseDeproxyClient):
+    _ping_received = 0
+
     @property
     def ping_received(self) -> int:
         return self._ping_received
@@ -588,7 +590,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return util.wait_until(
-            lambda: self._ping_received >= ping_count,
+            lambda: not self._ping_received >= ping_count,
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
