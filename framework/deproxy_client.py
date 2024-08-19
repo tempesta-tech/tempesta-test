@@ -20,6 +20,7 @@ from h2.events import (
     StreamReset,
     TrailersReceived,
     WindowUpdated,
+    PingAckReceived,
 )
 from h2.settings import SettingCodes, Settings
 from h2.stream import StreamInputs
@@ -81,7 +82,8 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def last_response(self): ...
+    def last_response(self):
+        ...
 
     @property
     def request_buffers(self) -> List[bytes]:
@@ -92,7 +94,8 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         return self._ack_cnt
 
     @abc.abstractmethod
-    def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
+    def _add_to_request_buffers(self, *args, **kwargs) -> None:
+        ...
 
     def handle_connect(self):
         deproxy.Client.handle_connect(self)
@@ -153,7 +156,8 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             self.polling_lock.release()
 
     @abc.abstractmethod
-    def handle_read(self): ...
+    def handle_read(self):
+        ...
 
     def writable(self):
         if self.cur_req_num >= self.nrreq:
@@ -416,6 +420,12 @@ class ReqBodyBuffer:
 
 
 class DeproxyClientH2(BaseDeproxyClient):
+    _ping_received = 0
+
+    @property
+    def ping_received(self) -> int:
+        return self._ping_received
+
     @property
     def last_response(self) -> deproxy.H2Response:
         return self._last_response
@@ -668,6 +678,11 @@ class DeproxyClientH2(BaseDeproxyClient):
                         self.handle_read()
                     else:
                         continue
+                elif isinstance(event, PingAckReceived):
+                    self._ping_received += 1
+                    if event == events[-1]:
+                        # TODO should be changed by issue #358
+                        self.handle_read()
                 # TODO should be changed by issue #358
                 else:
                     self.handle_read()
