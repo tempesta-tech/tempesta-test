@@ -12,7 +12,7 @@ from framework.parameterize import param, parameterize, parameterize_class
 from helpers import dmesg, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 REQ_COUNT = 100
@@ -466,3 +466,166 @@ class TestHmMalformedResponse(tester.TempestaTest):
 
         warning = "Health Monitor response malformed"
         self.assertTrue(self.klog.find(warning, dmesg.amount_positive))
+
+
+# CRC tests
+
+"""
+Health monitor configuration called "auto" uses "auto" CRC mode.
+In this mode CRC for comparation calculated on the fly from
+the first server response.
+Default HM configuration is "auto".
+"""
+
+
+TEMPESTA_IMPLICIT_AUTO = {
+    "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health auto;
+            }
+    """
+}
+
+"""
+Auto configuration also can be declared explicitly.
+"""
+TEMPESTA_EXPLICIT_AUTO = {
+    "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            health_check auto {
+                request		"GET / HTTP/1.0\r\n\r\n";
+                request_url	"/";
+                resp_code	200;
+                resp_crc32    auto;
+                timeout		3;
+            }
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health auto;
+            }
+    """
+}
+
+"""
+Configuration with predefined CRC.
+"""
+
+TEMPESTA_PREDEFINED = {
+    "config": """
+            listen 80;
+
+            server_failover_http 404 3 10;
+
+            health_check hm0 {
+                request		"GET / HTTP/1.0\r\n\r\n";
+                request_url	"/";
+                resp_code	200;
+                resp_crc32  0x31f37e9f;
+                timeout		3;
+            }
+
+            srv_group main {
+            server ${server_ip}:8080;
+
+            health hm0;
+            }
+    """
+}
+
+
+@parameterize_class(
+    [
+        {
+            "name": "ImplicitCRC",
+            "tempesta": TEMPESTA_IMPLICIT_AUTO,
+            "auto_mode": True,
+        },
+        {
+            "name": "ExplicitCRC",
+            "tempesta": TEMPESTA_EXPLICIT_AUTO,
+            "auto_mode": True,
+        },
+        {
+            "name": "PredefinedCRC",
+            "tempesta": TEMPESTA_PREDEFINED,
+            "auto_mode": False,
+        },
+    ]
+)
+class TestHmCrc(tester.TempestaTest):
+    """
+    We check CRC correctness in the following manner:
+    - In the auto mode:
+      - The first response is for CRC calculation.
+      - The second one the same and should be pass CRC check.
+      - The the third one has different body and in this way
+        different CRC.
+    - In the predefined mode step 1 is skipped.
+    """
+
+    content = [
+        "Hello",
+        "hELLO",
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8080",
+            "response": "static",
+            "response_content": "",
+        },
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
+        # Cleanup part
+        self.addCleanup(self.cleanup_klog)
+
+    def cleanup_klog(self):
+        if hasattr(self, "klog"):
+            del self.klog
+
+    def build_response(self, content):
+        content_length = len(content)
+        return f"HTTP/1.0 200 OK\r\nContent-Length:{content_length}\r\n\r\n{content}"
+
+    def test(self):
+        """
+        Test doesn't use client.
+        The scope of interest is a Tempesta<->Server interchange.
+        """
+        warning = "Response for health monitor"
+        n = 1
+
+        server = self.get_server("deproxy")
+        self.start_all_services(client=False)
+        server.set_response(self.build_response(self.content[0]))
+        # step 1
+        if self.auto_mode:
+            self.assertTrue(server.wait_for_responses(n, timeout=12))
+            n += 1
+
+        # step 2
+        self.assertTrue(server.wait_for_responses(n, timeout=12))
+        n += 1
+        self.assertFalse(self.klog.find(warning))
+
+        # step 3
+        server.set_response(self.build_response(self.content[1]))
+        self.assertTrue(server.wait_for_responses(n, timeout=12))
+        self.assertTrue(self.klog.find(warning))
