@@ -444,9 +444,9 @@ class TestHmMalformedResponse(tester.TempestaTest):
                 }
 
                 srv_group main {
-                server ${server_ip}:8080;
+                    server ${server_ip}:8080;
 
-                health hm0;
+                    health hm0;
                 }
         """
     }
@@ -479,7 +479,7 @@ class TestHmMalformedResponse(tester.TempestaTest):
         self.start_all_services(client=False)
         server = self.get_server("deproxy")
 
-        server.wait_for_responses(1)
+        server.wait_for_requests(1)
 
         warning = "Health Monitor response malformed"
         self.assertTrue(self.klog.find(warning, dmesg.amount_positive))
