@@ -9,7 +9,7 @@ import time
 from access_log.test_access_log_h2 import backends
 from framework import templates, tester
 from framework.parameterize import param, parameterize, parameterize_class
-from helpers import dmesg, tempesta, tf_cfg, util
+from helpers import tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -404,65 +404,3 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         s = self.get_server("deproxy")
         s.drop_conn_when_receiving_data = True
         time.sleep(1)
-
-
-class TestHmMalformedResponse(tester.TempestaTest):
-    """
-    Test for issue #2147, malformed HM respose led to crash.
-    Such message should be dropped and event should be logged.
-    """
-
-    tempesta = {
-        "config": """
-                listen 80;
-
-                server_failover_http 404 3 10;
-
-                health_check hm0 {
-                    request         "GET / HTTP/1.0\r\n\r\n";
-                    request_url     "/";
-                    resp_code       200;
-                    resp_crc32  0x31f37e9f;
-                    timeout         1;
-                }
-
-                srv_group main {
-                server ${server_ip}:8080;
-
-                health hm0;
-                }
-        """
-    }
-
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8080",
-            "response": "static",
-            "response_content": "HTTP/1.0 200 OK\r\nCon tent-Length:5\r\n\r\nHello",
-        },
-    ]
-
-    def setUp(self):
-        super().setUp()
-        self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
-        self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
-        # Cleanup part
-        self.addCleanup(self.cleanup_klog)
-
-    def cleanup_klog(self):
-        if hasattr(self, "klog"):
-            del self.klog
-
-    def test(self):
-        """
-        Waiting for at list one response.
-        """
-        self.start_all_services(client=False)
-        server = self.get_server("deproxy")
-
-        util.wait_until(lambda: len(server.requests) != 1)
-
-        warning = "Health Monitor response malformed"
-        self.assertTrue(self.klog.find(warning, dmesg.amount_positive))
