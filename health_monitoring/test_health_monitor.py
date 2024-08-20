@@ -462,7 +462,7 @@ class TestHmMalformedResponse(tester.TempestaTest):
         self.start_all_services(client=False)
         server = self.get_server("deproxy")
 
-        util.wait_until(lambda: len(server.requests) != 1)
+        server.wait_for_responses(1)
 
         warning = "Health Monitor response malformed"
         self.assertTrue(self.klog.find(warning, dmesg.amount_positive))
