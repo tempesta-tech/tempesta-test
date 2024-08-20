@@ -290,10 +290,6 @@
             "reason": "Disabled by issue #2069"
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats_greater",
-            "reason": "Disabled by issue #2084"
-        },
-        {
             "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
         },
