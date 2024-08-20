@@ -385,7 +385,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
         return self.__response, False
 
-    def wait_for_responses(self, n: int, timeout=5, strict=False) -> bool:
+    def wait_for_requests(self, n: int, timeout=5, strict=False) -> bool:
         """wait for the `n` number of responses to be received"""
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.requests) < n,

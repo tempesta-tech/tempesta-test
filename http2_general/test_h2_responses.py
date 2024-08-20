@@ -122,7 +122,7 @@ class H2ResponsesTestCase(tester.TempestaTest):
         self.__test_h2_response(curl, "X-Forwarded-For", "1.1.1.1.1.1", http.HTTPStatus.BAD_REQUEST)
 
 
-class H2ResponsesPipelined(H2Base):
+class H2ResponsesPipelinedBase(H2Base):
     clients = [
         {
             "id": "deproxy_1",
@@ -147,6 +147,17 @@ class H2ResponsesPipelined(H2Base):
         },
     ]
 
+    clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
+
+    def setup_and_start(self, pipelined):
+        srv = self.get_server("deproxy")
+        srv.pipelined = pipelined
+        srv.conns_n = 1
+        self.start_all_services()
+        return srv
+
+
+class H2ResponsesPipelined(H2ResponsesPipelinedBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
@@ -170,27 +181,18 @@ class H2ResponsesPipelined(H2Base):
         """
     }
 
-    clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
-
-    def __setup_and_start(self):
-        srv = self.get_server("deproxy")
-        srv.pipelined = 3
-        srv.conns_n = 1
-        self.start_all_services()
-        return srv
-
     def test_success_pipelined(self):
         """
         Send three requests each from the new client.
         Server all responses as pipelined.
         """
-        srv = self.__setup_and_start()
+        srv = self.setup_and_start(3)
 
         for id in self.clients_ids:
             client = self.get_client(id)
             client.make_request(self.get_request)
 
-        time.sleep(3)
+        self.assertTrue(srv.wait_for_requests(3))
 
         self.assertEqual(len(srv.requests), 3)
         for id in self.clients_ids:
@@ -199,13 +201,13 @@ class H2ResponsesPipelined(H2Base):
 
     @parameterize.expand(
         [
-            param(name="1", bad_num=1),
-            param(name="2", bad_num=2),
-            param(name="3", bad_num=3),
+            param(name="first_fail", bad_num=1),
+            param(name="second_fail", bad_num=2),
+            param(name="third_fail", bad_num=3),
         ]
     )
     def test_bad_pipelined(self, name, bad_num):
-        srv = self.__setup_and_start()
+        srv = self.setup_and_start(3)
         self.disable_deproxy_auto_parser()
 
         i = 0
@@ -227,19 +229,99 @@ class H2ResponsesPipelined(H2Base):
                     + "Content-Length: 0\r\n\r\n"
                 )
             client.make_request(self.get_request)
-            # Make sure that server receive request and use appropriate
-            # response.
-            time.sleep(1)
+            self.assertTrue(srv.wait_for_requests(i))
 
-        time.sleep(1)
-
-        self.assertEqual(len(srv.requests), 3)
+        self.assertEqual(len(srv.requests), i)
 
         i = 0
         for id in self.clients_ids:
             client = self.get_client(id)
             i = i + 1
-            if i >= bad_num:
+            if i == bad_num:
                 self.assertEqual(client._last_response.status, "502")
+            elif i > bad_num:
+                self.assertFalse(client._last_response)
             else:
+                self.assertTrue(client.wait_for_response())
                 self.assertEqual(client._last_response.status, "200")
+
+        """
+        It seems that we should resend request to server connection
+        after it reestablished but currently it doesn't work.
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            if i > bad_num:
+                self.assertTrue(client.wait_for_response(timeout=50))
+        """
+
+
+class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            
+            health_check hm0 {
+                request         "GET / HTTP/1.0\r\n\r\n";
+                request_url     "/";
+                resp_code       200;
+                resp_crc32  0x31f37e9f;
+                timeout         2;
+            }
+
+            srv_group default {
+                server ${server_ip}:8000 conns_n=1;
+                health hm0;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            http_max_header_list_size 134217728; #128 KB
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
+
+    @parameterize.expand(
+        [
+            param(name="1_hm", hm_num=1),
+            param(name="2_hm", hm_num=2),
+            param(name="3_hm", hm_num=3),
+            param(name="4_hm", hm_num=4),
+        ]
+    )
+    def test_hm_pipelined(self, name, hm_num):
+        srv = self.setup_and_start(4)
+        self.disable_deproxy_auto_parser()
+
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        i = 0
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            i = i + 1
+            if i == hm_num:
+                self.assertTrue(srv.wait_for_requests(i))
+                i = i + 1
+
+            client.make_request(self.get_request)
+            self.assertTrue(srv.wait_for_requests(i))
+
+        for id in self.clients_ids:
+            client = self.get_client(id)
+            self.assertTrue(client.wait_for_response())
+            self.assertEqual(client._last_response.status, "200")
