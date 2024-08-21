@@ -510,6 +510,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
     """
 
     token = "value"
+    payload = BODY_PAYLOAD
 
     clients = [
         {
@@ -559,7 +560,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
     def setUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += (
-            self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
+            self.encode_chunked(self.payload, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
         )
         super().setUp()
 
@@ -598,11 +599,19 @@ class TestH1ChunkedWithTrailer(TestH2ChunkedWithTrailer, CommonUtils):
     )
 
 
-class TestH2ChunkedWithLongTrailer(TestH2ChunkedWithTrailer):
+class TestH2ChunkedWithLongBodyAndTrailer(TestH2ChunkedWithTrailer):
+    """
+    We use 90000 not LARGE_BODY_PAYLOAD to check case when Tempesta
+    allocate new skb during preparing response from cache. Manually
+    choosen value.
+    """
+
+    payload = 90000 * "x"
     token = "a" * 30000
 
 
-class TestH1ChunkedWithLongTrailer(TestH1ChunkedWithTrailer):
+class TestH1ChunkedWithLongBodyAndTrailer(TestH1ChunkedWithTrailer):
+    payload = 90000 * "x"
     token = "a" * 30000
 
 
