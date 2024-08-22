@@ -98,6 +98,10 @@ http {
         srv_group default {
             server ${server_ip}:8000;
         }
+        frang_limits {
+            http_strict_host_checking false;
+            http_header_cnt 1000;
+        }
 
         vhost tempesta-tech.com {
            tls_certificate ${tempesta_workdir}/tempesta.crt;

@@ -41,6 +41,8 @@ srv_group srv_grp1 {
         health h_monitor1;
 }
 
+frang_limits {http_strict_host_checking false;}
+
 vhost srv_grp1{
         proxy_pass srv_grp1;
 }
