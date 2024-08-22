@@ -34,13 +34,12 @@ srv_group default {
 
     server ${server_ip}:8099;
 }
-
+frang_limits {http_strict_host_checking false;}
+tls_certificate ${general_workdir}/cert.pem;
+tls_certificate_key ${general_workdir}/key.pem;
+tls_match_any_server_name;
 vhost default {
-    tls_certificate ${general_workdir}/cert.pem;
-    tls_certificate_key ${general_workdir}/key.pem;
-    tls_match_any_server_name;
     proxy_pass default;
-
 }
 
 http_chain {
@@ -107,13 +106,12 @@ srv_group default {
     server ${server_ip}:8148;
     server ${server_ip}:8149;
 }
-
+frang_limits {http_strict_host_checking false;}
+tls_certificate ${general_workdir}/cert.pem;
+tls_certificate_key ${general_workdir}/key.pem;
+tls_match_any_server_name;
 vhost default {
-    tls_certificate ${general_workdir}/cert.pem;
-    tls_certificate_key ${general_workdir}/key.pem;
-    tls_match_any_server_name;
     proxy_pass default;
-
 }
 
 http_chain {
@@ -128,13 +126,13 @@ listen 82 proto=https;
 srv_group default {
     server ${server_ip}:8000;
 }
+frang_limits {http_strict_host_checking false;}
+tls_certificate ${general_workdir}/cert.pem;
+tls_certificate_key ${general_workdir}/key.pem;
+tls_match_any_server_name;
 
 vhost default {
-    tls_certificate ${general_workdir}/cert.pem;
-    tls_certificate_key ${general_workdir}/key.pem;
-    tls_match_any_server_name;
     proxy_pass default;
-
 }
 
 http_chain {
@@ -145,7 +143,7 @@ http_chain {
 
 TEMPESTA_CACHE_CONFIG = """
 listen 81;
-
+frang_limits {http_strict_host_checking false;}
 srv_group default {
 
     server ${server_ip}:8099;
@@ -226,7 +224,6 @@ def gen_cert(host_name):
 
 
 class WsPing(tester.TempestaTest):
-
     """Ping test for websocket ws scheme"""
 
     backends = []
@@ -307,7 +304,6 @@ class WsPing(tester.TempestaTest):
 
 
 class WssPing(WsPing):
-
     """Ping test for websocket wss scheme."""
 
     def run_test(self, port, n):
@@ -333,7 +329,6 @@ class WssPing(WsPing):
 
 
 class WssPingProxy(WssPing):
-
     """
     Ping test for websocket wss scheme with nginx proxying TLS
     Scheme: WSClient (TLS)-> Tempesta-fw -> NGINX (TLS)-> wss
@@ -365,7 +360,6 @@ class WssPingProxy(WssPing):
 
 
 class CacheTest(WsPing):
-
     """
     Test case - we never cache 101 responses
     First: Send upgrade HTTP connection and - get 101
@@ -411,7 +405,6 @@ class CacheTest(WsPing):
 
 
 class WssStress(WssPing):
-
     """
     Asynchronously make WSS Connections and restart tempesta
     """
@@ -447,7 +440,6 @@ class WssStress(WssPing):
 
 
 class WsPipelining(WsPing):
-
     """
     We sent 3 pipelined requests against websocket.
     Expected - 101, 502, 502 response codes
@@ -509,7 +501,6 @@ class WsPipelining(WsPing):
 
 
 class WsScheduler(WsPing):
-
     """
     Create 4 connections against 1 backend ws
     Make 256 async client ws connections
@@ -523,7 +514,7 @@ class WsScheduler(WsPing):
             srv_group default {
                 server ${server_ip}:8099 conns_n=16;
             }
-
+            frang_limits {http_strict_host_checking false;}
             vhost default {
                 proxy_pass default;
             }
@@ -552,7 +543,6 @@ class WsScheduler(WsPing):
 
 
 class RestartOnUpgrade(WsPing):
-
     """
     Asyncly create many Upgrade requests
     against WS during tempesta-fw restart.

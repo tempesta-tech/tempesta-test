@@ -1,4 +1,5 @@
 """Functional tests for custom processing of cached responses."""
+
 import abc
 import copy
 import time
@@ -18,7 +19,7 @@ cache 2;
 srv_group default {
     server ${server_ip}:8000;
 }
-
+frang_limits {http_strict_host_checking false;}
 vhost vh1 {
     proxy_pass default;
 }

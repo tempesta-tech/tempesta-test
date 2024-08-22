@@ -152,6 +152,8 @@ def unlimited_rate_on_tempesta_node(func):
     def func_wrapper(*args, **kwargs):
         return __change_dmesg_limit_on_tempesta_node(func, 0, *args, **kwargs)
 
+    # we need to change name of function to work correctly with parametrize
+    func_wrapper.__name__ = func.__name__
     return func_wrapper
 
 
@@ -161,6 +163,7 @@ def limited_rate_on_tempesta_node(func):
     def func_wrapper(*args, **kwargs):
         return __change_dmesg_limit_on_tempesta_node(func, 5, *args, **kwargs)
 
+    # we need to change name of function to work correctly with parametrize
     func_wrapper.__name__ = func.__name__
 
     return func_wrapper

@@ -41,6 +41,8 @@ srv_group srv_grp1 {
         health h_monitor1;
 }
 
+frang_limits {http_strict_host_checking false;}
+
 vhost srv_grp1{
         proxy_pass srv_grp1;
 }
@@ -244,11 +246,9 @@ class TestHealthStat(tester.TempestaTest):
             listen 80;
             listen 443 proto=h2;
             server ${server_ip}:8000;
-            vhost default {
-                tls_certificate ${tempesta_workdir}/tempesta.crt;
-                tls_certificate_key ${tempesta_workdir}/tempesta.key;
-                tls_match_any_server_name;
-            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
 
             health_stat 200 5*;
         """
@@ -303,11 +303,9 @@ class TestHealthStatServer(tester.TempestaTest):
             listen 80;
             listen 443 proto=h2;
             server ${server_ip}:8000;
-            vhost default {
-                tls_certificate ${tempesta_workdir}/tempesta.crt;
-                tls_certificate_key ${tempesta_workdir}/tempesta.key;
-                tls_match_any_server_name;
-            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
 
             health_stat_server 400 5*;
             server_failover_http 404 999 999;

@@ -47,14 +47,33 @@ class TestFailFunction(tester.TempestaTest):
             tls_match_any_server_name;
 
             server ${server_ip}:8000;
+            
+            frang_limits {
+                http_strict_host_checking false;
+            }
         """
     }
 
     @parameterize.expand(
         [
-            param(name="tfw_cli_conn_alloc", id="deproxy", msg="can't allocate a new client connection", retval=0),
-            param(name="tfw_client_obtain", id="deproxy", msg="can't obtain a client for frang accounting", retval=0),
-            param(name="tfw_h2_context_init", id="deproxy_h2", msg="cannot establish a new h2 connection", retval=-12)
+            param(
+                name="tfw_cli_conn_alloc",
+                id="deproxy",
+                msg="can't allocate a new client connection",
+                retval=0,
+            ),
+            param(
+                name="tfw_client_obtain",
+                id="deproxy",
+                msg="can't obtain a client for frang accounting",
+                retval=0,
+            ),
+            param(
+                name="tfw_hpack_init",
+                id="deproxy_h2",
+                msg="cannot establish a new h2 connection",
+                retval=-12,
+            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
@@ -66,7 +85,7 @@ class TestFailFunction(tester.TempestaTest):
         """
         self.start_all_services(client=False)
 
-        # Write function name to special debug fs file. 
+        # Write function name to special debug fs file.
         cmd = f"echo {name} > /sys/kernel/debug/fail_function/inject"
         out = remote.client.run_cmd(cmd)
         # Write return code, which this function should return instead of

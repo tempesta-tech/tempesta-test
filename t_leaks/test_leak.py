@@ -12,7 +12,7 @@ import unittest
 from time import sleep
 
 from framework import tester
-from helpers import remote, tf_cfg
+from helpers import dmesg, remote, tf_cfg
 
 # Number of open connections
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
@@ -149,13 +149,14 @@ listen 443 proto=h2;
 
 cache 0;
 server ${server_ip}:8000;
-
+frang_limits {http_strict_host_checking false;}
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
 """,
     }
 
+    @dmesg.limited_rate_on_tempesta_node
     def run_routine(self, backend, client):
         tempesta = self.get_tempesta()
         backend.start()
@@ -164,6 +165,8 @@ tls_match_any_server_name;
         self.wait_while_busy(client)
         client.stop()
         tempesta.stop()
+        backend.get_stats()
+        self.assertGreater(backend.requests, 0)
         backend.stop()
 
     def test_kmemleak(self):

@@ -3,7 +3,9 @@ TestCase for multiple listening sockets.
 
 Config for test is being auto generated and imported before test.
 """
+
 from framework import tester
+from helpers import dmesg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -1397,7 +1399,7 @@ class TestMultipleListening(tester.TempestaTest):
             srv_group default {
                 server ${server_ip}:8000;
             }
-
+            frang_limits {http_strict_host_checking false;}
             vhost tempesta-cat {
                 proxy_pass default;
             }
@@ -1420,6 +1422,7 @@ class TestMultipleListening(tester.TempestaTest):
         self.start_tempesta()
         self.start_all_clients()
 
+    @dmesg.limited_rate_on_tempesta_node
     def test_multiple_listeners_success(self):
 
         # h2spec

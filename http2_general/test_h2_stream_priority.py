@@ -27,6 +27,11 @@ class TestPriorityBase(H2Base, NetWorker):
             srv_group default {
                 server ${server_ip}:8000;
             }
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+                http_strict_host_checking false;
+            }
             vhost good {
                 proxy_pass default;
             }
@@ -34,10 +39,6 @@ class TestPriorityBase(H2Base, NetWorker):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             http_max_header_list_size 0;
-            frang_limits {
-                http_hdr_len 0;
-                http_header_cnt 0;
-            }
 
             block_action attack reply;
             block_action error reply;
@@ -561,6 +562,11 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             srv_group default {
                 server ${server_ip}:8000;
             }
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+                http_strict_host_checking false;
+            }
             vhost good {
                 proxy_pass default;
             }
@@ -568,10 +574,6 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             http_max_header_list_size 0;
-            frang_limits {
-                http_hdr_len 0;
-                http_header_cnt 0;
-            }
 
             block_action attack reply;
             block_action error reply;
@@ -633,6 +635,11 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             srv_group default {
                 server ${server_ip}:8000;
             }
+            frang_limits {
+                http_hdr_len 0;
+                http_header_cnt 0;
+                http_strict_host_checking false;
+            }
             vhost good {
                 proxy_pass default;
             }
@@ -640,10 +647,6 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             http_max_header_list_size 0;
-            frang_limits {
-                http_hdr_len 0;
-                http_header_cnt 0;
-            }
 
             block_action attack reply;
             block_action error reply;
@@ -665,7 +668,10 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
         client, server = self.setup_test_priority()
 
         prev_stream_id = 0
-        self.assertTrue(client.h2_connection.remote_settings.max_concurrent_streams == self.max_concurrent_streams)
+        self.assertTrue(
+            client.h2_connection.remote_settings.max_concurrent_streams
+            == self.max_concurrent_streams
+        )
 
         # Create streams with "idle" state with the id range from 21 to 39
         for i in range(0, self.max_concurrent_streams):

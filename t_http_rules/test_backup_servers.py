@@ -24,7 +24,7 @@ tls_match_any_server_name;
 cache 0;
 srv_group primary {server ${server_ip}:8000;}
 srv_group backup {server ${server_ip}:8001;}
-
+frang_limits {http_strict_host_checking false;}
 vhost host {
     proxy_pass primary backup=backup;
 }

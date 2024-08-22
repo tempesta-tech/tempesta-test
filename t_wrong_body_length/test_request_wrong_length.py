@@ -290,7 +290,10 @@ class RequestLongBodyLength(TempestaTest):
     tempesta = {
         "config": """
             listen 80;
-
+            frang_limits {
+                http_strict_host_checking false;
+                http_methods GET PUT POST;
+            }
             srv_group default {
                 server ${server_ip}:8000;
             }

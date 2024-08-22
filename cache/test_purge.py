@@ -18,7 +18,9 @@ class TestPurgeAcl(TempestaTest):
         "config": """
 listen ${tempesta_ip}:80;
 listen [${tempesta_ipv6}]:80;
-
+frang_limits {
+    http_methods GET PURGE;
+    }
 server ${server_ip}:8000;
 
 cache 2;
@@ -133,7 +135,10 @@ class TestPurgeBase(TempestaTest):
     tempesta_template = {
         "config": """
 listen 80;
-
+frang_limits {
+    http_strict_host_checking false;
+    http_methods GET PURGE HEAD;
+    }
 server ${server_ip}:8000;
 
 vhost default {

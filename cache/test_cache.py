@@ -64,12 +64,9 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-}
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 """,
     }
 
@@ -359,12 +356,9 @@ cache_fulfill * *;
 
 server ${server_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-}
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 """,
     }
 
@@ -535,11 +529,12 @@ listen 443 proto=h2;
 server ${server_ip}:8000;
 cache 2;
 
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
 vhost default {
     proxy_pass default;
-    tls_match_any_server_name;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
     
     location suffix ".jpg" {
         proxy_pass default;
@@ -623,15 +618,13 @@ class TestCacheMultipleMethods(tester.TempestaTest):
     cache 2;
     cache_fulfill * *;
     cache_methods GET HEAD POST;
+    frang_limits {http_methods GET HEAD POST PUT DELETE;}
 
     server ${server_ip}:8000;
 
-    vhost default {
-        proxy_pass default;
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-        tls_match_any_server_name;
-    }
+    tls_match_any_server_name;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
     """,
     }
 
@@ -678,10 +671,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
 
         self.start_all_services()
         client.send_request(
-            client.create_request(method=first_method, uri="/index.html", headers=[])
+            client.create_request(method=first_method, uri="/index.html", headers=[]), "200"
         )
         client.send_request(
-            client.create_request(method=second_method, uri="/index.html", headers=[])
+            client.create_request(method=second_method, uri="/index.html", headers=[]), "200"
         )
 
         if should_be_cached:
@@ -721,7 +714,9 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
             + "First body."
         )
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]), "200"
+        )
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -730,8 +725,12 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
             + "Second body."
         )
-        client.send_request(client.create_request(method=method, uri="/index.html", headers=[]))
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method=method, uri="/index.html", headers=[]), "200"
+        )
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]), "200"
+        )
 
         self.assertEqual(
             "Second body.",
@@ -770,9 +769,11 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "First body."
         )
 
-        client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
         client.send_request(
-            client.create_request(method=second_method, uri="/index.html", headers=[])
+            client.create_request(method="POST", uri="/index.html", headers=[]), "200"
+        )
+        client.send_request(
+            client.create_request(method=second_method, uri="/index.html", headers=[]), "200"
         )
 
         if should_be_cached:
@@ -811,8 +812,12 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
         )
 
-        client.send_request(client.create_request(method="POST", uri="/index.html", headers=[]))
-        client.send_request(client.create_request(method="GET", uri="/index.html", headers=[]))
+        client.send_request(
+            client.create_request(method="POST", uri="/index.html", headers=[]), "200"
+        )
+        client.send_request(
+            client.create_request(method="GET", uri="/index.html", headers=[]), "200"
+        )
         self.assertNotIn("age", client.last_response.headers.keys())
         self.assertEqual(len(server.requests), 2)
 
@@ -967,12 +972,9 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
-vhost default {
-    proxy_pass default;
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-}
+tls_match_any_server_name;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
 cache 2;
 """
     }
@@ -1249,7 +1251,7 @@ tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
 server ${server_ip}:8000;
-
+frang_limits {http_strict_host_checking false;}
 vhost vh1 {
     proxy_pass default;
 }
@@ -1435,7 +1437,7 @@ tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
 server ${server_ip}:8000;
-
+frang_limits {http_strict_host_checking false;}
 vhost vh1 {
     proxy_pass default;
 }
@@ -1537,6 +1539,7 @@ class TestChunkedResponse(tester.TempestaTest):
         tls_match_any_server_name;
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        frang_limits {http_strict_host_checking false;}
         cache 1;
         cache_fulfill * *;
         server ${server_ip}:8000;
@@ -1673,7 +1676,7 @@ class TestCacheVhost(tester.TempestaTest):
         srv_group front {
                 server ${server_ip}:8081;
         }
-
+        frang_limits {http_strict_host_checking false;}
         vhost tempesta-tech.com {
                 tls_certificate ${tempesta_workdir}/tempesta.crt;
                 tls_certificate_key ${tempesta_workdir}/tempesta.key;

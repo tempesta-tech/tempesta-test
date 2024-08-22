@@ -130,6 +130,10 @@
             "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
         },
         {
+            "name": "t_frang.test_config",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

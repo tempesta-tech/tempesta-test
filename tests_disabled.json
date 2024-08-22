@@ -126,6 +126,10 @@
             "reason": "Disable by issue #1714"
         },
         {
+            "name": "t_frang.test_config.TestDefaultConfig.test_http_body_len",
+            "reason": "Disable by issue #1714"
+        },
+        {
             "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
             "reason": "Disable by issue #1692"
         },
@@ -298,8 +302,20 @@
             "reason": "Disabled by issue #613"
         },
         {
-            "name": "t_stress.test_header_leak.TestH2HeaderLeak",
-            "reason": "Disabled by issue #2181"
+            "name": "t_health_monitoring.test_health_monitor.TestHealthMonitor",
+            "reason": "Disabled by issue #2151"
+        },
+        {
+            "name": "t_health_monitoring.test_health_monitor.TestHmCrcImplicitCRC",
+            "reason": "Disabled by PR #2151"
+        },
+        {
+            "name": "t_health_monitoring.test_health_monitor.TestHmCrcExplicitCRC",
+            "reason": "Disabled by PR #2151"
+        },
+        {
+            "name": "t_health_monitoring.test_health_monitor.TestHmCrcPredefinedCRC",
+            "reason": "Disabled by PR #2151"
         }
     ]
 }

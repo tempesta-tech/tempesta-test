@@ -2,6 +2,7 @@
 Tests for basic x509 handling: certificate loading and getting a valid request
 and response, stale certificates and certificates with unsupported algorithms.
 """
+
 import os
 import re
 from abc import abstractmethod
@@ -882,6 +883,7 @@ http {
                 self.set_second_config()
                 self.get_tempesta().reload()
 
+    @dmesg.limited_rate_on_tempesta_node
     def test_wrk(self):
         generate_certificate(
             cert_name="localhost", cn="localhost", san=[tf_cfg.cfg.get("Tempesta", "ip")]
@@ -911,7 +913,7 @@ http {
                 listen 443 proto=https;
 
                 srv_group sg { server server_:8000; }
-
+                frang_limits {http_strict_host_checking false;}
                 vhost localhost {
                     proxy_pass sg;
                     tls_certificate path/localhost.crt;
@@ -944,7 +946,7 @@ http {
                 listen 443 proto=https;
 
                 srv_group sg { server server_:8000; }
-
+                frang_limits {http_strict_host_checking false;}
                 vhost private.example.com {
                     proxy_pass sg;
                     tls_certificate path/localhost.crt;

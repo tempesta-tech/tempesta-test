@@ -31,6 +31,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
             }
 
             vhost v_good {
+                frang_limits {http_strict_host_checking false;}
                 proxy_pass default;
                 sticky {
                     sticky_sessions;

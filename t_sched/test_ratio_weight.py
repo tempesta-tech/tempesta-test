@@ -91,7 +91,7 @@ server ${server_ip}:8006 weight=22;
 server ${server_ip}:8007 weight=80;
 server ${server_ip}:8008 weight=100;
 server ${server_ip}:8009 weight=10;
-
+frang_limits {http_strict_host_checking false;}
 """
 
 # Random number of connections for each server.
@@ -115,7 +115,7 @@ server ${server_ip}:8006 weight=22 conns_n=4;
 server ${server_ip}:8007 weight=80 conns_n=2;
 server ${server_ip}:8008 weight=100 conns_n=10;
 server ${server_ip}:8009 weight=10 conns_n=12;
-
+frang_limits {http_strict_host_checking false;}
 """
 
 

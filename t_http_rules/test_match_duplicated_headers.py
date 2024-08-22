@@ -2,6 +2,7 @@
 Tests to verify correctness of matching multiple
 similar headers in one request.
 """
+
 from framework import tester
 from helpers import chains, remote
 
@@ -30,6 +31,7 @@ class DuplicatedHeadersMatchTest(tester.TempestaTest):
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
         
+        frang_limits {http_strict_host_checking false;}
         block_action attack reply;
         srv_group grp1 {
         server ${server_ip}:8000;
