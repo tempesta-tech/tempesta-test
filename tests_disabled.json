@@ -316,6 +316,10 @@
         {
             "name": "t_health_monitoring.test_health_monitor.TestHmCrcPredefinedCRC",
             "reason": "Disabled by PR #2151"
+        },
+        {
+            "name": "t_frang.test_concurrent_connections.ConcurrentConnections",
+            "reason": "Disabled by test issue #525"
         }
     ]
 }

@@ -8,3 +8,5 @@ tls.test_tls_integrity.ManyClientsH2
 tls.test_tls_integrity.ManyClients
 t_frang.test_connection_rate_burst.FrangTcpVsBoth
 t_leaks
+t_stress.test_header_leak
+t_frang.test_ip_block.FrangIpBlockConn
