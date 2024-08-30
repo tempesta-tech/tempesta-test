@@ -37,8 +37,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
 
 cache 0;
-srv_group primary {server ${server_ip}:8000;}
-srv_group backup {server ${server_ip}:8001;}
+srv_group primary {server ${server_ip}:8000 conns_n=1;}
+srv_group backup {server ${server_ip}:8001 conns_n=1;}
 frang_limits {http_strict_host_checking false;}
 vhost host {
     proxy_pass primary backup=backup;
@@ -76,15 +76,44 @@ http_chain {
         },
     ]
 
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    request = "GET / HTTP/1.1\r\nHost: debian\r\n\r\n"
+
     def test(self):
         """
         Test reconnecion requests.
         """
 
-        self.start_all_services()
+        client = self.get_client("deproxy")
         primary_server = self.get_server("primary")
         backup_server = self.get_server("backup")
+        tempesta = self.get_tempesta()
+
+        primary_server.conns_n = 1
+        backup_server.conns_n = 1
+
+        self.start_all_services()
+
+        client.send_request(self.request, "200")
+        self.assertTrue(primary_server.wait_for_responses(1, timeout=1))
+
+        time.sleep(1)
+
+        client.send_request(self.request, "200")
+        self.assertTrue(primary_server.wait_for_responses(1, timeout=1))
 
         primary_server.stop()
 
-        time.sleep(5)
+        client.send_request(self.request, "200")
+        self.assertTrue(backup_server.wait_for_responses(1, timeout=1))
+
+        time.sleep(20)
+        tempesta.stop()
