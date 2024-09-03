@@ -44,6 +44,11 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_responses_list = []
         dbg(self, 6, "New server connection", prefix="\t")
 
+    def flush(self):
+        self._response_buffer.append(b"".join(self._cur_responses_list))
+        self._cur_pipelined = 0
+        self._cur_responses_list = []
+
     def writable(self):
         if (
             self._server.segment_gap != 0
@@ -97,10 +102,8 @@ class ServerConnection(asyncore.dispatcher):
                 tf_cfg.dbg(5, response)
                 self._cur_responses_list.append(response)
                 self._cur_pipelined = self._cur_pipelined + 1
-                if self._pipelined == self._cur_pipelined:
-                    self._response_buffer.append(b"".join(self._cur_responses_list))
-                    self._cur_pipelined = 0
-                    self._cur_responses_list = []
+                if self._cur_pipelined >= self._pipelined:
+                    self.flush()
 
             if need_close:
                 self.close()
@@ -251,6 +254,10 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         return util.wait_until(
             lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
         )
+
+    def flush(self):
+        for conn in self._connections:
+            conn.flush()
 
     @property
     def response(self) -> bytes:

@@ -186,7 +186,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
         },
     ]
 
-    ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
+    clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
 
     @parameterize.expand(
         [
@@ -206,11 +206,10 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
         srv.pipelined = 3
         srv.conns_n = 1
         self.start_all_services(client=False)
-
         self.setup_fail_function_test(func_name, times, retval)
 
         i = 0
-        for id in self.ids:
+        for id in self.clients_ids:
             i = i + 1
             client = self.get_client(id)
             request = client.create_request(method="GET", headers=[])
@@ -219,7 +218,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
             srv.wait_for_requests(i)
 
         i = 0
-        for id in self.ids:
+        for id in self.clients_ids:
             i = i + 1
             client = self.get_client(id)
             if i >= 2:
@@ -231,6 +230,21 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
             self.oops.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
+
+        srv.wait_for_connections()
+        req_count = i
+
+        i = 0
+        j = 0
+        for id in self.clients_ids:
+            i = i + 1
+            client = self.get_client(id)
+            if i >= 2:
+                j = j + 1
+                self.assertTrue(srv.wait_for_requests(req_count + j))
+                srv.flush()
+                self.assertTrue(client.wait_for_response())
+                self.assertEqual(client._last_response.status, "200")
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()

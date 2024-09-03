@@ -82,6 +82,14 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_h2_responses.H2ResponsesPipelined",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_responses.H2HmResponsesPipelined",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "http2_general.test_h2_frame.TestH2Frame.test_triple_header_frame_in_single_stream",
             "reason": "These tests should not be run with TCP segmentation."
         },
