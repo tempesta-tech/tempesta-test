@@ -174,7 +174,7 @@ return 200;
         srv.wait_for_connections()
 
     def run_curl(self, n=1):
-        res = defaultdict(lambda: 0)
+        res = defaultdict(int)
         for _ in range(n):
             curl = self.get_client("curl")
             curl.start()
@@ -192,25 +192,39 @@ return 200;
         back2 = self.get_server("nginx2")
         back3 = self.get_server("nginx3")
         res = self.run_curl(REQ_COUNT)
-        self.assertEqual(res["502"], 100, "No 502 in statuses")
+        self.assertEqual(
+            list(res.keys()),
+            ["502"],
+            f"TempestaFW returned unexpected response statuses - {list(res.keys())}. "
+            "But all servers are disabled.",
+        )
 
         # 2
         self.wait_for_server(back1)
         self.wait_for_server(back2)
         res = self.run_curl(REQ_COUNT)
-        self.assertEqual(res["403"], 50, "No 403 in statuses")
-        self.assertEqual(res["404"], 50, "No 404 in statuses")
+        self.assertEqual(
+            list(res.values()),
+            [50, 50],
+            "TempestaFW forwarded requests without following the `server_failover_http`"
+        )
 
         # 3
         self.wait_for_server(back3)
         res = self.run_curl(REQ_COUNT)
-        self.assertGreater(res["200"], res["502"])
-        self.assertGreater(res["403"], 0, "No 403 in statuses")
-        self.assertGreater(res["404"], 0, "No 404 in statuses")
+        self.assertGreater(
+            res["200"],
+            res["502"],
+            f"TempestaFW or server are not stable. Response statuses - {res.items()}",
+        )
 
         # 4
         res = self.run_curl(REQ_COUNT)
-        self.assertGreater(res["200"], res["502"])
+        self.assertGreater(
+            res["200"],
+            res["502"],
+            f"TempestaFW or server are not stable. Response statuses - {res.items()}"
+        )
         back3.stop()
 
 
