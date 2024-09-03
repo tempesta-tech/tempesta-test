@@ -161,6 +161,9 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
+            frang_limits {
+                http_strict_host_checking false;
+            }
             srv_group default {
                 server ${server_ip}:8000 conns_n=1;
             }
@@ -208,6 +211,7 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
     )
     def test_bad_pipelined(self, name, bad_num):
         srv = self.setup_and_start(3)
+        # The next connection will be not pipelined
         self.disable_deproxy_auto_parser()
 
         i = 0
@@ -231,8 +235,6 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
             client.make_request(self.get_request)
             self.assertTrue(srv.wait_for_requests(i))
 
-        self.assertEqual(len(srv.requests), i)
-
         i = 0
         for id in self.clients_ids:
             client = self.get_client(id)
@@ -245,20 +247,29 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client._last_response.status, "200")
 
-        """
-        It seems that we should resend request to server connection
-        after it reestablished but currently it doesn't work.
+        srv.wait_for_connections()
+        req_count = i
+
+        i = 0
+        j = 0
         for id in self.clients_ids:
+            i = i + 1
             client = self.get_client(id)
             if i > bad_num:
-                self.assertTrue(client.wait_for_response(timeout=50))
-        """
+                j = j + 1
+                self.assertTrue(srv.wait_for_requests(req_count + j))
+                srv.flush()
+                self.assertTrue(client.wait_for_response())
+                self.assertEqual(client._last_response.status, "200")
 
 
 class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
+            frang_limits {
+                http_strict_host_checking false;
+            }
             
             health_check hm0 {
                 request         "GET / HTTP/1.0\r\n\r\n";
