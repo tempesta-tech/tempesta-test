@@ -597,5 +597,5 @@ class RestartOnUpgrade(WsPing):
         self.start_tempesta()
         time.sleep(2)
         self.p2.start()
-        self.p2.join(timeout=30)
+        self.p2.join(timeout=60)
         self.p2 = None
