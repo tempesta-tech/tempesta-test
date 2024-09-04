@@ -45,7 +45,7 @@ class CustomOut(object):
 
         Patch original TextIO.
         """
-        self.origin.fileno()
+        return self.origin.fileno()
 
     @staticmethod
     def now() -> str:

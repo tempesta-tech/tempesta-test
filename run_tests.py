@@ -267,12 +267,12 @@ tf_cfg.cfg.check()
 tee = subprocess.Popen(
     ["tee", "-i", tf_cfg.cfg.get("General", "log_file")],
     stdin=subprocess.PIPE,
-    stdout=output_interceptor.stderr_inter.origin,
+    stdout=sys.stderr,
 )
 sys.stderr.flush()
 os.dup2(
     tee.stdin.fileno(),
-    output_interceptor.stderr_inter.origin.fileno(),
+    sys.stderr.fileno(),
 )
 tee.stdin.close()
 

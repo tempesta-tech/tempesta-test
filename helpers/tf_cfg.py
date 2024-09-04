@@ -7,8 +7,6 @@ import configparser
 import os
 import sys
 
-from helpers.output_interceptor import stdout_inter
-
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
@@ -171,7 +169,7 @@ def v_level():
 
 def dbg(level, *args, **kwargs) -> None:
     if int(cfg.get("General", "Verbose")) >= level:
-        print(file=stdout_inter, *args, **kwargs)
+        print(file=sys.stderr, *args, **kwargs)
 
 
 def log_dmesg(node, msg) -> None:
