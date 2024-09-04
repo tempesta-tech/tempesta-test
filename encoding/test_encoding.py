@@ -43,6 +43,8 @@ class CommonUtils:
         return got_response
 
     def encode_chunked(self, data, chunk_size=256):
+        if data is None:
+            return ""
         result = ""
         while len(data):
             chunk, data = data[:chunk_size], data[chunk_size:]
@@ -117,7 +119,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         self.backends[0]["response_content"] += self.encode_chunked(self.body, self.chunk_size)
         super().setUp()
 
-    def test(self):
+    def run_test(self, method, body_expected):
         self.start_all()
 
         client = self.get_client("client")
@@ -127,7 +129,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             (":authority", "localhost"),
             (":path", "/"),
             (":scheme", "https"),
-            (":method", "GET"),
+            (":method", method),
         ]
         client.make_request(request)
         got_response = client.wait_for_response(timeout=5)
@@ -141,9 +143,12 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         )
         cl = response.headers.get("Content-Length", None)
         self.assertTrue(cl, "The response should have Content-Length")
-        self.assertEqual(
-            response.body, self.body, "Dechunked body does not match the original payload"
-        )
+        if body_expected:
+            self.assertEqual(
+                response.body, self.body, "Dechunked body does not match the original payload"
+            )
+        else:
+            self.assertFalse(response.body)
 
         # from now on the response is cached
         client.make_request(request)
@@ -151,7 +156,40 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
 
         self.assertTrue(got_response, "Got no response")
         self.assertEqual(client.last_response.status, "200")
-        self.assertEqual(len(server.requests), 1, "The response has to be served from cache")
+        if body_expected:
+            self.assertEqual(
+                client.last_response.body,
+                self.body,
+                "Dechunked body does not match the original payload",
+            )
+        else:
+            self.assertFalse(client.last_response.body)
+        if method != "HEAD":
+            self.assertEqual(len(server.requests), 1, "The response has to be served from cache")
+        else:
+            self.assertEqual(len(server.requests), 2)
+
+    def test(self):
+        self.run_test("GET", True)
+
+
+class TestH2EmptyResponseBodyDechunking(TestH2BodyDechunking):
+    """
+    Same as "TestH2BodyDechunking", but with empty body.
+    """
+
+    body = ""
+
+
+class TestH2EmptyResponseBodyDechunkingHead(TestH2BodyDechunking):
+    """
+    Same as "TestH2BodyDechunking", but with empty body and HEAD method.
+    """
+
+    body = None
+
+    def test(self):
+        self.run_test("HEAD", False)
 
 
 class TestH2LargeResponseBodyDechunking(TestH2BodyDechunking):
@@ -174,12 +212,6 @@ class TestH2LargeResponseBodyDechunking2(TestH2BodyDechunking):
 
     body = LARGE_BODY_PAYLOAD
     chunk_size = LARGE_BODY_CHUNK_SIZE_2
-
-
-class TestH2EmptyResponseBodyDechunking(TestH2BodyDechunking):
-    """Same as "TestH2BodyDechunking", but with empty body."""
-
-    body = ""
 
 
 class TestH1ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
