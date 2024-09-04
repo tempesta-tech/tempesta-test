@@ -166,4 +166,6 @@ def limited_rate_on_tempesta_node(func):
     # we need to change name of function to work correctly with parametrize
     func_wrapper.__name__ = func.__name__
 
+    func_wrapper.__name__ = func.__name__
+
     return func_wrapper

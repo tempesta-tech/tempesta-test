@@ -991,6 +991,7 @@ class Client(TlsClient, stateful.Stateful):
         self.bind_addr = bind_addr or tf_cfg.cfg.get("Client", "ip")
         self.error_codes = []
         self.socket_family = socket_family
+        self._socket_options = list()
 
     def __stop_client(self):
         dbg(self, 4, "Stop", prefix="\t")
@@ -1009,12 +1010,18 @@ class Client(TlsClient, stateful.Stateful):
         self.create_socket(
             socket.AF_INET if self.socket_family == "ipv4" else socket.AF_INET6, socket.SOCK_STREAM
         )
+        for option in self._socket_options:
+            self.socket.setsockopt(option[0], option[1], option[2])
         if self.bind_addr:
             self.bind((self.bind_addr, 0))
         self.connect((self.conn_addr, self.port))
 
     def clear(self):
         self.request_buffer = ""
+
+    def add_socket_options(self, level: int, optname: int, value_: int):
+        """This method should be used before `run_start`."""
+        self._socket_options.append((level, optname, value_))
 
     def set_request(self, message_chain):
         if message_chain:
