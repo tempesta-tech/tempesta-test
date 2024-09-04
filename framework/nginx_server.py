@@ -90,7 +90,9 @@ class Nginx(stateful.Stateful):
         self.clear_stats()
         self.port_checker.check_ports_status()
         # Copy nginx config to working directory on 'server' host.
+
         self.node.copy_file(self.config.config_name, self.config.config)
+        time.sleep(5)
         # Nginx forks on start, no background threads needed,
         # but it holds stderr open after demonisation.
         config_file = os.path.join(self.workdir, self.config.config_name)

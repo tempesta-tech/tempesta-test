@@ -4,6 +4,6 @@ repos:
     hooks:
       - id: isort
   - repo: https://github.com/ambv/black
-    rev: 24.4.2
+    rev: 24.8.0
     hooks:
       - id: black
