@@ -173,6 +173,28 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=100,
                 retval=-12,
             ),
+            param(
+                name="tfw_h2_stream_xmit_prepare_resp",
+                func_name="tfw_h2_stream_xmit_prepare_resp",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                header_len=0,
+                body_len=0,
+                mtu=None,
+                retval=-12,
+            ),
+            param(
+                name="tfw_h2_entail_stream_skb",
+                func_name="tfw_h2_entail_stream_skb",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                header_len=0,
+                body_len=0,
+                mtu=None,
+                retval=-12,
+            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
@@ -212,10 +234,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
         self.assertFalse(client.wait_for_response(3))
         self.assertTrue(client.wait_for_connection_close())
 
-        self.assertTrue(
-            self.oops.find(msg, cond=dmesg.amount_positive),
-            "Tempesta doesn't report error",
-        )
+        if msg:
+            self.assertTrue(
+                self.oops.find(msg, cond=dmesg.amount_positive),
+                "Tempesta doesn't report error",
+            )
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()
