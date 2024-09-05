@@ -12,6 +12,7 @@ __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
+from typing import Optional
 
 from rich import pretty
 from rich.logging import RichHandler
@@ -24,7 +25,8 @@ logging.basicConfig(
     datefmt="%y-%m-%d %H:%M:%S:%f",
     handlers=[RichHandler()],
 )
-levels = {
+
+log_levels = {
     0: logging.CRITICAL,
     1: logging.ERROR,
     2: logging.WARNING,
@@ -41,6 +43,9 @@ class ConfigError(Exception):
 
 
 class TestFrameworkCfg(object):
+
+    logger = logger
+
     kvs = {}
 
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
@@ -55,6 +60,8 @@ class TestFrameworkCfg(object):
             self.__fill_kvs()
         except:
             self.cfg_err = sys.exc_info()
+
+        self.configure_logger()
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server"]:
@@ -130,7 +137,7 @@ class TestFrameworkCfg(object):
     def set_v_level(self, level):
         assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
         self.config["General"]["Verbose"] = str(level)
-        logger.level = levels[int(level)]
+        self.logger.level = log_levels[int(level)]
 
     def set_duration(self, val):
         try:
@@ -140,8 +147,27 @@ class TestFrameworkCfg(object):
         self.config["General"]["Duration"] = val
         return True
 
-    def get(self, section, opt) -> str:
-        return self.config[section][opt]
+    def get(self, section: str, opt: str, *, fallback: Optional[str] = None) -> str:
+        """
+        Get config element.
+
+        Args:
+            section (str): section name to return a value for
+            opt (str): option name to return a value for
+            fallback (str): default value to return if a section or an option do not exist
+
+        Returns:
+            (str): requested value
+
+        Raises:
+            : if `fallback` was not provided, re-raise en exception, to have no confusions
+        """
+        try:
+            return self.config[section][opt]
+        except (configparser.NoSectionError, configparser.NoOptionError, KeyError) as err:
+            if fallback:
+                return fallback
+            raise err
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value
@@ -182,6 +208,16 @@ class TestFrameworkCfg(object):
             msg = 'running clients on a remote host "%s" is not supported' % client_hostname
             raise ConfigError(msg)
 
+    def configure_logger(self):
+        """Configure a logger."""
+        file_handler = logging.FileHandler(
+            self.get("General", "log_file", fallback="tests_log.log")
+        )
+        file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        file_handler.setFormatter(file_formatter)
+
+        self.logger.addHandler(file_handler)
+
 
 def debug() -> bool:
     return int(cfg.get("General", "Verbose")) >= 3
@@ -192,7 +228,11 @@ def v_level():
 
 
 def dbg(level, *args, **kwargs) -> None:
-    logger.log(levels[int(level)], *args, **kwargs)
+    logger.log(
+        log_levels.get(int(level), 5),
+        *args,
+        **kwargs,
+    )
 
 
 def log_dmesg(node, msg) -> None:

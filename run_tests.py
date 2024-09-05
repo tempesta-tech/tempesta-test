@@ -18,15 +18,11 @@ import psutil
 
 import run_config
 from framework import tester
-from helpers import output_interceptor, prepare, remote, shell, tf_cfg, util
+from helpers import prepare, remote, shell, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
-
-
-sys.stdout = output_interceptor.stdout_inter
-sys.stderr = output_interceptor.stderr_inter
 
 
 def usage():
