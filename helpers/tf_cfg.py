@@ -11,6 +11,29 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import logging
+
+from rich import pretty
+from rich.logging import RichHandler
+
+pretty.install()
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format=" | %(message)s",
+    datefmt="%y-%m-%d %H:%M:%S:%f",
+    handlers=[RichHandler()],
+)
+levels = {
+    0: logging.CRITICAL,
+    1: logging.ERROR,
+    2: logging.WARNING,
+    3: 25,
+    4: logging.INFO,
+    5: logging.DEBUG,
+    6: 5,
+}
+
 
 class ConfigError(Exception):
     def __init__(self, msg):
@@ -107,6 +130,7 @@ class TestFrameworkCfg(object):
     def set_v_level(self, level):
         assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
         self.config["General"]["Verbose"] = str(level)
+        logger.level = levels[int(level)]
 
     def set_duration(self, val):
         try:
@@ -168,8 +192,7 @@ def v_level():
 
 
 def dbg(level, *args, **kwargs) -> None:
-    if int(cfg.get("General", "Verbose")) >= level:
-        print(file=sys.stderr, *args, **kwargs)
+    logger.log(levels[int(level)], *args, **kwargs)
 
 
 def log_dmesg(node, msg) -> None:
