@@ -16,8 +16,6 @@ import logging
 from rich import pretty
 from rich.logging import RichHandler
 
-pretty.install()
-
 logger = logging.getLogger(__name__)
 
 log_levels = {
@@ -185,6 +183,8 @@ class TestFrameworkCfg(object):
 
     def configure_logger(self):
         """Configure a logger."""
+        pretty.install()
+
         date_format = "%y-%m-%d %H:%M:%S"
         file_handler = logging.FileHandler(self.get("General", "log_file"))
         file_handler.setFormatter(
