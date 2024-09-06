@@ -12,7 +12,6 @@ __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
-from typing import Optional
 
 from rich import pretty
 from rich.logging import RichHandler
@@ -20,11 +19,6 @@ from rich.logging import RichHandler
 pretty.install()
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    format=" | %(message)s",
-    datefmt="%y-%m-%d %H:%M:%S:%f",
-    handlers=[RichHandler()],
-)
 
 log_levels = {
     0: logging.CRITICAL,
@@ -147,27 +141,8 @@ class TestFrameworkCfg(object):
         self.config["General"]["Duration"] = val
         return True
 
-    def get(self, section: str, opt: str, *, fallback: Optional[str] = None) -> str:
-        """
-        Get config element.
-
-        Args:
-            section (str): section name to return a value for
-            opt (str): option name to return a value for
-            fallback (str): default value to return if a section or an option do not exist
-
-        Returns:
-            (str): requested value
-
-        Raises:
-            : if `fallback` was not provided, re-raise en exception, to have no confusions
-        """
-        try:
-            return self.config[section][opt]
-        except (configparser.NoSectionError, configparser.NoOptionError, KeyError) as err:
-            if fallback:
-                return fallback
-            raise err
+    def get(self, section, opt) -> str:
+        return self.config[section][opt]
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value
@@ -210,13 +185,19 @@ class TestFrameworkCfg(object):
 
     def configure_logger(self):
         """Configure a logger."""
-        file_handler = logging.FileHandler(
-            self.get("General", "log_file", fallback="tests_log.log")
+        date_format = "%y-%m-%d %H:%M:%S"
+        file_handler = logging.FileHandler(self.get("General", "log_file"))
+        file_handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s", datefmt=date_format
+            )
         )
-        file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
-
+        stream_handler = RichHandler()
+        stream_handler.setFormatter(
+            logging.Formatter(fmt=" | %(message)s", datefmt=date_format + ".%f")
+        )
         self.logger.addHandler(file_handler)
+        self.logger.addHandler(stream_handler)
 
 
 def debug() -> bool:
