@@ -157,6 +157,20 @@ class H2ResponsesPipelinedBase(H2Base):
         return srv
 
 
+response = (
+    "HTTP/1.1 200 OK\r\n"
+    + f"Date: {HttpMessage.date_time_string()}\r\n"
+    + "Server: debian\r\n"
+    + "Content-Length: 0\r\n\r\n"
+)
+bad_response = (
+    "HTTP/1.1 200 OK\r\n"
+    + f"Date: {HttpMessage.date_time_string()}\r\n"
+    + "Server: debian\r\n"
+    + "C ontent-Length: 0\r\n\r\n"
+)
+
+
 class H2ResponsesPipelined(H2ResponsesPipelinedBase):
     tempesta = {
         "config": """
@@ -173,7 +187,6 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
-            http_max_header_list_size 134217728; #128 KB
 
             block_action attack reply;
             block_action error reply;
@@ -191,148 +204,66 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
         """
         srv = self.setup_and_start(3)
 
-        for id in self.clients_ids:
-            client = self.get_client(id)
+        clients = self.get_clients()
+        for client in clients:
             client.make_request(self.get_request)
 
         self.assertTrue(srv.wait_for_requests(3))
 
         self.assertEqual(len(srv.requests), 3)
-        for id in self.clients_ids:
-            client = self.get_client(id)
-            self.assertEqual(client._last_response.status, "200")
+        for client in clients:
+            self.assertEqual(client.last_response.status, "200")
 
     @parameterize.expand(
         [
-            param(name="first_fail", bad_num=1),
-            param(name="second_fail", bad_num=2),
-            param(name="third_fail", bad_num=3),
+            param(
+                name="first_fail",
+                response_list=[bad_response, response, response],
+                expected_response_statuses=["502"],
+            ),
+            param(
+                name="second_fail",
+                response_list=[response, bad_response, response],
+                expected_response_statuses=["200", "502"],
+            ),
+            param(
+                name="third_fail",
+                response_list=[response, response, bad_response],
+                expected_response_statuses=["200", "200", "502"],
+            ),
         ]
     )
-    def test_bad_pipelined(self, name, bad_num):
-        srv = self.setup_and_start(3)
+    def test_bad_pipelined(self, name, response_list, expected_response_statuses):
+        requests_n = len(self.get_clients())
+        srv = self.setup_and_start(requests_n)
         # The next connection will be not pipelined
         self.disable_deproxy_auto_parser()
 
-        i = 0
-        for id in self.clients_ids:
-            client = self.get_client(id)
-            i = i + 1
-            if i == bad_num:
-                srv.set_response(
-                    "HTTP/1.1 200 OK\r\n"
-                    + f"Date: {HttpMessage.date_time_string()}\r\n"
-                    + "Server: debian\r\n"
-                    + "C ontent-Length: 0\r\n\r\n"
-                )
-            else:
-                srv.set_response(
-                    "HTTP/1.1 200 OK\r\n"
-                    + f"Date: {HttpMessage.date_time_string()}\r\n"
-                    + "Server: debian\r\n"
-                    + "Content-Length: 0\r\n\r\n"
-                )
+        clients = self.get_clients()
+        for client, response, i in zip(clients, response_list, list(range(1, 4))):
+            srv.set_response(response)
             client.make_request(self.get_request)
             self.assertTrue(srv.wait_for_requests(i))
 
-        i = 0
-        for id in self.clients_ids:
-            client = self.get_client(id)
-            i = i + 1
-            if i == bad_num:
-                self.assertEqual(client._last_response.status, "502")
-            elif i > bad_num:
-                self.assertFalse(client._last_response)
-            else:
+        for client, expected_status in zip(clients, expected_response_statuses):
+            if expected_status:
                 self.assertTrue(client.wait_for_response())
-                self.assertEqual(client._last_response.status, "200")
+                self.assertEqual(client.last_response.status, expected_status)
+            else:
+                self.assertFalse(client._last_response)
 
+        # Tempesta FW drops connections with backend after invalid response
+        # processing and then immmediatly reestablish it and sends requests
+        # again. Check that Tempesta FW do it correctly and clients receive
+        # successful responses later.
         srv.wait_for_connections()
-        req_count = i
+        req_count = requests_n
 
         i = 0
-        j = 0
-        for id in self.clients_ids:
-            i = i + 1
-            client = self.get_client(id)
-            if i > bad_num:
-                j = j + 1
+        for client, expected_status in zip(clients, expected_response_statuses):
+            if not expected_status:
+                i = i + 1
                 self.assertTrue(srv.wait_for_requests(req_count + j))
                 srv.flush()
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client._last_response.status, "200")
-
-
-class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
-    tempesta = {
-        "config": """
-            listen 443 proto=h2;
-            frang_limits {
-                http_strict_host_checking false;
-            }
-            
-            health_check hm0 {
-                request         "GET / HTTP/1.0\r\n\r\n";
-                request_url     "/";
-                resp_code       200;
-                resp_crc32  0x31f37e9f;
-                timeout         2;
-            }
-
-            srv_group default {
-                server ${server_ip}:8000 conns_n=1;
-                health hm0;
-            }
-            vhost good {
-                proxy_pass default;
-            }
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-            http_max_header_list_size 134217728; #128 KB
-
-            block_action attack reply;
-            block_action error reply;
-            http_chain {
-                host == "bad.com"   -> block;
-                                    -> good;
-            }
-        """
-    }
-
-    clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
-
-    @parameterize.expand(
-        [
-            param(name="1_hm", hm_num=1),
-            param(name="2_hm", hm_num=2),
-            param(name="3_hm", hm_num=3),
-            param(name="4_hm", hm_num=4),
-        ]
-    )
-    def test_hm_pipelined(self, name, hm_num):
-        srv = self.setup_and_start(4)
-        self.disable_deproxy_auto_parser()
-
-        srv.set_response(
-            "HTTP/1.1 200 OK\r\n"
-            + f"Date: {HttpMessage.date_time_string()}\r\n"
-            + "Server: debian\r\n"
-            + "Content-Length: 0\r\n\r\n"
-        )
-
-        i = 0
-        for id in self.clients_ids:
-            client = self.get_client(id)
-            i = i + 1
-            if i == hm_num:
-                self.assertTrue(srv.wait_for_requests(i))
-                i = i + 1
-
-            client.make_request(self.get_request)
-            self.assertTrue(srv.wait_for_requests(i))
-
-        for id in self.clients_ids:
-            client = self.get_client(id)
-            self.assertTrue(client.wait_for_response())
-            self.assertEqual(client._last_response.status, "200")

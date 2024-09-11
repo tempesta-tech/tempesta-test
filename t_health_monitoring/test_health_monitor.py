@@ -11,6 +11,8 @@ from access_log.test_access_log_h2 import backends
 from framework import templates, tester
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import dmesg, tempesta, tf_cfg, util
+from helpers.deproxy import HttpMessage
+from http2_general.test_h2_responses import H2ResponsesPipelinedBase
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -206,7 +208,7 @@ return 200;
         self.assertEqual(
             list(res.values()),
             [50, 50],
-            "TempestaFW forwarded requests without following the `server_failover_http`"
+            "TempestaFW forwarded requests without following the `server_failover_http`",
         )
 
         # 3
@@ -223,7 +225,7 @@ return 200;
         self.assertGreater(
             res["200"],
             res["502"],
-            f"TempestaFW or server are not stable. Response statuses - {res.items()}"
+            f"TempestaFW or server are not stable. Response statuses - {res.items()}",
         )
         back3.stop()
 
@@ -634,15 +636,86 @@ class TestHmCrc(tester.TempestaTest):
         server.set_response(self.build_response(self.content[0]))
         # step 1
         if self.auto_mode:
-            self.assertTrue(server.wait_for_responses(n, timeout=12))
+            self.assertTrue(server.wait_for_requests(n, timeout=12))
             n += 1
 
         # step 2
-        self.assertTrue(server.wait_for_responses(n, timeout=12))
+        self.assertTrue(server.wait_for_requests(n, timeout=12))
         n += 1
         self.assertFalse(self.klog.find(warning))
 
         # step 3
         server.set_response(self.build_response(self.content[1]))
-        self.assertTrue(server.wait_for_responses(n, timeout=12))
+        self.assertTrue(server.wait_for_requests(n, timeout=12))
         self.assertTrue(self.klog.find(warning))
+
+
+class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
+    tempesta = {
+        "config": """
+            listen 443 proto=h2;
+            frang_limits {
+                http_strict_host_checking false;
+            }
+            
+            health_check hm0 {
+                request         "GET / HTTP/1.0\r\n\r\n";
+                request_url     "/";
+                resp_code       200;
+                resp_crc32  0x31f37e9f;
+                timeout         2;
+            }
+
+            srv_group default {
+                server ${server_ip}:8000 conns_n=1;
+                health hm0;
+            }
+            vhost good {
+                proxy_pass default;
+            }
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            block_action attack reply;
+            block_action error reply;
+            http_chain {
+                host == "bad.com"   -> block;
+                                    -> good;
+            }
+        """
+    }
+
+    @parameterize.expand(
+        [
+            param(name="1_hm", hm_num=1),
+            param(name="2_hm", hm_num=2),
+            param(name="3_hm", hm_num=3),
+            param(name="4_hm", hm_num=4),
+        ]
+    )
+    def test_hm_pipelined(self, name, hm_num):
+        requests_n = len(self.get_clients())
+        srv = self.setup_and_start(requests_n + 1)
+        self.disable_deproxy_auto_parser()
+
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+
+        clients = self.get_clients()
+        for client, i in zip(clients, list(range(1, 5))):
+            if i == hm_num:
+                self.assertTrue(
+                    srv.wait_for_requests(i), "Server did not receive hm request from TempestaFW."
+                )
+                i = i + 1
+            client.make_request(self.get_request)
+            self.assertTrue(srv.wait_for_requests(i))
+
+        for client in clients:
+            self.assertTrue(client.wait_for_response())
+            self.assertEqual(client._last_response.status, "200")
