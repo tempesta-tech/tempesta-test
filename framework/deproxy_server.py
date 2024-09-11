@@ -101,7 +101,7 @@ class ServerConnection(asyncore.dispatcher):
                 dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
                 self._cur_responses_list.append(response)
-                self._cur_pipelined = self._cur_pipelined + 1
+                self._cur_pipelined += 1
                 if self._cur_pipelined >= self._pipelined:
                     self.flush()
 
