@@ -152,10 +152,16 @@ class DeproxyAutoParser:
         from Tempesta because deproxy server does not know about client protocol and the response
         maybe from cache.
         """
+        chunked_blen = 0
         if http2:
             expected_response = H2Response.convert_http1_to_http2(self.__expected_response)
         else:
             expected_response = copy.deepcopy(self.__expected_response)
+
+        if "Transfer-Encoding" in expected_response.headers:
+            # Calculate expected body len (which will used to set content-length)
+            # for chunked response on HEAD request.
+            chunked_blen = expected_response.chunked_body_len()
 
         self.__prepare_body_for_HEAD_request(expected_response)
 
@@ -166,7 +172,7 @@ class DeproxyAutoParser:
             # Tempesta doesn't cache "set-cookie" header
             expected_response.headers.delete_all("set-cookie")
         if http2 or is_cache:
-            self.__prepare_chunked_expected_response(expected_response, http2)
+            self.__prepare_chunked_expected_response(expected_response, http2, chunked_blen)
 
         if not http2:
             self.__add_content_length_header_to_expected_response(expected_response)
@@ -205,7 +211,7 @@ class DeproxyAutoParser:
         message.headers.delete_all("upgrade")
 
     def __prepare_chunked_expected_response(
-        self, expected_response: Response | H2Response, http2: bool
+        self, expected_response: Response | H2Response, http2: bool, chunked_blen: int
     ) -> None:
         """
         For http2:
@@ -213,6 +219,7 @@ class DeproxyAutoParser:
         For cache response:
             - Tempesta store response with Content-Encoding and Content-length headers
         """
+        method_is_head = self.__client_request.method == "HEAD"
         if "Transfer-Encoding" in expected_response.headers:
             dbg(
                 4,
@@ -221,27 +228,33 @@ class DeproxyAutoParser:
                 ),
             )
 
-            te = expected_response.headers.get("Transfer-Encoding")
-            ce = ",".join(te.split(", ")[:-1])
-            expected_response.headers.delete_all("Transfer-Encoding")
-            if ce:
-                dbg(
-                    4,
-                    self.__dbg_msg.format(
-                        "Response: Transfer-Encoding header convert to Content-Encoding"
-                    ),
+            if http2:
+                te = expected_response.headers.get("Transfer-Encoding")
+                ce = ",".join(te.split(", ")[:-1])
+                expected_response.headers.delete_all("Transfer-Encoding")
+                if ce:
+                    dbg(
+                        4,
+                        self.__dbg_msg.format(
+                            "Response: Transfer-Encoding header convert to Content-Encoding"
+                        ),
+                    )
+                    expected_response.headers.add("content-encoding", ce)
+            expected_response.convert_chunked_body(
+                http2, len(expected_response.trailer.headers), method_is_head
+            )
+            if http2:
+                expected_response.headers.add(
+                    "content-length",
+                    str(len(expected_response.body)) if not method_is_head else str(chunked_blen),
                 )
-                expected_response.headers.add("content-encoding", ce)
-            expected_response.convert_chunked_body()
-            expected_response.headers.add("content-length", str(len(expected_response.body)))
 
             if http2:
-                return
+                expected_response.headers.delete_all("Trailer")
 
-            for name, value in expected_response.trailer.headers:
-                dbg(4, self.__dbg_msg.format(f"Response: Trailer '{name}' moved to headers."))
-                expected_response.trailer.delete_all(name)
-                expected_response.headers.add(name, value)
+            if method_is_head:
+                for name, value in expected_response.trailer.headers:
+                    expected_response.trailer.delete_all(name)
 
     def __add_content_length_header_to_expected_response(
         self, expected_response: Response | H2Response
