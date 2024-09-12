@@ -440,9 +440,19 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
 
-    def convert_chunked_body(self):
+    def convert_chunked_body(self, http2, trailers, method_is_head):
         chunked_lines = self.body.split("\r\n")
         self.body = "".join(chunked_lines[1::2])
+        if not http2 and not method_is_head:
+            result = f"{hex(len(self.body))[2:]}\r\n"
+            result += f"{self.body}\r\n"
+            self.body = result + "0\r\n"
+            if not trailers:
+                self.body += "\r\n"
+
+    def chunked_body_len(self):
+        chunked_lines = self.body.split("\r\n")
+        return len("".join(chunked_lines[1::2]))
 
     def read_sized_body(self, stream):
         """RFC 7230. 3.3.3 #5"""
