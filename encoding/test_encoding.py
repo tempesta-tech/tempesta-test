@@ -511,6 +511,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
 
     token = "value"
     payload = BODY_PAYLOAD
+    h2 = True
 
     clients = [
         {
@@ -574,9 +575,18 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
             with self.subTest(response_from=from_):
                 client.send_request(self.request, "200")
                 response = client.last_response
+                if self.h2:
+                    self.assertFalse(client.last_response.headers.get("Trailer"))
+                    self.assertFalse(
+                        client.last_response.headers.get("Transfer-Encoding"), "chunked"
+                    )
+                else:
+                    self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token")
+                    self.assertTrue(
+                        client.last_response.headers.get("Transfer-Encoding"), "chunked"
+                    )
                 self.assertEqual(
-                    # headers for h2 and trailer for http1
-                    response.headers.get("X-Token") or response.trailer.get("X-Token"),
+                    response.trailer.get("X-Token"),
                     self.token,
                     "Moved trailer header value mismatch the original one",
                 )
@@ -598,6 +608,8 @@ class TestH1ChunkedWithTrailer(TestH2ChunkedWithTrailer, CommonUtils):
         "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept-Encoding: gzip, br, chunked\r\n" "\r\n"
     )
 
+    h2 = False
+
 
 class TestH2ChunkedWithLongBodyAndTrailer(TestH2ChunkedWithTrailer):
     """
@@ -608,11 +620,13 @@ class TestH2ChunkedWithLongBodyAndTrailer(TestH2ChunkedWithTrailer):
 
     payload = 90000 * "x"
     token = "a" * 30000
+    h2 = True
 
 
 class TestH1ChunkedWithLongBodyAndTrailer(TestH1ChunkedWithTrailer):
     payload = 90000 * "x"
     token = "a" * 30000
+    h2 = False
 
 
 class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):

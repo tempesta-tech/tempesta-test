@@ -4,8 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
 import string
+import time
 from http import HTTPStatus
 
 from framework.curl_client import CurlResponse
@@ -2088,13 +2088,15 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 cache 2;
+cache_methods GET HEAD;
 cache_fulfill * *;
+
+tls_match_any_server_name;
 
 vhost default {
     proxy_pass default;
     tls_certificate ${tempesta_workdir}/tempesta.crt;
     tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
 }
 """,
     }
@@ -2117,7 +2119,13 @@ vhost default {
             result += f"{chunk}\r\n"
         return result + "0\r\n\r\n"
 
-    def test(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="GET", method="GET", trailers_expected=True),
+            marks.Param(name="HEAD", method="HEAD", trailers_expected=False),
+        ]
+    )
+    def test(self, name, method, trailers_expected):
         self.start_all_services()
 
         srv: StaticDeproxyServer = self.get_server("deproxy")
@@ -2128,33 +2136,60 @@ vhost default {
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
-            + "Trailer: X-Token\r\n\r\n"
+            + "Trailer: X-Token1 X-Token2\r\n\r\n"
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
-            + f"X-Token: value\r\n\r\n"
+            + f"X-Token1: value1\r\n"
+            + f"X-Token2: value2\r\n\r\n"
         )
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
         client.send_request(request, "200")
 
+        if isinstance(self, TestCacheResponseWithCacheH2):
+            self.assertFalse(client.last_response.headers.get("Trailer"))
+            self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        else:
+            self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token1 X-Token2")
+            self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertFalse(client.last_response.headers.get("X-Token1"))
+        self.assertFalse(client.last_response.headers.get("X-Token2"))
+
         self.assertEqual(
-            # headers for h2 and trailer for http1
-            client.last_response.headers.get("X-Token")
-            or client.last_response.trailer.get("X-Token"),
-            "value",
+            client.last_response.trailer.get("X-Token1"),
+            "value1",
+            "Moved trailer header value mismatch the original one",
+        )
+        self.assertEqual(
+            client.last_response.trailer.get("X-Token2"),
+            "value2",
             "Moved trailer header value mismatch the original one",
         )
 
+        request = client.create_request(method=method, headers=[])
         client.send_request(request, "200")
         self.assertIn("age", client.last_response.headers)
 
-        self.assertEqual(
-            # headers for h2 and trailer for http1
-            client.last_response.headers.get("X-Token")
-            or client.last_response.trailer.get("X-Token"),
-            "value",
-            "Moved trailer header value mismatch the original one",
-        )
+        if trailers_expected:
+            self.assertEqual(
+                client.last_response.trailer.get("X-Token1"),
+                "value1",
+                "Moved trailer header value mismatch the original one",
+            )
+            self.assertEqual(
+                client.last_response.trailer.get("X-Token2"),
+                "value2",
+                "Moved trailer header value mismatch the original one",
+            )
+
+        if isinstance(self, TestCacheResponseWithCacheH2):
+            self.assertFalse(client.last_response.headers.get("Trailer"))
+            self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        else:
+            self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token1 X-Token2")
+            self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertFalse(client.last_response.headers.get("X-Token1"))
+        self.assertFalse(client.last_response.headers.get("X-Token2"))
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

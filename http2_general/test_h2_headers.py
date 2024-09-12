@@ -863,6 +863,8 @@ class TestTrailers(H2Base):
 
         client = self.get_client("deproxy")
         client.send_request(self.get_request, "200")
+        self.assertFalse(client.last_response.headers.get("Trailer"))
+        self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
 
 
 class CurlTestBase(tester.TempestaTest):
