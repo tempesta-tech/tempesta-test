@@ -343,6 +343,10 @@ class Tempesta(stateful.Stateful):
 
         self.node.copy_file(self.config_name, cfg_content)
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
+        if tf_cfg.cfg.net_devices:
+            env.update(
+                {"TFW_DEV": tf_cfg.cfg.net_devices},
+            )
         self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "start"))
 
     def stop_tempesta(self):

@@ -12,6 +12,7 @@ __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
+from typing import Union
 
 from rich import pretty
 from rich.logging import RichHandler
@@ -25,6 +26,19 @@ log_levels = {
     3: logging.INFO,
     4: logging.DEBUG,
 }
+
+
+def bring_log_level(initial_lvl: Union[int, str]) -> int:
+    """
+    Bring log level to correct one for logging module based on initial one.
+
+    Args:
+        initial_lvl (Union[int, str]): old log level representation
+
+    Returns:
+        (int): leg level for logging module
+    """
+    return log_levels.get(int(initial_lvl), logging.DEBUG)
 
 
 class ConfigError(Exception):
@@ -41,6 +55,7 @@ class TestFrameworkCfg(object):
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
 
     def __init__(self, filename=None):
+        self._net_devices = ""
         if filename:
             self.cfg_file = filename
         self.defaults()
@@ -52,6 +67,7 @@ class TestFrameworkCfg(object):
             self.cfg_err = sys.exc_info()
 
         self.configure_logger()
+        self.net_devices = self.get("Tempesta", "interfaces")
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server"]:
@@ -101,6 +117,7 @@ class TestFrameworkCfg(object):
                     "config": "tempesta.conf",
                     "tmp_config": "tempesta_tmp.conf",
                     "unavaliable_timeout": "300",
+                    "interfaces": "",
                 },
                 "Server": {
                     "ip": "127.0.0.3",
@@ -127,7 +144,7 @@ class TestFrameworkCfg(object):
     def set_v_level(self, level):
         assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
         self.config["General"]["Verbose"] = str(level)
-        self.logger.level = log_levels.get(int(level), logging.DEBUG)
+        self.logger.level = bring_log_level(level)
 
     def set_duration(self, val):
         try:
@@ -197,6 +214,63 @@ class TestFrameworkCfg(object):
         self.logger.addHandler(file_handler)
         self.logger.addHandler(stream_handler)
 
+        # set default logging level as in config file,
+        # otherwise a correct log level sets up during initialisation of cmd arguments after config is initialised.
+        # default level for logging module is Warning
+        self.logger.setLevel(
+            bring_log_level(
+                self.get("General", "verbose"),
+            ),
+        )
+
+    @property
+    def net_devices(self) -> str:
+        """
+        Getter to return all filtered networking devices.
+
+        They may be used as list of devices for env TFW_DEV that is being used by `tempesta.sh` script to
+        filter out excessive interfaces.
+
+        Empty value is considered as `all interfaces in use`.
+
+        Returns:
+            (str): all filtered networking devices
+        """
+        return self._net_devices
+
+    @net_devices.setter
+    def net_devices(self, tfw_dev: str):
+        """
+        Setter to merge all networking devices mentioned in config(s).
+
+        They may be used as list of devices for env TFW_DEV that is being used by `tempesta.sh` script to
+        filter out excessive interfaces.
+
+        To determine all devices we may parse Tempesta FW config file, but it may not contain any.
+        To do so, we created an optional config parameter `Tempesta.interfaces`, if it was not presented or empty,
+        we use all interfaces, otherwise, we use mentioned interfaces + interface from `Server.aliases_interface`
+        """
+        if tfw_dev:
+            tfw_dev = "{0} {1}".format(
+                tfw_dev,
+                self.get("Server", "aliases_interface"),
+            )
+
+            # removing possible duplicates
+            tfw_dev = " ".join(
+                set(
+                    tfw_dev.split(),
+                ),
+            )
+            self.logger.debug(
+                "Networking devices are limited for tests, using: `{0}`".format(tfw_dev)
+            )
+
+            self._net_devices = tfw_dev
+
+        else:
+            self.logger.debug("Networking devices are not limited, using all of them.")
+
 
 def debug() -> bool:
     return int(cfg.get("General", "Verbose")) >= 3
@@ -208,7 +282,7 @@ def v_level():
 
 def dbg(level, *args, **kwargs) -> None:
     logger.log(
-        log_levels.get(int(level), logging.DEBUG),
+        bring_log_level(level),
         *args,
         **kwargs,
     )
