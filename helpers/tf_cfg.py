@@ -210,7 +210,7 @@ def v_level():
 
 def dbg(level, *args, **kwargs) -> None:
     logger.log(
-        log_levels.get(int(level), 5),
+        log_levels.get(int(level), logging.DEBUG),
         *args,
         **kwargs,
     )
