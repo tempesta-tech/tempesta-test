@@ -22,10 +22,8 @@ log_levels = {
     0: logging.CRITICAL,
     1: logging.ERROR,
     2: logging.WARNING,
-    3: 25,
-    4: logging.INFO,
-    5: logging.DEBUG,
-    6: 5,
+    3: logging.INFO,
+    4: logging.DEBUG,
 }
 
 
