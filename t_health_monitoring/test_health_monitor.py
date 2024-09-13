@@ -5,6 +5,7 @@ Tests for health monitoring functionality.
 from __future__ import print_function
 
 import time
+from collections import defaultdict
 
 from access_log.test_access_log_h2 import backends
 from framework import templates, tester
@@ -173,12 +174,13 @@ return 200;
         srv.wait_for_connections()
 
     def run_curl(self, n=1):
-        res = []
+        res = defaultdict(int)
         for _ in range(n):
             curl = self.get_client("curl")
-            curl.run_start()
-            curl.proc_results = curl.resq.get(True, 1)
-            res.append(int((curl.proc_results[0].decode("utf-8"))[:-1]))
+            curl.start()
+            curl.wait_for_finish()
+            curl.stop()
+            res[curl.response_msg[:-1]] += 1
         return res
 
     def test(self):
@@ -190,22 +192,39 @@ return 200;
         back2 = self.get_server("nginx2")
         back3 = self.get_server("nginx3")
         res = self.run_curl(REQ_COUNT)
-        self.assertTrue(list(set(res)) == [502], "No 502 in statuses")
+        self.assertEqual(
+            list(res.keys()),
+            ["502"],
+            f"TempestaFW returned unexpected response statuses - {list(res.keys())}. "
+            "But all servers are disabled.",
+        )
 
         # 2
         self.wait_for_server(back1)
         self.wait_for_server(back2)
         res = self.run_curl(REQ_COUNT)
-        self.assertTrue(sorted(list(set(res))) == [403, 404], "Not valid status")
+        self.assertEqual(
+            list(res.values()),
+            [50, 50],
+            "TempestaFW forwarded requests without following the `server_failover_http`"
+        )
 
         # 3
         self.wait_for_server(back3)
         res = self.run_curl(REQ_COUNT)
-        self.assertTrue(sorted(list(set(res))) == [200, 403, 404], "Not valid status")
+        self.assertGreater(
+            res["200"],
+            res["502"],
+            f"TempestaFW or server are not stable. Response statuses - {res.items()}",
+        )
 
         # 4
         res = self.run_curl(REQ_COUNT)
-        self.assertTrue(sorted(list(set(res))) == [200], "Not valid status")
+        self.assertGreater(
+            res["200"],
+            res["502"],
+            f"TempestaFW or server are not stable. Response statuses - {res.items()}"
+        )
         back3.stop()
 
 
