@@ -127,7 +127,7 @@ class TestFrameworkCfg(object):
     def set_v_level(self, level):
         assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
         self.config["General"]["Verbose"] = str(level)
-        self.logger.level = log_levels[int(level)]
+        self.logger.level = log_levels.get(int(level), logging.DEBUG)
 
     def set_duration(self, val):
         try:
