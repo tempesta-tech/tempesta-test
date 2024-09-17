@@ -470,6 +470,23 @@ class TempestaTest(unittest.TestCase):
 
         self.assertTrue(self.wait_all_connections())
 
+    def assertDmesgWarningsLess(self, exp_num: int):
+        """
+        Assert to check number of Warnings messages in dmesg less than expected number.
+
+        Args:
+            exp_num (int): expected number of Warning in dmesg during a test
+        """
+        self.oops.update()
+        warn_num = len(self.oops.log_findall("Warning"))
+        self.assertLess(
+            warn_num,
+            exp_num,
+            "Number of Warnings in dmesg `{0}` is greater than expected value of `{1}`".format(
+                warn_num, exp_num
+            ),
+        )
+
     def __run_tcpdump(self) -> None:
         """
         Run `tcpdump` before the test if `-s` (--save-tcpdump) option is used.

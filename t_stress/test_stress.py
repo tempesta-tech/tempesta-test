@@ -222,6 +222,7 @@ class BaseWrkStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaT
         wrk.stop()
 
         self.assertGreater(wrk.statuses[200], 0)
+        self.assertDmesgWarningsLess(exp_num=9)
 
 
 class WrkStress(BaseWrkStress):
