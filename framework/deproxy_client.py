@@ -59,6 +59,9 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         # You usualy do not need it; update timeouts if you use it.
         self.segment_gap = 0
         self.parsing = True
+        # Workaround for HTTP1.1 with websockets, need to ignore
+        # parts of the WS protocol follows HTTP1 response
+        self.ignore_response = False
         self._reinit_variables()
 
         self.simple_get = self.create_request("GET", headers=[])
@@ -366,6 +369,10 @@ class DeproxyClient(BaseDeproxyClient):
         )
 
     def handle_read(self):
+        if self.ignore_response:
+            self.recv(deproxy.MAX_MESSAGE_SIZE)
+            return
+
         self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
