@@ -211,9 +211,10 @@ tmp_config = tempesta_tmp.conf
 unavaliable_timeout = 300
 
 # Networking interfaces: list of devices to work with during the tests
-# if provided, value will be merged with `Server.aliases_interface` and assign to TFW_DEV,
+# if provided, value will be assigned to TFW_DEV,
 # TFW_DEV is used by `tempesta.sh --start` to filter out unnecessary interfaces
 # Absence of the option or empty value - all interfaces is used
+# ex.: 'lo eth1 eth2'
 interfaces =
 
 [Server]
