@@ -407,15 +407,8 @@ tls_match_any_server_name;
         self.assertNotIn("age", client.responses[0].headers)
         self.assertIn("age", client.responses[1].headers)
         for resp in client.responses:
-            found1 = False
-            found2 = False
-            for header, value in resp.headers.items():
-                if header == header_name:
-                    if value == val1:
-                        found1 = True
-                    elif value == val2:
-                        found2 = True
-            self.assertTrue(found1 and found2)
+            h_values = tuple(resp.headers.find_all(header_name))
+            self.assertEqual(h_values, (val1, val2))
 
         msg = "Server has received unexpected number of requests."
         checks.check_tempesta_cache_stats(

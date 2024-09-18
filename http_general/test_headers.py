@@ -569,6 +569,11 @@ class TestHostWithCache(TestHostBase):
                 request=f"GET http://:443 HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
+            param(
+                name="13",
+                request=f"GET http:///path HTTP/1.1\r\nHost: \r\n\r\n",
+                expected_status_code="400",
+            ),
         ]
     )
     def test_different_host_in_uri_and_headers(self, name, request, expected_status_code):
