@@ -11,6 +11,46 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import logging
+from typing import Union
+
+from rich import pretty
+from rich.logging import RichHandler
+
+logger = logging.getLogger(__name__)
+
+
+# we are adding custom levels to have initial 7 levels
+# we may add custom methods to log class to have possibilities to cal custom method as default ones as `logger.debug`
+TRACE = 5
+FATAL = 60
+logging.addLevelName(TRACE, "TRACE")
+logging.addLevelName(FATAL, "FATAL")
+
+
+log_levels = {
+    0: FATAL,
+    1: logging.CRITICAL,
+    2: logging.ERROR,
+    3: logging.WARNING,
+    4: logging.INFO,
+    5: logging.DEBUG,
+    6: TRACE,
+}
+
+
+def bring_log_level(initial_lvl: Union[int, str]) -> int:
+    """
+    Bring log level to correct one for logging module based on initial one.
+
+    Args:
+        initial_lvl (Union[int, str]): old log level representation
+
+    Returns:
+        (int): leg level for logging module
+    """
+    return log_levels.get(int(initial_lvl), logging.DEBUG)
+
 
 class ConfigError(Exception):
     def __init__(self, msg):
@@ -18,6 +58,9 @@ class ConfigError(Exception):
 
 
 class TestFrameworkCfg(object):
+
+    logger = logger
+
     kvs = {}
 
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
@@ -32,6 +75,8 @@ class TestFrameworkCfg(object):
             self.__fill_kvs()
         except:
             self.cfg_err = sys.exc_info()
+
+        self.configure_logger()
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server"]:
@@ -107,6 +152,7 @@ class TestFrameworkCfg(object):
     def set_v_level(self, level):
         assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
         self.config["General"]["Verbose"] = str(level)
+        self.logger.level = bring_log_level(level)
 
     def set_duration(self, val):
         try:
@@ -158,6 +204,33 @@ class TestFrameworkCfg(object):
             msg = 'running clients on a remote host "%s" is not supported' % client_hostname
             raise ConfigError(msg)
 
+    def configure_logger(self):
+        """Configure a logger."""
+        pretty.install()
+
+        date_format = "%y-%m-%d %H:%M:%S"
+        file_handler = logging.FileHandler(self.get("General", "log_file"))
+        file_handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s", datefmt=date_format
+            )
+        )
+        stream_handler = RichHandler()
+        stream_handler.setFormatter(
+            logging.Formatter(fmt=" | %(message)s", datefmt=date_format + ".%f")
+        )
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(stream_handler)
+
+        # set default logging level as in config file,
+        # otherwise a correct log level sets up during initialisation of cmd arguments after config is initialised.
+        # default level for logging module is Warning
+        self.logger.setLevel(
+            bring_log_level(
+                self.get("General", "verbose"),
+            ),
+        )
+
 
 def debug() -> bool:
     return int(cfg.get("General", "Verbose")) >= 3
@@ -168,8 +241,11 @@ def v_level():
 
 
 def dbg(level, *args, **kwargs) -> None:
-    if int(cfg.get("General", "Verbose")) >= level:
-        print(file=sys.stderr, *args, **kwargs)
+    logger.log(
+        bring_log_level(level),
+        *args,
+        **kwargs,
+    )
 
 
 def log_dmesg(node, msg) -> None:
