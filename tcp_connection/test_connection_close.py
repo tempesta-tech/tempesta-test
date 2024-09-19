@@ -6,7 +6,8 @@ from __future__ import print_function
 
 import asyncore
 
-from helpers import analyzer, chains, deproxy
+from framework.tester import TempestaTest
+from helpers import analyzer, chains, deproxy, remote
 from testers import functional
 
 __author__ = "Tempesta Technologies, Inc."
@@ -14,8 +15,38 @@ __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class CloseConnection(functional.FunctionalTest):
+class CloseConnection(TempestaTest):
     """Regular connection closing."""
+
+    clients = [
+        {
+            "id": "deproxy-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+cache 0;
+listen 80;
+server ${server_ip}:8001;
+tls_match_any_server_name;
+block_action attack reply;
+block_action error reply;
+    """
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
 
     def stop_and_close(self):
         """To check the correctness of connection closing - we need to close
@@ -24,13 +55,18 @@ class CloseConnection(functional.FunctionalTest):
         and server connections in test_* function (not in tearDown).
         """
         asyncore.close_all()
-        self.client.stop()
-        self.tempesta.stop()
+        self.client.stop()  # TODO here client is DeproxyClient
+        self.tempesta.stop()  # TODO here tempesta is control.Tempesta()
         self.tester.stop()
 
     def create_sniffer(self):
         self.sniffer = analyzer.AnalyzerCloseRegular(
-            self.tempesta.node, self.tempesta.host, node_close=False, timeout=10
+            remote.tempesta,  # TODO node
+            # self.tempesta.node,
+            "Tempesta",  # TODO host
+            # self.tempesta.host,
+            node_close=False,
+            timeout=10,
         )
 
     def assert_results(self):
@@ -41,14 +77,37 @@ class CloseConnection(functional.FunctionalTest):
 
     def run_sniffer(self):
         self.sniffer.start()
-        self.generic_test_routine("cache 0;\n", self.create_chains())
-        self.stop_and_close()
+        # self.generic_test_routine("cache 0;\n", self.create_chains())
+        # self.stop_and_close()
         self.sniffer.stop()
 
     def test(self):
+
+        ## TODO new
+
         self.create_sniffer()
-        self.run_sniffer()
+        self.sniffer.start()
+
+        self.start_all_services()
+        client = self.get_client("deproxy-1")
+        client.start()
+        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
+        client.stop()
+
+        # self.cleanup_deproxy()
+
+        tempesta = self.get_tempesta()
+        tempesta.stop()
+
+        self.sniffer.stop()
+
         self.assert_results()
+
+        ## TODO new ends
+
+        # self.create_sniffer()
+        # self.run_sniffer()
+        # self.assert_results()
 
 
 class CloseClientConnectiononInvalidReq(CloseConnection):

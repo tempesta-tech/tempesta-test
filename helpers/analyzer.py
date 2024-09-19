@@ -1,6 +1,7 @@
 """
 Instruments for network traffic analysis.
 """
+
 from __future__ import print_function
 
 import abc
@@ -28,7 +29,7 @@ CWR = 0x80
 
 
 class Sniffer(object, metaclass=abc.ABCMeta):
-    def __init__(self, node, host, count=0, timeout=30, ports=(80,), node_close=True):
+    def __init__(self, node, host, count=0, timeout=30, ports=(8001,), node_close=True):
         self.node = node
         self.ports = ports
         self.thread = None
@@ -51,6 +52,7 @@ class Sniffer(object, metaclass=abc.ABCMeta):
         neither StringIO objects nor paramiko file objects.
         """
         stdout, stderr = self.node.run_cmd(self.cmd, timeout=None, err_msg=(self.err_msg % "start"))
+        print("\n----->", stdout, "\n---\n", stderr, "\n<------")
         match = re.search(r"(\d+) packets captured", stderr.decode())
         if match:
             self.captured = int(match.group(1))
@@ -91,17 +93,24 @@ class AnalyzerCloseRegular(Sniffer):
         """Four-way (FIN-ACK-FIN-ACK) and
         three-way (FIN-ACK/FIN-ACK) handshake order checking.
         """
+        print("---->> packets", self.packets)
         if not self.packets:
+            print("*** not packets")
             return False
 
-        dbg_dump(5, self.packets, "AnalyzerCloseRegular: FIN sequence:")
+        # dbg_dump(5, self.packets, "AnalyzerCloseRegular: FIN sequence:")
 
         count_seq = 0
         l_seq = 0
         for p in self.packets:
+            # print('--> Single P', p, '==', p[TCP].flags)
+            print("Flag: ", p[TCP].flags)
+            # p.show()
             if p[TCP].flags & RST:
+                print("*** -> if p[TCP].flags & RST:")
                 return False
             if count_seq >= 4:
+                print("*** -> if count_seq >= 4:")
                 return False
             if count_seq == 0 and p[TCP].flags & FIN and self.portcmp(p):
                 l_seq = p[TCP].seq + p[IP].len - p[IP].ihl * 4 - p[TCP].dataofs * 4
@@ -119,6 +128,7 @@ class AnalyzerCloseRegular(Sniffer):
                     count_seq += 1
 
         if count_seq != 4:
+            print("*** -> if count_seq != 4:", count_seq)
             return False
 
         return True
