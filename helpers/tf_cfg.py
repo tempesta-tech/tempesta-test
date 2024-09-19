@@ -240,9 +240,10 @@ def v_level():
     return int(cfg.get("General", "Verbose"))
 
 
-def dbg(level, *args, **kwargs) -> None:
+def dbg(level: Union[int, str], msg: str, *args, **kwargs) -> None:
     logger.log(
-        bring_log_level(level),
+        level=bring_log_level(level),
+        msg=msg,
         *args,
         **kwargs,
     )

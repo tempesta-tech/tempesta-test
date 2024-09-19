@@ -29,7 +29,6 @@ class DeproxyDummyTest(functional.FunctionalTest):
         self.client = None
         self.servers = []
         self.tester = None
-        tf_cfg.dbg(3)  # Step to the next line after name of test case.
         tf_cfg.dbg(3, "\tInit test case...")
 
     def tearDown(self):
