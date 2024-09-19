@@ -8,7 +8,7 @@ import os
 import sys
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
@@ -77,7 +77,6 @@ class TestFrameworkCfg(object):
             self.cfg_err = sys.exc_info()
 
         self.configure_logger()
-        self.net_devices = self.get("Tempesta", "interfaces")
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server"]:
