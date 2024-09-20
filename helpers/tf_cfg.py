@@ -8,7 +8,7 @@ import os
 import sys
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
@@ -126,6 +126,7 @@ class TestFrameworkCfg(object):
                     "config": "tempesta.conf",
                     "tmp_config": "tempesta_tmp.conf",
                     "unavaliable_timeout": "300",
+                    "interfaces": "",
                 },
                 "Server": {
                     "ip": "127.0.0.3",
