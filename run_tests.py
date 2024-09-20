@@ -18,7 +18,7 @@ import psutil
 
 import run_config
 from framework import tester
-from helpers import prepare, remote, shell, tf_cfg, util
+from helpers import prepare, remote, shell, tf_cfg, util, control
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -71,6 +71,9 @@ key, not password. `ssh-copy-id` can be used for that.
                                     and build tag on CI or other.
 -S, --save-secrets                - Save TLS secrets for deproxy and curl client to
                                     secrets.txt in main directory.
+    --kernel-dbg                  - Run tests for the kernel with sanitizers and checkers.
+                                    You should use this option carefully because the tests 
+                                    take a very long time.
 -T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
                                     deproxy client and server.
 
@@ -114,34 +117,73 @@ def test_from_failstr(failstr):
     return f"{m.group(2)}.{m.group(1)}"
 
 
-DISABLED_TESTS_FILE_NAME = "/tests_disabled.json"
-disfile = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME
+def __check_memory_consumption(python_memory_before_: int, used_memory_before_: int) -> None:
+    """Check a memory consumption after all tests."""
+    if run_config.CHECK_MEMORY_LEAKS:
+        gc.collect()
+        time.sleep(1)
+        python_memory_after = psutil.Process().memory_info().rss // 1024
+        delta_python = python_memory_after - python_memory_before_
 
-# this file is needed for tests with TCP segmentation
-DISABLED_TESTS_FILE_NAME_TCP_SEG = "/tests_disabled_tcpseg.json"
-disfile_tcp_seg = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_TCP_SEG
+        used_memory_after = util.get_used_memory()
+        memleak_msg = (
+            "----------------------------------------------------------------------------\n"
+            "Check memory leaks for test suite:\n"
+            f"Before: used memory: {used_memory_before_};\n"
+            f"Before: python memory: {python_memory_before_};\n"
+            f"After: used memory: {used_memory_after};\n"
+            f"After: python memory: {python_memory_after}"
+            "----------------------------------------------------------------------------\n"
+        )
+        tf_cfg.dbg(1, memleak_msg)
+        assert (
+                used_memory_after - delta_python - used_memory_before_ <= run_config.MEMORY_LEAK_THRESHOLD
+        ), memleak_msg
 
-# this file is needed for tests with remote config
-DISABLED_TESTS_FILE_NAME_REMOTE = "/tests_disabled_remote.json"
-disfile_remote = os.path.dirname(__file__) + DISABLED_TESTS_FILE_NAME_REMOTE
 
-TESTS_PRIORITY_FILE_NAME = "/tests_priority"
-priority_file = os.path.dirname(__file__) + TESTS_PRIORITY_FILE_NAME
-t_priority_out = open(priority_file).readlines()
+def __check_kmemleak() -> None:
+    """Check kmemleak result if `--kernel-dbg` option is present."""
+    if run_config.KERNEL_DBG_TESTS and os.path.exists("/sys/kernel/debug/kmemleak"):
+        # we should run TempestaFW again to display the output correctly
+        tempesta = control.Tempesta(vhost_auto=False)
+        tempesta.config.set_defconfig("")
+        tempesta.disable_check_config()
+        tempesta.start()
+
+        try:
+            remote.tempesta.run_cmd("echo scan > /sys/kernel/debug/kmemleak", timeout=60)
+            stdout, stderr = remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak", timeout=60)
+        finally:
+            tempesta.stop()
+        kmemleak_msg = (
+            "kmemleak result.\n"
+            "----------------------------------------------------------------------------\n"
+            f"{stdout.decode()}\n"
+            "----------------------------------------------------------------------------\n"
+        )
+        tf_cfg.dbg(1, kmemleak_msg)
+        assert b'tfw_' not in stdout, kmemleak_msg
+
+
+t_priority_out = open(os.path.dirname(__file__) + "/tests_priority").readlines()
 t_priority_out.reverse()
 
-RETRY_FILE_NAME = "/tests_retry"
-bestoff_file = os.path.dirname(__file__) + RETRY_FILE_NAME
-t_retry_out = open(bestoff_file).readlines()
+t_retry_out = open(os.path.dirname(__file__) + "/tests_retry").readlines()
 
-disabled_reader = shell.DisabledListLoader(disfile)
-disabled_reader.try_load()
-
-disabled_reader_tcp_seg = shell.DisabledListLoader(disfile_tcp_seg)
-disabled_reader_tcp_seg.try_load()
-
-disabled_reader_remote = shell.DisabledListLoader(disfile_remote)
-disabled_reader_remote.try_load()
+# this file is needed for tests with local config
+disabled_reader = shell.DisabledListLoader(os.path.dirname(__file__) + "/tests_disabled.json")
+# this file is needed for tests with TCP segmentation
+disabled_reader_tcp_seg = shell.DisabledListLoader(
+    os.path.dirname(__file__) + "/tests_disabled_tcpseg.json"
+)
+# this file is needed for tests with remote config
+disabled_reader_remote = shell.DisabledListLoader(
+    os.path.dirname(__file__) + "/tests_disabled_remote.json"
+)
+# this file is needed for tests with the debug kernel
+disabled_reader_dbg_kernel = shell.DisabledListLoader(
+    os.path.dirname(__file__) + "/tests_disabled_dbgkernel.json"
+)
 
 state_reader = shell.TestState()
 state_reader.load()
@@ -183,6 +225,7 @@ try:
             "identifier=",
             "save-tcpdump",
             "save-secrets",
+            "kernel-dbg",
             "tcp-segmentation=",
             "disable-auto-parser",
         ],
@@ -247,6 +290,8 @@ for opt, arg in options:
         run_config.SAVE_SECRETS = True
     elif opt in ("-S", "--save-secrets"):
         run_config.SAVE_SECRETS = True
+    elif opt == "--kernel-dbg":
+        run_config.KERNEL_DBG_TESTS = True
     elif opt in ("-T", "--tcp-segmentation"):
         if int(arg) > 0:
             run_config.TCP_SEGMENTATION = int(arg)
@@ -367,6 +412,9 @@ if (
 ) and disabled_reader_remote.disable:
     disabled_reader.disabled.extend(disabled_reader_remote.disabled)
 
+if run_config.KERNEL_DBG_TESTS and disabled_reader_dbg_kernel.disable:
+    disabled_reader.disabled.extend(disabled_reader_dbg_kernel.disabled)
+
 if not run_disabled:
     use_tests = [re.sub("\.py$", "", arg).replace(os.sep, ".") for arg in testname_args]
     for name in use_tests:
@@ -414,6 +462,17 @@ test_resume.state.advance(
 if state_reader.has_file and not test_resume.from_file:
     state_reader.drop()
 
+# filter testcases
+resume_filter = test_resume.filter()
+tests = [
+    t
+    for t in tests
+    for _ in range(int(n_count))
+    if resume_filter(t)
+    and (not inclusions or shell.testcase_in(t, inclusions))
+    and not shell.testcase_in(t, exclusions)
+]
+
 # Sort tests by priority
 for p in t_priority_out:
     for t in tests:
@@ -427,19 +486,6 @@ if t_retry:
         for t in tests:
             if t.id().startswith(t_ret.rstrip()):
                 retry_tests.append(t)
-
-# filter testcases
-resume_filter = test_resume.filter()
-tests = [
-    t
-    for t in tests
-    for _ in range(int(n_count))
-    if resume_filter(t)
-    and (not inclusions or shell.testcase_in(t, inclusions))
-    and not shell.testcase_in(t, exclusions)
-]
-
-
 #
 # List tests and exit, if requested
 #
@@ -462,6 +508,9 @@ if n_count != 1:
     addn_status = f" for {n_count} times each"
 used_memory_before = util.get_used_memory()
 python_memory_before = psutil.Process().memory_info().rss // 1024
+
+if run_config.KERNEL_DBG_TESTS and os.path.exists("/sys/kernel/debug/kmemleak"):
+    remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")
 
 print(
     """
@@ -524,25 +573,8 @@ Run failed tests again ...
 if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
     state_reader.drop()
 
-# check a memory consumption after all tests
-gc.collect()
-time.sleep(1)
-python_memory_after = psutil.Process().memory_info().rss // 1024
-delta_python = python_memory_after - python_memory_before
-
-used_memory_after = util.get_used_memory()
-memleak_msg = (
-    "Check memory leaks for test suite:\n"
-    f"Before: used memory: {used_memory_before};\n"
-    f"Before: python memory: {python_memory_before};\n"
-    f"After: used memory: {used_memory_after};\n"
-    f"After: python memory: {python_memory_after}"
-)
-tf_cfg.dbg(2, memleak_msg)
-if run_config.CHECK_MEMORY_LEAKS:
-    assert (
-        used_memory_after - delta_python - used_memory_before <= run_config.MEMORY_LEAK_THRESHOLD
-    ), memleak_msg
+__check_memory_consumption(python_memory_before, used_memory_before)
+__check_kmemleak()
 
 if len(result.errors) > 0:
     sys.exit(-1)
