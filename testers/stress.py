@@ -66,7 +66,6 @@ class StressTest(unittest.TestCase):
         self.oops_ignore = []
         self.tempesta = None
         self.servers = []
-        tf_cfg.dbg(3)  # Step to the next line after name of test case.
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
