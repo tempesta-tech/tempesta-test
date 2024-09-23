@@ -18,7 +18,7 @@ import psutil
 
 import run_config
 from framework import tester
-from helpers import prepare, remote, shell, tf_cfg, util, control
+from helpers import control, prepare, remote, shell, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -132,18 +132,19 @@ def __check_memory_consumption(python_memory_before_: int, used_memory_before_: 
             f"Before: used memory: {used_memory_before_};\n"
             f"Before: python memory: {python_memory_before_};\n"
             f"After: used memory: {used_memory_after};\n"
-            f"After: python memory: {python_memory_after}"
+            f"After: python memory: {python_memory_after};\n"
             "----------------------------------------------------------------------------\n"
         )
         tf_cfg.dbg(1, memleak_msg)
         assert (
-                used_memory_after - delta_python - used_memory_before_ <= run_config.MEMORY_LEAK_THRESHOLD
+            used_memory_after - delta_python - used_memory_before_
+            <= run_config.MEMORY_LEAK_THRESHOLD
         ), memleak_msg
 
 
 def __check_kmemleak() -> None:
     """Check kmemleak result if `--kernel-dbg` option is present."""
-    if run_config.KERNEL_DBG_TESTS and os.path.exists("/sys/kernel/debug/kmemleak"):
+    if run_config.KERNEL_DBG_TESTS and KMEMLEAK_IS_PRESENT:
         # we should run TempestaFW again to display the output correctly
         tempesta = control.Tempesta(vhost_auto=False)
         tempesta.config.set_defconfig("")
@@ -161,8 +162,8 @@ def __check_kmemleak() -> None:
             f"{stdout.decode()}\n"
             "----------------------------------------------------------------------------\n"
         )
-        tf_cfg.dbg(1, kmemleak_msg)
-        assert b'tfw_' not in stdout, kmemleak_msg
+        tf_cfg.dbg(1, kmemleak_msg if stdout else "/sys/kernel/debug/kmemleak is empty")
+        assert b"tfw_" not in stdout, kmemleak_msg
 
 
 t_priority_out = open(os.path.dirname(__file__) + "/tests_priority").readlines()
@@ -365,6 +366,12 @@ if root_required:
 
 remote.connect()
 
+try:
+    remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
+    KMEMLEAK_IS_PRESENT = True
+except remote.CmdError:
+    KMEMLEAK_IS_PRESENT = False
+
 # allows run tests from docker container
 if prepare_tcp:
     prepare.configure()
@@ -509,7 +516,7 @@ if n_count != 1:
 used_memory_before = util.get_used_memory()
 python_memory_before = psutil.Process().memory_info().rss // 1024
 
-if run_config.KERNEL_DBG_TESTS and os.path.exists("/sys/kernel/debug/kmemleak"):
+if run_config.KERNEL_DBG_TESTS and KMEMLEAK_IS_PRESENT:
     remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")
 
 print(
