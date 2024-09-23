@@ -343,7 +343,7 @@ class Tempesta(stateful.Stateful):
 
         self.node.copy_file(self.config_name, cfg_content)
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
-        if tf_cfg.get("Tempesta", "interfaces"):
+        if tf_cfg.cfg.get("Tempesta", "interfaces"):
             env.update(
                 {"TFW_DEV": tf_cfg.cfg.net_devices},
             )
