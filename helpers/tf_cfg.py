@@ -243,8 +243,8 @@ def v_level():
 
 def dbg(level: int, msg: str, *args, **kwargs) -> None:
     logger.log(
-        level=bring_log_level(level),
-        msg=msg,
+        bring_log_level(level),
+        msg,
         *args,
         **kwargs,
     )

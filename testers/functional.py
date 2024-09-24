@@ -59,7 +59,6 @@ class FunctionalTest(unittest.TestCase):
         self.tempesta = None
         self.servers = []
         self.tester = None
-        tf_cfg.dbg(3)  # Step to the next line after name of test case.
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
