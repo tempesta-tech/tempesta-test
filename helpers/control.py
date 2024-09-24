@@ -345,7 +345,7 @@ class Tempesta(stateful.Stateful):
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
         if tf_cfg.cfg.get("Tempesta", "interfaces"):
             env.update(
-                {"TFW_DEV": tf_cfg.cfg.net_devices},
+                {"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")},
             )
         self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "start"))
 
