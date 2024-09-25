@@ -1010,7 +1010,16 @@ class Client(TlsClient, stateful.Stateful):
             socket.AF_INET if self.socket_family == "ipv4" else socket.AF_INET6, socket.SOCK_STREAM
         )
         if self.bind_addr:
-            self.bind((self.bind_addr, 0))
+            try:
+                self.bind((self.bind_addr, 0))
+            # When we cannot bind an address, adding more details
+            except OSError as os_exc:
+                os_err_msg = "Cannot assign an address `{0}` for `{1}`".format(
+                    self.bind_addr, self.__class__.__name__,
+                )
+                dbg(self, 6, os_err_msg)
+                raise OSError(os_err_msg) from os_exc
+
         self.connect((self.conn_addr, self.port))
 
     def clear(self):
