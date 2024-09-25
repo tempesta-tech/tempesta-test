@@ -7,7 +7,6 @@ import inspect
 import os
 import re
 import resource
-import subprocess
 import sys
 import time
 import unittest
@@ -18,7 +17,7 @@ import psutil
 
 import run_config
 from framework import tester
-from helpers import control, prepare, remote, shell, tf_cfg, util
+from helpers import control, error, prepare, remote, shell, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -133,58 +132,60 @@ def __check_memory_consumption(python_memory_before_: int, used_memory_before_: 
             f"Before: python memory: {python_memory_before_};\n"
             f"After: used memory: {used_memory_after};\n"
             f"After: python memory: {python_memory_after};\n"
-            "----------------------------------------------------------------------------\n"
+            "----------------------------------------------------------------------------"
         )
         tf_cfg.dbg(1, memleak_msg)
-        assert (
-            used_memory_after - delta_python - used_memory_before_
-            <= run_config.MEMORY_LEAK_THRESHOLD
-        ), memleak_msg
+        delta_used_memory = used_memory_after - delta_python - used_memory_before_
+        if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
+            raise error.MemoryConsumptionError(
+                memleak_msg,
+                delta_used_memory=delta_used_memory,
+                memory_leak_threshold=run_config.MEMORY_LEAK_THRESHOLD,
+            )
 
 
 def __check_kmemleak() -> None:
     """Check kmemleak result if `--kernel-dbg` option is present."""
-    if run_config.KERNEL_DBG_TESTS and KMEMLEAK_IS_PRESENT:
+    if run_config.KERNEL_DBG_TESTS:
         # we should run TempestaFW again to display the output correctly
         tempesta = control.Tempesta(vhost_auto=False)
         tempesta.config.set_defconfig("")
-        tempesta.disable_check_config()
+        tempesta.check_config = False
         tempesta.start()
 
         try:
             remote.tempesta.run_cmd("echo scan > /sys/kernel/debug/kmemleak", timeout=60)
             stdout, stderr = remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak", timeout=60)
+            kmemleak_msg = (
+                (
+                    "kmemleak result.\n"
+                    "----------------------------------------------------------------------------\n"
+                    f"{stdout.decode()}\n"
+                    "----------------------------------------------------------------------------\n"
+                )
+                if stdout
+                else "/sys/kernel/debug/kmemleak is empty"
+            )
+            tf_cfg.dbg(1, kmemleak_msg)
+            if b"tfw_" in stdout:
+                raise error.KmemLeakError(stdout=stdout.decode())
         finally:
             tempesta.stop()
-        kmemleak_msg = (
-            "kmemleak result.\n"
-            "----------------------------------------------------------------------------\n"
-            f"{stdout.decode()}\n"
-            "----------------------------------------------------------------------------\n"
-        )
-        tf_cfg.dbg(1, kmemleak_msg if stdout else "/sys/kernel/debug/kmemleak is empty")
-        assert b"tfw_" not in stdout, kmemleak_msg
 
 
-t_priority_out = open(os.path.dirname(__file__) + "/tests_priority").readlines()
+t_priority_out = open(os.path.join("tests_priority")).readlines()
 t_priority_out.reverse()
 
-t_retry_out = open(os.path.dirname(__file__) + "/tests_retry").readlines()
+t_retry_out = open(os.path.join("tests_retry")).readlines()
 
 # this file is needed for tests with local config
-disabled_reader = shell.DisabledListLoader(os.path.dirname(__file__) + "/tests_disabled.json")
+disabled_reader = shell.DisabledListLoader(os.path.join("tests_disabled.json"))
 # this file is needed for tests with TCP segmentation
-disabled_reader_tcp_seg = shell.DisabledListLoader(
-    os.path.dirname(__file__) + "/tests_disabled_tcpseg.json"
-)
+disabled_reader_tcp_seg = shell.DisabledListLoader(os.path.join("tests_disabled_tcpseg.json"))
 # this file is needed for tests with remote config
-disabled_reader_remote = shell.DisabledListLoader(
-    os.path.dirname(__file__) + "/tests_disabled_remote.json"
-)
+disabled_reader_remote = shell.DisabledListLoader(os.path.join("tests_disabled_remote.json"))
 # this file is needed for tests with the debug kernel
-disabled_reader_dbg_kernel = shell.DisabledListLoader(
-    os.path.dirname(__file__) + "/tests_disabled_dbgkernel.json"
-)
+disabled_reader_dbg_kernel = shell.DisabledListLoader(os.path.join("tests_disabled_dbgkernel.json"))
 
 state_reader = shell.TestState()
 state_reader.load()
@@ -273,7 +274,7 @@ for opt, arg in options:
     elif opt in ("-C", "--clean"):
         clean_old = True
     elif opt in ("-R", "--repeat"):
-        n_count = arg
+        n_count = int(arg)
     elif opt in ("-E", "--retry"):
         t_retry = True
     elif opt in ("-D", "--debug-files"):
@@ -366,11 +367,13 @@ if root_required:
 
 remote.connect()
 
-try:
-    remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
-    KMEMLEAK_IS_PRESENT = True
-except remote.CmdError:
-    KMEMLEAK_IS_PRESENT = False
+if run_config.KERNEL_DBG_TESTS:
+    try:
+        remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
+    except remote.CmdError:
+        raise AttributeError(
+            "kmemleak is disabled. Please enable kmemleak or not use --kernel-dbg option."
+        )
 
 # allows run tests from docker container
 if prepare_tcp:
@@ -471,14 +474,21 @@ if state_reader.has_file and not test_resume.from_file:
 
 # filter testcases
 resume_filter = test_resume.filter()
-tests = [
-    t
-    for t in tests
-    for _ in range(int(n_count))
-    if resume_filter(t)
-    and (not inclusions or shell.testcase_in(t, inclusions))
-    and not shell.testcase_in(t, exclusions)
-]
+
+filtered_tests = []
+for t in tests:
+    if (
+        resume_filter(t)
+        and (not inclusions or shell.testcase_in(t, inclusions))
+        and not shell.testcase_in(t, exclusions)
+    ):
+        filtered_tests.append(t)
+
+# Repeat the tests according to the `-R` option
+tests = []
+for t in filtered_tests:
+    for _ in range(int(n_count)):
+        tests.append(t)
 
 # Sort tests by priority
 for p in t_priority_out:
@@ -516,7 +526,7 @@ if n_count != 1:
 used_memory_before = util.get_used_memory()
 python_memory_before = psutil.Process().memory_info().rss // 1024
 
-if run_config.KERNEL_DBG_TESTS and KMEMLEAK_IS_PRESENT:
+if run_config.KERNEL_DBG_TESTS:
     remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")
 
 print(
