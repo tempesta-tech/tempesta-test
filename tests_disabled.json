@@ -303,7 +303,7 @@
         },
         {
             "name": "t_health_monitoring.test_health_monitor.H2HmResponsesPipelined",
-            "reason": "The test does not work on the SUT server - crash"
+            "reason": "The test does not work on the SUT server - crash, issue #687"
         }
     ]
 }
