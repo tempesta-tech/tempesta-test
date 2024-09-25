@@ -262,7 +262,7 @@ class TempestaTest(unittest.TestCase):
         None,
     ]:
         """Return client with specified id"""
-        return self.__clients[cid]
+        return self.__clients.get(cid)
 
     def get_clients(self) -> list:
         return list(self.__clients.values())
@@ -451,7 +451,7 @@ class TempestaTest(unittest.TestCase):
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=5):
         for sid in self.__servers:
-            srv = self.__servers.get(sid)
+            srv = self.__servers[sid]
             if not srv.wait_for_connections(timeout=tmt):
                 return False
         return True
