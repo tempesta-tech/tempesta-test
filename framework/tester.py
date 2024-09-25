@@ -451,7 +451,7 @@ class TempestaTest(unittest.TestCase):
     # Should replace all duplicated instances of wait_all_connections
     def wait_all_connections(self, tmt=5):
         for sid in self.__servers:
-            srv = self.__servers[sid]
+            srv = self.__servers.get(sid)
             if not srv.wait_for_connections(timeout=tmt):
                 return False
         return True
