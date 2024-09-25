@@ -1794,6 +1794,12 @@ class TestCacheVhost(tester.TempestaTest):
         self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_front")
         self.assertEqual(response, "bar")
 
+        srv = self.get_server("srv_front")
+        client = self.get_client("front-1")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_front")
+        self.assertEqual(response, "bar")
+
         # Make sure it was cached
         srv = self.get_server("srv_front")
         client = self.get_client("front-2")
