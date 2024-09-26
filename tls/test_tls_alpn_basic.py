@@ -76,19 +76,36 @@ class TestALPN(tester.TempestaTest):
                 protocols=["h2", "http/1.1"],
             ),
             param(
+                name="order_https_least_prio",
+                tempesta_proto="https",
+                protocols=["h2", "http/1.1"],
+                expected_proto=1,
+            ),
+            param(
+                name="order_h2_least_prio",
+                tempesta_proto="h2",
+                protocols=["http/1.1", "h2"],
+                expected_proto=1,
+            ),
+            param(
                 name="mixed_https",
                 tempesta_proto="https,h2",
                 protocols=["http/1.1"],
             ),
             param(
-                name="mixed_h2",
+                name="mixed_h2_only",
                 tempesta_proto="https,h2",
                 protocols=["h2"],
+            ),
+            param(
+                name="mixed_h2_https",
+                tempesta_proto="https,h2",
+                protocols=["h2", "http/1.1"],
             ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_proto(self, name, tempesta_proto, protocols):
+    def test_proto(self, name, tempesta_proto, protocols, expected_proto=0):
         self.init_config(tempesta_proto)
         self.start_tempesta()
 
@@ -104,7 +121,7 @@ class TestALPN(tester.TempestaTest):
             with context.wrap_socket(sock, server_hostname="tempesta-tech.com") as ssock:
                 self.assertEqual(
                     ssock.selected_alpn_protocol(),
-                    protocols[0],
+                    protocols[expected_proto],
                     "wrong protocol has been prioritized",
                 )
 
@@ -142,10 +159,8 @@ class TestALPN(tester.TempestaTest):
         context.verify_mode = ssl.CERT_NONE
 
         with socket.create_connection((hostname, 443)) as sock:
-            try:
+            with self.assertRaises(ssl.SSLError):
                 ssock = context.wrap_socket(sock, server_hostname="tempesta-tech.com")
-            except:
-                pass
 
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive),
@@ -158,19 +173,9 @@ class TestALPN(tester.TempestaTest):
         default.
         """
         self.init_config("https,h2")
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.deproxy_manager.start()
-        self.start_tempesta()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
-        )
-        self.start_all_clients()
+        self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
-        res = client.wait_for_response(timeout=3)
-        status = client.last_response.status
+        client.send_request(client.create_request("GET", [], authority="tempesta-tech.com"), "200")
         # Verify ALPN didn't use.
         self.assertTrue(client.socket.selected_alpn_protocol() == None)
-        self.assertEqual(status, "200", "Wrong response status: %s" % status)
