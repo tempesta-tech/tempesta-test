@@ -11,6 +11,7 @@ from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
 from helpers import dmesg, tf_cfg
 from helpers.deproxy import HttpMessage
+from helpers.remote import CmdError
 
 
 class TestPurgeAcl(TempestaTest):
@@ -26,7 +27,6 @@ server ${server_ip}:8000;
 cache 2;
 cache_fulfill * *;
 cache_methods GET;
-cache_purge;
 """
     }
 
@@ -78,7 +78,9 @@ cache_purge;
         client = self.get_client("deproxy")
         srv = self.get_server("deproxy")
 
-        tempesta.config.set_defconfig(tempesta.config.defconfig + f"cache_purge_acl {purge_ip};\n")
+        tempesta.config.set_defconfig(
+            tempesta.config.defconfig + f"cache_purge;\ncache_purge_acl {purge_ip};\n"
+        )
         client.bind_addr = tf_cfg.cfg.get("Client", "ip" if family == "ipv4" else "ipv6")
         client.socket_family = family
         client.conn_addr = tf_cfg.cfg.get("Tempesta", "ip" if family == "ipv4" else "ipv6")
@@ -122,7 +124,9 @@ cache_purge;
         tempesta = self.get_tempesta()
         client = self.get_client("deproxy")
 
-        tempesta.config.set_defconfig(tempesta.config.defconfig + f"cache_purge_acl 2.2.2.2;\n")
+        tempesta.config.set_defconfig(
+            tempesta.config.defconfig + f"cache_purge;\ncache_purge_acl 2.2.2.2;\n"
+        )
         self.start_all_services()
 
         client.send_request(
@@ -203,16 +207,54 @@ frang_limits {
         self.start_all_services()
 
 
-class TestPurgeNoCache(TestPurgeBase):
-    def setUp(self):
-        self.set_cache_val(0)
+class TestPurgeInvalidConfig(TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+frang_limits {
+    http_strict_host_checking false;
+    http_methods GET PURGE HEAD;
+    }
+server ${server_ip}:8000;
 
-    def test_purge(self):
-        client: DeproxyClient = self.get_client("deproxy")
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+vhost default {
+    proxy_pass default;
+}
 
-        client.send_request(self.request_template.format("PURGE"), "403")
-        self.assertEqual(len(srv.requests), 0)
+cache_fulfill * *;
+cache_methods GET HEAD;
+cache_resp_hdr_del set-cookie;
+
+frang_limits {
+  http_methods GET PURGE;
+}
+"""
+    }
+
+    def __update_tempesta_config(self, cache_config: str):
+        new_config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = new_config + cache_config
+
+    @parameterize.expand(
+        [
+            param(
+                name="cache_0_purge", config="cache 0;\ncache_purge;\ncache_purge_acl 127.0.0.1\n"
+            ),
+            param(
+                name="purge_cache_0", config="cache_purge;\ncache 0;\ncache_purge_acl 127.0.0.1\n"
+            ),
+            param(name="purge_no_cache", config="cache_purge;ncache_purge_acl 127.0.0.1\n"),
+            param(name="cache_purge_no_purge_acl", config="cache 2;\ncache_purge;\n"),
+            param(name="cache_purge_acl_no_purge", config="cache 2\ncache_purge_acl 127.0.0.1;\n"),
+        ]
+    )
+    def test_wrong_config(self, name, config):
+        self.__update_tempesta_config(config)
+        with self.assertRaises(
+            expected_exception=CmdError, msg="TempestaFW reloads with wrong config"
+        ):
+            self.oops_ignore = ["ERROR"]
+            self.get_tempesta().start()
 
 
 class TestPurge(TestPurgeBase):
