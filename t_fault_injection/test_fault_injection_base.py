@@ -7,10 +7,9 @@ __license__ = "GPL2"
 from framework import tester
 from framework.parameterize import param, parameterize
 from framework.x509 import CertGenerator
-from helpers import dmesg, remote, sysnet, tf_cfg
+from helpers import deproxy, dmesg, remote, sysnet, tf_cfg
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
-
 
 
 class TestFailFunctionBase(tester.TempestaTest):
@@ -102,8 +101,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy",
                 msg="can't allocate a new client connection",
                 times=-1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=0,
             ),
@@ -113,8 +115,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy",
                 msg="can't obtain a client for frang accounting",
                 times=-1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=0,
             ),
@@ -124,8 +129,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="cannot establish a new h2 connection",
                 times=-1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=-12,
             ),
@@ -135,8 +143,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=-12,
             ),
@@ -146,8 +157,12 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
-                header_len=50000,
-                body_len=100000,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 100000,
+                ),
                 mtu=100,
                 retval=-12,
             ),
@@ -157,8 +172,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=-12,
             ),
@@ -168,8 +186,12 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
-                header_len=50000,
-                body_len=100000,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 100000,
+                ),
                 mtu=100,
                 retval=-12,
             ),
@@ -179,8 +201,11 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg=None,
                 times=1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=-12,
             ),
@@ -190,26 +215,29 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg=None,
                 times=1,
-                header_len=0,
-                body_len=0,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
                 mtu=None,
                 retval=-12,
             ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, header_len, body_len, mtu, retval):
+    def test(self, name, func_name, id, msg, times, response, mtu, retval):
         if mtu:
             try:
                 dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
                 prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-                self._test(name, func_name, id, msg, times, header_len, body_len, retval)
+                self._test(name, func_name, id, msg, times, response, retval)
             finally:
                 sysnet.change_mtu(remote.client, dev, prev_mtu)
         else:
-            self._test(name, func_name, id, msg, times, header_len, body_len, retval)
+            self._test(name, func_name, id, msg, times, response, retval)
 
-    def _test(self, name, func_name, id, msg, times, header_len, body_len, retval):
+    def _test(self, name, func_name, id, msg, times, response, retval):
         """
         Basic test to check how Tempesta FW works when some internal
         function fails. Function should be marked as ALLOW_ERROR_INJECTION
@@ -217,8 +245,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
         """
         server = self.get_server("deproxy")
         server.conns_n = 1
-        if header_len != 0 or body_len != 0:
-            self.set_response(server, header_len, body_len)
+        server.set_response(response)
         self.start_all_services(client=False)
 
         self.setup_fail_function_test(func_name, times, retval)
@@ -242,24 +269,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()
-
-    @staticmethod
-    def set_response(server, header_len, body_len):
-        response = (
-            "HTTP/1.1 200 OK\r\n"
-            + f"Date: {HttpMessage.date_time_string()}\r\n"
-            + "Server: debian\r\n"
-        )
-
-        if header_len:
-            header = ("qwerty", "x" * header_len)
-            response += f"{header[0]}: {header[1]}\r\n"
-
-        response += f"Content-Length: {body_len}\r\n\r\n"
-        if body_len:
-            response += "x" * body_len
-
-        server.set_response(response)
 
 
 class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
