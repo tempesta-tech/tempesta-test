@@ -2147,13 +2147,13 @@ vhost default {
         client.send_request(request, "200")
 
         if isinstance(self, TestCacheResponseWithCacheH2):
-            self.assertFalse(client.last_response.headers.get("Trailer"))
-            self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+            self.assertIsNone(client.last_response.headers.get("Trailer"))
+            self.assertNotEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
-            self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token1 X-Token2")
-            self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
-        self.assertFalse(client.last_response.headers.get("X-Token1"))
-        self.assertFalse(client.last_response.headers.get("X-Token2"))
+            self.assertEqual(client.last_response.headers.get("Trailer"), "X-Token1 X-Token2")
+            self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertIsNone(client.last_response.headers.get("X-Token1"))
+        self.assertIsNone(client.last_response.headers.get("X-Token2"))
 
         self.assertEqual(
             client.last_response.trailer.get("X-Token1"),
