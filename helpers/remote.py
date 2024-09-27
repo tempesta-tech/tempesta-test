@@ -31,9 +31,6 @@ DEBUG_FILES = False
 # Default timeout for SSH sessions and command processing.
 DEFAULT_TIMEOUT = 10
 
-# log may be up to thousands rows with the same information, need to limit it
-STD_MAX_LEN = 1000
-
 
 class Node(object, metaclass=abc.ABCMeta):
     def __init__(self, type, hostname, workdir):
@@ -116,15 +113,15 @@ class LocalNode(Node):
                 stdout, stderr = p.communicate()
                 raise CmdError(
                     f"Cmd '{cmd}' got timed out (timeout value is {timeout})",
-                    f"(may be cut) {stdout[:STD_MAX_LEN]}",
-                    f"(may be cut) {stderr[:STD_MAX_LEN]}",
+                    stdout,
+                    stderr,
                     p.returncode,
                 )
             except AssertionError:
                 raise CmdError(
                     f"Сmd {cmd} exited with return code {p.returncode}",
-                    f"(may be cut) {stdout[:STD_MAX_LEN]}",
-                    f"(may be cut) {stderr[:STD_MAX_LEN]}",
+                    stdout,
+                    stderr,
                     p.returncode,
                 )
         return stdout, stderr

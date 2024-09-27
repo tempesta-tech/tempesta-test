@@ -1,3 +1,4 @@
+import traceback
 import typing
 
 from . import tf_cfg
@@ -66,7 +67,11 @@ class Stateful(object):
             try:
                 stop_proc()
             except Exception as exc:
-                tf_cfg.dbg(1, f"Exception in stopping process: {exc}, type: {type(exc)}")
+                tb_msg = traceback.format_exc()
+                tf_cfg.dbg(
+                    1,
+                    f"Exception in stopping process: {exc}, type: {type(exc)}, traceback:\n{tb_msg}",
+                )
                 self.append_exception(exc)
 
         if self.state != STATE_ERROR:
