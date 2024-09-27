@@ -408,6 +408,40 @@ class TestHeadersParsing(tester.TempestaTest):
 
         self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
 
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "0\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+            marks.Param(
+                name="not_empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "10\r\n"
+                + "abcdefghijklmnop\r\n"
+                + "0\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+        ]
+    )
+    def test_trailers_in_response(self, name, response):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(response)
+
+        client = self.get_client("deproxy")
+        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
+        self.assertIsNotNone(client.last_response.headers.get("Trailer"))
+        self.assertIsNone(client.last_response.headers.get("X-Token"))
+        self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
+
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
     backends = [

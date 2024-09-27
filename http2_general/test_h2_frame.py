@@ -8,6 +8,7 @@ from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from h2.settings import SettingCodes
+from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import (
     ContinuationFrame,
@@ -905,13 +906,7 @@ class TestPostponedFrames(H2Base, NetWorker):
             self._ping(client)
 
         self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(
-            util.wait_until(
-                lambda: client.ping_received != ping_count,
-                5,
-                abort_cond=lambda: client.state != stateful.STATE_STARTED,
-            )
-        )
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
 
         client.send_settings_frame(initial_window_size=65535)
         client.wait_for_ack_settings()

@@ -459,8 +459,6 @@ class ReqBodyBuffer:
 
 
 class DeproxyClientH2(BaseDeproxyClient):
-    _ping_received = 0
-
     @property
     def ping_received(self) -> int:
         return self._ping_received

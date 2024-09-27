@@ -856,15 +856,17 @@ class TestTrailers(H2Base):
             ),
         ]
     )
-    def test_trailers_in_reponse(self, name, response):
+    def test_trailers_in_response(self, name, response):
         self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(response)
 
         client = self.get_client("deproxy")
         client.send_request(self.get_request, "200")
-        self.assertFalse(client.last_response.headers.get("Trailer"))
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
+        self.assertIsNone(client.last_response.headers.get("X-Token"))
         self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
 
 
 class CurlTestBase(tester.TempestaTest):
