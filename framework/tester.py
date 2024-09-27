@@ -1,4 +1,4 @@
-from __future__ import print_function, annotations
+from __future__ import annotations, print_function
 
 import datetime
 import os
@@ -25,6 +25,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers import error
 from helpers.deproxy import dbg
 from helpers.stateful import Stateful
 
@@ -433,7 +434,10 @@ class TempestaTest(unittest.TestCase):
                 f"Delta for memory consumption: {delta_used_memory}."
             )
             tf_cfg.dbg(4, f"\tCleanup: memory consumption:\n{msg}")
-            self.assertLessEqual(delta_used_memory, run_config.MEMORY_LEAK_THRESHOLD, msg)
+            if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
+                raise error.MemoryConsumptionError(
+                    msg, delta_used_memory, run_config.MEMORY_LEAK_THRESHOLD
+                )
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:
