@@ -5,21 +5,22 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
-from h2.settings import SettingCodes
 from h2.exceptions import StreamClosedError
+from h2.settings import SettingCodes
 from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import (
     ContinuationFrame,
     DataFrame,
     HeadersFrame,
-    SettingsFrame,
     PriorityFrame,
+    SettingsFrame,
 )
 
 from framework import deproxy_client, tester
 from framework.parameterize import param, parameterize
-from helpers import checks_for_tests as checks, util, stateful
+from helpers import checks_for_tests as checks
+from helpers import stateful, util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
@@ -862,13 +863,7 @@ class TestPostponedFrames(H2Base, NetWorker):
             self._ping(client)
 
         self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(
-            util.wait_until(
-                lambda: client.ping_received != ping_count,
-                5,
-                abort_cond=lambda: client.state != stateful.STATE_STARTED,
-            )
-        )
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
 
         client.send_settings_frame(initial_window_size=65535)
         client.wait_for_ack_settings()
@@ -877,13 +872,7 @@ class TestPostponedFrames(H2Base, NetWorker):
             self._ping(client)
 
         self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(
-            util.wait_until(
-                lambda: client.ping_received != ping_count,
-                5,
-                abort_cond=lambda: client.state != stateful.STATE_STARTED,
-            )
-        )
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
 
         self.assertTrue(client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")
