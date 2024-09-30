@@ -405,6 +405,9 @@ class TempestaTest(unittest.TestCase):
             if err in self.oops_ignore:
                 continue
             if len(self.oops.log_findall(err)) > 0:
+
+                # TODO filter output?
+                print('--- yes, this is the reason')
                 self.oops.show()
                 self.oops_ignore = []
                 raise Exception(f"{err} happened during test on Tempesta")
