@@ -322,6 +322,7 @@ class Tempesta(stateful.Stateful):
         self.host = tf_cfg.cfg.get("Tempesta", "hostname")
         self.err_msg = " ".join(["Can't %s TempestaFW on", self.host])
         self.stop_procedures = [self.stop_tempesta, self.remove_config]
+        self.check_config = True
 
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
@@ -338,8 +339,8 @@ class Tempesta(stateful.Stateful):
 
         tf_cfg.dbg(4, f"\tTempesta config content:\n{cfg_content}")
 
-        if not cfg_content:
-            raise AttributeError("Tempesta config is empty.")
+        if self.check_config:
+            assert cfg_content, "Tempesta config is empty."
 
         self.node.copy_file(self.config_name, cfg_content)
         env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}

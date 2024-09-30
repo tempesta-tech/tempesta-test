@@ -766,6 +766,21 @@ class Response(HttpMessage):
             self.headers.add("date", self.date_time_string())
 
     @staticmethod
+    def create_simple_response(
+        status,
+        headers,
+        version="HTTP/1.1",
+        date=False,
+        srv_version=None,
+        body=None,
+    ):
+        reason = BaseHTTPRequestHandler.responses
+        first_line = " ".join([version, str(status), reason[int(status)][0]])
+        return HttpMessage.create(
+            first_line, headers, date=date, srv_version=srv_version, body=body
+        )
+
+    @staticmethod
     def create(
         status,
         headers,
@@ -777,9 +792,7 @@ class Response(HttpMessage):
         tempesta_headers=False,
         expected=False,
     ):
-        reason = BaseHTTPRequestHandler.responses
-        first_line = " ".join([version, str(status), reason[int(status)][0]])
-        msg = HttpMessage.create(first_line, headers, date=date, srv_version=srv_version, body=body)
+        msg = Response.create_simple_response(status, headers, version, date, srv_version, body)
 
         response = Response(msg, method=method)
         if expected:
