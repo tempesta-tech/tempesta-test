@@ -21,6 +21,7 @@ class DisabledListLoader(object):
         self.has_file = False
         self.disabled = []
         self.disable = False
+        self.try_load()
 
     def try_load(self):
         """Try to load specified state file"""

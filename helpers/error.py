@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import sys  # for sys.exc_info
+from dataclasses import dataclass
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
@@ -16,6 +17,28 @@ class Error(Exception):
     """
 
     pass
+
+
+@dataclass
+class MemoryConsumptionError(Error):
+    msg: str
+    delta_used_memory: int
+    memory_leak_threshold: int
+
+    def __str__(self):
+        return (
+            f"\n{self.msg}"
+            f"\nUsed memory >= memory_leak_threshold "
+            f"({self.delta_used_memory} KB >= {self.memory_leak_threshold} KB)"
+        )
+
+
+@dataclass
+class KmemLeakError(Error):
+    stdout: str
+
+    def __str__(self):
+        return f"kmemleak found 'tfw' in /sys/kernel/debug/kmemleak:\n{self.stdout}"
 
 
 def assertFalse(expression, msg=""):

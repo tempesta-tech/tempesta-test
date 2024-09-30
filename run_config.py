@@ -47,3 +47,6 @@ AUTO_PARSER = True
 # Enable or disable checks for memory leaks for all tests
 CHECK_MEMORY_LEAKS = False
 MEMORY_LEAK_THRESHOLD = int(tf_cfg.cfg.get("General", "memory_leak_threshold"))  # KB
+
+# run tests for debug kernel (kernel with kmemleak etc.)
+KERNEL_DBG_TESTS = False
