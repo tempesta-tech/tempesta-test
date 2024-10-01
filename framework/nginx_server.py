@@ -25,6 +25,7 @@ class Nginx(stateful.Stateful):
             self.pidfile_name = pidname
 
     def __init__(self, name, props):
+        super().__init__()
         self.node = remote.server
         self.workdir = tf_cfg.cfg.get("Server", "workdir")
         self.config = self.Config(name, props)

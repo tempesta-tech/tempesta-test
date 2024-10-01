@@ -20,7 +20,7 @@ class Error(Exception):
 
 
 @dataclass
-class MemoryConsumptionError(Error):
+class MemoryConsumptionException(Error):
     msg: str
     delta_used_memory: int
     memory_leak_threshold: int
@@ -34,11 +34,26 @@ class MemoryConsumptionError(Error):
 
 
 @dataclass
-class KmemLeakError(Error):
+class KmemLeakException(Error):
     stdout: str
 
     def __str__(self):
         return f"kmemleak found 'tfw' in /sys/kernel/debug/kmemleak:\n{self.stdout}"
+
+
+@dataclass
+class ServiceStoppingException(Error):
+    exceptions: dict
+
+    def __str__(self):
+        return f"".join(
+            [
+                "\n---------------------------------------------------------\n"
+                f"Exception in stopping process for {service}: {exception}\n"
+                "---------------------------------------------------------\n"
+                for service, exception in self.exceptions.items()
+            ]
+        )
 
 
 def assertFalse(expression, msg=""):

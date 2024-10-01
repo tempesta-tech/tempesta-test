@@ -992,6 +992,7 @@ class Client(TlsClient, stateful.Stateful):
         socket_family="ipv4",
     ):
         TlsClient.__init__(self, ssl, proto)
+        stateful.Stateful.__init__(self)
         self.request = None
         self.request_buffer = ""
         self.response_buffer = ""

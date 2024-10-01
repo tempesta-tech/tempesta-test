@@ -312,6 +312,7 @@ def clients_parallel_load(client, count=None):
 # -------------------------------------------------------------------------------
 class Tempesta(stateful.Stateful):
     def __init__(self, vhost_auto=True):
+        super().__init__()
         self.node = remote.tempesta
         self.workdir = self.node.workdir
         self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")

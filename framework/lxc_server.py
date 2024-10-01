@@ -50,6 +50,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         # Initialize using the `LXCServerArguments` interface,
         # with only supported arguments
         super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
+        stateful.Stateful.__init__(self)
         self.node = remote.server
         self.stop_procedures = [self._proxy_teardown, self._stop_container]
         self._proxy_name = f"{LXC_PREFIX}-{self.external_port}-{self.internal_port}"
