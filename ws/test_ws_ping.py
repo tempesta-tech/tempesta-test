@@ -9,9 +9,9 @@ from threading import Thread
 import requests
 import websockets
 
-from framework import tester
 from framework.x509 import CertGenerator
 from helpers import dmesg, tf_cfg
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

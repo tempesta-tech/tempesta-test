@@ -7,7 +7,6 @@ __license__ = "GPL2"
 import time
 from http import HTTPStatus
 
-from framework import tester
 from framework.curl_client import CurlResponse
 from framework.deproxy_server import StaticDeproxyServer
 from framework.parameterize import param, parameterize, parameterize_class
@@ -15,6 +14,7 @@ from helpers import checks_for_tests as checks
 from helpers import deproxy
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
+from test_suite import tester
 
 MIXED_CONFIG = (
     "cache {0};\r\n"

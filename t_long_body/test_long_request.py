@@ -6,10 +6,10 @@ __license__ = "GPL2"
 
 import os
 
-from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
 from helpers import remote, tf_cfg
 from t_stress.test_stress import CustomMtuMixin
+from test_suite.tester import TempestaTest
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 

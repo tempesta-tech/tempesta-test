@@ -5,9 +5,9 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import run_config
-from framework import tester
 from helpers import analyzer, asserts, deproxy, remote, tf_cfg
 from helpers.custom_error_page import CustomErrorPageGenerator
+from test_suite import tester
 
 
 class BlockActionBase(tester.TempestaTest, asserts.Sniffer):

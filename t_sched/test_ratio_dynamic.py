@@ -30,11 +30,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import tester
 from framework.wrk_client import Wrk
 from helpers import tf_cfg
 from helpers.control import servers_get_stats
 from run_config import DURATION
+from test_suite import tester
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;

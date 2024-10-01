@@ -1,4 +1,4 @@
-from framework import tester
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2021-2024 Tempesta Technologies, Inc."

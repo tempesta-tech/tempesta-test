@@ -4,12 +4,12 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import tester
 from framework.parameterize import param, parameterize
 from framework.x509 import CertGenerator
 from helpers import deproxy, dmesg, remote, sysnet, tf_cfg
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
+from test_suite import tester
 
 
 class TestFailFunctionBase(tester.TempestaTest):

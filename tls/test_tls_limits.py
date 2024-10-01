@@ -2,8 +2,8 @@
 Tests for match SNI and host.
 """
 
-from framework import tester
 from helpers import dmesg
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020-2023 Tempesta Technologies, Inc."

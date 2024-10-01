@@ -10,11 +10,11 @@ from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 from hyperframe import frame
 
-from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import tf_cfg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."

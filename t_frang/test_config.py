@@ -8,7 +8,6 @@ import time
 
 from hyperframe.frame import DataFrame, HeadersFrame
 
-from framework import tester
 from framework.parameterize import param, parameterize
 from helpers.dmesg import (
     amount_positive,
@@ -16,6 +15,7 @@ from helpers.dmesg import (
     unlimited_rate_on_tempesta_node,
 )
 from helpers.remote import CmdError
+from test_suite import tester
 
 
 class TestDefaultConfig(tester.TempestaTest):

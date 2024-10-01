@@ -1,6 +1,7 @@
-from framework import deproxy_server, tester
+from framework import deproxy_server
 from framework.templates import fill_template
 from helpers import control, deproxy, tempesta, tf_cfg
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

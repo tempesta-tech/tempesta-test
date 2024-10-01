@@ -6,9 +6,9 @@ __license__ = "GPL2"
 
 import time
 
-from framework import tester
 from helpers import checks_for_tests as checks
 from helpers.deproxy import HttpMessage
+from test_suite import tester
 
 
 class HttpRulesBackupServers(tester.TempestaTest):

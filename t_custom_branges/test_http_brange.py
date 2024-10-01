@@ -6,10 +6,10 @@ __license__ = "GPL2"
 
 import random
 
-from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import deproxy, dmesg
 from helpers.remote import CmdError
+from test_suite import tester
 
 DEPROXY_CLIENT = {
     "id": "deproxy",

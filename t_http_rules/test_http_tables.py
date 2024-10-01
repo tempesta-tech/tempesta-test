@@ -4,11 +4,12 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (in separate tests).
 """
 
-from framework import deproxy_client, tester
+from framework import deproxy_client
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import chains, dmesg, remote
 from helpers.networker import NetWorker
 from helpers.remote import LocalNode
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

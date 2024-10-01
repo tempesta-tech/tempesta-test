@@ -3,10 +3,10 @@
 import http
 import time
 
-from framework import tester
 from framework.parameterize import param, parameterize
-from http2_general.helpers import H2Base
 from helpers.deproxy import HttpMessage
+from http2_general.helpers import H2Base
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."

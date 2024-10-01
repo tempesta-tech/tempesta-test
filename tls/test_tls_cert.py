@@ -11,12 +11,12 @@ from itertools import cycle, islice
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from framework import tester
 from framework.templates import fill_template, populate_properties
 from framework.x509 import CertGenerator
 from helpers import dmesg, remote, tempesta, tf_cfg
 from helpers.deproxy import HttpMessage
 from helpers.error import Error
+from test_suite import tester
 
 from .handshake import TlsHandshake, x509_check_cn
 

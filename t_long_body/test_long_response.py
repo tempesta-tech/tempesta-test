@@ -5,11 +5,11 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import curl_client, deproxy_server
-from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
 from helpers import deproxy, tf_cfg
 from t_long_body import utils
 from t_stress.test_stress import CustomMtuMixin
+from test_suite.tester import TempestaTest
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 

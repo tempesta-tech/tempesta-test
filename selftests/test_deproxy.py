@@ -1,8 +1,9 @@
 from h2.exceptions import ProtocolError
 
-from framework import deproxy_client, tester
+from framework import deproxy_client
 from framework.parameterize import param, parameterize
 from helpers import deproxy
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

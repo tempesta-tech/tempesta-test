@@ -9,9 +9,9 @@ import re
 import time
 
 import run_config
-from framework import tester
 from framework.curl_client import CurlClient, CurlResponse
 from framework.mixins import NetfilterMarkMixin
+from test_suite import tester
 
 
 class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):

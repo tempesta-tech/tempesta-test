@@ -19,12 +19,12 @@ from hyperframe.frame import (
 )
 
 import run_config
-from framework import tester
 from framework.deproxy_client import HuffmanEncoder
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import analyzer, asserts, remote, tf_cfg
 from helpers.custom_error_page import CustomErrorPageGenerator
 from http2_general.helpers import H2Base
+from test_suite import tester
 
 
 def generate_custom_error_page(data):
