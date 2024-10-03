@@ -1,6 +1,6 @@
 from framework import deproxy_server
-from framework.templates import fill_template
 from helpers import deproxy, tempesta
+from helpers.util import fill_template
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."

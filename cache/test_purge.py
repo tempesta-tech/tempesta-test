@@ -6,10 +6,10 @@ __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from framework.parameterize import param, parameterize
 from helpers import checks_for_tests as checks
 from helpers import dmesg, tf_cfg
 from helpers.deproxy import HttpMessage
+from test_suite.parameterize import param, parameterize
 from test_suite.tester import TempestaTest
 
 

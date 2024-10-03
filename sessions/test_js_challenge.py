@@ -5,11 +5,11 @@ Tests for JavaScript challenge.
 import re
 import time
 
-from framework.parameterize import param, parameterize, parameterize_class
-from framework.templates import fill_template, populate_properties
 from helpers import dmesg, remote, tf_cfg
 from helpers.deproxy import HttpMessage
+from helpers.util import fill_template
 from test_suite import tester
+from test_suite.parameterize import param, parameterize, parameterize_class
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020-2024 Tempesta Technologies, Inc."
@@ -112,7 +112,7 @@ class BaseJSChallenge(tester.TempestaTest):
     def _set_tempesta_config_without_js(self):
         """Recreate config without js_challenge directive."""
         desc = self.tempesta.copy()
-        populate_properties(desc)
+        tf_cfg.populate_properties(desc)
         new_cfg = fill_template(desc["config"], desc)
         new_cfg = re.sub(r"js_challenge[\s\w\d_/=\.\n]+;", "", new_cfg, re.M)
 
@@ -121,7 +121,7 @@ class BaseJSChallenge(tester.TempestaTest):
     def _set_tempesta_js_config(self):
         """Recreate config with js_challenge directive."""
         desc = self.tempesta.copy()
-        populate_properties(desc)
+        tf_cfg.populate_properties(desc)
         self.get_tempesta().config.set_defconfig(fill_template(desc["config"], desc))
 
 

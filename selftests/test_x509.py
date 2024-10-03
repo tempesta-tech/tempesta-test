@@ -2,7 +2,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from framework.x509 import CertGenerator
+from helpers.x509 import CertGenerator
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

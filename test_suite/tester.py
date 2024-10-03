@@ -18,8 +18,8 @@ from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
-from framework.templates import fill_template, populate_properties
 from helpers import control, dmesg, remote, sysnet, tf_cfg, util
+from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
@@ -185,7 +185,7 @@ class TempestaTest(unittest.TestCase):
         return curl
 
     def __create_client(self, client):
-        populate_properties(client)
+        tf_cfg.populate_properties(client)
         ssl = client.setdefault("ssl", False)
         cid = client["id"]
         socket_family = client.get("socket_family", "ipv4")
@@ -213,7 +213,7 @@ class TempestaTest(unittest.TestCase):
 
     def __create_backend(self, server):
         sid = server["id"]
-        populate_properties(server)
+        tf_cfg.populate_properties(server)
         stype = server["type"]
         try:
             factory = backend_defs[stype]
@@ -286,7 +286,7 @@ class TempestaTest(unittest.TestCase):
 
     def __create_tempesta(self):
         desc = self.tempesta.copy()
-        populate_properties(desc)
+        tf_cfg.populate_properties(desc)
         custom_cert = False
         if "custom_cert" in desc:
             custom_cert = self.tempesta["custom_cert"]

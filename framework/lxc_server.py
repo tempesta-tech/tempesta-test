@@ -4,8 +4,8 @@ import json
 from dataclasses import dataclass
 
 from framework import port_checks
-from framework.templates import fill_template
 from helpers import error, remote, stateful, tempesta, tf_cfg, util
+from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."

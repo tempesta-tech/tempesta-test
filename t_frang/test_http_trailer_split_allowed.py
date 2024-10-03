@@ -6,8 +6,8 @@ __license__ = "GPL2"
 
 from hyperframe.frame import ContinuationFrame, HeadersFrame
 
-from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase, H2Config
+from test_suite.parameterize import param, parameterize
 
 WARN = "frang: HTTP field appear in header and trailer"
 

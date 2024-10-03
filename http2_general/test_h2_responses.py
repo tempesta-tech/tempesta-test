@@ -1,12 +1,11 @@
 """Test module for http2 responses."""
 
 import http
-import time
 
-from framework.parameterize import param, parameterize
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import tester
+from test_suite.parameterize import param, parameterize
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."

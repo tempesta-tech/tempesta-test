@@ -11,12 +11,12 @@ from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
 from framework import deproxy_client
-from framework.parameterize import param, parameterize
 from helpers import checks_for_tests as checks
 from helpers import util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
+from test_suite.parameterize import param, parameterize
 
 
 class TestH2Frame(H2Base):

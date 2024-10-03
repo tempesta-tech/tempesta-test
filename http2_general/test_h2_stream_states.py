@@ -6,23 +6,19 @@ __license__ = "GPL2"
 
 from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
-from h2.stream import StreamInputs
 from hyperframe.frame import (
-    ContinuationFrame,
     DataFrame,
     Frame,
     HeadersFrame,
     PriorityFrame,
-    HeadersFrame,
     RstStreamFrame,
     WindowUpdateFrame,
 )
 
-from framework.parameterize import param, parameterize, parameterize_class
 from helpers import dmesg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
-from h2.errors import ErrorCodes
+from test_suite.parameterize import parameterize_class
 
 
 class TestClosedStreamState(H2Base):

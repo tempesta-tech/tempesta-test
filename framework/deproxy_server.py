@@ -13,7 +13,7 @@ from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
 
-from .templates import fill_template
+from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."

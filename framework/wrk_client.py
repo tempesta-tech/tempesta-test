@@ -3,9 +3,9 @@ import os
 import re
 
 from helpers import control, remote, stateful, tf_cfg
+from helpers.util import fill_template
 
 from . import client
-from .templates import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."

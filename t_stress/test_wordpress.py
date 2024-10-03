@@ -2,10 +2,10 @@
 HTTP Stress tests with WordPress LXC container.
 """
 
-from framework.parameterize import parameterize_class
 from run_config import CONCURRENT_CONNECTIONS, REQUESTS_COUNT
 from t_stress.test_stress import CustomMtuMixin
 from test_suite import tester
+from test_suite.parameterize import parameterize_class
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

@@ -5,10 +5,10 @@ Basic tests for Tempesta cookies.
 import re
 import time
 
-from framework.parameterize import param, parameterize, parameterize_class
 from helpers import dmesg, remote, tf_cfg
 from helpers.remote import CmdError
 from test_suite import tester
+from test_suite.parameterize import param, parameterize, parameterize_class
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."

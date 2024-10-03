@@ -6,9 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.parameterize import parameterize_class
 from helpers import dmesg, util
 from test_suite import tester
+from test_suite.parameterize import parameterize_class
 
 DEPROXY_CLIENT = {
     "id": "deproxy",

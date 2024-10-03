@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
-from h2.settings import SettingCodes, Settings
+from h2.settings import SettingCodes
 from hpack import HeaderTuple
 from hyperframe.frame import (
     ContinuationFrame,
@@ -20,11 +20,10 @@ from hyperframe.frame import (
 
 import run_config
 from framework.deproxy_client import HuffmanEncoder
-from framework.parameterize import param, parameterize, parameterize_class
 from helpers import analyzer, asserts, remote, tf_cfg
 from helpers.custom_error_page import CustomErrorPageGenerator
 from http2_general.helpers import H2Base
-from test_suite import tester
+from test_suite.parameterize import param, parameterize, parameterize_class
 
 
 def generate_custom_error_page(data):

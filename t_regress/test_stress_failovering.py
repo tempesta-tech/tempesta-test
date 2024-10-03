@@ -9,11 +9,10 @@ __license__ = "GPL2"
 import copy
 import sys
 
-from framework.parameterize import param, parameterize
-from helpers import dmesg
 from helpers.tf_cfg import cfg
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 from test_suite import tester
+from test_suite.parameterize import param, parameterize
 
 SERVER_IP = cfg.get("Server", "ip")
 GENERAL_WORKDIR = cfg.get("General", "workdir")

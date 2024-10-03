@@ -4,15 +4,15 @@ __license__ = "GPL2"
 
 import time
 
-from framework.parameterize import param, parameterize, parameterize_class
 from framework.port_checks import FreePortsChecker
-from framework.x509 import CertGenerator
 from helpers import analyzer, dmesg, remote
 from helpers.analyzer import PSH, TCP
 from helpers.dmesg import amount_positive
 from helpers.remote import CmdError
 from helpers.tf_cfg import cfg
+from helpers.x509 import CertGenerator
 from test_suite import tester
+from test_suite.parameterize import param, parameterize, parameterize_class
 
 SERVER_IP = cfg.get("Server", "ip")
 GENERAL_WORKDIR = cfg.get("General", "workdir")

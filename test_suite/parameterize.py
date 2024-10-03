@@ -1,9 +1,10 @@
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
-__license__ = "GPL2"
-
+"""Decorators to parametrize(run the same test function multiple times) tests."""
 
 from parameterized import param, parameterized, parameterized_class
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 def get_func_name(func, param_num, params):

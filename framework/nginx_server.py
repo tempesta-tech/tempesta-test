@@ -3,8 +3,8 @@ import re
 import time
 
 import framework.port_checks as port_checks
-from framework.templates import fill_template
 from helpers import remote, stateful, tempesta, tf_cfg
+from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
