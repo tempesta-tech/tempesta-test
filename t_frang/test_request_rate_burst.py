@@ -1,11 +1,18 @@
 """Tests for Frang directive `request_rate` and 'request_burst'."""
 
+import asyncio
+import ssl
 import time
+from asyncio import events
+from sys import flags
 
-from hyperframe.frame import RstStreamFrame
+from hpack import Encoder
+from hyperframe.frame import HeadersFrame, RstStreamFrame, SettingsFrame
 
+import run_config
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, asserts, remote
+from framework.parameterize import param, parameterize
+from helpers import analyzer, asserts, remote, tf_cfg
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -14,9 +21,75 @@ __license__ = "GPL2"
 
 ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
 ERROR_MSG_BURST = "Warning: frang: requests burst exceeded"
+RATE_TIMEOUT = DELAY + 0.05  # seconds
 
 HTTP1_REQUEST = DeproxyClient.create_request(method="GET", uri="/", headers=[])
 HTTP2_REQUEST = DeproxyClientH2.create_request(method="GET", uri="/", headers=[])
+
+
+class AsyncClient:
+    """The client for sending bytes. It does not wait for responses and does not check them."""
+
+    def __init__(self, conn_ip: str, conn_port: int, local_ip: str, ssl_: bool, http2: bool):
+        self._conn_ip: str = conn_ip
+        self._conn_port: int = conn_port
+        self._local_ip: str = local_ip
+        self._writer: asyncio.streams.StreamWriter | None = None
+        self._reader: asyncio.streams.StreamReader | None = None
+        self._ssl: bool = ssl_
+        self._http2: bool = http2
+        self._context: ssl.SSLContext | None = self._create_context()
+        self._tasks: list = []
+
+    def _create_context(self) -> ssl.SSLContext | None:
+        if not self._ssl:
+            return None
+        self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        if run_config.SAVE_SECRETS:
+            self._context.keylog_filename = "secrets.txt"
+        self._context.check_hostname = False
+        self._context.verify_mode = ssl.CERT_NONE
+        self._apply_proto_settings()
+        return self._context
+
+    def _apply_proto_settings(self):
+        if self._context is not None:
+            self._context.set_alpn_protocols(["h2"] if self._http2 else ["http/1.1"])
+            # Disable old proto
+            self._context.options |= (
+                ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+            )
+            if self._http2:
+                # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
+                # compression.
+                self._context.options |= ssl.OP_NO_COMPRESSION
+
+    def send_bytes(self, data: bytes) -> None:
+        self._tasks.append(asyncio.create_task(self._send_bytes(data)))
+
+    async def run_start(self) -> None:
+        self._reader, self._writer = await asyncio.open_connection(
+            self._conn_ip, self._conn_port, ssl=self._context, local_addr=(self._local_ip, 0)
+        )
+        if self._http2:
+            # create HTTP/2.0 connection and send preamble
+            sf = SettingsFrame(stream_id=0)
+            self.send_bytes(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n" + sf.serialize())
+
+    async def _send_bytes(self, data: bytes) -> None:
+        self._writer.write(data)
+        await self._writer.drain()
+
+    async def wait_for_all_tasks(self) -> None:
+        await asyncio.gather(*self._tasks)
+
+    async def aclose(self) -> None:
+        if self._writer is not None:
+            try:
+                self._writer.close()
+                await self._writer.wait_closed()
+            except ssl.SSLError:
+                ...
 
 
 class FrangRequestRateTestCase(FrangTestCase, asserts.Sniffer):
@@ -180,7 +253,7 @@ class FrangRequestBurstH2(FrangRequestRateTestCase):
     request = HTTP2_REQUEST
 
 
-class FrangRequestRateBurstTestCase(FrangTestCase):
+class TestFrangRequestRateBurst(FrangTestCase):
     """Tests for 'request_rate' and 'request_burst' directive."""
 
     tempesta = {
@@ -190,8 +263,7 @@ frang_limits {
     request_burst 2;
 }
 
-listen 80;
-listen 443 proto=h2;
+listen 443 proto=h2,https;
 
 server ${server_ip}:8000;
 cache 0;
@@ -223,113 +295,119 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
     rate_warning = ERROR_MSG_RATE
     burst_warning = ERROR_MSG_BURST
+    http2 = False
 
-    def _base_burst_scenario(self, requests: int):
+    async def make_requests(self, client: AsyncClient, request_n: int, sleep: float) -> None:
+        await client.run_start()
+        for _ in range(request_n):
+            client.send_bytes(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            await asyncio.sleep(sleep)
+
+        await client.wait_for_all_tasks()
+        await client.aclose()
+
+    @parameterize.expand(
+        [
+            param(
+                name="rate_reached",
+                request_n=4,
+                sleep=RATE_TIMEOUT,
+                expected_block=True,
+                expected_request_n=3,
+                frang_msg=ERROR_MSG_RATE,
+            ),
+            param(
+                name="rate_without_reaching_the_limit",
+                request_n=2,
+                sleep=RATE_TIMEOUT,
+                expected_block=False,
+                expected_request_n=2,
+                frang_msg=ERROR_MSG_RATE,
+            ),
+            param(
+                name="rate_on_the_limit",
+                request_n=3,
+                sleep=RATE_TIMEOUT,
+                expected_block=False,
+                expected_request_n=3,
+                frang_msg=ERROR_MSG_RATE,
+            ),
+            param(
+                name="burst_reached",
+                request_n=3,
+                sleep=0,
+                expected_block=True,
+                expected_request_n=2,
+                frang_msg=ERROR_MSG_BURST,
+            ),
+            param(
+                name="burst_without_reaching_the_limit",
+                request_n=1,
+                sleep=0,
+                expected_block=False,
+                expected_request_n=1,
+                frang_msg=ERROR_MSG_BURST,
+            ),
+            param(
+                name="burst_on_the_limit",
+                request_n=2,
+                sleep=0,
+                expected_block=False,
+                expected_request_n=2,
+                frang_msg=ERROR_MSG_BURST,
+            ),
+        ]
+    )
+    def test_request(
+        self,
+        name,
+        request_n: int,
+        sleep: float,
+        expected_block: bool,
+        expected_request_n: int,
+        frang_msg: str,
+    ):
         self.start_all_services(client=False)
 
-        client = self.get_client("curl")
-        client.uri += f"[1-{requests}]"
-        client.parallel = requests
-        client.disable_output = True
+        client = AsyncClient(
+            conn_ip=tf_cfg.cfg.get("Tempesta", "ip"),
+            conn_port=443,
+            local_ip=tf_cfg.cfg.get("Client", "ip"),
+            ssl_=True,
+            http2=self.http2,
+        )
 
-        client.start()
-        client.wait_for_finish()
-        client.stop()
+        asyncio.run(self.make_requests(client, request_n, sleep))
 
-        time.sleep(self.timeout)
-
-        if requests > 2:  # burst limit 2
-            self.assertFrangWarning(warning=self.burst_warning, expected=1)
-        else:
-            self.assertFrangWarning(warning=self.burst_warning, expected=0)
-
-        self.assertFrangWarning(warning=self.rate_warning, expected=0)
-
-    def _base_rate_scenario(self, requests: int):
-        self.start_all_services(client=False)
-
-        client = self.get_client("deproxy-1")
-        client.start()
-        for step in range(requests):
-            client.make_request(client.create_request(method="GET", uri="/", headers=[]))
-            time.sleep(DELAY)
-
-        if requests <= 3:  # rate limit 3
-            self.check_response(client, warning_msg=self.rate_warning, status_code="200")
-        else:
-            # rate limit is reached
-            self.assertTrue(client.wait_for_connection_close())
-            self.assertFrangWarning(warning=self.rate_warning, expected=1)
-            self.assertEqual(client.last_response.status, "403")
-
-        self.assertFrangWarning(warning=self.burst_warning, expected=0)
-
-    def test_request_rate_reached(self):
-        self._base_rate_scenario(requests=4)
-
-    def test_request_rate_without_reaching_the_limit(self):
-        self._base_rate_scenario(requests=2)
-
-    def test_request_rate_on_the_limit(self):
-        self._base_rate_scenario(requests=3)
-
-    def test_request_burst_reached(self):
-        self._base_burst_scenario(requests=3)
-
-    def test_request_burst_not_reached_the_limit(self):
-        self._base_burst_scenario(requests=1)
-
-    def test_request_burst_on_the_limit(self):
-        self._base_burst_scenario(requests=2)
+        server = self.get_server("deproxy")
+        self.assertTrue(server.wait_for_requests(expected_request_n))
+        if expected_block:
+            self.assertTrue(self.klog.find(frang_msg))
 
 
-class FrangRequestRateBurstH2(FrangRequestRateBurstTestCase):
-    clients = [
-        {
-            "id": "deproxy-1",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-        {
-            "id": "curl",
-            "type": "curl",
-            "http2": True,
-            "headers": {
-                "Connection": "keep-alive",
-                "Host": "debian",
-            },
-            "cmd_args": " --verbose",
-        },
-    ]
+class TestFrangRequestRateBurstH2(TestFrangRequestRateBurst):
+    http2 = True
 
-    def _test_with_only_headers_frame(self, requests: int, sleep: int, warning: str):
-        """
-        Open many streams with a Header frame without END_STREAM flag.
-        This is not a complete request, but it opens possibility for
-        a DDoS attack - "Rapid Reset".
-        """
-        self.start_all_services(client=False)
+    async def make_requests(self, client: AsyncClient, request_n: int, sleep: float) -> None:
+        await client.run_start()
+        hpack_encoder = Encoder()
+        headers = [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "GET"),
+        ]
 
-        client = self.get_client("deproxy-1")
-        client.start()
-        for step in range(requests):  # request rate 3
-            client.make_request(
-                client.create_request(method="GET", uri="/", headers=[]),
-                end_stream=False,
+        stream_id = 1
+        for _ in range(request_n):
+            client.send_bytes(
+                HeadersFrame(
+                    stream_id=stream_id,
+                    data=hpack_encoder.encode(headers),
+                    flags=["END_HEADERS", "END_STREAM"],
+                ).serialize()
             )
-            client.send_bytes(RstStreamFrame(stream_id=client.stream_id).serialize())
-            client.stream_id += 2
-            time.sleep(sleep)
-
-        #  The response status check was removed because sometimes client
-        #  receives TCP RST before the HTTP response.
-        self.assertTrue(client.wait_for_connection_close())
-        self.assertFrangWarning(warning=warning, expected=1)
-
-    def test_request_rate_with_only_headers_frame(self):
-        self._test_with_only_headers_frame(requests=4, sleep=DELAY, warning=self.rate_warning)
-
-    def test_request_burst_with_only_headers_frame(self):
-        self._test_with_only_headers_frame(requests=3, sleep=0, warning=self.burst_warning)
+            stream_id += 2
+            await asyncio.sleep(sleep)
+        await client.wait_for_all_tasks()
+        await client.aclose()
