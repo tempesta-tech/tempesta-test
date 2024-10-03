@@ -20,7 +20,7 @@ ESTABLISHED_9005_9006 = b"""
 
 
 class TestFreePortsChecker(unittest.TestCase):
-    @unittest.mock.patch("framework.port_checks.remote.tempesta")
+    @unittest.mock.patch("helpers.port_checks.remote.tempesta")
     def test_check_ports_established(self, tempesta):
         for ss, ports, expected in (
             [b"", ["9005"], False],

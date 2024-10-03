@@ -5,6 +5,5 @@ __all__ = [
     "deproxy_server",
     "nginx_server",
     "wrk_client",
-    "port_checks",
     "external_client",
 ]
