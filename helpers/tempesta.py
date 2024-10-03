@@ -1,6 +1,6 @@
 import re
 
-from helpers.x509 import CertGenerator
+from helpers.cert_generator_x509 import CertGenerator
 
 from . import error, remote, tf_cfg
 

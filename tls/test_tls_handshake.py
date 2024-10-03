@@ -4,7 +4,7 @@ handshake messages.
 """
 
 from helpers import analyzer, remote, util
-from helpers.x509 import CertGenerator
+from helpers.cert_generator_x509 import CertGenerator
 from test_suite import tester
 
 from .fuzzer import tls_record_fuzzer

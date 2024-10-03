@@ -4,13 +4,12 @@ __license__ = "GPL2"
 
 import time
 
-from framework.port_checks import FreePortsChecker
-from helpers import analyzer, dmesg, remote
+from helpers import analyzer, dmesg, port_checks, remote
 from helpers.analyzer import PSH, TCP
+from helpers.cert_generator_x509 import CertGenerator
 from helpers.dmesg import amount_positive
 from helpers.remote import CmdError
 from helpers.tf_cfg import cfg
-from helpers.x509 import CertGenerator
 from test_suite import tester
 from test_suite.parameterize import param, parameterize, parameterize_class
 
@@ -55,7 +54,7 @@ class TestListenCommonReconf(tester.TempestaTest):
     def test_reconf_busy_socks(self):
         """The user is trying to add listen to a busy port by another service."""
         tempesta = self.get_tempesta()
-        port_checker = FreePortsChecker()
+        port_checker = port_checks.FreePortsChecker()
 
         self.start_all_servers()
 
@@ -1837,7 +1836,7 @@ http_chain {{
         with self.assertRaises(CmdError):
             tempesta.reload()
 
-        port_checker = FreePortsChecker()
+        port_checker = port_checks.FreePortsChecker()
         with self.assertRaises(Exception):
             port_checker.node = remote.tempesta
             port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=80)

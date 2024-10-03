@@ -10,7 +10,7 @@ import requests
 import websockets
 
 from helpers import dmesg, tf_cfg
-from helpers.x509 import CertGenerator
+from helpers.cert_generator_x509 import CertGenerator
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."

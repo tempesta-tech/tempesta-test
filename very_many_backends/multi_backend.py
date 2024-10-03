@@ -8,7 +8,8 @@ import os
 import re
 import uuid
 
-from helpers import control, error, nginx, remote, stateful, sysnet, tempesta, tf_cfg
+from helpers import control, error, remote, tempesta, tf_cfg
+from test_suite import sysnet
 from testers import stress
 
 

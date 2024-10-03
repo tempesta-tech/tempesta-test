@@ -20,15 +20,15 @@ from hyperframe.frame import (
 
 import run_config
 from framework.deproxy_client import HuffmanEncoder
-from helpers import analyzer, asserts, remote, tf_cfg
-from helpers.custom_error_page import CustomErrorPageGenerator
+from helpers import analyzer, remote, tf_cfg
 from http2_general.helpers import H2Base
+from test_suite import asserts, custom_error_page
 from test_suite.parameterize import param, parameterize, parameterize_class
 
 
 def generate_custom_error_page(data):
     workdir = tf_cfg.cfg.get("General", "workdir")
-    cpage_gen = CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
+    cpage_gen = custom_error_page.CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
     path = cpage_gen.get_file_path()
     remote.tempesta.copy_file(path, data)
     return path

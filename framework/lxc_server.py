@@ -3,8 +3,7 @@
 import json
 from dataclasses import dataclass
 
-from framework import port_checks
-from helpers import error, remote, stateful, tempesta, tf_cfg, util
+from helpers import error, port_checks, remote, stateful, tempesta, tf_cfg, util
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."

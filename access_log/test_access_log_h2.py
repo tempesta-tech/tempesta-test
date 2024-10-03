@@ -7,7 +7,7 @@ __license__ = "GPL2"
 import os
 
 from helpers import dmesg, remote, tf_cfg
-from helpers.x509 import CertGenerator
+from helpers.cert_generator_x509 import CertGenerator
 
 from .common import AccessLogLine
 

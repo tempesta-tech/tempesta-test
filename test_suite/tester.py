@@ -18,8 +18,9 @@ from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
-from helpers import control, dmesg, remote, sysnet, tf_cfg, util
+from helpers import control, dmesg, remote, tf_cfg, util
 from helpers.util import fill_template
+from test_suite import sysnet
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."

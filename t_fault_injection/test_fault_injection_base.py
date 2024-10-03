@@ -4,9 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers import deproxy, dmesg, remote, sysnet, tf_cfg
+from helpers import deproxy, dmesg, remote, tf_cfg
 from helpers.networker import NetWorker
-from test_suite import tester
+from test_suite import sysnet, tester
 from test_suite.parameterize import param, parameterize
 
 

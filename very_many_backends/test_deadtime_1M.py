@@ -8,7 +8,8 @@ import select
 import sys
 import time
 
-from helpers import chains, deproxy, stateful, sysnet, tempesta, tf_cfg
+from helpers import chains, deproxy, stateful, tempesta, tf_cfg
+from test_suite import sysnet
 from testers import stress
 
 from . import multi_backend

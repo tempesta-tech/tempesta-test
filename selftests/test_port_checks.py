@@ -1,6 +1,6 @@
 import unittest
 
-from framework.port_checks import FreePortsChecker
+from helpers.port_checks import FreePortsChecker
 
 ESTABLISHED_9005 = b"""
 192.168.1.1:22

@@ -3,7 +3,7 @@ Test TLS tickets: Tempesta must handle both full and abbreviated handshakes.
 """
 
 from helpers import remote
-from helpers.x509 import CertGenerator
+from helpers.cert_generator_x509 import CertGenerator
 from test_suite import tester
 
 from .handshake import *
