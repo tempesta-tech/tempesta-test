@@ -27,7 +27,8 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
-        cache 0;
+        frang_limits {http_strict_host_checking false;}
+        %s
     """
 
     backends = [
@@ -61,7 +62,7 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
         if self._base:
             self.skipTest("This is an abstract class")
         self.tempesta = {
-            "config": self.tempesta_tmpl % (self.proto),
+            "config": self.tempesta_tmpl % ((self.proto), self.cache),
         }
         super().setUp()
 
@@ -79,12 +80,43 @@ class BaseWorpressStress(CustomMtuMixin, tester.TempestaTest, base=True):
         self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
 
-class TlsWordpressStress(BaseWorpressStress):
+class TlsWordpressStressNoCache(BaseWorpressStress):
     proto = "https"
+    cache = "cache 0;\r\n"
+
+
+class TlsWordpressStressCache(BaseWorpressStress):
+    proto = "https"
+    cache = "cache 2;\r\ncache_fulfill * *;\r\n"
+
+    clients = [
+        {
+            "id": "get_images",
+            "type": "curl",
+            "uri": f"/images/2048.jpg?ver=1",
+            "ssl": True,
+            "parallel": CONCURRENT_CONNECTIONS,
+            "headers": {
+                "Connection": "close",
+            },
+            "disable_output": True,
+        },
+    ]
+
+    def test_get_large_images(self):
+        self.start_all()
+        client = self.get_client("get_images")
+        for i in range(1, 10):
+            client.start()
+            self.wait_while_busy(client)
+            client.stop()
+            print(client.statuses)
+            self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
 
 class H2WordpressStress(BaseWorpressStress):
     proto = "h2"
+    cache = "cache 0;\r\n"
 
     def setUp(self):
         self.clients = [{**client, "http2": True} for client in self.clients]
