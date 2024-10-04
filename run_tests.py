@@ -137,7 +137,7 @@ def __check_memory_consumption(python_memory_before_: int, used_memory_before_: 
         tf_cfg.dbg(1, memleak_msg)
         delta_used_memory = used_memory_after - delta_python - used_memory_before_
         if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
-            raise error.MemoryConsumptionError(
+            raise error.MemoryConsumptionException(
                 memleak_msg,
                 delta_used_memory=delta_used_memory,
                 memory_leak_threshold=run_config.MEMORY_LEAK_THRESHOLD,
@@ -168,7 +168,7 @@ def __check_kmemleak() -> None:
             )
             tf_cfg.dbg(1, kmemleak_msg)
             if b"tfw_" in stdout:
-                raise error.KmemLeakError(stdout=stdout.decode())
+                raise error.KmemLeakException(stdout=stdout.decode())
         finally:
             tempesta.stop()
 

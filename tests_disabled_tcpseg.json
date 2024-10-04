@@ -138,6 +138,10 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "cache.test_purge.TestPurgeInvalidConfig",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

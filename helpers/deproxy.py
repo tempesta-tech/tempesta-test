@@ -992,6 +992,7 @@ class Client(TlsClient, stateful.Stateful):
         socket_family="ipv4",
     ):
         TlsClient.__init__(self, ssl, proto)
+        stateful.Stateful.__init__(self)
         self.request = None
         self.request_buffer = ""
         self.response_buffer = ""
@@ -1028,7 +1029,8 @@ class Client(TlsClient, stateful.Stateful):
             # When we cannot bind an address, adding more details
             except OSError as os_exc:
                 os_err_msg = "Cannot assign an address `{0}` for `{1}`".format(
-                    self.bind_addr, self.__class__.__name__,
+                    self.bind_addr,
+                    self.__class__.__name__,
                 )
                 dbg(self, 6, os_err_msg)
                 raise OSError(os_err_msg) from os_exc
@@ -1212,6 +1214,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
 class Server(asyncore.dispatcher, stateful.Stateful):
     def __init__(self, port, host=None, conns_n=None, keep_alive=None):
         asyncore.dispatcher.__init__(self)
+        stateful.Stateful.__init__(self)
         self.tester = None
         self.port = port
         self.connections = []
@@ -1297,6 +1300,7 @@ class MessageChain(object):
 
 class Deproxy(stateful.Stateful):
     def __init__(self, client, servers, register=True, message_chains=None):
+        super().__init__()
         self.message_chains = message_chains
         self.client = client
         self.servers = servers
