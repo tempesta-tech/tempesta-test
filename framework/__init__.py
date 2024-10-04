@@ -1,9 +1,13 @@
 __all__ = [
     "client",
+    "curl_client",
+    "deproxy_auto_parser",
     "deproxy_client",
     "deproxy_manager",
     "deproxy_server",
-    "nginx_server",
-    "wrk_client",
     "external_client",
+    "lxc_server",
+    "nginx_server",
+    "stateful",
+    "wrk_client",
 ]

@@ -3,7 +3,8 @@ import queue
 import select
 import threading
 
-from helpers import error, stateful, tf_cfg
+from framework import stateful
+from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."

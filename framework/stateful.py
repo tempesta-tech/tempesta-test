@@ -1,6 +1,7 @@
+import abc
 import typing
 
-from . import tf_cfg
+from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
@@ -12,7 +13,7 @@ STATE_STOPPED = "stopped"
 STATE_ERROR = "error"
 
 
-class Stateful(object):
+class Stateful(abc.ABCMeta):
     """Class for stateful items, who have states
     stopped -> started -> stopped"""
 

@@ -16,8 +16,8 @@ import inquirer
 import psutil
 
 import run_config
-from helpers import control, error, prepare, remote, tf_cfg, util
-from test_suite import shell, tester
+from helpers import control, error, remote, tf_cfg, util
+from test_suite import prepare, shell, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

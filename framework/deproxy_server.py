@@ -7,17 +7,9 @@ import threading
 import time
 
 import run_config
+from framework import stateful
 from framework.deproxy_auto_parser import DeproxyAutoParser
-from helpers import (
-    deproxy,
-    error,
-    port_checks,
-    remote,
-    stateful,
-    tempesta,
-    tf_cfg,
-    util,
-)
+from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
 

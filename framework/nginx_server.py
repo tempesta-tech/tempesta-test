@@ -2,7 +2,8 @@ import os
 import re
 import time
 
-from helpers import port_checks, remote, stateful, tempesta, tf_cfg
+from framework import stateful
+from helpers import port_checks, remote, tempesta, tf_cfg
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
