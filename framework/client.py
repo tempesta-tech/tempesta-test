@@ -29,6 +29,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         in `form_command()` function. This would allow to update options until
         client will be started. See `Wrk` class for example
         """
+        super().__init__()
         self.node = remote.client
         self.connections = int(tf_cfg.cfg.get("General", "concurrent_connections"))
         self.duration = int(tf_cfg.cfg.get("General", "Duration"))

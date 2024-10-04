@@ -312,6 +312,7 @@ def clients_parallel_load(client, count=None):
 # -------------------------------------------------------------------------------
 class Tempesta(stateful.Stateful):
     def __init__(self, vhost_auto=True):
+        super().__init__()
         self.node = remote.tempesta
         self.workdir = self.node.workdir
         self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
@@ -431,6 +432,7 @@ class TempestaFI(Tempesta):
 
 class Nginx(stateful.Stateful):
     def __init__(self, listen_port, workers=1):
+        super().__init__()
         self.node = remote.server
         self.workdir = tf_cfg.cfg.get("Server", "workdir")
         self.ip = tf_cfg.cfg.get("Server", "ip")

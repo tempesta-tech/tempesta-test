@@ -153,6 +153,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
     ):
         # Initialize the base `dispatcher`
         asyncore.dispatcher.__init__(self)
+        stateful.Stateful.__init__(self)
 
         self._reinit_variables()
         self._deproxy_auto_parser = deproxy_auto_parser
