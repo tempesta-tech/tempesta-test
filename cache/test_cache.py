@@ -1747,7 +1747,7 @@ class TestCacheVhost(tester.TempestaTest):
 
     tempesta = {
         "config": """
-        listen 443 proto=h2;
+        listen 443;
         listen 80;
 
         srv_group main {
@@ -1784,7 +1784,26 @@ class TestCacheVhost(tester.TempestaTest):
         client.stop()
         return client.response_msg
 
-    def test_h2(self):
+    @parameterize.expand(
+        [
+            param(name="h2", proto="h2"),
+            param(name="https", proto="https"),
+        ]
+    )
+    def test(self, name, proto):
+        """
+        Tempesta should not override cached response.
+        It may happens during transfer the first cached response.
+        To check it this we must do 3 requests:
+        1. Not from cache.
+        2. From cache, here cache may be corrupted.
+        3. From cache, here check validity.
+        """
+        self.get_tempesta().config.set_defconfig(
+            self.get_tempesta().config.defconfig.replace(
+                "listen 443;", f"listen 443 proto={proto};\r\n"
+            )
+        )
         self.start_all_services(client=False)
 
         # Fetch response from the backend
@@ -1797,7 +1816,7 @@ class TestCacheVhost(tester.TempestaTest):
         srv = self.get_server("srv_front")
         client = self.get_client("front-1")
         response = self.get_response(client)
-        self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_front")
+        self.assertEqual(len(srv.requests), 1, "Request should be taken from cache")
         self.assertEqual(response, "bar")
 
         # Make sure it was cached
