@@ -1204,6 +1204,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
 class Server(asyncore.dispatcher, stateful.Stateful):
     def __init__(self, port, host=None, conns_n=None, keep_alive=None):
         asyncore.dispatcher.__init__(self)
+        stateful.Stateful.__init__(self)
         self.tester = None
         self.port = port
         self.connections = []
@@ -1289,6 +1290,7 @@ class MessageChain(object):
 
 class Deproxy(stateful.Stateful):
     def __init__(self, client, servers, register=True, message_chains=None):
+        super().__init__()
         self.message_chains = message_chains
         self.client = client
         self.servers = servers
