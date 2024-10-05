@@ -161,6 +161,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             print(end_time - start_time)
             if end_time - start_time > expected_requests_time:
+                time.sleep(1)
                 continue
             break
 
