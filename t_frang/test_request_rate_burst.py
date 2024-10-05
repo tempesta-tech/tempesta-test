@@ -159,7 +159,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 await asyncio.sleep(sleep)
             end_time = time.time()
 
-            print(end_time - start_time)
+            tf_cfg.dbg(1, str(end_time - start_time))
             if end_time - start_time > expected_requests_time:
                 time.sleep(1)
                 continue
