@@ -2,6 +2,7 @@
 
 import asyncio
 import ssl
+import time
 
 from hpack import Encoder
 from hyperframe.frame import HeadersFrame, SettingsFrame
@@ -149,9 +150,17 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
     async def make_requests(self, client: AsyncClient, request_n: int, sleep: float) -> None:
         request_factory = self.__getattribute__(self.request_factory)
-        for _ in range(request_n):
-            await client.send_bytes(request_factory())
-            await asyncio.sleep(sleep)
+        for _ in range(5):
+            start_time = time.time()
+            for _ in range(request_n):
+                await client.send_bytes(request_factory())
+                await asyncio.sleep(sleep)
+            end_time = time.time()
+
+            print(end_time - start_time)
+            if end_time - start_time > DELAY:
+                continue
+            break
 
     async def atest(
         self,
