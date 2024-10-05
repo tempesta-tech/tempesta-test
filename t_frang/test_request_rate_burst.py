@@ -152,18 +152,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         self, client: AsyncClient, request_n: int, sleep: float, expected_requests_time: float
     ) -> None:
         request_factory = self.__getattribute__(self.request_factory)
-        for _ in range(5):
-            start_time = time.time()
-            for _ in range(request_n):
-                await client.send_bytes(request_factory())
-                await asyncio.sleep(sleep)
-            end_time = time.time()
-
-            tf_cfg.dbg(1, str(end_time - start_time))
-            if end_time - start_time > expected_requests_time:
-                time.sleep(1)
-                continue
-            break
+        for _ in range(request_n):
+            await client.send_bytes(request_factory())
+            await asyncio.sleep(sleep)
 
     async def atest(
         self,
@@ -186,14 +177,23 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         )
         try:
             await client.run_start()
-            await self.make_requests(client, request_n, sleep, expected_requests_time)
+            for step in range(1, 6):
+                start_time = time.monotonic()
+                await self.make_requests(client, request_n, sleep, expected_requests_time)
 
-            server = self.get_server("deproxy")
-            self.assertTrue(server.wait_for_requests(expected_request_n))
+                server = self.get_server("deproxy")
+                self.assertTrue(server.wait_for_requests(expected_request_n * step))
+
+                end_time = time.monotonic()
+                tf_cfg.dbg(1, str(end_time - start_time))
+                if end_time - start_time > expected_requests_time:
+                    time.sleep(1)
+                    continue
+                break
 
             if expected_block:
                 self.assertTrue(await client.wait_for_connection_close())
-                self.assertTrue(self.klog.find(frang_msg))
+                self.assertTrue(self.klog.find(frang_msg, cond=dmesg.amount_equals(step)))
 
         finally:
             await client.aclose()
