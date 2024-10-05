@@ -8,8 +8,8 @@ from hyperframe.frame import HeadersFrame, SettingsFrame
 
 import run_config
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from framework.parameterize import param, parameterize
-from helpers import tf_cfg
+from framework.parameterize import param, parameterize, parameterize_class
+from helpers import dmesg, tf_cfg
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -87,10 +87,17 @@ class AsyncClient:
             try:
                 self._writer.close()
                 await self._writer.wait_closed()
+            # TODO: Should be removed after issue #1778. Tempesta sends an unexpected tls alert.
             except ssl.SSLError:
                 ...
 
 
+@parameterize_class(
+    [
+        {"name": "Http", "http2": False, "request_factory": "create_http1_request"},
+        {"name": "H2", "http2": True, "request_factory": "create_h2_request"},
+    ]
+)
 class TestFrangRequestRateBurst(FrangTestCase):
     """Tests for 'request_rate' and 'request_burst' directive."""
 
@@ -115,11 +122,35 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
     rate_warning = ERROR_MSG_RATE
     burst_warning = ERROR_MSG_BURST
-    http2 = False
+    http2: bool
+    request_factory: callable
+
+    stream_id = 1
+
+    @staticmethod
+    def create_http1_request():
+        return b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+
+    def create_h2_request(self):
+        headers = [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "GET"),
+        ]
+
+        request = HeadersFrame(
+            stream_id=self.stream_id,
+            data=self.hpack_encoder.encode(headers),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        self.stream_id += 2
+        return request.serialize()
 
     async def make_requests(self, client: AsyncClient, request_n: int, sleep: float) -> None:
+        request_factory = self.__getattribute__(self.request_factory)
         for _ in range(request_n):
-            await client.send_bytes(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            await client.send_bytes(request_factory())
             await asyncio.sleep(sleep)
 
     async def atest(
@@ -131,6 +162,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         frang_msg: str,
     ):
         self.start_all_services(client=False)
+        self.hpack_encoder = Encoder()  # only for HTTP/2.0
 
         client = AsyncClient(
             conn_ip=tf_cfg.cfg.get("Tempesta", "ip"),
@@ -205,6 +237,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             ),
         ]
     )
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_request(
         self,
         name,
@@ -215,27 +248,3 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         frang_msg: str,
     ):
         asyncio.run(self.atest(request_n, sleep, expected_block, expected_request_n, frang_msg))
-
-
-class TestFrangRequestRateBurstH2(TestFrangRequestRateBurst):
-    http2 = True
-
-    async def make_requests(self, client: AsyncClient, request_n: int, sleep: float) -> None:
-        hpack_encoder = Encoder()
-        headers = [
-            (":authority", "example.com"),
-            (":path", "/"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ]
-        stream_id = 1
-        for _ in range(request_n):
-            await client.send_bytes(
-                HeadersFrame(
-                    stream_id=stream_id,
-                    data=hpack_encoder.encode(headers),
-                    flags=["END_HEADERS", "END_STREAM"],
-                ).serialize()
-            )
-            stream_id += 2
-            await asyncio.sleep(sleep)
