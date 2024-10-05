@@ -148,7 +148,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         self.stream_id += 2
         return request.serialize()
 
-    async def make_requests(self, client: AsyncClient, request_n: int, sleep: float) -> None:
+    async def make_requests(
+        self, client: AsyncClient, request_n: int, sleep: float, expected_requests_time: float
+    ) -> None:
         request_factory = self.__getattribute__(self.request_factory)
         for _ in range(5):
             start_time = time.time()
@@ -158,7 +160,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             end_time = time.time()
 
             print(end_time - start_time)
-            if end_time - start_time > DELAY:
+            if end_time - start_time > expected_requests_time:
                 continue
             break
 
@@ -169,6 +171,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         expected_block: bool,
         expected_request_n: int,
         frang_msg: str,
+        expected_requests_time: float,
     ):
         self.start_all_services(client=False)
         self.hpack_encoder = Encoder()  # only for HTTP/2.0
@@ -182,7 +185,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         )
         try:
             await client.run_start()
-            await self.make_requests(client, request_n, sleep)
+            await self.make_requests(client, request_n, sleep, expected_requests_time)
 
             server = self.get_server("deproxy")
             self.assertTrue(server.wait_for_requests(expected_request_n))
@@ -203,6 +206,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 expected_block=True,
                 expected_request_n=3,
                 frang_msg=ERROR_MSG_RATE,
+                expected_requests_time=1,
             ),
             param(
                 name="rate_without_reaching_the_limit",
@@ -211,6 +215,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 expected_block=False,
                 expected_request_n=2,
                 frang_msg=ERROR_MSG_RATE,
+                expected_requests_time=1,
             ),
             param(
                 name="rate_on_the_limit",
@@ -219,6 +224,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 expected_block=False,
                 expected_request_n=3,
                 frang_msg=ERROR_MSG_RATE,
+                expected_requests_time=1,
             ),
             param(
                 name="burst_reached",
@@ -227,6 +233,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 expected_block=True,
                 expected_request_n=2,
                 frang_msg=ERROR_MSG_BURST,
+                expected_requests_time=DELAY,
             ),
             param(
                 name="burst_without_reaching_the_limit",
@@ -235,6 +242,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 expected_block=False,
                 expected_request_n=1,
                 frang_msg=ERROR_MSG_BURST,
+                expected_requests_time=DELAY,
             ),
             param(
                 name="burst_on_the_limit",
@@ -243,6 +251,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 expected_block=False,
                 expected_request_n=2,
                 frang_msg=ERROR_MSG_BURST,
+                expected_requests_time=DELAY,
             ),
         ]
     )
@@ -255,5 +264,15 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         expected_block: bool,
         expected_request_n: int,
         frang_msg: str,
+        expected_requests_time: float,
     ):
-        asyncio.run(self.atest(request_n, sleep, expected_block, expected_request_n, frang_msg))
+        asyncio.run(
+            self.atest(
+                request_n,
+                sleep,
+                expected_block,
+                expected_request_n,
+                frang_msg,
+                expected_requests_time,
+            )
+        )
