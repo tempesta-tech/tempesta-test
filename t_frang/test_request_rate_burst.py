@@ -62,6 +62,9 @@ class AsyncClient:
                 # compression.
                 self._context.options |= ssl.OP_NO_COMPRESSION
 
+    def is_closing(self) -> bool:
+        return self._writer.is_closing()
+
     async def wait_for_connection_close(self, timeout=5.0) -> bool:
         task = asyncio.create_task(self._reader.read(-1))
         try:
@@ -165,35 +168,43 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         frang_msg: str,
         expected_requests_time: float,
     ):
-        self.start_all_services(client=False)
-        self.hpack_encoder = Encoder()  # only for HTTP/2.0
-
-        client = AsyncClient(
-            conn_ip=tf_cfg.cfg.get("Tempesta", "ip"),
-            conn_port=443,
-            local_ip=tf_cfg.cfg.get("Client", "ip"),
-            ssl_=True,
-            http2=self.http2,
-        )
         try:
-            await client.run_start()
-            for step in range(1, 6):
+            for step in range(1, 5):
+                tf_cfg.dbg(1, f"Step {step}")
+                self.start_all_services(client=False)
+                self.hpack_encoder = Encoder()  # only for HTTP/2.0
+
+                client = AsyncClient(
+                    conn_ip=tf_cfg.cfg.get("Tempesta", "ip"),
+                    conn_port=443,
+                    local_ip=tf_cfg.cfg.get("Client", "ip"),
+                    ssl_=True,
+                    http2=self.http2,
+                )
+                await client.run_start()
                 start_time = time.monotonic()
                 await self.make_requests(client, request_n, sleep, expected_requests_time)
+                tf_cfg.dbg(1, str(time.monotonic() - start_time))
 
                 server = self.get_server("deproxy")
-                self.assertTrue(server.wait_for_requests(expected_request_n * step))
+                self.assertTrue(server.wait_for_requests(expected_request_n))
 
                 end_time = time.monotonic()
                 tf_cfg.dbg(1, str(end_time - start_time))
                 if end_time - start_time > expected_requests_time:
-                    time.sleep(1)
+                    tf_cfg.dbg(1, "Restart test")
+                    await client.aclose()
+                    for service in self.get_all_services():
+                        service.stop()
                     continue
                 break
 
             if expected_block:
                 self.assertTrue(await client.wait_for_connection_close())
-                self.assertTrue(self.klog.find(frang_msg, cond=dmesg.amount_equals(step)))
+                self.assertTrue(self.klog.find(frang_msg, cond=dmesg.amount_positive))
+            else:
+                self.assertFalse(client.is_closing())
+                self.assertTrue(self.klog.find(frang_msg, cond=dmesg.amount_zero))
 
         finally:
             await client.aclose()
