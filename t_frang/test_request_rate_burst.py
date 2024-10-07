@@ -254,8 +254,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             self.check_response(client, warning_msg=self.burst_warning, status_code="200")
         else:
             # rate limit is reached
-            self.assertFrangWarning(warning=self.burst_warning, expected=range(1, 6))
             self.assertEqual(client.last_response.status, "403")
+            self.assertFrangWarning(warning=self.burst_warning, expected=range(1, 6))
 
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
 
@@ -290,8 +290,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             self.check_response(client, warning_msg=self.rate_warning, status_code="200")
         else:
             # rate limit is reached
-            self.assertFrangWarning(warning=self.rate_warning, expected=range(1, 6))
             self.assertEqual(client.last_response.status, "403")
+            self.assertFrangWarning(warning=self.rate_warning, expected=range(1, 6))
 
         self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
