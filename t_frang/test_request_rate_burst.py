@@ -5,7 +5,7 @@ import time
 from hyperframe.frame import RstStreamFrame
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, asserts, remote, tf_cfg
+from helpers import analyzer, asserts, dmesg, remote, tf_cfg
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -224,6 +224,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
     rate_warning = ERROR_MSG_RATE
     burst_warning = ERROR_MSG_BURST
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def _base_burst_scenario(self, requests: int):
         for step in range(1, 6):
             tf_cfg.dbg(1, f"Step {step}")
@@ -261,6 +262,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def _base_rate_scenario(self, requests: int):
         for step in range(1, 6):
             tf_cfg.dbg(1, f"Step {step}")
