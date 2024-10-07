@@ -231,7 +231,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             client = self.get_client("curl")
             client.set_uri(f"/[1-{requests}]")
-            client.parallel = requests
+            client.parallel = 1
             client.disable_output = True
             client.dump_headers = False
 
