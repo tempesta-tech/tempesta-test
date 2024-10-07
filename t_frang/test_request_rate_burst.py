@@ -229,23 +229,21 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tf_cfg.dbg(1, f"Step {step}")
             self.start_all_services(client=False)
 
-            client = self.get_client("curl")
-            client.set_uri(f"/[1-{requests}]")
-            client.parallel = 1
-            client.disable_output = True
-            # client.dump_headers = False
+            client = self.get_client("deproxy-1")
+            client.start()
 
             start_time = time.monotonic()
-            client.start()
-            tf_cfg.dbg(1, client.cmd)
-            client.wait_for_finish()
-            client.stop()
+            for _ in range(requests):
+                client.make_request(client.create_request(method="GET", uri="/", headers=[]))
+
+            if requests <= 2:
+                client.wait_for_response()
+            else:
+                client.wait_for_connection_close()
             end_time = time.monotonic()
 
-            time.sleep(self.timeout)
-
             tf_cfg.dbg(1, str(end_time - start_time))
-            if end_time - start_time > DELAY:
+            if end_time - start_time > 0.125:
                 tf_cfg.dbg(1, "The test conditions are not Completed")
                 for service in self.get_all_services():
                     service.stop()
@@ -254,14 +252,12 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             else:
                 break
 
-        self.assertTrue(client.responses)
-        if requests > 2:  # burst limit 2
-            self.assertEqual(client.last_response.status, 403)
-            self.assertFrangWarning(warning=self.burst_warning, expected=range(1, 6))
+        if requests <= 2:  # rate limit 2
+            self.check_response(client, warning_msg=self.burst_warning, status_code="200")
         else:
-            for resp in client.responses:
-                self.assertEqual(resp.status, 200)
-            self.assertFrangWarning(warning=self.burst_warning, expected=0)
+            # rate limit is reached
+            self.assertFrangWarning(warning=self.burst_warning, expected=range(1, 6))
+            self.assertEqual(client.last_response.status, "403")
 
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
 
