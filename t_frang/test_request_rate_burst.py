@@ -3,7 +3,6 @@
 import time
 
 from hyperframe.frame import RstStreamFrame
-from pre_commit.util import cmd_output
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from helpers import analyzer, asserts, remote, tf_cfg
@@ -231,7 +230,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             self.start_all_services(client=False)
 
             client = self.get_client("curl")
-            client.uri += f"[1-{requests}]"
+            client.set_uri(f"/[1-{requests}]")
             client.parallel = requests
             client.disable_output = True
             client.dump_headers = False
