@@ -237,10 +237,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             for _ in range(requests):
                 client.make_request(client.create_request(method="GET", uri="/", headers=[]))
 
-            if requests <= 2:
-                client.wait_for_response()
-            else:
-                client.wait_for_connection_close()
+            self.assertTrue(client.wait_for_response())
             end_time = time.monotonic()
 
             tf_cfg.dbg(1, str(end_time - start_time))
@@ -276,10 +273,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 client.make_request(client.create_request(method="GET", uri="/", headers=[]))
                 time.sleep(DELAY)
 
-            if requests <= 3:
-                client.wait_for_response()
-            else:
-                client.wait_for_connection_close()
+            self.assertTrue(client.wait_for_response())
             end_time = time.monotonic()
 
             tf_cfg.dbg(1, str(end_time - start_time))
