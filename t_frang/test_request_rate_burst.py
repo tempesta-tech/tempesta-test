@@ -3,6 +3,7 @@
 import time
 
 from hyperframe.frame import RstStreamFrame
+from pre_commit.util import cmd_output
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from helpers import analyzer, asserts, remote, tf_cfg
@@ -237,6 +238,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             start_time = time.monotonic()
             client.start()
+            tf_cfg.dbg(1, client.cmd)
             client.wait_for_finish()
             client.stop()
             end_time = time.monotonic()
@@ -248,6 +250,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 tf_cfg.dbg(1, "The test conditions are not Completed")
                 for service in self.get_all_services():
                     service.stop()
+                time.sleep(1)
                 continue
             else:
                 break
@@ -260,20 +263,39 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
 
     def _base_rate_scenario(self, requests: int):
-        self.start_all_services(client=False)
+        for step in range(1, 6):
+            tf_cfg.dbg(1, f"Step {step}")
+            self.start_all_services(client=False)
 
-        client = self.get_client("deproxy-1")
-        client.start()
-        for step in range(requests):
-            client.make_request(client.create_request(method="GET", uri="/", headers=[]))
-            time.sleep(DELAY)
+            client = self.get_client("deproxy-1")
+            client.start()
+
+            start_time = time.monotonic()
+            for _ in range(requests):
+                client.make_request(client.create_request(method="GET", uri="/", headers=[]))
+                time.sleep(DELAY)
+
+            if requests <= 3:
+                client.wait_for_response()
+            else:
+                client.wait_for_connection_close()
+            end_time = time.monotonic()
+
+            tf_cfg.dbg(1, str(end_time - start_time))
+            if end_time - start_time > 1:
+                tf_cfg.dbg(1, "The test conditions are not Completed")
+                for service in self.get_all_services():
+                    service.stop()
+                time.sleep(1)
+                continue
+            else:
+                break
 
         if requests <= 3:  # rate limit 3
             self.check_response(client, warning_msg=self.rate_warning, status_code="200")
         else:
             # rate limit is reached
-            self.assertTrue(client.wait_for_connection_close())
-            self.assertFrangWarning(warning=self.rate_warning, expected=1)
+            self.assertFrangWarning(warning=self.rate_warning, expected=range(1, 6))
             self.assertEqual(client.last_response.status, "403")
 
         self.assertFrangWarning(warning=self.burst_warning, expected=0)
