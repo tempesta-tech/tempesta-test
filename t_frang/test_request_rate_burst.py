@@ -5,7 +5,7 @@ import time
 from hyperframe.frame import RstStreamFrame
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, asserts, remote
+from helpers import analyzer, asserts, remote, tf_cfg
 from t_frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -225,21 +225,35 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
     burst_warning = ERROR_MSG_BURST
 
     def _base_burst_scenario(self, requests: int):
-        self.start_all_services(client=False)
+        for step in range(1, 6):
+            tf_cfg.dbg(1, f"Step {step}")
+            self.start_all_services(client=False)
 
-        client = self.get_client("curl")
-        client.uri += f"[1-{requests}]"
-        client.parallel = requests
-        client.disable_output = True
+            client = self.get_client("curl")
+            client.uri += f"[1-{requests}]"
+            client.parallel = requests
+            client.disable_output = True
+            client.dump_headers = False
 
-        client.start()
-        client.wait_for_finish()
-        client.stop()
+            start_time = time.monotonic()
+            client.start()
+            client.wait_for_finish()
+            client.stop()
+            end_time = time.monotonic()
 
-        time.sleep(self.timeout)
+            time.sleep(self.timeout)
+
+            tf_cfg.dbg(1, str(end_time - start_time))
+            if end_time - start_time > DELAY:
+                tf_cfg.dbg(1, "The test conditions are not Completed")
+                for service in self.get_all_services():
+                    service.stop()
+                continue
+            else:
+                break
 
         if requests > 2:  # burst limit 2
-            self.assertFrangWarning(warning=self.burst_warning, expected=1)
+            self.assertFrangWarning(warning=self.burst_warning, expected=range(1, 6))
         else:
             self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
@@ -301,6 +315,7 @@ class FrangRequestRateBurstH2(FrangRequestRateBurstTestCase):
                 "Host": "debian",
             },
             "cmd_args": " --verbose",
+            "save_total_time": True,
         },
     ]
 
