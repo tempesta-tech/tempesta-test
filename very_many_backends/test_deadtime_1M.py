@@ -23,6 +23,7 @@ class DeadtimeClient(stateful.Stateful):
     wait = False
 
     def __init__(self, uri="/", max_deadtime=1, timeout=20):
+        super().__init__()
         self.uri = uri
         self.timeout = timeout
         self.max_deadtime = max_deadtime

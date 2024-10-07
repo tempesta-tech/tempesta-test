@@ -2,9 +2,11 @@ import asyncore
 import queue
 import select
 import threading
+import traceback
 
 from framework import stateful
 from helpers import tf_cfg
+
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
@@ -15,7 +17,11 @@ def finish_all_deproxy():
     asyncore.close_all()
 
 
-def run_deproxy_server(deproxy, exit_event, polling_lock, q):
+def run_deproxy_server(
+    deproxy: "DeproxyManager",
+    exit_event: threading.Event,
+    polling_lock: threading.Lock,
+):
     tf_cfg.dbg(3, "Running deproxy server manager")
 
     try:
@@ -28,11 +34,9 @@ def run_deproxy_server(deproxy, exit_event, polling_lock, q):
             poll_fun()
             polling_lock.release()
     except Exception as e:
-        tf_cfg.dbg(2, "Error while polling: %s" % str(e))
+        tf_cfg.dbg(1, "Error while polling: %s" % str(e))
         polling_lock.release()
-        q.put(e)
-        # TODO it should be change after #534 issue
-        deproxy.append_exception(e)
+        deproxy.append_exception(traceback.format_exc())
     tf_cfg.dbg(3, "Finished deproxy manager")
 
 
@@ -42,6 +46,7 @@ class DeproxyManager(stateful.Stateful):
     Tests don't need to manually use this class."""
 
     def __init__(self):
+        super().__init__()
         self.thread_expts = queue.Queue()
         self.servers = []
         self.clients = []
@@ -66,15 +71,9 @@ class DeproxyManager(stateful.Stateful):
         self.exit_event.clear()
         self.proc = threading.Thread(
             target=run_deproxy_server,
-            args=(self, self.exit_event, self.polling_lock, self.thread_expts),
+            args=(self, self.exit_event, self.polling_lock),
         )
         self.proc.start()
-
-    def thread_exception(self):
-        try:
-            return self.thread_expts.get()
-        except queue.Empty:
-            return None
 
     @stateful.Stateful.state.setter
     def state(self, new_state: str) -> None:

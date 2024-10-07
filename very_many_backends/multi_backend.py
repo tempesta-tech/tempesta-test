@@ -202,28 +202,14 @@ class NginxMP(control.Nginx):
     first_port = 0
     config = None
 
-    def __init__(self, listen_port, workers=1, ports_n=1, listen_ip=None):
+    def __init__(self, listen_port, workers=1, ports_n=1, listen_ip=tf_cfg.cfg.get("Server", "ip")):
         # We don't call costructor of control.Nginx
+        super().__init__(listen_port, workers)
         self.first_port = listen_port
-        self.node = remote.server
-        self.workdir = tf_cfg.cfg.get("Server", "workdir")
-
-        if listen_ip is None:
-            self.ip = tf_cfg.cfg.get("Server", "ip")
-        else:
-            self.ip = listen_ip
-
+        self.ip = listen_ip
         self.config = ConfigMultiplePorts(self.workdir, workers)
         for i in range(ports_n):
             self.config.add_server(self.ip, listen_port + i)
-
-        self.clear_stats()
-        # Configure number of connections used by TempestaFW.
-        self.conns_n = tempesta.server_conns_default()
-        self.err_msg = "Can't %s Nginx on %s"
-        self.active_conns = 0
-        self.requests = 0
-        self.stop_procedures = [self.stop_nginx, self.remove_config]
 
     def get_name(self):
         return ":".join([self.ip, str(self.first_port)])

@@ -346,6 +346,86 @@ tls_match_any_server_name;
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
     ]
 )
+class TestCacheDublicateHeaders(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+cache 2;
+cache_fulfill * *;
+
+server ${server_ip}:8000;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+""",
+    }
+
+    backends = [DEPROXY_SERVER]
+
+    @parameterize.expand(
+        [
+            param(name="raw", header_name="hdr", val1="aaa", val2="bbb"),
+            param(
+                name="regular",
+                header_name="set-cookie",
+                val1="aaa=bbb",
+                val2="ccc=ddd",
+            ),
+        ]
+    )
+    def test(self, name, header_name, val1, val2):
+        tempesta: Tempesta = self.get_tempesta()
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + f"{header_name}: {val1}\r\n"
+            + f"{header_name}: {val2}\r\n"
+            + "\r\n"
+            + "<html></html>"
+        )
+
+        client = self.get_client("deproxy")
+        request = client.create_request(
+            method="GET",
+            uri="/",
+            headers=[
+                ("connection", "keep-alive"),
+            ],
+        )
+
+        for _ in range(0, 2):
+            client.send_request(request, expected_status_code="200")
+
+        self.assertNotIn("age", client.responses[0].headers)
+        self.assertIn("age", client.responses[1].headers)
+        for resp in client.responses:
+            h_values = tuple(resp.headers.find_all(header_name))
+            self.assertEqual(h_values, (val1, val2))
+
+        msg = "Server has received unexpected number of requests."
+        checks.check_tempesta_cache_stats(
+            tempesta,
+            cache_hits=1,
+            cache_misses=1,
+            cl_msg_served_from_cache=1,
+        )
+        self.assertEqual(len(srv.requests), 1, msg)
+
+
+@parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
 class TestQueryParamsAndRedirect(tester.TempestaTest):
     tempesta = {
         "config": """

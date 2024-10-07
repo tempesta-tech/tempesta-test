@@ -336,6 +336,7 @@ class TempestaTest(unittest.TestCase):
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavailable")
+        self.__exceptions = dict()
         self.__servers = {}
         self.__clients = {}
         self.__tcpdump: subprocess.Popen = None
@@ -364,10 +365,15 @@ class TempestaTest(unittest.TestCase):
         tf_cfg.dbg(3, "\tCleanup: services")
         for service in self.get_all_services():
             service.stop()
+            if service.exceptions:
+                self.__exceptions.update({str(service): "\n".join(service.exceptions)})
 
         self.__servers = {}
         self.__clients = {}
         self.__tempesta = None
+
+        if self.__exceptions:
+            raise error.ServiceStoppingException(self.__exceptions)
 
     def cleanup_deproxy(self):
         tf_cfg.dbg(3, "\tCleanup: deproxy")
@@ -377,7 +383,6 @@ class TempestaTest(unittest.TestCase):
             dbg(
                 self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
             )
-        self.deproxy_manager.check_exceptions()
         self.deproxy_manager = None
 
     def cleanup_interfaces(self):
@@ -437,7 +442,7 @@ class TempestaTest(unittest.TestCase):
             )
             tf_cfg.dbg(4, f"\tCleanup: memory consumption:\n{msg}")
             if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
-                raise error.MemoryConsumptionError(
+                raise error.MemoryConsumptionException(
                     msg, delta_used_memory, run_config.MEMORY_LEAK_THRESHOLD
                 )
 
