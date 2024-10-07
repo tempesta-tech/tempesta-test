@@ -1,6 +1,7 @@
 """
 Instruments for network traffic analysis.
 """
+
 from __future__ import print_function
 
 import abc
@@ -33,7 +34,7 @@ class Sniffer(object, metaclass=abc.ABCMeta):
         self.ports = ports
         self.thread = None
         self.captured = 0
-        self.packets = []
+        self.packets: list[Packet] = []
         self.dump_file = "/tmp/tmp_packet_dump"
         str_ports = " or ".join(("tcp port %s" % p) for p in ports)
         # TODO #120: it's bad to use timeout(1). Instead we should run

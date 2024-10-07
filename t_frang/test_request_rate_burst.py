@@ -3,6 +3,8 @@
 import time
 
 from hyperframe.frame import RstStreamFrame
+from scapy.all import *
+from scapy.packet import Packet
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from helpers import analyzer, asserts, dmesg, remote, tf_cfg
@@ -228,20 +230,27 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
     def _base_burst_scenario(self, requests: int):
         for step in range(1, 6):
             tf_cfg.dbg(1, f"Step {step}")
+            self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80, 443))
+            self.sniffer.start()
             self.start_all_services(client=False)
 
             client = self.get_client("deproxy-1")
             client.start()
 
-            start_time = time.monotonic()
             for _ in range(requests):
                 client.make_request(client.create_request(method="GET", uri="/", headers=[]))
 
-            self.assertIn(client.wait_for_response(), [True, None])
-            end_time = time.monotonic()
+            self.sniffer.stop()
+            requests_packets = []
+            for p in self.sniffer.packets:
+                if p.dport in [
+                    80,
+                ] and p.haslayer(Raw):
+                    tf_cfg.dbg(1, str(p))
+                    requests_packets.append(p)
 
-            tf_cfg.dbg(1, str(end_time - start_time))
-            if end_time - start_time > 0.125:
+            tf_cfg.dbg(1, str(requests_packets[-1].time - requests_packets[0].time))
+            if requests_packets[-1].time - requests_packets[0].time > 0.125:
                 tf_cfg.dbg(1, "The test conditions are not Completed")
                 for service in self.get_all_services():
                     service.stop()
