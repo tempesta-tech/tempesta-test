@@ -233,7 +233,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             client.set_uri(f"/[1-{requests}]")
             client.parallel = 1
             client.disable_output = True
-            client.dump_headers = False
+            # client.dump_headers = False
 
             start_time = time.monotonic()
             client.start()
@@ -254,9 +254,13 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             else:
                 break
 
+        self.assertTrue(client.responses)
         if requests > 2:  # burst limit 2
+            self.assertEqual(client.last_response.status, 403)
             self.assertFrangWarning(warning=self.burst_warning, expected=range(1, 6))
         else:
+            for resp in client.responses:
+                self.assertEqual(resp.status, 200)
             self.assertFrangWarning(warning=self.burst_warning, expected=0)
 
         self.assertFrangWarning(warning=self.rate_warning, expected=0)
