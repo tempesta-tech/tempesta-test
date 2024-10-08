@@ -53,7 +53,7 @@ class Wrk(client.Client):
         # At this moment threads equals user defined value or maximum theads
         # count for remote node.
         if self.threads == -1:
-            self.threads = remote.get_max_thread_count(self.node)
+            self.threads = self.node.get_max_thread_count()
         if self.threads > self.connections:
             self.threads = self.connections
         threads = self.threads if self.connections > 1 else 1

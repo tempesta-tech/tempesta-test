@@ -162,7 +162,7 @@ class Wrk(Client):
         # At this moment threads equals user defined value or maximum theads
         # count for remote node.
         if self.threads == -1:
-            self.threads = remote.get_max_thread_count(self.node)
+            self.threads = self.node.get_max_thread_count()
         if self.threads > self.connections:
             self.threads = self.connections
         if self.connections % self.threads != 0:
@@ -349,12 +349,12 @@ class Tempesta(stateful.Stateful):
             env.update(
                 {"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")},
             )
-        self.node.run_cmd(cmd, timeout=30, env=env, err_msg=(self.err_msg % "start"))
+        self.node.run_cmd(cmd, timeout=30, env=env)
 
     def stop_tempesta(self):
         tf_cfg.dbg(3, "\tStopping TempestaFW on %s" % self.host)
         cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir
-        self.node.run_cmd(cmd, timeout=30, err_msg=(self.err_msg % "stop"))
+        self.node.run_cmd(cmd, timeout=30)
 
     def remove_config(self):
         self.node.remove_file(self.config_name)
@@ -362,7 +362,7 @@ class Tempesta(stateful.Stateful):
 
     def get_stats(self):
         cmd = "cat /proc/tempesta/perfstat"
-        stdout, _ = self.node.run_cmd(cmd, err_msg=(self.err_msg % "get stats of"))
+        stdout, _ = self.node.run_cmd(cmd)
         self.stats.parse(stdout)
 
     def get_server_stats(self, path):
@@ -459,7 +459,7 @@ class Nginx(stateful.Stateful):
         config_file = os.path.join(self.workdir, self.config.config_name)
         cmd = " ".join([tf_cfg.cfg.get("Server", "nginx"), "-c", config_file])
         self.node.run_cmd(
-            cmd, ignore_stderr=True, err_msg=(self.err_msg % ("start", self.get_name()))
+            cmd, err_msg=(self.err_msg % ("start", self.get_name()))
         )
 
     def stop_nginx(self):
@@ -474,7 +474,7 @@ class Nginx(stateful.Stateful):
             ]
         )
         self.node.run_cmd(
-            cmd, ignore_stderr=True, err_msg=(self.err_msg % ("stop", self.get_name()))
+            cmd, err_msg=(self.err_msg % ("stop", self.get_name()))
         )
 
     def remove_config(self):

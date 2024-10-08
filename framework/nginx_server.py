@@ -97,7 +97,7 @@ class Nginx(stateful.Stateful):
         config_file = os.path.join(self.workdir, self.config.config_name)
         cmd = " ".join([tf_cfg.cfg.get("Server", "nginx"), "-c", config_file])
         self.node.run_cmd(
-            cmd, ignore_stderr=True, err_msg=(self.err_msg % ("start", self.get_name()))
+            cmd, err_msg=(self.err_msg % ("start", self.get_name()))
         )
 
     def stop_nginx(self):
@@ -112,7 +112,7 @@ class Nginx(stateful.Stateful):
             ]
         )
         self.node.run_cmd(
-            cmd, ignore_stderr=True, err_msg=(self.err_msg % ("stop", self.get_name()))
+            cmd, err_msg=(self.err_msg % ("stop", self.get_name()))
         )
 
     def remove_config(self):
