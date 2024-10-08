@@ -191,13 +191,19 @@ class LocalNode(INode):
                 self.LOGGER.exception(err_msg)
                 raise error.CommandExecutionException(err_msg) from exc
 
-        self.LOGGER.debug("stdout: {0}".format(stdout))
-        if stderr:
-            self.LOGGER.error("stderr: {0}".format(stderr))
-
         if current_proc.returncode != 0:
             raise error.ProcessBadExitStatusException(
                 '\nprocess: {0};\nstderr: {1}'.format(current_proc, stderr),
+            )
+
+        self.LOGGER.debug("stdout: {0}".format(stdout))
+        if stderr:
+            # success exit code does NOT always tell us that app finished correctly,
+            # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
+            # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
+            self.LOGGER.error("stderr: {0}".format(stderr))
+            raise error.CommandExecutionException(
+                "Error happened despite a success exit code: {0}".format(stderr),
             )
 
         return stdout, stderr
@@ -347,13 +353,19 @@ class RemoteNode(INode):
             self.LOGGER.exception(err_msg)
             raise error.CommandExecutionException(err_msg) from exc
 
-        self.LOGGER.debug("stdout: {0}".format(stdout))
-        if stderr:
-            self.LOGGER.error("stderr: {0}".format(stderr))
-
         if out_f.channel.recv_exit_status() != 0:
             raise error.ProcessBadExitStatusException(
                 '\nCurrent exit status is `{0}`\nstderr: {1}'.format(out_f.channel.recv_exit_status(), stderr),
+            )
+
+        self.LOGGER.debug("stdout: {0}".format(stdout))
+        if stderr:
+            # success exit code does NOT always tell us that app finished correctly,
+            # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
+            # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
+            self.LOGGER.error("stderr: {0}".format(stderr))
+            raise error.CommandExecutionException(
+                "Error happened despite a success exit code: {0}".format(stderr),
             )
 
         return stdout, stderr
