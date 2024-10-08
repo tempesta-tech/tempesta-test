@@ -3,6 +3,7 @@ Tests for correct handling of HTTP/1.1 headers.
 """
 
 from framework import tester
+from framework.parameterize import param, parameterize
 from helpers import deproxy
 
 __author__ = "Tempesta Technologies, Inc."
@@ -201,7 +202,7 @@ class TestSmallHeader(tester.TempestaTest):
             client.stop()
 
 
-class TestHost(tester.TempestaTest):
+class TestHostBase(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
@@ -217,6 +218,17 @@ class TestHost(tester.TempestaTest):
         }
     ]
 
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+
+class TestHost(TestHostBase):
     tempesta = {
         "config": """
             listen 80;
@@ -227,15 +239,6 @@ class TestHost(tester.TempestaTest):
             block_action error reply;
         """
     }
-
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
 
     def test_host_missing(self):
         self.start_all_services()
@@ -469,3 +472,124 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaa\r\n\r\n",
             expected_status_code="200",
         )
+
+
+class TestHostWithCache(TestHostBase):
+    tempesta = {
+        "config": """
+            listen 80;
+
+            server ${server_ip}:8000;
+
+            vhost good {
+                frang_limits {
+                    http_strict_host_checking false;
+                }
+                proxy_pass default;
+            }
+
+            frang_limits {http_strict_host_checking false;}
+            block_action attack reply;
+            block_action error reply;
+
+            cache 2;
+            cache_fulfill * *;
+
+            http_chain {
+                host == "bad.com" -> block;
+                -> good;
+            }
+        """
+    }
+
+    @parameterize.expand(
+        [
+            param(
+                name="1",
+                request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
+                expected_status_code="200",
+            ),
+            param(
+                name="2",
+                request=f"GET http://user@-x/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
+                expected_status_code="200",
+            ),
+            param(
+                name="3",
+                request=f"GET http://user@/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="4",
+                request=f"GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
+                expected_status_code="200",
+            ),
+            param(
+                name="5",
+                request=f"GET http://user@:333/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="6",
+                request=f"GET http://user@:/url/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="7",
+                request=f"GET http://user@: HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="8",
+                request=f"GET http://tempesta-tech.com: HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="9",
+                request=f"GET http://tempesta-tech.com:/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="10",
+                request=f"GET http:///path HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="200",
+            ),
+            param(
+                name="11",
+                request=f"GET http:///path HTTP/1.1\r\nHost: bad.com\r\n\r\n",
+                expected_status_code="403",
+            ),
+            param(
+                name="11",
+                request=f"GET http://user@/path HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="12",
+                request=f"GET http://:443 HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
+            ),
+            param(
+                name="13",
+                request=f"GET http:///path HTTP/1.1\r\nHost: \r\n\r\n",
+                expected_status_code="400",
+            ),
+        ]
+    )
+    def test_different_host_in_uri_and_headers(self, name, request, expected_status_code):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        srv = self.get_server("deproxy")
+
+        client.send_request(
+            request=request,
+            expected_status_code=expected_status_code,
+        )
+        self.assertNotIn("age", client.last_response.headers)
+
+        if expected_status_code == "200":
+            client.send_request(
+                request=request,
+                expected_status_code=expected_status_code,
+            )
+            self.assertIn("age", client.last_response.headers)

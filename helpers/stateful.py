@@ -1,3 +1,4 @@
+import traceback
 import typing
 
 from . import tf_cfg
@@ -16,8 +17,13 @@ class Stateful(object):
     """Class for stateful items, who have states
     stopped -> started -> stopped"""
 
-    _state = STATE_STOPPED
-    stop_procedures = []
+    def __init__(self):
+        self._state = STATE_STOPPED
+        self.stop_procedures = []
+        self._exceptions = []
+
+    def __str__(self):
+        return f"{self.__class__.__name__}"
 
     @property
     def state(self) -> str:
@@ -30,12 +36,10 @@ class Stateful(object):
         self._state = new_state
 
     @property
-    def exceptions(self) -> typing.List[Exception]:
-        # TODO it should be change after #534 issue
+    def exceptions(self) -> typing.List[str]:
         return self._exceptions
 
-    def append_exception(self, exception: Exception) -> None:
-        # TODO it should be change after #534 issue
+    def append_exception(self, exception: str) -> None:
         self._exceptions.append(exception)
         self.state = STATE_ERROR
 
@@ -56,7 +60,6 @@ class Stateful(object):
                 tf_cfg.dbg(3, "%s not stopped" % obj)
             return
         self.state = STATE_BEGIN_START
-        self._exceptions = list()
         self.run_start()
         self.state = STATE_STARTED
 
@@ -67,7 +70,7 @@ class Stateful(object):
                 stop_proc()
             except Exception as exc:
                 tf_cfg.dbg(1, f"Exception in stopping process: {exc}, type: {type(exc)}")
-                self.append_exception(exc)
+                self.append_exception(traceback.format_exc())
 
         if self.state != STATE_ERROR:
             self.state = STATE_STOPPED
@@ -84,9 +87,3 @@ class Stateful(object):
 
     def is_running(self):
         return self.state == STATE_STARTED
-
-    def check_exceptions(self):
-        """Raise exception if error was received."""
-        # TODO it should be change after #534 issue
-        if self.state == STATE_ERROR:
-            raise self.exceptions[0]
