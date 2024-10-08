@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import abc
 import errno
+import logging
 import os
 import re
 import subprocess
@@ -25,6 +26,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+LOGGER = logging.getLogger(__name__)
+
 # Don't remove files from remote node. Helpful for tests development.
 DEBUG_FILES = False
 # Default timeout for SSH sessions and command processing.
@@ -33,6 +36,10 @@ DEFAULT_TIMEOUT = 10
 
 class INode(object, metaclass=abc.ABCMeta):
     """Node interfaces."""
+
+    LOGGER = LOGGER
+
+    DEBUG_FILES = DEBUG_FILES
 
     def __init__(self, ntype: str, hostname: str, workdir: str, *args, **kwargs):
         """
@@ -138,7 +145,7 @@ class LocalNode(INode):
             error.CommandExecutionException: if something happened during the execution
             error.ProcessKilledException: if a process was killed
         """
-        tf_cfg.dbg(4, "Run command '{0}' on host {1} with environment {2}".format(cmd, self.host, env))
+        self.LOGGER.info("Run command '{0}' on host {1} with environment {2}".format(cmd, self.host, env))
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -146,6 +153,8 @@ class LocalNode(INode):
             env_full.update(env)
         if run_config.SAVE_SECRETS and "curl" in cmd:
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
+
+        self.LOGGER.debug("All environment variables after updating: {0}".format(env_full))
 
         with subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env_full
@@ -167,9 +176,8 @@ class LocalNode(INode):
                 # TODO it is not good place for it, and
                 # TODO it is not a good workaround at all, need to create something else in the future
                 if ("lxc " in cmd) and ("stop" in cmd):
-                    tf_cfg.dbg(
-                        3,
-                        "Possibly, a command to stop LXC is in the progress, wait extra {0} sec.".format(timeout)
+                    self.LOGGER.warning(
+                        "Possibly, a command to stop LXC is in the progress, wait extra {0} sec.".format(timeout),
                     )
                     time.sleep(timeout)
 
@@ -179,12 +187,13 @@ class LocalNode(INode):
                 raise error.ProcessKilledException() from to_exc
 
             except Exception as exc:
-                err_msg = "Error running command `{0}`".format(cmd),
-                error.bug(err_msg)
+                err_msg = "Error running command `{0}`".format(cmd)
+                self.LOGGER.exception(err_msg)
                 raise error.CommandExecutionException(err_msg) from exc
 
-        tf_cfg.dbg(6, "stdout: {0}".format(stdout))
-        tf_cfg.dbg(2, "stderr: {0}".format(stderr))
+        self.LOGGER.debug("stdout: {0}".format(stdout))
+        if stderr:
+            self.LOGGER.error("stderr: {0}".format(stderr))
 
         if current_proc.returncode != 0:
             raise error.ProcessBadExitStatusException(
@@ -228,13 +237,13 @@ class LocalNode(INode):
         Args:
             filename (str): filename to remove
         """
-        if DEBUG_FILES:
-            tf_cfg.dbg(3, "Removing {0}: cancelled because of DEBUG_FILES is True".format(filename))
+        if self.DEBUG_FILES:
+            self.LOGGER.warning("Removing {0}: cancelled because of DEBUG_FILES is True".format(filename))
         else:
             try:
                 os.remove(filename)
             except FileNotFoundError:
-                tf_cfg.dbg(3, "Removing {0}: file not found".format(filename))
+                self.LOGGER.warning("Removing {0}: file not found".format(filename))
 
     def wait_available(self) -> bool:
         """
@@ -278,25 +287,22 @@ class RemoteNode(INode):
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
         self.user = user
         self.port = port
+        self._ssh: Optional[paramiko.SSHClient] = None
         self._connect()
 
     def _connect(self):
         """Open SSH connection to node if remote. Returns False on SSH errors."""
         try:
-            self.ssh = paramiko.SSHClient()
-            self.ssh.load_system_host_keys()
+            self._ssh = paramiko.SSHClient()
+            self._ssh.load_system_host_keys()
             # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
             # key to known_hosts.
-            self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.ssh.connect(
-                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT
+            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self._ssh.connect(
+                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
-        except Exception as e:
-            error.bug("Error connecting {0}".format(self.host))
-
-    def _close(self):
-        """Release SSH connection without waiting for GC."""
-        self.ssh.close()
+        except Exception as conn_exc:
+            self.LOGGER.exception("Error connecting to {0} by SSH: {1}".format(self.host, conn_exc))
 
     def run_cmd(self, cmd: str, timeout: int = DEFAULT_TIMEOUT, env: Optional[dict] = None) -> tuple[bytes, bytes]:
         """
@@ -314,7 +320,7 @@ class RemoteNode(INode):
             error.ProcessBadExitStatusException: if an exit code is not 0(zero)
             error.CommandExecutionException: if something happened during the execution
         """
-        tf_cfg.dbg(4, "\tRun command '{0}' on host {1} with environment {2}".format(cmd, self.host, env))
+        self.LOGGER.info("Run command '{0}' on host {1} with environment {2}".format(cmd, self.host, env))
 
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
@@ -326,23 +332,24 @@ class RemoteNode(INode):
                     cmd,
                 ],
             )
-            tf_cfg.dbg(4, "\tEffective command '{0}' after injecting environment".format(cmd))
+            self.LOGGER.debug("Effective command '{0}' after injecting environment".format(cmd))
 
         try:
             # TODO #120: the same as for LocalNode - provide an interface to check
             # whether the command is executed and when it's terminated and/or
             # kill it when necessary.
-            _, out_f, err_f = self.ssh.exec_command(cmd, timeout=timeout)
+            _, out_f, err_f = self._ssh.exec_command(cmd, timeout=timeout)
             stdout = out_f.read()
             stderr = err_f.read()
 
         except Exception as exc:
             err_msg = "Error running command `{0}` on {1}".format(cmd, self.host),
-            error.bug(err_msg)
+            self.LOGGER.exception(err_msg)
             raise error.CommandExecutionException(err_msg) from exc
 
-        tf_cfg.dbg(6, "stdout: {0}".format(stdout))
-        tf_cfg.dbg(2, "stderr: {0}".format(stderr))
+        self.LOGGER.debug("stdout: {0}".format(stdout))
+        if stderr:
+            self.LOGGER.error("stderr: {0}".format(stderr))
 
         if out_f.channel.recv_exit_status() != 0:
             raise error.ProcessBadExitStatusException(
@@ -382,8 +389,10 @@ class RemoteNode(INode):
             sfile.write(content)
             sfile.flush()
             sftp.close()
-        except Exception as e:
-            error.bug("Error copying file {0} to {1}".format(filename, self.host))
+        except Exception as copy_exc:
+            self.LOGGER.exception(
+                "Error copying file {0} to {1}: {2}".format(filename, self.host, copy_exc),
+            )
 
     def remove_file(self, filename: str):
         """
@@ -393,15 +402,16 @@ class RemoteNode(INode):
             filename (str): filename to remove
         """
         if DEBUG_FILES:
-            tf_cfg.dbg(3, "Removing {0}: cancelled because of DEBUG_FILES is True".format(filename))
+            self.LOGGER.warning("Removing {0}: cancelled because of DEBUG_FILES is True".format(filename))
 
         else:
-            sftp = self.ssh.open_sftp()
+            sftp = self._ssh.open_sftp()
             try:
                 sftp.unlink(filename)
             except IOError as e:
                 if e.errno != errno.ENOENT:
-                    tf_cfg.dbg(3, "Removing {0}: file not found".format(filename))
+                    self.LOGGER.warning("Removing {0}: file not found".format(filename))
+
             sftp.close()
 
     def wait_available(self) -> bool:
@@ -411,23 +421,22 @@ class RemoteNode(INode):
         Returns:
             (bool): True, if ready
         """
-        tf_cfg.dbg(3, "\tWaiting for {0} node, host {1}".format(self.type, self.host))
-        timeout = float(tf_cfg.cfg.get(self.type, "unavaliable_timeout"))
+        self.LOGGER.debug("Waiting for {0} node, host {1}".format(self.type, self.host))
+        timeout = float(tf_cfg.cfg.get(self.type, "unavailable_timeout"))
         t0 = time.time()
 
         while True:
             t = time.time()
             dt = t - t0
-            tf_cfg.dbg(3, "\tAttempt to access node")
 
             if dt > timeout:
-                tf_cfg.dbg(2, "Node {0} is not available, host {1}".format(self.type, self.host))
+                self.LOGGER.error("Node {0} is not available, host {1}".format(self.type, self.host))
                 return False
 
             res, _ = self.run_cmd("echo -n check", timeout=1)
-            tf_cfg.dbg(4, "Result = [{0}]".format(res))
+
             if res.decode() == "check":
-                tf_cfg.dbg(2, "Node {0} is available, host {1}".format(self.type, self.host))
+                self.LOGGER.debug("Node {0} is available, host {1}".format(self.type, self.host))
                 return True
 
             time.sleep(1)
