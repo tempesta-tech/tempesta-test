@@ -384,7 +384,7 @@ class RemoteNode(INode):
             self.mkdir(dirname)
 
         try:
-            sftp = self.ssh.open_sftp()
+            sftp = self._ssh.open_sftp()
             sfile = sftp.file(filename, "wt", -1)
             sfile.write(content)
             sfile.flush()
