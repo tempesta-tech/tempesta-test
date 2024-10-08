@@ -15,7 +15,6 @@ class Error(Exception):
     Separate exception class is needed to indicate that error happen and
     test framework is not working as expected.
     """
-
     pass
 
 
@@ -54,6 +53,18 @@ class ServiceStoppingException(Error):
                 for service, exception in self.exceptions.items()
             ]
         )
+
+
+class ProcessBadExitStatusException(Exception):
+    """If exit status of a process is bad (not expected). Usually, 0(zero) is considered as good exit status."""
+
+
+class ProcessKilledException(Exception):
+    """If a process was not able to stop gracefully and was killed."""
+
+
+class CommandExecutionException(Exception):
+    """If something happened during a command execution."""
 
 
 def assertFalse(expression, msg=""):
