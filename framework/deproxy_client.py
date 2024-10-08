@@ -14,6 +14,7 @@ from h2.connection import AllowedStreamIDs, ConnectionState
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
+    PingAckReceived,
     ResponseReceived,
     SettingsAcknowledged,
     StreamEnded,
@@ -425,6 +426,10 @@ class ReqBodyBuffer:
 
 class DeproxyClientH2(BaseDeproxyClient):
     @property
+    def ping_received(self) -> int:
+        return self._ping_received
+
+    @property
     def last_response(self) -> deproxy.H2Response:
         return self._last_response
 
@@ -585,6 +590,13 @@ class DeproxyClientH2(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    def wait_for_ping_frames(self, ping_count: int, timeout=5):
+        return util.wait_until(
+            lambda: self._ping_received != ping_count,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+
     @property
     def auto_flow_control(self) -> bool:
         return self._auto_flow_control
@@ -676,6 +688,11 @@ class DeproxyClientH2(BaseDeproxyClient):
                         self.handle_read()
                     else:
                         continue
+                elif isinstance(event, PingAckReceived):
+                    self._ping_received += 1
+                    if event == events[-1]:
+                        # TODO should be changed by issue #358
+                        self.handle_read()
                 # TODO should be changed by issue #358
                 else:
                     self.handle_read()
@@ -865,6 +882,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self.response_sequence = []
         self._req_body_buffers: List[ReqBodyBuffer] = list()
         self._auto_flow_control = True
+        self._ping_received = 0
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
         if len(header) == 0:

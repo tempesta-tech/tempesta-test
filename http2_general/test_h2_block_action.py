@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.settings import SettingCodes
 from hpack import HeaderTuple
@@ -16,6 +17,7 @@ from hyperframe.frame import (
     PriorityFrame,
     RstStreamFrame,
     SettingsFrame,
+    WindowUpdateFrame,
 )
 
 import run_config
@@ -99,7 +101,7 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         client.h2_connection.clear_outbound_data_buffer()
         self.assertTrue(
             client.wait_for_ack_settings(),
-            "Tempesta foes not returns SETTINGS frame with ACK flag.",
+            "Tempesta does not returns SETTINGS frame with ACK flag.",
         )
 
 
@@ -294,7 +296,7 @@ class BlockActionH2(BlockActionH2Base):
         self.check_sniffer_for_attack_reply(sniffer)
 
 
-class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockActionH2Base):
+class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindowBase(BlockActionH2Base):
     tempesta_tmpl = """
         listen 443 proto=h2;
         srv_group default {
@@ -325,15 +327,19 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
         }
     """
 
-    ERROR_RESPONSE_BODY = "a" * 1000
-    INITIAL_WINDOW_SIZE = 100
-
     def setUp(self):
         path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
         self.tempesta = {
             "config": self.tempesta_tmpl % ("reply", "reply", path),
         }
         H2Base.setUp(self)
+
+
+class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(
+    BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindowBase
+):
+    ERROR_RESPONSE_BODY = "a" * 1000
+    INITIAL_WINDOW_SIZE = 100
 
     """
     Check that all frames except WINDOW_UPDATE are ignored after connection
@@ -404,8 +410,6 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
             self.save_must_not_fin_socks([client])
             self.save_must_not_reset_socks([client])
 
-        curr_responses = len(client.responses)
-
         client.make_request(
             client.create_request(
                 method="GET", authority="good.com", headers=[("Content-Type", "invalid")]
@@ -427,6 +431,84 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
             self.assertFalse(client.wait_for_connection_close())
             self.assertIsNone(client.last_response)
             self.check_no_fin_no_rst_in_sniffer(sniffer)
+
+
+class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindowSeveralInOneSkbBase(
+    BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindowBase
+):
+    def _test(self, increment, count, invalid_wnd_update_frame):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_services_and_initiate_conn(client)
+        if not invalid_wnd_update_frame:
+            self.save_must_fin_socks([client])
+            self.save_must_not_reset_socks([client])
+        else:
+            self.save_must_fin_socks([client])
+            self.save_must_reset_socks([client])
+        client.auto_flow_control = False
+
+        stream = client.init_stream_for_send(client.stream_id)
+        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
+        stream_id = client.stream_id
+
+        headers_frame = HeadersFrame(
+            stream_id=stream_id,
+            data=HuffmanEncoder().encode(
+                [
+                    (":authority", "good.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "GET"),
+                    ("Content-Type", "invalid"),
+                ]
+            ),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        invalid_frame = None
+        if invalid_wnd_update_frame:
+            invalid_frame = WindowUpdateFrame(0)
+            invalid_frame.window_increment = 0
+
+        conn_wnd_update_frame = WindowUpdateFrame(0)
+        conn_wnd_update_frame.window_increment = increment
+
+        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
+        stream = client.h2_connection.streams[stream_id]
+        stream_wnd_update_frame = b""
+        for _ in range(0, count):
+            stream_wnd_update_frame += stream.increase_flow_control_window(increment)[0].serialize()
+
+        data = headers_frame.serialize()
+        if invalid_frame:
+            data += invalid_frame.serialize()
+        data += conn_wnd_update_frame.serialize() * count
+        data += stream_wnd_update_frame
+
+        client.send_bytes(data, expect_response=True)
+        self.assertTrue(client.wait_for_connection_close())
+        if not invalid_wnd_update_frame:
+            self.assertIsNotNone(client.last_response)
+            self.assertEqual(client.last_response.status, "400")
+            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
+            self.check_fin_no_rst_in_sniffer(sniffer)
+        else:
+            self.assertFalse(client.last_response)
+            self.check_fin_and_rst_in_sniffer(sniffer)
+
+
+class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindowSeveralFramesInOneSkb(
+    BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindowSeveralInOneSkbBase
+):
+    ERROR_RESPONSE_BODY = "a" * 200
+    INITIAL_WINDOW_SIZE = 100
+
+    def test_no_invalid_wnd_update(self):
+        self._test(100, 1, False)
+
+    def test_invalid_wnd_update(self):
+        self._test(100, 1, True)
 
 
 class BlockActionH2Drop(BlockActionH2Base):
