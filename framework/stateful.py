@@ -14,7 +14,7 @@ STATE_STOPPED = "stopped"
 STATE_ERROR = "error"
 
 
-class Stateful(abc.ABCMeta):
+class Stateful(abc.ABC):
     """Class for stateful items, who have states
     stopped -> started -> stopped"""
 
