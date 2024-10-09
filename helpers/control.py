@@ -456,7 +456,7 @@ class Nginx(stateful.Stateful):
         # but it holds stderr open after demonisation.
         config_file = os.path.join(self.workdir, self.config.config_name)
         cmd = " ".join([tf_cfg.cfg.get("Server", "nginx"), "-c", config_file])
-        self.node.run_cmd(cmd)
+        self.node.run_cmd(cmd, is_blocking=False)
 
     def stop_nginx(self):
         tf_cfg.dbg(3, "\tStopping Nginx on %s" % self.get_name())
@@ -469,7 +469,7 @@ class Nginx(stateful.Stateful):
                 "while [ -e '/proc/$pid' ]; do sleep 1; done",
             ]
         )
-        self.node.run_cmd(cmd)
+        self.node.run_cmd(cmd, is_blocking=False)
 
     def remove_config(self):
         tf_cfg.dbg(3, "\tRemoving Nginx config for %s" % self.get_name())
