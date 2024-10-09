@@ -62,6 +62,7 @@ class INode(object, metaclass=abc.ABCMeta):
         cmd: str,
         timeout: Optional[int] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
+        is_blocking: bool = True,
         raise_on_error: bool = True,
     ) -> (bytes, bytes):
         """
@@ -71,6 +72,7 @@ class INode(object, metaclass=abc.ABCMeta):
             cmd (str): command to run
             timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
+            is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
@@ -140,6 +142,7 @@ class LocalNode(INode):
         cmd: str,
         timeout: Optional[int] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
+        is_blocking: bool = True,
         raise_on_error: bool = True,
     ) -> tuple[bytes, bytes]:
         """
@@ -149,6 +152,7 @@ class LocalNode(INode):
             cmd (str): command to run
             timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
+            is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
@@ -159,7 +163,14 @@ class LocalNode(INode):
             error.CommandExecutionException: if something happened during the execution
             error.ProcessKilledException: if a process was killed
         """
-        self.LOGGER.info("Run command '{0}' on host {1} with environment {2}".format(cmd, self.host, env))
+        self.LOGGER.info(
+            "Run command '{0}' {1} on host {2} with environment {3}".format(
+                cmd,
+                "" if is_blocking else "***NON-BLOCKING (no wait to finish)***",
+                self.host,
+                env,
+            ),
+        )
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -170,8 +181,13 @@ class LocalNode(INode):
 
         self.LOGGER.debug("All environment variables after updating: {0}".format(env_full))
 
+        if is_blocking:
+            std_arg = subprocess.PIPE
+        else:
+            std_arg = None
+
         with subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env_full
+            cmd, shell=True, stdout=std_arg, stderr=std_arg, env=env_full
         ) as current_proc:
             try:
                 # TODO #120: we should provide kill() and pid() interfaces to
@@ -210,7 +226,8 @@ class LocalNode(INode):
                 '\nprocess: {0};\nstderr: {1}'.format(current_proc, stderr),
             )
 
-        self.LOGGER.debug("stdout: {0}".format(stdout))
+        if stdout:
+            self.LOGGER.debug("stdout: {0}".format(stdout))
         if stderr:
             self.LOGGER.error("stderr: {0}".format(stderr))
 
@@ -335,6 +352,7 @@ class RemoteNode(INode):
         cmd: str,
         timeout: Optional[int] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
+        is_blocking: bool = True,
         raise_on_error: bool = True,
     ) -> tuple[bytes, bytes]:
         """
@@ -344,6 +362,8 @@ class RemoteNode(INode):
             cmd (str): command to run
             timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
+            is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
+                no effect for the method, all calls are blocking
             raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
