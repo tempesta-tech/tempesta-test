@@ -56,6 +56,18 @@ class ServiceStoppingException(Error):
         )
 
 
+@dataclass
+class TestConditionsAreNotCompleted(Error):
+    test_name: str = None
+    attempt: int = None
+
+    def __str__(self):
+        return (
+            f"The conditions for '{self.test_name}' are not completed. "
+            f"Attempts - {self.attempt}"
+        )
+
+
 def assertFalse(expression, msg=""):
     """Raise test framework error if 'expression' is true."""
     if expression:
