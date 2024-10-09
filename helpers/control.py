@@ -321,7 +321,6 @@ class Tempesta(stateful.Stateful):
         self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
         self.host = tf_cfg.cfg.get("Tempesta", "hostname")
-        self.err_msg = " ".join(["Can't %s TempestaFW on", self.host])
         self.stop_procedures = [self.stop_tempesta, self.remove_config]
         self.check_config = True
 
@@ -367,7 +366,7 @@ class Tempesta(stateful.Stateful):
 
     def get_server_stats(self, path):
         cmd = "cat /proc/tempesta/servers/%s" % (path)
-        return self.node.run_cmd(cmd, err_msg=(self.err_msg % "get stats of"))
+        return self.node.run_cmd(cmd)
 
 
 class TempestaFI(Tempesta):
@@ -408,11 +407,11 @@ class TempestaFI(Tempesta):
         cmd = "stap -g -m %s -F %s/%s" % (self.module_name, self.workdir, self.stap)
 
         tf_cfg.dbg(3, "\tstap cmd: %s" % cmd)
-        self.node.run_cmd(cmd, timeout=30, err_msg=(self.stap_msg % ("inject", "into")))
+        self.node.run_cmd(cmd, timeout=30)
 
     def letout(self):
         cmd = "rmmod %s" % self.module_name
-        self.node.run_cmd(cmd, timeout=30, err_msg=(self.stap_msg % ("remove", "from")))
+        self.node.run_cmd(cmd, timeout=30)
         self.node.remove_file("".join([self.module_name, ".ko"]))
 
     def letout_finish(self):
@@ -440,7 +439,6 @@ class Nginx(stateful.Stateful):
         self.clear_stats()
         # Configure number of connections used by TempestaFW.
         self.conns_n = tempesta.server_conns_default()
-        self.err_msg = "Can't %s Nginx on %s"
         self.active_conns = 0
         self.requests = 0
         self.stop_procedures = [self.stop_nginx, self.remove_config]
@@ -458,9 +456,7 @@ class Nginx(stateful.Stateful):
         # but it holds stderr open after demonisation.
         config_file = os.path.join(self.workdir, self.config.config_name)
         cmd = " ".join([tf_cfg.cfg.get("Server", "nginx"), "-c", config_file])
-        self.node.run_cmd(
-            cmd, err_msg=(self.err_msg % ("start", self.get_name()))
-        )
+        self.node.run_cmd(cmd)
 
     def stop_nginx(self):
         tf_cfg.dbg(3, "\tStopping Nginx on %s" % self.get_name())
@@ -473,9 +469,7 @@ class Nginx(stateful.Stateful):
                 "while [ -e '/proc/$pid' ]; do sleep 1; done",
             ]
         )
-        self.node.run_cmd(
-            cmd, err_msg=(self.err_msg % ("stop", self.get_name()))
-        )
+        self.node.run_cmd(cmd)
 
     def remove_config(self):
         tf_cfg.dbg(3, "\tRemoving Nginx config for %s" % self.get_name())
@@ -491,9 +485,7 @@ class Nginx(stateful.Stateful):
         # `nginx_status` page.
         uri = "http://%s:%d/nginx_status" % (self.node.host, self.config.port)
         cmd = "curl %s" % uri
-        out, _ = remote.client.run_cmd(
-            cmd, err_msg=(self.err_msg % ("get stats of", self.get_name()))
-        )
+        out, _ = remote.client.run_cmd(cmd)
         m = re.search(
             r"Active connections: (\d+) \n" r"server accepts handled requests\n \d+ \d+ (\d+)",
             out.decode(),
