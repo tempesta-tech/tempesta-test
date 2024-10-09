@@ -57,14 +57,21 @@ class INode(object, metaclass=abc.ABCMeta):
         self.type = ntype
 
     @abc.abstractmethod
-    def run_cmd(self, cmd: str, timeout: int = DEFAULT_TIMEOUT, env: Optional[dict] = None) -> (bytes, bytes):
+    def run_cmd(
+        self,
+        cmd: str,
+        timeout: Optional[int] = DEFAULT_TIMEOUT,
+        env: Optional[dict] = None,
+        raise_on_error: bool = True,
+    ) -> (bytes, bytes):
         """
         Run command.
 
         Args:
             cmd (str): command to run
-            timeout (int): command running timeout
+            timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
+            raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -128,14 +135,21 @@ class CmdError(Exception):
 class LocalNode(INode):
     """Local node class."""
 
-    def run_cmd(self, cmd: str, timeout: int = DEFAULT_TIMEOUT, env: Optional[dict] = None) -> tuple[bytes, bytes]:
+    def run_cmd(
+        self,
+        cmd: str,
+        timeout: Optional[int] = DEFAULT_TIMEOUT,
+        env: Optional[dict] = None,
+        raise_on_error: bool = True,
+    ) -> tuple[bytes, bytes]:
         """
         Run command.
 
         Args:
             cmd (str): command to run
-            timeout (int): command running timeout
+            timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
+            raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -175,7 +189,7 @@ class LocalNode(INode):
                 # and this case was caught on a bare metal server that may work slower
                 # TODO it is not good place for it, and
                 # TODO it is not a good workaround at all, need to create something else in the future
-                if ("lxc " in cmd) and ("stop" in cmd):
+                if timeout and ("lxc " in cmd) and ("stop" in cmd):
                     self.LOGGER.warning(
                         "Possibly, a command to stop LXC is in the progress, wait extra {0} sec.".format(timeout),
                     )
@@ -198,13 +212,19 @@ class LocalNode(INode):
 
         self.LOGGER.debug("stdout: {0}".format(stdout))
         if stderr:
-            # success exit code does NOT always tell us that app finished correctly,
-            # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
-            # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
             self.LOGGER.error("stderr: {0}".format(stderr))
-            raise error.CommandExecutionException(
-                "Error happened despite a success exit code: {0}".format(stderr),
-            )
+
+            if raise_on_error:
+                # success exit code does NOT always tell us that app finished correctly,
+                # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
+                # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
+                raise error.CommandExecutionException(
+                    "Error happened despite a success exit code: {0}, proc {1}".format(
+                         stderr, current_proc,
+                    ),
+                )
+
+            self.LOGGER.warning("Error is not considered as a problem: keep working.".format(stderr))
 
         return stdout, stderr
 
@@ -310,14 +330,21 @@ class RemoteNode(INode):
         except Exception as conn_exc:
             self.LOGGER.exception("Error connecting to {0} by SSH: {1}".format(self.host, conn_exc))
 
-    def run_cmd(self, cmd: str, timeout: int = DEFAULT_TIMEOUT, env: Optional[dict] = None) -> tuple[bytes, bytes]:
+    def run_cmd(
+        self,
+        cmd: str,
+        timeout: Optional[int] = DEFAULT_TIMEOUT,
+        env: Optional[dict] = None,
+        raise_on_error: bool = True,
+    ) -> tuple[bytes, bytes]:
         """
         Run command.
 
         Args:
             cmd (str): command to run
-            timeout (int): command running timeout
+            timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
+            raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -360,13 +387,17 @@ class RemoteNode(INode):
 
         self.LOGGER.debug("stdout: {0}".format(stdout))
         if stderr:
-            # success exit code does NOT always tell us that app finished correctly,
-            # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
-            # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
             self.LOGGER.error("stderr: {0}".format(stderr))
-            raise error.CommandExecutionException(
-                "Error happened despite a success exit code: {0}".format(stderr),
-            )
+
+            if raise_on_error:
+                # success exit code does NOT always tell us that app finished correctly,
+                # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
+                # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
+                raise error.CommandExecutionException(
+                    "Error happened despite a success exit code: {0}".format(stderr),
+                )
+
+            self.LOGGER.warning("Error is not considered as a problem: keep working.".format(stderr))
 
         return stdout, stderr
 

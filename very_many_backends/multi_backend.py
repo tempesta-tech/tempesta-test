@@ -222,9 +222,7 @@ class NginxMP(control.Nginx):
         # `nginx_status` page.
         uri = "http://%s:%d/nginx_status" % (self.node.host, self.first_port)
         cmd = "curl %s" % uri
-        out, _ = remote.client.run_cmd(
-            cmd, err_msg=(self.err_msg % ("get stats of", self.get_name()))
-        )
+        out, _ = remote.client.run_cmd(cmd)
         m = re.search(
             r"Active connections: (\d+) \n" r"server accepts handled requests\n \d+ \d+ (\d+)", out
         )
