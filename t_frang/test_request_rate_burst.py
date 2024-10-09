@@ -2,10 +2,11 @@
 
 import time
 
-from hyperframe.frame import RstStreamFrame
+from hyperframe.frame import HeadersFrame, RstStreamFrame
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, remote
+from framework.parameterize import param, parameterize, parameterize_class
+from helpers import analyzer, error, remote, util
 from t_frang.frang_test_case import DELAY, FrangTestCase
 from test_suite import asserts
 
@@ -181,28 +182,14 @@ class FrangRequestBurstH2(FrangRequestRateTestCase):
     request = HTTP2_REQUEST
 
 
-class FrangRequestRateBurstTestCase(FrangTestCase):
+@parameterize_class(
+    [
+        {"name": "Http", "client_name": "deproxy-1"},
+        {"name": "H2", "client_name": "deproxy-2"},
+    ]
+)
+class TestFrangRequestRateBurst(FrangTestCase):
     """Tests for 'request_rate' and 'request_burst' directive."""
-
-    tempesta = {
-        "config": """
-frang_limits {
-    request_rate 3;
-    request_burst 2;
-}
-
-listen 80;
-listen 443 proto=h2;
-
-server ${server_ip}:8000;
-cache 0;
-block_action attack reply;
-
-tls_match_any_server_name;
-tls_certificate ${tempesta_workdir}/tempesta.crt;
-tls_certificate_key ${tempesta_workdir}/tempesta.key;
-""",
-    }
 
     clients = [
         {
@@ -212,79 +199,98 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
             "port": "80",
         },
         {
-            "id": "curl",
-            "type": "curl",
-            "headers": {
-                "Connection": "keep-alive",
-                "Host": "debian",
-            },
-            "cmd_args": " --verbose",
+            "id": "deproxy-2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
         },
     ]
 
-    rate_warning = ERROR_MSG_RATE
-    burst_warning = ERROR_MSG_BURST
+    client_name: str
 
-    def _base_burst_scenario(self, requests: int):
+    @parameterize.expand(
+        [
+            param(name="burst_reached", req_n=10, warns_expected=range(1, 15)),
+            param(name="burst_without_reaching_the_limit", req_n=3, warns_expected=0),
+            param(name="burst_on_the_limit", req_n=5, warns_expected=0),
+        ]
+    )
+    @util.retry_if_not_conditions
+    def test_request(self, name, req_n: int, warns_expected):
+        """
+        Send several requests, if number of requests
+        is more than 5 some of them will be blocked.
+        """
+        self.set_frang_config("request_burst 5;\n\trequest_rate 10;")
         self.start_all_services(client=False)
 
-        client = self.get_client("curl")
-        client.uri += f"[1-{requests}]"
-        client.parallel = requests
-        client.disable_output = True
-
+        client = self.get_client(self.client_name)
         client.start()
-        client.wait_for_finish()
-        client.stop()
 
-        time.sleep(self.timeout)
-
-        if requests > 2:  # burst limit 2
-            self.assertFrangWarning(warning=self.burst_warning, expected=1)
-        else:
-            self.assertFrangWarning(warning=self.burst_warning, expected=0)
-
-        self.assertFrangWarning(warning=self.rate_warning, expected=0)
-
-    def _base_rate_scenario(self, requests: int):
-        self.start_all_services(client=False)
-
-        client = self.get_client("deproxy-1")
-        client.start()
-        for step in range(requests):
+        start_time = time.monotonic()
+        for _ in range(req_n):
             client.make_request(client.create_request(method="GET", uri="/", headers=[]))
-            time.sleep(DELAY)
+        self.assertIn(
+            client.wait_for_response(),
+            [True, None],
+            "The client didn't get responses or connection block.",
+        )
+        end_time = time.monotonic()
 
-        if requests <= 3:  # rate limit 3
-            self.check_response(client, warning_msg=self.rate_warning, status_code="200")
-        else:
-            # rate limit is reached
-            self.assertTrue(client.wait_for_connection_close())
-            self.assertFrangWarning(warning=self.rate_warning, expected=1)
-            self.assertEqual(client.last_response.status, "403")
+        if end_time - start_time > DELAY:
+            raise error.TestConditionsAreNotCompleted()
 
-        self.assertFrangWarning(warning=self.burst_warning, expected=0)
+        self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=warns_expected)
+        self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=0)
+        if warns_expected:
+            self.assertTrue(client.connection_is_closed())
 
-    def test_request_rate_reached(self):
-        self._base_rate_scenario(requests=4)
+    @parameterize.expand(
+        [
+            param(name="rate_reached", req_n=10, warns_expected=range(1, 15)),
+            param(name="rate_without_reaching_the_limit", req_n=3, warns_expected=0),
+            param(name="rate_on_the_limit", req_n=5, warns_expected=0),
+        ]
+    )
+    @util.retry_if_not_conditions
+    def test_request(self, name, req_n: int, warns_expected):
+        """
+        Send several requests, if number of requests
+        is more than 5 some of them will be blocked.
+        """
+        self.set_frang_config("request_burst 10;\n\trequest_rate 5;")
+        self.start_all_services(client=False)
 
-    def test_request_rate_without_reaching_the_limit(self):
-        self._base_rate_scenario(requests=2)
+        client = self.get_client(self.client_name)
+        client.start()
 
-    def test_request_rate_on_the_limit(self):
-        self._base_rate_scenario(requests=3)
+        start_time = time.monotonic()
+        for _ in range(req_n):
+            client.make_request(client.create_request(method="GET", uri="/", headers=[]))
+        self.assertIn(
+            client.wait_for_response(),
+            [True, None],
+            "The client didn't get responses or connection block.",
+        )
+        end_time = time.monotonic()
 
-    def test_request_burst_reached(self):
-        self._base_burst_scenario(requests=3)
+        if end_time - start_time > 1:
+            raise error.TestConditionsAreNotCompleted()
 
-    def test_request_burst_not_reached_the_limit(self):
-        self._base_burst_scenario(requests=1)
+        self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=warns_expected)
+        self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=0)
+        if warns_expected:
+            self.assertTrue(client.connection_is_closed())
 
-    def test_request_burst_on_the_limit(self):
-        self._base_burst_scenario(requests=2)
 
+class TestFrangRapidDDoSH2(FrangTestCase):
+    """
+    Open many streams with a Header frame without END_STREAM flag.
+    This is not a complete request, but it opens possibility for
+    a DDoS attack - "Rapid Reset".
+    """
 
-class FrangRequestRateBurstH2(FrangRequestRateBurstTestCase):
     clients = [
         {
             "id": "deproxy-1",
@@ -292,45 +298,74 @@ class FrangRequestRateBurstH2(FrangRequestRateBurstTestCase):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
-        },
-        {
-            "id": "curl",
-            "type": "curl",
-            "http2": True,
-            "headers": {
-                "Connection": "keep-alive",
-                "Host": "debian",
-            },
-            "cmd_args": " --verbose",
-        },
+        }
     ]
 
-    def _test_with_only_headers_frame(self, requests: int, sleep: int, warning: str):
-        """
-        Open many streams with a Header frame without END_STREAM flag.
-        This is not a complete request, but it opens possibility for
-        a DDoS attack - "Rapid Reset".
-        """
+    @staticmethod
+    def _start_and_init_connection(client) -> None:
+        client.start()
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+
+    @staticmethod
+    def _create_frames_and_init_streams(client, stream_n: int) -> list[bytes]:
+        frame_list = []
+        for _ in range(stream_n):
+            hf = HeadersFrame(
+                stream_id=client.stream_id,
+                data=client.h2_connection.encoder.encode(
+                    [
+                        (":authority", "tempesta-tech.com"),
+                        (":path", "/"),
+                        (":scheme", "https"),
+                        (":method", "GET"),
+                    ]
+                ),
+                flags=[],
+            ).serialize()
+            rf = RstStreamFrame(stream_id=client.stream_id).serialize()
+            frame_list.append(hf + rf)
+            client.init_stream_for_send(stream_id=client.stream_id)
+            client.stream_id += 2
+        return frame_list
+
+    @parameterize.expand(
+        [
+            param(
+                name="rate_with_only_headers_frame",
+                frang_conf="request_rate 5;",
+                warning=ERROR_MSG_RATE,
+                delay=1,
+            ),
+            param(
+                name="burst_with_only_headers_frame",
+                frang_conf="request_burst 5;",
+                warning=ERROR_MSG_BURST,
+                delay=DELAY,
+            ),
+        ]
+    )
+    @util.retry_if_not_conditions
+    def test_request(self, name, frang_conf: str, warning: str, delay: int):
+        self.set_frang_config(frang_conf)
         self.start_all_services(client=False)
 
         client = self.get_client("deproxy-1")
-        client.start()
-        for step in range(requests):  # request rate 3
-            client.make_request(
-                client.create_request(method="GET", uri="/", headers=[]),
-                end_stream=False,
-            )
-            client.send_bytes(RstStreamFrame(stream_id=client.stream_id).serialize())
-            client.stream_id += 2
-            time.sleep(sleep)
+        self._start_and_init_connection(client)
+        frame_list = self._create_frames_and_init_streams(client, 10)
 
-        #  The response status check was removed because sometimes client
-        #  receives TCP RST before the HTTP response.
-        self.assertTrue(client.wait_for_connection_close())
-        self.assertFrangWarning(warning=warning, expected=1)
+        start_time = time.monotonic()
+        for frames in frame_list:
+            client.send_bytes(frames, expect_response=True)
+        self.assertIn(
+            client.wait_for_response(),
+            [True, None],
+            "The client didn't get responses or connection block.",
+        )
+        end_time = time.monotonic()
 
-    def test_request_rate_with_only_headers_frame(self):
-        self._test_with_only_headers_frame(requests=4, sleep=DELAY, warning=self.rate_warning)
+        if end_time - start_time > delay:
+            raise error.TestConditionsAreNotCompleted()
 
-    def test_request_burst_with_only_headers_frame(self):
-        self._test_with_only_headers_frame(requests=3, sleep=0, warning=self.burst_warning)
+        self.assertFrangWarning(warning=warning, expected=range(1, 15))
+        self.assertTrue(client.connection_is_closed())
