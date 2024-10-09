@@ -892,6 +892,40 @@ class TestTrailers(H2Base):
         self.assertTrue(client.wait_for_response())
         self.assertEqual("400", client.last_response.status, "HTTP response code missmatch.")
 
+    @parameterize.expand(
+        [
+            param(
+                name="empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "0\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+            param(
+                name="not_empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "10\r\n"
+                + "abcdefghijklmnop\r\n"
+                + "0\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+        ]
+    )
+    def test_trailers_in_response(self, name, response):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(response)
+
+        client = self.get_client("deproxy")
+        client.send_request(self.get_request, "200")
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
+        self.assertIsNone(client.last_response.headers.get("X-Token"))
+        self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
+
 
 class CurlTestBase(tester.TempestaTest):
     clients = [

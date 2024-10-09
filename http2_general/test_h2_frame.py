@@ -5,21 +5,22 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
-from h2.settings import SettingCodes
 from h2.exceptions import StreamClosedError
+from h2.settings import SettingCodes
 from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import (
     ContinuationFrame,
     DataFrame,
     HeadersFrame,
-    SettingsFrame,
     PriorityFrame,
+    SettingsFrame,
 )
 
 from framework import deproxy_client, tester
 from framework.parameterize import param, parameterize
-from helpers import checks_for_tests as checks, util
+from helpers import checks_for_tests as checks
+from helpers import stateful, util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
@@ -833,3 +834,68 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
 
         headers.append(HeaderTuple("if-modified-since", date))
         client.send_request(request=headers, expected_status_code=status_code)
+
+
+class TestPostponedFrames(H2Base, NetWorker):
+    """
+    According RFC 9113:
+    If the END_HEADERS flag is not set, this frame MUST be followed by another CONTINUATION frame.
+    A receiver MUST treat the receipt of any other type of frame or a frame on a different stream
+    as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
+    This class checks that Tempesta FW doesn't violate this rule.
+    """
+
+    def _ping(self, client):
+        client.h2_connection.ping(opaque_data=b"\x00\x01\x02\x03\x04\x05\x06\x07")
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+    def _test(self, client, server):
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        ping_count = 500
+
+        stream_id = client.stream_id
+        client.make_request(self.get_request)
+        for _ in range(0, ping_count):
+            self._ping(client)
+
+        self.assertTrue(client.wait_for_headers_frame(stream_id))
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
+
+        client.send_settings_frame(initial_window_size=65535)
+        client.wait_for_ack_settings()
+
+        for _ in range(0, ping_count):
+            self._ping(client)
+
+        self.assertTrue(client.wait_for_headers_frame(stream_id))
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
+
+        self.assertTrue(client.wait_for_response())
+        self.assertTrue(client.last_response.status, "200")
+
+    @parameterize.expand(
+        [
+            param(name="headers", header="a" * 30000, token="value"),
+            param(name="trailers", header="value", token="a" * 30000),
+        ]
+    )
+    def test(self, name, header, token):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\n"
+            + "Transfer-Encoding: chunked\n"
+            + f"header: {header}"
+            + "Trailer: X-Token\r\n\r\n"
+            + "10\r\n"
+            + "abcdefghijklmnop\r\n"
+            + "0\r\n"
+            + f"X-Token: {token}\r\n\r\n"
+        )
+
+        self.run_test_tso_gro_gso_disabled(client, server, self._test, 100)

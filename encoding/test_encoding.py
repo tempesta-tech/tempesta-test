@@ -510,6 +510,8 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
     """
 
     token = "value"
+    payload = BODY_PAYLOAD
+    h2 = True
 
     clients = [
         {
@@ -559,7 +561,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
     def setUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += (
-            self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
+            self.encode_chunked(self.payload, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
         )
         super().setUp()
 
@@ -573,9 +575,18 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
             with self.subTest(response_from=from_):
                 client.send_request(self.request, "200")
                 response = client.last_response
+                if self.h2:
+                    self.assertFalse(client.last_response.headers.get("Trailer"))
+                    self.assertFalse(
+                        client.last_response.headers.get("Transfer-Encoding"), "chunked"
+                    )
+                else:
+                    self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token")
+                    self.assertTrue(
+                        client.last_response.headers.get("Transfer-Encoding"), "chunked"
+                    )
                 self.assertEqual(
-                    # headers for h2 and trailer for http1
-                    response.headers.get("X-Token") or response.trailer.get("X-Token"),
+                    response.trailer.get("X-Token"),
                     self.token,
                     "Moved trailer header value mismatch the original one",
                 )
@@ -596,6 +607,26 @@ class TestH1ChunkedWithTrailer(TestH2ChunkedWithTrailer, CommonUtils):
     request = (
         "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Accept-Encoding: gzip, br, chunked\r\n" "\r\n"
     )
+
+    h2 = False
+
+
+class TestH2ChunkedWithLongBodyAndTrailer(TestH2ChunkedWithTrailer):
+    """
+    We use 90000 not LARGE_BODY_PAYLOAD to check case when Tempesta
+    allocate new skb during preparing response from cache. Manually
+    choosen value.
+    """
+
+    payload = 90000 * "x"
+    token = "a" * 30000
+    h2 = True
+
+
+class TestH1ChunkedWithLongBodyAndTrailer(TestH1ChunkedWithTrailer):
+    payload = 90000 * "x"
+    token = "a" * 30000
+    h2 = False
 
 
 class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
