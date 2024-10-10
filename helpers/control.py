@@ -353,7 +353,7 @@ class Tempesta(stateful.Stateful):
     def stop_tempesta(self):
         tf_cfg.dbg(3, "\tStopping TempestaFW on %s" % self.host)
         cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir
-        self.node.run_cmd(cmd, timeout=30, raise_on_error=False)
+        self.node.run_cmd(cmd, timeout=30)
 
     def remove_config(self):
         self.node.remove_file(self.config_name)

@@ -49,7 +49,7 @@ class Sniffer(object, metaclass=abc.ABCMeta):
         scapy.sniff(offline=file_obj) interface does not support
         neither StringIO objects nor paramiko file objects.
         """
-        stdout, stderr = self.node.run_cmd(self.cmd, timeout=None, raise_on_error=False)
+        stdout, stderr = self.node.run_cmd(self.cmd, timeout=None)
         match = re.search(r"(\d+) packets captured", stderr.decode())
         if match:
             self.captured = int(match.group(1))
