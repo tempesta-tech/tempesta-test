@@ -300,6 +300,10 @@
         {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections",
             "reason": "Disabled by test issue #525"
+        },
+        {
+            "name": "t_stress.test_header_leak.TestH2HeaderLeak",
+            "reason": "Disabled by tempesta issue #2181"
         }
     ]
 }
