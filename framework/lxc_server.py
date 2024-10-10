@@ -3,9 +3,9 @@
 import json
 from dataclasses import dataclass
 
-from framework import port_checks
-from framework.templates import fill_template
-from helpers import error, remote, stateful, tempesta, tf_cfg, util
+from framework import stateful
+from helpers import error, port_checks, remote, tempesta, tf_cfg, util
+from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -125,7 +125,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         try:
             self.node.run_cmd(f"curl -If {self.container_ip}:{self.external_port}")
             first_check = False
-        except remote.CmdError:
+        except error.BaseCmdException:
             first_check = True
 
         second_check = (

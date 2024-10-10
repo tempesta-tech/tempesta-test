@@ -4,7 +4,8 @@ from __future__ import print_function
 
 import time
 
-from helpers import control, flacky, tempesta, tf_cfg
+from helpers import control, tempesta, tf_cfg
+from test_suite import flacky
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."

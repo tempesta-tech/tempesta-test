@@ -6,14 +6,14 @@ import sys
 import threading
 import time
 
-import framework.port_checks as port_checks
 import run_config
+from framework import stateful
 from framework.deproxy_auto_parser import DeproxyAutoParser
-from helpers import deproxy, error, remote, stateful, tempesta, tf_cfg, util
+from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
 
-from .templates import fill_template
+from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."

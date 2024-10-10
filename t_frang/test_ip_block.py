@@ -2,8 +2,9 @@
 
 import time
 
-from helpers import analyzer, asserts, remote, util
+from helpers import analyzer, remote, util
 from t_frang.frang_test_case import FrangTestCase
+from test_suite import asserts
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

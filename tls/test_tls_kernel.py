@@ -1,10 +1,11 @@
 """
 Tests for the Tempesta Linux kernel TLS-related routines.
 """
+
 import re
 
-from framework import tester
 from helpers import remote
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."

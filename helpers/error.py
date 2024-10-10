@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import sys  # for sys.exc_info
 from dataclasses import dataclass
+from typing import Any, Optional, Union
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
@@ -55,15 +56,39 @@ class ServiceStoppingException(Error):
         )
 
 
-class ProcessBadExitStatusException(Exception):
+class BaseCmdException(Exception):
+    """Base class to cmd-like exceptions,"""
+
+    def __init__(
+        self, message: Any = None,
+        stdout: Union[str, bytes] = '',
+        stderr: Union[str, bytes] = '',
+        rt: Optional[int] = None,
+    ):
+        """
+        Init class instance.
+
+        Args:
+            message (Any): exception message
+            stdout (Union[str, bytes]): stdout of a process value when an exception is raised
+            stderr (Union[str, bytes]): stderr of a process value when an exception is raised
+            rt (Optional[int]): return code of a process when an exception is raised
+        """
+        super().__init__(str(message))
+        self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = rt
+
+
+class ProcessBadExitStatusException(BaseCmdException):
     """If exit status of a process is bad (not expected). Usually, 0(zero) is considered as good exit status."""
 
 
-class ProcessKilledException(Exception):
+class ProcessKilledException(BaseCmdException):
     """If a process was not able to stop gracefully and was killed."""
 
 
-class CommandExecutionException(Exception):
+class CommandExecutionException(BaseCmdException):
     """If something happened during a command execution."""
 
 

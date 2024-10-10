@@ -1,8 +1,10 @@
-"""
-Composable, reusable additional functionality
-for `framework.tester.TempestaTest` subclasses.
-"""
+"""Composable, reusable additional functionality for `framework.tester.TempestaTest` subclasses."""
+
 from helpers import remote, tf_cfg
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 
 class NetfilterMarkMixin:

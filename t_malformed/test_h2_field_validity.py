@@ -6,7 +6,7 @@ __license__ = "GPL2"
 
 import random
 
-from framework import tester
+from test_suite import tester
 
 
 class TestH2HeaderFieldRequest(tester.TempestaTest):

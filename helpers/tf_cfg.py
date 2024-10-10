@@ -261,3 +261,8 @@ def log_dmesg(node, msg) -> None:
 cfg = TestFrameworkCfg()
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+
+
+def populate_properties(user_properties):
+    gen_properties = cfg.kvs.copy()
+    user_properties.update(gen_properties)

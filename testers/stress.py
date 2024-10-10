@@ -2,7 +2,8 @@ from __future__ import print_function
 
 import unittest
 
-from helpers import control, dmesg, remote, stateful, tempesta, tf_cfg, util
+from framework import stateful
+from helpers import control, dmesg, remote, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

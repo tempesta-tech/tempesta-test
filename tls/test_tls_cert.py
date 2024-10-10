@@ -3,7 +3,6 @@ Tests for basic x509 handling: certificate loading and getting a valid request
 and response, stale certificates and certificates with unsupported algorithms.
 """
 
-import os
 import re
 from abc import abstractmethod
 from datetime import datetime, timedelta
@@ -11,12 +10,11 @@ from itertools import cycle, islice
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from framework import tester
-from framework.templates import fill_template, populate_properties
-from framework.x509 import CertGenerator
 from helpers import dmesg, remote, tempesta, tf_cfg
+from helpers.cert_generator_x509 import CertGenerator
 from helpers.deproxy import HttpMessage
-from helpers.error import Error
+from helpers.util import fill_template
+from test_suite import tester
 
 from .handshake import TlsHandshake, x509_check_cn
 
@@ -738,7 +736,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
     def reload_with_config(self, template: str):
         """Reconfigure Tempesta with the provided config `template`."""
         desc = {"config": template, "custom_cert": True}
-        populate_properties(desc)
+        tf_cfg.populate_properties(desc)
         config_text = fill_template(desc["config"], desc)
 
         config = tempesta.Config()

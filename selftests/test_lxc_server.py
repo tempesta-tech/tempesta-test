@@ -1,7 +1,7 @@
 """Tests for `framework.lxc_server.LXCServer`."""
 
-from framework import tester
 from helpers import remote
+from test_suite import tester
 
 
 class TestLxcServer(tester.TempestaTest):

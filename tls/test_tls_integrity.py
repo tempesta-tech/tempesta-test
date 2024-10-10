@@ -6,10 +6,10 @@ import hashlib
 from contextlib import contextmanager
 
 import run_config
-from framework import tester
-from helpers import analyzer, remote, sysnet, tf_cfg
+from helpers import analyzer, remote, tf_cfg
 from helpers.error import Error
 from helpers.networker import NetWorker
+from test_suite import sysnet, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."

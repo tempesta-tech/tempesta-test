@@ -6,6 +6,7 @@ import functools
 import time
 from cProfile import Profile
 from pstats import Stats
+from string import Template
 
 from . import remote, tf_cfg
 
@@ -111,3 +112,7 @@ def get_used_memory():
     stdout, _ = remote.tempesta.run_cmd("free")
     used_memory = int(stdout.decode().split("\n")[1].split()[2])
     return used_memory
+
+
+def fill_template(template, properties):
+    return Template(template).substitute(properties)

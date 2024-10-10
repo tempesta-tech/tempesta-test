@@ -1,10 +1,10 @@
 from __future__ import print_function
 
 import asyncore
-import copy
 import unittest
 
-from helpers import control, deproxy, dmesg, remote, stateful, tempesta, tf_cfg, util
+from framework import stateful
+from helpers import control, deproxy, dmesg, remote, tempesta, tf_cfg, util
 from helpers.deproxy import ParseError
 
 __author__ = "Tempesta Technologies, Inc."

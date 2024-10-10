@@ -4,18 +4,16 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
-
 from hyperframe.frame import DataFrame, HeadersFrame
 
-from framework import tester
-from framework.parameterize import param, parameterize
 from helpers.dmesg import (
     amount_positive,
     limited_rate_on_tempesta_node,
     unlimited_rate_on_tempesta_node,
 )
-from helpers.remote import CmdError
+from helpers.error import BaseCmdException
+from test_suite import tester
+from test_suite.parameterize import param, parameterize
 
 
 class TestDefaultConfig(tester.TempestaTest):
@@ -391,7 +389,7 @@ block_action error reply;
         """
         self.__update_tempesta_config(config)
         self.oops_ignore.append("ERROR")
-        with self.assertRaises(CmdError):
+        with self.assertRaises(BaseCmdException):
             self.start_tempesta()
 
     @parameterize.expand(
@@ -941,7 +939,7 @@ block_action error reply;
         self.__update_tempesta_config(wrong_config)
 
         with self.assertRaises(
-            expected_exception=CmdError, msg="TempestaFW reloads with wrong config"
+            expected_exception=BaseCmdException, msg="TempestaFW reloads with wrong config"
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().reload()

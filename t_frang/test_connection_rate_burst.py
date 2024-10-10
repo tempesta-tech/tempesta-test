@@ -9,9 +9,8 @@ but not more than 2 times."
 
 import re
 
-from framework.parameterize import param, parameterize, parameterize_class
-from helpers import tf_cfg
 from t_frang.frang_test_case import FrangTestCase
+from test_suite.parameterize import param, parameterize, parameterize_class
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

@@ -1,8 +1,9 @@
 """Tests for Frang directive tls-related."""
+
 import time
 
-from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase
+from test_suite.parameterize import param, parameterize
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
