@@ -178,7 +178,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.segment_gap = segment_gap
 
         self.stop_procedures: list[callable] = [self.__stop_server]
-        self.node: remote.Node = remote.host
+        self.node: remote.INode = remote.host
         self._polling_lock: threading.Lock | None = None
 
     def _reinit_variables(self):

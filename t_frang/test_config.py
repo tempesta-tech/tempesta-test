@@ -11,7 +11,7 @@ from helpers.dmesg import (
     limited_rate_on_tempesta_node,
     unlimited_rate_on_tempesta_node,
 )
-from helpers.remote import CmdError
+from helpers.error import BaseCmdException
 from test_suite import tester
 from test_suite.parameterize import param, parameterize
 
@@ -389,7 +389,7 @@ block_action error reply;
         """
         self.__update_tempesta_config(config)
         self.oops_ignore.append("ERROR")
-        with self.assertRaises(CmdError):
+        with self.assertRaises(BaseCmdException):
             self.start_tempesta()
 
     @parameterize.expand(
@@ -939,7 +939,7 @@ block_action error reply;
         self.__update_tempesta_config(wrong_config)
 
         with self.assertRaises(
-            expected_exception=CmdError, msg="TempestaFW reloads with wrong config"
+            expected_exception=BaseCmdException, msg="TempestaFW reloads with wrong config"
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().reload()

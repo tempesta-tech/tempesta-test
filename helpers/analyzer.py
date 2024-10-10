@@ -4,13 +4,11 @@ Instruments for network traffic analysis.
 from __future__ import print_function
 
 import abc
-import os
-from threading import Thread
-from time import sleep
 
 from scapy.all import *
 
-from . import error, remote, tf_cfg, util
+
+from helpers import error, remote, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
@@ -28,7 +26,8 @@ CWR = 0x80
 
 
 class Sniffer(object, metaclass=abc.ABCMeta):
-    def __init__(self, node, host, count=0, timeout=30, ports=(80,), node_close=True):
+
+    def __init__(self, node: remote.INode, host, count=0, timeout=30, ports=(80,), node_close=True):
         self.node = node
         self.ports = ports
         self.thread = None
@@ -50,7 +49,7 @@ class Sniffer(object, metaclass=abc.ABCMeta):
         scapy.sniff(offline=file_obj) interface does not support
         neither StringIO objects nor paramiko file objects.
         """
-        stdout, stderr = self.node.run_cmd(self.cmd, timeout=None, err_msg=(self.err_msg % "start"))
+        stdout, stderr = self.node.run_cmd(self.cmd, timeout=None)
         match = re.search(r"(\d+) packets captured", stderr.decode())
         if match:
             self.captured = int(match.group(1))
