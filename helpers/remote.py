@@ -63,7 +63,6 @@ class INode(object, metaclass=abc.ABCMeta):
         timeout: Optional[int] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
-        raise_on_error: bool = True,
     ) -> (bytes, bytes):
         """
         Run command.
@@ -73,7 +72,6 @@ class INode(object, metaclass=abc.ABCMeta):
             timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
-            raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -143,7 +141,6 @@ class LocalNode(INode):
         timeout: Optional[int] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
-        raise_on_error: bool = True,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -153,7 +150,6 @@ class LocalNode(INode):
             timeout (Optional[int]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
-            raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -230,18 +226,6 @@ class LocalNode(INode):
             self.LOGGER.debug("stdout: {0}".format(stdout))
         if stderr:
             self.LOGGER.error("stderr: {0}".format(stderr))
-
-            if raise_on_error:
-                # success exit code does NOT always tell us that app finished correctly,
-                # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
-                # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
-                raise error.CommandExecutionException(
-                    "Error happened despite a success exit code: {0}, proc {1}".format(
-                         stderr, current_proc,
-                    ),
-                )
-
-            self.LOGGER.warning("Error is not considered as a problem: keep working.".format(stderr))
 
         return stdout, stderr
 
@@ -353,7 +337,6 @@ class RemoteNode(INode):
         timeout: Optional[int] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
-        raise_on_error: bool = True,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -364,7 +347,6 @@ class RemoteNode(INode):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
                 no effect for the method, all calls are blocking
-            raise_on_error (bool): if True -> existence of an error is stderr raises an exception
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -408,16 +390,6 @@ class RemoteNode(INode):
         self.LOGGER.debug("stdout: {0}".format(stdout))
         if stderr:
             self.LOGGER.error("stderr: {0}".format(stderr))
-
-            if raise_on_error:
-                # success exit code does NOT always tell us that app finished correctly,
-                # as a good example is running a command `timeout 5 <command>`, if <command> does not exist
-                # `timeout` returns 0(zero exit code) with an error message, so, it hides an error
-                raise error.CommandExecutionException(
-                    "Error happened despite a success exit code: {0}".format(stderr),
-                )
-
-            self.LOGGER.warning("Error is not considered as a problem: keep working.".format(stderr))
 
         return stdout, stderr
 
