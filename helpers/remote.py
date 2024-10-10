@@ -13,8 +13,7 @@ import os
 import re
 import subprocess
 import time
-from dataclasses import dataclass
-from typing import Any, Optional, Union  # TODO: use | instead when we move to python3.10
+from typing import Any, Optional
 
 import paramiko
 
@@ -124,14 +123,6 @@ class INode(object, metaclass=abc.ABCMeta):
         """
 
 
-@dataclass
-class CmdError(Exception):
-    message: str
-    stdout: Union[str, bytes]
-    stderr: Union[str, bytes]
-    returncode: int
-
-
 class LocalNode(INode):
     """Local node class."""
 
@@ -220,6 +211,9 @@ class LocalNode(INode):
         if current_proc.returncode != 0:
             raise error.ProcessBadExitStatusException(
                 '\nprocess: {0};\nstderr: {1}'.format(current_proc, stderr),
+                stdout=stdout,
+                stderr=stderr,
+                rt=current_proc.returncode,
             )
 
         if stdout:
@@ -385,6 +379,9 @@ class RemoteNode(INode):
         if out_f.channel.recv_exit_status() != 0:
             raise error.ProcessBadExitStatusException(
                 '\nCurrent exit status is `{0}`\nstderr: {1}'.format(out_f.channel.recv_exit_status(), stderr),
+                stdout=stdout,
+                stderr=stderr,
+                rt=out_f.channel.recv_exit_status(),
             )
 
         self.LOGGER.debug("stdout: {0}".format(stdout))

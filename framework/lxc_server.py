@@ -120,7 +120,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         try:
             self.node.run_cmd(f"curl -If {self.container_ip}:{self.external_port}")
             first_check = False
-        except remote.CmdError:
+        except error.BaseCmdException:
             first_check = True
 
         second_check = (

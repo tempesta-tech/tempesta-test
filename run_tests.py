@@ -368,12 +368,8 @@ if root_required:
 remote.connect()
 
 if run_config.KERNEL_DBG_TESTS:
-    try:
-        remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
-    except remote.CmdError:
-        raise AttributeError(
-            "kmemleak is disabled. Please enable kmemleak or not use --kernel-dbg option."
-        )
+    remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
+
 
 # allows run tests from docker container
 if prepare_tcp:

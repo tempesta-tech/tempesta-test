@@ -7,10 +7,9 @@ from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
 from framework.port_checks import FreePortsChecker
 from framework.x509 import CertGenerator
-from helpers import analyzer, dmesg, remote
+from helpers import analyzer, dmesg, error, remote
 from helpers.analyzer import PSH, TCP
 from helpers.dmesg import amount_positive
-from helpers.remote import CmdError
 from helpers.tf_cfg import cfg
 
 SERVER_IP = cfg.get("Server", "ip")
@@ -65,7 +64,7 @@ class TestListenCommonReconf(tester.TempestaTest):
         # Tempesta listen 443, 8000, 4433 port and Nginx listen 8000 port
         tempesta.config.set_defconfig(self.tempesta_busy_socks["config"])
         self.oops_ignore = ["ERROR"]
-        with self.assertRaises(CmdError):
+        with self.assertRaises(error.BaseCmdException):
             tempesta.reload()
 
         port_checker.node = remote.tempesta
@@ -1833,7 +1832,7 @@ http_chain {{
         tempesta.config.set_defconfig(valid_config)
         tempesta.start()
         tempesta.config.set_defconfig(invalid_config)
-        with self.assertRaises(CmdError):
+        with self.assertRaises(error.BaseCmdException):
             tempesta.reload()
 
         port_checker = FreePortsChecker()

@@ -9,9 +9,8 @@ from framework.deproxy_server import StaticDeproxyServer
 from framework.parameterize import param, parameterize
 from framework.tester import TempestaTest
 from helpers import checks_for_tests as checks
-from helpers import dmesg, tf_cfg
+from helpers import dmesg, error, tf_cfg
 from helpers.deproxy import HttpMessage
-from helpers.remote import CmdError
 
 
 class TestPurgeAcl(TempestaTest):
@@ -251,7 +250,7 @@ frang_limits {
     def test_wrong_config(self, name, config):
         self.__update_tempesta_config(config)
         with self.assertRaises(
-            expected_exception=CmdError, msg="TempestaFW reloads with wrong config"
+            expected_exception=error.BaseCmdException, msg="TempestaFW reloads with wrong config"
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().start()

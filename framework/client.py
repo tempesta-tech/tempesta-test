@@ -2,13 +2,13 @@ import abc
 import multiprocessing
 import os
 
-from helpers import remote, stateful, tf_cfg, util
+from helpers import error, remote, stateful, tf_cfg, util
 
 
 def _run_client(client, resq: multiprocessing.Queue):
     try:
         res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
-    except remote.CmdError as e:
+    except error.BaseCmdException as e:
         res = (e.stdout, e.stderr)
         client.returncode = e.returncode
     resq.put(res)

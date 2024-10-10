@@ -7,8 +7,7 @@ import time
 
 from framework import tester
 from framework.parameterize import param, parameterize, parameterize_class
-from helpers import dmesg, remote, tf_cfg
-from helpers.remote import CmdError
+from helpers import dmesg, error, remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
@@ -580,7 +579,7 @@ class StickyCookieConfig(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
-        with self.assertRaises(CmdError, msg=""):
+        with self.assertRaises(error.BaseCmdException, msg=""):
             self.start_tempesta()
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
@@ -712,7 +711,7 @@ class StickyCookieOptions(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
-        with self.assertRaises(CmdError, msg=""):
+        with self.assertRaises(error.BaseCmdException, msg=""):
             self.start_tempesta()
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
