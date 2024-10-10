@@ -788,6 +788,21 @@ block_action error reply;
         client.send_request(client.create_request(method="GET", headers=[]), "200")
         self.assertFalse(self.oops.find("frang: restricted HTTP method for"))
 
+    def _test_override_ct_vals_after_reload(self):
+        client = self.get_client("deproxy")
+        client.start()
+        client.send_request(
+            client.create_request(method="POST", headers=[("content-type", "text/html")]), "200"
+        )
+        self.assertFalse(self.oops.find("frang: restricted Content-Type for"))
+        client.send_request(
+            client.create_request(
+                method="POST", authority="tests.com", headers=[("content-type", "text/html")]
+            ),
+            "403",
+        )
+        self.assertTrue(self.oops.find("frang: restricted Content-Type for"))
+
     @parameterize.expand(
         [
             param(
@@ -916,6 +931,153 @@ block_action error reply;
                     }
                     """,
                 test_function=_test_override_http_methods_after_reload,
+            ),
+            param(
+                name="http_ct_vals_1",
+                first_config="""
+                    frang_limits {http_ct_vals text/html;}
+                    vhost test {
+                        location prefix / {
+                            frang_limits {http_body_len 1;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    vhost tests {
+                        location prefix / {
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    http_chain {
+                        host == "tests.com" -> tests;
+                        ->test;
+                    }
+                    """,
+                second_config="""
+                    frang_limits {
+                        http_ct_vals text/html;
+                        http_strict_host_checking false;
+                    }
+                    vhost test {
+                        location prefix / {
+                            frang_limits {http_ct_vals text/html;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    vhost tests {
+                        location prefix / {
+                            frang_limits {http_ct_vals text/plain;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    http_chain {
+                        host == "tests.com" -> tests;
+                        ->test;
+                    }
+                    """,
+                test_function=_test_override_ct_vals_after_reload,
+            ),
+            param(
+                name="http_ct_vals_2",
+                first_config="""
+                    frang_limits {}
+                    vhost test {
+                        location prefix / {
+                            frang_limits {http_body_len 1; http_ct_vals text/plain;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    vhost tests {
+                        location prefix / {
+                            frang_limits {http_body_len 1; http_ct_vals text/plain;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    http_chain {
+                        host == "tests.com" -> tests;
+                        ->test;
+                    }
+                    """,
+                second_config="""
+                    frang_limits {
+                        http_ct_vals text/html;
+                        http_strict_host_checking false;
+                    }
+                    vhost test {
+                        location prefix / {
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    vhost tests {
+                        location prefix / {
+                            frang_limits {http_ct_vals text/plain;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    http_chain {
+                        host == "tests.com" -> tests;
+                        ->test;
+                    }
+                    """,
+                test_function=_test_override_ct_vals_after_reload,
+            ),
+            param(
+                name="http_ct_vals_3",
+                first_config="""
+                    frang_limits {http_ct_vals text/plain;}
+                    frang_limits {http_ct_vals text/html;}
+                    vhost test {
+                        location prefix / {
+                            frang_limits {http_body_len 1;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    vhost tests {
+                        location prefix / {
+                            frang_limits {http_body_len 1;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    http_chain {
+                        host == "tests.com" -> tests;
+                        ->test;
+                    }
+                    frang_limits {http_ct_vals text/plain;}
+                    """,
+                second_config="""
+                    frang_limits {
+                        http_ct_vals text/html;
+                        http_strict_host_checking false;
+                    }
+                    vhost test {
+                        location prefix / {
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    vhost tests {
+                        location prefix / {
+                            frang_limits {http_ct_vals text/plain;}
+                            proxy_pass default;
+                        }
+                        proxy_pass default;
+                    }
+                    http_chain {
+                        host == "tests.com" -> tests;
+                        ->test;
+                    }
+                    frang_limits {http_ct_vals text/plain;}
+                    """,
+                test_function=_test_override_ct_vals_after_reload,
             ),
         ]
     )
