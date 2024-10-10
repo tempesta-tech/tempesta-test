@@ -7,8 +7,9 @@ import ssl
 import time
 
 import h2
-from framework import tester
+
 from helpers import tf_cfg
+from test_suite import tester
 
 
 class TestH2Ping(tester.TempestaTest):

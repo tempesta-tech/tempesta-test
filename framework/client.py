@@ -2,7 +2,8 @@ import abc
 import multiprocessing
 import os
 
-from helpers import remote, stateful, tf_cfg, util
+from framework import stateful
+from helpers import remote, tf_cfg, util
 
 
 def _run_client(client, resq: multiprocessing.Queue):

@@ -11,8 +11,8 @@ import re
 import unittest
 from time import sleep
 
-from framework import tester
 from helpers import dmesg, remote, tf_cfg
+from test_suite import tester
 
 # Number of open connections
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))

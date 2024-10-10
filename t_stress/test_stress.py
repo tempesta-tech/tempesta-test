@@ -6,8 +6,8 @@ import os
 import time
 from pathlib import Path
 
-from framework import tester
-from helpers import dmesg, remote, sysnet, tf_cfg
+from helpers import dmesg, remote, tf_cfg
+from test_suite import sysnet, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

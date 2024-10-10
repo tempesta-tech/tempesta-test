@@ -22,9 +22,9 @@ Backend is configured to never close connections (keepalive_requests),
 since it unpredictably affects load distribution.
 """
 
-from framework import tester
 from helpers import tf_cfg
 from helpers.control import servers_get_stats
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."

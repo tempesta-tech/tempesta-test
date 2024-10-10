@@ -21,7 +21,7 @@ __license__ = "GPL2"
 
 import copy
 
-from framework import tester
+from test_suite import tester
 
 NGINX_CONFIG = """
 pid ${pid};

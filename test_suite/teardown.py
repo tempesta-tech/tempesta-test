@@ -49,6 +49,7 @@ def _call_hooks_when_main_exits():
 # provide any way to add exit hooks.
 Thread(target=_call_hooks_when_main_exits).start()
 
+
 # Unfortunately, we can't obtain an exit code of a Thread after it exits.
 # So we detect errors by the fact of writing to the stderr stream.
 # We wrap sys.stderr and set the error flag if someone writes a message there.

@@ -4,18 +4,16 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
-
 from hyperframe.frame import DataFrame, HeadersFrame
 
-from framework import tester
-from framework.parameterize import param, parameterize
 from helpers.dmesg import (
     amount_positive,
     limited_rate_on_tempesta_node,
     unlimited_rate_on_tempesta_node,
 )
 from helpers.remote import CmdError
+from test_suite import tester
+from test_suite.parameterize import param, parameterize
 
 
 class TestDefaultConfig(tester.TempestaTest):

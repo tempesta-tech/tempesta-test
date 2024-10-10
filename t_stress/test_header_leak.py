@@ -9,8 +9,8 @@ import string
 import psutil
 from hyperframe.frame import HeadersFrame
 
-from framework import tester
 from helpers import dmesg, remote
+from test_suite import tester
 
 
 def randomword(length):

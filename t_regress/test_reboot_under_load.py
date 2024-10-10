@@ -8,10 +8,10 @@ __license__ = "GPL2"
 
 import time
 
-from framework import tester
-from framework.parameterize import parameterize_class
 from helpers import remote, tf_cfg
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
+from test_suite import tester
+from test_suite.parameterize import parameterize_class
 
 STATUS_OK = "200"
 
