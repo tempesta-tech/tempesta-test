@@ -5,10 +5,10 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
-from framework.tester import TempestaTest
-from helpers import checks_for_tests as checks
 from helpers import tf_cfg
 from t_wrong_body_length.utils import TestContentLengthBase
+from test_suite import checks_for_tests as checks
+from test_suite.tester import TempestaTest
 
 
 class RequestContentLengthBase(TestContentLengthBase, base=True):

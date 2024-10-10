@@ -3,12 +3,13 @@
 from __future__ import print_function
 
 import abc
-import asyncore
 import multiprocessing.dummy as multiprocessing
 import os
 import re
 
-from . import deproxy, dmesg, error, nginx, remote, stateful, tempesta, tf_cfg, util
+from framework import stateful
+
+from . import error, nginx, remote, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."

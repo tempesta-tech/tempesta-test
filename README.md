@@ -170,7 +170,7 @@ echo "__all__ = [ 'test_some_feature' ]" >> my_test/__init.py__
 3. Name of the test class must be started with `Test` prefix;
 
 ```python3
-from framework import tester
+from test_suite import tester
 
 class TestCases(tester.TempestaTest):
     ...
@@ -227,11 +227,12 @@ tempesta = {
 5. We use decorators to parameterize the tests (please don't use inheritance):
 
 ```python3
-from framework import tester
-from framework.parameterize import param, parameterize, parameterize_class
+from test_suite import tester
+from test_suite.parameterize import param, parameterize, parameterize_class
+
 
 @parameterize_class(
-      [
+    [
         {"name": "Http", "clients": ["http_config"]},
         {"name": "H2", "clients": ["h2_config"]},
     ]
@@ -245,7 +246,7 @@ class TestExample(tester.TempestaTest):
     )
     def test_request(self, name, key_1):
         ...
-    
+
 # we will get 4 tests:
 # TestExampleHttp.test_request_1
 # TestExampleHttp.test_request_2

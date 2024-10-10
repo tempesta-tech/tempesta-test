@@ -6,8 +6,8 @@ __license__ = "GPL2"
 
 import copy
 
-from framework import tester
 from t_http_rules import test_http_tables
+from test_suite import tester
 
 
 class TestHttpTablesH2(test_http_tables.HttpTablesTest):

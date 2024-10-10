@@ -11,10 +11,10 @@ defaults). This also called _inheritting of scheduler settings_. Each test case
 have a description how the inheriting should work.
 """
 
-from framework import tester
 from framework.wrk_client import Wrk
 from helpers import tf_cfg
 from helpers.control import servers_get_stats
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."

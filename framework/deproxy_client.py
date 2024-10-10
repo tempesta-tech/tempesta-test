@@ -26,7 +26,8 @@ from h2.stream import StreamInputs
 from hpack import Encoder
 
 import run_config
-from helpers import deproxy, stateful, tf_cfg, util
+from framework import stateful
+from helpers import deproxy, tf_cfg, util
 
 dbg = deproxy.dbg
 

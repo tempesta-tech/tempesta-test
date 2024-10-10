@@ -4,7 +4,7 @@ TLS perf tests - load Tempesta FW with multiple TLS handshakes.
 
 import helpers.tf_cfg as tf_cfg
 import run_config
-from framework import tester
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020-2023 Tempesta Technologies, Inc."

@@ -4,8 +4,8 @@ TestCase for multiple listening sockets.
 Config for test is being auto generated and imported before test.
 """
 
-from framework import tester
 from helpers import dmesg
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

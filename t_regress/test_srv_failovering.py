@@ -8,10 +8,10 @@ __license__ = "GPL2"
 
 import random
 
-from framework import tester
 from framework.deproxy_server import ServerConnection
 from helpers import tempesta as tfw
 from helpers.control import Tempesta
+from test_suite import tester
 
 
 class TestFailovering(tester.TempestaTest):

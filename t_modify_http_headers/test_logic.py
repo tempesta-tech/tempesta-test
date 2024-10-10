@@ -5,9 +5,9 @@ __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import helpers
-from framework import tester
 from helpers import tf_cfg
 from helpers.deproxy import H2Response, HttpMessage, Request, Response
+from test_suite import tester
 
 MAX_HEADER_NAME = 1024  # See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN
 
@@ -151,9 +151,11 @@ class TestLogicBase(tester.TempestaTest, base=True):
         # send 2 requests for checking cache and dynamic table
         for _ in range(2 if self.cache else self.requests_n):
             client.send_request(
-                generate_h2_request(optional_headers)
-                if self.h2
-                else generate_http1_request(optional_headers),
+                (
+                    generate_h2_request(optional_headers)
+                    if self.h2
+                    else generate_http1_request(optional_headers)
+                ),
                 "200",
             )
 

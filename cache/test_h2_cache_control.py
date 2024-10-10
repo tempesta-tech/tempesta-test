@@ -4,8 +4,8 @@ __license__ = "GPL2"
 
 import time
 
-from framework import tester
 from helpers import deproxy
+from test_suite import tester
 
 
 class TestH2CacheBase(tester.TempestaTest):

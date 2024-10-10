@@ -6,7 +6,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import tester
+from test_suite import tester
 
 
 class HttpRules(tester.TempestaTest):

@@ -3,8 +3,8 @@ Tests to verify correctness of matching multiple
 similar headers in one request.
 """
 
-from framework import tester
 from helpers import chains, remote
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
