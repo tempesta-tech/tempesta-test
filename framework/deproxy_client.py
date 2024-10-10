@@ -221,7 +221,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
             )
 
     def send_bytes(self, data: bytes, expect_response=False):
-        self._add_to_request_buffers(data=data, end_stream=None)
+        self._add_to_request_buffers(data=data, end_stream=None, is_body=False)
         self.nrreq += 1
         if expect_response:
             self.valid_req_num += 1
@@ -446,7 +446,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     def make_request(
         self,
-        request: Union[tuple, list, str, deproxy.H2Request],
+        request: Union[tuple, list, str, bytes, deproxy.H2Request],
         end_stream=True,
         priority_weight=None,
         priority_depends_on=None,
@@ -457,7 +457,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         Add request to buffers and change counters.
         Args:
             request:
-                str - send data frame;
+                str or bytes - send data frame;
                 list - send headers frame;
                 tuple - send headers and data frame in one TCP-packet;
             end_stream (bool) - set END_STREAM flag for frame;
@@ -478,6 +478,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             priority_weight=priority_weight,
             priority_depends_on=priority_depends_on,
             priority_exclusive=priority_exclusive,
+            is_body=True if isinstance(request, bytes) else False,
         )
 
         self.nrreq += 1
@@ -511,7 +512,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self,
         header_table_size: int = None,
         enable_push: int = None,
-        max_concurrent_stream: int = None,
+        max_concurrent_streams: int = None,
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
@@ -523,7 +524,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         new_settings = self.__generate_new_settings(
             header_table_size,
             enable_push,
-            max_concurrent_stream,
+            max_concurrent_streams,
             initial_window_size,
             max_frame_size,
             max_header_list_size,
@@ -540,7 +541,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self,
         header_table_size: int = None,
         enable_push: int = None,
-        max_concurrent_stream: int = None,
+        max_concurrent_streams: int = None,
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
@@ -550,7 +551,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         new_settings = self.__generate_new_settings(
             header_table_size,
             enable_push,
-            max_concurrent_stream,
+            max_concurrent_streams,
             initial_window_size,
             max_frame_size,
             max_header_list_size,
@@ -741,7 +742,7 @@ class DeproxyClientH2(BaseDeproxyClient):
     def __generate_new_settings(
         header_table_size: int = None,
         enable_push: int = None,
-        max_concurrent_stream: int = None,
+        max_concurrent_streams: int = None,
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
@@ -750,9 +751,9 @@ class DeproxyClientH2(BaseDeproxyClient):
         if header_table_size is not None:
             new_settings[SettingCodes.HEADER_TABLE_SIZE] = header_table_size
         if enable_push is not None:
-            new_settings[SettingCodes.ENABLE_PUSH] = header_table_size
-        if max_concurrent_stream is not None:
-            new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = max_concurrent_stream
+            new_settings[SettingCodes.ENABLE_PUSH] = enable_push
+        if max_concurrent_streams is not None:
+            new_settings[SettingCodes.MAX_CONCURRENT_STREAMS] = max_concurrent_streams
         if initial_window_size is not None:
             new_settings[SettingCodes.INITIAL_WINDOW_SIZE] = initial_window_size
         if max_frame_size is not None:
@@ -800,11 +801,16 @@ class DeproxyClientH2(BaseDeproxyClient):
         priority_weight=None,
         priority_depends_on=None,
         priority_exclusive=None,
+        is_body: bool,
     ) -> None:
-        if isinstance(data, bytes):
+        if isinstance(data, bytes) and not is_body:
             # in case when you use `send_bytes` method
             self._request_buffers.append(data)
             self._add_to_body_buffers(body=None, stream_id=None, end_stream=None)
+        elif isinstance(data, bytes) and is_body:
+            # in case when you use `mak_request` method
+            self._request_buffers.append(b"")
+            self._add_to_body_buffers(body=data, stream_id=self.stream_id, end_stream=end_stream)
         elif isinstance(data, str):
             # in case when you use `make_request` to sending body
             self._request_buffers.append(b"")
