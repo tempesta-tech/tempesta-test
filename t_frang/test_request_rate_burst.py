@@ -7,6 +7,7 @@ from hyperframe.frame import HeadersFrame, RstStreamFrame
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from framework.parameterize import param, parameterize, parameterize_class
 from helpers import analyzer, error, remote, util
+from helpers.deproxy import H2Request, Request
 from t_frang.frang_test_case import DELAY, FrangTestCase
 from test_suite import asserts
 
@@ -20,31 +21,91 @@ ERROR_MSG_BURST = "Warning: frang: requests burst exceeded"
 HTTP1_REQUEST = DeproxyClient.create_request(method="GET", uri="/", headers=[])
 HTTP2_REQUEST = DeproxyClientH2.create_request(method="GET", uri="/", headers=[])
 
+HTTP1_CLIENTS = [
+    {
+        "id": "same-ip1",
+        "type": "deproxy",
+        "addr": "${tempesta_ip}",
+        "port": "80",
+    },
+    {
+        "id": "same-ip2",
+        "type": "deproxy",
+        "addr": "${tempesta_ip}",
+        "port": "80",
+    },
+    {
+        "id": "another-ip",
+        "type": "deproxy",
+        "addr": "${tempesta_ip}",
+        "port": "80",
+        "interface": True,
+    },
+]
 
-class FrangRequestRateTestCase(FrangTestCase, asserts.Sniffer):
-    """Tests for 'request_rate' directive."""
+HTTP2_CLIENTS = [
+    {
+        "id": "same-ip1",
+        "type": "deproxy_h2",
+        "addr": "${tempesta_ip}",
+        "port": "443",
+        "ssl": True,
+    },
+    {
+        "id": "same-ip2",
+        "type": "deproxy_h2",
+        "addr": "${tempesta_ip}",
+        "port": "443",
+        "ssl": True,
+    },
+    {
+        "id": "another-ip",
+        "type": "deproxy_h2",
+        "addr": "${tempesta_ip}",
+        "port": "443",
+        "interface": True,
+        "ssl": True,
+    },
+]
 
-    clients = [
+
+@parameterize_class(
+    [
         {
-            "id": "same-ip1",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
+            "name": "RateHttp",
+            "clients": HTTP1_CLIENTS,
+            "frang_config": "request_rate 4",
+            "request": HTTP1_REQUEST,
+            "error_msg": ERROR_MSG_RATE,
+            "delay": 1.0,
         },
         {
-            "id": "same-ip2",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
+            "name": "BurstHttp",
+            "clients": HTTP1_CLIENTS,
+            "frang_config": "request_burst 4",
+            "request": HTTP1_REQUEST,
+            "error_msg": ERROR_MSG_BURST,
+            "delay": 0.125,
         },
         {
-            "id": "another-ip",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-            "interface": True,
+            "name": "RateH2",
+            "clients": HTTP2_CLIENTS,
+            "request": HTTP2_REQUEST,
+            "frang_config": "request_rate 4",
+            "error_msg": ERROR_MSG_RATE,
+            "delay": 1.0,
+        },
+        {
+            "name": "BurstH2",
+            "clients": HTTP2_CLIENTS,
+            "request": HTTP2_REQUEST,
+            "frang_config": "request_burst 4",
+            "error_msg": ERROR_MSG_BURST,
+            "delay": 0.125,
         },
     ]
+)
+class TestFrangRequest(FrangTestCase, asserts.Sniffer):
 
     tempesta = {
         "config": """
@@ -63,47 +124,53 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 """,
     }
 
-    frang_config = "request_rate 4"
-    error_msg = ERROR_MSG_RATE
-    request = HTTP1_REQUEST
+    frang_config: str
+    error_msg: str
+    delay: float
+    request: H2Request | Request
 
     def setUp(self):
         super().setUp()
         self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=10, ports=(80, 443))
         self.set_frang_config(self.frang_config)
 
-    def arrange(self, c1, c2, rps_1: int, rps_2: int):
+    def arrange(self, c1, c2):
         self.sniffer.start()
         self.start_all_services(client=False)
-        c1.set_rps(rps_1)
-        c2.set_rps(rps_2)
         c1.start()
         c2.start()
 
-    def do_requests(self, c1, c2, request_cnt: int):
-        for _ in range(request_cnt):
+    def do_requests(self, c1, c2, request_cnt_1: int, request_cnt_2: int):
+        for _ in range(request_cnt_1):
             c1.make_request(self.request)
+        for _ in range(request_cnt_2):
             c2.make_request(self.request)
         c1.wait_for_response(10, strict=True)
         c2.wait_for_response(10, strict=True)
 
+    @util.retry_if_not_conditions
     def test_two_clients_two_ip(self):
         """
         Set `request_rate 4;` and make requests for two clients with different ip:
-            - 6 requests for client with 3.8 rps and receive 6 responses with 200 status;
-            - 6 requests for client with rps greater than 4 and get ip block;
+            - 4 requests for client 1 and receive 4 responses with 200 status;
+            - 8 requests for client 2 and get ip block;
         """
         self.disable_deproxy_auto_parser()
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("another-ip")
 
-        self.arrange(c1, c2, rps_1=3.8, rps_2=0)
+        self.arrange(c1, c2)
         self.save_must_reset_socks([c2])
         self.save_must_not_reset_socks([c1])
 
-        self.do_requests(c1, c2, request_cnt=6)
+        start_time = time.monotonic()
+        self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=8)
+        end_time = time.monotonic()
 
-        self.assertEqual(c1.statuses, {200: 6})
+        if end_time - start_time > self.delay:
+            raise error.TestConditionsAreNotCompleted()
+
+        self.assertEqual(c1.statuses, {200: 4})
         self.assertTrue(c1.conn_is_active)
         # For c2: we can't say number of received responses when ip is blocked.
         # See the comment in DeproxyClient.statuses for details.
@@ -111,9 +178,12 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         self.sniffer.stop()
         self.assert_reset_socks(self.sniffer.packets)
         self.assert_unreset_socks(self.sniffer.packets)
-        self.assertFrangWarning(warning="Warning: block client:", expected=1)
-        self.assertFrangWarning(warning=self.error_msg, expected=1)
+        self.assertFrangWarning(
+            warning=f"Warning: block client: {c2.bind_addr}", expected=range(1, 3)
+        )
+        self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
 
+    @util.retry_if_not_conditions
     def test_two_clients_one_ip(self):
         """
         Set `request_rate 4;` and make requests concurrently for two clients with same ip.
@@ -122,64 +192,23 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
 
-        self.arrange(c1, c2, rps_1=0, rps_2=0)
+        self.arrange(c1, c2)
         self.save_must_reset_socks([c1, c2])
 
-        self.do_requests(c1, c2, request_cnt=4)
+        start_time = time.monotonic()
+        self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=4)
+        end_time = time.monotonic()
+
+        if end_time - start_time > self.delay:
+            raise error.TestConditionsAreNotCompleted()
 
         # We can't say number of received responses when ip is blocked.
         # See the comment in DeproxyClient.statuses for details.
 
         self.sniffer.stop()
         self.assert_reset_socks(self.sniffer.packets)
-        self.assertFrangWarning(warning="Warning: block client:", expected=range(1, 2))
-        self.assertFrangWarning(warning=self.error_msg, expected=range(1, 2))
-
-
-class FrangRequestBurstTestCase(FrangRequestRateTestCase):
-    """Tests for and 'request_burst' directive."""
-
-    clients = FrangRequestRateTestCase.clients
-    frang_config = "request_burst 4"
-    error_msg = ERROR_MSG_BURST
-    request = HTTP1_REQUEST
-
-
-class FrangRequestRateH2(FrangRequestRateTestCase):
-    clients = [
-        {
-            "id": "same-ip1",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-        {
-            "id": "same-ip2",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
-        {
-            "id": "another-ip",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "interface": True,
-            "ssl": True,
-        },
-    ]
-    frang_config = FrangRequestRateTestCase.frang_config
-    error_msg = ERROR_MSG_RATE
-    request = HTTP2_REQUEST
-
-
-class FrangRequestBurstH2(FrangRequestRateTestCase):
-    clients = FrangRequestRateH2.clients
-    frang_config = FrangRequestBurstTestCase.frang_config
-    error_msg = ERROR_MSG_BURST
-    request = HTTP2_REQUEST
+        self.assertFrangWarning(warning="Warning: block client:", expected=range(1, 6))
+        self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
 
 
 @parameterize_class(
