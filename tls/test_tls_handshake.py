@@ -2,11 +2,10 @@
 Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
-from time import sleep
 
-from framework import tester
-from framework.x509 import CertGenerator
-from helpers import analyzer, dmesg, remote, tf_cfg, util
+from helpers import analyzer, remote, util
+from helpers.cert_generator_x509 import CertGenerator
+from test_suite import tester
 
 from .fuzzer import tls_record_fuzzer
 from .handshake import *

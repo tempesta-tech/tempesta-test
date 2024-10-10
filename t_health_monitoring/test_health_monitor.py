@@ -7,12 +7,11 @@ from __future__ import print_function
 import time
 from collections import defaultdict
 
-from access_log.test_access_log_h2 import backends
-from framework import templates, tester
-from framework.parameterize import param, parameterize, parameterize_class
-from helpers import dmesg, tempesta, tf_cfg, util
+from helpers import dmesg, tempesta, tf_cfg
 from helpers.deproxy import HttpMessage
 from http2_general.test_h2_responses import H2ResponsesPipelinedBase
+from test_suite import tester
+from test_suite.parameterize import param, parameterize, parameterize_class
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."

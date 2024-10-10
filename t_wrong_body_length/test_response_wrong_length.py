@@ -4,8 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers import checks_for_tests as checks
 from t_wrong_body_length.utils import H2Config, TestContentLengthBase
+from test_suite import checks_for_tests as checks
 
 
 class ResponseContentLengthBase(TestContentLengthBase, base=True):

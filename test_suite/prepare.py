@@ -2,7 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from . import remote
+from helpers import remote
 
 
 def configure_tcp():

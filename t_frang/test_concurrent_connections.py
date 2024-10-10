@@ -6,8 +6,8 @@ __license__ = "GPL2"
 
 import time
 
-from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase
+from test_suite.parameterize import param, parameterize
 
 ERROR = "Warning: frang: connections max num. exceeded"
 

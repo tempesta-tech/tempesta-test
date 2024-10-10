@@ -31,8 +31,9 @@ from io import StringIO
 from typing import List, Tuple
 
 import run_config
+from framework import stateful
 
-from . import error, stateful, tempesta, tf_cfg, util
+from . import error, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

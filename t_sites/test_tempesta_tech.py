@@ -5,13 +5,12 @@ __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import json
-import re
 import time
 
 import run_config
-from framework import tester
 from framework.curl_client import CurlClient, CurlResponse
-from framework.mixins import NetfilterMarkMixin
+from test_suite import tester
+from test_suite.mixins import NetfilterMarkMixin
 
 
 class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):

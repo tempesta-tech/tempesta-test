@@ -9,6 +9,7 @@ with different x509 formats, extensions and so on.
 Without loss of generality we use self-signed certificates
 to make things simple in tests.
 """
+
 from datetime import datetime, timedelta
 from typing import Optional
 

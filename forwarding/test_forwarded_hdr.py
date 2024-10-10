@@ -1,8 +1,9 @@
 """
 Tests for validate Forwarded header.
 """
-from framework import tester
+
 from helpers import chains
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

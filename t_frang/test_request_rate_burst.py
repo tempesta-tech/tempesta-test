@@ -5,8 +5,9 @@ import time
 from hyperframe.frame import RstStreamFrame
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, asserts, remote
+from helpers import analyzer, remote
 from t_frang.frang_test_case import DELAY, FrangTestCase
+from test_suite import asserts
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

@@ -5,24 +5,18 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.errors import ErrorCodes
-from h2.settings import SettingCodes
 from h2.exceptions import StreamClosedError
-from h2.stream import StreamInputs
+from h2.settings import SettingCodes
 from hpack import HeaderTuple
-from hyperframe.frame import (
-    ContinuationFrame,
-    DataFrame,
-    HeadersFrame,
-    SettingsFrame,
-    PriorityFrame,
-)
+from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
-from framework import deproxy_client, tester
-from framework.parameterize import param, parameterize
-from helpers import checks_for_tests as checks, util
+from framework import deproxy_client
+from helpers import util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
+from test_suite import checks_for_tests as checks
+from test_suite.parameterize import param, parameterize
 
 
 class TestH2Frame(H2Base):

@@ -1,6 +1,7 @@
 """ Helpers to control different network adapter settings. """
 
-from helpers import remote, sysnet, tf_cfg
+from helpers import remote, tf_cfg
+from test_suite import sysnet
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."

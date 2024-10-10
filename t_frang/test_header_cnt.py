@@ -7,13 +7,11 @@ __license__ = "GPL2"
 import time
 from ssl import SSLWantWriteError
 
-from h2.exceptions import ProtocolError
-from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import HeadersFrame
 
-from framework.parameterize import param, parameterize
 from t_frang.frang_test_case import FrangTestCase, H2Config
+from test_suite.parameterize import param, parameterize
 
 ERROR = "Warning: frang: HTTP headers count exceeded for"
 

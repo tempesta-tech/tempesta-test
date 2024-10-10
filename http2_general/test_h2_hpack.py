@@ -15,9 +15,9 @@ from hyperframe.frame import HeadersFrame
 
 import helpers
 from framework.deproxy_client import DeproxyClientH2, HuffmanEncoder
-from framework.parameterize import param, parameterize
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
+from test_suite.parameterize import param, parameterize
 
 
 class TestHpackBase(H2Base):
@@ -169,10 +169,10 @@ class TestHpack(TestHpackBase):
 
         for i in range(0, 125):
             for j in range(0, 26):
-                key = ord('a') + j
-                val = ord('a') + j
+                key = ord("a") + j
+                val = ord("a") + j
 
-                first_indexed_header = [HeaderTuple(chr(key) * (125 -i), chr(val) * (125 - i))]
+                first_indexed_header = [HeaderTuple(chr(key) * (125 - i), chr(val) * (125 - i))]
                 client.send_request(
                     request=(
                         headers
