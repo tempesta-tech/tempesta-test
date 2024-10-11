@@ -300,6 +300,26 @@
         {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections",
             "reason": "Disabled by test issue #525"
+        },
+        {
+            "name": "t_health_monitoring.test_health_monitor.H2HmResponsesPipelined",
+            "reason": "The test does not work on the SUT server - crash, issue #687"
+        },
+        {
+            "name": "t_http_rules.test_http_rules.HttpRules.test_scheduler",
+            "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "t_http_rules.test_http_tables.HttpTablesTest.test_chains",
+            "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
+            "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_ratio",
+            "reason": "Tempesta failed to stop, issue #2261"
         }
     ]
 }
