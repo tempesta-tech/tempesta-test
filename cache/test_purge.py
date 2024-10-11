@@ -10,7 +10,7 @@ from helpers import dmesg, tf_cfg
 from helpers.deproxy import HttpMessage
 from helpers.remote import CmdError
 from test_suite import checks_for_tests as checks
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 from test_suite.tester import TempestaTest
 
 
@@ -54,19 +54,19 @@ cache_methods GET;
         },
     ]
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="ipv4", purge_ip=tf_cfg.cfg.get("Client", "ip"), family="ipv4"),
-            param(name="ipv6", purge_ip=tf_cfg.cfg.get("Client", "ipv6"), family="ipv6"),
-            param(
+            marks.param(name="ipv4", purge_ip=tf_cfg.cfg.get("Client", "ip"), family="ipv4"),
+            marks.param(name="ipv6", purge_ip=tf_cfg.cfg.get("Client", "ipv6"), family="ipv6"),
+            marks.param(
                 name="ipv4_with_mask", purge_ip=f'{tf_cfg.cfg.get("Client", "ip")}/8', family="ipv4"
             ),
-            param(
+            marks.param(
                 name="ipv6_with_mask",
                 purge_ip=f'{tf_cfg.cfg.get("Client", "ipv6")}/120',
                 family="ipv6",
             ),
-            param(
+            marks.param(
                 name="ipv4_and_ipv6",
                 purge_ip=f'{tf_cfg.cfg.get("Client", "ip")} {tf_cfg.cfg.get("Client", "ipv6")}',
                 family="ipv4",
@@ -235,17 +235,19 @@ frang_limits {
         new_config = self.get_tempesta().config.defconfig
         self.get_tempesta().config.defconfig = new_config + cache_config
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="cache_0_purge", config="cache 0;\ncache_purge;\ncache_purge_acl 127.0.0.1\n"
             ),
-            param(
+            marks.param(
                 name="purge_cache_0", config="cache_purge;\ncache 0;\ncache_purge_acl 127.0.0.1\n"
             ),
-            param(name="purge_no_cache", config="cache_purge;ncache_purge_acl 127.0.0.1\n"),
-            param(name="cache_purge_no_purge_acl", config="cache 2;\ncache_purge;\n"),
-            param(name="cache_purge_acl_no_purge", config="cache 2\ncache_purge_acl 127.0.0.1;\n"),
+            marks.param(name="purge_no_cache", config="cache_purge;ncache_purge_acl 127.0.0.1\n"),
+            marks.param(name="cache_purge_no_purge_acl", config="cache 2;\ncache_purge;\n"),
+            marks.param(
+                name="cache_purge_acl_no_purge", config="cache 2\ncache_purge_acl 127.0.0.1;\n"
+            ),
         ]
     )
     def test_wrong_config(self, name, config):

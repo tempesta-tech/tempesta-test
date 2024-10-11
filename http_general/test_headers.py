@@ -1,9 +1,9 @@
 """
 Tests for correct handling of HTTP/1.1 headers.
 """
+
 from helpers import deproxy
-from test_suite import tester
-from test_suite.parameterize import param, parameterize
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
@@ -501,74 +501,74 @@ class TestHostWithCache(TestHostBase):
         """
     }
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="1",
                 request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="200",
             ),
-            param(
+            marks.param(
                 name="2",
                 request=f"GET http://user@-x/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="200",
             ),
-            param(
+            marks.param(
                 name="3",
                 request=f"GET http://user@/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="4",
                 request=f"GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="200",
             ),
-            param(
+            marks.param(
                 name="5",
                 request=f"GET http://user@:333/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="6",
                 request=f"GET http://user@:/url/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="7",
                 request=f"GET http://user@: HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="8",
                 request=f"GET http://tempesta-tech.com: HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="9",
                 request=f"GET http://tempesta-tech.com:/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="10",
                 request=f"GET http:///path HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="200",
             ),
-            param(
+            marks.param(
                 name="11",
                 request=f"GET http:///path HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="403",
             ),
-            param(
+            marks.param(
                 name="11",
                 request=f"GET http://user@/path HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="12",
                 request=f"GET http://:443 HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            param(
+            marks.param(
                 name="13",
                 request=f"GET http:///path HTTP/1.1\r\nHost: \r\n\r\n",
                 expected_status_code="400",

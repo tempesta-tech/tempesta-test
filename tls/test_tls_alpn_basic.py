@@ -6,8 +6,7 @@ import socket
 import ssl
 
 from helpers import dmesg, tf_cfg
-from test_suite import tester
-from test_suite.parameterize import param, parameterize
+from test_suite import marks, tester
 
 
 class TestALPN(tester.TempestaTest):
@@ -63,41 +62,41 @@ class TestALPN(tester.TempestaTest):
             }
         )
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="order_https",
                 tempesta_proto="https",
                 protocols=["http/1.1", "h2"],
             ),
-            param(
+            marks.param(
                 name="order_h2",
                 tempesta_proto="h2",
                 protocols=["h2", "http/1.1"],
             ),
-            param(
+            marks.param(
                 name="order_https_least_prio",
                 tempesta_proto="https",
                 protocols=["h2", "http/1.1"],
                 expected_proto=1,
             ),
-            param(
+            marks.param(
                 name="order_h2_least_prio",
                 tempesta_proto="h2",
                 protocols=["http/1.1", "h2"],
                 expected_proto=1,
             ),
-            param(
+            marks.param(
                 name="mixed_https",
                 tempesta_proto="https,h2",
                 protocols=["http/1.1"],
             ),
-            param(
+            marks.param(
                 name="mixed_h2_only",
                 tempesta_proto="https,h2",
                 protocols=["h2"],
             ),
-            param(
+            marks.param(
                 name="mixed_h2_https",
                 tempesta_proto="https,h2",
                 protocols=["h2", "http/1.1"],
@@ -125,15 +124,15 @@ class TestALPN(tester.TempestaTest):
                     "wrong protocol has been prioritized",
                 )
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="https",
                 tempesta_proto="https",
                 protocols=["h2"],
                 msg="ClientHello: cannot find matching ALPN for h2",
             ),
-            param(
+            marks.param(
                 name="h2",
                 tempesta_proto="h2",
                 protocols=["http/1.1"],

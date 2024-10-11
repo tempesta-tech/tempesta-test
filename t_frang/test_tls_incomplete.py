@@ -3,7 +3,7 @@
 import time
 
 from t_frang.frang_test_case import FrangTestCase
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -49,11 +49,11 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         """,
     }
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="rate", steps=5),
-            param(name="without_reaching_the_limit", steps=3),
-            param(name="rate_on_the_limit", steps=4),
+            marks.param(name="rate", steps=5),
+            marks.param(name="without_reaching_the_limit", steps=3),
+            marks.param(name="rate_on_the_limit", steps=4),
         ]
     )
     def test_tls_incomplete_connection(self, name, steps):

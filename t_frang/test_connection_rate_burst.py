@@ -10,7 +10,7 @@ but not more than 2 times."
 import re
 
 from t_frang.frang_test_case import FrangTestCase
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -29,7 +29,7 @@ def parse_out(client):
     return reset_conn_n, total_conn_n
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "TLS",
@@ -90,11 +90,11 @@ class TestFrang(FrangTestCase):
     rate_config: str
     calculate_reset_function: callable
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="burst", conn_n=20, warns_expected=range(1, 15)),
-            param(name="burst_without_reaching_the_limit", conn_n=2, warns_expected=0),
-            param(name="burst_on_the_limit", conn_n=5, warns_expected=0),
+            marks.param(name="burst", conn_n=20, warns_expected=range(1, 15)),
+            marks.param(name="burst_without_reaching_the_limit", conn_n=2, warns_expected=0),
+            marks.param(name="burst_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
     def test_connection(self, name, conn_n: int, warns_expected):
@@ -116,11 +116,11 @@ class TestFrang(FrangTestCase):
         self.assertEqual(reset_conn_n, warns_occured)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="rate", conn_n=20, warns_expected=range(1, 15)),
-            param(name="rate_without_reaching_the_limit", conn_n=2, warns_expected=0),
-            param(name="rate_on_the_limit", conn_n=5, warns_expected=0),
+            marks.param(name="rate", conn_n=20, warns_expected=range(1, 15)),
+            marks.param(name="rate_without_reaching_the_limit", conn_n=2, warns_expected=0),
+            marks.param(name="rate_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
     def test_connection(self, name, conn_n: int, warns_expected):

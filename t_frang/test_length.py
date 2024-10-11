@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 
 
 class FrangLengthTestCase(FrangTestCase):
@@ -214,8 +214,8 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
         )
 
-    @parameterize.expand(
-        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    @marks.parameterize.expand(
+        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
     )
     def test_http_hdr_len(self, name, huffman):
         """
@@ -232,8 +232,8 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    @parameterize.expand(
-        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    @marks.parameterize.expand(
+        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
     )
     def test_http_hdr_len_without_reaching_the_limit(self, name, huffman):
         """
@@ -251,8 +251,8 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    @parameterize.expand(
-        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    @marks.parameterize.expand(
+        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
     )
     def test_http_hdr_len_without_reaching_the_limit_2(self, name, huffman):
         """

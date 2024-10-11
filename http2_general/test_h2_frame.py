@@ -10,13 +10,13 @@ from h2.settings import SettingCodes
 from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
-from framework import deproxy_client
+from framework import deproxy_client, stateful
 from helpers import util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
 from test_suite import checks_for_tests as checks
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 
 
 class TestH2Frame(H2Base):
@@ -123,10 +123,10 @@ class TestH2Frame(H2Base):
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="end_headers", flags=["END_HEADERS"]),
-            param(name="no_end_headers", flags=[]),
+            marks.param(name="end_headers", flags=["END_HEADERS"]),
+            marks.param(name="no_end_headers", flags=[]),
         ]
     )
     def test_empty_headers_frame(self, name, flags):

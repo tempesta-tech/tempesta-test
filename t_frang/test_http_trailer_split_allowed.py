@@ -7,7 +7,7 @@ __license__ = "GPL2"
 from hyperframe.frame import ContinuationFrame, HeadersFrame
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 
 WARN = "frang: HTTP field appear in header and trailer"
 
@@ -62,19 +62,19 @@ class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
 
 
 class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="accepted_request",
                 config="http_trailer_split_allowed true;\n",
                 expected_status="200",
             ),
-            param(
+            marks.param(
                 name="disable_trailer_split_allowed",
                 config="http_trailer_split_allowed false;\n",
                 expected_status="403",
             ),
-            param(
+            marks.param(
                 name="default_trailer_split_allowed",
                 config="",
                 expected_status="403",

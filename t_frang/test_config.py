@@ -12,8 +12,7 @@ from helpers.dmesg import (
     unlimited_rate_on_tempesta_node,
 )
 from helpers.remote import CmdError
-from test_suite import tester
-from test_suite.parameterize import param, parameterize
+from test_suite import marks, tester
 
 
 class TestDefaultConfig(tester.TempestaTest):
@@ -306,16 +305,16 @@ block_action error reply;
         )
         self.assertTrue(self.oops.find("frang: HTTP header length exceeded for"))
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="in_global_config",
                 config="""
                     frang_limits {http_methods get post put;}
                     frang_limits {http_methods post put;}
                 """,
             ),
-            param(
+            marks.param(
                 name="in_vhost",
                 config="""
                     vhost vhost_1 {
@@ -341,9 +340,9 @@ block_action error reply;
         client.send_request(client.create_request(method="GET", headers=[]), "403")
         self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="two_frang_limits_in_location",
                 config="""
                     vhost vhost_1 {
@@ -358,14 +357,14 @@ block_action error reply;
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="connection_limit_in_vhost",
                 config="""
                     vhost vhost_1 {frang_limits {http_hdr_len 100;} proxy_pass default;}
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="connection_limit_in_location",
                 config="""
                         vhost vhost_1 {
@@ -392,9 +391,9 @@ block_action error reply;
         with self.assertRaises(CmdError):
             self.start_tempesta()
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="global_to_vhost",
                 config="""
                     frang_limits {http_methods post put;}
@@ -402,7 +401,7 @@ block_action error reply;
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="global_to_location_via_vhost",
                 config="""
                     frang_limits {http_methods post put; http_strict_host_checking false;}
@@ -413,7 +412,7 @@ block_action error reply;
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="vhost_to_location",
                 config="""
                     vhost vhost_1 {
@@ -487,9 +486,9 @@ block_action error reply;
         client.send_request(client.create_request(method="HEAD", uri="/", headers=[]), "403")
         self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="location_via_vhost",
                 config="""
                     vhost vhost_1 {
@@ -501,7 +500,7 @@ block_action error reply;
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="vhost",
                 config="""
                     frang_limits {http_strict_host_checking false;}
@@ -527,9 +526,9 @@ block_action error reply;
         self.oops.update()
         self.assertEqual(0, len(self.oops.log_findall("frang: ")))
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="global_to_vhost",
                 config="""
                     frang_limits {http_methods get post put;}
@@ -537,7 +536,7 @@ block_action error reply;
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="global_to_location",
                 config="""
                     frang_limits {http_methods get post put;}
@@ -547,7 +546,7 @@ block_action error reply;
                     }
                 """,
             ),
-            param(
+            marks.param(
                 name="global_to_location_via_vhost",
                 config="""
                     frang_limits {http_methods get post put;}
@@ -562,7 +561,7 @@ block_action error reply;
                     http_chain {-> vhost_1;}
                 """,
             ),
-            param(
+            marks.param(
                 name="vhost_to_location",
                 config="""
                     vhost vhost_1 {
@@ -653,9 +652,9 @@ block_action error reply;
         self.assertTrue(self.oops.find("frang: http_resp_code_block limit exceeded for"))
         self.assertEqual(len(client.responses), 2)
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="http_methods",
                 config="""
                     frang_limits {http_methods post put;}
@@ -663,7 +662,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_methods,
             ),
-            param(
+            marks.param(
                 name="concurrent_tcp_connections",
                 config="""
                     frang_limits {concurrent_tcp_connections 1;}
@@ -671,7 +670,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_concurrent_tcp_connections,
             ),
-            param(
+            marks.param(
                 name="http_body_len_0",
                 config="""
                     frang_limits {http_body_len 0;}
@@ -679,7 +678,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_body_len_0,
             ),
-            param(
+            marks.param(
                 name="http_body_len_1",
                 config="""
                     frang_limits {http_body_len 1;}
@@ -687,7 +686,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_body_len_1,
             ),
-            param(
+            marks.param(
                 name="http_body_len_2",
                 config="""
                     frang_limits {http_body_len 1;}
@@ -695,7 +694,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_body_len_2,
             ),
-            param(
+            marks.param(
                 name="http_body_len_3",
                 config="""
                     frang_limits {http_body_len 1;}
@@ -709,7 +708,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_body_len_1,
             ),
-            param(
+            marks.param(
                 name="http_body_len_4",
                 config="""
                     frang_limits {http_body_len 10;}
@@ -724,7 +723,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_body_len_1,
             ),
-            param(
+            marks.param(
                 name="http_body_len_5",
                 config="""
                     vhost test {
@@ -737,7 +736,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_body_len_2,
             ),
-            param(
+            marks.param(
                 name="http_resp_code_block_1",
                 config="""
                     frang_limits {http_resp_code_block 200 1 1;}
@@ -745,7 +744,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_resp_code_block_1,
             ),
-            param(
+            marks.param(
                 name="http_resp_code_block_2",
                 config="""
                     frang_limits {http_resp_code_block 201 1 1;}
@@ -753,7 +752,7 @@ block_action error reply;
                     """,
                 test_function=_test_not_override_http_resp_code_block_2,
             ),
-            param(
+            marks.param(
                 name="http_resp_code_block_3",
                 config="""
                     vhost test {
@@ -803,9 +802,9 @@ block_action error reply;
         )
         self.assertTrue(self.oops.find("frang: restricted Content-Type for"))
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="http_methods",
                 first_config="""
                     frang_limits {http_methods post put;}
@@ -834,9 +833,9 @@ block_action error reply;
         self.get_tempesta().reload()
         test_function(self)
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="http_methods",
                 first_config="""
                     frang_limits {http_methods post put;}
@@ -847,7 +846,7 @@ block_action error reply;
                     """,
                 test_function=_test_override_http_methods_after_reload,
             ),
-            param(
+            marks.param(
                 name="http_methods_1",
                 first_config="""
                     vhost test {
@@ -870,7 +869,7 @@ block_action error reply;
                     """,
                 test_function=_test_override_http_methods_after_reload,
             ),
-            param(
+            marks.param(
                 name="http_body_len",
                 first_config="""
                     frang_limits {http_body_len 1;}
@@ -881,7 +880,7 @@ block_action error reply;
                     """,
                 test_function=_test_override_http_methods_after_reload,
             ),
-            param(
+            marks.param(
                 name="http_body_len_1",
                 first_config="""
                     vhost test {
@@ -904,7 +903,7 @@ block_action error reply;
                     """,
                 test_function=_test_override_http_methods_after_reload,
             ),
-            param(
+            marks.param(
                 name="http_body_len_3",
                 first_config="""
                     vhost test {
@@ -932,7 +931,7 @@ block_action error reply;
                     """,
                 test_function=_test_override_http_methods_after_reload,
             ),
-            param(
+            marks.param(
                 name="http_ct_vals_1",
                 first_config="""
                     frang_limits {http_ct_vals text/html;}

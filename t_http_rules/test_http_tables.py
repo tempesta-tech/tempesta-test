@@ -8,8 +8,7 @@ from framework import deproxy_client
 from helpers import chains, dmesg, remote
 from helpers.networker import NetWorker
 from helpers.remote import LocalNode
-from test_suite import tester
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
@@ -658,14 +657,14 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="enable_tso_gro_gso",
                 mtu=100 if isinstance(remote.tempesta, LocalNode) else 1500,
                 enable=True,
             ),
-            param(
+            marks.param(
                 name="disable_tso_gro_gso",
                 mtu=100 if isinstance(remote.tempesta, LocalNode) else 1500,
                 enable=False,
@@ -708,7 +707,7 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker
         self.assertTrue(client.last_response.status, "200")
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "Http",
@@ -792,39 +791,39 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
         """
     }
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="tempesta_good",
                 cookie=["rule1=action1", "rule2=action2", "tempesta=good"],
                 expected_status_code="200",
                 server_id=0,
             ),
-            param(
+            marks.param(
                 name="tempesta_good_is_last",
                 cookie=["rule1=action1", "tempesta_bad=test", "tempesta_good=test"],
                 expected_status_code="200",
                 server_id=1,
             ),
-            param(
+            marks.param(
                 name="tempesta_bad",
                 cookie=["rule1=action1", "tempesta_bad=test", "rule2=action2"],
                 expected_status_code="403",
                 server_id=4,
             ),
-            param(
+            marks.param(
                 name="tempesta_bad_2",
                 cookie=["rule1=action1", "tempesta=bad", "rule2=action2"],
                 expected_status_code="403",
                 server_id=4,
             ),
-            param(
+            marks.param(
                 name="no_rules_matched",
                 cookie=["tempesta=action1", "tempesta=test", "tempesta=action2"],
                 expected_status_code="200",
                 server_id=4,
             ),
-            param(
+            marks.param(
                 name="good_suffix",
                 cookie=[
                     "aaa_good_suffix_1=ggg",
@@ -834,7 +833,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
                 expected_status_code="200",
                 server_id=1,
             ),
-            param(
+            marks.param(
                 name="good_prefix",
                 cookie=["good_prefix_1=ggg", "1_good_prefix=gaction", "good_prefix=gaction2"],
                 expected_status_code="200",

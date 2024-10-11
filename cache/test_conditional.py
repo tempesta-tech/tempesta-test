@@ -7,7 +7,7 @@ __license__ = "GPL2"
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers.deproxy import HttpMessage
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks
 from test_suite.tester import TempestaTest
 
 DEPROXY_CLIENT = {
@@ -26,7 +26,7 @@ DEPROXY_CLIENT_H2 = {
 }
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT]},
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
@@ -303,27 +303,27 @@ cache_methods GET HEAD POST;
             if_modified_since="invalid date",
         )
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="last_modified",
                 response_headers="Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n",
                 if_modified_since=HttpMessage.date_time_string,
                 expected_status="304",
             ),
-            param(
+            marks.param(
                 name="last_modified_nc",
                 response_headers="Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n",
                 if_modified_since=lambda: "Mon, 5 Dec 2016 13:59:39 GMT",
                 expected_status="200",
             ),
-            param(
+            marks.param(
                 name="last_modified_and_date",
                 response_headers="",
                 if_modified_since=HttpMessage.date_time_string,
                 expected_status="304",
             ),
-            param(
+            marks.param(
                 name="last_modified_and_date_nc",
                 response_headers="",
                 if_modified_since=lambda: "Mon, 5 Dec 2016 13:59:39 GMT",
@@ -382,7 +382,7 @@ cache_methods GET HEAD POST;
         )
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT]},
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
@@ -416,13 +416,15 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         },
     ]
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="vary", header=("vary", "accept-language")),
-            param(name="content-location", header=("content-location", "/documents/page.html")),
-            param(name="expires", header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT")),
-            param(name="cache-control", header=("cache-control", "public")),
-            param(name="etag", header=("etag", '"etag"')),
+            marks.param(name="vary", header=("vary", "accept-language")),
+            marks.param(
+                name="content-location", header=("content-location", "/documents/page.html")
+            ),
+            marks.param(name="expires", header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT")),
+            marks.param(name="cache-control", header=("cache-control", "public")),
+            marks.param(name="etag", header=("etag", '"etag"')),
         ]
     )
     def test_cachable_headers(self, name, header):

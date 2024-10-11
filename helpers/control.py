@@ -8,11 +8,12 @@ import os
 import re
 
 from framework import stateful
+from test_suite import marks
 
-from . import error, nginx, remote, tempesta, tf_cfg, util
+from . import error, nginx, remote, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # -------------------------------------------------------------------------------
@@ -116,7 +117,7 @@ class Client(object, metaclass=abc.ABCMeta):
         self.options.append("-H 'User-Agent: %s'" % ua)
 
 
-@util.deprecated("framework.Wrk")
+@marks.deprecated("framework.Wrk")
 class Wrk(Client):
     """wrk - HTTP benchmark utility.
 

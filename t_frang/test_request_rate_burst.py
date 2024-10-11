@@ -5,11 +5,10 @@ import time
 from hyperframe.frame import HeadersFrame, RstStreamFrame
 
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from framework.parameterize import param, parameterize, parameterize_class
-from helpers import analyzer, error, remote, util
+from helpers import analyzer, error, remote
 from helpers.deproxy import H2Request, Request
 from t_frang.frang_test_case import DELAY, FrangTestCase
-from test_suite import asserts
+from test_suite import asserts, marks
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
@@ -69,7 +68,7 @@ HTTP2_CLIENTS = [
 ]
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "RateHttp",
@@ -148,7 +147,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c1.wait_for_response(10, strict=True)
         c2.wait_for_response(10, strict=True)
 
-    @util.retry_if_not_conditions
+    @marks.retry_if_not_conditions
     def test_two_clients_two_ip(self):
         """
         Set `request_rate 4;` and make requests for two clients with different ip:
@@ -168,7 +167,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         end_time = time.monotonic()
 
         if end_time - start_time > self.delay:
-            raise error.TestConditionsAreNotCompleted()
+            raise error.TestConditionsAreNotCompleted(self.id())
 
         self.assertEqual(c1.statuses, {200: 4})
         self.assertTrue(c1.conn_is_active)
@@ -183,7 +182,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         )
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
 
-    @util.retry_if_not_conditions
+    @marks.retry_if_not_conditions
     def test_two_clients_one_ip(self):
         """
         Set `request_rate 4;` and make requests concurrently for two clients with same ip.
@@ -200,7 +199,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         end_time = time.monotonic()
 
         if end_time - start_time > self.delay:
-            raise error.TestConditionsAreNotCompleted()
+            raise error.TestConditionsAreNotCompleted(self.id())
 
         # We can't say number of received responses when ip is blocked.
         # See the comment in DeproxyClient.statuses for details.
@@ -211,7 +210,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "Http", "client_name": "deproxy-1"},
         {"name": "H2", "client_name": "deproxy-2"},
@@ -238,14 +237,14 @@ class TestFrangRequestRateBurst(FrangTestCase):
 
     client_name: str
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="burst_reached", req_n=10, warns_expected=range(1, 15)),
-            param(name="burst_without_reaching_the_limit", req_n=3, warns_expected=0),
-            param(name="burst_on_the_limit", req_n=5, warns_expected=0),
+            marks.param(name="burst_reached", req_n=10, warns_expected=range(1, 15)),
+            marks.param(name="burst_without_reaching_the_limit", req_n=3, warns_expected=0),
+            marks.param(name="burst_on_the_limit", req_n=5, warns_expected=0),
         ]
     )
-    @util.retry_if_not_conditions
+    @marks.retry_if_not_conditions
     def test_request(self, name, req_n: int, warns_expected):
         """
         Send several requests, if number of requests
@@ -268,21 +267,21 @@ class TestFrangRequestRateBurst(FrangTestCase):
         end_time = time.monotonic()
 
         if end_time - start_time > DELAY:
-            raise error.TestConditionsAreNotCompleted()
+            raise error.TestConditionsAreNotCompleted(self.id())
 
         self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=warns_expected)
         self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=0)
         if warns_expected:
             self.assertTrue(client.connection_is_closed())
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(name="rate_reached", req_n=10, warns_expected=range(1, 15)),
-            param(name="rate_without_reaching_the_limit", req_n=3, warns_expected=0),
-            param(name="rate_on_the_limit", req_n=5, warns_expected=0),
+            marks.param(name="rate_reached", req_n=10, warns_expected=range(1, 15)),
+            marks.param(name="rate_without_reaching_the_limit", req_n=3, warns_expected=0),
+            marks.param(name="rate_on_the_limit", req_n=5, warns_expected=0),
         ]
     )
-    @util.retry_if_not_conditions
+    @marks.retry_if_not_conditions
     def test_request(self, name, req_n: int, warns_expected):
         """
         Send several requests, if number of requests
@@ -305,7 +304,7 @@ class TestFrangRequestRateBurst(FrangTestCase):
         end_time = time.monotonic()
 
         if end_time - start_time > 1:
-            raise error.TestConditionsAreNotCompleted()
+            raise error.TestConditionsAreNotCompleted(self.id())
 
         self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=warns_expected)
         self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=0)
@@ -358,15 +357,15 @@ class TestFrangRapidDDoSH2(FrangTestCase):
             client.stream_id += 2
         return frame_list
 
-    @parameterize.expand(
+    @marks.parameterize.expand(
         [
-            param(
+            marks.param(
                 name="rate_with_only_headers_frame",
                 frang_conf="request_rate 5;",
                 warning=ERROR_MSG_RATE,
                 delay=1,
             ),
-            param(
+            marks.param(
                 name="burst_with_only_headers_frame",
                 frang_conf="request_burst 5;",
                 warning=ERROR_MSG_BURST,
@@ -374,7 +373,7 @@ class TestFrangRapidDDoSH2(FrangTestCase):
             ),
         ]
     )
-    @util.retry_if_not_conditions
+    @marks.retry_if_not_conditions
     def test_request(self, name, frang_conf: str, warning: str, delay: int):
         self.set_frang_config(frang_conf)
         self.start_all_services(client=False)
@@ -394,7 +393,7 @@ class TestFrangRapidDDoSH2(FrangTestCase):
         end_time = time.monotonic()
 
         if end_time - start_time > delay:
-            raise error.TestConditionsAreNotCompleted()
+            raise error.TestConditionsAreNotCompleted(self.id())
 
         self.assertFrangWarning(warning=warning, expected=range(1, 15))
         self.assertTrue(client.connection_is_closed())

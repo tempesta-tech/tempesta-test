@@ -18,7 +18,7 @@ from hyperframe.frame import (
 from helpers import dmesg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
-from test_suite.parameterize import parameterize_class
+from test_suite.marks import parameterize_class
 
 
 class TestClosedStreamState(H2Base):
