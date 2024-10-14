@@ -4,18 +4,16 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers import deproxy, dmesg, remote, sysnet, tf_cfg
 from h2.connection import ConnectionInputs
 from hyperframe.frame import HeadersFrame, PingFrame, WindowUpdateFrame
 
-from framework import tester
 from framework.deproxy_client import HuffmanEncoder
-from framework.parameterize import param, parameterize
-from framework.x509 import CertGenerator
-from helpers.custom_error_page import CustomErrorPageGenerator
+from helpers import deproxy, dmesg, remote, tf_cfg
+from helpers.cert_generator_x509 import CertGenerator
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from test_suite import marks, sysnet, tester
+from test_suite.custom_error_page import CustomErrorPageGenerator
 
 
 class TestFailFunctionBase(tester.TempestaTest):
@@ -401,9 +399,12 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
         }
         TestFailFunctionBase.setUp(self)
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            # Error occurs when we receive ping frame Conn_Stop
+            # bit is not set, so Tempesta FW immediately closes
+            # connection and stops process any other frames.
+            marks.Param(
                 name="tfw_h2_send_ping_0",
                 func_name="tfw_h2_send_ping",
                 times=-1,
@@ -412,10 +413,13 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
                 count=999,
                 frame_num=0,
                 frame=PingFrame(0),
-                inputs=ConnectionInputs.SEND_HEADERS,
                 expect_response=False,
             ),
-            param(
+            # Error occurs when Tempesta FW process invalid request,
+            # Tempesta FW continue to process frames, but doesn't
+            # skip any types of frames except WINDOW_UPDATE, so
+            # `tfw_h2_send_ping` never called.
+            marks.Param(
                 name="tfw_h2_send_ping_1",
                 func_name="tfw_h2_send_ping",
                 times=-1,
@@ -424,10 +428,9 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
                 count=9,
                 frame_num=1,
                 frame=PingFrame(0),
-                inputs=ConnectionInputs.SEND_HEADERS,
                 expect_response=True,
             ),
-            param(
+            marks.Param(
                 name="tfw_h2_send_ping_2",
                 func_name="tfw_h2_send_ping",
                 times=-1,
@@ -436,10 +439,13 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
                 count=9,
                 frame_num=2,
                 frame=PingFrame(0),
-                inputs=ConnectionInputs.SEND_HEADERS,
                 expect_response=True,
             ),
-            param(
+            # Error occurs when Tempesta FW process invalid request,
+            # but next error occurs when Tempsta FW process invlid
+            # WINDOW_UPDATE frame. Tempesta FW immediately closes
+            # connection.
+            marks.Param(
                 name="tfw_h2_wnd_update_process",
                 func_name="tfw_h2_wnd_update_process",
                 times=-1,
@@ -448,7 +454,6 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
                 count=90,
                 frame_num=0,
                 frame=WindowUpdateFrame(0),
-                inputs=ConnectionInputs.SEND_WINDOW_UPDATE,
                 expect_response=False,
             ),
         ]
@@ -464,7 +469,6 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
         count,
         frame_num,
         frame,
-        inputs,
         expect_response,
     ):
         server = self.get_server("deproxy")
@@ -485,7 +489,6 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
         client.auto_flow_control = False
 
         stream = client.init_stream_for_send(client.stream_id)
-        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream_id = client.stream_id
 
         headers_frame = HeadersFrame(
@@ -502,42 +505,22 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
             flags=["END_HEADERS", "END_STREAM"],
         )
 
-        conn_wnd_update_frame = WindowUpdateFrame(0)
-        conn_wnd_update_frame.window_increment = increment * count
-
-        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
         stream = client.h2_connection.streams[stream_id]
         stream_wnd_update_frame = b""
         for _ in range(0, count):
             stream_wnd_update_frame += stream.increase_flow_control_window(increment)[0].serialize()
+            client.h2_connection.increment_flow_control_window(increment)
 
-        if isinstance(inputs, ConnectionInputs):
-            client.h2_connection.state_machine.process_input(inputs)
-
-        if frame_num == 0:
-            data = (
-                frame.serialize()
-                + headers_frame.serialize()
-                + conn_wnd_update_frame.serialize() * count
-                + stream_wnd_update_frame
-            )
-        elif frame_num == 1:
-            data = (
-                headers_frame.serialize()
-                + frame.serialize()
-                + conn_wnd_update_frame.serialize() * count
-                + stream_wnd_update_frame
-            )
-        elif frame_num == 2:
-            data = (
-                headers_frame.serialize()
-                + conn_wnd_update_frame.serialize() * count
-                + frame.serialize()
-                + stream_wnd_update_frame
-            )
+        to_send = [
+            headers_frame.serialize(),
+            client.h2_connection.data_to_send(),
+            stream_wnd_update_frame,
+        ]
+        client.h2_connection.clear_outbound_data_buffer()
+        to_send.insert(frame_num, frame.serialize())
 
         client.send_bytes(
-            data,
+            b"".join(to_send),
             expect_response=True,
         )
 
