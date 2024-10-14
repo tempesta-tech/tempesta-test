@@ -8,6 +8,7 @@ import time
 from http import HTTPStatus
 
 from framework.curl_client import CurlResponse
+from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
 from helpers import deproxy
 from helpers.control import Tempesta
@@ -28,6 +29,14 @@ DEPROXY_CLIENT = {
     "type": "deproxy",
     "addr": "${tempesta_ip}",
     "port": "80",
+}
+
+DEPROXY_CLIENT_SSL = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
 }
 
 DEPROXY_CLIENT_H2 = {
@@ -1838,6 +1847,89 @@ class TestCacheVhost(tester.TempestaTest):
         tempesta = self.get_tempesta()
         tempesta.config.defconfig = tempesta.config.defconfig.replace("h2", "https")
         self.test_h2()
+
+
+LONG_HEADERS_BACKEND = {
+    "id": "python_hello",
+    "type": "docker",
+    "image": "python",
+    "ports": {8000: 8000},
+    "cmd_args": "hello.py --body %s -H '%s'" % ("a" * 10000, "b: " + "b" * 71000),
+}
+
+LONG_BODY_BACKEND = {
+    "id": "python_hello",
+    "type": "docker",
+    "image": "python",
+    "ports": {8000: 8000},
+    "cmd_args": "hello.py --body %s -H '%s'" % ("a" * 100000, "b: " + "b" * 10000),
+}
+
+
+@parameterize_class(
+    [
+        {"name": "HttpHeaders", "clients": [DEPROXY_CLIENT], "backends": [LONG_HEADERS_BACKEND]},
+        {"name": "HttpBody", "clients": [DEPROXY_CLIENT], "backends": [LONG_BODY_BACKEND]},
+        {
+            "name": "HttpsHeaders",
+            "clients": [DEPROXY_CLIENT_SSL],
+            "backends": [LONG_HEADERS_BACKEND],
+        },
+        {"name": "HttpsBody", "clients": [DEPROXY_CLIENT_SSL], "backends": [LONG_BODY_BACKEND]},
+        {"name": "H2Headers", "clients": [DEPROXY_CLIENT_H2], "backends": [LONG_HEADERS_BACKEND]},
+        {"name": "H2Body", "clients": [DEPROXY_CLIENT_H2], "backends": [LONG_BODY_BACKEND]},
+    ]
+)
+class TestCacheDocker(tester.TempestaTest):
+    """
+    This class contains checks how Tempesta FW cache responses,
+    from Docker backend (this responses contain skb with
+    SKBTX_SHARED_FRAG flag).
+    """
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2,https;
+cache 2;
+cache_fulfill * *;
+server ${server_ip}:8000;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+frang_limits {
+    http_strict_host_checking false;
+}
+""",
+    }
+
+    def test(self):
+        tempesta: Tempesta = self.get_tempesta()
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        if isinstance(client, DeproxyClientH2):
+            client.update_initial_settings(max_header_list_size=65536 * 2)
+            client.send_bytes(client.h2_connection.data_to_send())
+            client.h2_connection.clear_outbound_data_buffer()
+            self.assertTrue(
+                client.wait_for_ack_settings(),
+                "Tempesta foes not returns SETTINGS frame with ACK flag.",
+            )
+        request = client.create_request(method="GET", uri="/", headers=[])
+
+        for _ in range(3):
+            client.send_request(request, expected_status_code="200")
+
+        self.assertNotIn("age", client.responses[0].headers)
+        checks.check_tempesta_cache_stats(
+            tempesta,
+            cache_hits=2,
+            cache_misses=1,
+            cl_msg_served_from_cache=2,
+        )
+        for response in client.responses[1:]:  # Note WPS 440
+            self.assertIn("age", response.headers)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
