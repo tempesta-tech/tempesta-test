@@ -9,6 +9,7 @@ __license__ = "GPL2"
 import copy
 import sys
 
+from helpers import dmesg
 from helpers.tf_cfg import cfg
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 from test_suite import tester
@@ -164,6 +165,7 @@ class TestStressFailovering(FailoveringStressTestBase):
             ),
         ]
     )
+    @dmesg.limited_rate_on_tempesta_node
     def test_failovering(self, name, tfw_config) -> None:
         """Small amount of keep-alive requests, make Tempesta failover
         connections on a high rates.
