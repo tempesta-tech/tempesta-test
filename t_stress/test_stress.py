@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
-from framework.parameterize import param, parameterize
 from test_suite import sysnet, tester
+from test_suite.parameterize import param, parameterize
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
