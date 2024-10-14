@@ -250,7 +250,7 @@ frang_limits {
     def test_wrong_config(self, name, config):
         self.__update_tempesta_config(config)
         with self.assertRaises(
-            expected_exception=error.BaseCmdException, msg="TempestaFW reloads with wrong config"
+            expected_exception=error.ProcessBadExitStatusException, msg="TempestaFW reloads with wrong config"
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().start()

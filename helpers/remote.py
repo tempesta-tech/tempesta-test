@@ -13,7 +13,7 @@ import os
 import re
 import subprocess
 import time
-from typing import Any, Optional
+from typing import Optional, Union
 
 import paramiko
 
@@ -59,7 +59,7 @@ class INode(object, metaclass=abc.ABCMeta):
     def run_cmd(
         self,
         cmd: str,
-        timeout: Optional[int] = DEFAULT_TIMEOUT,
+        timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
     ) -> (bytes, bytes):
@@ -68,7 +68,7 @@ class INode(object, metaclass=abc.ABCMeta):
 
         Args:
             cmd (str): command to run
-            timeout (Optional[int]): command running timeout
+            timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
 
@@ -86,13 +86,13 @@ class INode(object, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def copy_file(self, filename: str, content: Any):
+    def copy_file(self, filename: str, content: str):
         """
         Copy file.
 
         Args:
             filename (str): filename to copy
-            content (Any): content to copy
+            content (str): content to copy
         """
 
     @abc.abstractmethod
@@ -129,7 +129,7 @@ class LocalNode(INode):
     def run_cmd(
         self,
         cmd: str,
-        timeout: Optional[int] = DEFAULT_TIMEOUT,
+        timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
     ) -> tuple[bytes, bytes]:
@@ -138,7 +138,7 @@ class LocalNode(INode):
 
         Args:
             cmd (str): command to run
-            timeout (Optional[int]): command running timeout
+            timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
 
@@ -150,14 +150,8 @@ class LocalNode(INode):
             error.CommandExecutionException: if something happened during the execution
             error.ProcessKilledException: if a process was killed
         """
-        self.LOGGER.info(
-            "Run command '{0}' {1} on host {2} with environment {3}".format(
-                cmd,
-                "" if is_blocking else "***NON-BLOCKING (no wait to finish)***",
-                self.host,
-                env,
-            ),
-        )
+        msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
+        self.LOGGER.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -166,7 +160,7 @@ class LocalNode(INode):
         if run_config.SAVE_SECRETS and "curl" in cmd:
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
-        self.LOGGER.debug("All environment variables after updating: {0}".format(env_full))
+        self.LOGGER.debug(f"All environment variables after updating: {env_full}")
 
         if is_blocking:
             std_arg = subprocess.PIPE
@@ -194,7 +188,7 @@ class LocalNode(INode):
                 # TODO it is not a good workaround at all, need to create something else in the future
                 if timeout and ("lxc " in cmd) and ("stop" in cmd):
                     self.LOGGER.warning(
-                        "Possibly, a command to stop LXC is in the progress, wait extra {0} sec.".format(timeout),
+                        f"Possibly, a command to stop LXC is in the progress, wait extra {timeout} sec.",
                     )
                     time.sleep(timeout)
 
@@ -204,22 +198,22 @@ class LocalNode(INode):
                 raise error.ProcessKilledException() from to_exc
 
             except Exception as exc:
-                err_msg = "Error running command `{0}`".format(cmd)
+                err_msg = f"Error running command `{cmd}`"
                 self.LOGGER.exception(err_msg)
                 raise error.CommandExecutionException(err_msg) from exc
 
         if current_proc.returncode != 0:
             raise error.ProcessBadExitStatusException(
-                '\nprocess: {0};\nstderr: {1}'.format(current_proc, stderr),
+                f"\nprocess: {current_proc};\nstderr: {stderr}",
                 stdout=stdout,
                 stderr=stderr,
                 rt=current_proc.returncode,
             )
 
         if stdout:
-            self.LOGGER.debug("stdout: {0}".format(stdout))
+            self.LOGGER.debug(f"stdout: {stdout}")
         if stderr:
-            self.LOGGER.error("stderr: {0}".format(stderr))
+            self.LOGGER.error(f"stderr: {stderr}")
 
         return stdout, stderr
 
@@ -232,13 +226,13 @@ class LocalNode(INode):
         """
         os.makedirs(path, exist_ok=True)
 
-    def copy_file(self, filename: str, content: Any):
+    def copy_file(self, filename: str, content: str):
         """
         Copy file.
 
         Args:
             filename (str): filename to copy
-            content (Any): content to copy
+            content (str): content to copy
         """
         # workdir will be ignored if an absolute filename is passed
         filename = os.path.join(self.workdir, filename)
@@ -259,12 +253,12 @@ class LocalNode(INode):
             filename (str): filename to remove
         """
         if self.DEBUG_FILES:
-            self.LOGGER.warning("Removing {0}: cancelled because of DEBUG_FILES is True".format(filename))
+            self.LOGGER.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
         else:
             try:
                 os.remove(filename)
             except FileNotFoundError:
-                self.LOGGER.warning("Removing {0}: file not found".format(filename))
+                self.LOGGER.warning(f"Removing `{filename}`: file not found")
 
     def wait_available(self) -> bool:
         """
@@ -323,12 +317,12 @@ class RemoteNode(INode):
                 hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
         except Exception as conn_exc:
-            self.LOGGER.exception("Error connecting to {0} by SSH: {1}".format(self.host, conn_exc))
+            self.LOGGER.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
 
     def run_cmd(
         self,
         cmd: str,
-        timeout: Optional[int] = DEFAULT_TIMEOUT,
+        timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
     ) -> tuple[bytes, bytes]:
@@ -337,7 +331,7 @@ class RemoteNode(INode):
 
         Args:
             cmd (str): command to run
-            timeout (Optional[int]): command running timeout
+            timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
                 no effect for the method, all calls are blocking
@@ -349,7 +343,7 @@ class RemoteNode(INode):
             error.ProcessBadExitStatusException: if an exit code is not 0(zero)
             error.CommandExecutionException: if something happened during the execution
         """
-        self.LOGGER.info("Run command '{0}' on host {1} with environment {2}".format(cmd, self.host, env))
+        self.LOGGER.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
@@ -357,11 +351,11 @@ class RemoteNode(INode):
             cmd = " ".join(
                 [
                     "env",
-                    " ".join(["{0}='{1}'".format(k, v) for k, v in env.items()]),
+                    " ".join([f"{env_k}='{env_v}'" for env_k, env_v in env.items()]),
                     cmd,
                 ],
             )
-            self.LOGGER.debug("Effective command '{0}' after injecting environment".format(cmd))
+            self.LOGGER.debug(f"Effective command `{cmd}` after injecting environment")
 
         try:
             # TODO #120: the same as for LocalNode - provide an interface to check
@@ -372,21 +366,22 @@ class RemoteNode(INode):
             stderr = err_f.read()
 
         except Exception as exc:
-            err_msg = "Error running command `{0}` on {1}".format(cmd, self.host),
+            err_msg = f"Error running command `{cmd}` on {self.host}",
             self.LOGGER.exception(err_msg)
             raise error.CommandExecutionException(err_msg) from exc
 
         if out_f.channel.recv_exit_status() != 0:
             raise error.ProcessBadExitStatusException(
-                '\nCurrent exit status is `{0}`\nstderr: {1}'.format(out_f.channel.recv_exit_status(), stderr),
+                f"\nCurrent exit status is `{out_f.channel.recv_exit_status()}`\nstderr: {stderr}",
                 stdout=stdout,
                 stderr=stderr,
                 rt=out_f.channel.recv_exit_status(),
             )
 
-        self.LOGGER.debug("stdout: {0}".format(stdout))
+        if stdout:
+            self.LOGGER.debug(f"stdout: {stdout}")
         if stderr:
-            self.LOGGER.error("stderr: {0}".format(stderr))
+            self.LOGGER.error(f"stderr: {stderr}")
 
         return stdout, stderr
 
@@ -397,15 +392,15 @@ class RemoteNode(INode):
         Args:
             path (str): path to directory to create
         """
-        self.run_cmd("mkdir -p {0}".format(path))
+        self.run_cmd(f"mkdir -p {path}")
 
-    def copy_file(self, filename: str, content: Any):
+    def copy_file(self, filename: str, content: str):
         """
         Copy file.
 
         Args:
             filename (str): filename to copy
-            content (Any): content to copy
+            content (str): content to copy
         """
         # workdir will be ignored if an absolute filename is passed
         filename = os.path.join(self.workdir, filename)
@@ -423,7 +418,7 @@ class RemoteNode(INode):
             sftp.close()
         except Exception as copy_exc:
             self.LOGGER.exception(
-                "Error copying file {0} to {1}: {2}".format(filename, self.host, copy_exc),
+                f"Error copying file `{filename}` to {self.host}: {copy_exc}",
             )
 
     def remove_file(self, filename: str):
@@ -434,7 +429,7 @@ class RemoteNode(INode):
             filename (str): filename to remove
         """
         if DEBUG_FILES:
-            self.LOGGER.warning("Removing {0}: cancelled because of DEBUG_FILES is True".format(filename))
+            self.LOGGER.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
 
         else:
             sftp = self._ssh.open_sftp()
@@ -442,7 +437,7 @@ class RemoteNode(INode):
                 sftp.unlink(filename)
             except IOError as e:
                 if e.errno != errno.ENOENT:
-                    self.LOGGER.warning("Removing {0}: file not found".format(filename))
+                    self.LOGGER.warning(f"Removing `{filename}`: file not found")
 
             sftp.close()
 
@@ -453,7 +448,7 @@ class RemoteNode(INode):
         Returns:
             (bool): True, if ready
         """
-        self.LOGGER.debug("Waiting for {0} node, host {1}".format(self.type, self.host))
+        self.LOGGER.debug(f"Waiting for {self.type} node, host {self.host}")
         timeout = float(tf_cfg.cfg.get(self.type, "unavailable_timeout"))
         t0 = time.time()
 
@@ -462,13 +457,13 @@ class RemoteNode(INode):
             dt = t - t0
 
             if dt > timeout:
-                self.LOGGER.error("Node {0} is not available, host {1}".format(self.type, self.host))
+                self.LOGGER.error(f"Node {self.type} is not available, host {self.host}")
                 return False
 
             res, _ = self.run_cmd("echo -n check", timeout=1)
 
             if res.decode() == "check":
-                self.LOGGER.debug("Node {0} is available, host {1}".format(self.type, self.host))
+                self.LOGGER.debug(f"Node {self.type} is available, host {self.host}")
                 return True
 
             time.sleep(1)
