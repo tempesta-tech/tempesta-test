@@ -9,6 +9,8 @@ from test_suite import tester
 
 class TestDockerServer(tester.TempestaTest):
 
+    response_body = "a" * 100
+
     backends = [
         {
             "id": "python_simple_server",
@@ -22,7 +24,7 @@ class TestDockerServer(tester.TempestaTest):
             "type": "docker",
             "image": "python",
             "ports": {8001: 8000},
-            "cmd_args": "hello.py",
+            "cmd_args": f"hello.py --body {response_body}",
         },
         {
             "id": "httpbin",
@@ -93,7 +95,7 @@ class TestDockerServer(tester.TempestaTest):
         with self.subTest("python hello.py"):
             response = self.get_response("python-hello")
             self.assertEqual(response.status, 200)
-            self.assertEqual(response.stdout, "Hello")
+            self.assertEqual(response.stdout, self.response_body)
 
         with self.subTest("httpbin"):
             response = self.get_response("httpbin", "/status/202")
