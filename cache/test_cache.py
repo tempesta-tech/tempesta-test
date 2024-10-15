@@ -1756,9 +1756,6 @@ class TestCacheVhost(tester.TempestaTest):
 
     tempesta = {
         "config": """
-        listen 443;
-        listen 80;
-
         srv_group main {
                 server ${server_ip}:8080;
         }
@@ -1793,10 +1790,10 @@ class TestCacheVhost(tester.TempestaTest):
         client.stop()
         return client.response_msg
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="h2", proto="h2"),
-            param(name="https", proto="https"),
+            marks.Param(name="h2", proto="h2"),
+            marks.Param(name="https", proto="https"),
         ]
     )
     def test(self, name, proto):
@@ -1809,9 +1806,7 @@ class TestCacheVhost(tester.TempestaTest):
         3. From cache, here check validity.
         """
         self.get_tempesta().config.set_defconfig(
-            self.get_tempesta().config.defconfig.replace(
-                "listen 443;", f"listen 443 proto={proto};\r\n"
-            )
+            f"listen 443 proto={proto};\r\n" + self.get_tempesta().config.defconfig
         )
         self.start_all_services(client=False)
 
@@ -1843,11 +1838,6 @@ class TestCacheVhost(tester.TempestaTest):
         self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_main")
         self.assertEqual(response, "foo")
 
-    def test_http1(self):
-        tempesta = self.get_tempesta()
-        tempesta.config.defconfig = tempesta.config.defconfig.replace("h2", "https")
-        self.test_h2()
-
 
 LONG_HEADERS_BACKEND = {
     "id": "python_hello",
@@ -1866,7 +1856,7 @@ LONG_BODY_BACKEND = {
 }
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "HttpHeaders", "clients": [DEPROXY_CLIENT], "backends": [LONG_HEADERS_BACKEND]},
         {"name": "HttpBody", "clients": [DEPROXY_CLIENT], "backends": [LONG_BODY_BACKEND]},
@@ -1909,6 +1899,11 @@ frang_limits {
 
         client = self.get_client("deproxy")
         if isinstance(client, DeproxyClientH2):
+            """
+            When we use LONG_HEADERS_BACKEND response headers length is
+            greater then 65536, so we should change initial settings to
+            prevent response dropping.
+            """
             client.update_initial_settings(max_header_list_size=65536 * 2)
             client.send_bytes(client.h2_connection.data_to_send())
             client.h2_connection.clear_outbound_data_buffer()
