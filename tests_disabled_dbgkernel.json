@@ -68,18 +68,6 @@
     {
       "name" : "http_general.test_block_action",
       "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "t_frang.test_http_ct_vals",
-      "reason" : "Disabled by tempesta issue #2256"
-    },
-    {
-      "name" : "t_frang.test_http_resp_code_block",
-      "reason" : "Disabled by tempesta issue #2256"
-    },
-    {
-      "name" : "t_http_rules",
-      "reason" : "Disabled by tempesta issue #2256"
     }
   ]
 }

@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from t_frang.frang_test_case import FrangTestCase, H2Config
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 
 
 class FrangHttpMethodsTestCase(FrangTestCase):
@@ -41,14 +41,14 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="DELETE"),
-            param(name="PUT"),
-            param(name="OPTIONS"),
-            param(name="PATCH"),
-            param(name="TRACE"),
-            param(name="CONNECT"),
+            marks.Param(name="DELETE"),
+            marks.Param(name="PUT"),
+            marks.Param(name="OPTIONS"),
+            marks.Param(name="PATCH"),
+            marks.Param(name="TRACE"),
+            marks.Param(name="CONNECT"),
         ]
     )
     def test_not_accepted_request_shipping_cfg(self, name):

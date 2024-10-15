@@ -4,8 +4,7 @@ import http
 
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
-from test_suite import tester
-from test_suite.parameterize import param, parameterize
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
@@ -213,19 +212,19 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
         for client in clients:
             self.assertEqual(client.last_response.status, "200")
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="first_fail",
                 response_list=[bad_response, response, response],
                 expected_response_statuses=["502"],
             ),
-            param(
+            marks.Param(
                 name="second_fail",
                 response_list=[response, bad_response, response],
                 expected_response_statuses=["200", "502"],
             ),
-            param(
+            marks.Param(
                 name="third_fail",
                 response_list=[response, response, bad_response],
                 expected_response_statuses=["200", "200", "502"],

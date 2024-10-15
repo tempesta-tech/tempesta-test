@@ -1,12 +1,14 @@
 from __future__ import print_function
 
-import sys  # for sys.exc_info
+import sys
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+from typing import Optional
 
 
 class Error(Exception):
@@ -90,6 +92,17 @@ class ProcessKilledException(BaseCmdException):
 
 class CommandExecutionException(BaseCmdException):
     """If something happened during a command execution."""
+
+
+@dataclass
+class TestConditionsAreNotCompleted(Error):
+    test_name: str
+    attempts: Optional[int] = None
+
+    def __str__(self):
+        return f"The conditions for '{self.test_name}' are not completed." + (
+            f" Attempts - {self.attempts}" if self.attempts else ""
+        )
 
 
 def assertFalse(expression, msg=""):

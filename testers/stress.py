@@ -3,14 +3,15 @@ from __future__ import print_function
 import unittest
 
 from framework import stateful
-from helpers import control, dmesg, remote, tempesta, tf_cfg, util
+from helpers import control, dmesg, remote, tempesta, tf_cfg
+from test_suite import marks
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-@util.deprecated("tester.TempestaTest")
+@marks.deprecated("tester.TempestaTest")
 class StressTest(unittest.TestCase):
     """Test Suite to use HTTP benchmarks as a clients. Can be used for
     functional testing of schedulers and stress testing for other components.
