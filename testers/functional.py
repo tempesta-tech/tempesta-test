@@ -4,15 +4,16 @@ import asyncore
 import unittest
 
 from framework import stateful
-from helpers import control, deproxy, dmesg, remote, tempesta, tf_cfg, util
+from helpers import control, deproxy, dmesg, remote, tempesta, tf_cfg
 from helpers.deproxy import ParseError
+from test_suite import marks
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-@util.deprecated("tester.TempestaTest")
+@marks.deprecated("tester.TempestaTest")
 class FunctionalTest(unittest.TestCase):
     tfw_clnt_msg_otherr = False
 

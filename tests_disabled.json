@@ -320,6 +320,10 @@
         {
             "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_ratio",
             "reason": "Tempesta failed to stop, issue #2261"
+        },
+        {
+            "name": "t_stress.test_header_leak.TestH2HeaderLeak",
+            "reason": "Disabled by tempesta issue #2181"
         }
     ]
 }

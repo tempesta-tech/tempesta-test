@@ -17,7 +17,7 @@ import helpers
 from framework.deproxy_client import DeproxyClientH2, HuffmanEncoder
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
-from test_suite.parameterize import param, parameterize
+from test_suite import marks
 
 
 class TestHpackBase(H2Base):
@@ -876,21 +876,21 @@ SIZE_BYTES[0] |= 0x20
 
 
 class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="begin",
                 data=bytes(SIZE_BYTES) + HuffmanEncoder().encode(H2Base.post_request),
                 expected_status_code="200",
             ),
-            param(
+            marks.Param(
                 name="middle",
                 data=HuffmanEncoder().encode([(":authority", "example.com"), (":path", "/")])
                 + bytes(SIZE_BYTES)
                 + HuffmanEncoder().encode([(":scheme", "https"), (":method", "POST")]),
                 expected_status_code="400",
             ),
-            param(
+            marks.Param(
                 name="end",
                 data=HuffmanEncoder().encode(H2Base.post_request) + bytes(SIZE_BYTES),
                 expected_status_code="400",
@@ -957,8 +957,8 @@ class TestHpackBomb(TestHpackBase):
         """
     }
 
-    @parameterize.expand(
-        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_hpack_bomb(self, name, huffman):
         """

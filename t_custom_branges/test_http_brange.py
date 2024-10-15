@@ -8,8 +8,7 @@ import random
 
 from helpers import deproxy, dmesg
 from helpers.remote import CmdError
-from test_suite import tester
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks, tester
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
@@ -77,13 +76,13 @@ class TestConfigParsing(tester.TempestaTest):
             tempesta_conf.defconfig.format(directive=directive, values=characters)
         )
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="all_hex", characters="0x00-0x7e"),
-            param(name="all_dec", characters="0-126"),
-            param(name="last", characters="0x21-0x7e 0x00"),
-            param(name="first", characters="0x0a 0x21-0x7e"),
-            param(name="between", characters="0x21-0x40 0x0d 0x41-0x7e"),
+            marks.Param(name="all_hex", characters="0x00-0x7e"),
+            marks.Param(name="all_dec", characters="0-126"),
+            marks.Param(name="last", characters="0x21-0x7e 0x00"),
+            marks.Param(name="first", characters="0x0a 0x21-0x7e"),
+            marks.Param(name="between", characters="0x21-0x40 0x0d 0x41-0x7e"),
         ]
     )
     def test_enable_0x00_0x0a_0x0d(self, name, characters: str):
@@ -116,33 +115,33 @@ class TestConfigParsing(tester.TempestaTest):
 
         self.assertFalse(client.connection_is_closed())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="etag_brange",
                 directive="http_etag_brange",
                 characters="0x30-0x39 0x41-0x5a 0x61-0x7a 0x22",
                 msg='Tempesta config parser allowed 0x22 (") byte.',
             ),
-            param(
+            marks.Param(
                 name="cookie_brange",
                 directive="http_cookie_brange",
                 characters="0x30-0x39 0x41-0x5a 0x61-0x7a 0x3b 0x3d",
                 msg='Tempesta config parser allowed 0x3d ("=") | 0x3b (";") bytes.',
             ),
-            param(
+            marks.Param(
                 name="xff_brange",
                 directive="http_xff_brange",
                 characters="0x30-0x39 0x3a 0x61-0x7a 0x2c",
                 msg='Tempesta config parser allowed 0x2c (",") byte.',
             ),
-            param(
+            marks.Param(
                 name="token_brange",
                 directive="http_token_brange",
                 characters="0x61-0x7a 0x2c 0x3b",
                 msg='Tempesta config parser allowed 0x2c (",") | 0x3b (";") bytes.',
             ),
-            param(
+            marks.Param(
                 name="qetoken_brange",
                 directive="http_qetoken_brange",
                 characters="0x61-0x7a 0x2c",
@@ -157,7 +156,7 @@ class TestConfigParsing(tester.TempestaTest):
             self.start_tempesta()
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "Http",
@@ -193,9 +192,9 @@ tls_match_any_server_name;
             tempesta_conf.defconfig.format(directive=directive, values=characters)
         )
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="issue_2030",
                 # Example from issue #2030:
                 # Allow only following characters in URI (no '%'): /a-zA-Z0-9&?:-._=
@@ -205,13 +204,13 @@ tls_match_any_server_name;
                 uri="/js/prism.min.js",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="blocked_percent",
                 custom_uri_branch="0x41-0x7a",
                 uri="js%a",
                 expected_status="400",
             ),
-            param(
+            marks.Param(
                 name="not_blocked_percent",
                 custom_uri_branch="0x25 0x41-0x7a",
                 uri="/js%a",
@@ -232,13 +231,13 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="0x40_from_0x41_to_0x7e", character="\x40", expected_status="400"),
-            param(name="0x41_from_0x41_to_0x7e", character="\x41", expected_status="200"),
-            param(name="0x7f_from_0x41_to_0x7e", character="\x7f", expected_status="400"),
-            param(name="0x7e_from_0x41_to_0x7e", character="\x7e", expected_status="200"),
-            param(name="disallowed_0x5f", character="\x5f", expected_status="400"),
+            marks.Param(name="0x40_from_0x41_to_0x7e", character="\x40", expected_status="400"),
+            marks.Param(name="0x41_from_0x41_to_0x7e", character="\x41", expected_status="200"),
+            marks.Param(name="0x7f_from_0x41_to_0x7e", character="\x7f", expected_status="400"),
+            marks.Param(name="0x7e_from_0x41_to_0x7e", character="\x7e", expected_status="200"),
+            marks.Param(name="disallowed_0x5f", character="\x5f", expected_status="400"),
         ]
     )
     def test_boundary_values(self, name, character, expected_status):
@@ -259,10 +258,10 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="disallowed_character", character="\x2b", expected_status="400"),
-            param(name="allowed_character", character="\x2d", expected_status="200"),
+            marks.Param(name="disallowed_character", character="\x2b", expected_status="400"),
+            marks.Param(name="allowed_character", character="\x2d", expected_status="200"),
         ]
     )
     def test_http_uri_brange_referer_header(self, name, character, expected_status):
@@ -285,29 +284,29 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="allow",
                 etag='"asdfqwerty"',
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="many_values",
                 etag='"asdfqwerty", "sdfrgg"',
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="allow_weak",
                 etag='W/"asdfqwerty"',
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="allow_all",
                 etag="*",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="disallow",
                 etag='"asdfQWErty"',
                 expected_status="400",
@@ -328,21 +327,21 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="check_value",
                 characters="0x30-0x39 0x61-0x7a",
                 cookie="id=QWErty",
                 expected_status="400",
             ),
-            param(
+            marks.Param(
                 name="not_check_name",
                 characters="0x30-0x39 0x61-0x7a",
                 cookie="ID=qwerty",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="allow_many_cookie",
                 characters="0x30-0x39 0x41-0x5a 0x61-0x7a",
                 cookie="id=qwerty; c2=v2",
@@ -364,33 +363,33 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="allow_ipv4",
                 characters="0x30-0x39 0x2e 0x3a 0x61-0x7a",
                 ip_="5.10.50.6",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="allow_ipv6",
                 characters="0x30-0x39 0x2e 0x3a 0x61-0x7a",
                 ip_="2001:db8:85a3:8d3:1319:8a2e:370:7348",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="allow_many_ip",
                 characters="0x30-0x39 0x2e 0x3a 0x61-0x7a",
                 ip_="5.10.50.6, 2001:db8:85a3:8d3:1319:8a2e:370:7348",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="disallow_ipv4",
                 characters="0x30-0x39 0x3a 0x61-0x7a",
                 ip_="5.10.50.6",
                 expected_status="400",
             ),
-            param(
+            marks.Param(
                 name="disallow_ipv6",
                 characters="0x30-0x39 0x2e",
                 ip_="2001:db8:85a3:8d3:1319:8a2e:370:7348",
@@ -412,15 +411,15 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="allow",
                 characters="0x20-0x7a",
                 header="Mozilla/5.0 (Windows 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="disallow",
                 characters="0x20 0x28-0x3b 0x41-0x7a",
                 header="Mozilla/5.0 %",
@@ -442,14 +441,14 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="positive",
                 header_value="unknown=value",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="negative",
                 header_value="unknown%=value",
                 expected_status="400",
@@ -471,21 +470,21 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="positive",
                 characters="0x41-0x7a 0x3d",
                 cache_control="unknown=value",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="disallow_equal",
                 characters="0x41-0x7a",
                 cache_control="unknown=value",
                 expected_status="400",
             ),
-            param(
+            marks.Param(
                 name="negative",
                 characters="0x41-0x7a 0x3d",
                 cache_control="unkno%wn=value%",
@@ -508,15 +507,15 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="positive",
                 characters="0x20-0x7f",
                 date="Mon, 12 Dec 2016 13:59:39 GMT",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="negative",
                 characters="0x20 0x2c 0x2e 0x30-0x3b 0x41-0x5a 0x61-0x7a",
                 date="Mon, 12 Dec 2016% 13:59:39 GMT",
@@ -540,15 +539,15 @@ tls_match_any_server_name;
         else:
             self.assertTrue(client.wait_for_connection_close())
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="positive",
                 characters="0x20-0x7f",
                 date="Mon, 12 Dec 2016 13:59:39 GMT",
                 expected_status="200",
             ),
-            param(
+            marks.Param(
                 name="negative",
                 characters="0x20 0x2c 0x2e 0x30-0x3b 0x41-0x5a 0x61-0x7a",
                 date="Mon, 12 Dec 2016% 13:59:39 GMT",

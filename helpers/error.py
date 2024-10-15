@@ -7,6 +7,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from typing import Optional
+
 
 class Error(Exception):
     """Base exception class for unrecoverable framework errors.
@@ -53,6 +55,17 @@ class ServiceStoppingException(Error):
                 "---------------------------------------------------------\n"
                 for service, exception in self.exceptions.items()
             ]
+        )
+
+
+@dataclass
+class TestConditionsAreNotCompleted(Error):
+    test_name: str
+    attempts: Optional[int] = None
+
+    def __str__(self):
+        return f"The conditions for '{self.test_name}' are not completed." + (
+            f" Attempts - {self.attempts}" if self.attempts else ""
         )
 
 

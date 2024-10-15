@@ -3,9 +3,9 @@ Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
 
-from helpers import analyzer, remote, util
+from helpers import analyzer, remote
 from helpers.cert_generator_x509 import CertGenerator
-from test_suite import tester
+from test_suite import marks, tester
 
 from .fuzzer import tls_record_fuzzer
 from .handshake import *
@@ -228,7 +228,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.assertEqual(len(alert), 2)
         self.assertEqual(alert, TLSAlert(level=1, descr=0))
 
-    @util.profiled
+    @marks.profiled
     def test_fuzzing(self):
         """
         Inject bad (fuzzed) TLS records at different places on TLS handshake.

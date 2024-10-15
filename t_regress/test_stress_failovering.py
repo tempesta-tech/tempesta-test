@@ -12,8 +12,7 @@ import sys
 from helpers import dmesg
 from helpers.tf_cfg import cfg
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
-from test_suite import tester
-from test_suite.parameterize import param, parameterize
+from test_suite import marks, tester
 
 SERVER_IP = cfg.get("Server", "ip")
 GENERAL_WORKDIR = cfg.get("General", "workdir")
@@ -153,13 +152,13 @@ class TestStressFailovering(FailoveringStressTestBase):
     def _set_tempesta_config_with_sched_hash(self):
         self.get_tempesta().config.set_defconfig(TFW_CONFIF_WITH_HASH_SCHED)
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="sched_ratio",
                 tfw_config=_set_tempesta_config_with_sched_ratio,
             ),
-            param(
+            marks.Param(
                 name="sched_hash",
                 tfw_config=_set_tempesta_config_with_sched_hash,
             ),

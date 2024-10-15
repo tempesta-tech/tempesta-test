@@ -10,8 +10,7 @@ from collections import defaultdict
 from helpers import dmesg, tempesta, tf_cfg
 from helpers.deproxy import HttpMessage
 from http2_general.test_h2_responses import H2ResponsesPipelinedBase
-from test_suite import tester
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -245,7 +244,7 @@ DEPROXY_CLIENT_H2 = {
 }
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT]},
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
@@ -311,7 +310,7 @@ class TestHealthStat(tester.TempestaTest):
         self.assertEqual(tfw.stats.cache_misses, 1)
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT]},
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
@@ -562,7 +561,7 @@ TEMPESTA_PREDEFINED = {
 }
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "ImplicitCRC",
@@ -685,12 +684,12 @@ class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
         """
     }
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="1_hm", hm_num=1),
-            param(name="2_hm", hm_num=2),
-            param(name="3_hm", hm_num=3),
-            param(name="4_hm", hm_num=4),
+            marks.Param(name="1_hm", hm_num=1),
+            marks.Param(name="2_hm", hm_num=2),
+            marks.Param(name="3_hm", hm_num=3),
+            marks.Param(name="4_hm", hm_num=4),
         ]
     )
     def test_hm_pipelined(self, name, hm_num):

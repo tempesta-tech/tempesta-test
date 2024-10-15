@@ -8,7 +8,7 @@ __license__ = "GPL2"
 
 from helpers import dmesg, util
 from test_suite import tester
-from test_suite.parameterize import parameterize_class
+from test_suite.marks import parameterize_class
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
