@@ -882,7 +882,7 @@ class StickyCookieOptions(tester.TempestaTest):
 DOCKER_RESP_BODY = "a" * 100000
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "Http",

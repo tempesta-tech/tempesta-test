@@ -120,7 +120,7 @@ class TempestaTest(unittest.TestCase):
         "backends": [],
     }
 
-    def __init_subclass__(cls, base=False, check_memleak=True, **kwargs):
+    def __init_subclass__(cls, base=False, check_memleak=False, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._base = base
         cls.__check_memleak = check_memleak
@@ -433,7 +433,7 @@ class TempestaTest(unittest.TestCase):
         self._deproxy_auto_parser.check_exceptions()
 
     def cleanup_check_memory_leaks(self):
-        if run_config.CHECK_MEMORY_LEAKS and self.__check_memleak:
+        if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
             tf_cfg.dbg(3, "\tCleanup: Check memory leaks.")
             used_memory = util.get_used_memory()
             delta_used_memory = used_memory - self.__used_memory
@@ -543,6 +543,6 @@ class TempestaTest(unittest.TestCase):
             return test_id
 
     def __save_memory_consumption(self) -> None:
-        if run_config.CHECK_MEMORY_LEAKS and self.__check_memleak:
+        if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
             self.__used_memory = util.get_used_memory()
             tf_cfg.dbg(4, f"\tCleanup: used memory {self.__used_memory} KB.")
