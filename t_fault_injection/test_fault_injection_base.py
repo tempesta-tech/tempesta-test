@@ -90,9 +90,9 @@ class TestFailFunctionBase(tester.TempestaTest):
 
 
 class TestFailFunction(TestFailFunctionBase, NetWorker):
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="tfw_cli_conn_alloc",
                 func_name="tfw_cli_conn_alloc",
                 id="deproxy",
@@ -106,7 +106,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=0,
             ),
-            marks.param(
+            marks.Param(
                 name="tfw_client_obtain",
                 func_name="tfw_client_obtain",
                 id="deproxy",
@@ -120,7 +120,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=0,
             ),
-            marks.param(
+            marks.Param(
                 name="tfw_hpack_init",
                 func_name="tfw_hpack_init",
                 id="deproxy_h2",
@@ -134,7 +134,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=-12,
             ),
-            marks.param(
+            marks.Param(
                 name="ss_skb_expand_head_tail",
                 func_name="ss_skb_expand_head_tail",
                 id="deproxy_h2",
@@ -148,7 +148,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=-12,
             ),
-            marks.param(
+            marks.Param(
                 name="ss_skb_expand_head_tail_long_resp",
                 func_name="ss_skb_to_sgvec_with_new_pages",
                 id="deproxy_h2",
@@ -163,7 +163,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=100,
                 retval=-12,
             ),
-            marks.param(
+            marks.Param(
                 name="ss_skb_to_sgvec_with_new_pages",
                 func_name="ss_skb_to_sgvec_with_new_pages",
                 id="deproxy_h2",
@@ -177,7 +177,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=-12,
             ),
-            marks.param(
+            marks.Param(
                 name="ss_skb_to_sgvec_with_new_pages_long_resp",
                 func_name="ss_skb_to_sgvec_with_new_pages",
                 id="deproxy_h2",
@@ -192,7 +192,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=100,
                 retval=-12,
             ),
-            marks.param(
+            marks.Param(
                 name="tfw_h2_stream_xmit_prepare_resp",
                 func_name="tfw_h2_stream_xmit_prepare_resp",
                 id="deproxy_h2",
@@ -206,7 +206,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=-12,
             ),
-            marks.param(
+            marks.Param(
                 name="tfw_h2_entail_stream_skb",
                 func_name="tfw_h2_entail_stream_skb",
                 id="deproxy_h2",
@@ -295,9 +295,9 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
 
     clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="tfw_http_msg_create_sibling",
                 func_name="tfw_http_msg_create_sibling",
                 id="deproxy_h2",

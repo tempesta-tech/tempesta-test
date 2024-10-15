@@ -262,10 +262,10 @@ class CookiesMaxMisses(tester.TempestaTest):
         }
     ]
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="no_cookie", headers=[]),
-            marks.param(
+            marks.Param(name="no_cookie", headers=[]),
+            marks.Param(
                 name="with_invalid_cookie", headers=[("cookie", "__tfw=0000db26d9f76f8c40ba5c")]
             ),
         ]
@@ -594,59 +594,59 @@ class StickyCookieConfig(tester.TempestaTest):
         remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.js.tpl {workdir}")
         remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.tpl {workdir}/js1.tpl")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="cookie_options_no_cookie",
                 cookie_config="cookie_options Path=/;",
                 msg="http_sess: cookie options requires sticky cookies enabled and explicitly defined in the same section",
             ),
-            marks.param(
+            marks.Param(
                 name="js_challenge_no_cookie",
                 cookie_config="js_challenge resp_code=503 delay_min=1000 delay_range=3000 %s/js1.html;"
                 % tf_cfg.cfg.get("Tempesta", "workdir"),
                 msg="http_sess: JavaScript challenge requires sticky cookies enabled and explicitly defined in the same section",
             ),
-            marks.param(
+            marks.Param(
                 name="empty_js_challenge",
                 cookie_config="js_challenge;\ncookie enforce;",
                 msg="js_challenge: required argument 'delay_min' not set",
             ),
-            marks.param(
+            marks.Param(
                 name="cookie_options_with_cookie",
                 cookie_config="cookie_options Path=/;\ncookie enforce;",
                 msg=None,
             ),
-            marks.param(
+            marks.Param(
                 name="js_challenge_with_cookie",
                 cookie_config="js_challenge resp_code=503 delay_min=1000 delay_range=3000 %s/js1.html;\ncookie enforce;"
                 % tf_cfg.cfg.get("Tempesta", "workdir"),
                 msg=None,
             ),
-            marks.param(
+            marks.Param(
                 name="dublicate_delay_min",
                 cookie_config="js_challenge resp_code=503 delay_min=1000 delay_min=2000 delay_range=3000 %s/js1.html;\ncookie enforce;"
                 % tf_cfg.cfg.get("Tempesta", "workdir"),
                 msg="Duplicate argument: 'delay_min'",
             ),
-            marks.param(
+            marks.Param(
                 name="dublicate_delay_range",
                 cookie_config="js_challenge resp_code=503 delay_min=1000 delay_range=2000 delay_range=3000 %s/js1.html;\ncookie enforce;"
                 % tf_cfg.cfg.get("Tempesta", "workdir"),
                 msg="Duplicate argument: 'delay_range'",
             ),
-            marks.param(
+            marks.Param(
                 name="dublicate_resp_code",
                 cookie_config="js_challenge resp_code=503 resp_code=502 delay_min=2000 delay_range=3000 %s/js1.html;\ncookie enforce;"
                 % tf_cfg.cfg.get("Tempesta", "workdir"),
                 msg="Duplicate argument: 'resp_code'",
             ),
-            marks.param(
+            marks.Param(
                 name="dublicate_name",
                 cookie_config="cookie name=A name=B enforce;",
                 msg="Duplicate argument: 'name'",
             ),
-            marks.param(
+            marks.Param(
                 name="dublicate_max_misses",
                 cookie_config="cookie max_misses=3 max_misses=4 enforce;",
                 msg="Duplicate argument: 'max_misses'",
@@ -719,12 +719,12 @@ class StickyCookieOptions(tester.TempestaTest):
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
             # If no options are set, session lifetime is equal to UINT_MAX (4294967295)
             # and Max-Age is set to 4294967295 also. Path is not set, default Path="/"
             # is used.
-            marks.param(
+            marks.Param(
                 name="empty_options",
                 cookie_options_global="",
                 cookie_options_vhost="",
@@ -733,7 +733,7 @@ class StickyCookieOptions(tester.TempestaTest):
             ),
             # Same as previous but cookie_options is in config without any
             # values.
-            marks.param(
+            marks.Param(
                 name="empty_options_1",
                 cookie_options_global="cookie_options;",
                 cookie_options_vhost="cookie_options;",
@@ -743,7 +743,7 @@ class StickyCookieOptions(tester.TempestaTest):
             # Global session lifetime is set and vhost session lifetime is
             # empty. Global session lifetime is used to set Max-Age for global
             # and vhost cookies.
-            marks.param(
+            marks.Param(
                 name="empty_vhost_global_sess_lifetime_is_set",
                 cookie_options_global="sess_lifetime 5;",
                 cookie_options_vhost="",
@@ -753,7 +753,7 @@ class StickyCookieOptions(tester.TempestaTest):
             # Global Expires is set, global session lifetime doesn't affect global
             # cookie options, but vhost cookie options are empty, so global session
             # lifetime is used to set Max-Age for vhost cookies.
-            marks.param(
+            marks.Param(
                 name="empty_vhost_global_expires_and_sess_lifetime_are_set",
                 cookie_options_global="cookie_options Path=/etc Expires=111;\nsess_lifetime 5;",
                 cookie_options_vhost="",
@@ -763,7 +763,7 @@ class StickyCookieOptions(tester.TempestaTest):
             # Global Max-Age is set, session lifetime doesn't  affect global cookie
             # options. Vhost session lifetime is set and used to set vhost cookies
             # Max-Age.
-            marks.param(
+            marks.Param(
                 name="vhost_sess_lifetime_and_global_sess_lifetime_and_max_age_are_set",
                 cookie_options_global="cookie_options Max-Age=111;\nsess_lifetime 5;",
                 cookie_options_vhost="sess_lifetime 3;",
@@ -772,7 +772,7 @@ class StickyCookieOptions(tester.TempestaTest):
             ),
             # Secure option is set, Path and Max-Age are set according to
             # default values ("/" for Path and 4294967295 for Max-Age).
-            marks.param(
+            marks.Param(
                 name="vhost_and_global_options_other",
                 cookie_options_global="cookie_options Secure;",
                 cookie_options_vhost="cookie_options Secure;",
@@ -781,7 +781,7 @@ class StickyCookieOptions(tester.TempestaTest):
             ),
             # Vhost Expires is set, global session lifetime doesn't affect
             # vhost cookie options.
-            marks.param(
+            marks.Param(
                 name="vhost_expires_is_set",
                 cookie_options_global="sess_lifetime 5;",
                 cookie_options_vhost="cookie_options Expires=111;",
@@ -790,7 +790,7 @@ class StickyCookieOptions(tester.TempestaTest):
             ),
             # Vhost Max-Age is set, global session lifetime doesn't affect
             # vhost cookie options.
-            marks.param(
+            marks.Param(
                 name="vhost_max_age_is_set",
                 cookie_options_global="sess_lifetime 5;",
                 cookie_options_vhost="cookie_options Max-Age=111;",
@@ -798,7 +798,7 @@ class StickyCookieOptions(tester.TempestaTest):
                 options_vhost_in_response=["Path=/", "Max-Age=111"],
             ),
             # A lot of different options
-            marks.param(
+            marks.Param(
                 name="cookie_options_all_in_one",
                 cookie_options_global="cookie_options Max-Age=111 Expires=3 Path=/etc Secure HttpOnly Domain=example.com;",
                 cookie_options_vhost="",
@@ -853,19 +853,19 @@ class StickyCookieOptions(tester.TempestaTest):
         for opt in cookie_opt[1:]:
             self.assertIn(opt, options_vhost_in_response)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="path",
                 options="cookie_options Path=/ Path=/etc;",
                 msg="Duplicate argument: 'Path'",
             ),
-            marks.param(
+            marks.Param(
                 name="max_age",
                 options="cookie_options Max-Age=3 Max-Age=5;",
                 msg="Duplicate argument: 'Max-Age'",
             ),
-            marks.param(
+            marks.Param(
                 name="expires",
                 options="cookie_options Expires=3 Expires=5;",
                 msg="Duplicate argument: 'Expires'",

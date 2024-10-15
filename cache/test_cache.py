@@ -363,10 +363,10 @@ tls_match_any_server_name;
 
     backends = [DEPROXY_SERVER]
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="raw", header_name="hdr", val1="aaa", val2="bbb"),
-            marks.param(
+            marks.Param(name="raw", header_name="hdr", val1="aaa", val2="bbb"),
+            marks.Param(
                 name="regular",
                 header_name="set-cookie",
                 val1="aaa=bbb",
@@ -443,33 +443,33 @@ tls_match_any_server_name;
 
     backends = [DEPROXY_SERVER]
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="different_key",
                 uri_1="/pic.jpg?param1=value1",
                 uri_2="/pic.jpg?param2=value1",
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="different_value",
                 uri_1="/pic.jpg?param1=value1",
                 uri_2="/pic.jpg?param1=value2",
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="with_new_param",
                 uri_1="/pic.jpg?param1=value1",
                 uri_2="/pic.jpg?param1=value1&param2=value2",
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="with_new_param",
                 uri_1="/pic.jpg?param1=value1",
                 uri_2="/pic.jpg?param1=value1&param1=value1",
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="same_params",
                 uri_1="/pic.jpg?param1=value1",
                 uri_2="/pic.jpg?param1=value1",
@@ -510,44 +510,44 @@ tls_match_any_server_name;
             )
             self.assertEqual(len(server.requests), 2)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="300_multiple_choices",
                 response=HTTPStatus.MULTIPLE_CHOICES,
                 should_be_cached=True,
             ),
-            marks.param(
+            marks.Param(
                 name="301_moved_permanently",
                 response=HTTPStatus.MOVED_PERMANENTLY,
                 should_be_cached=True,
             ),
-            marks.param(
+            marks.Param(
                 name="302_found",
                 response=HTTPStatus.FOUND,
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="303_see_other",
                 response=HTTPStatus.SEE_OTHER,
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="304_not_modified",
                 response=HTTPStatus.NOT_MODIFIED,
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="305_user_proxy",
                 response=HTTPStatus.USE_PROXY,
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="307_temporary_redirect",
                 response=HTTPStatus.TEMPORARY_REDIRECT,
                 should_be_cached=False,
             ),
-            marks.param(
+            marks.Param(
                 name="308_permanent_redirect",
                 response=HTTPStatus.PERMANENT_REDIRECT,
                 should_be_cached=True,
@@ -707,24 +707,24 @@ class TestCacheMultipleMethods(tester.TempestaTest):
     """,
     }
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 "GET_after_GET", first_method="GET", second_method="GET", should_be_cached=True
             ),
-            marks.param(
+            marks.Param(
                 "HEAD_after_GET", first_method="GET", second_method="HEAD", should_be_cached=True
             ),
-            marks.param(
+            marks.Param(
                 "POST_after_GET", first_method="GET", second_method="POST", should_be_cached=False
             ),
-            marks.param(
+            marks.Param(
                 "HEAD_after_HEAD", first_method="HEAD", second_method="HEAD", should_be_cached=True
             ),
-            marks.param(
+            marks.Param(
                 "GET_after_HEAD", first_method="HEAD", second_method="GET", should_be_cached=False
             ),
-            marks.param(
+            marks.Param(
                 "POST_after_HEAD", first_method="HEAD", second_method="POST", should_be_cached=False
             ),
         ]
@@ -765,10 +765,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             self.assertNotIn("age", client.last_response.headers.keys())
             self.assertEqual(len(server.requests), 2)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="PUT_request", method="PUT"),
-            marks.param(name="DELETE_request", method="DELETE"),
+            marks.Param(name="PUT_request", method="PUT"),
+            marks.Param(name="DELETE_request", method="DELETE"),
         ]
     )
     def test_update_cache_via(self, name, method):
@@ -819,11 +819,11 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             f"The response was not updated in the cache after a request with {method} method.",
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="GET", second_method="GET", should_be_cached=True),
-            marks.param(name="HEAD", second_method="HEAD", should_be_cached=True),
-            marks.param(name="POST", second_method="POST", should_be_cached=False),
+            marks.Param(name="GET", second_method="GET", should_be_cached=True),
+            marks.Param(name="HEAD", second_method="HEAD", should_be_cached=True),
+            marks.Param(name="POST", second_method="POST", should_be_cached=False),
         ]
     )
     def test_cache_POST_request_with_location(self, name, second_method, should_be_cached):
@@ -864,14 +864,14 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             self.assertNotIn("age", client.last_response.headers.keys())
             self.assertEqual(len(server.requests), 2)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="not_same_location",
                 extra_header="Content-Location: /index1.html\r\n"
                 + "Cache-Control: public, s-maxage=5\r\n",
             ),
-            marks.param(name="no_cache_control", extra_header="Content-Location: /index.html\r\n"),
+            marks.Param(name="no_cache_control", extra_header="Content-Location: /index.html\r\n"),
         ]
     )
     def test_cache_POST_request_not_cached(self, name, extra_header):
@@ -902,44 +902,44 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         self.assertNotIn("age", client.last_response.headers.keys())
         self.assertEqual(len(server.requests), 2)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="GET_POST",
                 first_method="GET",
                 second_method="POST",
                 second_headers=[],
                 sleep_interval=0,
             ),
-            marks.param(
+            marks.Param(
                 name="GET_GET",
                 first_method="GET",
                 second_method="GET",
                 second_headers=[("cache-control", "max-age=1")],
                 sleep_interval=2,
             ),
-            marks.param(
+            marks.Param(
                 name="GET_HEAD",
                 first_method="GET",
                 second_method="HEAD",
                 second_headers=[("cache-control", "max-age=1")],
                 sleep_interval=2,
             ),
-            marks.param(
+            marks.Param(
                 name="POST_POST",
                 first_method="POST",
                 second_method="POST",
                 second_headers=[],
                 sleep_interval=0,
             ),
-            marks.param(
+            marks.Param(
                 name="POST_GET",
                 first_method="POST",
                 second_method="GET",
                 second_headers=[("cache-control", "max-age=1")],
                 sleep_interval=2,
             ),
-            marks.param(
+            marks.Param(
                 name="POST_HEAD",
                 first_method="POST",
                 second_method="HEAD",

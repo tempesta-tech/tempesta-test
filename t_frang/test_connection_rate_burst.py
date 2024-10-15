@@ -90,11 +90,11 @@ class TestFrang(FrangTestCase):
     rate_config: str
     calculate_reset_function: callable
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="burst", conn_n=20, warns_expected=range(1, 15)),
-            marks.param(name="burst_without_reaching_the_limit", conn_n=2, warns_expected=0),
-            marks.param(name="burst_on_the_limit", conn_n=5, warns_expected=0),
+            marks.Param(name="burst", conn_n=20, warns_expected=range(1, 15)),
+            marks.Param(name="burst_without_reaching_the_limit", conn_n=2, warns_expected=0),
+            marks.Param(name="burst_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
     def test_connection(self, name, conn_n: int, warns_expected):
@@ -116,11 +116,11 @@ class TestFrang(FrangTestCase):
         self.assertEqual(reset_conn_n, warns_occured)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="rate", conn_n=20, warns_expected=range(1, 15)),
-            marks.param(name="rate_without_reaching_the_limit", conn_n=2, warns_expected=0),
-            marks.param(name="rate_on_the_limit", conn_n=5, warns_expected=0),
+            marks.Param(name="rate", conn_n=20, warns_expected=range(1, 15)),
+            marks.Param(name="rate_without_reaching_the_limit", conn_n=2, warns_expected=0),
+            marks.Param(name="rate_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
     def test_connection(self, name, conn_n: int, warns_expected):

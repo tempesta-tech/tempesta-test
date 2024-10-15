@@ -501,74 +501,74 @@ class TestHostWithCache(TestHostBase):
         """
     }
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="1",
                 request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="2",
                 request=f"GET http://user@-x/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="3",
                 request=f"GET http://user@/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="4",
                 request=f"GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="5",
                 request=f"GET http://user@:333/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="6",
                 request=f"GET http://user@:/url/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="7",
                 request=f"GET http://user@: HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="8",
                 request=f"GET http://tempesta-tech.com: HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="9",
                 request=f"GET http://tempesta-tech.com:/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="10",
                 request=f"GET http:///path HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="11",
                 request=f"GET http:///path HTTP/1.1\r\nHost: bad.com\r\n\r\n",
                 expected_status_code="403",
             ),
-            marks.param(
+            marks.Param(
                 name="11",
                 request=f"GET http://user@/path HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="12",
                 request=f"GET http://:443 HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="400",
             ),
-            marks.param(
+            marks.Param(
                 name="13",
                 request=f"GET http:///path HTTP/1.1\r\nHost: \r\n\r\n",
                 expected_status_code="400",

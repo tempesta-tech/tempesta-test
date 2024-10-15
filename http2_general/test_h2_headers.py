@@ -202,41 +202,41 @@ sticky {
 """
     }
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="single_cookie", cookies="{0}", expected_status_code="200"),
-            marks.param(
+            marks.Param(name="single_cookie", cookies="{0}", expected_status_code="200"),
+            marks.Param(
                 name="many_cookie_first",
                 cookies="{0}; cookie1=value1; cookie2=value2",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="many_cookie_last",
                 cookies="cookie1=value1; cookie2=value2; {0}",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="many_cookie_between",
                 cookies="cookie1=value1; {0}; cookie2=value2",
                 expected_status_code="200",
             ),
-            marks.param(name="duplicate_cookie", cookies="{0}; {0}", expected_status_code="500"),
-            marks.param(
+            marks.Param(name="duplicate_cookie", cookies="{0}; {0}", expected_status_code="500"),
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_name_1",
                 cookies="cookie1__tfw=value1; {0}",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_name_2",
                 cookies="__tfwcookie1=value1; {0}",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_value_1",
                 cookies="cookie1=value1__tfw; {0}",
                 expected_status_code="200",
             ),
-            marks.param(
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_value_2",
                 cookies="cookie1=__tfwvalue1; {0}",
                 expected_status_code="200",
@@ -809,10 +809,10 @@ class TestTrailers(H2Base):
         self.assertTrue(client.wait_for_response())
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="end_headers", flags=["END_HEADERS"]),
-            marks.param(name="no_end_headers", flags=[]),
+            marks.Param(name="end_headers", flags=["END_HEADERS"]),
+            marks.Param(name="no_end_headers", flags=[]),
         ]
     )
     def test_trailers_with_empty_continuation_frame_in_request(self, name, flags):
@@ -1626,8 +1626,8 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         """
     }
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_blocked_by_max_headers_count(self, name, huffman):
         """
@@ -1648,8 +1648,8 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         deproxy_cl.wait_for_response(strict=True)
         self.assertEqual(deproxy_cl.last_response.status, "403")
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_not_blocked_by_max_headers_count(self, name, huffman):
         """

@@ -212,18 +212,18 @@ class JSChallenge(BaseJSChallenge):
         else:
             self.assertFalse(client.conn_is_closed)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="GET_and_accept_html", method="GET", accept="text/html", status="503"),
-            marks.param(name="GET_and_accept_all", method="GET", accept="*/*", status="403"),
-            marks.param(
+            marks.Param(name="GET_and_accept_html", method="GET", accept="text/html", status="503"),
+            marks.Param(name="GET_and_accept_all", method="GET", accept="*/*", status="403"),
+            marks.Param(
                 name="GET_and_accept_text_all", method="GET", accept="text/*", status="403"
             ),
-            marks.param(name="GET_and_accept_image", method="GET", accept="image/*", status="403"),
-            marks.param(
+            marks.Param(name="GET_and_accept_image", method="GET", accept="image/*", status="403"),
+            marks.Param(
                 name="GET_and_accept_plain", method="GET", accept="text/plain", status="403"
             ),
-            marks.param(name="POST", accept="text/html", method="POST", status="403"),
+            marks.Param(name="POST", accept="text/html", method="POST", status="403"),
         ]
     )
     def test_first_request(self, name, method, accept, status):
@@ -239,11 +239,11 @@ class JSChallenge(BaseJSChallenge):
         request = client.create_request(method=method, headers=[("accept", accept)])
         self._test_first_request(client, request, method, accept, status)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="GET", method="GET", status="200"),
-            marks.param(name="HEAD", method="HEAD", status="200"),
-            marks.param(name="POST", method="POST", status="403"),
+            marks.Param(name="GET", method="GET", status="200"),
+            marks.Param(name="HEAD", method="HEAD", status="200"),
+            marks.Param(name="POST", method="POST", status="403"),
         ]
     )
     def test_servicing_non_challengeble_request_from_cache(self, name, method, status):
@@ -261,10 +261,10 @@ class JSChallenge(BaseJSChallenge):
             )
             self.assertFalse(client.conn_is_closed)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="GET_and_accept_all", method="GET", accept="*/*"),
-            marks.param(name="POST", method="POST", accept="*/*"),
+            marks.Param(name="GET_and_accept_all", method="GET", accept="*/*"),
+            marks.Param(name="POST", method="POST", accept="*/*"),
         ]
     )
     def test_second_request(self, name, method, accept):
@@ -282,10 +282,10 @@ class JSChallenge(BaseJSChallenge):
             "200",
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="pass", sleep=True, second_status="200"),
-            marks.param(name="too_small", sleep=False, second_status="503"),
+            marks.Param(name="pass", sleep=True, second_status="200"),
+            marks.Param(name="too_small", sleep=False, second_status="503"),
         ]
     )
     def test_delay(self, name, sleep, second_status):
@@ -433,10 +433,10 @@ class JSChallenge(BaseJSChallenge):
         client.restart()
         client.send_request(self.prepare_second_req(client, cookie_1), expected_status_code="200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="pass", sleep=True, conn_is_closed=False),
-            marks.param(name="too_early", sleep=False, conn_is_closed=True),
+            marks.Param(name="pass", sleep=True, conn_is_closed=False),
+            marks.Param(name="too_early", sleep=False, conn_is_closed=True),
         ]
     )
     def test_delay_pipelined(self, name, sleep, conn_is_closed):
@@ -517,10 +517,10 @@ class JSChallenge(BaseJSChallenge):
             "200",
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="multiple_in_one", single=True),
-            marks.param(name="multiple_in_two", single=False),
+            marks.Param(name="multiple_in_one", single=True),
+            marks.Param(name="multiple_in_two", single=False),
         ]
     )
     def test_cookies_in_request(self, name, single):
@@ -555,11 +555,11 @@ class JSChallenge(BaseJSChallenge):
 
         client.send_request(request, "500")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="403", resp_code="resp_code=403", expected_status="403"),
-            marks.param(name="default", resp_code="", expected_status="503"),
-            marks.param(name="302", resp_code="resp_code=302", expected_status="302"),
+            marks.Param(name="403", resp_code="resp_code=403", expected_status="403"),
+            marks.Param(name="default", resp_code="", expected_status="503"),
+            marks.Param(name="302", resp_code="resp_code=302", expected_status="302"),
         ]
     )
     def test_resp_code(self, name, resp_code, expected_status):
@@ -572,24 +572,24 @@ class JSChallenge(BaseJSChallenge):
         client.send_request(self.prepare_first_req(client), expected_status)
         self.check_resp_body_and_cookie(client.last_response)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="GET_POST", method="GET", override="POST", status="400", conn_is_closed=True
             ),
-            marks.param(
+            marks.Param(
                 name="GET_HEAD", method="GET", override="HEAD", status="403", conn_is_closed=False
             ),
-            marks.param(
+            marks.Param(
                 name="HEAD_POST", method="HEAD", override="POST", status="400", conn_is_closed=True
             ),
-            marks.param(
+            marks.Param(
                 name="HEAD_GET", method="HEAD", override="GET", status="503", conn_is_closed=False
             ),
-            marks.param(
+            marks.Param(
                 name="POST_HEAD", method="POST", override="HEAD", status="403", conn_is_closed=False
             ),
-            marks.param(
+            marks.Param(
                 name="POST_GET", method="POST", override="GET", status="503", conn_is_closed=False
             ),
         ]
@@ -603,14 +603,14 @@ class JSChallenge(BaseJSChallenge):
         )
         self._test_first_request(client, request, method, "text/html", status, conn_is_closed)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="GET_POST", method="GET", override="POST", status="400"),
-            marks.param(name="GET_HEAD", method="GET", override="HEAD", status="200"),
-            marks.param(name="HEAD_POST", method="HEAD", override="POST", status="400"),
-            marks.param(name="HEAD_GET", method="HEAD", override="GET", status="200"),
-            marks.param(name="POST_HEAD", method="POST", override="HEAD", status="200"),
-            marks.param(name="POST_GET", method="POST", override="GET", status="200"),
+            marks.Param(name="GET_POST", method="GET", override="POST", status="400"),
+            marks.Param(name="GET_HEAD", method="GET", override="HEAD", status="200"),
+            marks.Param(name="HEAD_POST", method="HEAD", override="POST", status="400"),
+            marks.Param(name="HEAD_GET", method="HEAD", override="GET", status="200"),
+            marks.Param(name="POST_HEAD", method="POST", override="HEAD", status="200"),
+            marks.Param(name="POST_GET", method="POST", override="GET", status="200"),
         ]
     )
     def test_method_override_with_cache(self, name, method, override, status):

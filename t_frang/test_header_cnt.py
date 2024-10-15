@@ -138,8 +138,8 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.assertEqual(client.h2_connection.remote_settings.max_header_list_size, 5)
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_reaching_limit_headers_as_bytes(self, name, huffman):
         """
@@ -158,8 +158,8 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.check_last_response(client, status_code="403", warning_msg=ERROR)
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_not_reaching_limit_headers_as_bytes(self, name, huffman):
         """
@@ -175,8 +175,8 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.check_response(client, status_code="200", warning_msg=ERROR)
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_not_reaching_the_limit_2(self, name, huffman):
         """
@@ -192,8 +192,8 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.check_response(client, status_code="200", warning_msg=ERROR)
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_default_http_header_cnt(self, name, huffman):
         """
@@ -207,8 +207,8 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
         )
         self.check_response(client, status_code="200", warning_msg=ERROR)
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_hpack_bomb(self, name, huffman):
         """

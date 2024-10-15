@@ -62,41 +62,41 @@ class TestALPN(tester.TempestaTest):
             }
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="order_https",
                 tempesta_proto="https",
                 protocols=["http/1.1", "h2"],
             ),
-            marks.param(
+            marks.Param(
                 name="order_h2",
                 tempesta_proto="h2",
                 protocols=["h2", "http/1.1"],
             ),
-            marks.param(
+            marks.Param(
                 name="order_https_least_prio",
                 tempesta_proto="https",
                 protocols=["h2", "http/1.1"],
                 expected_proto=1,
             ),
-            marks.param(
+            marks.Param(
                 name="order_h2_least_prio",
                 tempesta_proto="h2",
                 protocols=["http/1.1", "h2"],
                 expected_proto=1,
             ),
-            marks.param(
+            marks.Param(
                 name="mixed_https",
                 tempesta_proto="https,h2",
                 protocols=["http/1.1"],
             ),
-            marks.param(
+            marks.Param(
                 name="mixed_h2_only",
                 tempesta_proto="https,h2",
                 protocols=["h2"],
             ),
-            marks.param(
+            marks.Param(
                 name="mixed_h2_https",
                 tempesta_proto="https,h2",
                 protocols=["h2", "http/1.1"],
@@ -124,15 +124,15 @@ class TestALPN(tester.TempestaTest):
                     "wrong protocol has been prioritized",
                 )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="https",
                 tempesta_proto="https",
                 protocols=["h2"],
                 msg="ClientHello: cannot find matching ALPN for h2",
             ),
-            marks.param(
+            marks.Param(
                 name="h2",
                 tempesta_proto="h2",
                 protocols=["http/1.1"],

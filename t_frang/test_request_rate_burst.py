@@ -237,11 +237,11 @@ class TestFrangRequestRateBurst(FrangTestCase):
 
     client_name: str
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="burst_reached", req_n=10, warns_expected=range(1, 15)),
-            marks.param(name="burst_without_reaching_the_limit", req_n=3, warns_expected=0),
-            marks.param(name="burst_on_the_limit", req_n=5, warns_expected=0),
+            marks.Param(name="burst_reached", req_n=10, warns_expected=range(1, 15)),
+            marks.Param(name="burst_without_reaching_the_limit", req_n=3, warns_expected=0),
+            marks.Param(name="burst_on_the_limit", req_n=5, warns_expected=0),
         ]
     )
     @marks.retry_if_not_conditions
@@ -274,11 +274,11 @@ class TestFrangRequestRateBurst(FrangTestCase):
         if warns_expected:
             self.assertTrue(client.connection_is_closed())
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="rate_reached", req_n=10, warns_expected=range(1, 15)),
-            marks.param(name="rate_without_reaching_the_limit", req_n=3, warns_expected=0),
-            marks.param(name="rate_on_the_limit", req_n=5, warns_expected=0),
+            marks.Param(name="rate_reached", req_n=10, warns_expected=range(1, 15)),
+            marks.Param(name="rate_without_reaching_the_limit", req_n=3, warns_expected=0),
+            marks.Param(name="rate_on_the_limit", req_n=5, warns_expected=0),
         ]
     )
     @marks.retry_if_not_conditions
@@ -357,15 +357,15 @@ class TestFrangRapidDDoSH2(FrangTestCase):
             client.stream_id += 2
         return frame_list
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="rate_with_only_headers_frame",
                 frang_conf="request_rate 5;",
                 warning=ERROR_MSG_RATE,
                 delay=1,
             ),
-            marks.param(
+            marks.Param(
                 name="burst_with_only_headers_frame",
                 frang_conf="request_burst 5;",
                 warning=ERROR_MSG_BURST,

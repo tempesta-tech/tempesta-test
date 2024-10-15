@@ -49,11 +49,11 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         """,
     }
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="rate", steps=5),
-            marks.param(name="without_reaching_the_limit", steps=3),
-            marks.param(name="rate_on_the_limit", steps=4),
+            marks.Param(name="rate", steps=5),
+            marks.Param(name="without_reaching_the_limit", steps=3),
+            marks.Param(name="rate_on_the_limit", steps=4),
         ]
     )
     def test_tls_incomplete_connection(self, name, steps):

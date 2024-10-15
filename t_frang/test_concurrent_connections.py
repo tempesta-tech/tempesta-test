@@ -132,10 +132,10 @@ frang_limits {
 
         self.assertFrangWarning(warning=ERROR, expected=1)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="equal", clients_n=2, warning_n=0),
-            marks.param(name="greater", clients_n=10, warning_n=8),
+            marks.Param(name="equal", clients_n=2, warning_n=0),
+            marks.Param(name="greater", clients_n=10, warning_n=8),
         ]
     )
     def test_clear_client_connection_stats(self, name, clients_n: int, warning_n: int):

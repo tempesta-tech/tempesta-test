@@ -214,8 +214,8 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             client, status_code="200", warning_msg="frang: HTTP URI length exceeded for"
         )
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_http_hdr_len(self, name, huffman):
         """
@@ -232,8 +232,8 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_http_hdr_len_without_reaching_the_limit(self, name, huffman):
         """
@@ -251,8 +251,8 @@ class FrangLengthH2(H2Config, FrangLengthTestCase):
             warning_msg="frang: HTTP (in-progress )?header length exceeded for",
         )
 
-    @marks.parameterize.expand(
-        [marks.param(name="huffman", huffman=True), marks.param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_http_hdr_len_without_reaching_the_limit_2(self, name, huffman):
         """

@@ -152,13 +152,13 @@ class TestStressFailovering(FailoveringStressTestBase):
     def _set_tempesta_config_with_sched_hash(self):
         self.get_tempesta().config.set_defconfig(TFW_CONFIF_WITH_HASH_SCHED)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="sched_ratio",
                 tfw_config=_set_tempesta_config_with_sched_ratio,
             ),
-            marks.param(
+            marks.Param(
                 name="sched_hash",
                 tfw_config=_set_tempesta_config_with_sched_hash,
             ),

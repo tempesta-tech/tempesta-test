@@ -41,14 +41,14 @@ class FrangHttpMethodsTestCase(FrangTestCase):
         )
         self.check_response(client, status_code="200", warning_msg=self.error)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="DELETE"),
-            marks.param(name="PUT"),
-            marks.param(name="OPTIONS"),
-            marks.param(name="PATCH"),
-            marks.param(name="TRACE"),
-            marks.param(name="CONNECT"),
+            marks.Param(name="DELETE"),
+            marks.Param(name="PUT"),
+            marks.Param(name="OPTIONS"),
+            marks.Param(name="PATCH"),
+            marks.Param(name="TRACE"),
+            marks.Param(name="CONNECT"),
         ]
     )
     def test_not_accepted_request_shipping_cfg(self, name):

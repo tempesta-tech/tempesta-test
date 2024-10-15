@@ -123,10 +123,10 @@ class TestH2Frame(H2Base):
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="end_headers", flags=["END_HEADERS"]),
-            marks.param(name="no_end_headers", flags=[]),
+            marks.Param(name="end_headers", flags=["END_HEADERS"]),
+            marks.Param(name="no_end_headers", flags=[]),
         ]
     )
     def test_empty_headers_frame(self, name, flags):

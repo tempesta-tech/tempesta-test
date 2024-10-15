@@ -684,12 +684,12 @@ class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
         """
     }
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="1_hm", hm_num=1),
-            marks.param(name="2_hm", hm_num=2),
-            marks.param(name="3_hm", hm_num=3),
-            marks.param(name="4_hm", hm_num=4),
+            marks.Param(name="1_hm", hm_num=1),
+            marks.Param(name="2_hm", hm_num=2),
+            marks.Param(name="3_hm", hm_num=3),
+            marks.Param(name="4_hm", hm_num=4),
         ]
     )
     def test_hm_pipelined(self, name, hm_num):

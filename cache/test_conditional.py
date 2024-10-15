@@ -303,27 +303,27 @@ cache_methods GET HEAD POST;
             if_modified_since="invalid date",
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="last_modified",
                 response_headers="Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n",
                 if_modified_since=HttpMessage.date_time_string,
                 expected_status="304",
             ),
-            marks.param(
+            marks.Param(
                 name="last_modified_nc",
                 response_headers="Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n",
                 if_modified_since=lambda: "Mon, 5 Dec 2016 13:59:39 GMT",
                 expected_status="200",
             ),
-            marks.param(
+            marks.Param(
                 name="last_modified_and_date",
                 response_headers="",
                 if_modified_since=HttpMessage.date_time_string,
                 expected_status="304",
             ),
-            marks.param(
+            marks.Param(
                 name="last_modified_and_date_nc",
                 response_headers="",
                 if_modified_since=lambda: "Mon, 5 Dec 2016 13:59:39 GMT",
@@ -416,15 +416,15 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         },
     ]
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="vary", header=("vary", "accept-language")),
-            marks.param(
+            marks.Param(name="vary", header=("vary", "accept-language")),
+            marks.Param(
                 name="content-location", header=("content-location", "/documents/page.html")
             ),
-            marks.param(name="expires", header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT")),
-            marks.param(name="cache-control", header=("cache-control", "public")),
-            marks.param(name="etag", header=("etag", '"etag"')),
+            marks.Param(name="expires", header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT")),
+            marks.Param(name="cache-control", header=("cache-control", "public")),
+            marks.Param(name="etag", header=("etag", '"etag"')),
         ]
     )
     def test_cachable_headers(self, name, header):

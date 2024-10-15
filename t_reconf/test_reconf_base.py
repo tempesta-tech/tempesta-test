@@ -148,12 +148,12 @@ frang_limits {{http_strict_host_checking false;}}
         tempesta.config.set_defconfig(second_config + self.base_tempesta_config)
         tempesta.reload()
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="http", proto="http"),
-            marks.param(name="https", proto="https"),
-            marks.param(name="h2", proto="h2"),
-            marks.param(name="h2_https", proto="h2,https"),
+            marks.Param(name="http", proto="http"),
+            marks.Param(name="https", proto="https"),
+            marks.Param(name="h2", proto="h2"),
+            marks.Param(name="h2_https", proto="h2,https"),
         ]
     )
     def test_reconf_proto(self, name, proto):
@@ -190,9 +190,9 @@ frang_limits {{http_strict_host_checking false;}}
             with self.assertRaises(AssertionError):
                 client.send_request(request, "200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="default_to_ipv4_port_default",
                 first_config="",
                 second_config="listen 127.0.0.1 proto={0};\n",
@@ -200,7 +200,7 @@ frang_limits {{http_strict_host_checking false;}}
                 new_ip="127.0.0.1",
                 port=80,
             ),
-            marks.param(
+            marks.Param(
                 name="ipv4_to_ipv4_port_default",
                 first_config="listen 127.0.0.1 proto={0};\n",
                 second_config="listen 127.0.1.100 proto={0};\n",
@@ -208,7 +208,7 @@ frang_limits {{http_strict_host_checking false;}}
                 new_ip="127.0.1.100",
                 port=80,
             ),
-            marks.param(
+            marks.Param(
                 name="ipv4_to_ipv4_port_443",
                 first_config="listen 127.0.0.1:443 proto={0};\n",
                 second_config="listen 127.0.1.100:443 proto={0};\n",
@@ -239,15 +239,15 @@ frang_limits {{http_strict_host_checking false;}}
             with self.assertRaises(AssertionError):
                 client.send_request(request, "200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="add_listen",
                 first_config="listen 443 proto={0};\n",
                 second_config="listen 443 proto={0};\nlisten 444 proto={0};\n",
                 expected_response_on_444_port=True,
             ),
-            marks.param(
+            marks.Param(
                 name="remove_listen",
                 first_config="listen 443 proto={0};\nlisten 444 proto={0};\n",
                 second_config="listen 443 proto={0};\n",
@@ -398,12 +398,12 @@ http_chain {{
             f"server {SERVER_IP}:8000;\nserver {SERVER_IP}:8001;\n"
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="increase", conns_n_1=32, conns_n_2=64),
-            marks.param(name="decrease", conns_n_1=32, conns_n_2=16),
-            marks.param(name="increase_from_default", conns_n_1=0, conns_n_2=64),
-            marks.param(name="decrease_from_default", conns_n_1=0, conns_n_2=16),
+            marks.Param(name="increase", conns_n_1=32, conns_n_2=64),
+            marks.Param(name="decrease", conns_n_1=32, conns_n_2=16),
+            marks.Param(name="increase_from_default", conns_n_1=0, conns_n_2=64),
+            marks.Param(name="decrease_from_default", conns_n_1=0, conns_n_2=16),
         ]
     )
     def test_conns_n(self, name, conns_n_1, conns_n_2):
@@ -430,10 +430,10 @@ http_chain {{
         client.start()
         client.send_request(client.create_request(method="GET", headers=[]), "200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="increase", conns_n_1=32, conns_n_2=64),
-            marks.param(name="decrease", conns_n_1=32, conns_n_2=16),
+            marks.Param(name="increase", conns_n_1=32, conns_n_2=64),
+            marks.Param(name="decrease", conns_n_1=32, conns_n_2=16),
         ]
     )
     def test_conns_n_for_srv_group(self, name, conns_n_1, conns_n_2):
@@ -484,19 +484,19 @@ http_chain {{
         client.start()
         client.send_request(client.create_request(method="GET", headers=[]), "200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="server_from_default_srv_group",
                 first_config=_set_tempesta_config_with_2_srv_in_default_srv_group,
                 second_config=_set_tempesta_config_with_1_srv_in_default_srv_group,
             ),
-            marks.param(
+            marks.Param(
                 name="server_from_srv_group",
                 first_config=_set_tempesta_config_with_2_srv_in_srv_group,
                 second_config=_set_tempesta_config_with_1_srv_in_srv_group,
             ),
-            marks.param(
+            marks.Param(
                 name="server_from_srv_group",
                 first_config=_set_tempesta_config_with_2_srv_group,
                 second_config=_set_tempesta_config_with_1_srv_group,
@@ -541,19 +541,19 @@ http_chain {{
             + "But this server/srv_group was removed.",
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="new_server_to_default_srv_group",
                 first_config=_set_tempesta_config_with_1_srv_in_default_srv_group,
                 second_config=_set_tempesta_config_with_2_srv_in_default_srv_group,
             ),
-            marks.param(
+            marks.Param(
                 name="new_server_to_srv_group",
                 first_config=_set_tempesta_config_with_1_srv_in_srv_group,
                 second_config=_set_tempesta_config_with_2_srv_in_srv_group,
             ),
-            marks.param(
+            marks.Param(
                 name="new_server_group",
                 first_config=_set_tempesta_config_with_1_srv_group,
                 second_config=_set_tempesta_config_with_2_srv_group,
@@ -786,24 +786,24 @@ srv_group default {{
 """
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="with_conns_n_1",
                 conns_n=1,
                 old_srv_conn_retries="server_connect_retries 10;",
             ),
-            marks.param(
+            marks.Param(
                 name="with_conns_n_3",
                 conns_n=3,
                 old_srv_conn_retries="server_connect_retries 10;",
             ),
-            marks.param(
+            marks.Param(
                 name="from_default",
                 conns_n=1,
                 old_srv_conn_retries="",
             ),
-            marks.param(
+            marks.Param(
                 name="from_0",
                 conns_n=1,
                 old_srv_conn_retries="server_connect_retries 0;",
@@ -858,12 +858,12 @@ srv_group default {{
             DMESG_WARNING,
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="from_default", old_srv_forward_retries=""),
-            marks.param(name="from_0", old_srv_forward_retries="server_forward_retries 0;"),
-            marks.param(name="from_1", old_srv_forward_retries="server_forward_retries 1;"),
-            marks.param(name="from_x", old_srv_forward_retries="server_forward_retries 10;"),
+            marks.Param(name="from_default", old_srv_forward_retries=""),
+            marks.Param(name="from_0", old_srv_forward_retries="server_forward_retries 0;"),
+            marks.Param(name="from_1", old_srv_forward_retries="server_forward_retries 1;"),
+            marks.Param(name="from_x", old_srv_forward_retries="server_forward_retries 10;"),
         ]
     )
     def test_reconf_server_forward_retries(self, name, old_srv_forward_retries):
@@ -922,16 +922,16 @@ srv_group default {{
             "Tempesta made forward attempts not equal to `server_forward_retries` after reload.",
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="enabled",
                 first_config=_set_tempesta_config_server_forward_timeout_disabled,
                 second_config=_set_tempesta_config_server_forward_timeout_enabled,
                 dmesg_cond=dmesg.amount_one,
                 expect_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="disabled",
                 first_config=_set_tempesta_config_server_forward_timeout_enabled,
                 second_config=_set_tempesta_config_server_forward_timeout_disabled,
@@ -959,15 +959,15 @@ srv_group default {{
             DMESG_WARNING,
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="enabled",
                 first_config=_set_tempesta_config_without_server_retry_nonidempotent,
                 second_config=_set_tempesta_config_with_server_retry_nonidempotent,
                 expected_warning="the number of retries exceeded",
             ),
-            marks.param(
+            marks.Param(
                 name="disabled",
                 first_config=_set_tempesta_config_with_server_retry_nonidempotent,
                 second_config=_set_tempesta_config_without_server_retry_nonidempotent,
@@ -989,15 +989,15 @@ srv_group default {{
         client.send_request(client.create_request(method="GET", headers=[]), "504")
         self.assertTrue(self.dmesg.find(expected_warning), DMESG_WARNING)
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="enabled",
                 first_config=_set_tempesta_config_without_health,
                 second_config=_set_tempesta_config_with_health,
                 dmesg_cond=dmesg.amount_one,
             ),
-            marks.param(
+            marks.Param(
                 name="disabled",
                 first_config=_set_tempesta_config_with_health,
                 second_config=_set_tempesta_config_without_health,
@@ -1028,16 +1028,16 @@ srv_group default {{
             DMESG_WARNING,
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="enabled",
                 first_config=_set_tempesta_config_server_queue_size_1,
                 second_config=_set_tempesta_config_server_queue_size_2,
                 dmesg_cond=dmesg.amount_zero,
                 expect_502_statuses=0,
             ),
-            marks.param(
+            marks.Param(
                 name="disabled",
                 first_config=_set_tempesta_config_server_queue_size_2,
                 second_config=_set_tempesta_config_server_queue_size_1,
@@ -1163,15 +1163,15 @@ class TestVhostReconf(tester.TempestaTest):
     """
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="add_vhost",
                 first_config=_set_tempesta_config_with_1_vhost,
                 second_config=_set_tempesta_config_with_2_vhost,
                 server_headers=("grp1", "grp2"),
             ),
-            marks.param(
+            marks.Param(
                 name="remove_vhost",
                 first_config=_set_tempesta_config_with_2_vhost,
                 second_config=_set_tempesta_config_with_1_vhost,
@@ -1471,15 +1471,15 @@ class TestLocationReconf(tester.TempestaTest):
     """
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="add_location",
                 first_config=_set_tempesta_config_with_1_location,
                 second_config=_set_tempesta_config_with_2_location,
                 expected_headers=("/static/", "/dynamic/"),
             ),
-            marks.param(
+            marks.Param(
                 name="remove_location",
                 first_config=_set_tempesta_config_with_2_location,
                 second_config=_set_tempesta_config_with_1_location,
@@ -1563,21 +1563,21 @@ class TestHttpTablesReconf(tester.TempestaTest):
         """
         )
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="field_arg",
                 first_rule='cookie "__cookie" == "value_1" -> grp1',
                 second_rule='cookie "__cookie" == "value_2" -> grp1',
                 cookies=["__cookie=value_1", "__cookie=value_2", "__cookie=value_2"],
             ),
-            marks.param(
+            marks.Param(
                 name="field_name",
                 first_rule='cookie "__old" == "value_1" -> grp1',
                 second_rule='cookie "__new" == "value_1" -> grp1',
                 cookies=["__old=value_1", "__new=value_1", "__new=value_1"],
             ),
-            marks.param(
+            marks.Param(
                 name="condition",
                 first_rule='cookie "__old" == "value_1" -> grp1',
                 second_rule='cookie "__old" != "value_1" -> grp1',
@@ -1636,15 +1636,15 @@ class TestHttpTablesReconf(tester.TempestaTest):
 
         self.assertEqual(client.last_response.headers.get("location"), "/services_2")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="add_rule",
                 first_rule='uri == "*/services.html" -> 303 = /services',
                 second_rule='method == "HEAD" -> block;\nuri == "*/services.html" -> 303 = /services',
                 expected_status="403",
             ),
-            marks.param(
+            marks.Param(
                 name="remove_rule",
                 first_rule='method == "HEAD" -> block;\nuri == "*/services.html" -> 303 = /services',
                 second_rule='uri == "*/services.html" -> 303 = /services',
@@ -1689,19 +1689,19 @@ class TestNegativeReconf(tester.TempestaTest):
         },
     ]
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="server",
                 valid_config=f"server {SERVER_IP}:8000;\n",
                 invalid_config=f"server {SERVER_IP}:8000:443;\n",
             ),
-            marks.param(
+            marks.Param(
                 name="srv_group",
                 valid_config=f"srv_group default {{\nserver {SERVER_IP}:8000;\n}}\n",
                 invalid_config=f"srv_group default grp2 {{\nserver {SERVER_IP}:8000;\n}}\n",
             ),
-            marks.param(
+            marks.Param(
                 name="srv_group_options",
                 valid_config=f"""
 srv_group default {{
@@ -1716,7 +1716,7 @@ srv_group default {{
 }}
 """,
             ),
-            marks.param(
+            marks.Param(
                 name="vhost",
                 valid_config=f"""
 srv_group grp1 {{
@@ -1745,7 +1745,7 @@ http_chain {{
 }}
             """,
             ),
-            marks.param(
+            marks.Param(
                 name="proxy_pass",
                 valid_config=f"""
 server {SERVER_IP}:8000;
@@ -1772,7 +1772,7 @@ http_chain {{
 }}
 """,
             ),
-            marks.param(
+            marks.Param(
                 name="location",
                 valid_config=f"""
 server {SERVER_IP}:8000;
@@ -1787,7 +1787,7 @@ location {{
 }}
 """,
             ),
-            marks.param(
+            marks.Param(
                 name="http_chain",
                 valid_config=f"""
 srv_group default {{

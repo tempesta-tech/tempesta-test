@@ -212,19 +212,19 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
         for client in clients:
             self.assertEqual(client.last_response.status, "200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="first_fail",
                 response_list=[bad_response, response, response],
                 expected_response_statuses=["502"],
             ),
-            marks.param(
+            marks.Param(
                 name="second_fail",
                 response_list=[response, bad_response, response],
                 expected_response_statuses=["200", "502"],
             ),
-            marks.param(
+            marks.Param(
                 name="third_fail",
                 response_list=[response, response, bad_response],
                 expected_response_statuses=["200", "200", "502"],

@@ -62,19 +62,19 @@ class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
 
 
 class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="accepted_request",
                 config="http_trailer_split_allowed true;\n",
                 expected_status="200",
             ),
-            marks.param(
+            marks.Param(
                 name="disable_trailer_split_allowed",
                 config="http_trailer_split_allowed false;\n",
                 expected_status="403",
             ),
-            marks.param(
+            marks.Param(
                 name="default_trailer_split_allowed",
                 config="",
                 expected_status="403",

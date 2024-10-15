@@ -340,34 +340,34 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
     is closed by shutdown.
     """
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(
+            marks.Param(
                 name="data_frame",
                 frame=DataFrame(stream_id=1, data=b"request body"),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="priority_frame",
                 frame=PriorityFrame(stream_id=1),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="rst_frame",
                 frame=RstStreamFrame(1),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="settings_frame",
                 frame=SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 0}),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="goaway_frame",
                 frame=GoAwayFrame(stream_id=0, last_stream_id=12, error_code=3),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="headers_frame",
                 frame=HeadersFrame(
                     stream_id=100,
@@ -376,7 +376,7 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
                 ),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="continuation_frame",
                 frame=ContinuationFrame(
                     100,
@@ -385,7 +385,7 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
                 ),
                 expected_response=True,
             ),
-            marks.param(
+            marks.Param(
                 name="garbage",
                 frame=b"\x00\x0f\x0f\x0f\xff",
                 expected_response=False,

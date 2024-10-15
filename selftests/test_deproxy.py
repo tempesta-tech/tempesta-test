@@ -345,10 +345,10 @@ server ${server_ip}:8000;
         for res in client.responses:
             self.assertEqual(res.status, "200")
 
-    @marks.parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            marks.param(name="not_pipelined", pipelined=False),
-            marks.param(name="pipelined", pipelined=True),
+            marks.Param(name="not_pipelined", pipelined=False),
+            marks.Param(name="pipelined", pipelined=True),
         ]
     )
     def test_make_requests(self, name, pipelined):

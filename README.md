@@ -238,10 +238,10 @@ from test_suite import marks
   ]
 )
 class TestExample(tester.TempestaTest):
-  @marks.parameterize.expand(
+  @marks.Parameterize.expand(
     [
-      marks.param(name='1', key_1="value_1"),
-      marks.param(name='2', key_1="value_2"),
+      marks.Param(name='1', key_1="value_1"),
+      marks.Param(name='2', key_1="value_2"),
     ]
   )
   def test_request(self, name, key_1):
