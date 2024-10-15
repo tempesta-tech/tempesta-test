@@ -2,8 +2,7 @@ from h2.exceptions import ProtocolError
 
 from framework import deproxy_client
 from helpers import deproxy
-from test_suite import tester
-from test_suite.parameterize import param, parameterize
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -346,8 +345,11 @@ server ${server_ip}:8000;
         for res in client.responses:
             self.assertEqual(res.status, "200")
 
-    @parameterize.expand(
-        [param(name="not_pipelined", pipelined=False), param(name="pipelined", pipelined=True)]
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="not_pipelined", pipelined=False),
+            marks.Param(name="pipelined", pipelined=True),
+        ]
     )
     def test_make_requests(self, name, pipelined):
         self.start_all()

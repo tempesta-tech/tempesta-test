@@ -11,7 +11,7 @@ import time
 from helpers import remote, tf_cfg
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 from test_suite import tester
-from test_suite.parameterize import parameterize_class
+from test_suite.marks import parameterize_class
 
 STATUS_OK = "200"
 

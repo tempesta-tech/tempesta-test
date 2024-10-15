@@ -22,8 +22,7 @@ import run_config
 from framework.deproxy_client import HuffmanEncoder
 from helpers import analyzer, remote, tf_cfg
 from http2_general.helpers import H2Base
-from test_suite import asserts, custom_error_page
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import asserts, custom_error_page, marks
 
 
 def generate_custom_error_page(data):
@@ -104,7 +103,7 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         )
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "ReplyWithCustomErrorPage",
@@ -341,34 +340,34 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
     is closed by shutdown.
     """
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="data_frame",
                 frame=DataFrame(stream_id=1, data=b"request body"),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="priority_frame",
                 frame=PriorityFrame(stream_id=1),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="rst_frame",
                 frame=RstStreamFrame(1),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="settings_frame",
                 frame=SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 0}),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="goaway_frame",
                 frame=GoAwayFrame(stream_id=0, last_stream_id=12, error_code=3),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="headers_frame",
                 frame=HeadersFrame(
                     stream_id=100,
@@ -377,7 +376,7 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
                 ),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="continuation_frame",
                 frame=ContinuationFrame(
                     100,
@@ -386,7 +385,7 @@ class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockA
                 ),
                 expected_response=True,
             ),
-            param(
+            marks.Param(
                 name="garbage",
                 frame=b"\x00\x0f\x0f\x0f\xff",
                 expected_response=False,

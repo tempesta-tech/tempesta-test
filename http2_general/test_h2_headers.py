@@ -12,8 +12,7 @@ from hyperframe import frame
 from helpers import tf_cfg
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
-from test_suite import tester
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
@@ -165,7 +164,7 @@ class HeadersParsing(H2Base):
                 client.send_request(self.post_request, status_code)
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT_HTTP]},
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
@@ -203,41 +202,41 @@ sticky {
 """
     }
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="single_cookie", cookies="{0}", expected_status_code="200"),
-            param(
+            marks.Param(name="single_cookie", cookies="{0}", expected_status_code="200"),
+            marks.Param(
                 name="many_cookie_first",
                 cookies="{0}; cookie1=value1; cookie2=value2",
                 expected_status_code="200",
             ),
-            param(
+            marks.Param(
                 name="many_cookie_last",
                 cookies="cookie1=value1; cookie2=value2; {0}",
                 expected_status_code="200",
             ),
-            param(
+            marks.Param(
                 name="many_cookie_between",
                 cookies="cookie1=value1; {0}; cookie2=value2",
                 expected_status_code="200",
             ),
-            param(name="duplicate_cookie", cookies="{0}; {0}", expected_status_code="500"),
-            param(
+            marks.Param(name="duplicate_cookie", cookies="{0}; {0}", expected_status_code="500"),
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_name_1",
                 cookies="cookie1__tfw=value1; {0}",
                 expected_status_code="200",
             ),
-            param(
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_name_2",
                 cookies="__tfwcookie1=value1; {0}",
                 expected_status_code="200",
             ),
-            param(
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_value_1",
                 cookies="cookie1=value1__tfw; {0}",
                 expected_status_code="200",
             ),
-            param(
+            marks.Param(
                 name="many_cookie_and_name_as_substring_other_value_2",
                 cookies="cookie1=__tfwvalue1; {0}",
                 expected_status_code="200",
@@ -810,10 +809,10 @@ class TestTrailers(H2Base):
         self.assertTrue(client.wait_for_response())
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(name="end_headers", flags=["END_HEADERS"]),
-            param(name="no_end_headers", flags=[]),
+            marks.Param(name="end_headers", flags=["END_HEADERS"]),
+            marks.Param(name="no_end_headers", flags=[]),
         ]
     )
     def test_trailers_with_empty_continuation_frame_in_request(self, name, flags):
@@ -1627,8 +1626,8 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         """
     }
 
-    @parameterize.expand(
-        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_blocked_by_max_headers_count(self, name, huffman):
         """
@@ -1649,8 +1648,8 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         deproxy_cl.wait_for_response(strict=True)
         self.assertEqual(deproxy_cl.last_response.status, "403")
 
-    @parameterize.expand(
-        [param(name="huffman", huffman=True), param(name="no_huffman", huffman=False)]
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
     def test_not_blocked_by_max_headers_count(self, name, huffman):
         """

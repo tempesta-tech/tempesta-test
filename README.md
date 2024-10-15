@@ -228,24 +228,24 @@ tempesta = {
 
 ```python3
 from test_suite import tester
-from test_suite.parameterize import param, parameterize, parameterize_class
+from test_suite import marks
 
 
-@parameterize_class(
-    [
-        {"name": "Http", "clients": ["http_config"]},
-        {"name": "H2", "clients": ["h2_config"]},
-    ]
+@marks.parameterize_class(
+  [
+    {"name": "Http", "clients": ["http_config"]},
+    {"name": "H2", "clients": ["h2_config"]},
+  ]
 )
 class TestExample(tester.TempestaTest):
-    @parameterize.expand(
-        [
-            param(name='1', key_1="value_1"),
-            param(name='2', key_1="value_2"),
-        ]
-    )
-    def test_request(self, name, key_1):
-        ...
+  @marks.Parameterize.expand(
+    [
+      marks.Param(name='1', key_1="value_1"),
+      marks.Param(name='2', key_1="value_2"),
+    ]
+  )
+  def test_request(self, name, key_1):
+    ...
 
 # we will get 4 tests:
 # TestExampleHttp.test_request_1
