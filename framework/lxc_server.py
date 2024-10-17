@@ -54,10 +54,11 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         self.node = remote.server
         self.stop_procedures = [self._proxy_teardown, self._stop_container]
         self._proxy_name = f"{LXC_PREFIX}-{self.external_port}-{self.internal_port}"
+        self.__is_proxy_created = False
 
     @staticmethod
     def _construct_cmd(args: list[str]) -> str:
-        c = " ".join(["lxc", *args])
+        c = " ".join(["sudo lxc", *args])
         tf_cfg.dbg(3, f"\tlxc cmd: {c}")
         return c
 
@@ -107,20 +108,24 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
                 ]
             )
         )
+        self.__is_proxy_created = True
 
     def _proxy_teardown(self):
-        self.node.run_cmd(
-            self._construct_cmd(
-                ["config", "device", "remove", self.container_name, self._proxy_name]
+        """The proxy should be removed if it was created before."""
+        if self.__is_proxy_created:
+            self.node.run_cmd(
+                self._construct_cmd(
+                    ["config", "device", "remove", self.container_name, self._proxy_name]
+                )
             )
-        )
+            self.__is_proxy_created = False
 
     def __check_connection(self):
         """Wait for the both checks to be False."""
         try:
             self.node.run_cmd(f"curl -If {self.container_ip}:{self.external_port}")
             first_check = False
-        except remote.CmdError:
+        except error.BaseCmdException:
             first_check = True
 
         second_check = (

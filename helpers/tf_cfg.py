@@ -17,7 +17,7 @@ from typing import Union
 from rich import pretty
 from rich.logging import RichHandler
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 # we are adding custom levels to have initial 7 levels
