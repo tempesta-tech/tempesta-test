@@ -198,7 +198,7 @@
             "reason": "Disabled by issue #1103"
         },
         {
-            "name": "http2_general.test_h2_block_action.BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow.test_block_action_error_reply_with_conn_close_garbage",
+            "name": "http2_general.test_h2_frame.TestFramesAfterConnectionShutdownedWithResponseBodyGreaterThenWindowSize.test_block_action_error_reply_with_conn_close_garbage",
             "reason": "Disabled by issue #525"
         },
         {
@@ -209,33 +209,33 @@
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
             "reason": "Disabled by test issue #525"
         },
-	{
-	     "name": "ws.test_ws_ping.WsPing",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.WsPing",
+            "reason": "Disabled by test issue #672."
         },
-	{
-	     "name": "ws.test_ws_ping.WssPing",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.WssPing",
+            "reason": "Disabled by test issue #672."
         },
-	{
-	     "name": "ws.test_ws_ping.WssPingProxy",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.WssPingProxy",
+            "reason": "Disabled by test issue #672."
         },
-	{
-	     "name": "ws.test_ws_ping.CacheTest",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.CacheTest",
+            "reason": "Disabled by test issue #672."
         },
-	{
-	     "name": "ws.test_ws_ping.WssStress",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.WssStress",
+            "reason": "Disabled by test issue #672."
         },
-	{
-	     "name": "ws.test_ws_ping.WsScheduler",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.WsScheduler",
+            "reason": "Disabled by test issue #672."
         },
-	{
-	     "name": "ws.test_ws_ping.RestartOnUpgrade",
-             "reason": "Disabled by test issue #672."
+        {
+            "name": "ws.test_ws_ping.RestartOnUpgrade",
+            "reason": "Disabled by test issue #672."
         },
         {
             "name": "cache.test_purge.TestPurgeAcl.test_purge_acl_ipv6",
