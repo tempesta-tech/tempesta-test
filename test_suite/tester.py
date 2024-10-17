@@ -125,6 +125,9 @@ class TempestaTest(unittest.TestCase):
         cls._base = base
         cls.__check_memleak = check_memleak
 
+    def enable_memleak_check(self):
+        self.__check_memleak = True
+
     def disable_deproxy_auto_parser(self) -> None:
         """
         Disable Http parser for each response/request in tests.
