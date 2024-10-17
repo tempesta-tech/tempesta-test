@@ -8,13 +8,24 @@ from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from h2.settings import SettingCodes
 from hpack import HeaderTuple
-from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
+from hyperframe.frame import (
+    ContinuationFrame,
+    DataFrame,
+    Frame,
+    GoAwayFrame,
+    HeadersFrame,
+    PriorityFrame,
+    RstStreamFrame,
+    SettingsFrame,
+    WindowUpdateFrame,
+)
 
 from framework import deproxy_client, stateful
+from framework.deproxy_client import HuffmanEncoder
 from helpers import util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
-from http2_general.helpers import H2Base
+from http2_general.helpers import BlockActionH2Base, H2Base, generate_custom_error_page
 from test_suite import checks_for_tests as checks
 from test_suite import marks
 
@@ -827,3 +838,201 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
 
         headers.append(HeaderTuple("if-modified-since", date))
         client.send_request(request=headers, expected_status_code=status_code)
+
+
+class FramesProcessingAfterConnectionShutdownedBase(BlockActionH2Base):
+    tempesta_tmpl = """
+        listen 443 proto=h2;
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+        vhost good {
+            proxy_pass default;
+        }
+        vhost frang {
+            frang_limits {
+                http_methods GET;
+                http_resp_code_block 200 1 10;
+            }
+            proxy_pass default;
+        }
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+
+        block_action attack %s;
+        block_action error %s;
+        response_body 4* %s;
+
+        http_chain {
+            host == "bad.com"   -> block;
+            host == "good.com"  -> good;
+            host == "frang.com" -> frang;
+        }
+    """
+
+    def setUp(self):
+        path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
+        self.tempesta = {
+            "config": self.tempesta_tmpl % ("reply", "reply", path),
+        }
+        H2Base.setUp(self)
+
+
+class TestFramesAfterConnectionShutdownedWithResponseBodyGreaterThenWindowSize(
+    FramesProcessingAfterConnectionShutdownedBase
+):
+    ERROR_RESPONSE_BODY = "a" * 1000
+    INITIAL_WINDOW_SIZE = 100
+
+    """
+    Check that all frames except WINDOW_UPDATE are ignored after connection
+    is closed by shutdown. Response on invalid request will be sent.
+    """
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="data_frame",
+                frame=DataFrame(stream_id=1, data=b"request body"),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="priority_frame",
+                frame=PriorityFrame(stream_id=1),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="rst_frame",
+                frame=RstStreamFrame(1),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="settings_frame",
+                frame=SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 0}),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="goaway_frame",
+                frame=GoAwayFrame(stream_id=0, last_stream_id=12, error_code=3),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="headers_frame",
+                frame=HeadersFrame(
+                    stream_id=100,
+                    data=HuffmanEncoder().encode(H2Base.post_request),
+                    flags=["END_HEADERS", "END_STREAM"],
+                ),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="continuation_frame",
+                frame=ContinuationFrame(
+                    100,
+                    HuffmanEncoder().encode([("header", "header_value")]),
+                    flags={"END_HEADERS"},
+                ),
+                expected_response=True,
+            ),
+            marks.Param(
+                name="garbage",
+                frame=b"\x00\x0f\x0f\x0f\xff",
+                expected_response=False,
+            ),
+        ]
+    )
+    def test_block_action_error_reply_with_conn_close(self, name, frame, expected_response):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_services_and_initiate_conn(client)
+        client.make_request(
+            client.create_request(
+                method="GET", authority="good.com", headers=[("Content-Type", "invalid")]
+            )
+        )
+
+        client.send_bytes(
+            frame.serialize() if isinstance(frame, Frame) else frame,
+            expect_response=expected_response,
+        )
+
+        if expected_response:
+            self.assertTrue(client.wait_for_connection_close())
+            self.assertIsNotNone(client.last_response)
+            self.assertEqual(client.last_response.status, "400")
+            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
+        else:
+            self.assertFalse(client.wait_for_connection_close())
+            self.assertIsNone(client.last_response)
+
+
+class TestFramesInOneSkbAfterConnectionShutdownedWithResponseBodyGreaterThenWindowSize(
+    FramesProcessingAfterConnectionShutdownedBase
+):
+    ERROR_RESPONSE_BODY = "a" * 200
+    INITIAL_WINDOW_SIZE = 100
+
+    """
+    Check that all Tempesta FW correctly handle several frames in one skb in case when
+    request, which contains in this skb is dropped.
+    """
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="no_invalid_wnd_update", increment=100, count=1, invalid_wnd_update_frame=None
+            ),
+            marks.Param(
+                name="invalid_wnd_update",
+                increment=100,
+                count=1,
+                invalid_wnd_update_frame=WindowUpdateFrame(0),
+            ),
+        ]
+    )
+    def test(self, name, increment, count, invalid_wnd_update_frame):
+        client = self.get_client("deproxy")
+
+        sniffer = self.setup_sniffer()
+        self.start_services_and_initiate_conn(client)
+        client.auto_flow_control = False
+
+        stream = client.init_stream_for_send(client.stream_id)
+        stream_id = client.stream_id
+
+        headers_frame = HeadersFrame(
+            stream_id=stream_id,
+            data=HuffmanEncoder().encode(
+                [
+                    (":authority", "good.com"),
+                    (":path", "/"),
+                    (":scheme", "https"),
+                    (":method", "GET"),
+                    ("Content-Type", "invalid"),
+                ]
+            ),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        stream = client.h2_connection.streams[stream_id]
+        stream_wnd_update_frame = b""
+        for _ in range(0, count):
+            stream_wnd_update_frame += stream.increase_flow_control_window(increment)[0].serialize()
+            client.h2_connection.increment_flow_control_window(increment)
+
+        data = headers_frame.serialize()
+        if invalid_wnd_update_frame:
+            data += invalid_wnd_update_frame.serialize()
+        data += client.h2_connection.data_to_send()
+        data += stream_wnd_update_frame
+        client.h2_connection.clear_outbound_data_buffer()
+
+        client.send_bytes(data, expect_response=True)
+        self.assertTrue(client.wait_for_connection_close())
+        if not invalid_wnd_update_frame:
+            self.assertIsNotNone(client.last_response)
+            self.assertEqual(client.last_response.status, "400")
+            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
+        else:
+            self.assertFalse(client.last_response)
