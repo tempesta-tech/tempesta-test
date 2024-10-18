@@ -5,8 +5,7 @@ Basic tests for Tempesta cookies.
 import re
 import time
 
-from helpers import dmesg, remote, tf_cfg
-from helpers.remote import CmdError
+from helpers import dmesg, error, remote, tf_cfg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -581,7 +580,7 @@ class StickyCookieConfig(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
-        with self.assertRaises(CmdError, msg=""):
+        with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
             self.start_tempesta()
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
@@ -713,7 +712,7 @@ class StickyCookieOptions(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
-        with self.assertRaises(CmdError, msg=""):
+        with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
             self.start_tempesta()
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
