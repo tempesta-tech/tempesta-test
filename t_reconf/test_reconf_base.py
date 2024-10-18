@@ -1032,21 +1032,17 @@ srv_group default {{
                 name="enabled",
                 first_config=_set_tempesta_config_server_queue_size_1,
                 second_config=_set_tempesta_config_server_queue_size_2,
-                dmesg_cond=dmesg.amount_zero,
                 expect_502_statuses=0,
             ),
             marks.Param(
                 name="disabled",
                 first_config=_set_tempesta_config_server_queue_size_2,
                 second_config=_set_tempesta_config_server_queue_size_1,
-                dmesg_cond=dmesg.amount_positive,
                 expect_502_statuses=5,
             ),
         ]
     )
-    def test_reconf_server_queue_size(
-        self, name, first_config, second_config, dmesg_cond, expect_502_statuses
-    ):
+    def test_reconf_server_queue_size(self, name, first_config, second_config, expect_502_statuses):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.conns_n = 1
@@ -1061,17 +1057,16 @@ srv_group default {{
         client.make_requests(requests=[request] * 5)
         client.wait_for_response(strict=True)
 
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+
+        get_502_statuses = client.statuses.get(502, 0)
+
         self.assertLessEqual(
-            client.statuses.get(502, 0),
+            get_502_statuses,
             expect_502_statuses,
         )
-
-        self.assertTrue(
-            self.dmesg.find(
-                pattern="request dropped: processing error, status 502", cond=dmesg_cond
-            ),
-            DMESG_WARNING,
-        )
+        self.assertEqual(tempesta.stats.cl_msg_other_errors, get_502_statuses)
 
         self.assertFalse(client.conn_is_closed)
 

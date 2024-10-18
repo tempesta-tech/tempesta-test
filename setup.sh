@@ -73,3 +73,7 @@ git submodule update --init --recursive
 # create tempesta-site-stage container
 python3 tempesta-tech.com/container/lxc/create.py --type=stage
 lxc stop tempesta-site-stage
+
+# docker
+cd "${CURRENT_DIR}"
+./tools/docker/install-docker.sh

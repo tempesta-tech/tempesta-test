@@ -26,19 +26,19 @@
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.FrangRequestRateTestCase",
+            "name": "t_frang.test_request_rate_burst.TestFrangRequestRateHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.FrangRequestBurstTestCase",
+            "name": "t_frang.test_request_rate_burst.TestFrangRequestBurstHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.FrangRequestRateH2",
+            "name": "t_frang.test_request_rate_burst.TestFrangRequestRateH2",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.FrangRequestBurstH2",
+            "name": "t_frang.test_request_rate_burst.TestFrangRequestBurstH2",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
