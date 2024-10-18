@@ -484,6 +484,7 @@ class WssPipelining(WssPing):
     async def handler(self, websocket, path):
         pass
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test(self):
         self.p1 = Process(target=self.run_ws, args=(8099,))
         self.p1.start()
