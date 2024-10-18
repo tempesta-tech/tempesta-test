@@ -18,7 +18,6 @@ from typing import Optional, Union
 import paramiko
 
 import run_config
-
 from helpers import error, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
