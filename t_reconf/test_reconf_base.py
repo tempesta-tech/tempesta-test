@@ -62,7 +62,7 @@ class TestListenCommonReconf(tester.TempestaTest):
         # Tempesta listen 443, 8000, 4433 port and Nginx listen 8000 port
         tempesta.config.set_defconfig(self.tempesta_busy_socks["config"])
         self.oops_ignore = ["ERROR"]
-        with self.assertRaises(error.BaseCmdException):
+        with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
 
         port_checker.node = remote.tempesta
@@ -1830,7 +1830,7 @@ http_chain {{
         tempesta.config.set_defconfig(valid_config)
         tempesta.start()
         tempesta.config.set_defconfig(invalid_config)
-        with self.assertRaises(error.BaseCmdException):
+        with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
 
         port_checker = port_checks.FreePortsChecker()

@@ -58,6 +58,27 @@ class ServiceStoppingException(Error):
         )
 
 
+class KmemleakException(Exception):
+    """If error with `kmemleak` processing."""
+
+    def __init__(self, message: str = None):
+        """
+        Init class instance.
+
+        Args:
+            message (str): exception message
+        """
+        base_msg = f"""
+Msg: {message}
+
+If you received a message such `/sys/kernel/debug/kmemleak: No such file or directory`,
+it indicates, that kmemleak is 100% disabled.
+
+Check for some extra info: https://docs.kernel.org/dev-tools/kmemleak.html .
+        """
+        super().__init__(base_msg)
+
+
 class BaseCmdException(Exception):
     """Base class to cmd-like exceptions,"""
 

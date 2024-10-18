@@ -712,7 +712,7 @@ class StickyCookieOptions(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
-        with self.assertRaises(error.BaseCmdException, msg=""):
+        with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
             self.start_tempesta()
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
