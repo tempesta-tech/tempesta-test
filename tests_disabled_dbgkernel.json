@@ -1,73 +1,69 @@
 {
-  "disable": true,
-  "disabled": [
-    {
-      "name" : "selftests",
-      "reason" : "These tests should not be run for the debug kernel"
-    },
-    {
-      "name" : "t_leaks.test_leak.LeakTest.test_kmemleak",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "very_many_backends",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http2_general.test_h2_block_action.BlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply_not_on_req_rcv_event",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "selftests.test_lxc_server.TestLxcServer.test_status",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_enabled",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "t_reconf.test_stress_health_monitor.TestHealthMonitorLiveReconf.test_reconf_on_the_fly_for_health_monitor",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "t_stress.test_header_leak.TestH2HeaderLeak",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "t_stress.test_stress.ContinuationFlood",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "t_stress.test_wordpress.TestWordpressStressH2.test_get_large_images",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http2_general.test_h2_specs.H2Spec",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http2_general.test_h2_block_action.BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "ws.test_ws_ping.RestartOnUpgrade",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http2_general.test_h2_stream_priority.TestStreamPriorityStress.test_stream_priority_stress",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http2_general.test_flow_control_window.TestFlowControl.test_not_blocked_goaway_frame",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http2_general.test_h2_block_action",
-      "reason" : "the tests did not work on the first run"
-    },
-    {
-      "name" : "http_general.test_block_action",
-      "reason" : "the tests did not work on the first run"
-    }
-  ]
+    "disable": true,
+    "disabled": [
+        {
+            "name" : "selftests",
+            "reason" : "These tests should not be run for the debug kernel"
+        },
+        {
+            "name" : "t_leaks.test_leak.LeakTest.test_kmemleak",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "very_many_backends",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "selftests.test_lxc_server.TestLxcServer.test_status",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_enabled",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "t_reconf.test_stress_health_monitor.TestHealthMonitorLiveReconf.test_reconf_on_the_fly_for_health_monitor",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "t_stress.test_header_leak.TestH2HeaderLeak",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "t_stress.test_stress.TestContinuationFlood",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "t_stress.test_wordpress.TestWordpressStressH2.test_get_large_images",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "http2_general.test_h2_specs.H2Spec",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "ws.test_ws_ping.RestartOnUpgrade",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "http2_general.test_h2_stream_priority.TestStreamPriorityStress.test_stream_priority_stress",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "http2_general.test_flow_control_window.TestFlowControl.test_not_blocked_goaway_frame",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "http2_general.test_h2_block_action",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "http_general.test_block_action",
+            "reason" : "the tests did not work on the first run"
+        },
+        {
+            "name" : "http2_general.test_h2_frame.TestFramesAfterConnectionShutdownedWithResponseBodyGreaterThenWindowSize",
+            "reason" : "the tests did not work on the first run"
+        }
+    ]
 }

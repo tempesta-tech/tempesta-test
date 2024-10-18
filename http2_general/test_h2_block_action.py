@@ -4,103 +4,14 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.settings import SettingCodes
 from hpack import HeaderTuple
-from hyperframe.frame import (
-    ContinuationFrame,
-    DataFrame,
-    Frame,
-    GoAwayFrame,
-    HeadersFrame,
-    PriorityFrame,
-    RstStreamFrame,
-    SettingsFrame,
-)
 
 import run_config
-from framework.deproxy_client import HuffmanEncoder
-from helpers import analyzer, remote, tf_cfg
-from http2_general.helpers import H2Base
-from test_suite import asserts, custom_error_page, marks
-
-
-def generate_custom_error_page(data):
-    workdir = tf_cfg.cfg.get("General", "workdir")
-    cpage_gen = custom_error_page.CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
-    path = cpage_gen.get_file_path()
-    remote.tempesta.copy_file(path, data)
-    return path
-
-
-class BlockActionH2Base(H2Base, asserts.Sniffer):
-    tempesta_tmpl = """
-        listen 443 proto=h2;
-        srv_group default {
-            server ${server_ip}:8000;
-        }
-        frang_limits {http_strict_host_checking false;}
-        vhost good {
-            proxy_pass default;
-        }
-        vhost frang {
-            frang_limits {
-                http_methods GET;
-                http_resp_code_block 200 1 10;
-            }
-            proxy_pass default;
-        }
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-        tls_match_any_server_name;
-
-        block_action attack %s;
-        block_action error %s;
-        %s
-
-        http_chain {
-            host == "bad.com"   -> block;
-            host == "good.com"  -> good;
-            host == "frang.com" -> frang;
-        }
-    """
-
-    @staticmethod
-    def setup_sniffer() -> analyzer.Sniffer:
-        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(443,))
-        sniffer.start()
-        return sniffer
-
-    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        self.assert_fin_socks(sniffer.packets)
-        self.assert_unreset_socks(sniffer.packets)
-
-    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        self.assert_not_fin_socks(sniffer.packets)
-        self.assert_reset_socks(sniffer.packets)
-
-    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        self.assert_reset_socks(sniffer.packets)
-        self.assert_fin_socks(sniffer.packets)
-
-    def check_no_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
-        sniffer.stop()
-        self.assert_not_fin_socks(sniffer.packets)
-        self.assert_unreset_socks(sniffer.packets)
-
-    def start_services_and_initiate_conn(self, client):
-        self.start_all_services()
-
-        client.update_initial_settings(initial_window_size=self.INITIAL_WINDOW_SIZE)
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(
-            client.wait_for_ack_settings(),
-            "Tempesta foes not returns SETTINGS frame with ACK flag.",
-        )
+from http2_general.helpers import BlockActionH2Base, H2Base, generate_custom_error_page
+from test_suite import marks
 
 
 @marks.parameterize_class(
@@ -119,7 +30,7 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         },
     ]
 )
-class BlockActionH2(BlockActionH2Base):
+class TestBlockActionH2(BlockActionH2Base):
     def setUp(self):
         path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
         self.tempesta = {
@@ -294,142 +205,7 @@ class BlockActionH2(BlockActionH2Base):
         self.check_sniffer_for_attack_reply(sniffer)
 
 
-class BlockActionH2ReplyFramesAfterShutdownWithCustomErrorPageSmallWindow(BlockActionH2Base):
-    tempesta_tmpl = """
-        listen 443 proto=h2;
-        srv_group default {
-            server ${server_ip}:8000;
-        }
-        vhost good {
-            proxy_pass default;
-        }
-        vhost frang {
-            frang_limits {
-                http_methods GET;
-                http_resp_code_block 200 1 10;
-            }
-            proxy_pass default;
-        }
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-        tls_match_any_server_name;
-
-        block_action attack %s;
-        block_action error %s;
-        response_body 4* %s;
-
-        http_chain {
-            host == "bad.com"   -> block;
-            host == "good.com"  -> good;
-            host == "frang.com" -> frang;
-        }
-    """
-
-    ERROR_RESPONSE_BODY = "a" * 1000
-    INITIAL_WINDOW_SIZE = 100
-
-    def setUp(self):
-        path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
-        self.tempesta = {
-            "config": self.tempesta_tmpl % ("reply", "reply", path),
-        }
-        H2Base.setUp(self)
-
-    """
-    Check that all frames except WINDOW_UPDATE are ignored after connection
-    is closed by shutdown.
-    """
-
-    @marks.Parameterize.expand(
-        [
-            marks.Param(
-                name="data_frame",
-                frame=DataFrame(stream_id=1, data=b"request body"),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="priority_frame",
-                frame=PriorityFrame(stream_id=1),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="rst_frame",
-                frame=RstStreamFrame(1),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="settings_frame",
-                frame=SettingsFrame(stream_id=0, settings={SettingCodes.INITIAL_WINDOW_SIZE: 0}),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="goaway_frame",
-                frame=GoAwayFrame(stream_id=0, last_stream_id=12, error_code=3),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="headers_frame",
-                frame=HeadersFrame(
-                    stream_id=100,
-                    data=HuffmanEncoder().encode(H2Base.post_request),
-                    flags=["END_HEADERS", "END_STREAM"],
-                ),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="continuation_frame",
-                frame=ContinuationFrame(
-                    100,
-                    HuffmanEncoder().encode([("header", "header_value")]),
-                    flags={"END_HEADERS"},
-                ),
-                expected_response=True,
-            ),
-            marks.Param(
-                name="garbage",
-                frame=b"\x00\x0f\x0f\x0f\xff",
-                expected_response=False,
-            ),
-        ]
-    )
-    def test_block_action_error_reply_with_conn_close(self, name, frame, expected_response):
-        client = self.get_client("deproxy")
-
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
-        if expected_response:
-            self.save_must_fin_socks([client])
-            self.save_must_not_reset_socks([client])
-        else:
-            self.save_must_not_fin_socks([client])
-            self.save_must_not_reset_socks([client])
-
-        curr_responses = len(client.responses)
-
-        client.make_request(
-            client.create_request(
-                method="GET", authority="good.com", headers=[("Content-Type", "invalid")]
-            )
-        )
-
-        client.send_bytes(
-            frame.serialize() if isinstance(frame, Frame) else frame,
-            expect_response=expected_response,
-        )
-
-        if expected_response:
-            self.assertTrue(client.wait_for_connection_close())
-            self.assertIsNotNone(client.last_response)
-            self.assertEqual(client.last_response.status, "400")
-            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
-            self.check_fin_no_rst_in_sniffer(sniffer)
-        else:
-            self.assertFalse(client.wait_for_connection_close())
-            self.assertIsNone(client.last_response)
-            self.check_no_fin_no_rst_in_sniffer(sniffer)
-
-
-class BlockActionH2Drop(BlockActionH2Base):
+class TestBlockActionH2Drop(BlockActionH2Base):
     INITIAL_WINDOW_SIZE = 65535
 
     def setUp(self):
