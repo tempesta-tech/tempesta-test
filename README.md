@@ -43,7 +43,7 @@ as root:
 ## Requirements
 
 - Python version till 3.11 is supported, version **3.12 is NOT supported**
-(we [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
+(we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
 
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
 `curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, `docker.io`, web content 
