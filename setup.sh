@@ -13,6 +13,10 @@ systemctl disable nginx
 
 python3 -m pip install -r requirements.txt
 
+# fixes problem if `ModuleNotFoundError: No module named 'cryptography.hazmat.backends.openssl.ec` (`scapy` related)
+python3 -m pip uninstall -y cryptography
+python3 -mpip install cryptography==38.0.2
+
 # pre-commit
 pre-commit install
 pre-commit autoupdate

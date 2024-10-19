@@ -42,6 +42,9 @@ as root:
 
 ## Requirements
 
+- Python version till 3.11 is supported, version **3.12 is NOT supported**
+(we [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
+
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
 `curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, `docker.io`, web content 
 directory accessible by nginx, nginx should not be running before the tests start.
@@ -403,6 +406,16 @@ In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 Install dependencies: `pip3 install -r requirements.txt`
+
+> There is a possible problem related to `scapy`. We use a specific version of the library,
+and (maybe) there is bug. So, if you have an error 
+`ModuleNotFoundError: No module named 'cryptography.hazmat.backends.openssl.ec'`,
+you need to downgrade `cryptography` to `38.0.2` by running 
+```bash
+pip uninstall -y cryptography
+pip install cryptography==38.0.2
+```
+
 
 Run `pre-commit install` to set up the git hook script.
 
