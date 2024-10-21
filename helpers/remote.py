@@ -32,7 +32,7 @@ DEBUG_FILES = False
 
 # If the flag is set, `sudo`-prefix will be added to an every command
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
-WITH_SUDO = False
+WITH_SUDO = True
 
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
