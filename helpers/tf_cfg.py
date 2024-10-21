@@ -121,6 +121,7 @@ class TestFrameworkCfg(object):
                     "hostname": "localhost",
                     "user": "root",
                     "port": "22",
+                    "ssh_key": "",
                     "srcdir": "/root/tempesta",
                     "workdir": "/tmp/tempesta",
                     "config": "tempesta.conf",

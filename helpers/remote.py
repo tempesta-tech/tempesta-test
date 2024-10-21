@@ -305,7 +305,9 @@ class LocalNode(INode):
 class RemoteNode(INode):
     """Remote node class."""
     
-    def __init__(self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22):
+    def __init__(
+        self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22, ssh_key: Optional[str] = None,
+    ):
         """
        Init class instance.
 
@@ -314,16 +316,19 @@ class RemoteNode(INode):
            hostname (str): node hostname
            workdir (str): node workdir
            user (str): username to work with a node
+           ssh_key (str): ssh key location
            port (str): port to connect to a remote node
        """
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
-        self.user = user
-        self.port = port
+        self._user = user
+        self._port = port
+        self._ssh_key: Optional[str] = ssh_key
         self._ssh: Optional[paramiko.SSHClient] = None
-        self._connect()
+        self._connect_by_loading_keys_from_system()
 
-    def _connect(self):
-        """Open SSH connection to node if remote. Returns False on SSH errors."""
+    def _connect_by_loading_keys_from_system(self):
+        """Open SSH connection to node by load host keys from a system."""
+        self._logger.info(f"Trying to connect by SSH to {self.host}:{self._port} by load host keys from a system.")
         try:
             self._ssh = paramiko.SSHClient()
             self._ssh.load_system_host_keys()
@@ -331,10 +336,41 @@ class RemoteNode(INode):
             # key to known_hosts.
             self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._ssh.connect(
-                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
+                hostname=self.host, username=self._user, port=self._port, timeout=DEFAULT_TIMEOUT,
             )
+        except paramiko.ssh_exception.SSHException as ssh_exc:
+            self._logger.error(f"Failed to connect by SSH to {self.host}:{self._port} by load host keys from a system.")
+
+            if self._ssh_key:
+                self._connect_with_explicit_keys()
+
+            else:
+                self._logger.warning("SSH key was not provided, cannot try to connect with explicit keys.")
+                raise ssh_exc
+
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
+
+    def _connect_with_explicit_keys(self):
+        """Open SSH connection to node with provided keys."""
+        if self._ssh_key:
+            self._logger.info(f"Trying to connect by SSH to {self.host}:{self._port} using key {self._ssh_key}.")
+
+            self._ssh = paramiko.SSHClient()
+            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            try:
+                self._ssh.connect(
+                    hostname=self.host,
+                    port=self._port,
+                    username=self._user,
+                    key_filename=self._ssh_key,
+                    timeout=DEFAULT_TIMEOUT,
+                )
+            except Exception as conn_exc:
+                self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
+
+        raise ValueError("SSH key was not provided, please, check the config.")
 
     def run_cmd(
         self,
@@ -509,15 +545,20 @@ class RemoteNode(INode):
         return int(math_obj.group(1))
 
 
-def create_node(host):
-    hostname = tf_cfg.cfg.get(host, "hostname")
-    workdir = tf_cfg.cfg.get(host, "workdir")
+def create_node(host_type: str):
+    hostname = tf_cfg.cfg.get(host_type, "hostname")
+    workdir = tf_cfg.cfg.get(host_type, "workdir")
 
     if hostname != "localhost":
-        port = int(tf_cfg.cfg.get(host, "port"))
-        username = tf_cfg.cfg.get(host, "user")
-        return RemoteNode(host, hostname, workdir, username, port)
-    return LocalNode(host, hostname, workdir)
+        return RemoteNode(
+            ntype=host_type,
+            hostname=hostname,
+            workdir=workdir,
+            user=tf_cfg.cfg.get(host_type, "user"),
+            port=int(tf_cfg.cfg.get(host_type, "port")),
+            ssh_key=tf_cfg.cfg.get(host_type, "ssh_key"),
+        )
+    return LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
 
 
 # -------------------------------------------------------------------------------

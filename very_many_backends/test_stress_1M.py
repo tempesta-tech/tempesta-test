@@ -19,7 +19,7 @@ class ManyBackends1InGroup(multi_backend.MultipleBackends):
         for server in self.servers:
             for listener in server.config.listeners:
                 server_group = tempesta.ServerGroup("default-%i" % sgid)
-                server_group.add_server(server.ip, listener.port, server.conns_n)
+                server_group.add_server(server.ip, listener._port, server.conns_n)
                 self.tempesta.config.add_sg(server_group)
                 sgid = sgid + 1
 
@@ -43,7 +43,7 @@ class ManyBackends32InGroup(multi_backend.MultipleBackends):
                 if len(group_servers) == 32:
                     server_group = tempesta.ServerGroup("default-%i" % sgid)
                     for (srv, lstn) in group_servers:
-                        server_group.add_server(srv.ip, lstn.port, srv.conns_n)
+                        server_group.add_server(srv.ip, lstn._port, srv.conns_n)
                     self.tempesta.config.add_sg(server_group)
                     sgid = sgid + 1
                     group_servers = []

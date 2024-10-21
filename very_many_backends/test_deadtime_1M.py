@@ -169,7 +169,7 @@ class DontModifyBackend(stress.StressTest):
         """Configure tempesta 1 port in group"""
         sg = tempesta.ServerGroup("default")
         server = self.servers[0]
-        sg.add_server(server.ip, server.config.listeners[0].port, server.conns_n)
+        sg.add_server(server.ip, server.config.listeners[0]._port, server.conns_n)
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
 
@@ -177,7 +177,7 @@ class DontModifyBackend(stress.StressTest):
         sg = tempesta.ServerGroup("new-%i" % id)
         server = self.servers[1]
         for listener in server.config.listeners:
-            sg.add_server(server.ip, listener.port, server.conns_n)
+            sg.add_server(server.ip, listener._port, server.conns_n)
         self.tempesta.config.add_sg(sg)
 
     def append_extra_server_groups(self):
@@ -186,7 +186,7 @@ class DontModifyBackend(stress.StressTest):
             server = self.servers[self.extra_servers_base + ifc]
             for listener in server.config.listeners:
                 sg = tempesta.ServerGroup("extra-%i" % sgid)
-                sg.add_server(server.ip, listener.port, server.conns_n)
+                sg.add_server(server.ip, listener._port, server.conns_n)
                 self.tempesta.config.add_sg(sg)
                 sgid += 1
 
@@ -281,7 +281,7 @@ class RemovingBackendSG(DontModifyBackend):
         """Configure tempesta 1 port in group"""
         sg = tempesta.ServerGroup("default")
         server = self.servers[0]
-        sg.add_server(server.ip, server.config.listeners[0].port, server.conns_n)
+        sg.add_server(server.ip, server.config.listeners[0]._port, server.conns_n)
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
         for i in range(self.num_attempts):
@@ -311,7 +311,7 @@ class ChangingSG(DontModifyBackend):
         sg = tempesta.ServerGroup("default")
         self.def_sg = sg
         server = self.servers[0]
-        sg.add_server(server.ip, server.config.listeners[0].port, server.conns_n)
+        sg.add_server(server.ip, server.config.listeners[0]._port, server.conns_n)
         self.tempesta.config.add_sg(sg)
         self.append_extra_server_groups()
         return
@@ -321,7 +321,7 @@ class ChangingSG(DontModifyBackend):
         for i in range(self.num_attempts):
             tf_cfg.dbg(2, "Adding new server to default group")
             server = self.servers[1]
-            self.def_sg.add_server(server.ip, server.config.listeners[i].port, server.conns_n)
+            self.def_sg.add_server(server.ip, server.config.listeners[i]._port, server.conns_n)
             t1 = time.time()
             self.tempesta.reload()
             t2 = time.time()

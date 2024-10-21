@@ -96,7 +96,7 @@ class CloseOnShutdown(stress.StressTest):
         self.filter = flacky.Filter(node)
         self.filter.init_chains()
         self.filter_ports = range(
-            tempesta.upstream_port_start_from(), self.servers[-1].config.port + 1
+            tempesta.upstream_port_start_from(), self.servers[-1].config._port + 1
         )
 
     def test_reachable(self):
