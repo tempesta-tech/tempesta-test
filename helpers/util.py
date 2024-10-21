@@ -60,3 +60,27 @@ def get_used_memory():
 
 def fill_template(template, properties):
     return Template(template).substitute(properties)
+
+
+def modify_cmd(cmd: str, wrap_sh: bool = False, with_sudo: bool = False) -> str:
+    """
+    Updated command line.
+
+    Args:
+        cmd (str): command line to update
+        wrap_sh (bool): if True, the command will be wrapped with `sh`, i.e. `sh -c '<command>'`
+            https://manpages.ubuntu.com/manpages/trusty/man1/sh.1posix.html
+        with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
+
+    Returns:
+        (str): updated command line
+    """
+    if wrap_sh:
+        cmd = f"sh -c '{cmd}'"
+        tf_cfg.dbg(5, f"The command was wrapped with shell: `{cmd}`")
+
+    if with_sudo:
+        cmd = f"sudo {cmd}"
+        tf_cfg.dbg(5, f"The command was updated: added `sudo`-prefix `{cmd}`")
+
+    return cmd

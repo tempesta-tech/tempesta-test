@@ -1,16 +1,15 @@
-""" Helper for Tempesta system log operations."""
+"""Helper for Tempesta system log operations."""
 
 from __future__ import print_function
 
 import re
-import time
 from contextlib import contextmanager
 from typing import Callable, List
 
 from . import error, remote, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -137,10 +136,10 @@ def __change_dmesg_limit_on_tempesta_node(func, rate, *args, **kwargs):
     cmd = "/proc/sys/net/core/message_cost"
     current_rate = node.run_cmd(f"cat {cmd}")[0].strip()
     try:
-        node.run_cmd(f"echo {rate} > {cmd}")
+        node.run_cmd(f"echo {rate} > {cmd}", wrap_sh=True)
         return func(*args, **kwargs)
     finally:
-        node.run_cmd(f"echo {current_rate.decode()} > {cmd}")
+        node.run_cmd(f"echo {current_rate.decode()} > {cmd}", wrap_sh=True)
 
 
 def unlimited_rate_on_tempesta_node(func):

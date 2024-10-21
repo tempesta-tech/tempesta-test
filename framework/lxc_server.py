@@ -57,7 +57,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
 
     @staticmethod
     def _construct_cmd(args: list[str]) -> str:
-        c = " ".join(["sudo lxc", *args])
+        c = " ".join(["lxc", *args])
         tf_cfg.dbg(3, f"\tlxc cmd: {c}")
         return c
 

@@ -253,7 +253,7 @@ def dbg(level: int, msg: str, *args, **kwargs) -> None:
 def log_dmesg(node, msg) -> None:
     """Forward a message to kernel log at given node."""
     try:
-        node.run_cmd('echo "%s" > /dev/kmsg' % msg)
+        node.run_cmd(f"echo '{msg}' > /dev/kmsg", wrap_sh=True)
     except Exception as e:
         dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
 

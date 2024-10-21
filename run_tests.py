@@ -75,6 +75,7 @@ key, not password. `ssh-copy-id` can be used for that.
                                     take a very long time.
 -T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
                                     deproxy client and server.
+    --with-sudo                   - During the tests, all commands will be updated with a prefix `sudo`.
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
@@ -230,6 +231,7 @@ try:
             "kernel-dbg",
             "tcp-segmentation=",
             "disable-auto-parser",
+            "with-sudo",
         ],
     )
     testname_args = filter(None, testname_args)
@@ -303,6 +305,8 @@ for opt, arg in options:
         run_config.AUTO_PARSER = False
     elif opt in ("-m", "--check-memory-leaks"):
         run_config.CHECK_MEMORY_LEAKS = True
+    elif opt == "--with-sudo":
+        remote.WITH_SUDO = True
 
 tf_cfg.cfg.check()
 

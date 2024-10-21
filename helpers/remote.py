@@ -18,7 +18,7 @@ from typing import Optional, Union
 import paramiko
 
 import run_config
-from helpers import error, tf_cfg
+from helpers import error, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -29,6 +29,10 @@ __license__ = "GPL2"
 # this is the reason it declared outside any node class and linked inside them.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEBUG_FILES = False
+
+# If the flag is set, `sudo`-prefix will be added to an every command
+# TODO may be a good candidate to declare it where all constants are declared (in the future).
+WITH_SUDO = False
 
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
@@ -64,6 +68,8 @@ class INode(object, metaclass=abc.ABCMeta):
         timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
+        wrap_sh: bool = False,
+        with_sudo: bool = False,
     ) -> (bytes, bytes):
         """
         Run command.
@@ -73,6 +79,8 @@ class INode(object, metaclass=abc.ABCMeta):
             timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
+            wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
+            with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -134,6 +142,8 @@ class LocalNode(INode):
         timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
+        wrap_sh: bool = False,
+        with_sudo: bool = False,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -143,6 +153,8 @@ class LocalNode(INode):
             timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
+            wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
+            with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -153,7 +165,9 @@ class LocalNode(INode):
             error.ProcessKilledException: if a process was killed
         """
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
-        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
+        self._logger.debug(f"An initial command before changes: '{cmd}'")
+
+        cmd = util.modify_cmd(cmd=cmd, wrap_sh=wrap_sh, with_sudo=with_sudo)
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -163,6 +177,7 @@ class LocalNode(INode):
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
         self._logger.debug(f"All environment variables after updating: {env_full}")
+        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
 
         if is_blocking:
             std_arg = subprocess.PIPE
@@ -327,6 +342,8 @@ class RemoteNode(INode):
         timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
+        wrap_sh: bool = False,
+        with_sudo: bool = False,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -337,6 +354,8 @@ class RemoteNode(INode):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
                 no effect for the method, all calls are blocking
+            wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
+            with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -345,7 +364,9 @@ class RemoteNode(INode):
             error.ProcessBadExitStatusException: if an exit code is not 0(zero)
             error.CommandExecutionException: if something happened during the execution
         """
-        self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
+        self._logger.debug(f"An initial command before changes: '{cmd}'")
+
+        cmd = util.modify_cmd(cmd=cmd, wrap_sh=wrap_sh, with_sudo=with_sudo)
 
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
@@ -358,6 +379,8 @@ class RemoteNode(INode):
                 ],
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
+
+        self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
         try:
             # TODO #120: the same as for LocalNode - provide an interface to check
