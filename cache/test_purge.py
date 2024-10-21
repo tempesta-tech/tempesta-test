@@ -6,9 +6,8 @@ __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import dmesg, tf_cfg
+from helpers import dmesg, error, tf_cfg
 from helpers.deproxy import HttpMessage
-from helpers.remote import CmdError
 from test_suite import checks_for_tests as checks
 from test_suite import marks
 from test_suite.tester import TempestaTest
@@ -253,7 +252,7 @@ frang_limits {
     def test_wrong_config(self, name, config):
         self.__update_tempesta_config(config)
         with self.assertRaises(
-            expected_exception=CmdError, msg="TempestaFW reloads with wrong config"
+            expected_exception=error.ProcessBadExitStatusException, msg="TempestaFW reloads with wrong config"
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().start()

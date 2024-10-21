@@ -3,12 +3,10 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
-
-from helpers import analyzer, dmesg, port_checks, remote
+from helpers import analyzer, dmesg,error, port_checks, remote
 from helpers.analyzer import PSH, TCP
 from helpers.cert_generator_x509 import CertGenerator
 from helpers.dmesg import amount_positive
-from helpers.remote import CmdError
 from helpers.tf_cfg import cfg
 from test_suite import marks, tester
 
@@ -64,7 +62,7 @@ class TestListenCommonReconf(tester.TempestaTest):
         # Tempesta listen 443, 8000, 4433 port and Nginx listen 8000 port
         tempesta.config.set_defconfig(self.tempesta_busy_socks["config"])
         self.oops_ignore = ["ERROR"]
-        with self.assertRaises(CmdError):
+        with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
 
         port_checker.node = remote.tempesta
@@ -1827,7 +1825,7 @@ http_chain {{
         tempesta.config.set_defconfig(valid_config)
         tempesta.start()
         tempesta.config.set_defconfig(invalid_config)
-        with self.assertRaises(CmdError):
+        with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
 
         port_checker = port_checks.FreePortsChecker()

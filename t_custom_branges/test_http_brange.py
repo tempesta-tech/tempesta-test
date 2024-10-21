@@ -6,8 +6,7 @@ __license__ = "GPL2"
 
 import random
 
-from helpers import deproxy, dmesg
-from helpers.remote import CmdError
+from helpers import deproxy, dmesg, error
 from test_suite import marks, tester
 
 DEPROXY_CLIENT = {
@@ -94,7 +93,7 @@ class TestConfigParsing(tester.TempestaTest):
         self._update_tempesta_config(directive=directive, characters=characters)
 
         with self.assertRaises(
-            CmdError,
+            error.ProcessBadExitStatusException,
             msg=f"Tempesta config parser allowed 0x00 | 0x0a | 0x0d bytes with '{directive}'.",
         ):
             self.start_tempesta()
@@ -152,7 +151,7 @@ class TestConfigParsing(tester.TempestaTest):
     def test_http(self, name, directive, characters, msg):
         self._update_tempesta_config(directive=directive, characters=characters)
 
-        with self.assertRaises(CmdError, msg=msg):
+        with self.assertRaises(error.ProcessBadExitStatusException, msg=msg):
             self.start_tempesta()
 
 

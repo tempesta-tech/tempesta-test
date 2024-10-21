@@ -32,7 +32,6 @@ class Nginx(stateful.Stateful):
 
         # Configure number of connections used by TempestaFW.
         self.conns_n = tempesta.server_conns_default()
-        self.err_msg = "Can't %s Nginx on %s"
         self.active_conns = 0
         self.requests = 0
         self.name = name
@@ -59,9 +58,7 @@ class Nginx(stateful.Stateful):
         # In default tests configuration Nginx status available on
         # `nginx_status` page.
         cmd = "curl %s" % self.status_uri
-        out, _ = remote.client.run_cmd(
-            cmd, err_msg=(self.err_msg % ("get stats of", self.get_name()))
-        )
+        out, _ = remote.client.run_cmd(cmd)
         m = re.search(
             r"Active connections: (\d+) \n" r"server accepts handled requests\n \d+ \d+ (\d+)",
             out.decode(),
@@ -96,9 +93,7 @@ class Nginx(stateful.Stateful):
         # but it holds stderr open after demonisation.
         config_file = os.path.join(self.workdir, self.config.config_name)
         cmd = " ".join([tf_cfg.cfg.get("Server", "nginx"), "-c", config_file])
-        self.node.run_cmd(
-            cmd, ignore_stderr=True, err_msg=(self.err_msg % ("start", self.get_name()))
-        )
+        self.node.run_cmd(cmd, is_blocking=False)
 
     def stop_nginx(self):
         tf_cfg.dbg(3, "\tStopping Nginx on %s" % self.get_name())
@@ -111,9 +106,7 @@ class Nginx(stateful.Stateful):
                 "while [ -e '/proc/$pid' ]; do sleep 1; done",
             ]
         )
-        self.node.run_cmd(
-            cmd, ignore_stderr=True, err_msg=(self.err_msg % ("stop", self.get_name()))
-        )
+        self.node.run_cmd(cmd, is_blocking=False)
 
     def remove_config(self):
         tf_cfg.dbg(3, "\tRemoving Nginx config for %s" % self.get_name())
