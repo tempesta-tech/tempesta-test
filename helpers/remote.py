@@ -370,7 +370,8 @@ class RemoteNode(INode):
             except Exception as conn_exc:
                 self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
 
-        raise ValueError("SSH key was not provided, please, check the config.")
+        else:
+            raise ValueError("SSH key was not provided, please, check the config.")
 
     def run_cmd(
         self,
