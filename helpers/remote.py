@@ -69,7 +69,7 @@ class INode(object, metaclass=abc.ABCMeta):
         env: Optional[dict] = None,
         is_blocking: bool = True,
         wrap_sh: bool = False,
-        with_sudo: bool = False,
+        with_sudo: bool = WITH_SUDO,
     ) -> (bytes, bytes):
         """
         Run command.
@@ -143,7 +143,7 @@ class LocalNode(INode):
         env: Optional[dict] = None,
         is_blocking: bool = True,
         wrap_sh: bool = False,
-        with_sudo: bool = False,
+        with_sudo: bool = WITH_SUDO,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -343,7 +343,7 @@ class RemoteNode(INode):
         env: Optional[dict] = None,
         is_blocking: bool = True,
         wrap_sh: bool = False,
-        with_sudo: bool = False,
+        with_sudo: bool = WITH_SUDO,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
