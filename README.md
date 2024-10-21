@@ -407,10 +407,12 @@ In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/
 
 Install dependencies: `pip3 install -r requirements.txt`
 
-> There is a possible problem related to `scapy`. We use a specific version of the library,
-and (maybe) there is bug. So, if you have an error 
-`ModuleNotFoundError: No module named 'cryptography.hazmat.backends.openssl.ec'`,
-you need to downgrade `cryptography` to `38.0.2` by running 
+There may be a possible problem related to `scapy`, `paramiko`, and `cryptography`. 
+`paramiko` will install `cryptography==43.0.3`, but `scapy~=2.5.0rc2` cannot work
+with such a version of `cryptography` producing `ModuleNotFoundError: No module named 'cryptography.hazmat.backends.openssl.ec'`
+We added `cryptography==38.0.2` on the top of `requirements.txt` to install it first.
+
+If you still encounter a mentioned exception, try to run the next commands: 
 ```bash
 pip uninstall -y cryptography
 pip install cryptography==38.0.2
