@@ -3,7 +3,6 @@ Utils for the testing framework.
 """
 
 import time
-import shlex
 from string import Template
 
 from . import remote, tf_cfg
@@ -63,7 +62,7 @@ def fill_template(template, properties):
     return Template(template).substitute(properties)
 
 
-def modify_cmd(cmd: str, wrap_sh: bool = False, with_sudo: bool = False) -> list:
+def modify_cmd(cmd: str, wrap_sh: bool = False, with_sudo: bool = False) -> str:
     """
     Updated command line.
 
@@ -77,11 +76,11 @@ def modify_cmd(cmd: str, wrap_sh: bool = False, with_sudo: bool = False) -> list
         (str): updated command line
     """
     if wrap_sh:
-        cmd = f"sh -c '{cmd}'"
+        cmd = f'sh -c "{cmd}"'
         tf_cfg.dbg(5, f"The command was wrapped with shell: `{cmd}`")
 
     if with_sudo:
         cmd = f"sudo {cmd}"
         tf_cfg.dbg(5, f"The command was updated: added `sudo`-prefix `{cmd}`")
 
-    return shlex.split(cmd)
+    return cmd
