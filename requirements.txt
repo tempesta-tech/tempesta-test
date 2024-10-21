@@ -1,3 +1,7 @@
+# we need this is being installed first, `paramiko` will install `cryptography==43.0.3` by itself, but
+# `scapy~=2.5.0rc2` cannot work with `43.0.3`, i.e. `ModuleNotFoundError: No module named 'cryptography.hazmat.backends.openssl.ec'`
+cryptography==38.0.2
+
 pycryptodomex>=3.4
 scapy~=2.5.0rc2
 tinyec>=0.3.1
