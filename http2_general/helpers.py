@@ -3,8 +3,17 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_client
+from helpers import analyzer, remote, tf_cfg
 from helpers.deproxy import HttpMessage
-from test_suite import tester
+from test_suite import asserts, custom_error_page, tester
+
+
+def generate_custom_error_page(data):
+    workdir = tf_cfg.cfg.get("General", "workdir")
+    cpage_gen = custom_error_page.CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
+    path = cpage_gen.get_file_path()
+    remote.tempesta.copy_file(path, data)
+    return path
 
 
 class H2Base(tester.TempestaTest):
@@ -81,4 +90,74 @@ class H2Base(tester.TempestaTest):
         self.assertTrue(
             client.wait_for_ack_settings(),
             "Tempesta foes not returns SETTINGS frame with ACK flag.",
+        )
+
+
+class BlockActionH2Base(H2Base, asserts.Sniffer):
+    tempesta_tmpl = """
+        listen 443 proto=h2;
+        srv_group default {
+            server ${server_ip}:8000;
+        }
+        frang_limits {http_strict_host_checking false;}
+        vhost good {
+            proxy_pass default;
+        }
+        vhost frang {
+            frang_limits {
+                http_methods GET;
+                http_resp_code_block 200 1 10;
+            }
+            proxy_pass default;
+        }
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+
+        block_action attack %s;
+        block_action error %s;
+        %s
+
+        http_chain {
+            host == "bad.com"   -> block;
+            host == "good.com"  -> good;
+            host == "frang.com" -> frang;
+        }
+    """
+
+    @staticmethod
+    def setup_sniffer() -> analyzer.Sniffer:
+        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(443,))
+        sniffer.start()
+        return sniffer
+
+    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_fin_socks(sniffer.packets)
+        self.assert_unreset_socks(sniffer.packets)
+
+    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_reset_socks(sniffer.packets)
+
+    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_reset_socks(sniffer.packets)
+        self.assert_fin_socks(sniffer.packets)
+
+    def check_no_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+        sniffer.stop()
+        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_unreset_socks(sniffer.packets)
+
+    def start_services_and_initiate_conn(self, client):
+        self.start_all_services()
+
+        client.update_initial_settings(initial_window_size=self.INITIAL_WINDOW_SIZE)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta does not returns SETTINGS frame with ACK flag.",
         )

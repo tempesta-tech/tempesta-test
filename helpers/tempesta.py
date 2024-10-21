@@ -62,6 +62,7 @@ class Stats(object):
     def clear(self):
         self.ss_pfl_hits = 0
         self.ss_pfl_misses = 0
+        self.ss_wq_full = 0
         self.cache_hits = 0
         self.cache_misses = 0
         self.cl_msg_received = 0
@@ -87,6 +88,7 @@ class Stats(object):
     def parse(self, stats):
         self.ss_pfl_hits = self.parse_option(stats, "SS pfl hits")
         self.ss_pfl_misses = self.parse_option(stats, "SS pfl misses")
+        self.wq_full = self.parse_option(stats, "SS work queue full")
 
         self.cache_hits = self.parse_option(stats, "Cache hits")
         self.cache_misses = self.parse_option(stats, "Cache misses")

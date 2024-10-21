@@ -306,6 +306,9 @@ class TlsWrkStressDocker(TlsWrkStressBase, BaseWrk, check_memleak=True):
         }
     ]
 
+    def test_concurrent_connections(self):
+        self._test_concurrent_connections()
+
 
 class TlsWrkStressMTU80(TlsWrkStress):
     tempesta_to_client_mtu = 80
@@ -701,7 +704,7 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
         self._test_h2load(method="PUT")
 
 
-class ContinuationFlood(tester.TempestaTest):
+class TestContinuationFlood(tester.TempestaTest):
     """
     Test stability against CONTINUATION frame flood.
     """
@@ -749,6 +752,93 @@ class ContinuationFlood(tester.TempestaTest):
         self.wait_while_busy(client)
         client.stop()
         self.assertEqual(0, client.returncode)
+
+
+@marks.parameterize_class(
+    [
+        {
+            "name": "PingFlood",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type ping_frame -frame_count 100000",
+                },
+            ],
+        },
+        {
+            "name": "SettingsFlood",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type settings_frame -frame_count 100000",
+                },
+            ],
+        },
+        {
+            "name": "RstFlood",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -frame_count 100000",
+                },
+            ],
+        },
+    ]
+)
+class TestCtrlFrameFlood(tester.TempestaTest):
+    """
+    Test stability against comtrol frames frame flood.
+    """
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
+
+    tempesta = {
+        "config": """
+        listen 443 proto=h2;
+
+        server ${server_ip}:8000;
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        cache 0;
+    """
+    }
+
+    def setUp(self):
+        self.enable_memleak_check()
+        super().setUp()
+
+    @dmesg.limited_rate_on_tempesta_node
+    def test(self):
+        client = self.get_client("ctrl_frames_flood")
+        tempesta = self.get_tempesta()
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.start_all_clients()
+        self.wait_while_busy(client)
+        client.stop()
+
+        tempesta.get_stats()
+        self.assertGreater(tempesta.stats.wq_full, 0)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
