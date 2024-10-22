@@ -24,11 +24,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-# Don't remove files from remote node. Helpful for tests development.
-# The flag is also managed from many places, for example `run_tests.py` and `./t_stress/test_stress.py`
-# this is the reason it declared outside any node class and linked inside them.
-# TODO may be a good candidate to declare it where all constants are declared (in the future).
-DEBUG_FILES = False
 
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
@@ -40,7 +35,7 @@ class INode(object, metaclass=abc.ABCMeta):
 
     _logger: logging.Logger = tf_cfg.LOGGER
 
-    DEBUG_FILES = DEBUG_FILES
+    _fw_config: tf_cfg.TestFrameworkCfg = tf_cfg.cfg
 
     def __init__(self, ntype: str, hostname: str, workdir: str, *args, **kwargs):
         """
@@ -168,7 +163,7 @@ class LocalNode(INode):
         cmd = util.modify_cmd(
             cmd=cmd,
             wrap_sh=wrap_sh,
-            with_sudo=with_sudo if with_sudo else tf_cfg.cfg.flags.with_sudo,
+            with_sudo=with_sudo if with_sudo else self._fw_config.flags.with_sudo,
         )
 
         # Popen() expects full environment
@@ -271,8 +266,8 @@ class LocalNode(INode):
         Args:
             filename (str): filename to remove
         """
-        if self.DEBUG_FILES:
-            self._logger.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
+        if self._fw_config.flags.debug_files:
+            self._logger.warning(f"Removing `{filename}`: cancelled because of debug files is True")
         else:
             try:
                 os.remove(filename)
@@ -409,7 +404,7 @@ class RemoteNode(INode):
         cmd = util.modify_cmd(
             cmd=cmd,
             wrap_sh=wrap_sh,
-            with_sudo=with_sudo if with_sudo else tf_cfg.cfg.flags.with_sudo,
+            with_sudo=with_sudo if with_sudo else self._fw_config.flags.with_sudo,
         )
 
         # we could simply pass environment to exec_command(), but openssh' default
@@ -497,8 +492,8 @@ class RemoteNode(INode):
         Args:
             filename (str): filename to remove
         """
-        if DEBUG_FILES:
-            self._logger.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
+        if self._fw_config.flags.debug_files:
+            self._logger.warning(f"Removing `{filename}`: cancelled because of debug files is True")
 
         else:
             sftp = self._ssh.open_sftp()

@@ -57,6 +57,7 @@ class Flags(object):
 
     def __init__(self):
         self._with_sudo: bool = False
+        self._debug_files: bool = False
 
     @property
     def with_sudo(self) -> bool:
@@ -77,6 +78,26 @@ class Flags(object):
             val (bool): value of `_with_sudo` to set
         """
         self._with_sudo = val
+
+    @property
+    def debug_files(self) -> bool:
+        """
+        Get value of `_debug_files`. Getter.
+
+        Returns:
+            (bool): value of `_debug_files`
+        """
+        return self._debug_files
+
+    @debug_files.setter
+    def debug_files(self, val: bool):
+        """
+        Set value of `_debug_files`. Setter.
+
+        Args:
+            val (bool): value of `_debug_files` to set
+        """
+        self._debug_files = val
 
 
 class ConfigError(Exception):

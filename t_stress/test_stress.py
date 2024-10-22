@@ -641,7 +641,7 @@ class RequestStress(CustomMtuMixin, tester.TempestaTest):
         self.addCleanup(self.cleanup_test_file)
 
     def cleanup_test_file(self):
-        if not remote.DEBUG_FILES:
+        if not tf_cfg.cfg.flags.debug_files:
             remote.client.run_cmd(f"rm {self.fullname}")
 
     @dmesg.limited_rate_on_tempesta_node

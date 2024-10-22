@@ -280,7 +280,7 @@ for opt, arg in options:
     elif opt in ("-E", "--retry"):
         t_retry = True
     elif opt in ("-D", "--debug-files"):
-        remote.DEBUG_FILES = True
+        tf_cfg.cfg.flags.debug_files = True
     elif opt in ("-Z", "--run-disabled"):
         run_disabled = True
     elif opt in ("-p", "--dont-prepare"):
