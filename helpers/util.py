@@ -81,6 +81,6 @@ def modify_cmd(cmd: str, wrap_sh: bool = False, with_sudo: bool = False) -> str:
 
     if with_sudo:
         cmd = f"sudo {cmd}"
-        tf_cfg.dbg(5, f"The command was updated: added `sudo`-prefix `{cmd}`")
+        tf_cfg.dbg(5, f"The command was updated: added sudo-prefix `{cmd}`")
 
     return cmd

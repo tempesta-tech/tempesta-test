@@ -336,7 +336,9 @@ class RemoteNode(INode):
                 hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
         except paramiko.ssh_exception.SSHException as ssh_exc:
-            self._logger.error(f"Failed to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
+            self._logger.error(
+                f"Failed to connect by SSH {self.host}:{self.port} by loading host keys from a system.",
+            )
 
             if self._ssh_key:
                 self._connect_with_explicit_keys()
@@ -401,12 +403,6 @@ class RemoteNode(INode):
         """
         self._logger.debug(f"An initial command before changes: '{cmd}'")
 
-        cmd = util.modify_cmd(
-            cmd=cmd,
-            wrap_sh=wrap_sh,
-            with_sudo=with_sudo if with_sudo else self._fw_config.flags.with_sudo,
-        )
-
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
         if env:
@@ -418,6 +414,12 @@ class RemoteNode(INode):
                 ],
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
+
+        cmd = util.modify_cmd(
+            cmd=cmd,
+            wrap_sh=wrap_sh,
+            with_sudo=with_sudo if with_sudo else self._fw_config.flags.with_sudo,
+        )
 
         self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
