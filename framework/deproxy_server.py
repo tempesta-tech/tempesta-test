@@ -225,7 +225,9 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         try:
             self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
             self.set_reuse_addr()
-            self.bind((self.ip, self.port))
+            self.run_bind(
+                (self.ip, self.port),
+            )
             self.listen(socket.SOMAXCONN)
         except Exception as e:
             tf_cfg.dbg(2, f"Error while creating socket {self.ip}:{self.port}: {str(e)}")

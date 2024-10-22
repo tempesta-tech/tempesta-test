@@ -92,3 +92,21 @@ class Stateful(abc.ABC):
 
     def is_running(self):
         return self.state == STATE_STARTED
+
+    def run_bind(self, address: tuple):
+        """
+        Wrapper for `bind` method to add some log details.
+
+        `bind` is originally `asyncore.dispatcher` method and declared in there.
+        We create new classes with both parents together `Stateful` and `asyncore.dispatcher`.
+
+        Args:
+            address (tuple): address to bind
+        """
+        try:
+            self.bind(address)
+        # When we cannot bind an address, adding more details
+        except OSError as os_exc:
+            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            tf_cfg.dbg(6, os_err_msg)
+            raise OSError(os_err_msg) from os_exc
