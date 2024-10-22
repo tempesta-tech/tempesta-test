@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
+import sys
+# we use `asyncore` that was removed from 3.12
+if sys.version_info.major != 3 or sys.version_info.minor > 11:
+    sys.stderr.write(
+        "Python version is not supported: required major is `3`, minor is till `11`, i.e. 3.12 is not supported",
+    )
+    sys.exit(1)
+
 import gc
 import getopt
 import inspect
 import os
 import re
 import resource
-import sys
 import time
 import unittest
 from importlib.machinery import SourceFileLoader
