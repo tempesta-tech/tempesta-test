@@ -1029,6 +1029,7 @@ class Client(TlsClient, stateful.Stateful):
                 (self.bind_addr, 0),
             )
 
+        tf_cfg.dbg(6, f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
 
     def clear(self):

@@ -103,6 +103,7 @@ class Stateful(abc.ABC):
         Args:
             address (tuple): address to bind
         """
+        tf_cfg.dbg(6, f"Trying to bind {str(address)}")
         try:
             self.bind(address)
         # When we cannot bind an address, adding more details
