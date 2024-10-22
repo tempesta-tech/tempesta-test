@@ -42,12 +42,21 @@ cp ./h2spec /usr/bin/h2spec
 #gflood - CONTINUATION frame flooder
 mkdir /tmp/gflood
 cd "${CURRENT_DIR}"
-cp gflood/main.go /tmp/gflood/
+cp tools/gflood/main.go /tmp/gflood/
 cd /tmp/gflood
 go mod init gflood
 go mod tidy
 go build
 cp ./gflood /usr/bin/gflood
+
+mkdir /tmp/ctrl_frames_flood
+cd "${CURRENT_DIR}"
+cp tools/ctrl_frames_flood/main.go /tmp/ctrl_frames_flood/
+cd /tmp/ctrl_frames_flood
+go mod init ctrl_frames_flood
+go mod tidy
+go build
+cp ./ctrl_frames_flood /usr/bin/ctrl_frames_flood
 
 #gutils - Common golang utils
 cd "${CURRENT_DIR}"
@@ -73,3 +82,7 @@ git submodule update --init --recursive
 # create tempesta-site-stage container
 python3 tempesta-tech.com/container/lxc/create.py --type=stage
 lxc stop tempesta-site-stage
+
+# docker
+cd "${CURRENT_DIR}"
+./tools/docker/install-docker.sh

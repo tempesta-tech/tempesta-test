@@ -8,6 +8,7 @@ import time
 from http import HTTPStatus
 
 from framework.curl_client import CurlResponse
+from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
 from helpers import deproxy
 from helpers.control import Tempesta
@@ -28,6 +29,14 @@ DEPROXY_CLIENT = {
     "type": "deproxy",
     "addr": "${tempesta_ip}",
     "port": "80",
+}
+
+DEPROXY_CLIENT_SSL = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
 }
 
 DEPROXY_CLIENT_H2 = {
@@ -1747,9 +1756,6 @@ class TestCacheVhost(tester.TempestaTest):
 
     tempesta = {
         "config": """
-        listen 443 proto=h2;
-        listen 80;
-
         srv_group main {
                 server ${server_ip}:8080;
         }
@@ -1784,7 +1790,24 @@ class TestCacheVhost(tester.TempestaTest):
         client.stop()
         return client.response_msg
 
-    def test_h2(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="h2", proto="h2"),
+            marks.Param(name="https", proto="https"),
+        ]
+    )
+    def test(self, name, proto):
+        """
+        Tempesta should not override cached response.
+        It may happens during transfer the first cached response.
+        To check it this we must do 3 requests:
+        1. Not from cache.
+        2. From cache, here cache may be corrupted.
+        3. From cache, here check validity.
+        """
+        self.get_tempesta().config.set_defconfig(
+            f"listen 443 proto={proto};\r\n" + self.get_tempesta().config.defconfig
+        )
         self.start_all_services(client=False)
 
         # Fetch response from the backend
@@ -1792,6 +1815,12 @@ class TestCacheVhost(tester.TempestaTest):
         client = self.get_client("front-1")
         response = self.get_response(client)
         self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_front")
+        self.assertEqual(response, "bar")
+
+        srv = self.get_server("srv_front")
+        client = self.get_client("front-1")
+        response = self.get_response(client)
+        self.assertEqual(len(srv.requests), 1, "Request should be taken from cache")
         self.assertEqual(response, "bar")
 
         # Make sure it was cached
@@ -1809,10 +1838,93 @@ class TestCacheVhost(tester.TempestaTest):
         self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_main")
         self.assertEqual(response, "foo")
 
-    def test_http1(self):
-        tempesta = self.get_tempesta()
-        tempesta.config.defconfig = tempesta.config.defconfig.replace("h2", "https")
-        self.test_h2()
+
+LONG_HEADERS_BACKEND = {
+    "id": "python_hello",
+    "type": "docker",
+    "image": "python",
+    "ports": {8000: 8000},
+    "cmd_args": "hello.py --body %s -H '%s'" % ("a" * 10000, "b: " + "b" * 71000),
+}
+
+LONG_BODY_BACKEND = {
+    "id": "python_hello",
+    "type": "docker",
+    "image": "python",
+    "ports": {8000: 8000},
+    "cmd_args": "hello.py --body %s -H '%s'" % ("a" * 100000, "b: " + "b" * 10000),
+}
+
+
+@marks.parameterize_class(
+    [
+        {"name": "HttpHeaders", "clients": [DEPROXY_CLIENT], "backends": [LONG_HEADERS_BACKEND]},
+        {"name": "HttpBody", "clients": [DEPROXY_CLIENT], "backends": [LONG_BODY_BACKEND]},
+        {
+            "name": "HttpsHeaders",
+            "clients": [DEPROXY_CLIENT_SSL],
+            "backends": [LONG_HEADERS_BACKEND],
+        },
+        {"name": "HttpsBody", "clients": [DEPROXY_CLIENT_SSL], "backends": [LONG_BODY_BACKEND]},
+        {"name": "H2Headers", "clients": [DEPROXY_CLIENT_H2], "backends": [LONG_HEADERS_BACKEND]},
+        {"name": "H2Body", "clients": [DEPROXY_CLIENT_H2], "backends": [LONG_BODY_BACKEND]},
+    ]
+)
+class TestCacheDocker(tester.TempestaTest):
+    """
+    This class contains checks how Tempesta FW cache responses,
+    from Docker backend (this responses contain skb with
+    SKBTX_SHARED_FRAG flag).
+    """
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2,https;
+cache 2;
+cache_fulfill * *;
+server ${server_ip}:8000;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+frang_limits {
+    http_strict_host_checking false;
+}
+""",
+    }
+
+    def test(self):
+        tempesta: Tempesta = self.get_tempesta()
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        if isinstance(client, DeproxyClientH2):
+            """
+            When we use LONG_HEADERS_BACKEND response headers length is
+            greater then 65536, so we should change initial settings to
+            prevent response dropping.
+            """
+            client.update_initial_settings(max_header_list_size=65536 * 2)
+            client.send_bytes(client.h2_connection.data_to_send())
+            client.h2_connection.clear_outbound_data_buffer()
+            self.assertTrue(
+                client.wait_for_ack_settings(),
+                "Tempesta foes not returns SETTINGS frame with ACK flag.",
+            )
+        request = client.create_request(method="GET", uri="/", headers=[])
+
+        for _ in range(3):
+            client.send_request(request, expected_status_code="200")
+
+        self.assertNotIn("age", client.responses[0].headers)
+        checks.check_tempesta_cache_stats(
+            tempesta,
+            cache_hits=2,
+            cache_misses=1,
+            cl_msg_served_from_cache=2,
+        )
+        for response in client.responses[1:]:  # Note WPS 440
+            self.assertIn("age", response.headers)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

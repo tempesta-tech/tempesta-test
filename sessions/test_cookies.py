@@ -712,7 +712,7 @@ class StickyCookieOptions(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
-        with self.assertRaises(error.BaseCmdException, msg=""):
+        with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
             self.start_tempesta()
         self.assertTrue(
             self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
@@ -876,3 +876,97 @@ class StickyCookieOptions(tester.TempestaTest):
 
         tempesta_conf.set_defconfig(tempesta_conf.defconfig % (options, "cookie_options;"))
         self.check_cannot_start_impl(msg)
+
+
+DOCKER_RESP_BODY = "a" * 100000
+
+
+@marks.parameterize_class(
+    [
+        {
+            "name": "Http",
+            "clients": [
+                {
+                    "id": "deproxy",
+                    "type": "deproxy",
+                    "addr": "${tempesta_ip}",
+                    "port": "80",
+                }
+            ],
+        },
+        {
+            "name": "Https",
+            "clients": [
+                {
+                    "id": "deproxy",
+                    "type": "deproxy",
+                    "addr": "${tempesta_ip}",
+                    "port": "443",
+                    "ssl": True,
+                }
+            ],
+        },
+        {
+            "name": "H2",
+            "clients": [
+                {
+                    "id": "deproxy",
+                    "type": "deproxy_h2",
+                    "addr": "${tempesta_ip}",
+                    "port": "443",
+                    "ssl": True,
+                }
+            ],
+        },
+    ]
+)
+class TestCookieDocker(tester.TempestaTest):
+    """
+    This class contains checks how Tempesta FW redirect responses,
+    from Docker backend (this responses contain skb with
+    SKBTX_SHARED_FRAG flag).
+    """
+
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2,https;
+            server ${server_ip}:8000;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            frang_limits {http_strict_host_checking false;}
+            vhost v_good {
+                proxy_pass default;
+                sticky {
+                    sticky_sessions;
+                    cookie enforce max_misses=0;
+                    secret "f00)9eR59*_/22";
+                }
+            }
+
+            http_chain {
+                -> v_good;
+            }
+        """
+    }
+
+    backends = [
+        {
+            "id": "python_hello",
+            "type": "docker",
+            "image": "python",
+            "ports": {8000: 8000},
+            "cmd_args": "hello.py --body %s" % DOCKER_RESP_BODY,
+        },
+    ]
+
+    def test(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        request = client.create_request(method="GET", uri="/", headers=[])
+        client.send_request(request=request, expected_status_code="302")
+        request = client.create_request(
+            method="GET", uri="/", headers=[("Cookie", client.last_response.headers["set-cookie"])]
+        )
+        client.send_request(request=request, expected_status_code="200")

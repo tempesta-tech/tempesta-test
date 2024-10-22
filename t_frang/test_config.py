@@ -11,7 +11,7 @@ from helpers.dmesg import (
     limited_rate_on_tempesta_node,
     unlimited_rate_on_tempesta_node,
 )
-from helpers.error import BaseCmdException
+from helpers.error import ProcessBadExitStatusException
 from test_suite import marks, tester
 
 
@@ -388,7 +388,7 @@ block_action error reply;
         """
         self.__update_tempesta_config(config)
         self.oops_ignore.append("ERROR")
-        with self.assertRaises(BaseCmdException):
+        with self.assertRaises(ProcessBadExitStatusException):
             self.start_tempesta()
 
     @marks.Parameterize.expand(
@@ -1100,7 +1100,7 @@ block_action error reply;
         self.__update_tempesta_config(wrong_config)
 
         with self.assertRaises(
-            expected_exception=BaseCmdException, msg="TempestaFW reloads with wrong config"
+            expected_exception=ProcessBadExitStatusException, msg="TempestaFW reloads with wrong config"
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().reload()

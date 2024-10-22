@@ -17,7 +17,8 @@ from typing import Union
 from rich import pretty
 from rich.logging import RichHandler
 
-logger = logging.getLogger()
+
+LOGGER = logging.getLogger(__name__)
 
 
 # we are adding custom levels to have initial 7 levels
@@ -59,7 +60,7 @@ class ConfigError(Exception):
 
 class TestFrameworkCfg(object):
 
-    logger = logger
+    logger = LOGGER
 
     kvs = {}
 
@@ -242,7 +243,7 @@ def v_level():
 
 
 def dbg(level: int, msg: str, *args, **kwargs) -> None:
-    logger.log(
+    LOGGER.log(
         bring_log_level(level),
         msg,
         *args,

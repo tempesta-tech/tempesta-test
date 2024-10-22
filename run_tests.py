@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
+import sys
+# we use `asyncore` that was removed from 3.12
+if sys.version_info.major != 3 or sys.version_info.minor > 11:
+    sys.stderr.write(
+        "Python version is not supported: required major is `3`, minor is till `11`, i.e. 3.12 is not supported",
+    )
+    sys.exit(1)
+
 import gc
 import getopt
 import inspect
 import os
 import re
 import resource
-import sys
 import time
 import unittest
 from importlib.machinery import SourceFileLoader
@@ -368,7 +375,12 @@ if root_required:
 remote.connect()
 
 if run_config.KERNEL_DBG_TESTS:
-    remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
+    try:
+        remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
+    except error.ProcessBadExitStatusException as es_exs:
+        kml_err_msg = "kmemleak is possibly disabled. Please enable kmemleak or not use `--kernel-dbg` option."
+        tf_cfg.dbg(0, kml_err_msg)
+        raise error.KmemLeakException(kml_err_msg) from es_exs
 
 
 # allows run tests from docker container

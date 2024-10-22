@@ -18,6 +18,7 @@ from framework import (
 )
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
+from framework.docker_server import DockerServer, docker_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
@@ -95,6 +96,7 @@ register_tempesta("tempesta", default_tempesta_factory)
 register_backend("deproxy", deproxy_srv_factory)
 register_backend("nginx", nginx_srv_factory)
 register_backend("lxc", lxc_srv_factory)
+register_backend("docker", docker_srv_factory)
 
 
 class TempestaTest(unittest.TestCase):
@@ -118,10 +120,13 @@ class TempestaTest(unittest.TestCase):
         "backends": [],
     }
 
-    def __init_subclass__(cls, base=False, check_memleak=True, **kwargs):
+    def __init_subclass__(cls, base=False, check_memleak=False, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._base = base
         cls.__check_memleak = check_memleak
+
+    def enable_memleak_check(self):
+        self.__check_memleak = True
 
     def disable_deproxy_auto_parser(self) -> None:
         """
@@ -238,7 +243,7 @@ class TempestaTest(unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid) -> StaticDeproxyServer | Nginx | LXCServer | None:
+    def get_server(self, sid) -> StaticDeproxyServer | Nginx | LXCServer | DockerServer | None:
         """Return client with specified id"""
         return self.__servers.get(sid)
 
@@ -434,7 +439,7 @@ class TempestaTest(unittest.TestCase):
         self._deproxy_auto_parser.check_exceptions()
 
     def cleanup_check_memory_leaks(self):
-        if run_config.CHECK_MEMORY_LEAKS and self.__check_memleak:
+        if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
             tf_cfg.dbg(3, "\tCleanup: Check memory leaks.")
             used_memory = util.get_used_memory()
             delta_used_memory = used_memory - self.__used_memory
@@ -544,6 +549,6 @@ class TempestaTest(unittest.TestCase):
             return test_id
 
     def __save_memory_consumption(self) -> None:
-        if run_config.CHECK_MEMORY_LEAKS and self.__check_memleak:
+        if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
             self.__used_memory = util.get_used_memory()
             tf_cfg.dbg(4, f"\tCleanup: used memory {self.__used_memory} KB.")
