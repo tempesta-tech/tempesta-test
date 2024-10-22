@@ -468,6 +468,7 @@ class TempestaTest(unittest.TestCase):
     def wait_all_connections(self, tmt=5):
         for sid in self.__servers:
             srv = self.__servers[sid]
+            tf_cfg.dbg(5, f"Waiting for connections: srv `{srv}`, timeout `{tmt}`.")
             if not srv.wait_for_connections(timeout=tmt):
                 return False
         return True
