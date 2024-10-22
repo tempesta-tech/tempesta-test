@@ -216,7 +216,12 @@ class TestFrameworkCfg(object):
         return True
 
     def get(self, section, opt) -> str:
-        return self.config[section][opt]
+        try:
+            return self.config[section][opt]
+        except KeyError as r_exc:
+            err_msg = f"Failed getting section `{section}` opt `{opt}`."
+            self.logger.debug(err_msg)
+            raise KeyError(err_msg) from r_exc
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value
