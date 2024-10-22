@@ -207,8 +207,8 @@ config = tempesta.conf
 tmp_config = tempesta_tmp.conf
 
 # Timeout to wait if node is unavaliable
-# ex.: unavaliable_timeout = 300 (default 300)
-unavaliable_timeout = 300
+# ex.: unavailable_timeout = 300 (default 300)
+unavailable_timeout = 300
 
 # Networking interfaces: list of devices to work with during the tests
 # if provided, value will be assigned to TFW_DEV,
