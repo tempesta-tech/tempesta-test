@@ -174,7 +174,7 @@ ipv6 = ::1
 #       hostname = tempesta.test               (default localhost)
 #       user = rtest                           (default root)
 #       port = 22022                           (default 22)
-#       ssh_key = /home/$USER/.ssh/id_ed25519   (default "")
+#       ssh_key = /home/$USER/.ssh/id_ed25519  (default "")
 #
 # ex.: Use the local host to run TempestaFW (default):
 #       hostname = localhost

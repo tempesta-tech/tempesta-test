@@ -72,7 +72,7 @@ class INode(object, metaclass=abc.ABCMeta):
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
             with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`,
-                if arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
+                if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -147,7 +147,7 @@ class LocalNode(INode):
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
             with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`
-                if arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
+                if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -317,15 +317,15 @@ class RemoteNode(INode):
            port (str): port to connect to a remote node
        """
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
-        self._user = user
-        self._port = port
+        self.user = user
+        self.port = port
         self._ssh_key: Optional[str] = ssh_key
         self._ssh: Optional[paramiko.SSHClient] = None
         self._connect_by_loading_keys_from_system()
 
     def _connect_by_loading_keys_from_system(self):
         """Open SSH connection to node by load host keys from a system."""
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self._port} by load host keys from a system.")
+        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
         try:
             self._ssh = paramiko.SSHClient()
             self._ssh.load_system_host_keys()
@@ -333,10 +333,10 @@ class RemoteNode(INode):
             # key to known_hosts.
             self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._ssh.connect(
-                hostname=self.host, username=self._user, port=self._port, timeout=DEFAULT_TIMEOUT,
+                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
         except paramiko.ssh_exception.SSHException as ssh_exc:
-            self._logger.error(f"Failed to connect by SSH to {self.host}:{self._port} by load host keys from a system.")
+            self._logger.error(f"Failed to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
 
             if self._ssh_key:
                 self._connect_with_explicit_keys()
@@ -351,7 +351,7 @@ class RemoteNode(INode):
     def _connect_with_explicit_keys(self):
         """Open SSH connection to node with provided keys."""
         if self._ssh_key:
-            self._logger.info(f"Trying to connect by SSH to {self.host}:{self._port} using key {self._ssh_key}.")
+            self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
 
             self._ssh = paramiko.SSHClient()
             self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -359,8 +359,8 @@ class RemoteNode(INode):
             try:
                 self._ssh.connect(
                     hostname=self.host,
-                    port=self._port,
-                    username=self._user,
+                    port=self.port,
+                    username=self.user,
                     key_filename=self._ssh_key,
                     timeout=DEFAULT_TIMEOUT,
                 )
@@ -390,7 +390,7 @@ class RemoteNode(INode):
                 no effect for the method, all calls are blocking
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
             with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`
-                if arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
+                if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr

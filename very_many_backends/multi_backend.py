@@ -275,7 +275,7 @@ class MultipleBackends(stress.StressTest):
         for server in self.servers:
             for listener in server.config.listeners:
                 server_group = tempesta.ServerGroup("default-%i" % sgid)
-                server_group.add_server(server.ip, listener._port, server.conns_n)
+                server_group.add_server(server.ip, listener.port, server.conns_n)
                 self.tempesta.config.add_sg(server_group)
                 sgid = sgid + 1
 
