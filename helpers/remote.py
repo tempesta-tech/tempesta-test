@@ -11,6 +11,7 @@ import errno
 import logging
 import os
 import re
+import socket
 import subprocess
 import time
 from typing import Optional, Union
@@ -334,7 +335,7 @@ class RemoteNode(INode):
             self._ssh.connect(
                 hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
-        except paramiko.ssh_exception.SSHException as ssh_exc:
+        except (paramiko.ssh_exception.SSHException, socket.error)as ssh_exc:
             self._logger.error(
                 f"Failed to connect by SSH {self.host}:{self.port} by loading host keys from a system.",
             )
