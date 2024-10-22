@@ -306,7 +306,7 @@ for opt, arg in options:
     elif opt in ("-m", "--check-memory-leaks"):
         run_config.CHECK_MEMORY_LEAKS = True
     elif opt == "--with-sudo":
-        remote.WITH_SUDO = True
+        tf_cfg.cfg.flags.with_sudo = True
 
 tf_cfg.cfg.check()
 

@@ -52,6 +52,33 @@ def bring_log_level(initial_lvl: Union[int, str]) -> int:
     return log_levels.get(int(initial_lvl), logging.DEBUG)
 
 
+class Flags(object):
+    """Class to store different dynamic flags (extra parameters)."""
+
+    def __init__(self):
+        self._with_sudo: bool = False
+
+    @property
+    def with_sudo(self) -> bool:
+        """
+        Get value of `_with_sudo`. Getter.
+
+        Returns:
+            (bool): value of `_with_sudo`
+        """
+        return self._with_sudo
+
+    @with_sudo.setter
+    def with_sudo(self, val: bool):
+        """
+        Set value of `_with_sudo`. Setter.
+
+        Args:
+            val (bool): value of `_with_sudo` to set
+        """
+        self._with_sudo = val
+
+
 class ConfigError(Exception):
     def __init__(self, msg):
         Exception.__init__(self, "Test configuration error: %s" % msg)
@@ -62,6 +89,8 @@ class TestFrameworkCfg(object):
     logger = LOGGER
 
     kvs = {}
+
+    flags = Flags()
 
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
 

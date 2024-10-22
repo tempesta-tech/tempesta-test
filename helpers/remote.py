@@ -30,10 +30,6 @@ __license__ = "GPL2"
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEBUG_FILES = False
 
-# If the flag is set, `sudo`-prefix will be added to an every command
-# TODO may be a good candidate to declare it where all constants are declared (in the future).
-WITH_SUDO = True
-
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
@@ -69,7 +65,7 @@ class INode(object, metaclass=abc.ABCMeta):
         env: Optional[dict] = None,
         is_blocking: bool = True,
         wrap_sh: bool = False,
-        with_sudo: bool = WITH_SUDO,
+        with_sudo: Optional[bool] = None,
     ) -> (bytes, bytes):
         """
         Run command.
@@ -80,7 +76,8 @@ class INode(object, metaclass=abc.ABCMeta):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
+            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`,
+                if arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -143,7 +140,7 @@ class LocalNode(INode):
         env: Optional[dict] = None,
         is_blocking: bool = True,
         wrap_sh: bool = False,
-        with_sudo: bool = WITH_SUDO,
+        with_sudo: Optional[bool] = None,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -154,7 +151,8 @@ class LocalNode(INode):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
+            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`
+                if arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -167,7 +165,11 @@ class LocalNode(INode):
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
         self._logger.debug(f"An initial command before changes: '{cmd}'")
 
-        cmd = util.modify_cmd(cmd=cmd, wrap_sh=wrap_sh, with_sudo=with_sudo)
+        cmd = util.modify_cmd(
+            cmd=cmd,
+            wrap_sh=wrap_sh,
+            with_sudo=with_sudo if with_sudo else tf_cfg.cfg.flags.with_sudo,
+        )
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -380,7 +382,7 @@ class RemoteNode(INode):
         env: Optional[dict] = None,
         is_blocking: bool = True,
         wrap_sh: bool = False,
-        with_sudo: bool = WITH_SUDO,
+        with_sudo: Optional[bool] = None,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -392,7 +394,8 @@ class RemoteNode(INode):
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
                 no effect for the method, all calls are blocking
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (bool): if True, `sudo` prefix will be added at beginning of the `cmd`
+            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`
+                if arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -403,7 +406,11 @@ class RemoteNode(INode):
         """
         self._logger.debug(f"An initial command before changes: '{cmd}'")
 
-        cmd = util.modify_cmd(cmd=cmd, wrap_sh=wrap_sh, with_sudo=with_sudo)
+        cmd = util.modify_cmd(
+            cmd=cmd,
+            wrap_sh=wrap_sh,
+            with_sudo=with_sudo if with_sudo else tf_cfg.cfg.flags.with_sudo,
+        )
 
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
