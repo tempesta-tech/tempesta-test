@@ -113,7 +113,7 @@ class TestFrameworkCfg(object):
                     "h2load": "h2load",
                     "tls-perf": "tls-perf",
                     "workdir": "/tmp/client",
-                    "unavaliable_timeout": "300",
+                    "unavailable_timeout": "300",
                 },
                 "Tempesta": {
                     "ip": "127.0.0.1",
@@ -126,7 +126,7 @@ class TestFrameworkCfg(object):
                     "workdir": "/tmp/tempesta",
                     "config": "tempesta.conf",
                     "tmp_config": "tempesta_tmp.conf",
-                    "unavaliable_timeout": "300",
+                    "unavailable_timeout": "300",
                     "interfaces": "",
                 },
                 "Server": {
@@ -143,7 +143,7 @@ class TestFrameworkCfg(object):
                     "max_workers": "16",
                     "keepalive_timeout": "60",
                     "keepalive_requests": "100",
-                    "unavaliable_timeout": "300",
+                    "unavailable_timeout": "300",
                     "lxc_container_name": "tempesta-site-stage",
                     "website_user": "",
                     "website_password": "",
