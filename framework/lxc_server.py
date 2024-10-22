@@ -54,6 +54,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         self.node = remote.server
         self.stop_procedures = [self._proxy_teardown, self._stop_container]
         self._proxy_name = f"{LXC_PREFIX}-{self.external_port}-{self.internal_port}"
+        self.__is_proxy_created = False
 
     @staticmethod
     def _construct_cmd(args: list[str]) -> str:
@@ -107,13 +108,17 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
                 ]
             )
         )
+        self.__is_proxy_created = True
 
     def _proxy_teardown(self):
-        self.node.run_cmd(
-            self._construct_cmd(
-                ["config", "device", "remove", self.container_name, self._proxy_name]
+        """The proxy should be removed if it was created before."""
+        if self.__is_proxy_created:
+            self.node.run_cmd(
+                self._construct_cmd(
+                    ["config", "device", "remove", self.container_name, self._proxy_name]
+                )
             )
-        )
+            self.__is_proxy_created = False
 
     def __check_connection(self):
         """Wait for the both checks to be False."""

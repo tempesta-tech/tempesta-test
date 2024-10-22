@@ -17,6 +17,7 @@ from typing import Union
 from rich import pretty
 from rich.logging import RichHandler
 
+
 LOGGER = logging.getLogger(__name__)
 
 

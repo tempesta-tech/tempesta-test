@@ -24,7 +24,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
