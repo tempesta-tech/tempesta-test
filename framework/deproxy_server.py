@@ -228,7 +228,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             self.bind((self.ip, self.port))
             self.listen(socket.SOMAXCONN)
         except Exception as e:
-            tf_cfg.dbg(2, "Error while creating socket: %s" % str(e))
+            tf_cfg.dbg(2, f"Error while creating socket {self.ip}:{self.port}: {str(e)}")
             self._polling_lock.release()
             raise e
 

@@ -18,10 +18,6 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "selftests",
-            "reason": "These tests should not be run with remote setup."
-        },
-        {
             "name": "t_frang.test_ip_block",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
@@ -132,10 +128,6 @@
         {
             "name": "t_http_rules.test_backup_servers",
             "reason": "Disabled by test issue #508."
-        },
-        {
-            "name": "access_log",
-            "reason": "Disabled by test issue #525."
         },
         {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip",
