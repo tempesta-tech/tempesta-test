@@ -11,6 +11,7 @@ import errno
 import logging
 import os
 import re
+import shutil
 import subprocess
 import time
 from typing import Optional, Union
@@ -124,6 +125,16 @@ class INode(object, metaclass=abc.ABCMeta):
             (int) number of max threads
         """
 
+    @abc.abstractmethod
+    def copy_file_to_node(self, file: str, dest_dir: str):
+        """
+        Copy a file to a node.
+
+        Args:
+            (file) file name to copy
+            (dest_dir): destination directory
+        """
+
 
 class LocalNode(INode):
     """Local node class."""
@@ -226,6 +237,7 @@ class LocalNode(INode):
         Args:
             path (str): path to directory to create
         """
+        self._logger.debug(f"Making directory `{path}`.")
         os.makedirs(path, exist_ok=True)
 
     def copy_file(self, filename: str, content: str):
@@ -239,6 +251,8 @@ class LocalNode(INode):
         # workdir will be ignored if an absolute filename is passed
         filename = os.path.join(self.workdir, filename)
         dirname = os.path.dirname(filename)
+
+        self._logger.debug(f"Copying file `{filename}`.")
 
         # assume that workdir exists to avoid unnecessary actions
         if dirname != self.workdir:
@@ -256,7 +270,9 @@ class LocalNode(INode):
         """
         if self.DEBUG_FILES:
             self._logger.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
+
         else:
+            self._logger.debug(f"Removing `{filename}`.")
             try:
                 os.remove(filename)
             except FileNotFoundError:
@@ -285,6 +301,17 @@ class LocalNode(INode):
             return 1
 
         return int(math_obj.group(1))
+
+    def copy_file_to_node(self, file: str, dest_dir: str):
+        """
+        Copy a file to a node.
+
+        Args:
+            (file) file name to copy
+            (dest_dir): destination directory
+        """
+        self._logger.debug(f"Copying `{file}` to a node with destination `{dest_dir}`")
+        shutil.copy(file, dest_dir)
 
 
 class RemoteNode(INode):
@@ -394,6 +421,7 @@ class RemoteNode(INode):
         Args:
             path (str): path to directory to create
         """
+        self._logger.debug(f"Making directory `{path}`.")
         self.run_cmd(f"mkdir -p {path}")
 
     def copy_file(self, filename: str, content: str):
@@ -407,6 +435,8 @@ class RemoteNode(INode):
         # workdir will be ignored if an absolute filename is passed
         filename = os.path.join(self.workdir, filename)
         dirname = os.path.dirname(filename)
+
+        self._logger.debug(f"Copying file `{filename}`.")
 
         # assume that workdir exists to avoid unnecessary actions
         if dirname != self.workdir:
@@ -434,6 +464,7 @@ class RemoteNode(INode):
             self._logger.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
 
         else:
+            self._logger.debug(f"Removing `{filename}`.")
             sftp = self._ssh.open_sftp()
             try:
                 sftp.unlink(filename)
@@ -484,6 +515,22 @@ class RemoteNode(INode):
             return 1
 
         return int(math_obj.group(1))
+
+    def copy_file_to_node(self, file: str, dest_dir: str):
+        """
+        Copy a file to a node.
+
+        Args:
+            (file) file name to copy
+            (dest_dir): destination directory
+        """
+        self._logger.debug(f"Copying `{file}` to a node with destination `{dest_dir}`")
+        try:
+            sftp = self._ssh.open_sftp()
+            sftp.put(file, dest_dir)
+            sftp.close()
+        except Exception:
+            self._logger.exception(f"Error copying file {file} to {self.host}")
 
 
 def create_node(host):
