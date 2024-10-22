@@ -111,7 +111,9 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
     def _proxy_teardown(self):
         self.node.run_cmd(
             self._construct_cmd(
-                ["config", "device", "remove", self.container_name, self._proxy_name]
+                ["config", "device", "remove", self.container_name, self._proxy_name],
+            ),
+        )
 
     def __check_connection(self):
         """Wait for the both checks to be False."""
