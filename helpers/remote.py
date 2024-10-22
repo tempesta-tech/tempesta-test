@@ -24,7 +24,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-LOGGER = logging.getLogger(__name__)
 
 # Don't remove files from remote node. Helpful for tests development.
 # The flag is also managed from many places, for example `run_tests.py` and `./t_stress/test_stress.py`
