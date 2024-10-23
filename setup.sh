@@ -49,6 +49,7 @@ go mod tidy
 go build
 cp ./gflood /usr/bin/gflood
 
+#ctrl_frames_flood - ctrl frame flooder
 mkdir /tmp/ctrl_frames_flood
 cd "${CURRENT_DIR}"
 cp tools/ctrl_frames_flood/main.go /tmp/ctrl_frames_flood/
@@ -61,6 +62,10 @@ cp ./ctrl_frames_flood /usr/bin/ctrl_frames_flood
 #gutils - Common golang utils
 cd "${CURRENT_DIR}"
 go build -o /usr/bin/ratecheck ./gutils/cmd/ratecheck/main.go
+
+# mhddos - ddos utils
+cd "${CURRENT_DIR}"
+python3 -m pip install -r tools/mhddos/requirements.txt
 
 # curl
 git clone --depth=1 --branch curl-7_85_0 https://github.com/curl/curl.git /tmp/curl
