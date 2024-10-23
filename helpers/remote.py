@@ -72,7 +72,7 @@ class INode(object, metaclass=abc.ABCMeta):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`,
+            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at the beginning of the `cmd`,
                 if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
@@ -157,7 +157,7 @@ class LocalNode(INode):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`
+            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at the beginning of the `cmd`
                 if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
@@ -418,7 +418,7 @@ class RemoteNode(INode):
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
                 no effect for the method, all calls are blocking
             wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at beginning of the `cmd`
+            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at the beginning of the `cmd`
                 if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
