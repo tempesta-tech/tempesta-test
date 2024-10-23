@@ -73,7 +73,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         # with only supported arguments
         super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
         stateful.Stateful.__init__(self)
-        self.node: remote.Node = remote.server
+        self.node: remote.INode = remote.server
         self.container_id = None
         self.stop_procedures = [self.stop_server, self.cleanup]
         self.port_checker = port_checks.FreePortsChecker()
@@ -108,7 +108,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
     def health_status(self):
         """Status of the container: 'starting', 'healthy', 'unhealthy'."""
         stdout, stderr = self.node.run_cmd(
-            self._form_inspect_health_command(), err_msg=self._form_error(action="inspect_health")
+            self._form_inspect_health_command()
         )
         if stderr or not stdout:
             error.bug(self._form_error(action="inspect_health"))
@@ -126,7 +126,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         self.port_checker.check_ports_status()
         self._build_image()
         stdout, stderr = self.node.run_cmd(
-            self._form_run_command(), err_msg=self._form_error(action="start")
+            self._form_run_command(),
         )
         tf_cfg.dbg(3, stdout, stderr)
         if stderr or not stdout:
@@ -145,7 +145,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         t = time.time()
         while t - t0 <= timeout and self.health_status != "unhealthy":
             if self.health_status == "healthy" and self.port_checker.check_ports_established(
-                ip=self.server_ip, ports=self.ports.keys()
+                ip=self.server_ip, ports=self.ports.keys(),
             ):
                 return True
             time.sleep(0.001)  # to prevent redundant CPU usage
@@ -159,7 +159,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             self.node.run_cmd(
                 self._form_stop_command(),
                 timeout=self.stop_timeout,
-                err_msg=self._form_error(action="stop"),
             )
 
     def cleanup(self):
@@ -172,7 +171,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         stdout, stderr = self.node.run_cmd(
             self._form_build_command(),
             timeout=self.build_timeout,
-            err_msg=self._form_error(action="build"),
         )
         tf_cfg.dbg(3, stdout, stderr)
 
