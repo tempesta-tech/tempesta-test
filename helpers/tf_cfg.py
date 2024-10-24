@@ -17,6 +17,8 @@ from typing import Union
 from rich import pretty
 from rich.logging import RichHandler
 
+from helpers.remote import INode
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -286,12 +288,12 @@ def dbg(level: int, msg: str, *args, **kwargs) -> None:
     )
 
 
-def log_dmesg(node, msg) -> None:
+def log_dmesg(node: INode, msg: str) -> None:
     """Forward a message to kernel log at given node."""
     try:
-        node.run_cmd(f"echo '{msg}' > /dev/kmsg", wrap_sh=True)
+        node.run_cmd(f"echo '{msg}' > /dev/kmsg")
     except Exception as e:
-        dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
+        dbg(2, f"Can not access node {node.type}: {str(e)}")
 
 
 cfg = TestFrameworkCfg()

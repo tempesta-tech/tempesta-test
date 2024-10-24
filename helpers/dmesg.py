@@ -136,10 +136,10 @@ def __change_dmesg_limit_on_tempesta_node(func, rate, *args, **kwargs):
     cmd = "/proc/sys/net/core/message_cost"
     current_rate = node.run_cmd(f"cat {cmd}")[0].strip()
     try:
-        node.run_cmd(f"echo {rate} > {cmd}", wrap_sh=True)
+        node.run_cmd(f"echo {rate} > {cmd}")
         return func(*args, **kwargs)
     finally:
-        node.run_cmd(f"echo {current_rate.decode()} > {cmd}", wrap_sh=True)
+        node.run_cmd(f"echo {current_rate.decode()} > {cmd}")
 
 
 def unlimited_rate_on_tempesta_node(func):

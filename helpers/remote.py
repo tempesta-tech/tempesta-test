@@ -19,7 +19,7 @@ from typing import Optional, Union
 import paramiko
 
 import run_config
-from helpers import error, tf_cfg, util
+from helpers import error, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
