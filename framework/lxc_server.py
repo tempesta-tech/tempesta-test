@@ -57,7 +57,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
 
     @staticmethod
     def _construct_cmd(args: list[str]) -> str:
-        c = " ".join(["sudo lxc", *args])
+        c = " ".join(["lxc", *args])
         tf_cfg.dbg(3, f"\tlxc cmd: {c}")
         return c
 
@@ -111,8 +111,8 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
     def _proxy_teardown(self):
         self.node.run_cmd(
             self._construct_cmd(
-                ["config", "device", "remove", self.container_name, self._proxy_name]
-            )
+                ["config", "device", "remove", self.container_name, self._proxy_name],
+            ),
         )
 
     def __check_connection(self):

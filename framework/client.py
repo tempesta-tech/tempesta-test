@@ -108,10 +108,10 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.proc = None
 
         if self.proc_results:
-            tf_cfg.dbg(3, "\tclient stdout:\n%s" % self.proc_results[0].decode())
+            tf_cfg.dbg(3, f"\tclient stdout:\n{self.proc_results[0]}")
 
             if len(self.proc_results[1]) > 0:
-                tf_cfg.dbg(2, "\tclient stderr:\n%s" % self.proc_results[1].decode())
+                tf_cfg.dbg(2, f"\tclient stderr:\n{self.proc_results[1]}")
 
             self.parse_out(self.proc_results[0], self.proc_results[1])
         else:

@@ -311,6 +311,7 @@ for opt, arg in options:
     elif opt in ("-m", "--check-memory-leaks"):
         run_config.CHECK_MEMORY_LEAKS = True
 
+
 tf_cfg.cfg.check()
 
 # Verbose level for unit tests must be > 1.

@@ -11,6 +11,7 @@ import errno
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import time
@@ -35,13 +36,33 @@ DEBUG_FILES = False
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
 
+logger = tf_cfg.LOGGER
+
+
+def modify_cmd(cmd: str) -> str:
+    """
+    Updates command line.
+
+    Adds `sudo`-prefix at the beginning of the `cmd`, and
+    wrap `cmd` with shell i.e. `sh -c '<cmd>'`
+
+    Returns:
+        (str): updated command line
+    """
+    # from the docs:
+    # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
+    # as one token in a shell command line, for cases where you cannot use a list.
+    # We cannot use a list for `paramiko.exec_command`
+    cmd = f"sudo sh -c {shlex.quote(cmd)}"
+    logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
+
+    return cmd
+
 
 class INode(object, metaclass=abc.ABCMeta):
     """Node interfaces."""
 
-    _logger: logging.Logger = tf_cfg.LOGGER
-
-    DEBUG_FILES = DEBUG_FILES
+    _logger: logging.Logger = logger
 
     def __init__(self, ntype: str, hostname: str, workdir: str, *args, **kwargs):
         """
@@ -164,7 +185,9 @@ class LocalNode(INode):
             error.ProcessKilledException: if a process was killed
         """
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
-        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
+        self._logger.debug(f"An initial command before changes: '{cmd}'")
+
+        cmd = modify_cmd(cmd)
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -174,6 +197,7 @@ class LocalNode(INode):
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
         self._logger.debug(f"All environment variables after updating: {env_full}")
+        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
 
         if is_blocking:
             std_arg = subprocess.PIPE
@@ -268,8 +292,8 @@ class LocalNode(INode):
         Args:
             filename (str): filename to remove
         """
-        if self.DEBUG_FILES:
-            self._logger.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
+        if DEBUG_FILES:
+            self._logger.warning(f"Removing `{filename}`: cancelled because of debug files is True")
 
         else:
             self._logger.debug(f"Removing `{filename}`.")
@@ -317,7 +341,9 @@ class LocalNode(INode):
 class RemoteNode(INode):
     """Remote node class."""
     
-    def __init__(self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22):
+    def __init__(
+        self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22, ssh_key: Optional[str] = None,
+    ):
         """
        Init class instance.
 
@@ -326,27 +352,66 @@ class RemoteNode(INode):
            hostname (str): node hostname
            workdir (str): node workdir
            user (str): username to work with a node
+           ssh_key (str): ssh key location
            port (str): port to connect to a remote node
        """
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
         self.user = user
         self.port = port
+        self._ssh_key: Optional[str] = ssh_key
         self._ssh: Optional[paramiko.SSHClient] = None
         self._connect()
 
     def _connect(self):
-        """Open SSH connection to node if remote. Returns False on SSH errors."""
+        """
+        Open SSH connection to a node.
+
+        if SSH key (self,_ssh_key) was provided - connection by the key (self.__connect_with_explicit_keys),
+        otherwise by loading system keys (self.__connect_by_loading_keys_from_system)
+        """
+        self._ssh = paramiko.SSHClient()
+        # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
+        # key to known_hosts.
+        self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        if self._ssh_key:
+            self.__connect_with_explicit_keys()
+
+        else:
+            self.__connect_by_loading_keys_from_system()
+
+    def __connect_by_loading_keys_from_system(self):
+        """Open SSH connection to a node by loading host keys from a system."""
+        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
+
         try:
-            self._ssh = paramiko.SSHClient()
             self._ssh.load_system_host_keys()
-            # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
-            # key to known_hosts.
-            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._ssh.connect(
                 hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
+            raise conn_exc
+
+    def __connect_with_explicit_keys(self):
+        """
+        Open SSH connection to a node with provided keys.
+
+        Before invoking the method, it is better to check for existence of a `self._ssh_key` attr.
+        """
+        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
+
+        try:
+            self._ssh.connect(
+                hostname=self.host,
+                port=self.port,
+                username=self.user,
+                key_filename=self._ssh_key,
+                timeout=DEFAULT_TIMEOUT,
+            )
+        except Exception as conn_exc:
+            self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
+            raise conn_exc
 
     def run_cmd(
         self,
@@ -372,7 +437,7 @@ class RemoteNode(INode):
             error.ProcessBadExitStatusException: if an exit code is not 0(zero)
             error.CommandExecutionException: if something happened during the execution
         """
-        self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
+        self._logger.debug(f"An initial command before changes: '{cmd}'")
 
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
@@ -385,6 +450,10 @@ class RemoteNode(INode):
                 ],
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
+
+        cmd = modify_cmd(cmd=cmd)
+
+        self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
         try:
             # TODO #120: the same as for LocalNode - provide an interface to check
@@ -436,7 +505,7 @@ class RemoteNode(INode):
         filename = os.path.join(self.workdir, filename)
         dirname = os.path.dirname(filename)
 
-        self._logger.debug(f"Copying file `{filename}`.")
+        self._logger.debug(f"Copying file by sftp `{filename}`.")
 
         # assume that workdir exists to avoid unnecessary actions
         if dirname != self.workdir:
@@ -461,7 +530,7 @@ class RemoteNode(INode):
             filename (str): filename to remove
         """
         if DEBUG_FILES:
-            self._logger.warning(f"Removing `{filename}`: cancelled because of DEBUG_FILES is True")
+            self._logger.warning(f"Removing `{filename}`: cancelled because of debug files is True")
 
         else:
             self._logger.debug(f"Removing `{filename}`.")
@@ -533,15 +602,20 @@ class RemoteNode(INode):
             self._logger.exception(f"Error copying file {file} to {self.host}")
 
 
-def create_node(host):
-    hostname = tf_cfg.cfg.get(host, "hostname")
-    workdir = tf_cfg.cfg.get(host, "workdir")
+def create_node(host_type: str):
+    hostname = tf_cfg.cfg.get(host_type, "hostname")
+    workdir = tf_cfg.cfg.get(host_type, "workdir")
 
     if hostname != "localhost":
-        port = int(tf_cfg.cfg.get(host, "port"))
-        username = tf_cfg.cfg.get(host, "user")
-        return RemoteNode(host, hostname, workdir, username, port)
-    return LocalNode(host, hostname, workdir)
+        return RemoteNode(
+            ntype=host_type,
+            hostname=hostname,
+            workdir=workdir,
+            user=tf_cfg.cfg.get(host_type, "user"),
+            port=int(tf_cfg.cfg.get(host_type, "port")),
+            ssh_key=tf_cfg.cfg.get(host_type, "ssh_key"),
+        )
+    return LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
 
 
 # -------------------------------------------------------------------------------
