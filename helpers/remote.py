@@ -41,6 +41,10 @@ def modify_cmd(cmd: str) -> str:
     Returns:
         (str): updated command line
     """
+    # from the docs:
+    # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
+    # as one token in a shell command line, for cases where you cannot use a list.
+    # We cannot use a list for `paramiko.exec_command`
     cmd = f"sudo sh -c {shlex.quote(cmd)}"
     tf_cfg.dbg(5, f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
 
