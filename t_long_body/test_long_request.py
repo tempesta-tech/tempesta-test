@@ -123,7 +123,7 @@ class LongBodyInRequest(TempestaTest, CustomMtuMixin):
         tf_cfg.cfg.set_option("General", "verbose", self.verbose)
 
     def cleanup_file(self):
-        if not tf_cfg.cfg.flags.debug_files:
+        if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
 
     def _test(self, client_id: str, header: str):
