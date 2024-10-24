@@ -136,6 +136,7 @@ class ServerConnection(asyncore.dispatcher):
 
 
 class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
+
     def __init__(
         self,
         port: int,
@@ -225,7 +226,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         try:
             self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
             self.set_reuse_addr()
-            self.run_bind(
+            self.bind(
                 (self.ip, self.port),
             )
             self.listen(socket.SOMAXCONN)
@@ -407,6 +408,24 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
                 timeout_not_exceeded != False
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
+
+    def bind(self, address: tuple):
+        """
+        Wrapper for `bind` method to add some log details.
+
+        `bind` is originally `asyncore.dispatcher` method and declared in there.
+
+        Args:
+            address (tuple): address to bind
+        """
+        tf_cfg.dbg(6, f"Trying to bind {str(address)}")
+        try:
+            return super().bind(address)
+        # When we cannot bind an address, adding more details
+        except OSError as os_exc:
+            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            tf_cfg.dbg(6, os_err_msg)
+            raise OSError(os_err_msg) from os_exc
 
 
 def deproxy_srv_factory(server, name, tester):

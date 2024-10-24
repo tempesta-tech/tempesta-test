@@ -980,6 +980,24 @@ class TlsClient(asyncore.dispatcher):
             # compression.
             self.context.options |= ssl.OP_NO_COMPRESSION
 
+    def bind(self, address: tuple):
+        """
+        Wrapper for `bind` method to add some log details.
+
+        `bind` is originally `asyncore.dispatcher` method and declared in there.
+
+        Args:
+            address (tuple): address to bind
+        """
+        tf_cfg.dbg(6, f"Trying to bind {str(address)}")
+        try:
+            return super().bind(address)
+        # When we cannot bind an address, adding more details
+        except OSError as os_exc:
+            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            tf_cfg.dbg(6, os_err_msg)
+            raise OSError(os_err_msg) from os_exc
+
 
 class Client(TlsClient, stateful.Stateful):
     def __init__(
@@ -1025,7 +1043,7 @@ class Client(TlsClient, stateful.Stateful):
             socket.AF_INET if self.socket_family == "ipv4" else socket.AF_INET6, socket.SOCK_STREAM
         )
         if self.bind_addr:
-            self.run_bind(
+            self.bind(
                 (self.bind_addr, 0),
             )
 
@@ -1224,7 +1242,7 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
-        self.run_bind(
+        self.bind(
             (self.ip, self.port),
         )
         self.listen(socket.SOMAXCONN)
