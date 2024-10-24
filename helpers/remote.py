@@ -11,7 +11,6 @@ import errno
 import logging
 import os
 import re
-import socket
 import shutil
 import subprocess
 import time
@@ -29,6 +28,22 @@ __license__ = "GPL2"
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
+
+
+def modify_cmd(cmd: str) -> str:
+    """
+    Updates command line.
+
+    Adds `sudo`-prefix at the beginning of the `cmd`, and
+    wrap `cmd` with shell i.e. `sh -c '<cmd>'`
+
+    Returns:
+        (str): updated command line
+    """
+    cmd = f"sudo sh -c {cmd}"
+    tf_cfg.dbg(5, f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
+
+    return cmd
 
 
 class INode(object, metaclass=abc.ABCMeta):
@@ -60,8 +75,6 @@ class INode(object, metaclass=abc.ABCMeta):
         timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
-        wrap_sh: bool = False,
-        with_sudo: Optional[bool] = None,
     ) -> (bytes, bytes):
         """
         Run command.
@@ -71,9 +84,6 @@ class INode(object, metaclass=abc.ABCMeta):
             timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
-            wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at the beginning of the `cmd`,
-                if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -145,8 +155,6 @@ class LocalNode(INode):
         timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
-        wrap_sh: bool = False,
-        with_sudo: Optional[bool] = None,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -156,9 +164,6 @@ class LocalNode(INode):
             timeout (Union[int, float, None]): command running timeout
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
-            wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at the beginning of the `cmd`
-                if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -171,11 +176,7 @@ class LocalNode(INode):
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
         self._logger.debug(f"An initial command before changes: '{cmd}'")
 
-        cmd = util.modify_cmd(
-            cmd=cmd,
-            wrap_sh=wrap_sh,
-            with_sudo=with_sudo if with_sudo else self._fw_config.flags.with_sudo,
-        )
+        cmd = modify_cmd(cmd)
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -348,56 +349,58 @@ class RemoteNode(INode):
         self.port = port
         self._ssh_key: Optional[str] = ssh_key
         self._ssh: Optional[paramiko.SSHClient] = None
-        self._connect_by_loading_keys_from_system()
+        self._connect()
 
-    def _connect_by_loading_keys_from_system(self):
-        """Open SSH connection to node by load host keys from a system."""
+    def _connect(self):
+        """
+        Open SSH connection to a node.
+
+        if SSH key (self,_ssh_key) was provided - connection by the key (self.__connect_with_explicit_keys),
+        otherwise by loading system keys (self.__connect_by_loading_keys_from_system)
+        """
+        self._ssh = paramiko.SSHClient()
+        # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
+        # key to known_hosts.
+        self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        if self._ssh_key:
+            self.__connect_with_explicit_keys()
+
+        else:
+            self.__connect_by_loading_keys_from_system()
+
+    def __connect_by_loading_keys_from_system(self):
+        """Open SSH connection to a node by loading host keys from a system."""
         self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
+
         try:
-            self._ssh = paramiko.SSHClient()
             self._ssh.load_system_host_keys()
-            # Workaround: paramiko prefer RSA keys to ECDSA, so add RSA
-            # key to known_hosts.
-            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._ssh.connect(
                 hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
             )
-        except (paramiko.ssh_exception.SSHException, socket.error)as ssh_exc:
-            self._logger.error(
-                f"Failed to connect by SSH {self.host}:{self.port} by loading host keys from a system.",
-            )
-
-            if self._ssh_key:
-                self._connect_with_explicit_keys()
-
-            else:
-                self._logger.warning("SSH key was not provided, cannot try to connect with explicit keys.")
-                raise ssh_exc
-
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
+            raise conn_exc
 
-    def _connect_with_explicit_keys(self):
-        """Open SSH connection to node with provided keys."""
-        if self._ssh_key:
-            self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
+    def __connect_with_explicit_keys(self):
+        """
+        Open SSH connection to a node with provided keys.
 
-            self._ssh = paramiko.SSHClient()
-            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        Before invoking the method, it is better to check for existence of a `self._ssh_key` attr.
+        """
+        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
 
-            try:
-                self._ssh.connect(
-                    hostname=self.host,
-                    port=self.port,
-                    username=self.user,
-                    key_filename=self._ssh_key,
-                    timeout=DEFAULT_TIMEOUT,
-                )
-            except Exception as conn_exc:
-                self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
-
-        else:
-            raise ValueError("SSH key was not provided, please, check the config.")
+        try:
+            self._ssh.connect(
+                hostname=self.host,
+                port=self.port,
+                username=self.user,
+                key_filename=self._ssh_key,
+                timeout=DEFAULT_TIMEOUT,
+            )
+        except Exception as conn_exc:
+            self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
+            raise conn_exc
 
     def run_cmd(
         self,
@@ -405,8 +408,6 @@ class RemoteNode(INode):
         timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
         env: Optional[dict] = None,
         is_blocking: bool = True,
-        wrap_sh: bool = False,
-        with_sudo: Optional[bool] = None,
     ) -> tuple[bytes, bytes]:
         """
         Run command.
@@ -417,9 +418,6 @@ class RemoteNode(INode):
             env (Optional[dict]): environment variables to execute command with
             is_blocking (bool): if True, run a command and wait for it, otherwise just start it (no read stdout, stderr)
                 no effect for the method, all calls are blocking
-            wrap_sh (bool): if True, wrap a command with shell, i.e. to add `sh -c '<command>'`
-            with_sudo (Optional[bool]): if True, `sudo` prefix will be added at the beginning of the `cmd`
-                if the arg is omitted, the value will be taken from `TestFrameworkCfg.flags.with_sudo`
 
         Returns:
             (tuple[bytes, bytes]): stdout, stderr
@@ -442,11 +440,7 @@ class RemoteNode(INode):
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
 
-        cmd = util.modify_cmd(
-            cmd=cmd,
-            wrap_sh=wrap_sh,
-            with_sudo=with_sudo if with_sudo else self._fw_config.flags.with_sudo,
-        )
+        cmd = modify_cmd(cmd=cmd)
 
         self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 

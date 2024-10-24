@@ -57,28 +57,7 @@ class Flags(object):
     """Class to store different dynamic flags (extra parameters)."""
 
     def __init__(self):
-        self._with_sudo: bool = False
         self._debug_files: bool = False
-
-    @property
-    def with_sudo(self) -> bool:
-        """
-        Get value of `_with_sudo`. Getter.
-
-        Returns:
-            (bool): value of `_with_sudo`
-        """
-        return self._with_sudo
-
-    @with_sudo.setter
-    def with_sudo(self, val: bool):
-        """
-        Set value of `_with_sudo`. Setter.
-
-        Args:
-            val (bool): value of `_with_sudo` to set
-        """
-        self._with_sudo = val
 
     @property
     def debug_files(self) -> bool:
