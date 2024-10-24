@@ -12,12 +12,13 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from rich import pretty
 from rich.logging import RichHandler
 
-from helpers.remote import INode
+if TYPE_CHECKING:
+    from helpers.remote import INode
 
 
 LOGGER = logging.getLogger(__name__)
