@@ -11,6 +11,7 @@ import errno
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import time
@@ -43,7 +44,7 @@ def modify_cmd(cmd: str) -> str:
     cmd = f"sudo sh -c '{cmd}'"
     tf_cfg.dbg(5, f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
 
-    return cmd
+    return shlex.split(cmd)
 
 
 class INode(object, metaclass=abc.ABCMeta):
@@ -494,7 +495,7 @@ class RemoteNode(INode):
         filename = os.path.join(self.workdir, filename)
         dirname = os.path.dirname(filename)
 
-        self._logger.debug(f"Copying file `{filename}`.")
+        self._logger.debug(f"Copying file by sftp `{filename}`.")
 
         # assume that workdir exists to avoid unnecessary actions
         if dirname != self.workdir:
