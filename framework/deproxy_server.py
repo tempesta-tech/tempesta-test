@@ -418,7 +418,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         Args:
             address (tuple): address to bind
         """
-        tf_cfg.dbg(6, f"Trying to bind {str(address)}")
+        tf_cfg.dbg(6, f"Trying to bind {str(address)} for {self.__class__.__name__}")
         try:
             return super().bind(address)
         # When we cannot bind an address, adding more details

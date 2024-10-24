@@ -56,33 +56,6 @@ def bring_log_level(initial_lvl: Union[int, str]) -> int:
     return log_levels.get(int(initial_lvl), logging.DEBUG)
 
 
-class Flags(object):
-    """Class to store different dynamic flags (extra parameters)."""
-
-    def __init__(self):
-        self._debug_files: bool = False
-
-    @property
-    def debug_files(self) -> bool:
-        """
-        Get value of `_debug_files`. Getter.
-
-        Returns:
-            (bool): value of `_debug_files`
-        """
-        return self._debug_files
-
-    @debug_files.setter
-    def debug_files(self, val: bool):
-        """
-        Set value of `_debug_files`. Setter.
-
-        Args:
-            val (bool): value of `_debug_files` to set
-        """
-        self._debug_files = val
-
-
 class ConfigError(Exception):
     def __init__(self, msg):
         Exception.__init__(self, "Test configuration error: %s" % msg)
@@ -93,8 +66,6 @@ class TestFrameworkCfg(object):
     logger = LOGGER
 
     kvs = {}
-
-    flags = Flags()
 
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
 

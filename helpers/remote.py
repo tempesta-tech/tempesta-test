@@ -26,9 +26,17 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+# Don't remove files from remote node. Helpful for tests development.
+# The flag is also managed from many places, for example `run_tests.py` and `./t_stress/test_stress.py`
+# this is the reason it declared outside any node class and linked inside them.
+# TODO may be a good candidate to declare it where all constants are declared (in the future).
+DEBUG_FILES = False
+
 # Default timeout for SSH sessions and command processing.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
+
+logger = tf_cfg.LOGGER
 
 
 def modify_cmd(cmd: str) -> str:
@@ -46,7 +54,7 @@ def modify_cmd(cmd: str) -> str:
     # as one token in a shell command line, for cases where you cannot use a list.
     # We cannot use a list for `paramiko.exec_command`
     cmd = f"sudo sh -c {shlex.quote(cmd)}"
-    tf_cfg.dbg(5, f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
+    logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
 
     return cmd
 
@@ -54,9 +62,7 @@ def modify_cmd(cmd: str) -> str:
 class INode(object, metaclass=abc.ABCMeta):
     """Node interfaces."""
 
-    _logger: logging.Logger = tf_cfg.LOGGER
-
-    _fw_config: tf_cfg.TestFrameworkCfg = tf_cfg.cfg
+    _logger: logging.Logger = logger
 
     def __init__(self, ntype: str, hostname: str, workdir: str, *args, **kwargs):
         """
@@ -286,7 +292,7 @@ class LocalNode(INode):
         Args:
             filename (str): filename to remove
         """
-        if self._fw_config.flags.debug_files:
+        if DEBUG_FILES:
             self._logger.warning(f"Removing `{filename}`: cancelled because of debug files is True")
 
         else:
@@ -523,7 +529,7 @@ class RemoteNode(INode):
         Args:
             filename (str): filename to remove
         """
-        if self._fw_config.flags.debug_files:
+        if DEBUG_FILES:
             self._logger.warning(f"Removing `{filename}`: cancelled because of debug files is True")
 
         else:
