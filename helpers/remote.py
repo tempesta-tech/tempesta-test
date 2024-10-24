@@ -40,7 +40,7 @@ def modify_cmd(cmd: str) -> str:
     Returns:
         (str): updated command line
     """
-    cmd = f"sudo sh -c {cmd}"
+    cmd = f"sudo sh -c '{cmd}'"
     tf_cfg.dbg(5, f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
 
     return cmd
