@@ -289,7 +289,7 @@ def dbg(level: int, msg: str, *args, **kwargs) -> None:
     )
 
 
-def log_dmesg(node: INode, msg: str) -> None:
+def log_dmesg(node: 'INode', msg: str) -> None:
     """Forward a message to kernel log at given node."""
     try:
         node.run_cmd(f"echo '{msg}' > /dev/kmsg")
