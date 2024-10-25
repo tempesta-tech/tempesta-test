@@ -1,16 +1,15 @@
-""" Helper for Tempesta system log operations."""
+"""Helper for Tempesta system log operations."""
 
 from __future__ import print_function
 
 import re
-import time
 from contextlib import contextmanager
 from typing import Callable, List
 
 from . import error, remote, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 

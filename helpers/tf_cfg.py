@@ -12,10 +12,14 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from rich import pretty
 from rich.logging import RichHandler
+
+if TYPE_CHECKING:
+    from helpers.remote import INode
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -121,6 +125,7 @@ class TestFrameworkCfg(object):
                     "hostname": "localhost",
                     "user": "root",
                     "port": "22",
+                    "ssh_key": "",
                     "srcdir": "/root/tempesta",
                     "workdir": "/tmp/tempesta",
                     "config": "tempesta.conf",
@@ -164,7 +169,12 @@ class TestFrameworkCfg(object):
         return True
 
     def get(self, section, opt) -> str:
-        return self.config[section][opt]
+        try:
+            return self.config[section][opt]
+        except KeyError as r_exc:
+            err_msg = f"Failed getting section `{section}` opt `{opt}`."
+            self.logger.debug(err_msg)
+            raise KeyError(err_msg) from r_exc
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value
@@ -250,12 +260,12 @@ def dbg(level: int, msg: str, *args, **kwargs) -> None:
     )
 
 
-def log_dmesg(node, msg) -> None:
+def log_dmesg(node: 'INode', msg: str) -> None:
     """Forward a message to kernel log at given node."""
     try:
-        node.run_cmd('echo "%s" > /dev/kmsg' % msg)
+        node.run_cmd(f"echo '{msg}' > /dev/kmsg")
     except Exception as e:
-        dbg(2, "Can not access node %s: %s" % (node.type, str(e)))
+        dbg(2, f"Can not access node {node.type}: {str(e)}")
 
 
 cfg = TestFrameworkCfg()

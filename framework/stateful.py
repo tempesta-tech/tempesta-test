@@ -70,8 +70,12 @@ class Stateful(abc.ABC):
             try:
                 stop_proc()
             except Exception as exc:
-                tf_cfg.dbg(1, f"Exception in stopping process: {exc}, type: {type(exc)}")
-                self.append_exception(traceback.format_exc())
+                tb_msg = traceback.format_exc()
+                tf_cfg.dbg(
+                    1,
+                    f"Exception in stopping process: {exc}, type: {type(exc)}, traceback:\n{tb_msg}",
+                )
+                self.append_exception(tb_msg)
 
         if self.state != STATE_ERROR:
             self.state = STATE_STOPPED
