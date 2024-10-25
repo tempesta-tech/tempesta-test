@@ -1,3 +1,5 @@
+from typing import Union
+
 from . import client
 
 __author__ = "Tempesta Technologies, Inc."
@@ -37,8 +39,12 @@ class ExternalTester(client.Client):
         cmd = " ".join([self.bin] + self.options)
         return cmd
 
-    def parse_out(self, stdout: bytes, stderr: bytes):
+    def parse_out(self, stdout: Union[str, bytes], stderr: Union[str, bytes]):
         self.__stdout = stdout
         self.__stderr = stderr
-        self.response_msg = stdout.decode() if stdout else stderr.decode()
+        try:
+            self.response_msg = stdout.decode() if stdout else stderr.decode()
+        # if `stdout` or `std_err` is `str` already,i.e. AttributeError: 'str' object has no attribute 'decode'
+        except AttributeError:
+            self.response_msg = stdout if stdout else stderr
         return True
