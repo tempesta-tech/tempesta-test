@@ -226,6 +226,7 @@ class TestFrameworkCfg(object):
                 fmt="%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s", datefmt=date_format
             )
         )
+        # 180 - width of a console, was determined empirically
         stream_handler = RichHandler(
             console=Console(width=180),
         )
