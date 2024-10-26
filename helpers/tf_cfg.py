@@ -15,7 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Union
 
 from rich import pretty
-from rich.logging import RichHandler
+from rich.logging import Console, RichHandler
 
 if TYPE_CHECKING:
     from helpers.remote import INode
@@ -226,7 +226,9 @@ class TestFrameworkCfg(object):
                 fmt="%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s", datefmt=date_format
             )
         )
-        stream_handler = RichHandler()
+        stream_handler = RichHandler(
+            console=Console(width=180),
+        )
         stream_handler.setFormatter(
             logging.Formatter(fmt=" | %(message)s", datefmt=date_format + ".%f")
         )
