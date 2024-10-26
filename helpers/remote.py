@@ -53,7 +53,8 @@ def modify_cmd(cmd: str) -> str:
     # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
     # as one token in a shell command line, for cases where you cannot use a list.
     # We cannot use a list for `paramiko.exec_command`
-    cmd = f"sudo sh -c {shlex.quote(cmd)}"
+    # `-E` we set up some parameters via environment vars, and we need this option to preserve a user environment
+    cmd = f"sudo -E sh -c {shlex.quote(cmd)}"
     logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
 
     return cmd
