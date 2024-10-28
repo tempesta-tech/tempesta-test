@@ -8,12 +8,7 @@ import unittest
 from helpers import dmesg, tf_cfg
 from test_suite import tester
 
-CLIENTS_N = 1
-TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
-SOCKET_TYPE = "1"  # for HTTP requests
-THREADS = 2
-RPS = 1
-DURATION = 1
+DURATION = int(tf_cfg.cfg.get("General", "duration"))
 MHDDOS_DIR = os.path.join("tools/mhddos")
 PROXY_PATH = f"{MHDDOS_DIR}/files/proxies/http.txt"
 MHDDOS_PATH = f"{MHDDOS_DIR}/start.py"
@@ -87,18 +82,19 @@ server ${server_ip}:8000 conns_n=128;
 
         client.options = [
             f"{MHDDOS_PATH} "
-            + f"GET "
-            + f"http://{TEMPESTA_IP}:80 "
-            + f"{SOCKET_TYPE} "
-            + f"{THREADS} "
-            + f"{PROXY_PATH} "
-            + f"{RPS} "
-            + f"{DURATION}"
+            + f"--url http://{tf_cfg.cfg.get('Tempesta', 'ip')}:80 "
+            + f"--threads {tf_cfg.cfg.get('General', 'stress_threads')} "
+            + f"--conns {tf_cfg.cfg.get('General', 'concurrent_connections')} "
+            + f"--rpc {tf_cfg.cfg.get('General', 'stress_requests_count')} "
+            + f"--duration {DURATION} "
+            + f"--interface {tf_cfg.cfg.get('Server', 'aliases_interface')}"
         ]
 
         client.start()
-        client.wait_for_finish(timeout=int(DURATION) + 2)
+        self.assertTrue(client.wait_for_finish(timeout=DURATION + 2))
         client.stop()
+
+        print(client.response_msg)
 
         tempesta = self.get_tempesta()
         tempesta.get_stats()
