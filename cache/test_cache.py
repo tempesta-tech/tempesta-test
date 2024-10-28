@@ -731,7 +731,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
                 "HEAD_after_HEAD", first_method="HEAD", second_method="HEAD", should_be_cached=True
             ),
             marks.Param(
-                "GET_after_HEAD", first_method="HEAD", second_method="GET", should_be_cached=False
+                "GET_after_HEAD", first_method="HEAD", second_method="GET", should_be_cached=True
             ),
             marks.Param(
                 "POST_after_HEAD", first_method="HEAD", second_method="POST", should_be_cached=False
@@ -744,10 +744,12 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         satisfy subsequent GET and HEAD requests.
         RFC 9110 9.3.1
 
-        The response to a HEAD request is cacheable; a cache MAY use it to
-        satisfy subsequent HEAD requests
-        RFC 9110 9.3.2
+        For HEAD method Tempesta overrides HEAD with GET, sends request
+        to upstream to cache full response, but returns to client response
+        with only headers as expected for HEAD request.
         """
+        if first_method == "HEAD":
+            self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -961,8 +963,8 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         self, name, first_method, second_method, second_headers, sleep_interval
     ):
         """
-        Tempesta can save several entries in cache and use more appropriate
-        entry to satisfy the next request.
+        Tempesta can't save several entries in cache. Fresh record with the same key overrides
+        old, each HEAD request transoforms to GET during forwarding to upstream.
         """
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
@@ -1009,10 +1011,9 @@ class TestCacheMultipleMethods(tester.TempestaTest):
 
         server.set_response(second_response)
 
-        # Send second request. Tempesta FW forward request to backend server and
-        # save response in cache (for some requests we use cache-control directive
-        # to be shure that request will be forwarded to backend server). There
-        # are two cache enries now in Tempesta FW cache.
+        # Send second request. Tempesta FW forwards request to backend server and saves response in
+        # cache overriding already stored record with new fresh record. (for some requests we use
+        # cache-control directive to be shure that request will be forwarded to backend server).
         client.send_request(
             client.create_request(method=second_method, uri="/index.html", headers=second_headers),
             expected_status_code="200",
@@ -1040,13 +1041,15 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         )
         self.assertIn("age", client.last_response.headers.keys())
         self.assertEqual(len(server.requests), 2)
-        # Tempesta FW satisfy request from cache, using the most appropriate
-        # entry. When second request has GET or POST method, Tempesta FW uses
+        # Tempesta FW satisfy request from cache, using signle stored entry.
+        # When the second request has GET or POST method, Tempesta FW uses
         # it to satisfy third request, because it is the freshest cache entry.
-        # If second request has HEAD method, we can't use it response to satisfy
-        # GET request, so use first entry.
+        # Even if second request has HEAD method, we will use this response,
+        # because we have only one record per key and we always do GET request
+        # to upstream not regarding of the request method.
+        #
         self.assertEqual(
-            "Second body." if second_method != "HEAD" else "First body.", client.last_response.body
+            "Second body." if second_method != "HEAD" else "", client.last_response.body
         )
 
 
