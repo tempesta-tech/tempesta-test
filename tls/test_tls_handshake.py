@@ -3,7 +3,7 @@ Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
 
-from helpers import analyzer, remote
+from helpers import analyzer, error, remote
 from helpers.cert_generator_x509 import CertGenerator
 from test_suite import marks, tester
 
@@ -389,6 +389,12 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         "custom_cert": True,
     }
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.gen_cert("vhost1")
+        cls.gen_cert("vhost2")
+
     @staticmethod
     def gen_cert(host_name):
         workdir = tf_cfg.cfg.get("General", "workdir")
@@ -400,15 +406,8 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
-    def init(self):
-        self.gen_cert("vhost1")
-        self.gen_cert("vhost2")
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-
     def test_vhost_sni(self):
-        self.init()
+        self.start_all_services(client=False)
         vhs = TlsHandshake()
         vhs.sni = "vhost1.net"
         vhs.send_data = [TLSApplicationData(data=f"GET / HTTP/1.1\r\nHost: {vhs.sni}\r\n\r\n")]
@@ -443,7 +442,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         When a client doesn't send an ampty SNI identifier, handshake will not be established
         And ensure the sni==vhost2.net provided will route to vhost2.net
         """
-        self.init()
+        self.start_all_services(client=False)
         vhs = TlsHandshake()
         vhs.sni = ""
         vhs.host = "vhost1.net"
@@ -463,8 +462,9 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
             "Wrong certificate received for vhost1",
         )
 
+    @marks.retry_if_not_conditions
     def test_bad_host(self):
-        self.init()
+        self.start_all_services(client=False)
         sniffer = analyzer.AnalyzerTCPSegmentation(
             remote.tempesta, "Tempesta", timeout=5, ports=(443, 8000)
         )
@@ -475,6 +475,11 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.assertTrue(hs12.do_12(), "Bad Host successfully processed")
         self.assertEqual(len(hs12.hs.server_data), 0, "Got unexpected response after Errno 104")
         sniffer.stop()
+
+        # in some cases the sniffer has an empty list of packages
+        if not sniffer.packets:
+            raise error.TestConditionsAreNotCompleted(self.id())
+
         self.assertEqual(
             sniffer.packets[-1].sprintf("%TCP.flags%"), "RA", "No Connection reset recieved"
         )
