@@ -414,6 +414,21 @@ class RemoteNode(INode):
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
             raise conn_exc
 
+    def _change_perm(self, target: str, perm: Union[int, str] = 775):
+        """
+        Changes permissions recursively for a target.
+
+        Everywhere we work as a privileged user, and we may have permission problems working with files and dirs
+        using `paramiko` or particularly `sftp`.
+        Usually, created by our privileged user files and dirs have `755` permissions
+        we need to change it to `775` to have write access.
+
+        Args:
+            target (str): file or dir to change permissions
+            perm (Union[int, str]): permissions to apply
+        """
+        self.run_cmd(f"chmod -R {perm} {os.path.dirname(target)}")
+
     def run_cmd(
         self,
         cmd: str,
@@ -512,6 +527,9 @@ class RemoteNode(INode):
         if dirname != self.workdir:
             self.mkdir(dirname)
 
+        # change perm for dir, because file itself does not exist yet, we are copying it
+        self._change_perm(target=dirname)
+
         try:
             sftp = self._ssh.open_sftp()
             sfile = sftp.file(filename, "wt", -1)
@@ -535,6 +553,9 @@ class RemoteNode(INode):
 
         else:
             self._logger.debug(f"Removing `{filename}`.")
+
+            self._change_perm(target=filename)
+
             sftp = self._ssh.open_sftp()
             try:
                 sftp.unlink(filename)
@@ -597,6 +618,9 @@ class RemoteNode(INode):
         self._logger.debug(f"Copying `{file}` to a node with destination `{dest_dir}`")
         try:
             sftp = self._ssh.open_sftp()
+
+            self._change_perm(target=dest_dir)
+
             sftp.put(file, dest_dir)
             sftp.close()
         except Exception:
