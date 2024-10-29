@@ -57,7 +57,18 @@ class NetWorker:
     def change_gso(self, dev, on=True):
         self._set_state(dev, "gso", on)
 
-    def run_test_tso_gro_gso(self, client, server, test, mtu, tso, gro, gso):
+    def _get_tcp_option(self, option_name):
+        cmd = f"sysctl {option_name}"
+        out = remote.tempesta.run_cmd(cmd)
+        self.option_val = out[0].decode("utf-8").split(" = ")[-1].strip("\n")
+
+    def _set_tcp_option(self, option_name, option_val):
+        cmd = f"sysctl -w {option_name}={option_val}"
+        out = remote.tempesta.run_cmd(cmd)
+
+    def run_test_tso_gro_gso(
+        self, client, server, test, mtu, tso, gro, gso, option_name=None, option_val=None
+    ):
         try:
             # Deproxy client and server run on the same node and network
             # interface, so, regardless where the Tempesta node resides, we can
@@ -65,7 +76,7 @@ class NetWorker:
             # both the client and server connections.
             dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-        except Error as err:
+        except Exception as err:
             self.fail(err)
         try:
             self.get_tso_state(dev)
@@ -74,9 +85,15 @@ class NetWorker:
             self.change_tso(dev, tso)
             self.change_gro(dev, gro)
             self.change_gso(dev, gso)
+            if option_name and option_val:
+                self._get_tcp_option(option_name)
+                self._set_tcp_option(option_name, option_val)
 
             test(client, server)
         finally:
+            if option_name:
+                self._set_tcp_option(option_name, self.option_val)
+                self.option_val = None
             self.change_tso(dev, self.tso_state)
             self.change_gro(dev, self.gro_state)
             self.change_gso(dev, self.gro_state)
@@ -88,7 +105,9 @@ class NetWorker:
     def run_test_tso_gro_gso_enabled(self, client, server, test, mtu):
         self.run_test_tso_gro_gso(client, server, test, mtu, True, True, True)
 
-    def run_test_tso_gro_gso_def(self, client, server, test, mtu):
+    def run_test_tso_gro_gso_def(
+        self, client, server, test, mtu, option_name=None, option_val=None
+    ):
         try:
             dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
         except Exception as err:
@@ -97,7 +116,7 @@ class NetWorker:
         tso = self.get_tso_state(dev)
         gro = self.get_gro_state(dev)
         gso = self.get_gso_state(dev)
-        self.run_test_tso_gro_gso(client, server, test, mtu, tso, gro, gso)
+        self.run_test_tso_gro_gso(client, server, test, mtu, tso, gro, gso, option_name, option_val)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
