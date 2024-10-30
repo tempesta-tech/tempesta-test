@@ -11,7 +11,7 @@ __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class H2ResponsesTestCase(tester.TempestaTest):
+class TestH2Responses(tester.TempestaTest):
     clients = [
         {
             "id": "curl",
@@ -169,7 +169,7 @@ bad_response = (
 )
 
 
-class H2ResponsesPipelined(H2ResponsesPipelinedBase):
+class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
@@ -210,6 +210,7 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
 
         self.assertEqual(len(srv.requests), 3)
         for client in clients:
+            self.assertTrue(client.wait_for_response())
             self.assertEqual(client.last_response.status, "200")
 
     @marks.Parameterize.expand(
@@ -217,12 +218,12 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
             marks.Param(
                 name="first_fail",
                 response_list=[bad_response, response, response],
-                expected_response_statuses=["502"],
+                expected_response_statuses=["502", None, None],
             ),
             marks.Param(
                 name="second_fail",
                 response_list=[response, bad_response, response],
-                expected_response_statuses=["200", "502"],
+                expected_response_statuses=["200", "502", None],
             ),
             marks.Param(
                 name="third_fail",
@@ -236,7 +237,6 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
         srv = self.setup_and_start(requests_n)
         # The next connection will be not pipelined
         self.disable_deproxy_auto_parser()
-
         clients = self.get_clients()
         for client, response, i in zip(clients, response_list, list(range(1, 4))):
             srv.set_response(response)
@@ -261,7 +261,7 @@ class H2ResponsesPipelined(H2ResponsesPipelinedBase):
         for client, expected_status in zip(clients, expected_response_statuses):
             if not expected_status:
                 i = i + 1
-                self.assertTrue(srv.wait_for_requests(req_count + j))
+                self.assertTrue(srv.wait_for_requests(req_count + i))
                 srv.flush()
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client._last_response.status, "200")
