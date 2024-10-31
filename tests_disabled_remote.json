@@ -142,18 +142,6 @@
             "reason": "Disabled by test issue #56."
         },
         {
-            "name" : "t_stress.test_stress.TestCtrlFrameFloodPingFlood",
-            "reason" : "Disabled by issue #2267"
-        },
-        {
-            "name" : "t_stress.test_stress.TestCtrlFrameFloodSettingsFlood",
-            "reason" : "Disabled by issue #2267"
-        },
-        {
-            "name" : "t_stress.test_stress.TestCtrlFrameFloodRstFlood",
-            "reason" : "Disabled by issue #2267"
-        },
-        {
             "name" : "t_stress.test_stress.TlsWrkStressDocker",
             "reason" : "Disabled by issue #2266"
         }
