@@ -1440,15 +1440,16 @@ def build_deproxy_unreliable(server, name, tester):
 tester.register_backend("deproxy_unreliable", build_deproxy_unreliable)
 
 """
-Following tests just copy of its HTTP2 version, need to merge them on next
-refactoring of cache control tests.
+Following tests just copy of its HTTP2 version.
+
+TODO: need to merge them on next refactoring of cache control tests.
 """
 
 
 class TestCacheUseStaleBase(tester.TempestaTest, base=True):
     """
     Base class for testing "cache_use_stale" configuration directive
-    and "cache-use-stale" cache-control parameter.
+    and "stale-if-error" cache-control parameter.
     """
 
     clients = [
