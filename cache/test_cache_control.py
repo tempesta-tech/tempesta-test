@@ -7,6 +7,7 @@ import time
 from framework import deproxy_server
 from framework.deproxy_client import DeproxyClient
 from helpers import deproxy, tf_cfg
+from helpers.deproxy import HttpMessage
 from helpers.util import fill_template
 from test_suite import marks, tester
 
@@ -1883,3 +1884,90 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             expected_code,
             3,
         )
+
+
+class TestCacheUseStale304(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+server ${server_ip}:8000;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+cache 2;
+cache_fulfill * *;
+cache_methods GET HEAD POST;
+cache_use_stale 4* 5*;
+""",
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "",
+        },
+    ]
+
+    def test(self):
+        self.start_all_services()
+        srv = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-Length: 0\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + "\r\n"
+        )
+
+        client.send_request(
+            request=client.create_request(method="GET", uri="/page.html", headers=[]),
+            expected_status_code="200",
+        )
+
+        time.sleep(2)
+        client.send_request(
+            request=client.create_request(
+                method="GET",
+                uri="/page.html",
+                headers=[
+                    ("If-Modified-Since", HttpMessage.date_time_string()),
+                    ("Cache-control", "max-age=1"),
+                ],
+            ),
+            expected_status_code="304",
+        )
+
+        self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
+
+        client.send_request(
+            request=client.create_request(
+                method="GET",
+                uri="/page.html",
+                headers=[
+                    ("If-Modified-Since", HttpMessage.date_time_string()),
+                    ("Cache-control", "max-age=1"),
+                ],
+            ),
+            expected_status_code="304",
+        )
+
+        self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
