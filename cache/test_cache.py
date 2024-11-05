@@ -10,7 +10,7 @@ from http import HTTPStatus
 from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import deproxy
+from helpers import deproxy, error
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from test_suite import checks_for_tests as checks
@@ -2007,6 +2007,62 @@ class TestCacheClean(tester.TempestaTest):
 
         tempesta.get_stats()
         self.assertEqual(tempesta.stats.cache_objects, 2)
+
+
+class TestCacheUseStaleCfg(tester.TempestaTest):
+    """
+    Class for testing "cache_use_stale" configuration.
+    """
+
+    tempesta = {
+        "config": """
+listen 443 proto=h2;
+
+srv_group default {
+    server ${server_ip}:8000;
+}
+tls_match_any_server_name;
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+}
+cache 2;
+cache_fulfill * *;
+"""
+    }
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="dupl",
+                cfg="cache_use_stale 5*;cache_use_stale 4*;\n",
+                expected_msg="duplicate entry: 'cache_use_stale'",
+            ),
+            marks.Param(
+                name="wrong_mask",
+                cfg="cache_use_stale 3*;\n",
+                expected_msg='cache_use_stale Unsupported argument "3\*"',
+            ),
+            marks.Param(
+                name="wrong_code",
+                cfg="cache_use_stale 200;\n",
+                expected_msg="Please specify status code above than 399",
+            ),
+        ]
+    )
+    def test_cache_use_stale_config(self, name, cfg, expected_msg):
+        """
+        Test misconfiguration of `cache_use_stale` directive.
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(tempesta.config.defconfig + cfg)
+        self.oops_ignore.append("ERROR")
+
+        with self.assertRaises(error.ProcessBadExitStatusException):
+            self.start_tempesta()
+
+        self.assertTrue(self.oops.find(expected_msg))
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
