@@ -1742,7 +1742,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             ),
         ]
     )
-    def test_use_stale_if_error_derective(self, name, req_headers, resp_headers):
+    def test_use_stale_if_error_param(self, name, req_headers, resp_headers):
         """
         In this tests we don't use "cache_use_stale" configuration directive.
         Here we test "stale-if-error" cache-control parameter. See RFC 5861.
@@ -1841,3 +1841,45 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         # expect non stale response
         resp_age = int(client.last_response.headers.get("age", -1))
         self.assertTrue(resp_age == -1)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="req",
+                resp_headers=[],
+                req_headers=[("cache-control", "stale-if-error=20, stale-if-error=19")],
+            ),
+            marks.Param(
+                name="resp",
+                resp_headers=[("cache-control", "stale-if-error=20, stale-if-error=19")],
+                req_headers=[],
+            ),
+        ]
+    )
+    def test_use_stale_if_error_duplicated(self, name, req_headers, resp_headers):
+        self.disable_deproxy_auto_parser()
+        server = self.get_server("deproxy")
+        self.start_all_services(False)
+
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=[("Content-Length", "0")] + resp_headers,
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+
+        # Tempesta blocks duplicated cache-control params only for responses
+        expected_code = "502" if name == "resp" else "200"
+
+        client = self.get_client("deproxy")
+        client.start()
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=req_headers,
+            ),
+            expected_code,
+            3,
+        )
