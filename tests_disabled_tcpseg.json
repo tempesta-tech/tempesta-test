@@ -86,11 +86,11 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "http2_general.test_h2_responses.H2ResponsesPipelined",
+            "name": "http2_general.test_h2_responses.TestH2ResponsesPipelined",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "http2_general.test_h2_responses.H2HmResponsesPipelined",
+            "name": "t_health_monitoring.test_health_monitor.H2HmResponsesPipelined",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
