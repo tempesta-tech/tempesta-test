@@ -358,6 +358,7 @@ class RequestOnlyIfCached504(TestCacheControl, SingleTest):
     response_headers = {"Cache-control": "max-age=2"}
     sleep_interval = 2.5
     second_request_headers = {"Cache-control": "max-age=1, only-if-cached"}
+    cached_headers = {"Cache-control": None}
     cached_status = "504"
     should_be_cached = True
 
