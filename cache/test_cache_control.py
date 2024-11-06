@@ -106,31 +106,31 @@ class TestCacheControl(tester.TempestaTest, base=True):
         return client.last_response
 
     def check_response_headers(self, response):
-        for header in self.response_headers:
-            actual_val = response.headers.get(header, None)
-            if actual_val is None:
+        for name, value in self.response_headers.items():
+            actual_val = response.headers.get(name, None)
+            if value is None:
                 self.assertIsNone(
                     actual_val,
-                    "{0} header is missing in the response".format(header),
+                    "{0} header is present in the response".format(name),
                 )
             else:
                 self.assertIsNotNone(
                     actual_val,
-                    "{0} header is present in the response".format(header),
+                    "{0} header is missing in the response".format(name),
                 )
 
     def check_cached_response_headers(self, response):
-        for header in self.cached_headers:
-            actual_val = response.headers.get(header, None)
-            if actual_val is None:
+        for name, value in self.cached_headers.items():
+            actual_val = response.headers.get(name, None)
+            if value is None:
                 self.assertIsNone(
                     actual_val,
-                    "{0} header is missing in the cached response".format(header),
+                    "{0} header is present in the cached response".format(name),
                 )
             else:
                 self.assertIsNotNone(
                     actual_val,
-                    "{0} header is present in the cached response".format(header),
+                    "{0} header is missing in the cached response".format(name),
                 )
 
     def _test(self):
