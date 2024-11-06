@@ -377,9 +377,9 @@ tls_match_any_server_name;
             marks.Param(name="raw", header_name="hdr", val1="aaa", val2="bbb"),
             marks.Param(
                 name="regular",
-                header_name="set-cookie",
-                val1="aaa=bbb",
-                val2="ccc=ddd",
+                header_name="content-encoding",
+                val1="aaa",
+                val2="bbb",
             ),
         ]
     )
@@ -1125,16 +1125,16 @@ cache 2;
     # cache_resp_hdr_del --------------------------------------------------------------------------
     def test_cache_bypass_and_hdr_del(self):
         self.base_scenario(
-            tempesta_config="cache_bypass * *;\ncache_resp_hdr_del set-cookie remove-me-2;\n",
-            response_headers=[("set-cookie", "cookie=2; a=b"), ("remove-me-2", "")],
-            expected_cached_headers=[("set-cookie", "cookie=2; a=b"), ("remove-me-2", "")],
+            tempesta_config="cache_bypass * *;\ncache_resp_hdr_del content-encoding remove-me-2;\n",
+            response_headers=[("content-encoding", "gzip"), ("remove-me-2", "")],
+            expected_cached_headers=[("content-encoding", "gzip"), ("remove-me-2", "")],
             should_be_cached=False,
         )
 
     def test_cache_fulfill_and_hdr_del(self):
         self.base_scenario(
-            tempesta_config="cache_fulfill * *;\ncache_resp_hdr_del set-cookie remove-me-2;\n",
-            response_headers=[("set-cookie", "cookie=2; a=b"), ("remove-me-2", "")],
+            tempesta_config="cache_fulfill * *;\ncache_resp_hdr_del content-encoding remove-me-2;\n",
+            response_headers=[("content-encoding", "gzip"), ("remove-me-2", "")],
             expected_cached_headers=[],
             should_be_cached=True,
         )

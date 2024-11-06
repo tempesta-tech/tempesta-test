@@ -806,67 +806,45 @@ class TestH2CacheControl(TestH2CacheBase):
         )
 
     # COOKIE --------------------------------------------------------------------------------------
-    def test_cookie_from_response_in_second_request(self):
+    def test_set_cookie_no_cached(self):
         """
-        Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-        RFC 9111 7.3
+        Don't cache set-cookie header by security reasons. It may lead to sharing sensetive
+        information.
         """
-        self.base_scenario(
-            response_headers=[("set-cookie", "session=1")],
-            request_headers=[],
-            second_request_headers=[("cookie", "session=1")],
-            expected_cached_status="200",
-            sleep_interval=0,
-            should_be_cached=True,
+        self.start_all_services()
+        self.disable_deproxy_auto_parser()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=[("Content-Length", "0"), ("set-cookie", "session=1")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
         )
 
-    def test_set_cookie_and_no_cache_in_response(self):
-        """
-        Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-        Servers that wish to control caching of these responses are encouraged to emit
-        appropriate Cache-Control response header fields.
-        RFC 9111 7.3
-        """
-        self.base_scenario(
-            response_headers=[("set-cookie", "session=1"), ("cache-control", "no-cache")],
-            request_headers=[],
-            second_request_headers=[("cookie", "session=1")],
-            expected_cached_status="200",
-            sleep_interval=0,
-            should_be_cached=False,
+        client = self.get_client("deproxy")
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[],
+                uri="/",
+            ),
+            "200",
         )
 
-    def test_set_cookie_and_no_store_in_response(self):
-        """
-        Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-        Servers that wish to control caching of these responses are encouraged to emit
-        appropriate Cache-Control response header fields.
-        RFC 9111 7.3
-        """
-        self.base_scenario(
-            response_headers=[("set-cookie", "session=1"), ("cache-control", "no-store")],
-            request_headers=[],
-            second_request_headers=[("cookie", "session=1")],
-            expected_cached_status="200",
-            sleep_interval=0,
-            should_be_cached=False,
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[],
+                uri="/",
+            ),
+            "200",
         )
 
-    def test_set_cookie_and_private_in_response(self):
-        """
-        Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-        Servers that wish to control caching of these responses are encouraged to emit
-        appropriate Cache-Control response header fields.
-        RFC 9111 7.3
-        """
-        self.base_scenario(
-            response_headers=[("set-cookie", "session=1"), ("cache-control", "private")],
-            request_headers=[],
-            second_request_headers=[("cookie", "session=1")],
-            expected_cached_status="200",
-            sleep_interval=0,
-            should_be_cached=False,
-        )
+        self.assertEqual(2, len(client.responses))
+        self.assertEqual(1, len(server.requests))
+        self.assertIsNone(client.last_response.headers.get("set-cookie"))
 
 
 class TestH2CacheControlIgnore(tester.TempestaTest):

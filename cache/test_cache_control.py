@@ -216,19 +216,19 @@ class SingleTest(abc.ABC):
 class CacheHdrDelBypass(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_bypass * *;
-        cache_resp_hdr_del set-cookie Remove-me-2;
+        cache_resp_hdr_del content-encoding Remove-me-2;
         """
-    response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": ""}
+    response_headers = {"content-encoding": "gzip", "Remove-me-2": ""}
     should_be_cached = False
 
 
 class CacheHdrDelCached(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
-        cache_resp_hdr_del set-cookie Remove-me-2;
+        cache_resp_hdr_del content-encoding Remove-me-2;
         """
-    response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": ""}
-    cached_headers = {"Set-Cookie": None, "Remove-me-2": None}
+    response_headers = {"content-encoding": "gzip", "Remove-me-2": ""}
+    cached_headers = {"content-encoding": None, "Remove-me-2": None}
     should_be_cached = True
 
     def test(self):
@@ -239,10 +239,10 @@ class CacheHdrDelCached(TestCacheControl, SingleTest):
 class CacheHdrDelCached2(TestCacheControl, SingleTest):
     tempesta_config = """
         cache_fulfill * *;
-        cache_resp_hdr_del set-cookie Remove-me-2;
+        cache_resp_hdr_del content-encoding Remove-me-2;
         """
-    response_headers = {"Set-Cookie": "cookie=2; a=b", "Remove-me-2": "2"}
-    cached_headers = {"Set-Cookie": None, "Remove-me-2": None}
+    response_headers = {"content-encoding": "gzip", "Remove-me-2": "2"}
+    cached_headers = {"content-encoding": None, "Remove-me-2": None}
     should_be_cached = True
 
     def test(self):
@@ -819,12 +819,12 @@ class CCArgNoCacheCached3(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        "Cache-Control": 'public, no-cache="Set-Cookie", must-revalidate, max-age=120',
-        "Set-Cookie": "some=cookie",
+        "Cache-Control": 'public, no-cache="content-encoding", must-revalidate, max-age=120',
+        "content-encoding": "gzip",
     }
     cached_headers = {
-        "Cache-Control": 'public, no-cache="Set-Cookie", must-revalidate, max-age=120',
-        "Set-Cookie": None,
+        "Cache-Control": 'public, no-cache="content-encoding", must-revalidate, max-age=120',
+        "content-encoding": None,
     }
     should_be_cached = True
 
@@ -840,9 +840,9 @@ class CCArgPrivateBypass(TestCacheControl, SingleTest):
         cache_bypass * *;
         """
     response_headers = {
-        "Set-cookie": "some=cookie",
+        "content-encoding": "gzip",
         "remove-me-2": "",
-        "Cache-control": 'private="set-cookie"',
+        "Cache-control": 'private="content-encoding"',
     }
     should_be_cached = False
 
@@ -852,14 +852,14 @@ class CCArgPrivateCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        "Set-cookie": "some=cookie",
+        "content-encoding": "gzip",
         "remove-me-2": "",
-        "Cache-control": 'private="set-cookie"',
+        "Cache-control": 'private="content-encoding"',
     }
     cached_headers = {
-        "Set-cookie": None,
+        "content-encoding": None,
         "remove-me-2": "",
-        "Cache-control": 'private="set-cookie"',
+        "Cache-control": 'private="content-encoding"',
     }
     should_be_cached = True
 
@@ -873,14 +873,14 @@ class CCArgPrivateCached2(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        "Set-cookie": "some=cookie",
+        "content-encoding": "gzip",
         "remove-me-2": "=",
-        "Cache-control": 'private="set-cookie"',
+        "Cache-control": 'private="content-encoding"',
     }
     cached_headers = {
-        "Set-cookie": None,
+        "content-encoding": None,
         "remove-me-2": "=",
-        "Cache-control": 'private="set-cookie"',
+        "Cache-control": 'private="content-encoding"',
     }
     should_be_cached = True
 
@@ -895,14 +895,14 @@ class CCArgBothNoCacheCached(TestCacheControl, SingleTest):
         cache_fulfill * *;
         """
     response_headers = {
-        "Set-cookie": "some=cookie",
+        "content-encoding": "gzip",
         "remove-me-2": '"',
-        "Cache-control": 'no-cache="set-cookie, Remove-me-2"',
+        "Cache-control": 'no-cache="content-encoding, Remove-me-2"',
     }
     cached_headers = {
-        "Set-cookie": None,
+        "content-encoding": None,
         "remove-me-2": None,
-        "Cache-control": 'no-cache="set-cookie, Remove-me-2"',
+        "Cache-control": 'no-cache="content-encoding, Remove-me-2"',
     }
     should_be_cached = True
 
@@ -1282,8 +1282,7 @@ class StoringResponsesToAuthenticatedRequestsSMaxAgeCache(TestCacheControl, Sing
 
 class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTest):
     """
-    Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-    RFC 9111 7.3
+    Don't cache set-cookie header by security reasons. It may lead to sharing sensetive information.
     """
 
     tempesta_config = """
@@ -1293,110 +1292,8 @@ class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTe
     response_headers = {"Set-Cookie": "session=1"}
     request_headers = {}
     second_request_headers = {}
+    cached_headers = {"Set-Cookie": None}
 
-
-class StoringResponsesWithSetCookieHeaderNoCacheCache(TestCacheControl, SingleTest):
-    """
-    Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-    Servers that wish to control caching of these responses are encouraged to emit
-    appropriate Cache-Control response header fields.
-    RFC 9111 7.3
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-cache"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = False
-
-
-class StoringResponsesWithSetCookieHeaderNoStoreCache(TestCacheControl, SingleTest):
-    """
-    Note that the Set-Cookie response header field [COOKIE] does not inhibit caching.
-    Servers that wish to control caching of these responses are encouraged to emit
-    appropriate Cache-Control response header fields.
-    RFC 9111 7.3
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-store"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = False
-
-
-class StoringResponsesWithSetCookieHeaderNoTransformCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with no-transform
-    cache-control and set-cookie headers, and check that second request wasn't serviced
-    from the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "no-transform"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = True
-
-
-class StoringResponsesWithSetCookieHeaderPrivateCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with private cache-control
-    and set-cookie headers, and check that second request wasn't serviced from the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "private"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = False
-
-
-class StoringResponsesWithSetCookieHeaderProxyRevalidateCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with proxy-revalidate
-    cache-control and set-cookie headers, and check that second request was serviced
-    from the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "proxy-revalidate, max-age=1"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = True
-    sleep_interval = None
-
-
-class StoringResponsesWithSetCookieHeaderMaxAgeCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with max-age cache-control
-    and set-cookie headers, and check that second request wasn't serviced from the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "max-age=5"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = True
-
-
-class StoringResponsesWithSetCookieHeaderSMaxAgeCache(TestCacheControl, SingleTest):
-    """
-    This test sends two requests to the same resource, which responds with s-maxage
-    cache-control and set-cookie headers, and check that second request was serviced
-    from the cache.
-    """
-
-    tempesta_config = """
-        cache_fulfill * *;
-        """
-    response_headers = {"Set-Cookie": "session=1", "Cache-control": "s-maxage=1"}
-    second_request_headers = {"Cookie": response_headers["Set-Cookie"]}
-    should_be_cached = True
-    sleep_interval = None
+    def test(self):
+        self.disable_deproxy_auto_parser()
+        super().test()
