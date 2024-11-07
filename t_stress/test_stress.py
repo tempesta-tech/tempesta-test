@@ -767,6 +767,7 @@ class TestContinuationFlood(tester.TempestaTest):
                     "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type ping_frame -frame_count 100000",
                 },
             ],
+            "timeout": 120,
         },
         {
             "name": "SettingsFlood",
@@ -779,18 +780,46 @@ class TestContinuationFlood(tester.TempestaTest):
                     "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type settings_frame -frame_count 100000",
                 },
             ],
+            "timeout": 120,
         },
         {
-            "name": "RstFlood",
+            "name": "RstFloodByHeaders",
             "clients": [
                 {
                     "id": "ctrl_frames_flood",
                     "type": "external",
                     "binary": "ctrl_frames_flood",
                     "ssl": True,
-                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -frame_count 100000",
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type headers -frame_count 100000",
                 },
             ],
+            "timeout": 120,
+        },
+        {
+            "name": "RstFloodByWndUpdate",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type window_update -frame_count 1000000",
+                },
+            ],
+            "timeout": 120,
+        },
+        {
+            "name": "RstFloodByPriority",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type priority -frame_count 1000000",
+                },
+            ],
+            "timeout": 240,
         },
     ]
 )
@@ -834,7 +863,7 @@ class TestCtrlFrameFlood(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(client)
+        self.wait_while_busy(client, timeout=self.timeout)
         client.stop()
 
         tempesta.get_stats()
