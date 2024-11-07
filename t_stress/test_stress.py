@@ -3,6 +3,7 @@ HTTP Stress tests - load Tempesta FW with multiple connections.
 """
 
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -790,6 +791,15 @@ class TestContinuationFlood(tester.TempestaTest):
         self.assertEqual(0, client.returncode)
 
 
+DEPROXY_CLIENT_H2 = {
+    "id": "deproxy",
+    "type": "deproxy_h2",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
+}
+
+
 @marks.parameterize_class(
     [
         {
@@ -802,7 +812,9 @@ class TestContinuationFlood(tester.TempestaTest):
                     "ssl": True,
                     "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type ping_frame -frame_count 100000",
                 },
+                DEPROXY_CLIENT_H2,
             ],
+            "timeout": 120,
         },
         {
             "name": "SettingsFlood",
@@ -814,25 +826,74 @@ class TestContinuationFlood(tester.TempestaTest):
                     "ssl": True,
                     "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type settings_frame -frame_count 100000",
                 },
+                DEPROXY_CLIENT_H2,
             ],
+            "timeout": 120,
         },
         {
-            "name": "RstFlood",
+            "name": "WndUpdateFlood",
             "clients": [
                 {
                     "id": "ctrl_frames_flood",
                     "type": "external",
                     "binary": "ctrl_frames_flood",
                     "ssl": True,
-                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -frame_count 100000",
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type window_update -frame_count 100000",
                 },
+                DEPROXY_CLIENT_H2,
             ],
+            "timeout": 120,
+        },
+        {
+            "name": "RstFloodByHeaders",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type headers -frame_count 100000",
+                },
+                DEPROXY_CLIENT_H2,
+            ],
+            "timeout": 120,
+        },
+        {
+            "name": "RstFloodByWndUpdate",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type window_update -frame_count 1000000",
+                },
+                DEPROXY_CLIENT_H2,
+            ],
+            "timeout": 120,
+        },
+        {
+            "name": "RstFloodByPriority",
+            "clients": [
+                {
+                    "id": "ctrl_frames_flood",
+                    "type": "external",
+                    "binary": "ctrl_frames_flood",
+                    "ssl": True,
+                    "cmd_args": "-address ${tempesta_ip}:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type priority -frame_count 1000000",
+                },
+                DEPROXY_CLIENT_H2,
+            ],
+            "timeout": 240,
         },
     ]
 )
-class TestCtrlFrameFlood(tester.TempestaTest):
+class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
     """
-    Test stability against comtrol frames frame flood.
+    Test ability to handle requests from the client
+    under control frames frame flood.
+    Also check that there is no kernel BUGS and WARNINGs
+    under flood.
     """
 
     backends = [
@@ -858,20 +919,45 @@ class TestCtrlFrameFlood(tester.TempestaTest):
     """
     }
 
+    stop_flag = False
+
     def setUp(self):
         self.enable_memleak_check()
         super().setUp()
 
+    def __flood(self):
+        client = self.get_client("ctrl_frames_flood")
+        client.start()
+        self.wait_while_busy(client, timeout=self.timeout)
+        client.stop()
+        self.stop_flag = True
+
     @dmesg.limited_rate_on_tempesta_node
     def test(self):
-        client = self.get_client("ctrl_frames_flood")
+        self.start_all_services(client=False)
         tempesta = self.get_tempesta()
 
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.wait_while_busy(client, timeout=120)
-        client.stop()
+        client = self.get_client("deproxy")
+        client.start()
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta foes not returns SETTINGS frame with ACK flag.",
+        )
+
+        request = client.create_request(method="GET", headers=[])
+
+        t = threading.Thread(target=self.__flood)
+        t.start()
+
+        for _ in range(1, 20):
+            client.send_request(request, "200")
+        while not self.stop_flag:
+            pass
+        self.stop_flag = False
 
         tempesta.get_stats()
         """
@@ -880,7 +966,7 @@ class TestCtrlFrameFlood(tester.TempestaTest):
         established.
         """
         self.assertTrue(
-            tempesta.stats.wq_full > 0 or tempesta.stats.cl_established_connections == 100
+            tempesta.stats.wq_full > 0 or tempesta.stats.cl_established_connections == 101
         )
 
 
