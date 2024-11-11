@@ -145,7 +145,7 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
 
     def _stop_container(self):
         tf_cfg.dbg(3, f"\tlxc server: stop {self.id}")
-        self.node.run_cmd(self._construct_cmd(["stop", self.container_name]))
+        self.node.run_cmd(self._construct_cmd(["stop", self.container_name]), timeout=30)
         if self.make_snapshot:
             self._restore_pretest_snapshot()
 

@@ -201,9 +201,8 @@ class DeproxyTestH2(tester.TempestaTest):
         """Tests for `wait_for_headers_frame` method."""
         self.start_all_services()
 
-        # Response body should be large so that
-        # test has time between END_HEADERS and END_STREAM flag.
-        body_size = 1024 * 1024
+        # Response body should be large then default window size 64KB
+        body_size = 1024 * 100
         server = self.get_server("deproxy")
         # Server return response with headers > 16KB so TempestaFW MUST separate them to
         # HEADERS and CONTINUATION frames.
@@ -215,11 +214,10 @@ class DeproxyTestH2(tester.TempestaTest):
         )
 
         client = self.get_client("deproxy")
+        # disable sending WINDOW frames from client
+        client.auto_flow_control = False
         client.make_request(client.create_request(method="GET", headers=[], uri="/large.txt"))
         self.assertTrue(client.wait_for_headers_frame(stream_id=1))
-
-        # block call to `handle_read` method. we should make this for stability of testing
-        client.readable = lambda: False
         self.assertIsNotNone(
             client.active_responses.get(1, None),
             "`wait_for_headers_frame` returned True, "
@@ -232,8 +230,7 @@ class DeproxyTestH2(tester.TempestaTest):
             "Probably you should increase a response body for this test.",
         )
 
-        # enable call to `handle_read` method to receive response body and END_STREAM flag.
-        client.readable = lambda: True
+        client.increment_flow_control_window(stream_id=1, flow_controlled_length=body_size)
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
 
