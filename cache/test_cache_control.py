@@ -1926,6 +1926,9 @@ cache_use_stale 4* 5*;
     ]
 
     def test(self):
+        """
+        Test ensures Tempesta doesn't return stale response with 304.
+        """
         self.start_all_services()
         srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
@@ -1950,13 +1953,14 @@ cache_use_stale 4* 5*;
                 uri="/page.html",
                 headers=[
                     ("If-Modified-Since", HttpMessage.date_time_string()),
-                    ("Cache-control", "max-age=1"),
+                    ("Cache-control", "max-age=1, stale-if-error=10"),
                 ],
             ),
-            expected_status_code="304",
+            expected_status_code="200",
         )
 
-        self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
+        # Response is stale, 304 not expected
+        self.assertEqual(len(srv.requests), 2, "Server has received unexpected number of requests.")
 
         client.send_request(
             request=client.create_request(
@@ -1964,10 +1968,9 @@ cache_use_stale 4* 5*;
                 uri="/page.html",
                 headers=[
                     ("If-Modified-Since", HttpMessage.date_time_string()),
-                    ("Cache-control", "max-age=1"),
                 ],
             ),
             expected_status_code="304",
         )
 
-        self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
+        self.assertEqual(len(srv.requests), 2, "Server has received unexpected number of requests.")
