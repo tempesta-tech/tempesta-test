@@ -470,6 +470,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         ]
     )
     def test_use_stale_if_error_duplicated(self, name, req_headers, resp_headers, expected_code):
+        """
+        Test duplicated values for stale-if-error parameter of cache-control.
+        For now Tempesta blocks duplicated stale-if-error only for responses.
+        """
         self.disable_deproxy_auto_parser()
         server = self.get_server("deproxy")
         self.start_all_services(False)
