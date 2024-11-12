@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from h2.connection import ConnectionInputs
 from hyperframe.frame import HeadersFrame, PingFrame, WindowUpdateFrame
 
@@ -534,3 +536,143 @@ class TestFailFunctionBlockAction(TestFailFunctionBase):
             self.assertFalse(client.last_response)
 
         self.teardown_fail_function_test()
+
+
+class TestFailFunctionStaleFwd(TestFailFunctionBase):
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            server ${server_ip}:8000;
+
+            frang_limits {
+                http_strict_host_checking false;
+            }
+
+            cache 2;
+            cache_fulfill * *;
+            cache_use_stale 4* 5*;
+    """
+    }
+
+    def tearDown(self):
+        self.teardown_fail_function_test()
+        tester.TempestaTest.tearDown(self)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="tfw_http_resp_do_fwd_stale_http",
+                func_name="tfw_cache_build_resp_stale",
+                client="deproxy",
+                resp2_headers=[],
+                hang_on_req_num=0,
+                expected_code="502",
+            ),
+            marks.Param(
+                name="tfw_http_resp_do_fwd_stale_h2",
+                func_name="tfw_cache_build_resp_stale",
+                client="deproxy_h2",
+                resp2_headers=[],
+                hang_on_req_num=0,
+                expected_code="502",
+            ),
+            marks.Param(
+                name="tfw_http_resp_do_fwd_stale_invalid_resp_http",
+                func_name="tfw_cache_build_resp_stale",
+                client="deproxy",
+                resp2_headers=[("hd>r", "v")],
+                hang_on_req_num=0,
+                expected_code="502",
+            ),
+            marks.Param(
+                name="tfw_http_resp_do_fwd_stale_invalid_resp_h2",
+                func_name="tfw_cache_build_resp_stale",
+                client="deproxy_h2",
+                resp2_headers=[("hd>r", "v")],
+                hang_on_req_num=0,
+                expected_code="502",
+            ),
+            marks.Param(
+                name="tfw_http_resp_do_fwd_stale_noresp_http",
+                func_name="tfw_cache_build_resp_stale",
+                client="deproxy",
+                resp2_headers=[],
+                hang_on_req_num=2,
+                expected_code="504",
+            ),
+            marks.Param(
+                name="tfw_http_resp_do_fwd_stale_noresp_h2",
+                func_name="tfw_cache_build_resp_stale",
+                client="deproxy_h2",
+                resp2_headers=[],
+                hang_on_req_num=2,
+                expected_code="504",
+            ),
+        ]
+    )
+    def test(
+        self,
+        name,
+        func_name,
+        client,
+        resp2_headers,
+        hang_on_req_num,
+        expected_code,
+    ):
+        """
+        Test the failure of sending a stale response. In this case we expect origin error code.
+        """
+        server = self.get_server("deproxy")
+        server.hang_on_req_num = hang_on_req_num
+        self.start_all_services()
+
+        self.setup_fail_function_test(func_name, -1, 0)
+
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=[("Content-Length", "0"), ("cache-control", "max-age=1")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[],
+            ),
+            "200",
+            3,
+        )
+
+        # Wait while response become stale
+        time.sleep(3)
+
+        server.set_response(
+            deproxy.Response.create(
+                status="502",
+                headers=[("Content-Length", "0")] + resp2_headers,
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[],
+            ),
+            expected_code,
+            3,
+        )
+
+        # expect not cached response
+        self.assertIsNone(client.last_response.headers.get("age", None), None)
