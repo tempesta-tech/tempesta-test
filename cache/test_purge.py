@@ -134,78 +134,6 @@ cache_methods GET;
         self.assertFalse(client.conn_is_closed)
 
 
-class TestPurgeBase(TempestaTest):
-    tempesta_template = {
-        "config": """
-listen 80;
-frang_limits {
-    http_strict_host_checking false;
-    http_methods GET PURGE HEAD;
-    }
-server ${server_ip}:8000;
-
-vhost default {
-    proxy_pass default;
-}
-
-cache %(cache_val)s;
-cache_fulfill * *;
-cache_methods GET HEAD;
-cache_purge;
-cache_purge_acl ${client_ip};
-cache_resp_hdr_del set-cookie;
-
-frang_limits {
-  http_methods GET PURGE;
-}
-""",
-    }
-
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": (
-                "HTTP/1.1 200 OK\r\n"
-                + "Connection: keep-alive\r\n"
-                + "Content-Length: 13\r\n"
-                + "Content-Type: text/html\r\n"
-                + "Server: Deproxy Server\r\n"
-                + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
-                + f"Date: {HttpMessage.date_time_string()}\r\n"
-                + "\r\n"
-                + "<html></html>"
-            ),
-        },
-    ]
-
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
-
-    request_template = (
-        "{0} /page.html HTTP/1.1\r\n"
-        + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
-        + "Connection: keep-alive\r\n"
-        + "Accept: */*\r\n"
-        + "\r\n"
-    )
-
-    def set_cache_val(self, cache_val):
-        self.tempesta["config"] = self.tempesta_template["config"] % {
-            "cache_val": cache_val,
-        }
-        TempestaTest.setUp(self)
-        self.start_all_services()
-
-
 class TestPurgeInvalidConfig(TempestaTest):
     tempesta = {
         "config": """
@@ -252,14 +180,84 @@ frang_limits {
     def test_wrong_config(self, name, config):
         self.__update_tempesta_config(config)
         with self.assertRaises(
-            expected_exception=error.ProcessBadExitStatusException, msg="TempestaFW reloads with wrong config"
+            expected_exception=error.ProcessBadExitStatusException,
+            msg="TempestaFW reloads with wrong config",
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().start()
 
 
-class TestPurge(TestPurgeBase):
+@marks.parameterize_class(
+    [
+        {"name": "Invalidate", "purge_type": "invalidate"},
+        {"name": "Immediate", "purge_type": "immediate"},
+    ]
+)
+class TestPurge(TempestaTest):
     """This class contains checks for PURGE method operation."""
+
+    tempesta_template = {
+        "config": """
+listen 80;
+frang_limits {
+    http_strict_host_checking false;
+    http_methods GET PURGE HEAD;
+    }
+server ${server_ip}:8000;
+
+vhost default {
+    proxy_pass default;
+}
+
+cache 2;
+cache_fulfill * *;
+cache_methods GET HEAD;
+cache_purge %(purge_type)s;
+cache_purge_acl ${client_ip};
+cache_resp_hdr_del set-cookie;
+
+frang_limits {
+  http_methods GET PURGE;
+}
+""",
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + "Connection: keep-alive\r\n"
+                + "Content-Length: 13\r\n"
+                + "Content-Type: text/html\r\n"
+                + "Server: Deproxy Server\r\n"
+                + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "\r\n"
+                + "<html></html>"
+            ),
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    request_template = (
+        "{0} /page.html HTTP/1.1\r\n"
+        + "Host: {0}\r\n".format(tf_cfg.cfg.get("Client", "hostname"))
+        + "Connection: keep-alive\r\n"
+        + "Accept: */*\r\n"
+        + "\r\n"
+    )
 
     request_template_x_tempesta_cache = (
         "{0} /page.html HTTP/1.1\r\n"
@@ -271,7 +269,10 @@ class TestPurge(TestPurgeBase):
     )
 
     def setUp(self):
-        self.set_cache_val(2)
+        self.tempesta["config"] = self.tempesta_template["config"] % {
+            "purge_type": self.purge_type,
+        }
+        TempestaTest.setUp(self)
 
     def test_purge(self):
         """
@@ -627,31 +628,6 @@ class TestPurge(TestPurgeBase):
             cl_msg_served_from_cache=1,
         )
         self.assertEqual(len(srv.requests), 4, "Server has lost requests.")
-
-
-class TestPurgeImmediate(TestPurge):
-    tempesta = {
-        "config": """
-listen 80;
-
-server ${server_ip}:8000;
-
-vhost default {
-    proxy_pass default;
-}
-
-cache 2;
-cache_fulfill * *;
-cache_methods GET HEAD;
-cache_purge immediate;
-cache_purge_acl ${client_ip};
-cache_resp_hdr_del set-cookie;
-
-frang_limits {
-  http_methods GET PURGE;
-}
-""",
-    }
 
 
 class TestPurgeGet(TempestaTest):
