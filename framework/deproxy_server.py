@@ -150,6 +150,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         keep_original_data: bool = False,
         drop_conn_when_receiving_data: bool = False,
         sleep_when_receiving_data: float = 0,
+        hang_on_req_num: int = 0,
         pipelined: int = 0,
     ):
         # Initialize the base `dispatcher`
@@ -167,6 +168,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.keep_original_data = keep_original_data
         self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
         self.sleep_when_receiving_data = sleep_when_receiving_data
+        self.hang_on_req_num = hang_on_req_num
         self._port_checker = port_checks.FreePortsChecker()
         self._pipelined = pipelined
 
@@ -374,6 +376,14 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             connection._sleep_when_receiving_data = sleep
 
     @property
+    def hang_on_req_num(self) -> int:
+        return self._hang_on_req_num
+
+    @hang_on_req_num.setter
+    def hang_on_req_num(self, hang_on_req_num: int) -> None:
+        self._hang_on_req_num = hang_on_req_num
+
+    @property
     def pipelined(self) -> int:
         return self._pipelined
 
@@ -388,6 +398,11 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
     def receive_request(self, request: deproxy.Request) -> (bytes, bool):
         self._requests.append(request)
         self._last_request = request
+        req_num = len(self.requests)
+
+        # Don't send response to this request w/o disconnect
+        if self.hang_on_req_num > 0 and self.hang_on_req_num <= req_num:
+            return "", True
 
         if self._deproxy_auto_parser.parsing:
             self._deproxy_auto_parser.check_expected_request(self.last_request)
@@ -423,7 +438,9 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             return super().bind(address)
         # When we cannot bind an address, adding more details
         except OSError as os_exc:
-            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            os_err_msg = (
+                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            )
             tf_cfg.dbg(6, os_err_msg)
             raise OSError(os_err_msg) from os_exc
 
