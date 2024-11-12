@@ -369,8 +369,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         server responds with 200 status code. Send few request, upstream responds
         with "500", "502", "503", "504" status-codes, therefore Tempesta responds
         with 200 stale responses from cache, because stale-if-error is specified
-        and time is not expired. Wait while time specified in stale-if-eror will
-        expire, send another request receive non stale response with 504 status code.
+        and time is not expired.
         """
         resp_codes = ["500", "502", "503", "504"]
         server = self.get_server("deproxy")
@@ -437,8 +436,64 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             self.assertGreaterEqual(int(client.last_response.headers.get("age", -1)), 0)
             self.assertEqual(client.last_response.headers.get("warning"), "110 - Response is stale")
 
-        # wait more than stale-if-error time
-        time.sleep(21)
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="req", resp_headers=[], req_headers=[("cache-control", "stale-if-error=5")]
+            ),
+            marks.Param(
+                name="resp", resp_headers=[("cache-control", "stale-if-error=5")], req_headers=[]
+            ),
+        ]
+    )
+    def test_use_stale_then_fresh(self, name, req_headers, resp_headers):
+        """
+        In this tests we don't use "cache_use_stale" configuration directive.
+        Here we test "stale-if-error" cache-control parameter. See RFC 5861.
+
+        Send first request, this request forwarded to upstream and processed with status
+        code 200, Tempesta cache it. Wait while response become stale. Send second
+        request and receive non stale response with status code 200, because upstream
+        server responds with 200 status code. Send one request, upstream responds
+        with 500 status-codes, therefore Tempesta responds with 200 stale responses from cache,
+        because stale-if-error is specified and time is not expired. Wait while time specified in
+        stale-if-eror will expire, send another request receive non stale response with 504
+        status code.
+        """
+        server = self.get_server("deproxy")
+        self.start_all_services(False)
+        self.disable_deproxy_auto_parser()
+
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp_headers,
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+
+        client = self.get_client("deproxy")
+        client.start()
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=req_headers,
+            ),
+            "200",
+            3,
+        )
+
+        # Wait while response become stale
+        time.sleep(2)
+
+        server.set_response(
+            deproxy.Response.create(
+                status="500",
+                headers=[("Content-Length", "0")] + resp_headers,
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
 
         client.send_request(
             client.create_request(
@@ -446,7 +501,23 @@ class TestCacheUseStale(TestCacheUseStaleBase):
                 uri="/",
                 headers=req_headers,
             ),
-            "504",
+            "200",
+            3,
+        )
+
+        # expect stale response
+        self.assertGreaterEqual(int(client.last_response.headers.get("age", -1)), 0)
+        self.assertEqual(client.last_response.headers.get("warning"), "110 - Response is stale")
+
+        time.sleep(4)
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=req_headers,
+            ),
+            "500",
             3,
         )
 
