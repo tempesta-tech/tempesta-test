@@ -214,6 +214,9 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         directive or with response that can't be parserd Tempesta drops this response
         and respond with cached stale response.
 
+        invalid_response - The same as the rest cases, but 5x error will be generated
+        by Tempesta, not upstream server. Due to error during parsing response.
+
         This test always expect stale response.
         """
         self.use_stale_base(
@@ -225,7 +228,13 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             expect_stale=True,
         )
 
-    def test_use_fresh(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="200", status="200", use_stale="4* 5*"),
+            marks.Param(name="403", status="403", use_stale="5*"),
+        ]
+    )
+    def test_use_fresh(self, name, status, use_stale):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
@@ -235,11 +244,11 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         specified in "cache_use_stale".
         """
         self.use_stale_base(
-            resp_status="200",
-            use_stale="4* 5*",
+            resp_status=status,
+            use_stale=use_stale,
             resp1_headers=[],
             resp2_headers=[],
-            expect_status="200",
+            expect_status=status,
             expect_stale=False,
         )
 
