@@ -145,7 +145,14 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
         """
         server = self.get_server("deproxy")
         server.hang_on_req_num = 2
-        self.use_stale_base(302, "504", [], [], "200", True)
+        self.use_stale_base(
+            resp_status=302,
+            use_stale="504",
+            resp1_headers=[],
+            resp2_headers=[],
+            expect_status="200",
+            expect_stale=True,
+        )
 
     def test_timeout_no_stale(self):
         """
@@ -158,7 +165,14 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
         """
         server = self.get_server("deproxy")
         server.hang_on_req_num = 2
-        self.use_stale_base(302, "500", [], [], "504", False)
+        self.use_stale_base(
+            resp_status=302,
+            use_stale="500",
+            resp1_headers=[],
+            resp2_headers=[],
+            expect_status="504",
+            expect_stale=False,
+        )
 
 
 @marks.parameterize_class(
@@ -202,7 +216,14 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         This test always expect stale response.
         """
-        self.use_stale_base(status, use_stale, [], r2_hdrs, "200", True)
+        self.use_stale_base(
+            resp_status=status,
+            use_stale=use_stale,
+            resp1_headers=[],
+            resp2_headers=r2_hdrs,
+            expect_status="200",
+            expect_stale=True,
+        )
 
     def test_use_fresh(self):
         """
@@ -213,7 +234,14 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         This test expect non stale response, because received status code not
         specified in "cache_use_stale".
         """
-        self.use_stale_base("200", "4* 5*", [], [], "200", False)
+        self.use_stale_base(
+            resp_status="200",
+            use_stale="4* 5*",
+            resp1_headers=[],
+            resp2_headers=[],
+            expect_status="200",
+            expect_stale=False,
+        )
 
     @marks.Parameterize.expand(
         [
@@ -235,7 +263,14 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         request and receive non stale response, because one of following cache-control
         parameters is present in message: s-maxage, must-revalidate, proxy-revalidate.
         """
-        self.use_stale_base("400", "4* 5*", r1_hdrs, [], status, False)
+        self.use_stale_base(
+            resp_status="400",
+            use_stale="4* 5*",
+            resp1_headers=r1_hdrs,
+            resp2_headers=[],
+            expect_status=status,
+            expect_stale=False,
+        )
 
     def test_max_stale(self):
         """
