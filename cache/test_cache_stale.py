@@ -124,7 +124,7 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
     backends = [
         {
             "id": "deproxy",
-            "type": "deproxy_unreliable",
+            "type": "deproxy",
             "port": "8000",
             "response": "static",
             "response_content": "",
