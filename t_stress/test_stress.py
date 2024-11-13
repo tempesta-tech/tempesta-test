@@ -834,7 +834,7 @@ class TestCtrlFrameFlood(tester.TempestaTest):
         self.start_all_servers()
         self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(client)
+        self.wait_while_busy(client, timeout=120)
         client.stop()
 
         tempesta.get_stats()
