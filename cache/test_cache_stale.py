@@ -466,7 +466,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         server responds with 200 status code. Send one request, upstream responds
         with 500 status-codes, therefore Tempesta responds with 200 stale responses from cache,
         because stale-if-error is specified and time is not expired. Wait while time specified in
-        stale-if-eror will expire, send another request receive non stale response with 504
+        stale-if-eror will expire, send another request receive non stale response with 500
         status code.
         """
         server = self.get_server("deproxy")
