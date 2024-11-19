@@ -237,7 +237,7 @@ class BaseDeproxyClient(deproxy.Client, abc.ABC):
         timeout_not_exceeded = util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.state == stateful.STATE_ERROR,
         )
         if strict:
             assert (
