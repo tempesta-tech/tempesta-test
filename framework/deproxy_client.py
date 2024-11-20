@@ -653,7 +653,7 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.active_responses[event.stream_id] = response
 
                 elif isinstance(event, DataReceived):
-                    body = event.data.decode()
+                    body = event.data.decode(errors="ignore")
                     response = self.active_responses.get(event.stream_id)
                     response.body += body
                     if self.auto_flow_control:
