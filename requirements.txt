@@ -21,3 +21,6 @@ inquirer
 parameterized
 
 psutil~=5.9.8
+
+# install mhddos requirements
+-r tools/mhddos/requirements.txt

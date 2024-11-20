@@ -63,10 +63,6 @@ cp ./ctrl_frames_flood /usr/bin/ctrl_frames_flood
 cd "${CURRENT_DIR}"
 go build -o /usr/bin/ratecheck ./gutils/cmd/ratecheck/main.go
 
-# mhddos - ddos utils
-cd "${CURRENT_DIR}"
-python3 -m pip install -r tools/mhddos/requirements.txt
-
 # curl
 git clone --depth=1 --branch curl-7_85_0 https://github.com/curl/curl.git /tmp/curl
 cd /tmp/curl
