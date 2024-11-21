@@ -165,7 +165,7 @@ class DeproxyAutoParser:
         if http2 or is_cache:
             self.__prepare_chunked_expected_response(expected_response)
 
-        if not http2 or is_cache:
+        if not http2:
             self.__add_content_length_header_to_expected_response(expected_response)
 
         return expected_response
