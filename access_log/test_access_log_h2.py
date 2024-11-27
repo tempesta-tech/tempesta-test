@@ -68,7 +68,7 @@ def tempesta(extra=""):
     return {
         "config": """
            listen 443 proto=h2;
-           access_log on;
+           access_log dmesg;
            %s
 
             server ${server_ip}:8000;

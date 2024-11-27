@@ -153,7 +153,7 @@ vhost default {
     proxy_pass default;
 }
 
-access_log on;
+access_log dmesg;
 
 cache 1;
 cache_fulfill * *;

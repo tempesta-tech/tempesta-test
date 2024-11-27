@@ -107,7 +107,7 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
             # Allow purging from the containers (upstream), localhost (VM) and the host.
             cache_purge_acl ${client_ip};
 
-            access_log on;
+            access_log dmesg;
 
             frang_limits {
                 request_rate 200;
