@@ -2,10 +2,12 @@
 TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
 
+import threading
+
 from helpers import dmesg, remote
 from helpers.cert_generator_x509 import CertGenerator
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
-from test_suite import tester
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
@@ -157,6 +159,8 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         }
     """
 
+    stop_flag = False
+
     def setUp(self):
         self.cgen = CertGenerator()
         self.cgen.key = {"alg": "rsa", "len": 4096}
@@ -184,17 +188,50 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
         self.assertFalse(tls_perf.stderr)
 
-    def test_DHE_RSA_AES128_GCM_SHA256(self):
-        self.check_alg("tls-perf-DHE-RSA-AES128-GCM-SHA256")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="DHE-RSA-AES128-GCM-SHA256", alg="tls-perf-DHE-RSA-AES128-GCM-SHA256"),
+            marks.Param(name="DHE-RSA-AES256-GCM-SHA384", alg="tls-perf-DHE-RSA-AES256-GCM-SHA384"),
+            marks.Param(name="DHE-RSA-AES128-CCM", alg="tls-perf-DHE-RSA-AES128-CCM"),
+            marks.Param(name="DHE-RSA-AES256-CCM", alg="tls-perf-DHE-RSA-AES256-CCM"),
+        ]
+    )
+    def test(self, name, alg):
+        self.check_alg(alg)
 
-    def test_DHE_RSA_AES256_GCM_SHA384(self):
-        self.check_alg("tls-perf-DHE-RSA-AES256-GCM-SHA384")
+    def __reload_tempesta(self):
+        tempesta: Tempesta = self.get_tempesta()
+        while not self.stop_flag:
+            tempesta.run_start()
+        self.stop_flag = False
 
-    def test_DHE_RSA_AES128_CCM(self):
-        self.check_alg("tls-perf-DHE-RSA-AES128-CCM")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="DHE-RSA-AES128-GCM-SHA256", alg="tls-perf-DHE-RSA-AES128-GCM-SHA256"),
+            marks.Param(name="DHE-RSA-AES256-GCM-SHA384", alg="tls-perf-DHE-RSA-AES256-GCM-SHA384"),
+            marks.Param(name="DHE-RSA-AES128-CCM", alg="tls-perf-DHE-RSA-AES128-CCM"),
+            marks.Param(name="DHE-RSA-AES256-CCM", alg="tls-perf-DHE-RSA-AES256-CCM"),
+        ]
+    )
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_stress(self, name, alg):
+        """
+        Check how Tempesta FW update sertificates under load.
+        Each time when Tempesta started, all certificates
+        updated.
+        """
+        tls_perf = self.get_client(alg)
+        self.start_all_servers()
+        self.start_tempesta()
 
-    def test_DHE_RSA_AES256_CCM(self):
-        self.check_alg("tls-perf-DHE-RSA-AES256-CCM")
+        t = threading.Thread(target=self.__reload_tempesta)
+        t.start()
+        for i in range(0, 5):
+            tls_perf.start()
+            self.wait_while_busy(tls_perf)
+            tls_perf.stop()
+        self.stop_flag = True
+        t.join()
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
