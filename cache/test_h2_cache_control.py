@@ -812,7 +812,6 @@ class TestH2CacheControl(TestH2CacheBase):
         information.
         """
         self.start_all_services()
-        self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
         server.set_response(

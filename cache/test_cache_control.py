@@ -1294,7 +1294,3 @@ class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTe
     request_headers = {}
     second_request_headers = {}
     cached_headers = {"Set-Cookie": None}
-
-    def test(self):
-        self.disable_deproxy_auto_parser()
-        super().test()
