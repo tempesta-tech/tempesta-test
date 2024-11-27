@@ -162,6 +162,9 @@ class DeproxyAutoParser:
         self.__prepare_hop_by_hop_headers(expected_response)
 
         is_cache = "age" in received_response.headers
+        if is_cache:
+            # Tempesta doesn't cache "set-cookie" header
+            expected_response.headers.delete_all("set-cookie")
         if http2 or is_cache:
             self.__prepare_chunked_expected_response(expected_response)
 
