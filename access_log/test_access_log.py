@@ -4,7 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers import dmesg
+from helpers import deproxy, dmesg
+from t_long_body import utils
 
 from .common import AccessLogLine
 
@@ -12,7 +13,15 @@ from .common import AccessLogLine
 class CheckedResponses(tester.TempestaTest):
     HTTP_200_OK = "HTTP/1.1 200 OK\r\n" "Content-Length: 0\r\n" "Connection: keep-alive\r\n\r\n"
 
-    clients = [{"id": "client", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
+    clients = [
+        {"id": "client", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+        {
+            "id": "curl",
+            "type": "curl",
+            "http2": True,
+            "addr": "${tempesta_ip}:443",
+        },
+    ]
 
     backends = [
         {
@@ -24,13 +33,24 @@ class CheckedResponses(tester.TempestaTest):
             "Content-Length: 8\r\n"
             "Connection: keep-alive\r\n\r\n"
             "response",
-        }
+        },
+        {
+            "id": "chunked",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "",
+        },
     ]
 
     tempesta = {
         "config": """
             cache 0;
             listen 80;
+            listen 443 proto=h2;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
             access_log on;
 
             srv_group localhost {
@@ -39,10 +59,18 @@ class CheckedResponses(tester.TempestaTest):
 
             vhost localhost {
                 proxy_pass localhost;
+            }
 
+            srv_group chunked {
+                server ${server_ip}:8001;
+            }
+
+            vhost chunked {
+                proxy_pass chunked;
             }
 
             http_chain {
+                uri == "/chunked" -> chunked;
                 -> localhost;
             }
         """
@@ -104,6 +132,15 @@ class CheckedResponses(tester.TempestaTest):
         deproxy_cl.start()
         deproxy_cl.make_request(request_as_str)
         deproxy_cl.wait_for_response()
+        return AccessLogLine.from_dmesg(klog)
+
+    def send_h2_request_and_get_dmesg(self, klog):
+        curl = self.get_client("curl")
+        curl.headers["host"] = "localhost"
+        curl.set_uri("/chunked")
+        curl.start()
+        curl.wait_for_finish()
+        curl.stop()
         return AccessLogLine.from_dmesg(klog)
 
     # send request that will be replied with specified
@@ -185,6 +222,38 @@ class AccessLogTest(CheckedResponses):
         self.assertEqual(msg.method, "GET", "Wrong method")
         self.assertEqual(msg.uri, "/some-uri", "Wrong uri")
         self.assertNotEqual(msg.ip, "-", "Wrong ip")
+
+    def test_chunked(self):
+        self.start_all()
+
+        header = "Transfer-Encoding: chunked"
+        BODY_SIZE = 158036
+        body = utils.create_one_big_chunk(BODY_SIZE)
+        server: deproxy_server.StaticDeproxyServer = self.get_server("chunked")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-type: text/html\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + "Server: Deproxy Server\r\n"
+            + f"{header}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "\r\n"
+            + body
+        )
+
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
+
+        msg = self.send_h2_request_and_get_dmesg(klog)
+        self.assertTrue(msg is not None, "No access_log message in dmesg")
+        self.assertEqual(msg.status, 200, "Wrong HTTP status")
+        self.assertEqual(msg.response_length, BODY_SIZE, "Wrong response length")
+
+        req = self.make_request("/chunked")
+        msg = self.send_request_and_get_dmesg(klog, req)
+        self.assertTrue(msg is not None, "No access_log message in dmesg")
+        self.assertEqual(msg.status, 200, "Wrong HTTP status")
+        self.assertEqual(msg.response_length, BODY_SIZE, "Wrong response length")
 
 
 # Ensure message is logged when request is rejected by frang
