@@ -31,7 +31,7 @@ class CheckedResponses(tester.TempestaTest):
         "config": """
             cache 0;
             listen 80;
-            access_log on;
+            access_log dmesg;
 
             srv_group localhost {
                 server ${server_ip}:8000;
@@ -193,7 +193,7 @@ class AccessLogFrang(CheckedResponses):
         "config": """
             cache 0;
             listen 80;
-            access_log on;
+            access_log dmesg;
 
             frang_limits {
                 ip_block off;
