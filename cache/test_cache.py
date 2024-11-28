@@ -2484,6 +2484,91 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
         )
         self.check_second_request(client=client2, method=method, tr1="X-Token1", tr2="X-Token2")
 
+@marks.parameterize_class(
+    [
+        {"name": "H2", "clients": [DEPROXY_CLIENT]},
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+    ]
+)
+class TestCacheOverriddenHost(tester.TempestaTest):
+    backends = [
+        {"id": "deproxy", "type": "deproxy", "port": "8000", "response": "static"},
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+
+        server ${server_ip}:8000;
+
+        req_hdr_add X-Forwarded-Proto "https";
+        resp_hdr_set Strict-Transport-Security "max-age=31536000; includeSubDomains";
+        req_hdr_set host "tempesta-tech.com";
+
+        tls_match_any_server_name;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+        cache_fulfill * *;
+        cache 2;
+        """
+    }
+
+    def test(self):
+        """
+        Test caching with overriding Host using `req_hdr_set`.
+        When host overridden response must be cached using origin Host.
+        It means for origin host we expect response from the cache, but
+        not for new Host.
+        """
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+        tempesta = self.get_tempesta()
+        self.disable_deproxy_auto_parser()
+
+        server.set_response(
+            f"HTTP/1.1 301 Moved Permanently\r\n"
+            + "Date: Mon, 19 Feb 2024 22:16:45 GMT\r\n"
+            + "Server: Apache/2.4.52 (Ubuntu)\r\n"
+            + "X-Redirect-By: WordPress\r\n"
+            + "Location: https://tempesta-tech.com/\r\n"
+            + "Content-Length: 0\r\n"
+            + "Keep-Alive: timeout=5, max=100\r\n"
+            + "Connection: Keep-Alive\r\n"
+            + "Content-Type: text/html; charset=UTF-8\r\n"
+            + "\r\n"
+        )
+
+        request = client.create_request(
+            uri="/",
+            authority="staging.tempesta-tech.com",
+            method="GET",
+            headers=[("Accept", "*/*"), ("User-Agent", "curl/7.81.0")],
+        )
+
+        client.send_request(request, expected_status_code="301")
+
+        client.send_request(request, expected_status_code="301")
+
+        # Cached response is expected.
+        # Host overridden, but cached record was created before host overriding.
+        self.assertIsNotNone(client.last_response.headers.get("age", None))
+
+        request = client.create_request(
+            uri="/",
+            authority="tempesta-tech.com",
+            method="GET",
+            headers=[("Accept", "*/*"), ("User-Agent", "curl/7.81.0")],
+        )
+
+        # Make request with the same host as in "req_hdr_set host".
+        client.send_request(request, expected_status_code="301")
+
+        # Response not from the cache, we do cache only using origin Host header.
+        self.assertIsNone(client.last_response.headers.get("age", None))
+
 
 @marks.parameterize_class(
     [
