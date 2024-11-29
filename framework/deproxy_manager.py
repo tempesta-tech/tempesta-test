@@ -2,14 +2,14 @@ import asyncore
 import queue
 import select
 import threading
+import time
 import traceback
 
 from framework import stateful
 from helpers import tf_cfg
 
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -25,17 +25,20 @@ def run_deproxy_server(
     tf_cfg.dbg(3, "Running deproxy server manager")
 
     try:
-        if hasattr(select, "poll"):
-            poll_fun = asyncore.poll2
-        else:
-            poll_fun = asyncore.poll
+        poll_fun = asyncore.poll2 if hasattr(select, "poll") else asyncore.poll
         while not exit_event.is_set():
             polling_lock.acquire()
+            t1 = time.monotonic()
             poll_fun()
+            d_t = time.monotonic() - t1
+            if d_t > 1:
+                tf_cfg.dbg(1, f"freeze while polling - {d_t}")
             polling_lock.release()
+            # some system has freeze without timeout when try to acquire the Lock in other threads
+            time.sleep(0.000001)
     except Exception as e:
-        tf_cfg.dbg(1, "Error while polling: %s" % str(e))
         polling_lock.release()
+        tf_cfg.dbg(1, "Error while polling: %s" % str(e))
         deproxy.append_exception(traceback.format_exc())
     tf_cfg.dbg(3, "Finished deproxy manager")
 
