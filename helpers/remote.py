@@ -5,8 +5,6 @@ The API is required to transparently handle both cases - Tempesta and the framew
 on the same node (developer test case), or on separate machines (CI case).
 """
 
-from __future__ import print_function
-
 import abc
 import errno
 import logging
@@ -264,18 +262,6 @@ class LocalNode(ANode):
                 # thread didn't finish before all assumptions are checked in the
                 # main thread.
                 stdout, stderr = current_proc.communicate(timeout=timeout)
-
-                # it was put here for `lxc`, maybe, lxc has a bug,
-                # to receive an exit code after `wait()`, we need to wait extra time (~3 sec),
-                # otherwise a related process is still running,
-                # and this case was caught on a bare metal server that may work slower
-                # TODO it is not good place for it, and
-                # TODO it is not a good workaround at all, need to create something else in the future
-                if timeout and ("lxc " in cmd) and ("stop" in cmd):
-                    self._logger.warning(
-                        f"Possibly, a command to stop LXC is in the progress, wait extra {timeout} sec.",
-                    )
-                    time.sleep(timeout)
 
             except subprocess.TimeoutExpired as to_exc:
                 current_proc.kill()
