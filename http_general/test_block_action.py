@@ -6,7 +6,7 @@ __license__ = "GPL2"
 
 import run_config
 from helpers import analyzer, deproxy, remote, tf_cfg
-from test_suite import asserts, tester
+from test_suite import asserts, marks, tester
 from test_suite.custom_error_page import CustomErrorPageGenerator
 
 
@@ -33,20 +33,37 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
             "addr": "${tempesta_ip}",
             "port": "80",
         },
+        {
+            "id": "deproxy_ssl",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
     ]
 
     tempesta_tmpl = """
         listen 80;
+        listen 443 proto=https;
         srv_group default {
             server ${server_ip}:8000;
         }
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+
         vhost good {
             proxy_pass default;
+            frang_limits {
+                http_strict_host_checking false;
+            }
         }
         vhost frang {
             frang_limits {
                 http_methods GET;
                 http_resp_code_block 200 1 10;
+                http_strict_host_checking false;
             }
             proxy_pass default;
         }
@@ -62,7 +79,7 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
 
     @staticmethod
     def setup_sniffer() -> analyzer.Sniffer:
-        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80,))
+        sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80, 443))
         sniffer.start()
         return sniffer
 
@@ -98,8 +115,14 @@ class BlockActionReply(BlockActionBase):
             self.assertEqual(client.last_response.status, expected_status_code)
             self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
-    def test_block_action_attack_reply(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_attack_reply(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -114,8 +137,14 @@ class BlockActionReply(BlockActionBase):
         self.assertTrue(client.wait_for_connection_close())
         self.check_fin_no_rst_in_sniffer(sniffer)
 
-    def test_block_action_error_reply_with_conn_close(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_error_reply_with_conn_close(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -131,8 +160,14 @@ class BlockActionReply(BlockActionBase):
         self.assertTrue(client.wait_for_connection_close())
         self.check_fin_no_rst_in_sniffer(sniffer)
 
-    def test_block_action_error_reply(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_error_reply(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -156,8 +191,14 @@ class BlockActionReply(BlockActionBase):
         self.assert_not_fin_socks(sniffer.packets)
         self.assert_unreset_socks(sniffer.packets)
 
-    def test_block_action_error_reply_multiple_requests(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_error_reply_multiple_requests(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -179,14 +220,20 @@ class BlockActionReply(BlockActionBase):
         self.assert_not_fin_socks(sniffer.packets)
         self.assert_unreset_socks(sniffer.packets)
 
-    def test_block_action_attack_reply_not_on_req_rcv_event(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_attack_reply_not_on_req_rcv_event(self, name, client_id):
         """
         Special test case when on_req_recv_event variable in C
         code is set to false, and connection closing is handled
         in the function which responsible for sending error
         response.
         """
-        client = self.get_client("deproxy")
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -210,16 +257,26 @@ class BlockActionReply(BlockActionBase):
 class BlockActionReplyWithCustomErrorPage(BlockActionBase):
     tempesta_tmpl = """
         listen 80;
+        listen 443 proto=https;
         srv_group default {
             server ${server_ip}:8000;
         }
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+
         vhost good {
             proxy_pass default;
+            frang_limits {
+                http_strict_host_checking false;
+            }
         }
         vhost frang {
             frang_limits {
                 http_methods GET;
                 http_resp_code_block 200 1 10;
+                http_strict_host_checking false;
             }
             proxy_pass default;
         }
@@ -252,8 +309,14 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
         }
         tester.TempestaTest.setUp(self)
 
-    def test_block_action_error_reply_with_conn_close(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_error_reply_with_conn_close(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -277,8 +340,14 @@ class BlockActionDrop(BlockActionBase):
         }
         tester.TempestaTest.setUp(self)
 
-    def test_block_action_attack_drop(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_attack_drop(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
@@ -293,8 +362,14 @@ class BlockActionDrop(BlockActionBase):
         self.assertIsNone(client.last_response)
         self.check_rst_no_fin_in_sniffer(sniffer)
 
-    def test_block_action_error_drop(self):
-        client = self.get_client("deproxy")
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="plain", client_id="deproxy"),
+            marks.Param(name="https", client_id="deproxy_ssl"),
+        ]
+    )
+    def test_block_action_error_drop(self, name, client_id):
+        client = self.get_client(client_id)
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
