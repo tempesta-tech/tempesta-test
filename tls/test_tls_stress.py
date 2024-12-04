@@ -202,7 +202,11 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
     def __reload_tempesta(self):
         tempesta: Tempesta = self.get_tempesta()
         while not self.stop_flag:
-            tempesta.run_start()
+            """
+            BUG in Tempesta is reproduced on live reconfiguration of Tempesta FW
+            under heavy load.
+            """
+            tempesta.reload()
         self.stop_flag = False
 
     @marks.Parameterize.expand(
@@ -213,7 +217,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             marks.Param(name="DHE-RSA-AES256-CCM", alg="tls-perf-DHE-RSA-AES256-CCM"),
         ]
     )
-    @dmesg.unlimited_rate_on_tempesta_node
+    @dmesg.limited_rate_on_tempesta_node
     def test_stress(self, name, alg):
         """
         Check how Tempesta FW update sertificates under load.
@@ -226,6 +230,10 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
         t = threading.Thread(target=self.__reload_tempesta)
         t.start()
+        """
+        This test reproduces BUG, which was in Tempesta FW.
+        '5' runs usually enough to this purpose.
+        """
         for i in range(0, 5):
             tls_perf.start()
             self.wait_while_busy(tls_perf)
