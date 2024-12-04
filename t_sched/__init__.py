@@ -13,6 +13,7 @@ __all__ = [
     "test_ratio_dynamic_recalc",
     "test_ratio_static",
     "test_ratio_weight",
+    "test_reconnection_logic",
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
