@@ -2065,4 +2065,94 @@ cache_fulfill * *;
         self.assertTrue(self.oops.find(expected_msg))
 
 
+@marks.parameterize_class(
+    [
+        {"name": "H2", "clients": [DEPROXY_CLIENT]},
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+    ]
+)
+class TestCacheOverriddenHost(tester.TempestaTest):
+    backends = [
+        {"id": "deproxy", "type": "deproxy", "port": "8000", "response": "static"},
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+
+        server ${server_ip}:8000;
+
+        req_hdr_add X-Forwarded-Proto "https";
+        resp_hdr_set Strict-Transport-Security "max-age=31536000; includeSubDomains";
+        req_hdr_set host "tempesta-tech.com";
+
+        access_log on;
+        tls_match_any_server_name;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+
+        cache_fulfill * *;
+        cache 2;
+        """
+    }
+
+    def test(self):
+        """
+        Test caching with overriding Host using `req_hdr_set`.
+        Response from the cache is not expected in this test, current version of Tempesta
+        can't correctly cache responses where Host is overridden. Just verify behavior.
+        """
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+        tempesta = self.get_tempesta()
+        self.disable_deproxy_auto_parser()
+
+        server.set_response(
+            f"HTTP/1.1 301 Moved Permanently\r\n"
+            + "Date: Mon, 19 Feb 2024 22:16:45 GMT\r\n"
+            + "Server: Apache/2.4.52 (Ubuntu)\r\n"
+            + "X-Redirect-By: WordPress\r\n"
+            + "Location: https://tempesta-tech.com/\r\n"
+            + "Content-Length: 0\r\n"
+            + "Keep-Alive: timeout=5, max=100\r\n"
+            + "Connection: Keep-Alive\r\n"
+            + "Content-Type: text/html; charset=UTF-8\r\n"
+            + "\r\n"
+        )
+
+        request = client.create_request(
+            uri="/",
+            authority="staging.tempesta-tech.com",
+            method="GET",
+            headers=[("Accept", "*/*"), ("User-Agent", "curl/7.81.0")],
+        )
+
+        client.send_request(request, expected_status_code="301")
+
+        client.send_request(request, expected_status_code="301")
+
+        # Cached response not expected.
+        # Host overriden, therefore it cached with overriden host.
+        self.assertIsNone(client.last_response.headers.get("age", None))
+
+        request = client.create_request(
+            uri="/",
+            authority="tempesta-tech.com",
+            method="GET",
+            headers=[("Accept", "*/*"), ("User-Agent", "curl/7.81.0")],
+        )
+
+        # Make request with overridden host.
+        client.send_request(request, expected_status_code="301")
+
+        # Also response not from the cache, the reason is when we try to find response
+        # in the cache we make hash using original host from request, then store this
+        # as a key, however when copy record to cache, we use stored key, that generated
+        # by old host, and overriden host. It leads to wrong key-host pair, thus request
+        # can't have such pair, therefore record will never be accessed.
+        self.assertIsNone(client.last_response.headers.get("age", None))
+
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
