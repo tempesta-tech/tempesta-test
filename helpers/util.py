@@ -58,5 +58,11 @@ def get_used_memory():
     return used_memory
 
 
+def numa_nodes_count():
+    cmd = f"lscpu | grep -oP 'NUMA node\(s\):\s*\K\d+'"
+    out = remote.client.run_cmd(cmd)
+    return int(out[0].decode().strip("\n"))
+
+
 def fill_template(template, properties):
     return Template(template).substitute(properties)
