@@ -11,7 +11,7 @@ import websockets
 
 from helpers import dmesg, tf_cfg
 from helpers.cert_generator_x509 import CertGenerator
-from test_suite import tester
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -326,6 +326,38 @@ class WssPing(WsPing):
         self.start_tempesta()
         self.p2.start()
         self.p2.join()
+
+
+@marks.parameterize_class(
+    [{"name": "HttpsH2", "proto": "https,h2"}, {"name": "H2Https", "proto": "h2,https"}]
+)
+class WssPingMultipleListeners(WssPing):
+    tempesta_template = {
+        "config": """
+listen 81;
+listen 82 proto=%s;
+
+srv_group default {
+
+    server ${server_ip}:8099;
+}
+frang_limits {http_strict_host_checking false;}
+tls_certificate ${general_workdir}/cert.pem;
+tls_certificate_key ${general_workdir}/key.pem;
+tls_match_any_server_name;
+vhost default {
+    proxy_pass default;
+}
+
+http_chain {
+    -> default;
+}
+""",
+    }
+
+    def setUp(self):
+        self.tempesta["config"] = self.tempesta_template["config"] % self.proto
+        super().setUp()
 
 
 class WssPingProxy(WssPing):
