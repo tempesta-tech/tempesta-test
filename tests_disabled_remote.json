@@ -82,6 +82,18 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
             "reason": "Disabled by issue #1103"
         },
@@ -103,10 +115,6 @@
         },
         {
             "name": "ws.test_ws_ping.WssStress",
-            "reason": "Disabled by test issue #508"
-        },
-        {
-            "name": "ws.test_ws_ping.CacheTest",
             "reason": "Disabled by test issue #508"
         },
         {
