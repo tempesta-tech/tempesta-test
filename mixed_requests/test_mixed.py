@@ -240,7 +240,7 @@ http {
         listen        ${server_ip}:8000;
 
         location / {
-            return 200;
+            return 405;
         }
         location /nginx_status {
             stub_status on;
@@ -286,9 +286,9 @@ frang_limits {
         self.wait_while_busy(wrk)
         wrk.stop()
 
-        self.assertIn(200, wrk.statuses)
+        self.assertIn(405, wrk.statuses)
         self.assertNotIn(403, wrk.statuses)
-        self.assertGreater(wrk.statuses[200], 0)
+        self.assertGreater(wrk.statuses[405], 0)
 
     def test_pipeline(self):
         self.routine(pipeline_lua)
