@@ -4,7 +4,6 @@ Module to work with nodes: local and remote(via SSH).
 The API is required to transparently handle both cases - Tempesta and the framework
 on the same node (developer test case), or on separate machines (CI case).
 """
-from __future__ import print_function
 
 import abc
 import errno
@@ -198,7 +197,9 @@ class LocalNode(INode):
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
         self._logger.debug(f"All environment variables after updating: {env_full}")
-        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
+        self._logger.info(
+            f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}"
+        )
 
         if is_blocking:
             std_arg = subprocess.PIPE
@@ -217,18 +218,6 @@ class LocalNode(INode):
                 # thread didn't finish before all assumptions are checked in the
                 # main thread.
                 stdout, stderr = current_proc.communicate(timeout=timeout)
-
-                # it was put here for `lxc`, maybe, lxc has a bug,
-                # to receive an exit code after `wait()`, we need to wait extra time (~3 sec),
-                # otherwise a related process is still running,
-                # and this case was caught on a bare metal server that may work slower
-                # TODO it is not good place for it, and
-                # TODO it is not a good workaround at all, need to create something else in the future
-                if timeout and ("lxc " in cmd) and ("stop" in cmd):
-                    self._logger.warning(
-                        f"Possibly, a command to stop LXC is in the progress, wait extra {timeout} sec.",
-                    )
-                    time.sleep(timeout)
 
             except subprocess.TimeoutExpired as to_exc:
                 current_proc.kill()
@@ -341,21 +330,27 @@ class LocalNode(INode):
 
 class RemoteNode(INode):
     """Remote node class."""
-    
+
     def __init__(
-        self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22, ssh_key: Optional[str] = None,
+        self,
+        ntype: str,
+        hostname: str,
+        workdir: str,
+        user: str,
+        port: int = 22,
+        ssh_key: Optional[str] = None,
     ):
         """
-       Init class instance.
+        Init class instance.
 
-       Args:
-           ntype (str): node type
-           hostname (str): node hostname
-           workdir (str): node workdir
-           user (str): username to work with a node
-           ssh_key (str): ssh key location
-           port (str): port to connect to a remote node
-       """
+        Args:
+            ntype (str): node type
+            hostname (str): node hostname
+            workdir (str): node workdir
+            user (str): username to work with a node
+            ssh_key (str): ssh key location
+            port (str): port to connect to a remote node
+        """
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
         self.user = user
         self.port = port
@@ -383,12 +378,17 @@ class RemoteNode(INode):
 
     def __connect_by_loading_keys_from_system(self):
         """Open SSH connection to a node by loading host keys from a system."""
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
+        self._logger.info(
+            f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system."
+        )
 
         try:
             self._ssh.load_system_host_keys()
             self._ssh.connect(
-                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
+                hostname=self.host,
+                username=self.user,
+                port=self.port,
+                timeout=DEFAULT_TIMEOUT,
             )
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
@@ -400,7 +400,9 @@ class RemoteNode(INode):
 
         Before invoking the method, it is better to check for existence of a `self._ssh_key` attr.
         """
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
+        self._logger.info(
+            f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}."
+        )
 
         try:
             self._ssh.connect(
@@ -480,7 +482,7 @@ class RemoteNode(INode):
             stderr = err_f.read()
 
         except Exception as exc:
-            err_msg = f"Error running command `{cmd}` on {self.host}",
+            err_msg = (f"Error running command `{cmd}` on {self.host}",)
             self._logger.exception(err_msg)
             raise error.CommandExecutionException(err_msg) from exc
 
