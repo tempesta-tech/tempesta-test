@@ -103,40 +103,6 @@ class TestH2Frame(H2Base):
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
         self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
 
-    def test_rst_frame_for_idle_stream(self):
-        """
-        Send priority frame to cheate idle stream.
-        Then open stream with invalid HEADERS frame.
-        Check RST stream.
-        """
-        self.start_all_services()
-        deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.parsing = False
-
-        deproxy_cl.update_initial_settings()
-        deproxy_cl.send_bytes(deproxy_cl.h2_connection.data_to_send())
-        deproxy_cl.wait_for_ack_settings()
-
-        stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
-        deproxy_cl.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
-
-        pf = PriorityFrame(
-            stream_id=stream.stream_id, depends_on=5, stream_weight=255, exclusive=False
-        )
-        hf = HeadersFrame(
-            stream_id=stream.stream_id,
-            data=deproxy_cl.h2_connection.encoder.encode(self.get_request),
-            flags=["END_HEADERS", "END_STREAM", "PRIORITY"],
-        )
-
-        hf.stream_weight = 255
-        hf.depends_on = stream.stream_id
-        hf.exclusive = False
-
-        deproxy_cl.send_bytes(pf.serialize() + hf.serialize())
-        self.assertTrue(deproxy_cl.wait_for_reset_stream(stream.stream_id))
-        self.assertFalse(deproxy_cl.wait_for_connection_close())
-
     def test_opening_same_stream_after_invalid(self):
         """
         Try to open stream with invalid HEADERS frame.

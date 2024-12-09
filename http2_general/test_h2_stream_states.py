@@ -426,3 +426,36 @@ class TestIdleState(H2Base):
 
         client.stream_id = 17
         client.send_request(self.post_request, "200")
+
+    def test_rst_frame_for_idle_stream(self):
+        """
+        Send priority frame to cheate idle stream.
+        Then open stream with invalid HEADERS frame.
+        Check RST stream.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.parsing = False
+
+        client.update_initial_settings()
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        stream = client.init_stream_for_send(client.stream_id)
+        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
+
+        pf = PriorityFrame(
+            stream_id=stream.stream_id, depends_on=5, stream_weight=255, exclusive=False
+        )
+        hf = HeadersFrame(
+            stream_id=stream.stream_id,
+            stream_weight=255,
+            depends_on=stream.stream_id,
+            exclusive=False,
+            data=client.h2_connection.encoder.encode(self.get_request),
+            flags=["END_HEADERS", "END_STREAM", "PRIORITY"],
+        )
+
+        client.send_bytes(pf.serialize() + hf.serialize())
+        self.assertTrue(client.wait_for_reset_stream(stream.stream_id))
+        self.assertFalse(client.wait_for_connection_close())
