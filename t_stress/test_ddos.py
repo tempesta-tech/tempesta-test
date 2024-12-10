@@ -128,7 +128,7 @@ http_chain {{
 
     interface = tf_cfg.cfg.get("Server", "aliases_interface")
 
-    def get_response(self, curl, uri: str) -> None:
+    def make_response(self, curl, uri: str) -> None:
         curl.headers["Host"] = "tempesta-tech.com"
         curl.set_uri(uri)
         curl.start()
@@ -160,6 +160,57 @@ http_chain {{
 
     @dmesg.limited_rate_on_tempesta_node
     def test(self):
+        """
+        I used the mhddos utility for testing.
+        It is implemented using python3 and has been reworked to match our requirements.
+        Unsupported http versions removed, host, if-none-match headers fixed, etc.
+
+        The current work principle:
+            -> create multiple interfaces for IP addresses
+            -> set the rpc, duration, threads parameters
+            -> create HttpFlood objects (according to the number of threads)
+            -> each thread chooses (randomly) an attack method (from a predefined list)
+            -> each thread opens a connection with a random IP address
+            -> sends requests according to the logic of a method
+            -> repeating.
+
+        Setup for testing:
+            - TempestaFW is on a separate VM. 8 GB memory and 6 cores;
+            - The attacker and tempesta-tech.com (wordpress) in lxc container are on yet one VM;
+
+        I checked frang with block_action directives. Results:
+        - block_action attack drop and ip_block on are the most effective combination for protection.
+            - if the attacker exceeds the limits, then we block this IP
+              and the memory consumption will be small (I got about 100 MB)
+              for both small (5-20 rate) and large limits (100+ rate);
+            - if the client does not exceed the limits, then we block IP
+              addresses through other directives. For example: http_resp_code_blocks,
+              http_strict_host_checking, http_ct_vals etc. The memory consumption
+              is higher, but less than 500 MB for me;
+
+        - block_action attack reply\drop and ip_block off are not effective for protection,
+          because a lot of memory is consumed. If the attacker exceeds the limits, TempestaFW
+          eventually consumes all available memory and my VM was shutdown.
+          Perhaps this problem will be solved after closing issues #2284 and #2286.
+          It took me 2-5 minutes to use all available resources (depends on the methods).
+
+        Getting a response from the cache\upstream:
+          - responses from the cache were returned without delay under any load and
+            configuration (if there are enough resources on TempestaFW VM);
+          - upstream responses without ip_block on require a very long time.
+            Our website with wordpress and lxc was used as the upstream.
+            The response was returned up to 30 seconds. Probably lxc did not
+            have enough resources, because the attacker used all available resources.
+
+        What can be improved:
+          - L4 tests from this tool;
+          - checks in L7 for the legitimate client (after fix 2284 and 2286);
+          - add a compare with Nginx. I used default config and with request/connection
+            limit, but I didn't get a lot of resource consumption. Probably, this tool
+            requires to update for that;
+          - probably upstream should move to a separate VM. The lack of resources
+            should be excluded;
+        """
         self.start_all_services(client=False)
 
         client = self.get_client("mhddos")
@@ -168,7 +219,7 @@ http_chain {{
 
         # save and check a response in cache before attack
         for _ in range(2):
-            self.get_response(curl, "/knowledge-base/DDoS-mitigation/")
+            self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
             self.assertEqual(curl.last_response.status, 200)
         self.assertIsNotNone(
             curl.last_response.headers.get("age", None),
@@ -187,7 +238,7 @@ http_chain {{
 
         time.sleep(DURATION / 2)
         # Get a response from the cache after the attack started.
-        self.get_response(curl, "/knowledge-base/DDoS-mitigation/")
+        self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
         error_msg = (
             "TempestaFW didn't return the response from the cache after the attack started. "
             "The connection was created during the attack"
@@ -199,7 +250,8 @@ http_chain {{
             curl.last_stats.get("time_total", DURATION),
             "The time to receive a request from the cache is longer than the attack time.",
         )
-        # TODO add checks to receiving a response from upstream
+        # TODO: https://github.com/tempesta-tech/tempesta-test/issues/38
+        #  issue - add checks to receiving a response from upstream
 
         self.assertTrue(client.wait_for_finish(timeout=DURATION + 5))
         client.stop()
