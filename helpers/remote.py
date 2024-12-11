@@ -4,6 +4,7 @@ Module to work with nodes: local and remote(via SSH).
 The API is required to transparently handle both cases - Tempesta and the framework
 on the same node (developer test case), or on separate machines (CI case).
 """
+
 from __future__ import print_function
 
 import abc
@@ -60,6 +61,22 @@ def modify_cmd(cmd: str) -> str:
     return cmd
 
 
+def numa_nodes_count(node) -> int:
+    cmd = f"lscpu | grep -oP 'NUMA node\(s\):\s*\K\d+'"
+    out = node.run_cmd(cmd)
+    return int(out[0].decode().strip("\n"))
+
+
+def threads_count(node) -> int:
+    out, _ = node.run_cmd("grep -c processor /proc/cpuinfo")
+    math_obj = re.match(r"^(\d+)$", out.decode())
+
+    if not math_obj:
+        return 1
+
+    return int(math_obj.group(1))
+
+
 class INode(object, metaclass=abc.ABCMeta):
     """Node interfaces."""
 
@@ -79,6 +96,8 @@ class INode(object, metaclass=abc.ABCMeta):
         self.host = hostname
         self.workdir = workdir
         self.type = ntype
+        self.numa_nodes_n: int = 0
+        self._max_threads_n: int = 0
 
     @abc.abstractmethod
     def run_cmd(
@@ -139,15 +158,6 @@ class INode(object, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def get_max_thread_count(self) -> int:
-        """
-        Get number of max threads on a node.
-
-        Returns:
-            (int) number of max threads
-        """
-
-    @abc.abstractmethod
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
         Copy a file to a node.
@@ -156,6 +166,31 @@ class INode(object, metaclass=abc.ABCMeta):
             (file) file name to copy
             (dest_dir): destination directory
         """
+
+    def get_max_thread_count(self) -> int:
+        """
+        Get number of max threads on a node.
+
+        Returns:
+            (int) number of max threads
+        """
+        return self._max_threads_n
+
+    def get_numa_nodes_count(self) -> int:
+        """
+        Get number of NUMA nodes on a node.
+
+        Returns:
+            (int) number of NUMA nodes
+        """
+        return self.numa_nodes_n
+
+    def _post_init(self):
+        """
+        Finilize initialization of the Node.
+        """
+        self.numa_nodes_n = numa_nodes_count(self)
+        self._max_threads_n = threads_count(self)
 
 
 class LocalNode(INode):
@@ -198,7 +233,9 @@ class LocalNode(INode):
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
         self._logger.debug(f"All environment variables after updating: {env_full}")
-        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
+        self._logger.info(
+            f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}"
+        )
 
         if is_blocking:
             std_arg = subprocess.PIPE
@@ -312,21 +349,6 @@ class LocalNode(INode):
         """
         return True
 
-    def get_max_thread_count(self) -> int:
-        """
-        Get number of max threads on a node.
-
-        Returns:
-            (int) number of max threads
-        """
-        out, _ = self.run_cmd("grep -c processor /proc/cpuinfo")
-        math_obj = re.match(r"^(\d+)$", out.decode())
-
-        if not math_obj:
-            return 1
-
-        return int(math_obj.group(1))
-
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
         Copy a file to a node.
@@ -341,21 +363,27 @@ class LocalNode(INode):
 
 class RemoteNode(INode):
     """Remote node class."""
-    
+
     def __init__(
-        self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22, ssh_key: Optional[str] = None,
+        self,
+        ntype: str,
+        hostname: str,
+        workdir: str,
+        user: str,
+        port: int = 22,
+        ssh_key: Optional[str] = None,
     ):
         """
-       Init class instance.
+        Init class instance.
 
-       Args:
-           ntype (str): node type
-           hostname (str): node hostname
-           workdir (str): node workdir
-           user (str): username to work with a node
-           ssh_key (str): ssh key location
-           port (str): port to connect to a remote node
-       """
+        Args:
+            ntype (str): node type
+            hostname (str): node hostname
+            workdir (str): node workdir
+            user (str): username to work with a node
+            ssh_key (str): ssh key location
+            port (str): port to connect to a remote node
+        """
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
         self.user = user
         self.port = port
@@ -383,12 +411,17 @@ class RemoteNode(INode):
 
     def __connect_by_loading_keys_from_system(self):
         """Open SSH connection to a node by loading host keys from a system."""
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
+        self._logger.info(
+            f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system."
+        )
 
         try:
             self._ssh.load_system_host_keys()
             self._ssh.connect(
-                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
+                hostname=self.host,
+                username=self.user,
+                port=self.port,
+                timeout=DEFAULT_TIMEOUT,
             )
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
@@ -400,7 +433,9 @@ class RemoteNode(INode):
 
         Before invoking the method, it is better to check for existence of a `self._ssh_key` attr.
         """
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
+        self._logger.info(
+            f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}."
+        )
 
         try:
             self._ssh.connect(
@@ -480,7 +515,7 @@ class RemoteNode(INode):
             stderr = err_f.read()
 
         except Exception as exc:
-            err_msg = f"Error running command `{cmd}` on {self.host}",
+            err_msg = (f"Error running command `{cmd}` on {self.host}",)
             self._logger.exception(err_msg)
             raise error.CommandExecutionException(err_msg) from exc
 
@@ -592,21 +627,6 @@ class RemoteNode(INode):
 
             time.sleep(1)
 
-    def get_max_thread_count(self) -> int:
-        """
-        Get number of max threads on a node.
-
-        Returns:
-            (int) number of max threads
-        """
-        out, _ = self.run_cmd("grep -c processor /proc/cpuinfo")
-        math_obj = re.match(r"^(\d+)$", out.decode())
-
-        if not math_obj:
-            return 1
-
-        return int(math_obj.group(1))
-
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
         Copy a file to a node.
@@ -632,7 +652,7 @@ def create_node(host_type: str):
     workdir = tf_cfg.cfg.get(host_type, "workdir")
 
     if hostname != "localhost":
-        return RemoteNode(
+        node = RemoteNode(
             ntype=host_type,
             hostname=hostname,
             workdir=workdir,
@@ -640,7 +660,12 @@ def create_node(host_type: str):
             port=int(tf_cfg.cfg.get(host_type, "port")),
             ssh_key=tf_cfg.cfg.get(host_type, "ssh_key"),
         )
-    return LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
+
+        node._post_init()
+        return node
+    node = LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
+    node._post_init()
+    return node
 
 
 # -------------------------------------------------------------------------------
