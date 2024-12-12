@@ -834,7 +834,7 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
 
     def _test_headers_frame_for_local_resp_cache_304_short(self, client, server):
         self._test_headers_frame_for_local_resp_cache(
-            client, server, 1000, 0, "Mon, 12 Dec 2024 13:59:39 GMT", "304"
+            client, server, 1000, 0, "Mon, 12 Dec 3034 13:59:39 GMT", "304"
         )
 
     def _test_headers_frame_for_local_resp_cache_200_short(self, client, server):
@@ -844,7 +844,7 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
 
     def _test_headers_frame_for_local_resp_cache_304_long(self, client, server):
         self._test_headers_frame_for_local_resp_cache(
-            client, server, 50000, 100000, "Mon, 12 Dec 2024 13:59:39 GMT", "304"
+            client, server, 50000, 100000, "Mon, 12 Dec 3034 13:59:39 GMT", "304"
         )
 
     def _test_headers_frame_for_local_resp_cache_200_long(self, client, server):
