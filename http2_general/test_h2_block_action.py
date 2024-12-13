@@ -30,7 +30,7 @@ from test_suite import marks
         },
     ]
 )
-class TestBlockActionH2ReplyWithCustomErrorPage(BlockActionH2Base):
+class TestBlockActionH2(BlockActionH2Base):
     def setUp(self):
         path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
         self.tempesta = {
@@ -51,21 +51,14 @@ class TestBlockActionH2ReplyWithCustomErrorPage(BlockActionH2Base):
         self.check_fin_and_rst_in_sniffer(sniffer)
 
     def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
-        """
-        In case of TCP segmentation and attack we can't be sure that client
-        receive response, because kernel send TCP RST to client when we
-        receive some data on the DEAD sock. If INITIAL_WINDOW_SIZE is less then
-        response body we also can't send response, because we need to process
-        WINDOW_UPDATE frames, but can't do it on the DEAD sock.
-        """
-        if not run_config.TCP_SEGMENTATION:
-            if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-                self.assertTrue(client.wait_for_response())
-                self.assertEqual(client.last_response.status, expected_status_code)
-                self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
-                self.assertIn(expected_goaway_code, client.error_codes)
-            else:
-                self.assertFalse(client.wait_for_response())
+        if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
+            self.assertTrue(client.wait_for_response())
+            self.assertEqual(client.last_response.status, expected_status_code)
+            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
+            self.assertIn(expected_goaway_code, client.error_codes)
+        else:
+            self.assertFalse(client.wait_for_response())
+        self.assertTrue(client.wait_for_connection_close())
 
     def test_block_action_attack_reply(self):
         client = self.get_client("deproxy")
@@ -86,7 +79,6 @@ class TestBlockActionH2ReplyWithCustomErrorPage(BlockActionH2Base):
         self.check_last_error_response(
             client, expected_status_code="403", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
-        self.assertTrue(client.wait_for_connection_close())
         self.check_sniffer_for_attack_reply(sniffer)
 
     def test_block_action_error_reply(self):
@@ -144,8 +136,6 @@ class TestBlockActionH2ReplyWithCustomErrorPage(BlockActionH2Base):
         self.check_last_error_response(
             client, expected_status_code="400", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
-        self.assertTrue(client.wait_for_connection_close())
-
         self.check_fin_no_rst_in_sniffer(sniffer)
 
     def test_block_action_attack_reply_not_on_req_rcv_event(self):
@@ -183,7 +173,6 @@ class TestBlockActionH2ReplyWithCustomErrorPage(BlockActionH2Base):
         self.check_last_error_response(
             client, expected_status_code="403", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
-        self.assertTrue(client.wait_for_connection_close())
         self.check_sniffer_for_attack_reply(sniffer)
 
 
