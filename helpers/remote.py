@@ -40,45 +40,8 @@ DEFAULT_TIMEOUT = 10
 logger = tf_cfg.LOGGER
 
 
-def modify_cmd(cmd: str) -> str:
-    """
-    Updates command line.
-
-    Adds `sudo`-prefix at the beginning of the `cmd`, and
-    wrap `cmd` with shell i.e. `sh -c '<cmd>'`
-
-    Returns:
-        (str): updated command line
-    """
-    # from the docs:
-    # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
-    # as one token in a shell command line, for cases where you cannot use a list.
-    # We cannot use a list for `paramiko.exec_command`
-    # `-E` we set up some parameters via environment vars, and we need this option to preserve a user environment
-    cmd = f"sudo -E sh -c {shlex.quote(cmd)}"
-    logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
-
-    return cmd
-
-
-def numa_nodes_count(node) -> int:
-    cmd = f"lscpu | grep -oP 'NUMA node\(s\):\s*\K\d+'"
-    out = node.run_cmd(cmd)
-    return int(out[0].decode().strip("\n"))
-
-
-def threads_count(node) -> int:
-    out, _ = node.run_cmd("grep -c processor /proc/cpuinfo")
-    math_obj = re.match(r"^(\d+)$", out.decode())
-
-    if not math_obj:
-        return 1
-
-    return int(math_obj.group(1))
-
-
-class INode(object, metaclass=abc.ABCMeta):
-    """Node interfaces."""
+class ANode(object, metaclass=abc.ABCMeta):
+    """Node abstract class."""
 
     _logger: logging.Logger = logger
 
@@ -96,8 +59,55 @@ class INode(object, metaclass=abc.ABCMeta):
         self.host = hostname
         self.workdir = workdir
         self.type = ntype
-        self.numa_nodes_n: int = 0
+        self._numa_nodes_n: int = 0
         self._max_threads_n: int = 0
+
+    @staticmethod
+    def _modify_cmd(cmd: str) -> str:
+        """
+        Updates command line.
+
+        Adds `sudo`-prefix at the beginning of the `cmd`, and
+        wrap `cmd` with shell i.e. `sh -c '<cmd>'`
+
+        Returns:
+            (str): updated command line
+        """
+        # from the docs:
+        # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
+        # as one token in a shell command line, for cases where you cannot use a list.
+        # We cannot use a list for `paramiko.exec_command`
+        # `-E` we set up some parameters via environment vars, and we need this option to preserve a user environment
+        cmd = f"sudo -E sh -c {shlex.quote(cmd)}"
+        logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
+
+        return cmd
+
+    def _numa_nodes_count(self) -> int:
+        """
+        Executes shell command on the node to get number of NUMA nodes
+
+        Returns:
+            (int) number of NUMA nodes
+        """
+        cmd = f"lscpu | grep -oP 'NUMA node\(s\):\s*\K\d+'"
+        out = self.run_cmd(cmd)
+        return int(out[0].decode().strip("\n"))
+
+    def _threads_count(self) -> int:
+        """
+        Executes shell command on the node to get number of CPU threads
+
+        Returns:
+            (int) number of CPU threads
+        """
+        out, _ = self.run_cmd("grep -c processor /proc/cpuinfo")
+        math_obj = re.match(r"^(\d+)$", out.decode())
+
+        if not math_obj:
+            return 1
+
+        return int(math_obj.group(1))
 
     @abc.abstractmethod
     def run_cmd(
@@ -183,17 +193,17 @@ class INode(object, metaclass=abc.ABCMeta):
         Returns:
             (int) number of NUMA nodes
         """
-        return self.numa_nodes_n
+        return self._numa_nodes_n
 
     def _post_init(self):
         """
         Finilize initialization of the Node.
         """
-        self.numa_nodes_n = numa_nodes_count(self)
-        self._max_threads_n = threads_count(self)
+        self._numa_nodes_n = self._numa_nodes_count()
+        self._max_threads_n = self._threads_count()
 
 
-class LocalNode(INode):
+class LocalNode(ANode):
     """Local node class."""
 
     def run_cmd(
@@ -223,7 +233,7 @@ class LocalNode(INode):
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
         self._logger.debug(f"An initial command before changes: '{cmd}'")
 
-        cmd = modify_cmd(cmd)
+        cmd = self._modify_cmd(cmd)
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -361,7 +371,7 @@ class LocalNode(INode):
         shutil.copy(file, dest_dir)
 
 
-class RemoteNode(INode):
+class RemoteNode(ANode):
     """Remote node class."""
 
     def __init__(
@@ -502,7 +512,7 @@ class RemoteNode(INode):
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
 
-        cmd = modify_cmd(cmd=cmd)
+        cmd = self._modify_cmd(cmd=cmd)
 
         self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
@@ -672,10 +682,10 @@ def create_node(host_type: str):
 # Global accessible SSH/Local connections
 # -------------------------------------------------------------------------------
 
-client: Optional[INode] = None
-tempesta: Optional[INode] = None
-server: Optional[INode] = None
-host: Optional[INode] = None
+client: Optional[ANode] = None
+tempesta: Optional[ANode] = None
+server: Optional[ANode] = None
+host: Optional[ANode] = None
 
 
 def connect():
