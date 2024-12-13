@@ -1586,6 +1586,212 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))
 
+    def test_mix(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        request = client.create_request(
+            method="POST",
+            headers=[
+                ("content-length", "10"),
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("if-modified-since", "Mon, 12 Dec 2016 13:59:39 GMT"),
+            ],
+            body="aaaaaaaaaa",
+        )
+
+        client.send_request(request, "200")
+        client.send_request(request, "200")
+
+    def test_referer_from_hpack_table(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[("referer", "http://tempesta-tech.com:8080")],
+        )
+        client.send_request(request, "200")
+        client.send_request(request, "200")
+        self.assertEqual(2, len(server.requests))
+        # TODO #2308 Tempesta FW issue. Check that ja5h is same.
+
+    def __send_add_check_req_with_huffman(self, client, request, huffman):
+        client.make_request(request, huffman=huffman)
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_cookie_from_hpack_table_1(self, name, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 4 cookie.
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "z=q; e=d"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 6 cookie.
+        # Also pay attention that currently hpack library encodes
+        # header tuples as sensetive (without) adding to hpack table.
+        # Need to rework deproxy to have ability to add 'sensitive'
+        # as a parameter.
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_cookie_from_hpack_table_2(self, name, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 4 cookie.
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "z=q; e=d"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+        self.assertEqual(2, len(server.requests))
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 6 cookie.
+        # Also pay attention that currently hpack library encodes
+        # header tuples as sensetive (without) adding to hpack table.
+        # Need to rework deproxy to have ability to add 'sensitive'
+        # as a parameter.
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_cookie_from_hpack_table_3(self, name, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 4 cookie.
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "z=q; e=d"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+        self.assertEqual(2, len(server.requests))
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 31 cookie.
+        # Also pay attention that currently hpack library encodes
+        # header tuples as sensetive (without) adding to hpack table.
+        # Need to rework deproxy to have ability to add 'sensitive'
+        # as a parameter.
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_cookie_from_hpack_table_4(self, name, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 4 cookie.
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "z=q; e=d"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "a=b; ee=dsfdsf"),
+                ("cookie", "fffda=fdfb; assdsa=asfdfdsg"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "adfdsf=b; dsdfdsd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+        self.assertEqual(2, len(server.requests))
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 20 cookie.
+        # Also pay attention that currently hpack library encodes
+        # header tuples as sensetive (without) adding to hpack table.
+        # Need to rework deproxy to have ability to add 'sensitive'
+        # as a parameter.
+
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
     backends = [

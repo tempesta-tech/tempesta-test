@@ -406,6 +406,24 @@ class TestHeadersParsing(tester.TempestaTest):
 
         self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
 
+    def test_ja5h_cookie(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            request=(
+                "POST / HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+                "Content-type: text/html\r\n"
+                "Cookie: aaa=b; cccc=d; qq=dd\r\n\r\n"
+            ),
+            expected_status_code="200",
+        )
+
+        # TODO #2308 Tempesta FW issue. Check ja5h.
+
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
     backends = [

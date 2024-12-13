@@ -312,6 +312,42 @@
         {
             "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
             "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_referer_from_hpack_table",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_1_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_2_no_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_2_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_2_no_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_3_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_3_no_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_4_huffman",
+            "reason": "Disabled by issue #2308"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestLoadingHeadersFromHpackDynamicTable.test_cookie_from_hpack_table_4_no_huffman",
+            "reason": "Disabled by issue #2308"
         }
     ]
 }
