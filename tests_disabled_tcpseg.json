@@ -130,6 +130,30 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_error_reply_with_conn_close",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply_not_on_req_rcv_event",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_attack_reply",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_error_reply_with_conn_close",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_attack_reply_not_on_req_rcv_event",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "http2_general.test_h2_hpack.TestHpackBomb",
             "reason": "These tests should not be run with TCP segmentation. We have separate tests for `http_max_header_list_size`."
         },
