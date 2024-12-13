@@ -73,7 +73,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         # with only supported arguments
         super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
         stateful.Stateful.__init__(self)
-        self.node: remote.INode = remote.server
+        self.node: remote.ANode = remote.server
         self.container_id = None
         self.stop_procedures = [self.stop_server, self.cleanup]
         self.port_checker = port_checks.FreePortsChecker()
@@ -107,9 +107,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
     @property
     def health_status(self):
         """Status of the container: 'starting', 'healthy', 'unhealthy'."""
-        stdout, stderr = self.node.run_cmd(
-            self._form_inspect_health_command()
-        )
+        stdout, stderr = self.node.run_cmd(self._form_inspect_health_command())
         if stderr or not stdout:
             error.bug(self._form_error(action="inspect_health"))
         try:
@@ -145,7 +143,8 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         t = time.time()
         while t - t0 <= timeout and self.health_status != "unhealthy":
             if self.health_status == "healthy" and self.port_checker.check_ports_established(
-                ip=self.server_ip, ports=self.ports.keys(),
+                ip=self.server_ip,
+                ports=self.ports.keys(),
             ):
                 return True
             time.sleep(0.001)  # to prevent redundant CPU usage
