@@ -2103,7 +2103,7 @@ vhost default {
         }
     ]
 
-    def __encode_chunked(self, data, chunk_size=256):
+    def encode_chunked(self, data, chunk_size=256):
         result = ""
         while len(data):
             chunk, data = data[:chunk_size], data[chunk_size:]
@@ -2111,22 +2111,11 @@ vhost default {
             result += f"{chunk}\r\n"
         return result + "0\r\n\r\n"
 
-    def start_and_check_first_response(self, client_id):
+    def start_and_check_first_response(self, client_id, response, tr1, tr2):
         self.start_all_services()
 
         srv: StaticDeproxyServer = self.get_server("deproxy")
-        srv.set_response(
-            "HTTP/1.1 200 OK\r\n"
-            + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + "Server: Deproxy Server\r\n"
-            + "Transfer-Encoding: chunked\r\n"
-            + "Trailer: X-Token1 X-Token2\r\n\r\n"
-            + self.__encode_chunked(string.ascii_letters, 16)[:-2]
-            + f"X-Token1: value1\r\n"
-            + f"X-Token2: value2\r\n\r\n"
-        )
+        srv.set_response(response)
 
         client = self.get_client(client_id)
         request = client.create_request(method="GET", headers=[])
@@ -2136,37 +2125,45 @@ vhost default {
             self.assertIsNone(client.last_response.headers.get("Trailer"))
             self.assertNotEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
-            self.assertEqual(client.last_response.headers.get("Trailer"), "X-Token1 X-Token2")
+            self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
             self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
-        self.assertIsNone(client.last_response.headers.get("X-Token1"))
-        self.assertIsNone(client.last_response.headers.get("X-Token2"))
+        self.assertIsNone(client.last_response.headers.get(tr1))
+        self.assertIsNone(client.last_response.headers.get(tr2))
 
-    def check_second_request(self, client_id, method, trailers_expected):
+    def check_second_request(
+        self, client_id, method, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+    ):
         client = self.get_client(client_id)
         request = client.create_request(method=method, headers=[])
         client.send_request(request, "200")
         self.assertIn("age", client.last_response.headers)
 
-        if trailers_expected:
+        if tr1_expected:
             self.assertEqual(
-                client.last_response.trailer.get("X-Token1"),
-                "value1",
+                client.last_response.trailer.get(tr1),
+                tr1_val,
                 "Moved trailer header value mismatch the original one",
             )
+        else:
+            self.assertIsNone(client.last_response.trailer.get(tr1))
+
+        if tr2_expected:
             self.assertEqual(
-                client.last_response.trailer.get("X-Token2"),
-                "value2",
+                client.last_response.trailer.get(tr2),
+                tr2_val,
                 "Moved trailer header value mismatch the original one",
             )
+        else:
+            self.assertIsNone(client.last_response.trailer.get(tr2))
 
         if isinstance(client, DeproxyClientH2):
             self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
-            self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token1 X-Token2")
+            self.assertTrue(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
             self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
-        self.assertFalse(client.last_response.headers.get("X-Token1"))
-        self.assertFalse(client.last_response.headers.get("X-Token2"))
+        self.assertFalse(client.last_response.headers.get(tr1))
+        self.assertFalse(client.last_response.headers.get(tr2))
 
 
 @marks.parameterize_class(
@@ -2188,8 +2185,51 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         ]
     )
     def test(self, name, method, trailers_expected):
-        self.start_and_check_first_response("deproxy")
-        self.check_second_request("deproxy", method, trailers_expected)
+        self.start_and_check_first_response(
+            "deproxy",
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 X-Token2\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"X-Token1: value1\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            "X-Token1",
+            "X-Token2",
+        )
+        self.check_second_request(
+            "deproxy",
+            method,
+            "X-Token1",
+            "value1",
+            trailers_expected,
+            "X-Token2",
+            "value2",
+            trailers_expected,
+        )
+
+    def test_hbp_headers(self):
+        self.start_and_check_first_response(
+            "deproxy",
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 Connection\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"X-Token1: value1\r\n"
+            + f"Connection: keep-alive\r\n\r\n",
+            "X-Token1",
+            "Connection",
+        )
+        self.check_second_request(
+            "deproxy", "GET", "X-Token1", "value1", True, "Connection", "keep-alive", False
+        )
 
 
 class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBase):
@@ -2246,8 +2286,31 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
         ]
     )
     def test(self, name, client_id1, client_id2, method, trailers_expected):
-        self.start_and_check_first_response(client_id1)
-        self.check_second_request(client_id2, method, trailers_expected)
+        self.start_and_check_first_response(
+            client_id1,
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 X-Token2\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"X-Token1: value1\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            "X-Token1",
+            "X-Token2",
+        )
+        self.check_second_request(
+            client_id2,
+            method,
+            "X-Token1",
+            "value1",
+            trailers_expected,
+            "X-Token2",
+            "value2",
+            trailers_expected,
+        )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
