@@ -312,6 +312,14 @@
         {
             "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
             "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_in_request_trailer_mix",
+            "reason": "Disabled by issue #1902"
+        },
+        {
+            "name": "http2_general.test_h2_headers.TestTrailers.test_trailers_in_request_trailer_with_hbp",
+            "reason": "Disabled by issue #1902"
         }
     ]
 }
