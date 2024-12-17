@@ -9,7 +9,7 @@ __all__ = [
     "test_h2_headers",
     "test_h2_sticky_cookie",
     "test_h2_max_frame_size",
-    "test_h2_block_action"
+    "test_h2_block_action" "test_h2_stream_rfc7540_priority" "test_h2_stream_rfc9218_priority",
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
