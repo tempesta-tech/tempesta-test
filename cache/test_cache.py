@@ -2132,7 +2132,7 @@ vhost default {
         request = client.create_request(method="GET", headers=[])
         client.send_request(request, "200")
 
-        if isinstance(client, deproxy_client.DeproxyClientH2):
+        if isinstance(client, DeproxyClientH2):
             self.assertIsNone(client.last_response.headers.get("Trailer"))
             self.assertNotEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
@@ -2159,7 +2159,7 @@ vhost default {
                 "Moved trailer header value mismatch the original one",
             )
 
-        if isinstance(client, deproxy_client.DeproxyClientH2):
+        if isinstance(client, DeproxyClientH2):
             self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:

@@ -1113,7 +1113,7 @@ class TestPostponedFrames(H2Base, NetWorker):
             self._ping(client)
 
         self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(client.wait_for_ping_frames(ping_count))
+        self.assertTrue(client.wait_for_ping_frames(2 * ping_count))
 
         self.assertTrue(client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")
