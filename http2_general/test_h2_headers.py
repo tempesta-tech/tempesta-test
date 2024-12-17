@@ -666,21 +666,64 @@ class TestTrailers(H2Base):
         df = frame.DataFrame(stream_id=client.stream_id, data=b"asd")
         client.send_bytes(data=df.serialize(), expect_response=False)
 
-    def test_trailers_in_request(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="trailer",
+                tr1="x-token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="x-token2",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="trailer_with_hbp",
+                tr1="proxy-authenticate",
+                tr1_val="negotiate token68",
+                tr1_expected=False,
+                tr2="proxy-authenticate",
+                tr2_val="negotiate token69",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="trailer_mix",
+                tr1="x-token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="proxy-authenticate",
+                tr2_val="negotiate token68",
+                tr2_expected=False,
+            ),
+        ]
+    )
+    def test_trailers_in_request(
+        self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+    ):
         """Send trailers after DATA frame and receive a 200 response."""
         client = self.__create_connection_and_get_client()
+        server = self.get_server("deproxy")
         self.__send_headers_and_data_frames(client)
 
         # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
-        tf = frame.HeadersFrame(
+        tf1 = frame.HeadersFrame(
             stream_id=client.stream_id,
-            data=client.h2_connection.encoder.encode([("x-my-hdr", "value")]),
+            data=client.h2_connection.encoder.encode([(tr1, tr1_val), (tr2, tr2_val)]),
             flags=["END_STREAM", "END_HEADERS"],
         )
-        client.send_bytes(data=tf.serialize(), expect_response=True)
+        client.send_bytes(data=tf1.serialize(), expect_response=True)
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
+        if tr1_expected:
+            self.assertIn(tr1, server.last_request.headers)
+        else:
+            self.assertNotIn(tr1, server.last_request.headers)
+
+        if tr2_expected:
+            self.assertIn(tr2, server.last_request.headers)
+        else:
+            self.assertNotIn(tr2, server.last_request.headers)
 
     def test_trailers_invalid_header_in_request(self):
         """

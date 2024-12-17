@@ -363,7 +363,40 @@ class TestHeadersParsing(tester.TempestaTest):
                 )
                 client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", status_code)
 
-    def test_trailers_in_request(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="trailer",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="X-Token2",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="trailer_with_hbp",
+                tr1="Connection",
+                tr1_val="Keep-Alive",
+                tr1_expected=False,
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=20",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="trailer_mix",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="Keep-Alive",
+                tr2_expected=False,
+            ),
+        ]
+    )
+    def test_trailers_in_request(
+        self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+    ):
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -371,20 +404,29 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client.send_request(
             request=(
-                "POST / HTTP/1.1\r\n"
-                "Host: localhost\r\n"
-                "Content-type: text/html\r\n"
-                "Transfer-Encoding: chunked\r\n"
-                "Trailers: X-Token\r\n\r\n"
-                "10\r\n"
-                "abcdefghijklmnop\r\n"
-                "0\r\n"
-                "X-Token: value\r\n\r\n"
+                f"POST / HTTP/1.1\r\n"
+                + f"Host: localhost\r\n"
+                + f"Content-type: text/html\r\n"
+                + f"Transfer-Encoding: chunked\r\n"
+                + f"Trailers: {tr1} {tr2}\r\n\r\n"
+                + f"10\r\n"
+                + f"abcdefghijklmnop\r\n"
+                + f"0\r\n"
+                + f"{tr1}: {tr1_val}\r\n"
+                + f"{tr2}: {tr2_val}\r\n\r\n"
             ),
             expected_status_code="200",
         )
 
-        self.assertIn(("X-Token", "value"), server.last_request.trailer.headers)
+        if tr1_expected:
+            self.assertIn((tr1, tr1_val), server.last_request.trailer.headers)
+        else:
+            self.assertNotIn((tr1, tr1_val), server.last_request.trailer.headers)
+
+        if tr2_expected:
+            self.assertIn((tr2, tr2_val), server.last_request.trailer.headers)
+        else:
+            self.assertNotIn((tr2, tr2_val), server.last_request.trailer.headers)
 
     def test_without_trailers_in_request(self):
         self.start_all_services()
@@ -430,7 +472,7 @@ class TestHeadersParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_trailers_in_response(self, name, response):
+    def test_trailers_in_response_simple(self, name, response):
         self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(response)
@@ -441,6 +483,164 @@ class TestHeadersParsing(tester.TempestaTest):
         self.assertIsNone(client.last_response.headers.get("X-Token"))
         self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="no_hbp_GET_1",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="X-Token2",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="no_hbp_GET_2",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection1",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="no_hbp_GET_3",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Conn",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="no_hbp_HEAD",
+                method="HEAD",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="X-Token2",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="hbp_GET",
+                method="GET",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr1_expected=False,
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=100",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="hbp_HEAD",
+                method="HEAD",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr1_expected=False,
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=100",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="mix_HEAD",
+                method="HEAD",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr1_expected=False,
+                tr2="X-Token1",
+                tr2_val="value",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="mix_GET_1",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="keep-alive",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="mix_GET_2",
+                method="GET",
+                tr1="Connection1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="keep-alive",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="mix_GET_3",
+                method="GET",
+                tr1="Conn",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="keep-alive",
+                tr2_expected=False,
+            ),
+        ]
+    )
+    def test_trailers_in_response(
+        self, name, method, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+    ):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + f"Trailer: {tr1} {tr2}\r\n\r\n"
+            + "10\r\n"
+            + "abcdefghijklmnop\r\n"
+            + "0\r\n"
+            + f"{tr1}: {tr1_val}\r\n"
+            + f"{tr2}: {tr2_val}\r\n\r\n"
+        )
+
+        client = self.get_client("deproxy")
+        request = client.create_request(method=method, headers=[])
+        client.send_request(request, "200")
+
+        if tr1_expected and method != "HEAD":
+            self.assertEqual(
+                client.last_response.trailer.get(tr1),
+                tr1_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            self.assertIsNone(client.last_response.trailer.get(tr1))
+
+        if tr2_expected and method != "HEAD":
+            self.assertEqual(
+                client.last_response.trailer.get(tr2),
+                tr2_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            self.assertIsNone(client.last_response.trailer.get(tr2))
+
+        if tr1_expected and tr2_expected:
+            self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
+        elif tr1_expected:
+            self.assertEqual(client.last_response.headers.get("Trailer"), tr1)
+        elif tr2_expected:
+            self.assertEqual(client.last_response.headers.get("Trailer"), tr2)
+        else:
+            self.assertFalse(client.last_response.headers.get("Trailer"))
+        self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertFalse(client.last_response.headers.get(tr1))
+        self.assertFalse(client.last_response.headers.get(tr2))
 
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
