@@ -1,0 +1,54 @@
+[16598.554338] Start test: http2_general.test_h2_headers.BackendSetCoookieH2.test
+[16598.773736] [tdb] Start Tempesta DB
+[16598.787975] [tempesta fw] Initializing Tempesta FW kernel module...
+[16598.950122] [tempesta fw] Warning: Vhost default doesn't have certificate with matching SAN/CN.
+                   Maybe that's fine, but it's worth checking the
+                   config - if there is no relations between the
+                   names, then host name confusion attack is possible.
+[16599.005355] [tempesta fw] Configuration processing is completed.
+[16599.041216] [tdb] Opened table /opt/tempesta/db/filter0.tdb: size=16777216 rec_size=20 base=00000000f285f081
+[16599.139770] [tdb] Opened table /opt/tempesta/db/cache0.tdb: size=268435456 rec_size=0 base=000000006a549b81
+[16599.146417] [tdb] Opened table /opt/tempesta/db/sessions0.tdb: size=16777216 rec_size=312 base=00000000de93fb2e
+[16599.152747] [tdb] Opened table /opt/tempesta/db/client0.tdb: size=16777216 rec_size=624 base=00000000bfe2beb1
+[16599.245355] [tempesta fw] Open listen socket on: 0.0.0.0:443
+[16599.345588] [tempesta fw] Tempesta FW is ready
+[16599.404296] res_size 235
+[16599.404297] 111 res_size 308
+[16599.404516] 222 res_size 308
+[16599.404721] 333 res_size 308
+[16599.404946] 444 res_size 336
+[16599.405166] 555 res_size 382
+[16599.405504] 666 res_size 382
+[16599.405836] tot_len 385
+[16599.406083] tot_len 151
+[16599.406295] tot_len 150
+[16599.406485] tot_len 147
+[16599.406685] flags 0
+[16599.406881] flags 0
+[16599.407045] flags 0
+[16599.407228] flags 0
+[16599.407404] flags 0
+[16599.407574] flags 0
+[16599.407747] flags 0
+[16599.407925] flags 0
+[16599.408108] flags 0
+[16599.408276] flags 0
+[16599.408441] flags 0
+[16599.408619] flags 0
+[16599.408803] flags 0
+[16599.409000] flags 0
+[16599.409191] flags 0
+[16599.409375] tot_len 74
+[16599.409542] tot_len 46
+[16599.409740] tot_len 46
+[16599.409940] tot_len 46
+[16599.410137] tot_len 0
+[16599.410320] tot_len 0 esp->trailers_len 0
+[16599.609396] [tdb] Close table 'client0.tdb'
+[16599.618999] [tdb] Close table 'sessions0.tdb'
+[16599.771837] [tdb] Close table 'cache0.tdb'
+[16599.818423] [tdb] Close table 'filter0.tdb'
+[16599.818895] [tempesta fw] modules are stopped
+[16600.064270] [tempesta fw] exiting...
+[16600.147841] [tdb] Shutdown Tempesta DB
+[16600.263128] End test:   http2_general.test_h2_headers.BackendSetCoookieH2.test
