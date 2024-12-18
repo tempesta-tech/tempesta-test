@@ -361,7 +361,40 @@ class TestHeadersParsing(tester.TempestaTest):
                 )
                 client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", status_code)
 
-    def test_trailers_in_request(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="trailer",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="X-Token2",
+                tr2_val="value2",
+                tr2_expected=True,
+            ),
+            marks.Param(
+                name="trailer_with_hbp",
+                tr1="Connection",
+                tr1_val="Keep-Alive",
+                tr1_expected=False,
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=20",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="trailer_mix",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="Keep-Alive",
+                tr2_expected=False,
+            ),
+        ]
+    )
+    def test_trailers_in_request(
+        self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+    ):
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -369,20 +402,29 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client.send_request(
             request=(
-                "POST / HTTP/1.1\r\n"
-                "Host: localhost\r\n"
-                "Content-type: text/html\r\n"
-                "Transfer-Encoding: chunked\r\n"
-                "Trailers: X-Token\r\n\r\n"
-                "10\r\n"
-                "abcdefghijklmnop\r\n"
-                "0\r\n"
-                "X-Token: value\r\n\r\n"
+                f"POST / HTTP/1.1\r\n"
+                + f"Host: localhost\r\n"
+                + f"Content-type: text/html\r\n"
+                + f"Transfer-Encoding: chunked\r\n"
+                + f"Trailers: {tr1} {tr2}\r\n\r\n"
+                + f"10\r\n"
+                + f"abcdefghijklmnop\r\n"
+                + f"0\r\n"
+                + f"{tr1}: {tr1_val}\r\n"
+                + f"{tr2}: {tr2_val}\r\n\r\n"
             ),
             expected_status_code="200",
         )
 
-        self.assertIn(("X-Token", "value"), server.last_request.trailer.headers)
+        if tr1_expected:
+            self.assertIn((tr1, tr1_val), server.last_request.trailer.headers)
+        else:
+            self.assertNotIn((tr1, tr1_val), server.last_request.trailer.headers)
+
+        if tr2_expected:
+            self.assertIn((tr2, tr2_val), server.last_request.trailer.headers)
+        else:
+            self.assertNotIn((tr2, tr2_val), server.last_request.trailer.headers)
 
     def test_without_trailers_in_request(self):
         self.start_all_services()

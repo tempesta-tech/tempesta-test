@@ -2211,7 +2211,29 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             trailers_expected,
         )
 
-    def test_hbp_headers(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="mix",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="keep-alive",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="hbp",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr1_expected=False,
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=100",
+                tr2_expected=False,
+            ),
+        ]
+    )
+    def test_hbp_headers(self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected):
         self.start_and_check_first_response(
             "deproxy",
             "HTTP/1.1 200 OK\r\n"
@@ -2222,13 +2244,13 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: X-Token1 Connection\r\n\r\n"
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
-            + f"X-Token1: value1\r\n"
-            + f"Connection: keep-alive\r\n\r\n",
-            "X-Token1",
-            "Connection",
+            + f"{tr1}: {tr1_val}\r\n"
+            + f"{tr2}: {tr2_val}\r\n\r\n",
+            tr1,
+            tr2,
         )
         self.check_second_request(
-            "deproxy", "GET", "X-Token1", "value1", True, "Connection", "keep-alive", False
+            "deproxy", "GET", tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
         )
 
 
