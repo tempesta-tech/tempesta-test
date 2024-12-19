@@ -162,6 +162,10 @@
             "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
         },
         {
+            "name": "t_stress.test_ddos",
+            "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
+        },
+        {
             "name": "t_frang.test_config",
             "reason": "These tests should not be run with TCP segmentation."
         },
