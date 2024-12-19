@@ -170,6 +170,18 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },
