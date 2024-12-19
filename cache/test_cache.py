@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import string
 import time
 from http import HTTPStatus
 
@@ -2069,6 +2070,269 @@ cache_fulfill * *;
             self.start_tempesta()
 
         self.assertTrue(self.oops.find(expected_msg))
+
+
+class TestCacheResponseWithTrailersBase(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+server ${server_ip}:8000;
+cache 2;
+cache_methods GET HEAD;
+cache_fulfill * *;
+
+tls_match_any_server_name;
+
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+}
+""",
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n",
+        }
+    ]
+
+    def encode_chunked(self, data, chunk_size=256):
+        result = ""
+        while len(data):
+            chunk, data = data[:chunk_size], data[chunk_size:]
+            result += f"{hex(len(chunk))[2:]}\r\n"
+            result += f"{chunk}\r\n"
+        return result + "0\r\n\r\n"
+
+    def start_and_check_first_response(self, client_id, response, tr1, tr2):
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(response)
+
+        client = self.get_client(client_id)
+        request = client.create_request(method="GET", headers=[])
+        client.send_request(request, "200")
+
+        if isinstance(client, DeproxyClientH2):
+            self.assertIsNone(client.last_response.headers.get("Trailer"))
+            self.assertNotEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        else:
+            self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
+            self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertIsNone(client.last_response.headers.get(tr1))
+        self.assertIsNone(client.last_response.headers.get(tr2))
+
+    def check_second_request(
+        self, client_id, method, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+    ):
+        client = self.get_client(client_id)
+        request = client.create_request(method=method, headers=[])
+        client.send_request(request, "200")
+        self.assertIn("age", client.last_response.headers)
+
+        if tr1_expected:
+            self.assertEqual(
+                client.last_response.trailer.get(tr1),
+                tr1_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            self.assertIsNone(client.last_response.trailer.get(tr1))
+
+        if tr2_expected:
+            self.assertEqual(
+                client.last_response.trailer.get(tr2),
+                tr2_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            self.assertIsNone(client.last_response.trailer.get(tr2))
+
+        if isinstance(client, DeproxyClientH2):
+            self.assertFalse(client.last_response.headers.get("Trailer"))
+            self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        else:
+            self.assertTrue(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
+            self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertFalse(client.last_response.headers.get(tr1))
+        self.assertFalse(client.last_response.headers.get(tr2))
+
+
+@marks.parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
+    """
+    This class contains checks for tempesta cache config and trailers
+    in response.
+    """
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="GET", method="GET", trailers_expected=True),
+            marks.Param(name="HEAD", method="HEAD", trailers_expected=False),
+        ]
+    )
+    def test(self, name, method, trailers_expected):
+        self.start_and_check_first_response(
+            "deproxy",
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 X-Token2\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"X-Token1: value1\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            "X-Token1",
+            "X-Token2",
+        )
+        self.check_second_request(
+            "deproxy",
+            method,
+            "X-Token1",
+            "value1",
+            trailers_expected,
+            "X-Token2",
+            "value2",
+            trailers_expected,
+        )
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="mix",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr1_expected=True,
+                tr2="Connection",
+                tr2_val="keep-alive",
+                tr2_expected=False,
+            ),
+            marks.Param(
+                name="hbp",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr1_expected=False,
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=100",
+                tr2_expected=False,
+            ),
+        ]
+    )
+    def test_hbp_headers(self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected):
+        self.start_and_check_first_response(
+            "deproxy",
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 Connection\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"{tr1}: {tr1_val}\r\n"
+            + f"{tr2}: {tr2_val}\r\n\r\n",
+            tr1,
+            tr2,
+        )
+        self.check_second_request(
+            "deproxy", "GET", tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+        )
+
+
+class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBase):
+    """
+    Same as previous but requests made from different clients
+    """
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy_h2",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="GET_deproxy_deproxy_h2",
+                client_id1="deproxy",
+                client_id2="deproxy_h2",
+                method="GET",
+                trailers_expected=True,
+            ),
+            marks.Param(
+                name="HEAD_deproxy_deproxy_h2",
+                client_id1="deproxy",
+                client_id2="deproxy_h2",
+                method="HEAD",
+                trailers_expected=False,
+            ),
+            marks.Param(
+                name="GET_deproxy_h2_deproxy",
+                client_id1="deproxy_h2",
+                client_id2="deproxy",
+                method="GET",
+                trailers_expected=True,
+            ),
+            marks.Param(
+                name="HEAD_deproxy_h2_deproxy",
+                client_id1="deproxy_h2",
+                client_id2="deproxy",
+                method="HEAD",
+                trailers_expected=False,
+            ),
+        ]
+    )
+    def test(self, name, client_id1, client_id2, method, trailers_expected):
+        self.start_and_check_first_response(
+            client_id1,
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 X-Token2\r\n\r\n"
+            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + f"X-Token1: value1\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            "X-Token1",
+            "X-Token2",
+        )
+        self.check_second_request(
+            client_id2,
+            method,
+            "X-Token1",
+            "value1",
+            trailers_expected,
+            "X-Token2",
+            "value2",
+            trailers_expected,
+        )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

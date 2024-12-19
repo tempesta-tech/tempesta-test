@@ -592,7 +592,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return util.wait_until(
-            lambda: self._ping_received >= ping_count,
+            lambda: not self._ping_received >= ping_count,
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
@@ -661,9 +661,9 @@ class DeproxyClientH2(BaseDeproxyClient):
                             event.stream_id, event.flow_controlled_length
                         )
                 elif isinstance(event, TrailersReceived):
-                    trailers = self.__headers_to_string(event.headers)
                     response = self.active_responses.get(event.stream_id)
-                    response.parse_text(str(response.headers) + "\r\n" + response.body + trailers)
+                    for trailer in event.headers:
+                        response.trailer.add(trailer[0].decode(), trailer[1].decode())
                 elif isinstance(event, StreamEnded):
                     response = self.active_responses.pop(event.stream_id, None)
                     if response is None:
