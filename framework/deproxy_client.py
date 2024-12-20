@@ -28,7 +28,7 @@ from hpack import Encoder
 
 import run_config
 from framework import stateful
-from framework.deproxy_base import DeproxyBaseClass
+from framework.deproxy_manager import _PoolingLock
 from helpers import deproxy, tf_cfg, util
 
 dbg = deproxy.dbg
@@ -44,11 +44,12 @@ def adjust_timeout_for_tcp_segmentation(timeout):
     return timeout
 
 
-class BaseDeproxyClient(deproxy.Client, DeproxyBaseClass, abc.ABC):
+class BaseDeproxyClient(deproxy.Client, stateful.Stateful, abc.ABC):
     def __init__(self, deproxy_auto_parser, *args, **kwargs):
         deproxy.Client.__init__(self, *args, **kwargs)
-        DeproxyBaseClass.__init__(self)
+        stateful.Stateful.__init__(self)
         self._deproxy_auto_parser = deproxy_auto_parser
+        self._polling_lock: _PoolingLock | None = None
         self.stop_procedures = [self.__stop_client]
         self.rps = 0
         # This parameter controls whether to keep original data with the response
@@ -107,9 +108,12 @@ class BaseDeproxyClient(deproxy.Client, DeproxyBaseClass, abc.ABC):
     def set_rps(self, rps):
         self.rps = rps
 
+    def set_events(self, polling_lock: _PoolingLock) -> None:
+        self._polling_lock = polling_lock
+
     def __stop_client(self):
         tf_cfg.dbg(4, "\tStop deproxy client")
-        self._lock_acquire()
+        self._polling_lock.acquire()
 
         try:
             self.close()
@@ -117,35 +121,35 @@ class BaseDeproxyClient(deproxy.Client, DeproxyBaseClass, abc.ABC):
             tf_cfg.dbg(2, "Exception while stop: %s" % str(e))
             raise e
         finally:
-            self._lock_release()
+            self._polling_lock.release()
 
     def run_start(self):
         self._reinit_variables()
-        self._lock_acquire()
+        self._polling_lock.acquire()
 
         # TODO should be changed by issue #361
         t0 = time.time()
         while True:
             t = time.time()
             if t - t0 > 5:
-                self._lock_release()
+                self._polling_lock.release()
                 raise TimeoutError("Deproxy client start failed.")
 
             try:
                 deproxy.Client.run_start(self)
-                self._lock_release()
+                self._polling_lock.release()
                 break
 
             except OSError as e:
                 if e.args == (9, "EBADF"):
                     continue
 
-                self._lock_release()
+                self._polling_lock.release()
                 tf_cfg.dbg(2, "Exception while start: %s" % str(e))
                 raise e
 
             except Exception as e:
-                self._lock_release()
+                self._polling_lock.release()
                 tf_cfg.dbg(2, "Exception while start: %s" % str(e))
                 raise e
 

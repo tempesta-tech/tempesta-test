@@ -8,7 +8,7 @@ import time
 import run_config
 from framework import stateful
 from framework.deproxy_auto_parser import DeproxyAutoParser
-from framework.deproxy_base import DeproxyBaseClass
+from framework.deproxy_manager import _PoolingLock
 from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
@@ -135,7 +135,7 @@ class ServerConnection(asyncore.dispatcher):
             self.handle_close()
 
 
-class StaticDeproxyServer(asyncore.dispatcher, DeproxyBaseClass):
+class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
     def __init__(
         self,
@@ -155,10 +155,11 @@ class StaticDeproxyServer(asyncore.dispatcher, DeproxyBaseClass):
     ):
         # Initialize the base `dispatcher`
         asyncore.dispatcher.__init__(self)
-        DeproxyBaseClass.__init__(self)
+        stateful.Stateful.__init__(self)
 
         self._reinit_variables()
         self._deproxy_auto_parser = deproxy_auto_parser
+        self._polling_lock: _PoolingLock | None = None
         self._expected_response: deproxy.Response | None = None
         self.port = port
         self.ip = ip
@@ -182,6 +183,9 @@ class StaticDeproxyServer(asyncore.dispatcher, DeproxyBaseClass):
 
         self.stop_procedures: list[callable] = [self.__stop_server]
         self.node: remote.ANode = remote.host
+
+    def set_events(self, polling_lock: _PoolingLock) -> None:
+        self._polling_lock = polling_lock
 
     def _reinit_variables(self):
         self._connections: list[ServerConnection] = list()
@@ -222,7 +226,7 @@ class StaticDeproxyServer(asyncore.dispatcher, DeproxyBaseClass):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
         self._reinit_variables()
         self.port_checker.check_ports_status()
-        self._lock_acquire()
+        self._polling_lock.acquire()
 
         try:
             self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -235,11 +239,11 @@ class StaticDeproxyServer(asyncore.dispatcher, DeproxyBaseClass):
             tf_cfg.dbg(2, f"Error while creating socket {self.ip}:{self.port}: {str(e)}")
             raise e
         finally:
-            self._lock_release()
+            self._polling_lock.release()
 
     def __stop_server(self):
         dbg(self, 3, "Stop", prefix="\t")
-        self._lock_acquire()
+        self._polling_lock.acquire()
 
         try:
             self.close()
@@ -247,7 +251,7 @@ class StaticDeproxyServer(asyncore.dispatcher, DeproxyBaseClass):
             for conn in connections:
                 conn.handle_close()
         finally:
-            self._lock_release()
+            self._polling_lock.release()
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:

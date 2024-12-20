@@ -2,7 +2,6 @@ __all__ = [
     "client",
     "curl_client",
     "deproxy_auto_parser",
-    "deproxy_base",
     "deproxy_client",
     "deproxy_manager",
     "deproxy_server",
