@@ -175,6 +175,10 @@ class DeproxyAutoParser:
             expected_response.headers.delete_all("set-cookie")
         if http2 or is_cache:
             self.__prepare_chunked_expected_response(expected_response, http2, chunked_len)
+        else:
+            if self.__client_request.method == "HEAD":
+                for name, value in expected_response.trailer.headers:
+                    expected_response.trailer.delete_all(name)
 
         if not http2:
             self.__add_content_length_header_to_expected_response(expected_response)
@@ -207,10 +211,38 @@ class DeproxyAutoParser:
             4,
             self.__dbg_msg.format("Remove hop-by-hop headers from expected response/request"),
         )
+        trailer = message.headers.get("trailer")
+        """
+        Remove hop by hop headers from 'Trailer' header.
+        Since we remove hop by hop headers from trailers
+        we should also remove it from 'Trailer' header.
+        """
+        if trailer:
+            tr = ""
+            tmp = trailer.split(" ")
+            for t in tmp:
+                tt = t.lower()
+                if (
+                    tt != "connection"
+                    and tt != "keep-alive"
+                    and tt != "proxy-connection"
+                    and tt != "upgrade"
+                ):
+                    tr += t
+                    tr += " "
+            tr = tr[:-1]
+            if tr != "":
+                message.headers["trailer"] = tr
+            else:
+                message.headers.delete_all("trailer")
         message.headers.delete_all("connection")
         message.headers.delete_all("keep-alive")
         message.headers.delete_all("proxy-connection")
         message.headers.delete_all("upgrade")
+        message.trailer.delete_all("connection")
+        message.trailer.delete_all("keep-alive")
+        message.trailer.delete_all("proxy-connection")
+        message.trailer.delete_all("upgrade")
 
     def __prepare_chunked_expected_response(
         self, expected_response: Response | H2Response, http2: bool, chunked_blen: int

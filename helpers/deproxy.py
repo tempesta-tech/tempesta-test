@@ -423,8 +423,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
                 raise ParseError("Error in chunked body")
 
         """
-        if trailer is not present don't pass the last CRLF to parse_trailer,
-        we must append it to body
+        If trailer is not present don't pass the last CRLF to parse_trailer.
         """
         pos = stream.tell()
         end = stream.read(2)
@@ -432,6 +431,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             self.body += end
             if 2 != self.body[-3:].count("\n"):
                 raise IncompleteMessage("Incomplete chunked body.")
+            self.body = self.body[:-2]
             return
         elif end == "":
             raise IncompleteMessage("Incomplete last CRLF in chunked body.")
@@ -449,9 +449,6 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             result = f"{hex(len(self.body))[2:]}\r\n"
             result += f"{self.body}\r\n"
             self.body = result + "0\r\n"
-            trailers = len(self.trailer.headers)
-            if not trailers:
-                self.body += "\r\n"
 
     def chunked_body_len(self):
         chunked_lines = self.body.split("\r\n")
