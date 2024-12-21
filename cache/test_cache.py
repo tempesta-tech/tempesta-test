@@ -2138,7 +2138,7 @@ vhost default {
         client.send_request(request, "200")
         self.assertIn("age", client.last_response.headers)
 
-        if tr1_expected:
+        if tr1_expected and method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr1),
                 tr1_val,
@@ -2147,7 +2147,7 @@ vhost default {
         else:
             self.assertIsNone(client.last_response.trailer.get(tr1))
 
-        if tr2_expected:
+        if tr2_expected and method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr2),
                 tr2_val,
@@ -2160,7 +2160,14 @@ vhost default {
             self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
-            self.assertTrue(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
+            if tr1_expected and tr2_expected:
+                self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
+            elif tr1_expected:
+                self.assertEqual(client.last_response.headers.get("Trailer"), tr1)
+            elif tr2_expected:
+                self.assertEqual(client.last_response.headers.get("Trailer"), tr2)
+            else:
+                self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertFalse(client.last_response.headers.get(tr1))
         self.assertFalse(client.last_response.headers.get(tr2))
@@ -2181,7 +2188,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
     @marks.Parameterize.expand(
         [
             marks.Param(name="GET", method="GET", trailers_expected=True),
-            marks.Param(name="HEAD", method="HEAD", trailers_expected=False),
+            marks.Param(name="HEAD", method="HEAD", trailers_expected=True),
         ]
     )
     def test(self, name, method, trailers_expected):
@@ -2214,13 +2221,22 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
     @marks.Parameterize.expand(
         [
             marks.Param(
-                name="mix",
+                name="mix_1",
                 tr1="X-Token1",
                 tr1_val="value1",
                 tr1_expected=True,
                 tr2="Connection",
                 tr2_val="keep-alive",
                 tr2_expected=False,
+            ),
+            marks.Param(
+                name="mix_2",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr1_expected=False,
+                tr2="X-Token1",
+                tr2_val="value1",
+                tr2_expected=True,
             ),
             marks.Param(
                 name="hbp",
@@ -2242,7 +2258,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
-            + "Trailer: X-Token1 Connection\r\n\r\n"
+            + f"Trailer: {tr1} {tr2}\r\n\r\n"
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"{tr1}: {tr1_val}\r\n"
             + f"{tr2}: {tr2_val}\r\n\r\n",
