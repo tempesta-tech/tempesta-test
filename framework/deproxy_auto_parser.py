@@ -211,6 +211,10 @@ class DeproxyAutoParser:
         message.headers.delete_all("keep-alive")
         message.headers.delete_all("proxy-connection")
         message.headers.delete_all("upgrade")
+        message.trailer.delete_all("connection")
+        message.trailer.delete_all("keep-alive")
+        message.trailer.delete_all("proxy-connection")
+        message.trailer.delete_all("upgrade")
 
     def __prepare_chunked_expected_response(
         self, expected_response: Response | H2Response, http2: bool, chunked_blen: int
