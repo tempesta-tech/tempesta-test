@@ -423,14 +423,12 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
                 raise ParseError("Error in chunked body")
 
         """
-        if trailer is not present don't pass the last CRLF to parse_trailer,
-        we must append it to body
+        If trailer is not present don't pass the last CRLF to parse_trailer.
         """
         pos = stream.tell()
         end = stream.read(2)
         if end and end.rstrip("\r\n") == "":
-            self.body += end
-            if 2 != self.body[-3:].count("\n"):
+            if 1 != self.body[-1:].count("\n"):
                 raise IncompleteMessage("Incomplete chunked body.")
             return
         elif end == "":
@@ -440,9 +438,22 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         # Parsing trailer will eat last CRLF
         self.parse_trailer(stream)
 
-    def convert_chunked_body(self):
+    def convert_chunked_body(self, http2, method_is_head):
         chunked_lines = self.body.split("\r\n")
         self.body = "".join(chunked_lines[1::2])
+        # Tempesta FW encode body in single chunk
+        # For example 3 abc 2 be 0 will be converted to 5 abcbe 0
+        if not http2 and not method_is_head:
+            result = f"{hex(len(self.body))[2:]}\r\n"
+            result += f"{self.body}\r\n"
+            self.body = result + "0\r\n"
+            trailers = len(self.trailer.headers)
+            if not trailers:
+                self.body += "\r\n"
+
+    def chunked_body_len(self):
+        chunked_lines = self.body.split("\r\n")
+        return len("".join(chunked_lines[1::2]))
 
     def read_sized_body(self, stream):
         """RFC 7230. 3.3.3 #5"""
@@ -994,7 +1005,9 @@ class TlsClient(asyncore.dispatcher):
             return super().bind(address)
         # When we cannot bind an address, adding more details
         except OSError as os_exc:
-            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            os_err_msg = (
+                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            )
             tf_cfg.dbg(6, os_err_msg)
             raise OSError(os_err_msg) from os_exc
 
