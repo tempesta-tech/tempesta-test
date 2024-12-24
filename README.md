@@ -405,6 +405,8 @@ In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
+This project uses solutions from [MHDDoS](https://github.com/MatrixTM/MHDDoS).
+
 Install dependencies: `pip3 install -r requirements.txt`
 
 There may be a possible problem related to `scapy`, `paramiko`, and `cryptography`. 

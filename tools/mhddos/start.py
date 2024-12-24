@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Code based on the MHDDoS project, available at: https://github.com/MatrixTM/MHDDoS
+# MIT License
 import argparse
 import random
 from contextlib import suppress

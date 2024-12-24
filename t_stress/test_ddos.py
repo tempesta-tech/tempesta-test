@@ -194,7 +194,7 @@ http_chain {{
           Perhaps this problem will be solved after closing issues #2284 and #2286.
           It took me 2-5 minutes to use all available resources (depends on the methods).
 
-        Getting a response from the cache\upstream:
+        Getting a response from the cache/upstream:
           - responses from the cache were returned without delay under any load and
             configuration (if there are enough resources on TempestaFW VM);
           - upstream responses without ip_block on require a very long time.
