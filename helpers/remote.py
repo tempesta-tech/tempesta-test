@@ -10,7 +10,6 @@ import errno
 import logging
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import time
@@ -59,27 +58,6 @@ class ANode(object, metaclass=abc.ABCMeta):
         self.type = ntype
         self._numa_nodes_n: int = 0
         self._max_threads_n: int = 0
-
-    @staticmethod
-    def _modify_cmd(cmd: str) -> str:
-        """
-        Updates command line.
-
-        Adds `sudo`-prefix at the beginning of the `cmd`, and
-        wrap `cmd` with shell i.e. `sh -c '<cmd>'`
-
-        Returns:
-            (str): updated command line
-        """
-        # from the docs:
-        # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
-        # as one token in a shell command line, for cases where you cannot use a list.
-        # We cannot use a list for `paramiko.exec_command`
-        # `-E` we set up some parameters via environment vars, and we need this option to preserve a user environment
-        cmd = f"sudo -E sh -c {shlex.quote(cmd)}"
-        logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
-
-        return cmd
 
     def _numa_nodes_count(self) -> int:
         """
@@ -230,8 +208,6 @@ class LocalNode(ANode):
         """
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
         self._logger.debug(f"An initial command before changes: '{cmd}'")
-
-        cmd = self._modify_cmd(cmd)
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -445,21 +421,6 @@ class RemoteNode(ANode):
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
             raise conn_exc
 
-    def _change_perm(self, target: str, perm: Union[int, str] = 775):
-        """
-        Changes permissions recursively for a target.
-
-        Everywhere we work as a privileged user, and we may have permission problems working with files and dirs
-        using `paramiko` or particularly `sftp`.
-        Usually, created by our privileged user files and dirs have `755` permissions
-        we need to change it to `775` to have write access.
-
-        Args:
-            target (str): file or dir to change permissions
-            perm (Union[int, str]): permissions to apply
-        """
-        self.run_cmd(f"chmod -R {perm} {os.path.dirname(target)}")
-
     def run_cmd(
         self,
         cmd: str,
@@ -497,8 +458,6 @@ class RemoteNode(ANode):
                 ],
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
-
-        cmd = self._modify_cmd(cmd=cmd)
 
         self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
@@ -558,9 +517,6 @@ class RemoteNode(ANode):
         if dirname != self.workdir:
             self.mkdir(dirname)
 
-        # change perm for dir, because file itself does not exist yet, we are copying it
-        self._change_perm(target=dirname)
-
         try:
             sftp = self._ssh.open_sftp()
             sfile = sftp.file(filename, "wt", -1)
@@ -584,8 +540,6 @@ class RemoteNode(ANode):
 
         else:
             self._logger.debug(f"Removing `{filename}`.")
-
-            self._change_perm(target=filename)
 
             sftp = self._ssh.open_sftp()
             try:
