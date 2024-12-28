@@ -44,7 +44,7 @@ cache_fulfill * *;
 cache_methods GET HEAD;
 cache_ttl 3600;
 
-access_log on;
+access_log dmesg;
 keepalive_timeout 15;
 
 frang_limits {{
