@@ -77,7 +77,10 @@ class DmesgFinder(object):
         print(self.log)
 
     def log_findall(self, pattern: str):
-        return re.findall(pattern, self.log.decode(errors="ignore"))
+        if isinstance(self.log, bytes):
+            return re.findall(pattern, self.log.decode(errors="ignore"))
+
+        return re.findall(pattern, self.log)
 
     def find(self, pattern: str, cond=amount_one) -> bool:
         """
