@@ -22,6 +22,7 @@ RPC = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 @unittest.skipIf(
     TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
 )
+@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
 class TestDDoSL7(tester.TempestaTest):
     clients = [
         {
@@ -43,7 +44,7 @@ cache_fulfill * *;
 cache_methods GET HEAD;
 cache_ttl 3600;
 
-access_log on;
+access_log dmesg;
 keepalive_timeout 15;
 
 frang_limits {{
