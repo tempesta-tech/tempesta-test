@@ -152,18 +152,10 @@ class DeproxyAutoParser:
         from Tempesta because deproxy server does not know about client protocol and the response
         maybe from cache.
         """
-        chunked_len = 0
         if http2:
             expected_response = H2Response.convert_http1_to_http2(self.__expected_response)
         else:
             expected_response = copy.deepcopy(self.__expected_response)
-
-        if "Transfer-Encoding" in expected_response.headers:
-            # Calculate expected body len (which will used to set content-length)
-            # for chunked response on HEAD request. We calculate it here because
-            # we remove body in `__prepare_body_for_HEAD_request` and can't do it
-            # in `__prepare_chunked_expected_response`
-            chunked_len = expected_response.chunked_body_len()
 
         self.__prepare_body_for_HEAD_request(expected_response)
 
@@ -174,7 +166,7 @@ class DeproxyAutoParser:
             # Tempesta doesn't cache "set-cookie" header
             expected_response.headers.delete_all("set-cookie")
         if http2 or is_cache:
-            self.__prepare_chunked_expected_response(expected_response, http2, chunked_len)
+            self.__prepare_chunked_expected_response(expected_response, http2)
         else:
             if self.__client_request.method == "HEAD":
                 for name, value in expected_response.trailer.headers:
@@ -245,7 +237,7 @@ class DeproxyAutoParser:
         message.trailer.delete_all("upgrade")
 
     def __prepare_chunked_expected_response(
-        self, expected_response: Response | H2Response, http2: bool, chunked_blen: int
+        self, expected_response: Response | H2Response, http2: bool
     ) -> None:
         """
         For http2:
@@ -276,11 +268,6 @@ class DeproxyAutoParser:
                     expected_response.headers.add("content-encoding", ce)
             expected_response.convert_chunked_body(http2, method_is_head)
             if http2:
-                expected_response.headers.add(
-                    "content-length",
-                    str(len(expected_response.body)) if not method_is_head else str(chunked_blen),
-                )
-
                 expected_response.headers.delete_all("Trailer")
 
             # Tempesta FW remove trailers from response for HEAD request.
