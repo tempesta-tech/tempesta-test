@@ -56,6 +56,7 @@ frang_limits {http_strict_host_checking false;}
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
+cache 0;
 """,
     }
 
@@ -144,7 +145,7 @@ class TestJa5t(TestJa5tBase):
             self.assertFalse(client.wait_for_response())
 
 
-class TestJa5tStress(TestJa5tBase):
+class TestJa5tStressBase(TestJa5tBase):
     """This class contains checks for tempesta ja5 filtration."""
 
     clients = [
@@ -168,6 +169,10 @@ class TestJa5tStress(TestJa5tBase):
             ),
         },
     ]
+
+
+class TestJa5tStress(TestJa5tStressBase):
+    """This class contains checks for tempesta ja5 filtration under stress."""
 
     def change_cfg(self, tempesta_ja5_config_1, tempesta_ja5_config_2, tempesta_ja5_config_3):
         tempesta: Tempesta = self.get_tempesta()
@@ -204,6 +209,7 @@ class TestJa5tStress(TestJa5tBase):
 					}
 				""",
                 tempesta_ja5_config_3="",
+                extra_setup=True,
             ),
             marks.Param(
                 name="h2",
@@ -223,6 +229,7 @@ class TestJa5tStress(TestJa5tBase):
 					}
 				""",
                 tempesta_ja5_config_3="",
+                extra_setup=False,
             ),
         ]
     )
@@ -234,11 +241,122 @@ class TestJa5tStress(TestJa5tBase):
         tempesta_ja5_config_1: str,
         tempesta_ja5_config_2: str,
         tempesta_ja5_config_3: str,
+        extra_setup: bool,
     ):
         self.setup_test()
         client = self.get_client(client_id)
+        if extra_setup:
+            client.connections = CONCURRENT_CONNECTIONS
+            client.duration = int(DURATION)
+            client.threads = THREADS
         client.start()
         self.change_cfg(tempesta_ja5_config_1, tempesta_ja5_config_2, tempesta_ja5_config_3)
-        self.wait_while_busy(client)
+        self.wait_while_busy(client, timeout=120)
         client.stop()
+
+        print(client.statuses)
+        print(client.results)
         # TODO: Check client status codes.
+
+
+class TestJa5tStressPerf(TestJa5tStressBase):
+    """This class contains checks for tempesta ja5 filtration preformance."""
+
+    def change_cfg(self, tempesta_ja5_config):
+        tempesta: Tempesta = self.get_tempesta()
+        config = tempesta.config.defconfig
+
+        tempesta.config.defconfig = config + tempesta_ja5_config
+        self.get_tempesta().reload()
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="http",
+                client_id="wrk",
+                tempesta_ja5_config="""
+                    ja5t {
+                        hash deadbeef 1000000 1000000;
+                        hash 1f5a9a29ef170000 1000000 1000000;
+                        hash 66cbda9cafc40009 1000000 1000000;
+                        hash 1f5a9a29ef170020 1000000 1000000;
+                        hash 1f5a9a29ef170021 1000000 1000000;
+                        hash 1f5a9a29ef170022 1000000 1000000;
+                        hash 1f5a9a29ef170023 1000000 1000000;
+                        hash 1f5a9a29ef170024 1000000 1000000;
+                        hash 1f5a9a39ef170020 1000000 1000000;
+                        hash 1f5a9a29ef170040 1000000 1000000;
+                        hash 1f5a9a29ef180020 1000000 1000000;
+                        hash 1f5a9a29ef170120 1000000 1000000;
+                        hash 1f5a9a29ef171020 1000000 1000000;
+                        hash 1f5a9a29ef172020 1000000 1000000;
+                        hash 1f5a9a29ef173020 1000000 1000000;
+                        hash 1f5a9a29ef174020 1000000 1000000;
+                        hash 1f5a9a29ef175020 1000000 1000000;
+                        hash 1f5a9a29ef176020 1000000 1000000;
+                        hash 1f5a9a29ef178020 1000000 1000000;
+                        hash 1f5a9a29ef171120 1000000 1000000;
+                        hash 1f5a9a29ef171020 1000000 1000000;
+                        hash 1f5a9a29ef170023 1000000 1000000;
+                        hash 1f5a9a29ef170025 1000000 1000000;
+                        hash 1f5a9a29ef170820 1000000 1000000;
+                        hash 1f5a9a29ef170720 1000000 1000000;
+                        hash 1f5a9a29ef170620 1000000 1000000;
+                        hash 1f5a9a29ef170520 1000000 1000000;
+                        hash 1f5a9a29ef170420 1000000 1000000;
+                        hash 1f5a9a29ef173420 1000000 1000000;
+                        hash 1f5a9a29ef173423 1000000 1000000;
+                        hash 2f5a9a29ef170020 1000000 1000000;
+                        hash 3f5a9a29ef170020 1000000 1000000;
+                        hash 4e5a9a29ef170020 1000000 1000000;
+                        hash 345a9a29ef170020 1000000 1000000;
+                    }
+                """,
+                extra_setup=True,
+            ),
+            marks.Param(
+                name="h2",
+                client_id="h2load",
+                tempesta_ja5_config="""
+                    ja5t {
+                        hash deadbeef 1000000 1000000;
+                        hash 1f5a9a29ef170000 1000000 1000000;
+                        hash 66cbda9cafc40009 1000000 1000000;
+                        hash 1f5a9a29ef170020 1000000 1000000;
+                    }
+                """,
+                extra_setup=False,
+            ),
+        ]
+    )
+    @dmesg.limited_rate_on_tempesta_node
+    def test(self, name, client_id: str, tempesta_ja5_config: str, extra_setup: bool):
+        self.setup_test()
+        client = self.get_client(client_id)
+        if extra_setup:
+            client.connections = CONCURRENT_CONNECTIONS
+            client.duration = int(DURATION)
+            client.threads = THREADS
+        client.start()
+        self.wait_while_busy(client, timeout=120)
+        client.stop()
+
+        print(client.response_msg)
+
+        client.clear_stats()
+
+        client.start()
+        self.wait_while_busy(client, timeout=120)
+        client.stop()
+
+        print(client.response_msg)
+
+        client.clear_stats()
+
+        self.change_cfg(tempesta_ja5_config)
+
+        client.start()
+        self.wait_while_busy(client, timeout=120)
+        client.stop()
+
+        print(client.response_msg)
