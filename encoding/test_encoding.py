@@ -142,7 +142,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             "The response should not have Transfer-Encoding",
         )
         cl = response.headers.get("Content-Length", None)
-        self.assertTrue(cl, "The response should have Content-Length")
+        self.assertFalse(cl, "The response should not have Content-Length")
         if body_expected:
             self.assertEqual(
                 response.body, self.body, "Dechunked body does not match the original payload"
@@ -575,14 +575,13 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
             with self.subTest(response_from=from_):
                 client.send_request(self.request, "200")
                 response = client.last_response
+                self.assertFalse(client.last_response.headers.get("Trailer"))
                 if self.h2:
-                    self.assertFalse(client.last_response.headers.get("Trailer"))
-                    self.assertFalse(
+                    self.assertIsNone(
                         client.last_response.headers.get("Transfer-Encoding"), "chunked"
                     )
                 else:
-                    self.assertTrue(client.last_response.headers.get("Trailer"), "X-Token")
-                    self.assertTrue(
+                    self.assertEqual(
                         client.last_response.headers.get("Transfer-Encoding"), "chunked"
                     )
                 self.assertEqual(
