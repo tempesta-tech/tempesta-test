@@ -203,30 +203,13 @@ class DeproxyAutoParser:
             4,
             self.__dbg_msg.format("Remove hop-by-hop headers from expected response/request"),
         )
-        trailer = message.headers.get("trailer")
-        """
-        Remove hop by hop headers from 'Trailer' header.
-        Since we remove hop by hop headers from trailers
-        we should also remove it from 'Trailer' header.
-        """
-        if trailer:
-            tr = ""
-            tmp = trailer.split(" ")
-            for t in tmp:
-                tt = t.lower()
-                if (
-                    tt != "connection"
-                    and tt != "keep-alive"
-                    and tt != "proxy-connection"
-                    and tt != "upgrade"
-                ):
-                    tr += t
-                    tr += " "
-            tr = tr[:-1]
-            if tr != "":
-                message.headers["trailer"] = tr
-            else:
-                message.headers.delete_all("trailer")
+        connection = message.headers.get("connection")
+        if connection:
+            connection = connection.split(" ")
+            for hdr in connection:
+                message.trailer.delete_all(hdr.lower())
+
+        message.headers.delete_all("trailer")
         message.headers.delete_all("connection")
         message.headers.delete_all("keep-alive")
         message.headers.delete_all("proxy-connection")

@@ -672,34 +672,45 @@ class TestTrailers(H2Base):
                 name="trailer",
                 tr1="x-token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="x-token2",
                 tr2_val="value2",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
             marks.Param(
-                name="trailer_with_hbp",
-                tr1="proxy-authenticate",
+                name="trailer_with_hbp_1",
+                tr1="proxy-connection",
                 tr1_val="negotiate token68",
-                tr1_expected=False,
-                tr2="proxy-authenticate",
+                tr2="proxy-connection",
                 tr2_val="negotiate token69",
-                tr2_expected=False,
+                expected_status_code="400",
             ),
             marks.Param(
-                name="trailer_mix",
+                name="trailer_with_hbp_2",
+                tr1="connection",
+                tr1_val="keep-alive",
+                tr2="keep-alive",
+                tr2_val="timeout=5, max=100",
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_mix_1",
                 tr1="x-token1",
                 tr1_val="value1",
-                tr1_expected=True,
-                tr2="proxy-authenticate",
+                tr2="proxy-connection",
                 tr2_val="negotiate token68",
-                tr2_expected=False,
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_mix_2",
+                tr1="x-token1",
+                tr1_val="value1",
+                tr2="connection",
+                tr2_val="keep-alive",
+                expected_status_code="400",
             ),
         ]
     )
-    def test_trailers_in_request(
-        self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
-    ):
+    def test_trailers_in_request(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
         """Send trailers after DATA frame and receive a 200 response."""
         client = self.__create_connection_and_get_client()
         server = self.get_server("deproxy")
@@ -714,16 +725,13 @@ class TestTrailers(H2Base):
         client.send_bytes(data=tf1.serialize(), expect_response=True)
 
         self.assertTrue(client.wait_for_response())
-        self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
-        if tr1_expected:
-            self.assertIn(tr1, server.last_request.headers)
-        else:
-            self.assertNotIn(tr1, server.last_request.headers)
+        self.assertEqual(
+            expected_status_code, client.last_response.status, "HTTP response code missmatch."
+        )
 
-        if tr2_expected:
+        if expected_status_code == "200":
+            self.assertIn(tr1, server.last_request.headers)
             self.assertIn(tr2, server.last_request.headers)
-        else:
-            self.assertNotIn(tr2, server.last_request.headers)
 
     def test_trailers_invalid_header_in_request(self):
         """

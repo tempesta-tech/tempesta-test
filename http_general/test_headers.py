@@ -369,34 +369,37 @@ class TestHeadersParsing(tester.TempestaTest):
                 name="trailer",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="X-Token2",
                 tr2_val="value2",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
             marks.Param(
                 name="trailer_with_hbp",
                 tr1="Connection",
                 tr1_val="Keep-Alive",
-                tr1_expected=False,
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=20",
-                tr2_expected=False,
+                expected_status_code="400",
             ),
             marks.Param(
                 name="trailer_mix",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="Connection",
                 tr2_val="Keep-Alive",
-                tr2_expected=False,
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_hbp_from_connection",
+                tr1="HbpHeader1",
+                tr1_val="value1",
+                tr2="HbpHeader2",
+                tr2_val="value2",
+                expected_status_code="400",
             ),
         ]
     )
-    def test_trailers_in_request(
-        self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
-    ):
+    def test_trailers_in_request(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -406,6 +409,7 @@ class TestHeadersParsing(tester.TempestaTest):
             request=(
                 f"POST / HTTP/1.1\r\n"
                 + f"Host: localhost\r\n"
+                + f"Connection: HbpHeader1 HbpHeader2\r\n"
                 + f"Content-type: text/html\r\n"
                 + f"Transfer-Encoding: chunked\r\n"
                 + f"Trailers: {tr1} {tr2}\r\n\r\n"
@@ -415,18 +419,12 @@ class TestHeadersParsing(tester.TempestaTest):
                 + f"{tr1}: {tr1_val}\r\n"
                 + f"{tr2}: {tr2_val}\r\n\r\n"
             ),
-            expected_status_code="200",
+            expected_status_code=expected_status_code,
         )
 
-        if tr1_expected:
+        if expected_status_code == "200":
             self.assertIn((tr1, tr1_val), server.last_request.trailer.headers)
-        else:
-            self.assertNotIn((tr1, tr1_val), server.last_request.trailer.headers)
-
-        if tr2_expected:
             self.assertIn((tr2, tr2_val), server.last_request.trailer.headers)
-        else:
-            self.assertNotIn((tr2, tr2_val), server.last_request.trailer.headers)
 
     def test_without_trailers_in_request(self):
         self.start_all_services()
@@ -479,123 +477,135 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
-        self.assertIsNotNone(client.last_response.headers.get("Trailer"))
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
         self.assertIsNone(client.last_response.headers.get("X-Token"))
         self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
 
     @marks.Parameterize.expand(
         [
+            # There is no hop-by-hop headers in trailers,
+            # response is successful.
             marks.Param(
                 name="no_hbp_GET_1",
                 method="GET",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="X-Token2",
                 tr2_val="value2",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
+            # Same as previous, but one of trailer has only one
+            # different letter then hop-by-hop header 'connection'.
             marks.Param(
                 name="no_hbp_GET_2",
                 method="GET",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="Connection1",
                 tr2_val="value2",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
+            # Same as previous, but one of trailer has only one
+            # different letter then hop-by-hop header 'connection'.
             marks.Param(
                 name="no_hbp_GET_3",
                 method="GET",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
-                tr2="Conn",
+                tr2="Connectio",
                 tr2_val="value2",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
+            # Response to HEAD request with trailers, no hop-by-hop
+            # headers in response.
             marks.Param(
                 name="no_hbp_HEAD",
                 method="HEAD",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="X-Token2",
                 tr2_val="value2",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
+            # Response  has hop-by-hop headers in trailers, drop it.
             marks.Param(
                 name="hbp_GET",
                 method="GET",
                 tr1="Connection",
                 tr1_val="keep-alive",
-                tr1_expected=False,
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                tr2_expected=False,
+                expected_status_code="502",
             ),
+            # Response has hop-by-hop headers in trailers, but it was
+            # HEAD request. Trailers for HEAD request don't sent by
+            # server, so response is successful.
             marks.Param(
                 name="hbp_HEAD",
                 method="HEAD",
                 tr1="Connection",
                 tr1_val="keep-alive",
-                tr1_expected=False,
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                tr2_expected=False,
+                expected_status_code="200",
             ),
+            # Same as previous but there is hop-by-hop and no
+            # hop-by-hop headers in trailers in response on
+            # HEAD request.
             marks.Param(
                 name="mix_HEAD",
                 method="HEAD",
                 tr1="Connection",
                 tr1_val="keep-alive",
-                tr1_expected=False,
                 tr2="X-Token1",
                 tr2_val="value",
-                tr2_expected=True,
+                expected_status_code="200",
             ),
+            # Response for GET request contains hop-by-hop and
+            # no hop-by-hop headers in trailers, drop it.
             marks.Param(
-                name="mix_GET_1",
+                name="mix_GET",
                 method="GET",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr1_expected=True,
                 tr2="Connection",
                 tr2_val="keep-alive",
-                tr2_expected=False,
+                expected_status_code="502",
             ),
+            # Response contains hop-by-hop headers in trailers declared
+            # in 'connection' header, drop it.
             marks.Param(
-                name="mix_GET_2",
+                name="hbp_from_connection_mix_GET",
                 method="GET",
-                tr1="Connection1",
+                tr1="HbpHeader1",
                 tr1_val="value1",
-                tr1_expected=True,
-                tr2="Connection",
-                tr2_val="keep-alive",
-                tr2_expected=False,
+                tr2="Connection1",
+                tr2_val="value2",
+                expected_status_code="502",
             ),
+            # Same as previous, but it is a HEAD request, so return
+            # successfull response (which not contains trailers)
             marks.Param(
-                name="mix_GET_3",
-                method="GET",
-                tr1="Conn",
+                name="hbp_from_connection_mix_HEAD",
+                method="HEAD",
+                tr1="HbpHeader1",
                 tr1_val="value1",
-                tr1_expected=True,
-                tr2="Connection",
-                tr2_val="keep-alive",
-                tr2_expected=False,
+                tr2="Connection1",
+                tr2_val="value2",
+                expected_status_code="200",
             ),
         ]
     )
     def test_trailers_in_response(
-        self, name, method, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+        self, name, method, tr1, tr1_val, tr2, tr2_val, expected_status_code
     ):
         self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
+            + "Connection: HbpHeader1 HbpHeader2\r\n"
             + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
@@ -610,9 +620,12 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         request = client.create_request(method=method, headers=[])
-        client.send_request(request, "200")
+        client.send_request(request, expected_status_code)
 
-        if tr1_expected and method != "HEAD":
+        if expected_status_code != "200":
+            return
+
+        if method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr1),
                 tr1_val,
@@ -621,7 +634,7 @@ class TestHeadersParsing(tester.TempestaTest):
         else:
             self.assertIsNone(client.last_response.trailer.get(tr1))
 
-        if tr2_expected and method != "HEAD":
+        if method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr2),
                 tr2_val,
@@ -630,14 +643,7 @@ class TestHeadersParsing(tester.TempestaTest):
         else:
             self.assertIsNone(client.last_response.trailer.get(tr2))
 
-        if tr1_expected and tr2_expected:
-            self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-        elif tr1_expected:
-            self.assertEqual(client.last_response.headers.get("Trailer"), tr1)
-        elif tr2_expected:
-            self.assertEqual(client.last_response.headers.get("Trailer"), tr2)
-        else:
-            self.assertFalse(client.last_response.headers.get("Trailer"))
+        self.assertFalse(client.last_response.headers.get("Trailer"))
         self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertFalse(client.last_response.headers.get(tr1))
         self.assertFalse(client.last_response.headers.get(tr2))
