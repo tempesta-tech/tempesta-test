@@ -382,11 +382,27 @@ class TestHeadersParsing(tester.TempestaTest):
                 expected_status_code="400",
             ),
             marks.Param(
-                name="trailer_mix",
+                name="trailer_mix_1",
                 tr1="X-Token1",
                 tr1_val="value1",
-                tr2="Connection",
-                tr2_val="Keep-Alive",
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=20",
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_mix_2",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Transfer-Encoding",
+                tr2_val="chunked",
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_mix_3",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Upgrade",
+                tr2_val="websocket",
                 expected_status_code="400",
             ),
             marks.Param(
@@ -565,11 +581,41 @@ class TestHeadersParsing(tester.TempestaTest):
             # Response for GET request contains hop-by-hop and
             # no hop-by-hop headers in trailers, drop it.
             marks.Param(
-                name="mix_GET",
+                name="mix_GET_1",
                 method="GET",
                 tr1="X-Token1",
                 tr1_val="value1",
                 tr2="Connection",
+                tr2_val="keep-alive",
+                expected_status_code="502",
+            ),
+            # Same as previous, but another hop-by-hop header.
+            marks.Param(
+                name="mix_GET_2",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Transfer-Encoding",
+                tr2_val="basic realm=Dev, charset=UTF-8",
+                expected_status_code="502",
+            ),
+            # Same as previous, but another hop-by-hop header.
+            marks.Param(
+                name="mix_GET_3",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Upgrade",
+                tr2_val="websocket",
+                expected_status_code="502",
+            ),
+            # Same as previous, but another hop-by-hop header.
+            marks.Param(
+                name="mix_GET_4",
+                method="GET",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Proxy-Connection",
                 tr2_val="keep-alive",
                 expected_status_code="502",
             ),

@@ -186,6 +186,14 @@
             "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
+            "name": "encoding.test_encoding.TestH1ChunkedWithLongBodyAndTrailer",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "encoding.test_encoding.TestH2ChunkedWithLongBodyAndTrailer",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },
