@@ -2111,60 +2111,52 @@ vhost default {
         return result + "0\r\n\r\n"
 
     def start_and_check_first_response(
-        self, client_id, response, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+        self, client_id, method, response, tr1, tr1_val, tr2, tr2_val, expected_status_code
     ):
         self.start_all_services()
+        if method == "HEAD":
+            self.disable_deproxy_auto_parser()
 
         srv: StaticDeproxyServer = self.get_server("deproxy")
         srv.set_response(response)
 
         client = self.get_client(client_id)
-        request = client.create_request(method="GET", headers=[])
-        client.send_request(request, "200")
+        request = client.create_request(method=method, headers=[])
+        client.send_request(request, expected_status_code)
 
-        if tr1_expected:
+        if expected_status_code != "200":
+            return
+
+        if method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr1),
                 tr1_val,
                 "Moved trailer header value mismatch the original one",
             )
-        else:
-            self.assertIsNone(client.last_response.trailer.get(tr1))
 
-        if tr2_expected:
+        if method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr2),
                 tr2_val,
                 "Moved trailer header value mismatch the original one",
             )
-        else:
-            self.assertIsNone(client.last_response.trailer.get(tr2))
+
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
 
         if isinstance(client, DeproxyClientH2):
-            self.assertIsNone(client.last_response.headers.get("Trailer"))
             self.assertNotEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
-            if tr1_expected and tr2_expected:
-                self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-            elif tr1_expected:
-                self.assertEqual(client.last_response.headers.get("Trailer"), tr1)
-            elif tr2_expected:
-                self.assertEqual(client.last_response.headers.get("Trailer"), tr2)
-            else:
-                self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertIsNone(client.last_response.headers.get(tr1))
         self.assertIsNone(client.last_response.headers.get(tr2))
 
-    def check_second_request(
-        self, client_id, method, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
-    ):
+    def check_second_request(self, client_id, method, tr1, tr1_val, tr2, tr2_val):
         client = self.get_client(client_id)
         request = client.create_request(method=method, headers=[])
         client.send_request(request, "200")
         self.assertIn("age", client.last_response.headers)
 
-        if tr1_expected and method != "HEAD":
+        if method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr1),
                 tr1_val,
@@ -2173,7 +2165,7 @@ vhost default {
         else:
             self.assertIsNone(client.last_response.trailer.get(tr1))
 
-        if tr2_expected and method != "HEAD":
+        if method != "HEAD":
             self.assertEqual(
                 client.last_response.trailer.get(tr2),
                 tr2_val,
@@ -2182,18 +2174,11 @@ vhost default {
         else:
             self.assertIsNone(client.last_response.trailer.get(tr2))
 
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
+
         if isinstance(client, DeproxyClientH2):
-            self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         else:
-            if tr1_expected and tr2_expected:
-                self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-            elif tr1_expected:
-                self.assertEqual(client.last_response.headers.get("Trailer"), tr1)
-            elif tr2_expected:
-                self.assertEqual(client.last_response.headers.get("Trailer"), tr2)
-            else:
-                self.assertFalse(client.last_response.headers.get("Trailer"))
             self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertFalse(client.last_response.headers.get(tr1))
         self.assertFalse(client.last_response.headers.get(tr2))
@@ -2213,14 +2198,19 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="GET", method="GET", trailers_expected=True),
-            marks.Param(name="HEAD", method="HEAD", trailers_expected=True),
+            marks.Param(name="GET_GET", method1="GET", method2="GET", expected_status_code="200"),
+            marks.Param(name="HEAD_GET", method1="HEAD", method2="GET", expected_status_code="200"),
+            marks.Param(name="GET_HEAD", method1="GET", method2="HEAD", expected_status_code="200"),
+            marks.Param(
+                name="HEAD_HEAD", method1="HEAD", method2="HEAD", expected_status_code="200"
+            ),
         ]
     )
-    def test(self, name, method, trailers_expected):
+    def test(self, name, method1, method2, expected_status_code):
         self.start_and_check_first_response(
-            "deproxy",
-            "HTTP/1.1 200 OK\r\n"
+            client_id="deproxy",
+            method=method1,
+            response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
             + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
@@ -2230,59 +2220,69 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            "X-Token1",
-            "value1",
-            trailers_expected,
-            "X-Token2",
-            "value2",
-            trailers_expected,
+            tr1="X-Token1",
+            tr1_val="value1",
+            tr2="X-Token2",
+            tr2_val="value2",
+            expected_status_code=expected_status_code,
         )
+        if expected_status_code != "200":
+            return
+
         self.check_second_request(
             "deproxy",
-            method,
+            method2,
             "X-Token1",
             "value1",
-            trailers_expected,
             "X-Token2",
             "value2",
-            trailers_expected,
         )
 
     @marks.Parameterize.expand(
         [
             marks.Param(
-                name="mix_1",
-                tr1="X-Token1",
-                tr1_val="value1",
-                tr1_expected=True,
-                tr2="Connection",
-                tr2_val="keep-alive",
-                tr2_expected=False,
-            ),
-            marks.Param(
-                name="mix_2",
+                name="mix_GET",
+                method="GET",
                 tr1="Connection",
                 tr1_val="keep-alive",
-                tr1_expected=False,
                 tr2="X-Token1",
                 tr2_val="value1",
-                tr2_expected=True,
+                expected_status_code="502",
             ),
             marks.Param(
-                name="hbp",
+                name="hbp_GET",
+                method="GET",
                 tr1="Connection",
                 tr1_val="keep-alive",
-                tr1_expected=False,
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                tr2_expected=False,
+                expected_status_code="502",
+            ),
+            marks.Param(
+                name="mix_HEAD",
+                method="HEAD",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr2="X-Token1",
+                tr2_val="value1",
+                expected_status_code="502",
+            ),
+            marks.Param(
+                name="hbp_HEAD",
+                method="HEAD",
+                tr1="Connection",
+                tr1_val="keep-alive",
+                tr2="Keep-Alive",
+                tr2_val="timeout=5, max=100",
+                expected_status_code="502",
             ),
         ]
     )
-    def test_hbp_headers(self, name, tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected):
+    def test_hbp_headers(self, name, method, tr1, tr1_val, tr2, tr2_val, expected_status_code):
         self.start_and_check_first_response(
-            "deproxy",
-            "HTTP/1.1 200 OK\r\n"
+            client_id="deproxy",
+            method=method,
+            response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
             + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
@@ -2292,15 +2292,11 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"{tr1}: {tr1_val}\r\n"
             + f"{tr2}: {tr2_val}\r\n\r\n",
-            tr1,
-            tr1_val,
-            tr1_expected,
-            tr2,
-            tr2_val,
-            tr2_expected,
-        )
-        self.check_second_request(
-            "deproxy", "GET", tr1, tr1_val, tr1_expected, tr2, tr2_val, tr2_expected
+            tr1=tr1,
+            tr1_val=tr1_val,
+            tr2=tr2,
+            tr2_val=tr2_val,
+            expected_status_code=expected_status_code,
         )
 
 
@@ -2355,8 +2351,9 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
     )
     def test(self, name, client_id1, client_id2, method):
         self.start_and_check_first_response(
-            client_id1,
-            "HTTP/1.1 200 OK\r\n"
+            client_id=client_id1,
+            method="GET",
+            response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
             + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
@@ -2366,22 +2363,19 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            "X-Token1",
-            "value1",
-            True,
-            "X-Token2",
-            "value2",
-            True,
+            tr1="X-Token1",
+            tr1_val="value1",
+            tr2="X-Token2",
+            tr2_val="value2",
+            expected_status_code="200",
         )
         self.check_second_request(
-            client_id2,
-            method,
-            "X-Token1",
-            "value1",
-            True,
-            "X-Token2",
-            "value2",
-            True,
+            client_id=client_id2,
+            method=method,
+            tr1="X-Token1",
+            tr1_val="value1",
+            tr2="X-Token2",
+            tr2_val="value2",
         )
 
 
