@@ -283,7 +283,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
             "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
         )
         self.assertEqual(record.uri, "/test")
-        self.assertEqual(record.address, IPv4Address(tf_cfg.cfg.get("Client", "address")))
+        self.assertEqual(record.address, IPv4Address(tf_cfg.cfg.get("Client", "ip")))
         self.assertEqual(record.referer, "https://somesite.com")
         self.assertEqual(record.status, 201)
         self.assertEqual(record.version, 3)
