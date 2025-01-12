@@ -441,6 +441,7 @@ class TestHeadersParsing(tester.TempestaTest):
         if expected_status_code == "200":
             self.assertIn((tr1, tr1_val), server.last_request.trailer.headers)
             self.assertIn((tr2, tr2_val), server.last_request.trailer.headers)
+            self.assertIsNone(server.last_request.headers.get("Trailer"))
 
     def test_without_trailers_in_request(self):
         self.start_all_services()

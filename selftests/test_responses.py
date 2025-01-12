@@ -249,7 +249,7 @@ class ParseBody(unittest.TestCase):
 
     @staticmethod
     def chunked_body():
-        return "4\n" "1234\n" "0\n"
+        return "4\n" "1234\n" "0"
 
     def try_body(self, response_text, body_text, trailer_headers=None):
         response = deproxy.Response(response_text)
@@ -261,15 +261,15 @@ class ParseBody(unittest.TestCase):
                 self.assertEqual(response.trailer[header], value.strip())
 
     def test_chunked_empty(self):
-        self.try_body(PARSE_CHUNKED_EMPTY, "0\n\n")
+        self.try_body(PARSE_CHUNKED_EMPTY, "0")
 
     def test_chunked(self):
-        self.try_body(PARSE_CHUNKED, self.chunked_body() + "\n")
+        self.try_body(PARSE_CHUNKED, self.chunked_body())
 
     def test_chunked_and_trailer(self):
         self.try_body(
             PARSE_CHUNKED_AND_TRAILER,
-            self.chunked_body(),
+            self.chunked_body() + "\n",
             [("Expires", "Wed, 21 Oct 2015 07:28:00 GMT")],
         )
 

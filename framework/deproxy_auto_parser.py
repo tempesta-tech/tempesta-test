@@ -6,7 +6,7 @@ import copy
 import sys
 
 import run_config
-from framework.deproxy_client import BaseDeproxyClient
+from framework.deproxy_client import BaseDeproxyClient, DeproxyClient, DeproxyClientH2
 from framework.deproxy_manager import DeproxyManager
 from helpers.deproxy import (
     H2Request,
@@ -118,6 +118,9 @@ class DeproxyAutoParser:
         self.__client_request = copy.deepcopy(request)
         request.set_expected()
         request.add_tempesta_headers(x_forwarded_for=client.bind_addr or client.conn_addr)
+
+        if isinstance(client, DeproxyClient):
+            request.headers.delete_all("trailer")
         self.__prepare_hop_by_hop_headers(request)
 
         self.__prepare_method_for_expected_request(request)
@@ -159,6 +162,7 @@ class DeproxyAutoParser:
 
         self.__prepare_body_for_HEAD_request(expected_response)
 
+        expected_response.headers.delete_all("trailer")
         self.__prepare_hop_by_hop_headers(expected_response)
 
         is_cache = "age" in received_response.headers
@@ -209,7 +213,6 @@ class DeproxyAutoParser:
             for hdr in connection:
                 message.trailer.delete_all(hdr.lower())
 
-        message.headers.delete_all("trailer")
         message.headers.delete_all("connection")
         message.headers.delete_all("keep-alive")
         message.headers.delete_all("proxy-connection")
