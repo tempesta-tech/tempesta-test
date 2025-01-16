@@ -365,15 +365,15 @@ class TestJa5TFiltersTestSuite(BaseParametrizedFilterTestSuite):
             "limited_client": gen_curl_ja5h_cmd(headers=["Referer: tempesta-tech.com"]),
             "different_client": gen_curl_ja5h_cmd(),
         },
-        # {
-        #     "name": "cookies",
-        #     "limited_client": gen_curl_ja5h_cmd(headers=[
-        #         'Set-Cookie: session=testing;user-id=10; Secure'
-        #     ]),
-        #     "different_client": gen_curl_ja5h_cmd(headers=[
-        #         'Set-Cookie: session=testing;user-id=10;additional=1; Secure; HttpOnly'
-        #     ]),
-        # },
+        {
+            "name": "cookies",
+            "limited_client": gen_curl_ja5h_cmd(headers=["Cookie: session=testing"]),
+            "different_client": gen_curl_ja5h_cmd(
+                headers=[
+                    "Cookie: session=testing; session2=testing2",
+                ]
+            ),
+        },
     ]
 )
 class TestJa5HFiltersTestSuite(BaseParametrizedFilterTestSuite):
