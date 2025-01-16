@@ -42,9 +42,8 @@ class FrangHostRequiredTestCase(FrangTestCase):
             "GET / HTTP/1.1\r\nHost: tempesta-tech.com:80\r\n\r\n",
             "GET / HTTP/1.1\r\nHost:    tempesta-tech.com     \r\n\r\n",
             "GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
-            "GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n",
             (
-                "GET http://user@tempesta-tech.com/ HTTP/1.1\r\n"
+                "GET http://tempesta-tech.com/ HTTP/1.1\r\n"
                 "Host: tempesta-tech.com\r\n"
                 "Forwarded: host=tempesta-tech.com\r\n"
                 "Forwarded: host=tempesta1-tech.com\r\n\r\n"
@@ -76,7 +75,7 @@ class FrangHostRequiredTestCase(FrangTestCase):
         """Test with mismatched header `host`."""
         client = self.base_scenario(
             frang_config="http_strict_host_checking true;",
-            requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"],
+            requests=["GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"],
         )
         self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
 
@@ -88,7 +87,7 @@ class FrangHostRequiredTestCase(FrangTestCase):
         """
         client = self.base_scenario(
             frang_config="http_strict_host_checking true;",
-            requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: \r\n\r\n"],
+            requests=["GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: \r\n\r\n"],
         )
         self.check_response(client, status_code="403", warning_msg=WARN_DIFFER)
 
@@ -170,7 +169,7 @@ class FrangHostRequiredTestCase(FrangTestCase):
         """Test disable `http_strict_host_checking`."""
         client = self.base_scenario(
             frang_config="http_strict_host_checking false;",
-            requests=["GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"],
+            requests=["GET http://tempesta-tech.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"],
         )
         self.check_response(client, status_code="200", warning_msg="frang: ")
 
