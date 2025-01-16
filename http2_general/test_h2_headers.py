@@ -7,6 +7,7 @@ analises its return code.
 import itertools
 
 from h2.errors import ErrorCodes
+from hpack import HeaderTuple
 from hyperframe import frame
 
 from helpers import tf_cfg
@@ -1585,6 +1586,373 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         self.assertEqual(3, len(server.requests))
         client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))
+
+    def __reload_tempesta_with_ja5h(self, ja5_config):
+        tempesta: Tempesta = self.get_tempesta()
+        tempesta.config.defconfig += ja5_config
+        tempesta.reload()
+
+    def test_referer_from_hpack_table(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request_hashed = client.create_request(
+            method="GET",
+            headers=[("referer", "http://tempesta-tech.com:8080")],
+        )
+        client.send_request(request_hashed, "200")
+
+        # Do not allow requests with same hash from the client.
+        self.__reload_tempesta_with_ja5h(
+            """
+            ja5h {
+                hash 1032008c02c0 0 0;
+            }
+        """
+        )
+
+        # Referer is false allow request
+        request = client.create_request(method="GET", headers=[])
+        client.send_request(request, "200")
+        self.assertEqual(2, len(server.requests))
+
+        # Request with same hash is blocked
+        client.send_request(request_hashed, "403")
+        self.assertEqual(2, len(server.requests))
+
+    def __send_add_check_req_with_huffman(self, client, request, huffman, expected_status_code):
+        # create stream and change state machine in H2Connection object
+        stream = client.init_stream_for_send(client.stream_id)
+
+        hf = frame.HeadersFrame(
+            stream_id=client.stream_id,
+            data=client.h2_connection.encoder.encode(request, huffman=huffman),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+        client.send_bytes(data=hf.serialize(), expect_response=True)
+
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, expected_status_code)
+
+        client.stream_id += 2
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="huffman_1",
+                huffman=True,
+                first_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "kk=kkkkkkkkkkkkk"),
+                    HeaderTuple("cookie", "q=qq; q=qqq; q=qqqq; q=qqqqq"),
+                ],
+                second_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                    HeaderTuple("cookie", "z=q; e=d"),
+                ],
+                ja5_config="""
+                    ja5h {
+                        hash 2a679c7008cc440 0 0;
+                    }
+                """,
+            ),
+            marks.Param(
+                name="no_huffman_1",
+                huffman=False,
+                first_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "kk=kkkkkkkkkkkkk"),
+                    HeaderTuple("cookie", "q=qq; q=qqq; q=qqqq; q=qqqqq"),
+                ],
+                second_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                    HeaderTuple("cookie", "z=q; e=d"),
+                ],
+                ja5_config="""
+                    ja5h {
+                        hash 2a679c7008cc440 0 0;
+                    }
+                """,
+            ),
+            marks.Param(
+                name="huffman_2",
+                huffman=True,
+                first_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; l=ll"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; k=kk"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; zzz=zzzzz"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; b=bbb"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; t=tttt"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; o=oooo"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; u=uu"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; u=uu"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; i=ii"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; p=ppp"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; iii=iiiii"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; r=rr"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qqq=qqqqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qqqq=qqqqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qqa=qqqqqqqqqqqqqqqa"),
+                    HeaderTuple("cookie", "qqb=qqqqqqqqqqqqqqqb"),
+                    HeaderTuple("cookie", "qqc=qqqqqqqqqqqqqqqc"),
+                ],
+                second_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "z=q; e=d"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                ],
+                ja5_config="""
+                    ja5h {
+                        hash 8edd69e7008fec40 0 0;
+                    }
+                """,
+            ),
+            marks.Param(
+                name="no_huffman_2",
+                huffman=True,
+                first_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; l=ll"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; k=kk"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; zzz=zzzzz"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; b=bbb"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; t=tttt"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; o=oooo"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; u=uu"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; u=uu"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; i=ii"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; p=ppp"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; iii=iiiii"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq; r=rr"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qq=qqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qqq=qqqqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qqqq=qqqqqqqqqqqqqqqqq"),
+                    HeaderTuple("cookie", "qqa=qqqqqqqqqqqqqqqa"),
+                    HeaderTuple("cookie", "qqb=qqqqqqqqqqqqqqqb"),
+                    HeaderTuple("cookie", "qqc=qqqqqqqqqqqqqqqc"),
+                ],
+                second_request=[
+                    HeaderTuple(":authority", "localhost"),
+                    HeaderTuple(":path", "/"),
+                    HeaderTuple(":scheme", "https"),
+                    HeaderTuple(":method", "GET"),
+                    HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+                    HeaderTuple("cookie", "z=q; e=d"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                    HeaderTuple("cookie", "a=b; dd=dfds"),
+                ],
+                ja5_config="""
+                    ja5h {
+                        hash 8edd69e7008fec40 0 0;
+                    }
+                """,
+            ),
+        ]
+    )
+    def test_cookie_from_hpack_table(
+        self, name, huffman, first_request, second_request, ja5_config
+    ):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        self.initiate_h2_connection(client)
+        self.__send_add_check_req_with_huffman(client, first_request, huffman, "200")
+
+        request_to_save_cookie_in_hpack = [
+            HeaderTuple(":authority", "localhost"),
+            HeaderTuple(":path", "/"),
+            HeaderTuple(":scheme", "https"),
+            HeaderTuple(":method", "GET"),
+            HeaderTuple("referer", "http://tempesta-tech.com:8080"),
+            HeaderTuple("cookie", "a=b; dd=dfds"),
+            HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
+        ]
+
+        self.__send_add_check_req_with_huffman(
+            client, request_to_save_cookie_in_hpack, huffman, "200"
+        )
+
+        # Block requests with refer and 'n' cookies
+        self.__reload_tempesta_with_ja5h(ja5_config)
+
+        # Cookie was reloaded from hpack table, count is 6 blocked.
+        self.__send_add_check_req_with_huffman(client, second_request, huffman, "403")
+
+        client.start()
+        self.initiate_h2_connection(client)
+
+        # Request which was previously successful is blocked.
+        self.__send_add_check_req_with_huffman(client, first_request, huffman, "403")
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_cookie_from_hpack_table_3(self, name, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 4 cookie.
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "z=q; e=d"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+        self.assertEqual(2, len(server.requests))
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 31 cookie.
+        # Also pay attention that currently hpack library encodes
+        # header tuples as sensetive (without) adding to hpack table.
+        # Need to rework deproxy to have ability to add 'sensitive'
+        # as a parameter.
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_cookie_from_hpack_table_4(self, name, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 4 cookie.
+
+        request = client.create_request(
+            method="GET",
+            headers=[
+                ("referer", "http://tempesta-tech.com:8080"),
+                ("cookie", "z=q; e=d"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "a=bdsfds; dd=ddsfdsffds"),
+                ("cookie", "a=b; ee=dsfdsf"),
+                ("cookie", "fffda=fdfb; assdsa=asfdfdsg"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "adfdsf=b; dsdfdsd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+                ("cookie", "a=b; dd=dfds"),
+            ],
+        )
+        self.__send_add_check_req_with_huffman(client, request, huffman)
+        self.assertEqual(2, len(server.requests))
+        # TODO #2308 Tempesta FW issue. Check that ja5h has 20 cookie.
+        # Also pay attention that currently hpack library encodes
+        # header tuples as sensetive (without) adding to hpack table.
+        # Need to rework deproxy to have ability to add 'sensitive'
+        # as a parameter.
 
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
