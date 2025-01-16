@@ -275,25 +275,46 @@ class TestHost(TestHostBase):
             expected_status_code="400",
         )
 
-    def test_different_host_in_uri_and_headers(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="full_path",
+                uri_host="tempesta-tech.com",
+                uri_path="/path/to/file",
+            ),
+            marks.Param(
+                name="empty_path",
+                uri_host="tempesta-tech.com",
+                uri_path="",
+            ),
+            marks.Param(
+                name="default_path",
+                uri_host="tempesta-tech.com",
+                uri_path="/",
+            ),
+        ]
+    )
+    def test_forward_absolute_uri(self, name, uri_host, uri_path):
         """
-        RFC 9112 Section 3.2.2:
-
-        When a proxy receives a request with an absolute-form of
-        request-target, the proxy MUST ignore the received Host header field
-        (if any) and instead replace it with the host information of the
-        request-target. A proxy that forwards such a request MUST generate a
-        new Host field value based on the received request-target rather than
-        forward the received Host field value
+        Verify correctness of forwarding a request with absolute URI.
+        During forwarding Tempesta modifies request's URI transforming
+        to non absolute form. Therefore on upstream always expected non
+        absolute URI.
         """
 
         self.start_all_services()
         client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
 
         client.send_request(
-            request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            request=f"GET http://{uri_host}{uri_path} HTTP/1.1\r\nHost: localhost\r\n\r\n",
             expected_status_code="200",
         )
+
+        # non absolute uri is expected on upstream.
+        expected_uri = "/" if uri_path == "" else uri_path
+        self.assertEqual(server.last_request.uri, expected_uri)
+        self.assertEqual(server.last_request.headers.get("host"), uri_host)
 
     def test_forwarded_and_empty_host_header(self):
         """Host header must be present. Forwarded header does not set host header."""
@@ -302,7 +323,7 @@ class TestHost(TestHostBase):
 
         client.send_request(
             request=(
-                f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nForwarded: host=localhost\r\n\r\n"
+                f"GET http://tempesta-tech.com/ HTTP/1.1\r\nForwarded: host=localhost\r\n\r\n"
             ),
             expected_status_code="400",
         )
@@ -816,13 +837,13 @@ class TestHostWithCache(TestHostBase):
         [
             marks.Param(
                 name="1",
-                request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-                expected_status_code="200",
+                request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="2",
-                request=f"GET http://user@-x/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-                expected_status_code="200",
+                request=f"GET http://user@-x/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="3",
@@ -862,12 +883,7 @@ class TestHostWithCache(TestHostBase):
             marks.Param(
                 name="10",
                 request=f"GET http:///path HTTP/1.1\r\nHost: localhost\r\n\r\n",
-                expected_status_code="200",
-            ),
-            marks.Param(
-                name="11",
-                request=f"GET http:///path HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-                expected_status_code="403",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="11",
