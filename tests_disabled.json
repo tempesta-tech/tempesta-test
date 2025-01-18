@@ -312,6 +312,14 @@
         {
             "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
             "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogsBufferConfiguration.test_mmap_buffer",
+            "reason": "Disabled by issue #2313"
+        },
+        {
+            "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsUnderLoad",
+            "reason": "Disabled by issue #2314"
         }
     ]
 }

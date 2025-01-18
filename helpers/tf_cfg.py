@@ -83,7 +83,7 @@ class TestFrameworkCfg(object):
         self.configure_logger()
 
     def __fill_kvs(self):
-        for section in ["General", "Client", "Tempesta", "Server"]:
+        for section in ["General", "Client", "Tempesta", "Server", "TFW_Logger"]:
             cfg = self.config[section]
             for key in cfg.keys():
                 id = "_".join([section.lower(), key])
@@ -151,6 +151,14 @@ class TestFrameworkCfg(object):
                     "lxc_container_name": "tempesta-site-stage",
                     "website_user": "",
                     "website_password": "",
+                },
+                "TFW_Logger": {
+                    "clickhouse_host": "localhost",
+                    "clickhouse_port": "8123",
+                    "clickhouse_username": "default",
+                    "clickhouse_password": "",
+                    "clickhouse_database": "default",
+                    "daemon_log": "/tmp/tfw_logger.log",
                 },
             }
         )

@@ -87,3 +87,15 @@ lxc stop tempesta-site-stage
 # docker
 cd "${CURRENT_DIR}"
 ./tools/docker/install-docker.sh
+
+# ClickHouse
+mkdir /tmp/clickhouse-install & cd  /tmp/clickhouse-install
+apt install apt-transport-https ca-certificates gnupg -y
+curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | sudo gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+ARCH=$(dpkg --print-architecture)
+echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=${ARCH}] https://packages.clickhouse.com/deb stable main" | sudo tee /etc/apt/sources.list.d/clickhouse.list
+apt update
+apt install clickhouse-server clickhouse-client -y
+rm -f /etc/clickhouse-server/users.d/default-password.xml
+systemctl enable clickhouse-server.service
+systemctl start clickhouse-server.service

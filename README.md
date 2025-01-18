@@ -44,7 +44,7 @@ as root:
 
 - Python version till 3.11 is supported, version **3.12 is NOT supported**
 (we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
-
+- ClickHouse Database 25 (Optional, used for storing logs in the database). See installation [here](https://clickhouse.com/docs/en/install#quick-install)
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
 `curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, `docker.io`, web content 
 directory accessible by nginx, nginx should not be running before the tests start.
@@ -84,7 +84,7 @@ You can also create default tests configuration
 ./run_tests.py -d
 ```
 
-There is 4 sections in configuration: `General`, `Client`, `Tempesta`, `Server`.
+There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
 
 ### Run tests
 

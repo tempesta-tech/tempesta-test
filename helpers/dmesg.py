@@ -98,6 +98,32 @@ class DmesgFinder(object):
 
         return util.wait_until(wait_cond, timeout=2, poll_freq=0.2)
 
+    def http11_requests_exists(self) -> bool:
+        """
+        Check existing the log message record in dmesg with simple request
+        """
+        return self.find("HTTP/1.1")
+
+    def http11_requests_count(self) -> int:
+        """
+        Count all the simple requests in dmesg
+        """
+        self.update()
+        return len(self.log_findall(r"HTTP/1.1"))
+
+    def http2_requests_exists(self) -> bool:
+        """
+        Check existing the log message record in dmesg with simple request
+        """
+        return self.find("HTTP/2.0")
+
+    def http2_requests_count(self) -> int:
+        """
+        Count all the simple requests in dmesg
+        """
+        self.update()
+        return len(self.log_findall(r"HTTP/2.0"))
+
 
 WARN_GENERIC = "Warning: "
 WARN_SPLIT_ATTACK = "Warning: Paired request missing, HTTP Response Splitting attack?"
