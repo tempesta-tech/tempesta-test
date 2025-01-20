@@ -312,6 +312,18 @@
         {
             "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
             "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteTls",
+            "reason": "Only TLS1.2 is available now"
+        },
+        {
+            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteCurves",
+            "reason": "Only curve prime256v1 is available now"
+        },
+        {
+            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteAlpn",
+            "reason": "Disabled by test issue"
         }
     ]
 }

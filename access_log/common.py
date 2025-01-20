@@ -1,73 +1,85 @@
+import dataclasses
+import re
+import typing
+
+from helpers.dmesg import DmesgFinder
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+
+@dataclasses.dataclass
 class AccessLogLine:
-    def __init__(
-        self, ip, vhost, method, uri, version, status, response_length, referer, user_agent
-    ):
-        self.ip = ip
-        self.vhost = vhost
-        self.method = method
-        self.uri = uri
-        self.version = version
-        self.status = status
-        self.response_length = response_length
-        self.referer = referer
-        self.user_agent = user_agent
+    ip: str
+    vhost: str
+    method: str
+    uri: str
+    version: str
+    status: int
+    response_length: str
+    referer: str
+    user_agent: str
+    ja5t: str
+    ja5h: str
+
+    re_pattern: re.Pattern = re.compile(
+        r"\[tempesta fw\] "
+        r"(?P<ip>\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) "
+        r"\"(?P<vhost>[\w.-]+)\" "
+        r"\"(?P<method>[\w]+) "
+        r"(?P<uri>.*) "
+        r"HTTP\/(?P<version>[\d.]+)\" "
+        r"(?P<status>\d+) "
+        r"(?P<response_length>\d+) "
+        r"\"(?P<referer>.*)\" "
+        r"\"(?P<user_agent>.*)\" "
+        r"\"ja5t=(?P<ja5t>\w+)\" "
+        r"\"ja5h=(?P<ja5h>\w+)\"",
+        flags=re.DOTALL | re.MULTILINE,
+    )
+
+    def __post_init__(self):
+        self.status = int(self.status)
 
     def __repr__(self):
-        data = []
-        for f in [
-            "ip",
-            "vhost",
-            "method",
-            "uri",
-            "version",
-            "status",
-            "response_length",
-            "referer",
-            "user_agent",
-        ]:
-            x = getattr(self, f)
-            if x is not None:
-                if isinstance(x, str):
-                    data.append('%s => "%s"' % (f, x))
-                else:
-                    data.append("%s => %d" % (f, x))
-        return ", ".join(data)
-
-    @staticmethod
-    def parse(s):
-        prefix = "[tempesta fw] "
-        if s[: len(prefix)] != "[tempesta fw] ":
-            return None
-        fields = s[len(prefix) :].split(" ")
-        if len(fields) != 9:
-            return None
-        # Heuristics: vhost is enclosed with quotes
-        host = fields[1]
-        if len(host) < 2 or host[0] != '"' or host[-1] != '"':
-            return None
-        # Heuristics: request line starts with quotes and
-        # is not shorter than 4 symbols ("GET)
-        line = fields[2]
-        if len(line) < 4 or line[0] != '"':
-            return None
-        fields = list(map(lambda x: x.strip('"'), fields))
-        return AccessLogLine(
-            ip=fields[0],
-            vhost=fields[1],
-            method=fields[2],
-            uri=fields[3],
-            version=fields[4],
-            status=int(fields[5]),
-            response_length=int(fields[6]),
-            referer=fields[7],
-            user_agent=fields[8],
+        return ", ".join(
+            [
+                f'{field.name} => "{getattr(self, field.name)}"'
+                for field in dataclasses.fields(self)
+                if not field.name.startswith("re_")
+            ]
         )
 
-    @staticmethod
-    def from_dmesg(klog):
+    @classmethod
+    def parse_all(cls, text: str) -> typing.List["AccessLogLine"]:
+        """
+        Parse the text and find all the entries for access logs
+        """
+        lines = re.findall(cls.re_pattern, text)
+        return [cls(*line) for line in lines]
+
+    @classmethod
+    def parse(cls, text: str) -> typing.Optional["AccessLogLine"]:
+        """
+        Parse the text and return the only one entry of the access log if exists
+        """
+        res = re.findall(cls.re_pattern, text)
+
+        if not res:
+            return None
+
+        return cls(*res[0])
+
+    @classmethod
+    def from_dmesg(cls, klog: DmesgFinder) -> typing.Optional["AccessLogLine"]:
+        """
+        Find the first entry of access log in dmesg
+        """
         klog.update()
-        for line in klog.log.decode().split("\n"):
-            msg = AccessLogLine.parse(line)
-            if msg is not None:
-                return msg
-        return None
+        logs = cls.parse_all(klog.log.decode())
+
+        if not logs:
+            return None
+
+        return logs[0]
