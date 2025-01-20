@@ -278,9 +278,9 @@ class TempestaTest(unittest.TestCase):
     def get_all_services(self) -> typing.List[Stateful]:
         return (
             self.get_clients()
+            + ([self.__tempesta] if self.__tempesta is not None else [])
             + list(self.get_servers())
             + [self.deproxy_manager]
-            + ([self.__tempesta] if self.__tempesta is not None else [])
         )
 
     def get_clients_id(self):

@@ -7,7 +7,7 @@ scapy~=2.5.0rc2
 tinyec>=0.3.1
 paramiko
 subprocess32
-websockets
+websockets==13.1
 wrk
 h2>=4.0.0
 hyperframe>=6.0.0
@@ -21,3 +21,6 @@ inquirer
 parameterized
 
 psutil~=5.9.8
+
+# install mhddos requirements
+-r tools/mhddos/requirements.txt

@@ -49,6 +49,7 @@ go mod tidy
 go build
 cp ./gflood /usr/bin/gflood
 
+#ctrl_frames_flood - ctrl frame flooder
 mkdir /tmp/ctrl_frames_flood
 cd "${CURRENT_DIR}"
 cp tools/ctrl_frames_flood/main.go /tmp/ctrl_frames_flood/

@@ -3,12 +3,12 @@ import copy
 import ipaddress
 import socket
 import sys
-import threading
 import time
 
 import run_config
 from framework import stateful
 from framework.deproxy_auto_parser import DeproxyAutoParser
+from framework.deproxy_manager import _PoolingLock
 from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
@@ -159,6 +159,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
         self._reinit_variables()
         self._deproxy_auto_parser = deproxy_auto_parser
+        self._polling_lock: _PoolingLock | None = None
         self._expected_response: deproxy.Response | None = None
         self.port = port
         self.ip = ip
@@ -182,7 +183,9 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
         self.stop_procedures: list[callable] = [self.__stop_server]
         self.node: remote.ANode = remote.host
-        self._polling_lock: threading.Lock | None = None
+
+    def set_events(self, polling_lock: _PoolingLock) -> None:
+        self._polling_lock = polling_lock
 
     def _reinit_variables(self):
         self._connections: list[ServerConnection] = list()
@@ -234,24 +237,21 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             self.listen(socket.SOMAXCONN)
         except Exception as e:
             tf_cfg.dbg(2, f"Error while creating socket {self.ip}:{self.port}: {str(e)}")
-            self._polling_lock.release()
             raise e
-
-        self._polling_lock.release()
+        finally:
+            self._polling_lock.release()
 
     def __stop_server(self):
         dbg(self, 3, "Stop", prefix="\t")
         self._polling_lock.acquire()
 
-        self.close()
-        connections = [conn for conn in self._connections]
-        for conn in connections:
-            conn.handle_close()
-
-        self._polling_lock.release()
-
-    def set_events(self, polling_lock):
-        self._polling_lock = polling_lock
+        try:
+            self.close()
+            connections = [conn for conn in self._connections]
+            for conn in connections:
+                conn.handle_close()
+        finally:
+            self._polling_lock.release()
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
