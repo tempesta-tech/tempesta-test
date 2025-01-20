@@ -406,50 +406,6 @@ class TestHeadersParsing(tester.TempestaTest):
 
         self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
 
-    @dmesg.unlimited_rate_on_tempesta_node
-    def test_ja5h_cookie(self):
-        """
-        Check that Tempesta FW blocks requests with ja5h hash
-        from config.
-        """
-        self.start_all_services()
-
-        client = self.get_client("deproxy")
-        client.send_request(
-            request=(
-                "POST / HTTP/1.1\r\n"
-                "Host: localhost\r\n"
-                "Content-type: text/html\r\n"
-                "Cookie: aaa=b; cccc=d; qq=dd\r\n\r\n"
-            ),
-            expected_status_code="200",
-        )
-
-        tempesta: Tempesta = self.get_tempesta()
-        tempesta.config.defconfig += """
-            ja5h { 
-                hash 23a00286180 0 0;
-            }
-        """
-        tempesta.reload()
-
-        # Now the same request is blocked, because appropriate
-        # hash was set in new config.
-        client.send_request(
-            request=(
-                "POST / HTTP/1.1\r\n"
-                "Host: localhost\r\n"
-                "Content-type: text/html\r\n"
-                "Cookie: aaa=b; cccc=d; qq=dd\r\n\r\n"
-            ),
-            expected_status_code="403",
-        )
-
-        self.assertTrue(
-            self.oops.find("parsed request exceeded ja5h limit", cond=dmesg.amount_positive),
-            "Tempesta doesn't report error",
-        )
-
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
     backends = [

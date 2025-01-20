@@ -218,6 +218,16 @@ class BaseJa5TestSuite(tester.TempestaTest):
                 ]
             ),
         },
+        {
+            "name": "Cookies-2",
+            "hash_type": "ja5h",
+            "limited_client": gen_curl_ja5h_cmd(headers=["Cookie: aaa=b; cccc=d; qq=dd"]),
+            "different_client": gen_curl_ja5h_cmd(
+                headers=[
+                    "Cookie: aaa=b; cccc=d; qq=dd; ww=1",
+                ]
+            ),
+        },
     ]
 )
 class TestJa5FiltersTestSuite(BaseJa5TestSuite):

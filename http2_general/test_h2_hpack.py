@@ -4,9 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import helpers
-import time
 import itertools
+import time
 
 from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
@@ -16,8 +15,10 @@ from hpack.hpack import encode_integer
 from hyperframe import frame
 from hyperframe.frame import HeadersFrame
 
-from helpers import tf_cfg
+import helpers
 from framework.deproxy_client import DeproxyClientH2, HuffmanEncoder
+from helpers import tf_cfg
+from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import marks
