@@ -3,7 +3,8 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
-from helpers import analyzer, dmesg,error, port_checks, remote
+
+from helpers import analyzer, dmesg, error, port_checks, remote
 from helpers.analyzer import PSH, TCP
 from helpers.cert_generator_x509 import CertGenerator
 from helpers.dmesg import amount_positive
@@ -1055,7 +1056,7 @@ srv_group default {{
 
         request = client.create_request(method="GET", headers=[], uri="/")
         client.make_requests(requests=[request] * 5)
-        client.wait_for_response(strict=True)
+        client.wait_for_response(strict=True, timeout=10)
 
         tempesta = self.get_tempesta()
         tempesta.get_stats()
