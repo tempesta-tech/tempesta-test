@@ -164,77 +164,47 @@ class TestJa5tStress(tester.TempestaTest):
             ),
         },
     ]
+    tempesta_ja5_config_1 = """
+        ja5t {
+            hash deadbeef 10 1000;
+            hash 1f5a9a29ef170000 1 10;
+            hash 66cbda9cafc40009 0 0;
+            hash 1f5a9a29ef170020 3 20;
+        }
+    """
+    tempesta_ja5_config_2 = """
+        ja5t {
+            hash deadbeef 10 1000;
+            hash 1f5a9a29ef170000 1 2;
+        }
+    """
+    tempesta_ja5_config_empty = ""
 
-    def change_cfg(self, tempesta_ja5_config_1, tempesta_ja5_config_2, tempesta_ja5_config_3):
+    def change_cfg(self):
         tempesta: Tempesta = self.get_tempesta()
         config = tempesta.config.defconfig
+        ja5_configs = [
+            self.tempesta_ja5_config_1,
+            self.tempesta_ja5_config_2,
+            self.tempesta_ja5_config_empty,
+        ] * 4
 
-        for step in range(12):
-            if step % 3 == 1:
-                tempesta.config.defconfig = config + tempesta_ja5_config_1
-                self.get_tempesta().reload()
-            elif step % 3 == 2:
-                tempesta.config.defconfig = config + tempesta_ja5_config_2
-                self.get_tempesta().reload()
-            else:
-                tempesta.config.defconfig = config + tempesta_ja5_config_3
-                self.get_tempesta().reload()
+        for ja5_config in ja5_configs:
+            tempesta.config.defconfig = config + ja5_config
+            self.get_tempesta().reload()
 
     @marks.Parameterize.expand(
         [
-            marks.Param(
-                name="http",
-                client_id="wrk",
-                tempesta_ja5_config_1="""
-					ja5t {
-						hash deadbeef 10 1000;
-						hash 1f5a9a29ef170000 1 10;
-						hash 66cbda9cafc40009 0 0;
-						hash 1f5a9a29ef170020 3 20;
-					}
-				""",
-                tempesta_ja5_config_2="""
-					ja5t {
-						hash deadbeef 10 1000;
-						hash 1f5a9a29ef170000 1 2;
-					}
-				""",
-                tempesta_ja5_config_3="",
-            ),
-            marks.Param(
-                name="h2",
-                client_id="h2load",
-                tempesta_ja5_config_1="""
-					ja5t {
-						hash deadbeef 10 1000;
-						hash 1f5a9a29ef170000 1 10;
-						hash 66cbda9cafc40009 0 0;
-						hash 1f5a9a29ef170020 3 20;
-					}
-				""",
-                tempesta_ja5_config_2="""
-					ja5t {
-						hash deadbeef 10 1000;
-						hash 1f5a9a29ef170020 1 2;
-					}
-				""",
-                tempesta_ja5_config_3="",
-            ),
+            marks.Param(name="Http", client_id="wrk"),
+            marks.Param(name="H2", client_id="h2load"),
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    def test(
-        self,
-        name,
-        client_id: str,
-        tempesta_ja5_config_1: str,
-        tempesta_ja5_config_2: str,
-        tempesta_ja5_config_3: str,
-    ):
+    def test(self, name, client_id: str):
         self.start_all_services()
         client = self.get_client(client_id)
         client.start()
-        self.change_cfg(tempesta_ja5_config_1, tempesta_ja5_config_2, tempesta_ja5_config_3)
+        self.change_cfg()
         self.wait_while_busy(client)
         client.stop()
 
