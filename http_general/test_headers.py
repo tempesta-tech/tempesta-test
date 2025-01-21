@@ -2,7 +2,7 @@
 Tests for correct handling of HTTP/1.1 headers.
 """
 
-from helpers import deproxy
+from helpers import deproxy, dmesg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."

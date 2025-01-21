@@ -1,15 +1,14 @@
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
 
 from helpers import dmesg, remote, tf_cfg
+from helpers.access_log import AccessLogLine
 from helpers.cert_generator_x509 import CertGenerator
-
-from .common import AccessLogLine
 
 
 def backends(status_code):

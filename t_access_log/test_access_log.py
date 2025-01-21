@@ -5,8 +5,7 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers import dmesg
-
-from .common import AccessLogLine
+from helpers.access_log import AccessLogLine
 
 
 class CheckedResponses(tester.TempestaTest):
@@ -126,7 +125,7 @@ class CheckedResponses(tester.TempestaTest):
         log_string = self.get_expected_log_msg()
         found = False
         for line in klog.log.decode().split("\n"):
-            if line[-len(log_string) :] == log_string:
+            if log_string in line:
                 found = True
                 break
 
