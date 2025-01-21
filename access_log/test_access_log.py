@@ -130,9 +130,6 @@ class CheckedResponses(tester.TempestaTest):
                 found = True
                 break
 
-        import pdb
-
-        pdb.set_trace()
         self.assertTrue(found, "Expected log string <<%s>> not found in dmesg" % log_string)
 
     def start_all(self):
