@@ -323,7 +323,7 @@
         },
         {
             "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteAlpn",
-            "reason": "Disabled by test issue"
+            "reason": "Disabled by test issue #2329"
         }
     ]
 }
