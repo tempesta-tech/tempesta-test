@@ -28,8 +28,8 @@ class ClickHouseLogRecord:
     uri: str
     referer: str
     user_agent: str
-    ja5t: str
-    ja5h: str
+    ja5t: int
+    ja5h: int
     dropped_events: int
 
 

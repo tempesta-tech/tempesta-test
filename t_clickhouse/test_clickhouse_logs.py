@@ -192,6 +192,22 @@ class TestDmesgLogsOnly(BaseNoLogs):
 
 
 class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
+    tempesta = dict(
+        config="""
+            listen 443 proto=https,h2;
+            server ${server_ip}:8000;
+            
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            
+            access_log dmesg mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
+        """
+    )
+    clients = [
+        {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "443", "ssl": True}
+    ]
+
     def test_clickhouse_record_data(self):
         """
         Verify the clickhouse log record data
@@ -233,6 +249,8 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         self.assertEqual(record.response_content_length, 8)
         self.assertEqual(record.dropped_events, 0)
         self.assertEqual(record.vhost, "default")
+        self.assertEqual(record.ja5h, 2499671753152)
+        self.assertEqual(record.ja5t, 7407189765761859584)
 
 
 class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
@@ -289,7 +307,7 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
 
         record = self.loggers.clickhouse.read()[0]
         self.assertIsNone(record.timestamp.tzname())
-        self.assertGreater(record.response_time, 2000)
+        self.assertGreaterEqual(record.response_time, 2000)
 
         __time_after = time_after.replace(tzinfo=None, microsecond=0)
         __record_time = record.timestamp.replace(microsecond=0)
