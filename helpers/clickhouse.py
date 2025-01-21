@@ -8,13 +8,11 @@ from ipaddress import IPv4Address
 
 import clickhouse_connect
 
-from helpers import control, remote
+from helpers import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
-
-from test_suite.prepare import configure
 
 
 @dataclasses.dataclass
@@ -30,28 +28,23 @@ class ClickHouseLogRecord:
     uri: str
     referer: str
     user_agent: str
+    ja5t: str
+    ja5h: str
     dropped_events: int
 
 
 class ClickHouseFinder:
-    def __init__(
-        self,
-        host: str = None,
-        username: str = None,
-        password: str = None,
-        port: int = None,
-        database: str = None,
-        daemon_log: str = None,
-    ):
-        self.daemon_log: str = daemon_log
+    def __init__(self):
+        self.raise_error_on_logger_file_missing: bool = True
+        self.daemon_log: str = tf_cfg.cfg.get("TFW_Logger", "daemon_log")
         self.node = remote.tempesta
         self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
         self._clickhouse_client = clickhouse_connect.get_client(
-            host=host,
-            username=username,
-            password=password,
-            port=port,
-            database=database,
+            host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
+            port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
+            username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
+            password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
+            database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
         )
 
     def log_table_exists(self) -> bool:
@@ -93,35 +86,31 @@ class ClickHouseFinder:
         """
         return self.read()[0]
 
-    def tfw_log_file_get_data(self, tempesta_instance: control.Tempesta) -> str:
+    def tfw_log_file_get_data(self) -> str:
         """
         Read data of tfw_logger daemon file
         """
-        stdout, _ = tempesta_instance.node.run_cmd(f"cat {self.daemon_log}")
+        stdout, _ = self.node.run_cmd(f"cat {self.daemon_log}")
         return stdout.decode()
 
-    def tfw_log_file_remove(self, tempesta_instance: control.Tempesta) -> None:
+    def tfw_log_file_remove(self) -> None:
         """
         Remove tfw logger file
         """
-        stdout, stderr = tempesta_instance.node.run_cmd(f"rm -f {self.daemon_log}")
+        stdout, stderr = self.node.run_cmd(f"rm -f {self.daemon_log}")
         assert (stdout, stderr) == (b"", b"")
 
-    def tfw_log_file_exists(self, tempesta_instance: control.Tempesta) -> bool:
+    def tfw_log_file_exists(self) -> bool:
         """
         Check if tfw log file exists
         """
-        stdout, stderr = tempesta_instance.node.run_cmd(f"ls -la {self.daemon_log} | wc -l")
+        stdout, stderr = self.node.run_cmd(f"ls -la {self.daemon_log} | wc -l")
         return (stdout, stderr) == (b"1\n", b"")
 
-    def tfw_logger_signal(
-        self, tempesta_instance: control.Tempesta, signal: typing.Literal["STOP", "CONT"]
-    ) -> None:
-        tempesta_instance.node.run_cmd(f"kill -{signal} $(pidof tfw_logger)")
+    def tfw_logger_signal(self, signal: typing.Literal["STOP", "CONT"]) -> None:
+        self.node.run_cmd(f"kill -{signal} $(pidof tfw_logger)")
 
-    def wait_until_tfw_logger_start(
-        self, tempesta_instance: control.Tempesta, timeout: int = 5, raise_error: bool = True
-    ) -> None:
+    def wait_until_tfw_logger_start(self, timeout: int = 5) -> None:
         """
         Block thread until tfw_logger starts
         """
@@ -131,15 +120,15 @@ class ClickHouseFinder:
             time.sleep(0.1)
             total_time_exceed += 0.1
 
-            if not self.tfw_log_file_exists(tempesta_instance):
+            if not self.tfw_log_file_exists():
                 continue
 
-            stdout = self.tfw_log_file_get_data(tempesta_instance)
+            stdout = self.tfw_log_file_get_data()
 
             if stdout.endswith("Daemon started\n"):
                 return
 
-        if not raise_error:
+        if not self.raise_error_on_logger_file_missing:
             return
 
         raise FileNotFoundError(

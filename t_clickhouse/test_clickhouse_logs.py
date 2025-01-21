@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
 from helpers import tf_cfg
-from helpers.clickhouse import ClickHouseFinder
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -43,24 +42,6 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
         }
     ]
 
-    def setUp(self):
-        super(TestClickhouseLogsBaseTest, self).setUp()
-
-        self.clickhouse_logs: ClickHouseFinder = ClickHouseFinder(
-            host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
-            port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
-            username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-            password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
-            daemon_log=tf_cfg.cfg.get("TFW_Logger", "daemon_log"),
-        )
-
-        if self.clickhouse_logs.log_table_exists():
-            self.clickhouse_logs.delete_all()
-
-        self.clickhouse_logs.tfw_log_file_remove(self.get_tempesta())
-        self.start_all_services(client=False)
-
     @staticmethod
     def send_simple_request(deproxy_client, request=None, expected_status: str = "201") -> None:
         """
@@ -71,6 +52,10 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
             expected_status_code=expected_status,
             timeout=10,
         )
+
+    def setUp(self):
+        super(TestClickhouseLogsBaseTest, self).setUp()
+        self.start_all_services(client=False)
 
 
 class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
@@ -91,15 +76,13 @@ class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
-
         self.send_simple_request(client)
         self.assertTrue(self.oops.http11_requests_exists())
 
         for _ in range(4100):
             self.send_simple_request(client)
 
-        self.assertEqual(self.clickhouse_logs.total_count(), 4097)
+        self.assertEqual(self.loggers.clickhouse.total_count(), 4097)
 
 
 class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
@@ -119,11 +102,9 @@ class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
-
         self.send_simple_request(client)
         self.assertFalse(self.oops.http11_requests_exists())
-        self.assertEqual(self.clickhouse_logs.total_count(), 1)
+        self.assertEqual(self.loggers.clickhouse.total_count(), 1)
 
 
 class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
@@ -143,20 +124,28 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
-
         self.send_simple_request(client)
         self.assertFalse(self.oops.http11_requests_exists())
 
         tempesta = self.get_tempesta()
         tempesta.stop()
 
-        stdout = self.clickhouse_logs.tfw_log_file_get_data(self.get_tempesta())
+        stdout = self.loggers.clickhouse.tfw_log_file_get_data()
         pattern = r".*Starting daemon.*Daemon started.*Stopping daemon.*Daemon stopped.*"
         self.assertIsNotNone(re.match(pattern, stdout, re.MULTILINE | re.DOTALL))
 
 
-class TestNoLogs(TestClickhouseLogsBaseTest):
+class BaseNoLogs(TestClickhouseLogsBaseTest):
+    def setUp(self):
+        super(TestClickhouseLogsBaseTest, self).setUp()
+        self.loggers.clickhouse.raise_error_on_logger_file_missing = False
+        self.start_all_services(client=False)
+
+    def tearDown(self):
+        self.loggers.clickhouse.raise_error_on_logger_file_missing = True
+
+
+class TestNoLogs(BaseNoLogs):
     tempesta = dict(
         config="""
             listen 80;
@@ -171,18 +160,14 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(
-            tempesta_instance=self.get_tempesta(), timeout=1, raise_error=False
-        )
-
         self.send_simple_request(client)
         self.assertFalse(self.oops.http11_requests_exists())
 
-        self.assertFalse(self.clickhouse_logs.tfw_log_file_exists(self.get_tempesta()))
-        self.assertEqual(self.clickhouse_logs.total_count(), 0)
+        self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
+        self.assertEqual(self.loggers.clickhouse.total_count(), 0)
 
 
-class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
+class TestDmesgLogsOnly(BaseNoLogs):
     tempesta = dict(
         config="""
             listen 80;
@@ -199,15 +184,11 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(
-            tempesta_instance=self.get_tempesta(), timeout=1, raise_error=False
-        )
-
         self.send_simple_request(client)
         self.assertTrue(self.oops.http11_requests_exists())
 
-        self.assertFalse(self.clickhouse_logs.tfw_log_file_exists(self.get_tempesta()))
-        self.assertEqual(self.clickhouse_logs.total_count(), 0)
+        self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
+        self.assertEqual(self.loggers.clickhouse.total_count(), 0)
 
 
 class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
@@ -217,8 +198,6 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         """
         client = self.get_client("deproxy")
         client.start()
-
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
 
         self.send_simple_request(
             client,
@@ -235,9 +214,9 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
             ),
         )
         self.assertTrue(self.oops.http11_requests_exists())
-        self.assertEqual(self.clickhouse_logs.total_count(), 1)
+        self.assertEqual(self.loggers.clickhouse.total_count(), 1)
 
-        record = self.clickhouse_logs.last_message()
+        record = self.loggers.clickhouse.last_message()
         t1 = record.timestamp.replace(microsecond=0, second=0, tzinfo=timezone.utc)
         t2 = datetime.now(tz=timezone.utc).replace(microsecond=0, second=0)
         self.assertEqual(t1, t2)
@@ -276,13 +255,11 @@ class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
-
         self.send_simple_request(
             client, client.create_request(uri="/", method="POST", headers=[]), expected_status="500"
         )
 
-        record = self.clickhouse_logs.read()[0]
+        record = self.loggers.clickhouse.read()[0]
         self.assertEqual(record.status, 500)
         self.assertEqual(record.method, 10)
         self.assertEqual(record.response_content_length, 8)
@@ -301,8 +278,6 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
-
         time_before = datetime.now(tz=timezone.utc)
 
         self.send_simple_request(client)
@@ -310,9 +285,9 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         time_after = datetime.now(tz=timezone.utc)
         self.assertEqual((time_after - time_before).seconds, 2)
         self.assertTrue(self.oops.http11_requests_exists())
-        self.assertEqual(self.clickhouse_logs.total_count(), 1)
+        self.assertEqual(self.loggers.clickhouse.total_count(), 1)
 
-        record = self.clickhouse_logs.read()[0]
+        record = self.loggers.clickhouse.read()[0]
         self.assertIsNone(record.timestamp.tzname())
         self.assertGreater(record.response_time, 2000)
 
@@ -359,7 +334,6 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
 
     def test_all_logs_under_load(self):
         client = self.get_client("h2load")
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
         client.start()
 
         half_of_duration = int(tf_cfg.cfg.get("General", "duration")) / 2
@@ -375,14 +349,12 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
         dmesg_logs_count = self.oops.http2_requests_count()
         self.assertNotEqual(dmesg_logs_count, 0)
 
-        clickhouse_collected_rows = self.clickhouse_logs.total_count()
+        clickhouse_collected_rows = self.loggers.clickhouse.total_count()
         self.assertEqual(clickhouse_collected_rows, dmesg_logs_count)
         self.assertEqual(h2_total_requests, dmesg_logs_count)
 
     def test_all_logs_with_reload(self):
         client = self.get_client("h2load")
-
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
         client.start()
 
         tempesta = self.get_tempesta()
@@ -400,21 +372,19 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
         dmesg_logs_records = self.oops.http2_requests_count()
         self.assertNotEqual(dmesg_logs_records, 0)
 
-        clickhouse_collected_rows = self.clickhouse_logs.total_count()
+        clickhouse_collected_rows = self.loggers.clickhouse.total_count()
         self.assertEqual(clickhouse_collected_rows, dmesg_logs_records)
         self.assertEqual(h2_total_requests, dmesg_logs_records)
 
     def test_tfw_logger_stop_cont(self):
         client = self.get_client("h2load")
-
-        self.clickhouse_logs.wait_until_tfw_logger_start(tempesta_instance=self.get_tempesta())
         client.start()
 
         half_of_duration = int(tf_cfg.cfg.get("General", "duration")) / 2
         time.sleep(int(half_of_duration))
 
-        self.clickhouse_logs.tfw_logger_signal(self.get_tempesta(), "STOP")
-        self.clickhouse_logs.tfw_logger_signal(self.get_tempesta(), "CONT")
+        self.loggers.clickhouse.tfw_logger_signal("STOP")
+        self.loggers.clickhouse.tfw_logger_signal("CONT")
 
         self.wait_while_busy(client)
         client.stop()
@@ -425,7 +395,7 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
         dmesg_logs_records = self.oops.http2_requests_count()
         self.assertNotEqual(dmesg_logs_records, 0)
 
-        clickhouse_collected_rows = self.clickhouse_logs.total_count()
+        clickhouse_collected_rows = self.loggers.clickhouse.total_count()
         self.assertLess(clickhouse_collected_rows, dmesg_logs_records)
         self.assertGreater(clickhouse_collected_rows, 0)
         self.assertEqual(h2_total_requests, dmesg_logs_records)

@@ -1,5 +1,6 @@
 from __future__ import annotations, print_function
 
+import dataclasses
 import datetime
 import os
 import re
@@ -22,7 +23,7 @@ from framework.docker_server import DockerServer, docker_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
-from helpers import control, dmesg, error, remote, tf_cfg, util
+from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
 from helpers.deproxy import dbg
 from helpers.util import fill_template
 from test_suite import sysnet
@@ -97,6 +98,12 @@ register_backend("deproxy", deproxy_srv_factory)
 register_backend("nginx", nginx_srv_factory)
 register_backend("lxc", lxc_srv_factory)
 register_backend("docker", docker_srv_factory)
+
+
+@dataclasses.dataclass
+class TempestaLoggers:
+    clickhouse: clickhouse.ClickHouseFinder
+    dmesg: dmesg.DmesgFinder
 
 
 class TempestaTest(unittest.TestCase):
@@ -323,6 +330,8 @@ class TempestaTest(unittest.TestCase):
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
+        self.loggers.clickhouse.wait_until_tfw_logger_start()
+
     def start_all_clients(self):
         for cid in self.__clients:
             client = self.__clients[cid]
@@ -351,6 +360,7 @@ class TempestaTest(unittest.TestCase):
         self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
         self.__save_memory_consumption()
         self.oops = dmesg.DmesgFinder()
+        self.loggers = TempestaLoggers(clickhouse=clickhouse.ClickHouseFinder(), dmesg=self.oops)
         self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
@@ -368,6 +378,9 @@ class TempestaTest(unittest.TestCase):
 
     def cleanup_services(self):
         tf_cfg.dbg(3, "\tCleanup: services")
+        self.loggers.clickhouse.tfw_log_file_remove()
+        self.loggers.clickhouse.delete_all()
+
         for service in self.get_all_services():
             service.stop()
             if service.exceptions:
