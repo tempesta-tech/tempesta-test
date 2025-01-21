@@ -5,8 +5,7 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers import dmesg
-
-from .common import AccessLogLine
+from helpers.access_log import AccessLogLine
 
 
 class CheckedResponses(tester.TempestaTest):

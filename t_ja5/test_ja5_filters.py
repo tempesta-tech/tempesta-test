@@ -5,8 +5,8 @@ Tests for JA5 Hash Filtering and Configuration Parsing
 import string
 import typing
 
-from access_log.common import AccessLogLine
 from helpers import tf_cfg
+from helpers.access_log import AccessLogLine
 from helpers.error import ProcessBadExitStatusException
 from helpers.util import fill_template
 from test_suite import marks, tester

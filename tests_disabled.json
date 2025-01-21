@@ -74,7 +74,7 @@
             "reason" : "Disabled by issue #1684"
         },
         {
-            "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
+            "name" : "t_access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },
         {
