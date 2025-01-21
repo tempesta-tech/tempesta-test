@@ -368,7 +368,8 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
             "uri": f"/[1-{REQUESTS_COUNT}]",
             "parallel": CONCURRENT_CONNECTIONS,
             "cmd_args": (f" --max-time {DURATION}"),
-            "disable_output": True,
+            "disable_output": False,
+            "dump_headers": False,
         },
     ]
 
@@ -391,8 +392,9 @@ class BaseCurlStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.Tempesta
         client.start()
         self.wait_while_busy(client)
         client.stop()
-        tf_cfg.dbg(2, f"Number of successful requests: {client.statuses[200]}")
-        self.assertFalse(client.last_response.stderr)
+        self.assertEqual(client.statuses[200], REQUESTS_COUNT)
+        if client.last_response:
+            self.assertFalse(client.last_response.stderr)
 
     def range_requests(self, uri_is_same):
         """Send requests sequentially, stop on error."""
