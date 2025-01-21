@@ -454,7 +454,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         cache_fulfill * *;
         cache_purge immediate;
         cache_purge_acl ${client_ip};
-        frang_limits {http_strict_host_checking false;}
+        frang_limits {http_strict_host_checking false; http_methods get purge;}
     """
 
     nginx_backend_page_size = 1048576
@@ -467,6 +467,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
             "parallel": CONCURRENT_CONNECTIONS,
             "cmd_args": (f" --max-time {DURATION}"),
             "disable_output": True,
+            "dump_headers": False,
         },
         {
             "id": "concurrent-purge",
@@ -475,6 +476,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
             "parallel": CONCURRENT_CONNECTIONS,
             "cmd_args": (f" --max-time {DURATION}"),
             "disable_output": True,
+            "dump_headers": False,
             "method": "PURGE",
         },
     ]
@@ -501,6 +503,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         client = self.get_client("concurrent")
         client_purge = self.get_client("concurrent-purge")
         server = self.get_server("nginx-large-page")
+        tempesta = self.get_tempesta()
         # Test must ignore ERROR in dmesg, or it will get fail in tearDown.
         self.oops_ignore.append("ERROR")
 
@@ -511,11 +514,15 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
             client.start()
             self.wait_while_busy(client)
             client.stop()
+            tempesta.get_stats()
+            self.assertGreater(tempesta.stats.cache_objects, 0)
 
             client_purge.set_uri(f"/{step}/[1-256]")
             client_purge.start()
             self.wait_while_busy(client_purge)
             client_purge.stop()
+            tempesta.get_stats()
+            self.assertEqual(tempesta.stats.cache_objects, 0)
 
         server.get_stats()
         self.assertGreater(server.requests, 0)
