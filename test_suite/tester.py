@@ -330,7 +330,7 @@ class TempestaTest(unittest.TestCase):
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
-        self.loggers.clickhouse.wait_until_tfw_logger_start()
+        self.loggers.clickhouse.tfw_logger_wait_until_ready()
 
     def start_all_clients(self):
         for cid in self.__clients:
@@ -379,7 +379,7 @@ class TempestaTest(unittest.TestCase):
     def cleanup_services(self):
         tf_cfg.dbg(3, "\tCleanup: services")
         self.loggers.clickhouse.tfw_log_file_remove()
-        self.loggers.clickhouse.delete_all()
+        self.loggers.clickhouse.access_log_clear()
 
         for service in self.get_all_services():
             service.stop()

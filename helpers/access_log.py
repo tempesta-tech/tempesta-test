@@ -2,7 +2,8 @@ import dataclasses
 import re
 import typing
 
-from helpers.dmesg import DmesgFinder
+if typing.TYPE_CHECKING:
+    from helpers.dmesg import DmesgFinder
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
@@ -72,7 +73,7 @@ class AccessLogLine:
         return cls(*res[0])
 
     @classmethod
-    def from_dmesg(cls, klog: DmesgFinder) -> typing.Optional["AccessLogLine"]:
+    def from_dmesg(cls, klog: "DmesgFinder") -> typing.Optional["AccessLogLine"]:
         """
         Find the first entry of access log in dmesg
         """

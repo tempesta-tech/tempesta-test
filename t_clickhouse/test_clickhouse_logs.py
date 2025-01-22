@@ -77,12 +77,12 @@ class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertTrue(self.oops.http11_requests_exists())
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 1)
 
         for _ in range(4100):
             self.send_simple_request(client)
 
-        self.assertEqual(self.loggers.clickhouse.total_count(), 4097)
+        self.assertEqual(self.loggers.clickhouse.access_log_records_count(), 4097)
 
 
 class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
@@ -103,8 +103,8 @@ class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertFalse(self.oops.http11_requests_exists())
-        self.assertEqual(self.loggers.clickhouse.total_count(), 1)
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 0)
+        self.assertEqual(self.loggers.clickhouse.access_log_records_count(), 1)
 
 
 class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
@@ -125,14 +125,13 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertFalse(self.oops.http11_requests_exists())
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 0)
 
         tempesta = self.get_tempesta()
         tempesta.stop()
 
-        stdout = self.loggers.clickhouse.tfw_log_file_get_data()
         pattern = r".*Starting daemon.*Daemon started.*Stopping daemon.*Daemon stopped.*"
-        self.assertIsNotNone(re.match(pattern, stdout, re.MULTILINE | re.DOTALL))
+        self.assertTrue(self.loggers.clickhouse.find(pattern))
 
 
 class BaseNoLogs(TestClickhouseLogsBaseTest):
@@ -161,10 +160,10 @@ class TestNoLogs(BaseNoLogs):
         client.start()
 
         self.send_simple_request(client)
-        self.assertFalse(self.oops.http11_requests_exists())
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 0)
 
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
-        self.assertEqual(self.loggers.clickhouse.total_count(), 0)
+        self.assertEqual(self.loggers.clickhouse.access_log_records_count(), 0)
 
 
 class TestDmesgLogsOnly(BaseNoLogs):
@@ -185,10 +184,11 @@ class TestDmesgLogsOnly(BaseNoLogs):
         client.start()
 
         self.send_simple_request(client)
-        self.assertTrue(self.oops.http11_requests_exists())
+        self.loggers.dmesg.update()
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 1)
 
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
-        self.assertEqual(self.loggers.clickhouse.total_count(), 0)
+        self.assertEqual(self.loggers.clickhouse.access_log_records_count(), 0)
 
 
 class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
@@ -229,10 +229,12 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
                 ],
             ),
         )
-        self.assertTrue(self.oops.http11_requests_exists())
-        self.assertEqual(self.loggers.clickhouse.total_count(), 1)
 
-        record = self.loggers.clickhouse.last_message()
+        self.loggers.dmesg.update()
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 1)
+        self.assertEqual(self.loggers.clickhouse.access_log_records_count(), 1)
+
+        record = self.loggers.clickhouse.access_log_last_message()
         t1 = record.timestamp.replace(microsecond=0, second=0, tzinfo=timezone.utc)
         t2 = datetime.now(tz=timezone.utc).replace(microsecond=0, second=0)
         self.assertEqual(t1, t2)
@@ -277,7 +279,7 @@ class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
             client, client.create_request(uri="/", method="POST", headers=[]), expected_status="500"
         )
 
-        record = self.loggers.clickhouse.read()[0]
+        record = self.loggers.clickhouse.access_log_last_message()
         self.assertEqual(record.status, 500)
         self.assertEqual(record.method, 10)
         self.assertEqual(record.response_content_length, 8)
@@ -299,13 +301,14 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         time_before = datetime.now(tz=timezone.utc)
 
         self.send_simple_request(client)
+        self.loggers.dmesg.update()
 
         time_after = datetime.now(tz=timezone.utc)
         self.assertEqual((time_after - time_before).seconds, 2)
-        self.assertTrue(self.oops.http11_requests_exists())
-        self.assertEqual(self.loggers.clickhouse.total_count(), 1)
+        self.assertEqual(self.loggers.dmesg.access_log_records_count(), 1)
+        self.assertEqual(self.loggers.clickhouse.access_log_records_count(), 1)
 
-        record = self.loggers.clickhouse.read()[0]
+        record = self.loggers.clickhouse.access_log_last_message()
         self.assertIsNone(record.timestamp.tzname())
         self.assertGreaterEqual(record.response_time, 2000)
 
@@ -364,10 +367,10 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
         self.assertIsNotNone(h2_total_requests)
 
         self.oops.update()
-        dmesg_logs_count = self.oops.http2_requests_count()
+        dmesg_logs_count = self.loggers.dmesg.access_log_records_count()
         self.assertNotEqual(dmesg_logs_count, 0)
 
-        clickhouse_collected_rows = self.loggers.clickhouse.total_count()
+        clickhouse_collected_rows = self.loggers.clickhouse.access_log_records_count()
         self.assertEqual(clickhouse_collected_rows, dmesg_logs_count)
         self.assertEqual(h2_total_requests, dmesg_logs_count)
 
@@ -387,10 +390,10 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
         self.assertIsNotNone(h2_total_requests)
 
-        dmesg_logs_records = self.oops.http2_requests_count()
+        dmesg_logs_records = self.loggers.dmesg.access_log_records_count()
         self.assertNotEqual(dmesg_logs_records, 0)
 
-        clickhouse_collected_rows = self.loggers.clickhouse.total_count()
+        clickhouse_collected_rows = self.loggers.clickhouse.access_log_records_count()
         self.assertEqual(clickhouse_collected_rows, dmesg_logs_records)
         self.assertEqual(h2_total_requests, dmesg_logs_records)
 
@@ -410,10 +413,10 @@ class TestClickHouseLogsUnderLoad(TestClickhouseLogsBaseTest):
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
         self.assertIsNotNone(h2_total_requests)
 
-        dmesg_logs_records = self.oops.http2_requests_count()
+        dmesg_logs_records = self.loggers.dmesg.access_log_records_count()
         self.assertNotEqual(dmesg_logs_records, 0)
 
-        clickhouse_collected_rows = self.loggers.clickhouse.total_count()
+        clickhouse_collected_rows = self.loggers.clickhouse.access_log_records_count()
         self.assertLess(clickhouse_collected_rows, dmesg_logs_records)
         self.assertGreater(clickhouse_collected_rows, 0)
         self.assertEqual(h2_total_requests, dmesg_logs_records)

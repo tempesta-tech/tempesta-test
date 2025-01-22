@@ -2,7 +2,9 @@
 
 from __future__ import print_function
 
+import abc
 import re
+import typing
 from contextlib import contextmanager
 from typing import Callable, List
 
@@ -11,6 +13,8 @@ from . import error, remote, tf_cfg, util
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+from .access_log import AccessLogLine
 
 
 # Collection of conditions for DmesgFinder.find
@@ -34,7 +38,52 @@ def amount_greater_eq(expected: int) -> Callable[[List[str]], bool]:
     return lambda matches: len(matches) >= expected
 
 
-class DmesgFinder(object):
+class BaseTempestaLogger:
+
+    @abc.abstractmethod
+    def update(self):
+        """
+        Update logger data
+        """
+
+    @abc.abstractmethod
+    def find(self, pattern: str, cond: typing.Callable = amount_one) -> bool:
+        """
+        Apply the condition to the parsed text with the provided regexp pattern
+        """
+
+    @abc.abstractmethod
+    def log_findall(self, pattern: str):
+        """
+        Find all the text lines fitted with the regexp pattern
+        """
+
+    @abc.abstractmethod
+    def show(self) -> None:
+        """
+        Prints the log data to the stdout
+        """
+
+    @abc.abstractmethod
+    def access_log_records_count(self) -> int:
+        """
+        Count the number of access log records
+        """
+
+    @abc.abstractmethod
+    def access_log_records_all(self) -> typing.List[AccessLogLine]:
+        """
+        Return all access log records
+        """
+
+    @abc.abstractmethod
+    def access_log_last_message(self) -> AccessLogLine:
+        """
+        Return the last access log record
+        """
+
+
+class DmesgFinder(BaseTempestaLogger):
     """dmesg helper class."""
 
     def __init__(self, disable_ratelimit=False):
@@ -98,31 +147,22 @@ class DmesgFinder(object):
 
         return util.wait_until(wait_cond, timeout=2, poll_freq=0.2)
 
-    def http11_requests_exists(self) -> bool:
-        """
-        Check existing the log message record in dmesg with simple request
-        """
-        return self.find("HTTP/1.1")
+    def access_log_records_all(self) -> typing.List[AccessLogLine]:
+        if isinstance(self.log, bytes):
+            return AccessLogLine.parse_all(self.log.decode())
 
-    def http11_requests_count(self) -> int:
-        """
-        Count all the simple requests in dmesg
-        """
-        self.update()
-        return len(self.log_findall(r"HTTP/1.1"))
+        return AccessLogLine.parse_all(self.log)
 
-    def http2_requests_exists(self) -> bool:
-        """
-        Check existing the log message record in dmesg with simple request
-        """
-        return self.find("HTTP/2.0")
+    def access_log_records_count(self) -> int:
+        return len(self.access_log_records_all())
 
-    def http2_requests_count(self) -> int:
-        """
-        Count all the simple requests in dmesg
-        """
-        self.update()
-        return len(self.log_findall(r"HTTP/2.0"))
+    def access_log_last_message(self) -> typing.Optional[AccessLogLine]:
+        messages = self.access_log_records_all()
+
+        if not messages:
+            return None
+
+        return messages[-1]
 
 
 WARN_GENERIC = "Warning: "
