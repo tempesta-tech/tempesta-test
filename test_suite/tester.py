@@ -330,7 +330,8 @@ class TempestaTest(unittest.TestCase):
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
-        self.loggers.clickhouse.tfw_logger_wait_until_ready()
+        if "mmap" in self.__tempesta.config.get_config():
+            self.loggers.clickhouse.tfw_logger_wait_until_ready()
 
     def start_all_clients(self):
         for cid in self.__clients:

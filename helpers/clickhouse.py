@@ -1,39 +1,19 @@
 """Simple client for Clickhouse access log storage"""
 
-import dataclasses
 import re
 import time
 import typing
-from datetime import datetime
-from ipaddress import IPv4Address
 
 import clickhouse_connect
 
 from helpers import dmesg, remote, tf_cfg
+from helpers.access_log import AccessLogLine
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.dmesg import amount_one
-
-
-@dataclasses.dataclass
-class ClickHouseLogRecord:
-    timestamp: datetime
-    address: IPv4Address
-    method: int
-    version: int
-    status: int
-    response_content_length: int
-    response_time: int
-    vhost: str
-    uri: str
-    referer: str
-    user_agent: str
-    ja5t: int
-    ja5h: int
-    dropped_events: int
 
 
 class ClickHouseFinder(dmesg.BaseTempestaLogger):
@@ -82,7 +62,7 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         res = self._clickhouse_client.query("select count(1) from access_log")
         return res.result_rows[0][0]
 
-    def access_log_records_all(self) -> typing.List[ClickHouseLogRecord]:
+    def access_log_records_all(self) -> typing.List[AccessLogLine]:
         """
         Read all the log records
         """
@@ -93,9 +73,29 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
             order by timestamp desc
             """,
         )
-        return list(map(lambda x: ClickHouseLogRecord(*x), results.result_rows))
+        return list(
+            map(
+                lambda x: AccessLogLine(
+                    timestamp=x[0],
+                    address=x[1],
+                    method=x[2],
+                    version=x[3],
+                    status=x[4],
+                    response_content_length=x[5],
+                    response_time=x[6],
+                    vhost=x[7],
+                    uri=x[8],
+                    referer=x[9],
+                    user_agent=x[10],
+                    ja5t=x[11],
+                    ja5h=x[12],
+                    dropped_events=x[13],
+                ),
+                results.result_rows,
+            )
+        )
 
-    def access_log_last_message(self) -> typing.Optional[ClickHouseLogRecord]:
+    def access_log_last_message(self) -> typing.Optional[AccessLogLine]:
         """
         Read the data of tfw_logger daemon file
         """

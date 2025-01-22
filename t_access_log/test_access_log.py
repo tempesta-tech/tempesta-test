@@ -171,7 +171,7 @@ class AccessLogTest(CheckedResponses):
         self.assertEqual(msg.uri[-4:], "1...", "URI does not looks truncated")
         self.assertEqual(msg.user_agent, "user-agent", "Wrong user-agent")
         self.assertEqual(msg.referer, "referer", "Wrong referer")
-        self.assertNotEqual(msg.ip, "-", "Wrong ip")
+        self.assertNotEqual(msg.address, "-", "Wrong ip")
 
     def test_bad_user_agent(self):
         self.start_all()
@@ -183,7 +183,7 @@ class AccessLogTest(CheckedResponses):
         # Make sure that some fields are properly set
         self.assertEqual(msg.method, "GET", "Wrong method")
         self.assertEqual(msg.uri, "/some-uri", "Wrong uri")
-        self.assertNotEqual(msg.ip, "-", "Wrong ip")
+        self.assertNotEqual(msg.address, "-", "Wrong ip")
 
 
 # Ensure message is logged when request is rejected by frang
@@ -216,4 +216,4 @@ class AccessLogFrang(CheckedResponses):
         self.assertEqual(msg.uri, "/longer-than-10-symbols-uri", "Wrong uri")
         self.assertEqual(msg.user_agent, "user-agent", "Wrong user-agent")
         self.assertEqual(msg.referer, "referer", "Wrong referer")
-        self.assertNotEqual(msg.ip, "-", "Wrong ip")
+        self.assertNotEqual(msg.address, "-", "Wrong ip")

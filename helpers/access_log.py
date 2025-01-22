@@ -1,6 +1,7 @@
 import dataclasses
 import re
 import typing
+from ipaddress import IPv4Address, IPv6Address
 
 if typing.TYPE_CHECKING:
     from helpers.dmesg import DmesgFinder
@@ -12,27 +13,30 @@ __license__ = "GPL2"
 
 @dataclasses.dataclass
 class AccessLogLine:
-    ip: str
+    address: typing.Union[IPv4Address, IPv6Address]
     vhost: str
-    method: str
+    method: typing.Union[str, int]
     uri: str
-    version: str
+    version: int
     status: int
-    response_length: str
+    response_content_length: int
     referer: str
     user_agent: str
     ja5t: str
     ja5h: str
+    timestamp: typing.Optional[int] = None
+    dropped_events: typing.Optional[int] = None
+    response_time: typing.Optional[int] = None
 
     re_pattern: re.Pattern = re.compile(
         r"\[tempesta fw\] "
-        r"(?P<ip>\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) "
+        r"(?P<address>\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) "
         r"\"(?P<vhost>[\w.-]+)\" "
         r"\"(?P<method>[\w]+) "
         r"(?P<uri>.*) "
         r"HTTP\/(?P<version>[\d.]+)\" "
         r"(?P<status>\d+) "
-        r"(?P<response_length>\d+) "
+        r"(?P<response_content_length>\d+) "
         r"\"(?P<referer>.*)\" "
         r"\"(?P<user_agent>.*)\" "
         r"\"ja5t=(?P<ja5t>\w+)\" "
