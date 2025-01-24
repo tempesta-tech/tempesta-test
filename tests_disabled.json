@@ -320,10 +320,6 @@
         {
             "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteCurves",
             "reason": "Only curve prime256v1 is available now"
-        },
-        {
-            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteAlpn",
-            "reason": "Disabled by test issue #2329"
         }
     ]
 }

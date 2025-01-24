@@ -21,13 +21,16 @@ class CustomTemplate(string.Template):
 
 
 def gen_curl_ja5t_cmd(
-    alpn: typing.Literal["http2", "http1.1"] = "http1.1",
+    alpn: typing.Optional[typing.Literal["http2", "http1.1"]] = "http1.1",
     tls: typing.Literal["tlsv1.2", "tlsv1.3"] = "tlsv1.2",
     ciphers: str = "ECDHE-ECDSA-AES128-GCM-SHA256",
     curves: str = "prime256v1",
     connect_to: str = "tempesta-tech.com:443:${tempesta_ip}:443",
     url: str = "https://tempesta-tech.com/",
 ):
+    if alpn is None:
+        alpn = "no-alpn"
+
     return (
         f"--{alpn} -k --{tls} --ciphers {ciphers} --curves {curves} --connect-to {connect_to} {url}"
     )
@@ -176,8 +179,14 @@ class BaseJa5TestSuite(tester.TempestaTest):
         {
             "name": "Alpn",
             "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(alpn="http2"),
-            "different_client": gen_curl_ja5t_cmd(alpn="http1.1"),
+            "limited_client": gen_curl_ja5t_cmd(alpn="http1.1"),
+            "different_client": gen_curl_ja5t_cmd(alpn="http2"),
+        },
+        {
+            "name": "NoAlpn",
+            "hash_type": "ja5t",
+            "limited_client": gen_curl_ja5t_cmd(alpn="http1.1"),
+            "different_client": gen_curl_ja5t_cmd(alpn=None),
         },
         {
             "name": "Http",
