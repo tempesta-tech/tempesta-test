@@ -106,7 +106,96 @@ class TempestaLoggers:
     dmesg: dmesg.DmesgFinder
 
 
-class TempestaTest(unittest.TestCase):
+class WaitUntilAsserts(unittest.TestCase):
+    def assertWaitUntilEqual(
+        self,
+        func: typing.Callable,
+        second,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() != second, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Not equals even after {timeout} seconds"))
+
+    def assertWaitUntilNotEqual(
+        self,
+        func: typing.Callable,
+        second,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() == second, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Still equals even after {timeout} seconds"))
+
+    def assertWaitUntilIsNotNone(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is None, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is None event after {timeout} seconds"))
+
+    def assertWaitUntilCountEqual(
+        self,
+        func: typing.Callable,
+        count,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: len(func()) != count, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Count is not equals event after {timeout} seconds"))
+
+    def assertWaitUntilTrue(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is False, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is False event after {timeout} seconds"))
+
+    def assertWaitUntilFalse(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is True, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
+
+
+class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     """Basic tempesta test class.
     Tempesta tests should have:
     1) backends: [...]

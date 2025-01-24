@@ -82,6 +82,28 @@ class BaseTempestaLogger:
         Return the last access log record
         """
 
+    @abc.abstractmethod
+    def access_log_find(
+        self,
+        address: str = None,
+        vhost: str = None,
+        method: str = None,
+        uri: str = None,
+        version: float = None,
+        status: int = None,
+        content_length: int = None,
+        referer: str = None,
+        user_agent: str = None,
+        ja5t: str = None,
+        ja5h: str = None,
+        timestamp: int = None,
+        dropped_events: int = None,
+        response_time: int = None,
+    ) -> typing.List[AccessLogLine]:
+        """
+        Find the log line with provided filters
+        """
+
 
 class DmesgFinder(BaseTempestaLogger):
     """dmesg helper class."""
@@ -148,6 +170,8 @@ class DmesgFinder(BaseTempestaLogger):
         return util.wait_until(wait_cond, timeout=2, poll_freq=0.2)
 
     def access_log_records_all(self) -> typing.List[AccessLogLine]:
+        self.update()
+
         if isinstance(self.log, bytes):
             return AccessLogLine.parse_all(self.log.decode())
 
@@ -163,6 +187,108 @@ class DmesgFinder(BaseTempestaLogger):
             return None
 
         return messages[-1]
+
+    @staticmethod
+    def __records_filter(
+        records: typing.List[AccessLogLine],
+        address: str = None,
+        vhost: str = None,
+        method: str = None,
+        uri: str = None,
+        version: float = None,
+        status: int = None,
+        content_length: int = None,
+        referer: str = None,
+        user_agent: str = None,
+        ja5t: str = None,
+        ja5h: str = None,
+        timestamp: int = None,
+        dropped_events: int = None,
+        response_time: int = None,
+    ) -> typing.Generator[AccessLogLine, None, None]:
+        for record in records:
+            if address is not None and record.address != address:
+                continue
+
+            if vhost is not None and record.vhost != vhost:
+                continue
+
+            if method is not None and record.method != method:
+                continue
+
+            if uri is not None and record.uri != uri:
+                continue
+
+            if version is not None and record.version != version:
+                continue
+
+            if status is not None and record.status != status:
+                continue
+
+            if content_length is not None and record.response_content_length != content_length:
+                continue
+
+            if referer is not None and record.referer != referer:
+                continue
+
+            if user_agent is not None and record.user_agent != user_agent:
+                continue
+
+            if ja5t is not None and record.ja5t != ja5t:
+                continue
+
+            if ja5h is not None and record.ja5h != ja5h:
+                continue
+
+            if timestamp is not None and record.timestamp != timestamp:
+                continue
+
+            if dropped_events is not None and record.dropped_events != dropped_events:
+                continue
+
+            if response_time is not None and record.response_time != response_time:
+                continue
+
+            yield record
+
+    def access_log_find(
+        self,
+        address: str = None,
+        vhost: str = None,
+        method: str = None,
+        uri: str = None,
+        version: float = None,
+        status: int = None,
+        content_length: int = None,
+        referer: str = None,
+        user_agent: str = None,
+        ja5t: str = None,
+        ja5h: str = None,
+        timestamp: int = None,
+        dropped_events: int = None,
+        response_time: int = None,
+    ) -> typing.List[AccessLogLine]:
+        records = self.access_log_records_all()
+        return [
+            i
+            for i in self.__records_filter(
+                records,
+                address=address,
+                vhost=vhost,
+                method=method,
+                uri=uri,
+                version=version,
+                status=status,
+                content_length=content_length,
+                referer=referer,
+                user_agent=user_agent,
+                ja5t=ja5t,
+                ja5h=ja5h,
+                timestamp=timestamp,
+                dropped_events=dropped_events,
+                response_time=response_time,
+            )
+        ]
 
 
 WARN_GENERIC = "Warning: "

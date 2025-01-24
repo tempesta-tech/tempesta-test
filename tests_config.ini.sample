@@ -310,9 +310,9 @@ clickhouse_host = localhost
 
 # The port of the Clickhouse Database
 #
-# ex.: clickhouse_port = 9000 (default 9000)
+# ex.: clickhouse_port = 8123 (default 8123)
 #
-clickhouse_port = 9000
+clickhouse_port = 8123
 
 # The username of the Clickhouse Database
 #

@@ -330,7 +330,7 @@
             "reason": "Disabled by issue #2313"
         },
         {
-            "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsUnderLoad",
+            "name": "t_stress.test_clickhouse.TestClickHouseLogsUnderLoad",
             "reason": "Disabled by issue #2314"
         }
     ]
