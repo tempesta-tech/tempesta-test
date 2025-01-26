@@ -86,7 +86,7 @@ class TestJa5t(tester.TempestaTest):
                 name="hash_for_client_not_block",
                 tempesta_ja5_config="""
 					ja5t {
-						hash 66cb9fd8d4250000 1 10;
+						hash 66cb9fd8d4250000 1 100;
 					}
 				""",
                 expected_block=False,
