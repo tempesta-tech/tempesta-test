@@ -54,57 +54,57 @@ listen 82 proto=https;
 
 srv_group default {
 
-    server ${server_ip}:8099;
-    server ${server_ip}:8100;
-    server ${server_ip}:8101;
-    server ${server_ip}:8102;
-    server ${server_ip}:8103;
-    server ${server_ip}:8104;
-    server ${server_ip}:8105;
-    server ${server_ip}:8106;
-    server ${server_ip}:8107;
-    server ${server_ip}:8108;
-    server ${server_ip}:8109;
-    server ${server_ip}:8110;
-    server ${server_ip}:8111;
-    server ${server_ip}:8112;
-    server ${server_ip}:8113;
-    server ${server_ip}:8114;
-    server ${server_ip}:8115;
-    server ${server_ip}:8116;
-    server ${server_ip}:8117;
-    server ${server_ip}:8118;
-    server ${server_ip}:8119;
-    server ${server_ip}:8120;
-    server ${server_ip}:8121;
-    server ${server_ip}:8122;
-    server ${server_ip}:8123;
-    server ${server_ip}:8124;
-    server ${server_ip}:8125;
-    server ${server_ip}:8126;
-    server ${server_ip}:8127;
-    server ${server_ip}:8128;
-    server ${server_ip}:8129;
-    server ${server_ip}:8130;
-    server ${server_ip}:8131;
-    server ${server_ip}:8132;
-    server ${server_ip}:8133;
-    server ${server_ip}:8134;
-    server ${server_ip}:8135;
-    server ${server_ip}:8136;
-    server ${server_ip}:8137;
-    server ${server_ip}:8138;
-    server ${server_ip}:8139;
-    server ${server_ip}:8140;
-    server ${server_ip}:8141;
-    server ${server_ip}:8142;
-    server ${server_ip}:8143;
-    server ${server_ip}:8144;
-    server ${server_ip}:8145;
-    server ${server_ip}:8146;
-    server ${server_ip}:8147;
-    server ${server_ip}:8148;
-    server ${server_ip}:8149;
+    server ${server_ip}:18099;
+    server ${server_ip}:18100;
+    server ${server_ip}:18101;
+    server ${server_ip}:18102;
+    server ${server_ip}:18103;
+    server ${server_ip}:18104;
+    server ${server_ip}:18105;
+    server ${server_ip}:18106;
+    server ${server_ip}:18107;
+    server ${server_ip}:18108;
+    server ${server_ip}:18109;
+    server ${server_ip}:18110;
+    server ${server_ip}:18111;
+    server ${server_ip}:18112;
+    server ${server_ip}:18113;
+    server ${server_ip}:18114;
+    server ${server_ip}:18115;
+    server ${server_ip}:18116;
+    server ${server_ip}:18117;
+    server ${server_ip}:18118;
+    server ${server_ip}:18119;
+    server ${server_ip}:18120;
+    server ${server_ip}:18121;
+    server ${server_ip}:18122;
+    server ${server_ip}:18123;
+    server ${server_ip}:18124;
+    server ${server_ip}:18125;
+    server ${server_ip}:18126;
+    server ${server_ip}:18127;
+    server ${server_ip}:18128;
+    server ${server_ip}:18129;
+    server ${server_ip}:18130;
+    server ${server_ip}:18131;
+    server ${server_ip}:18132;
+    server ${server_ip}:18133;
+    server ${server_ip}:18134;
+    server ${server_ip}:18135;
+    server ${server_ip}:18136;
+    server ${server_ip}:18137;
+    server ${server_ip}:18138;
+    server ${server_ip}:18139;
+    server ${server_ip}:18140;
+    server ${server_ip}:18141;
+    server ${server_ip}:18142;
+    server ${server_ip}:18143;
+    server ${server_ip}:18144;
+    server ${server_ip}:18145;
+    server ${server_ip}:18146;
+    server ${server_ip}:18147;
+    server ${server_ip}:18148;
+    server ${server_ip}:18149;
 }
 frang_limits {http_strict_host_checking false;}
 tls_certificate ${general_workdir}/cert.pem;
@@ -181,12 +181,12 @@ http {
 
     upstream websocket {
         ip_hash;
-        server ${server_ip}:8099;
+        server ${server_ip}:18099;
     }
 
     upstream wss_websockets {
         ip_hash;
-        server ${server_ip}:8099;
+        server ${server_ip}:18099;
     }
 
     server {
@@ -268,7 +268,7 @@ class WsPing(tester.TempestaTest):
         loop.run_forever()
 
     def test(self):
-        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p1 = Process(target=self.run_ws, args=(18099,))
         self.p2 = Process(target=self.run_test, args=(81, 4))
         self.p1.start()
         self.start_tempesta()
@@ -320,7 +320,7 @@ class WssPing(WsPing):
 
     def test(self):
         gen_cert(hostname)
-        self.p1 = Process(target=self.run_wss, args=(8099,))
+        self.p1 = Process(target=self.run_wss, args=(18099,))
         self.p2 = Process(target=self.run_test, args=(82, 4))
         self.p1.start()
         self.start_tempesta()
@@ -350,7 +350,7 @@ class WssPingProxy(WssPing):
 
     def test(self):
         gen_cert(TEMPESTA_IP)
-        self.p1 = Process(target=self.run_wss, args=(8099, 1, True))
+        self.p1 = Process(target=self.run_wss, args=(18099, 1, True))
         self.p2 = Process(target=self.run_test, args=(82, 4))
         self.p1.start()
         self.start_tempesta()
@@ -396,7 +396,7 @@ class CacheTest(WsPing):
             )
 
     def test(self):
-        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p1 = Process(target=self.run_ws, args=(18099,))
         self.p1.start()
         self.start_tempesta()
         self.call_upgrade(81, [101])
@@ -431,7 +431,7 @@ class WssStress(WssPing):
 
     def test(self):
         gen_cert(hostname)
-        self.p1 = Process(target=self.run_ws, args=(8099, 50))
+        self.p1 = Process(target=self.run_ws, args=(18099, 50))
         self.p2 = Process(target=self.run_test, args=(82, 4000))
         self.p1.start()
         self.start_tempesta()
@@ -486,7 +486,7 @@ class WssPipelining(WssPing):
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test(self):
-        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p1 = Process(target=self.run_ws, args=(18099,))
         self.p1.start()
         self.start_tempesta()
         self.dmesg = dmesg.DmesgFinder(disable_ratelimit=True)
@@ -524,7 +524,7 @@ class WsScheduler(WsPing):
             listen 81;
 
             srv_group default {
-                server ${server_ip}:8099 conns_n=16;
+                server ${server_ip}:18099 conns_n=16;
             }
             frang_limits {http_strict_host_checking false;}
             vhost default {
@@ -546,7 +546,7 @@ class WsScheduler(WsPing):
         await websocket.send(reply)
 
     def test(self):
-        self.p1 = Process(target=self.run_ws, args=(8099, 4))
+        self.p1 = Process(target=self.run_ws, args=(18099, 4))
         self.p2 = Process(target=self.run_test, args=(81, 1500))
         self.p1.start()
         self.start_tempesta()
@@ -603,7 +603,7 @@ class RestartOnUpgrade(WsPing):
                 self.get_tempesta().restart()
 
     def test(self):
-        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p1 = Process(target=self.run_ws, args=(18099,))
         self.p2 = Thread(target=self.run_test, args=(81, [101]))
         self.p1.start()
         self.start_tempesta()
