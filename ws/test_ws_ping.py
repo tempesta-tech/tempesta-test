@@ -146,7 +146,7 @@ listen 81;
 frang_limits {http_strict_host_checking false;}
 srv_group default {
 
-    server ${server_ip}:8099;
+    server ${server_ip}:18099;
 }
 
 vhost default {
