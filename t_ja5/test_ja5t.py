@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from helpers import dmesg, tf_cfg
 from helpers.control import Tempesta
 from test_suite import marks, tester
@@ -175,7 +177,7 @@ class TestJa5tStress(tester.TempestaTest):
     tempesta_ja5_config_2 = """
         ja5t {
             hash deadbeef 10 1000;
-            hash 1f5a9a29ef170000 1 2;
+            hash 1f5a9a29ef170000 1 100;
         }
     """
     tempesta_ja5_config_empty = ""
@@ -184,14 +186,17 @@ class TestJa5tStress(tester.TempestaTest):
         tempesta: Tempesta = self.get_tempesta()
         config = tempesta.config.defconfig
         ja5_configs = [
+            self.tempesta_ja5_config_empty,
             self.tempesta_ja5_config_1,
             self.tempesta_ja5_config_2,
-            self.tempesta_ja5_config_empty,
         ] * 4
 
         for ja5_config in ja5_configs:
             tempesta.config.defconfig = config + ja5_config
             self.get_tempesta().reload()
+
+            # sleep sometime to receive 200 responses
+            time.sleep(0.5)
 
     @marks.Parameterize.expand(
         [
