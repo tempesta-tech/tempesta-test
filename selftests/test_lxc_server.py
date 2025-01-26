@@ -41,7 +41,7 @@ class TestLxcServer(tester.TempestaTest):
         if Tempesta and server has different connection ports.
         """
         server = self.get_server("lxc")
-        server.external_port = "9000"
+        server.external_port = "19000"
 
         server.start()
         self.start_tempesta()
