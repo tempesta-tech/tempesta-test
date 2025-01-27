@@ -4,8 +4,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
-
 from helpers import dmesg, tf_cfg
 from helpers.control import Tempesta
 from test_suite import marks, tester
