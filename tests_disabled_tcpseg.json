@@ -46,7 +46,7 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "access_log.test_access_log.AccessLogFrang",
+            "name": "t_access_log.test_access_log.AccessLogFrang",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
