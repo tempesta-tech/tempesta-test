@@ -195,9 +195,6 @@ class TestJa5tStress(tester.TempestaTest):
             tempesta.config.defconfig = config + ja5_config
             self.get_tempesta().reload()
 
-            # sleep sometime to receive 200 responses
-            time.sleep(0.5)
-
     @marks.Parameterize.expand(
         [
             marks.Param(name="Http", client_id="wrk"),
