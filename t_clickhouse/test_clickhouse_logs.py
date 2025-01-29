@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
 from helpers import tf_cfg
+from helpers.clickhouse import ClickHouseFinder
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -127,23 +128,15 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 1)
 
         tempesta = self.get_tempesta()
+        tempesta.clean_logs_on_stop = False
         tempesta.stop()
 
         pattern = r".*Starting daemon.*Daemon started.*Stopping daemon.*Daemon stopped.*"
         self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find(pattern))
+        tempesta.clean_logs()
 
 
-class BaseNoLogs(TestClickhouseLogsBaseTest):
-    def setUp(self):
-        super(TestClickhouseLogsBaseTest, self).setUp()
-        self.loggers.clickhouse.raise_error_on_logger_file_missing = False
-        self.start_all_services(client=False)
-
-    def tearDown(self):
-        self.loggers.clickhouse.raise_error_on_logger_file_missing = True
-
-
-class TestNoLogs(BaseNoLogs):
+class TestNoLogs(TestClickhouseLogsBaseTest):
     tempesta = dict(
         config="""
             listen 80;
@@ -165,7 +158,7 @@ class TestNoLogs(BaseNoLogs):
         self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 0)
 
 
-class TestDmesgLogsOnly(BaseNoLogs):
+class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
     tempesta = dict(
         config="""
             listen 80;

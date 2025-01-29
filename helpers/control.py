@@ -8,6 +8,7 @@ import os
 import re
 
 from framework import stateful
+from helpers.clickhouse import ClickHouseFinder
 from test_suite import marks
 
 from . import error, nginx, remote, tempesta, tf_cfg
@@ -323,18 +324,39 @@ class Tempesta(stateful.Stateful):
         self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
         self.host = tf_cfg.cfg.get("Tempesta", "hostname")
-        self.stop_procedures = [self.stop_tempesta, self.remove_config]
         self.check_config = True
+        self.clickhouse = ClickHouseFinder()
+        self.clean_logs_on_stop = True
+        self.__stop_procedures = [self.stop_tempesta, self.remove_config]
+
+    def __wait_while_logger_start(self):
+        if "mmap" not in self.config.get_config():
+            return
+
+        self.clickhouse.tfw_logger_wait_until_ready()
+
+    @property
+    def stop_procedures(self):
+        if self.clean_logs_on_stop:
+            return self.__stop_procedures + [self.clean_logs]
+
+        return self.__stop_procedures
+
+    @stop_procedures.setter
+    def stop_procedures(self, stop_procedures):
+        self.__stop_procedures = stop_procedures
 
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
         self.stats.clear()
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
+        self.__wait_while_logger_start()
 
     def reload(self):
         """Live reconfiguration"""
         tf_cfg.dbg(3, "\tReconfiguring TempestaFW on %s" % self.host)
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload")
+        self.__wait_while_logger_start()
 
     def _do_run(self, cmd):
         cfg_content = self.config.get_config()
@@ -370,6 +392,10 @@ class Tempesta(stateful.Stateful):
         cmd = "cat /proc/tempesta/servers/%s" % (path)
         return self.node.run_cmd(cmd)
 
+    def clean_logs(self):
+        self.clickhouse.tfw_log_file_remove()
+        self.clickhouse.access_log_clear()
+
 
 class TempestaFI(Tempesta):
     """Tempesta class for testing with fault injection."""
@@ -388,7 +414,7 @@ class TempestaFI(Tempesta):
             self.modules_dir = "/lib/modules/$(uname -r)/custom/"
         else:
             self.stap_msg = "Cannot %s stap %s kernel."
-        self.stop_procedures = [
+        self.__stop_procedures = [
             self.letout,
             self.letout_finish,
             self.stop_tempesta,

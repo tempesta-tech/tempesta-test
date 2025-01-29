@@ -102,8 +102,12 @@ register_backend("docker", docker_srv_factory)
 
 @dataclasses.dataclass
 class TempestaLoggers:
-    clickhouse: clickhouse.ClickHouseFinder
     dmesg: dmesg.DmesgFinder
+    get_tempesta: typing.Callable
+
+    @property
+    def clickhouse(self) -> clickhouse.ClickHouseFinder:
+        return self.get_tempesta().clickhouse
 
 
 class WaitUntilAsserts(unittest.TestCase):
@@ -419,9 +423,6 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
-        if "mmap" in self.__tempesta.config.get_config():
-            self.loggers.clickhouse.tfw_logger_wait_until_ready()
-
     def start_all_clients(self):
         for cid in self.__clients:
             client = self.__clients[cid]
@@ -449,9 +450,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.deproxy_manager = deproxy_manager.DeproxyManager()
         self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
         self.__save_memory_consumption()
-        self.loggers = TempestaLoggers(
-            clickhouse=clickhouse.ClickHouseFinder(), dmesg=dmesg.DmesgFinder()
-        )
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=self.get_tempesta)
         self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
@@ -469,8 +468,6 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def cleanup_services(self):
         tf_cfg.dbg(3, "\tCleanup: services")
-        self.loggers.clickhouse.tfw_log_file_remove()
-        self.loggers.clickhouse.access_log_clear()
 
         for service in self.get_all_services():
             service.stop()

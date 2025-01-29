@@ -1,6 +1,7 @@
 """Simple client for Clickhouse access log storage"""
 
 import re
+import time
 import typing
 
 import clickhouse_connect
@@ -227,10 +228,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
             if not self.tfw_log_file_exists():
                 return True
 
-            if not self.find("Daemon started\n"):
+            if not self.find(".*Daemon started\n"):
                 return True
-
-            import time
 
             time.sleep(1)
             return False
