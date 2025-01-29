@@ -605,7 +605,7 @@ http_chain {
             started = False
         finally:
             self.assertFalse(started)
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "ERROR: http_tbl: too many vars (more 8) in redirection url:",
                 cond=dmesg.amount_positive,
             )

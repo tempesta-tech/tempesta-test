@@ -187,8 +187,8 @@ class TestRebootUnderLoad(tester.TempestaTest):
 
     def _check_tfw_log(self) -> None:
         """Checking for errors in the Tempesta log."""
-        self.oops.update()
-        self.assertFalse(len(self.oops.log_findall("ERROR")))
+        self.loggers.dmesg.update()
+        self.assertFalse(len(self.loggers.dmesg.log_findall("ERROR")))
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

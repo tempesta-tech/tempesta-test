@@ -128,8 +128,8 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
 
     def _check_tfw_log(self) -> None:
         """Checking for errors in the Tempesta log."""
-        self.oops.update()
-        self.assertFalse(len(self.oops.log_findall("ERROR")))
+        self.loggers.dmesg.update()
+        self.assertFalse(len(self.loggers.dmesg.log_findall("ERROR")))
 
     def _check_start_tfw_config(
         self,

@@ -449,8 +449,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.deproxy_manager = deproxy_manager.DeproxyManager()
         self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
         self.__save_memory_consumption()
-        self.oops = dmesg.DmesgFinder()
-        self.loggers = TempestaLoggers(clickhouse=clickhouse.ClickHouseFinder(), dmesg=self.oops)
+        self.loggers = TempestaLoggers(
+            clickhouse=clickhouse.ClickHouseFinder(), dmesg=dmesg.DmesgFinder()
+        )
         self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
@@ -506,13 +507,13 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def cleanup_check_dmesg(self):
         tf_cfg.dbg(3, "\tCleanup: checking dmesg")
-        self.oops.update()
+        self.loggers.dmesg.update()
 
         tf_cfg.dbg(
             4,
             (
                 "----------------------dmesg---------------------\n"
-                + self.oops.log.decode(errors="ignore")
+                + self.loggers.dmesg.log.decode(errors="ignore")
                 + "-------------------end dmesg--------------------"
             ),
         )
@@ -520,8 +521,8 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue
-            if len(self.oops.log_findall(err)) > 0:
-                self.oops.show()
+            if len(self.loggers.dmesg.log_findall(err)) > 0:
+                self.loggers.dmesg.show()
                 self.oops_ignore = []
                 raise Exception(f"{err} happened during test on Tempesta")
         # Drop the list of ignored errors to allow set different errors masks

@@ -93,11 +93,11 @@ class StressTest(unittest.TestCase):
                     raise Exception("Error during stopping servers")
 
     def cleanup_check_dmesg(self):
-        self.oops.update()
+        self.loggers.dmesg.update()
         for err in ["Oops", "WARNING", "ERROR"]:
             if err in self.oops_ignore:
                 continue
-            if len(self.oops.log_findall(err)) > 0:
+            if len(self.loggers.dmesg.log_findall(err)) > 0:
                 self.oops_ignore = []
                 raise Exception(f"{err} happened during test on Tempesta")
         # Drop the list of ignored errors to allow set different errors masks

@@ -105,7 +105,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
         return getattr(fingerprint, self.hash_type)
 
     def get_fingerprints(self) -> list[str or None]:
-        return self.oops.log_findall('.*"ja5t=(\w+)" "ja5h=(\w+)"')
+        return self.loggers.dmesg.log_findall('.*"ja5t=(\w+)" "ja5h=(\w+)"')
 
     def get_client_fingerprint(self, name: str) -> AccessLogLine:
         client = self.get_client(name)
@@ -115,8 +115,8 @@ class BaseJa5TestSuite(tester.TempestaTest):
 
         self.assertEqual(client.stdout, self.response_ok)
 
-        self.oops.update()
-        fingerprints = AccessLogLine.parse_all(self.oops.log.decode())
+        self.loggers.dmesg.update()
+        fingerprints = AccessLogLine.parse_all(self.loggers.dmesg.log.decode())
 
         if not fingerprints:
             raise ValueError("Can not receive client ja5 fingerprint")

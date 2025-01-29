@@ -1835,7 +1835,9 @@ http_chain {{
             port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=80)
             port_checker.check_ports_status()
 
-        self.assertTrue(self.oops.find("ERROR: configuration parsing error", amount_positive))
+        self.assertTrue(
+            self.loggers.dmesg.find("ERROR: configuration parsing error", amount_positive)
+        )
 
         self.start_all_services()
         client = self.get_client("deproxy")

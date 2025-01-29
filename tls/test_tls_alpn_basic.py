@@ -162,7 +162,7 @@ class TestALPN(tester.TempestaTest):
                 ssock = context.wrap_socket(sock, server_hostname="tempesta-tech.com")
 
         self.assertTrue(
-            self.oops.find(msg, cond=dmesg.amount_positive),
+            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Can't find expected error",
         )
 
