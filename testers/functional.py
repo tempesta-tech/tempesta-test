@@ -7,6 +7,7 @@ from framework import stateful
 from helpers import control, deproxy, dmesg, remote, tempesta, tf_cfg
 from helpers.deproxy import ParseError
 from test_suite import marks
+from test_suite.tester import TempestaLoggers
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -53,8 +54,8 @@ class FunctionalTest(unittest.TestCase):
         self.tester = deproxy.Deproxy(self.client, self.servers)
 
     def setUp(self):
-        self.oops = dmesg.DmesgFinder()
         self.oops_ignore = []
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=lambda: None)
         self.client = None
         self.client_state = None
         self.tempesta = None
@@ -123,7 +124,7 @@ class FunctionalTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
-        del self.oops
+        del self.loggers.dmesg
 
     @classmethod
     def tearDownClass(cls):

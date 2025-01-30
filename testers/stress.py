@@ -5,6 +5,7 @@ import unittest
 from framework import stateful
 from helpers import control, dmesg, remote, tempesta, tf_cfg
 from test_suite import marks
+from test_suite.tester import TempestaLoggers
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -64,10 +65,10 @@ class StressTest(unittest.TestCase):
 
     def setUp(self):
         # Init members used in tearDown function.
-        self.oops = dmesg.DmesgFinder()
         self.oops_ignore = []
         self.tempesta = None
         self.servers = []
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=lambda: None)
         tf_cfg.dbg(3, "\tInit test case...")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavaliable")
@@ -103,7 +104,7 @@ class StressTest(unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
-        del self.oops
+        del self.loggers.dmesg
 
     def force_stop(self):
         """Forcefully stop all servers."""
