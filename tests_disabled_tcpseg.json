@@ -46,7 +46,7 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "access_log.test_access_log.AccessLogFrang",
+            "name": "t_access_log.test_access_log.AccessLogFrang",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
@@ -288,6 +288,10 @@
         {
             "name": "http2_general.test_h2_headers.TestIPv6.test_request_with_some_data",
             "reason": "Disabled by test issue #525"
+        },
+        {
+            "name": "t_ja5.test_ja5t.TestJa5tStress",
+            "reason": "This test should not be run with TCP segmentation. It use h2load and wrk clients and ja5 only works for requests."
         }
     ]
 }

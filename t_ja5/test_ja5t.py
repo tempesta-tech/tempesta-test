@@ -86,7 +86,7 @@ class TestJa5t(tester.TempestaTest):
                 name="hash_for_client_not_block",
                 tempesta_ja5_config="""
 					ja5t {
-						hash 66cb9fd8d4250000 1 10;
+						hash 66cb9fd8d4250000 1 100;
 					}
 				""",
                 expected_block=False,
@@ -175,7 +175,7 @@ class TestJa5tStress(tester.TempestaTest):
     tempesta_ja5_config_2 = """
         ja5t {
             hash deadbeef 10 1000;
-            hash 1f5a9a29ef170000 1 2;
+            hash 1f5a9a29ef170000 1 100;
         }
     """
     tempesta_ja5_config_empty = ""
@@ -184,9 +184,9 @@ class TestJa5tStress(tester.TempestaTest):
         tempesta: Tempesta = self.get_tempesta()
         config = tempesta.config.defconfig
         ja5_configs = [
+            self.tempesta_ja5_config_empty,
             self.tempesta_ja5_config_1,
             self.tempesta_ja5_config_2,
-            self.tempesta_ja5_config_empty,
         ] * 4
 
         for ja5_config in ja5_configs:
