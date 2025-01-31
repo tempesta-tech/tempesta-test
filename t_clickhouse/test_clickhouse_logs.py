@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
 from helpers import tf_cfg
-from helpers.clickhouse import ClickHouseFinder
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -76,13 +75,13 @@ class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertWaitUntilEqual(lambda: self.loggers.dmesg.access_log_records_count(), 1)
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
 
         client.make_requests([client.create_request(method="GET", headers=[])] * 4100)
 
         self.assertTrue(client.wait_for_response())
         # buffer size + simple request before
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 4097)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 4097)
 
 
 class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
@@ -103,8 +102,8 @@ class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 1)
-        self.assertWaitUntilEqual(lambda: self.loggers.dmesg.access_log_records_count(), 0)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
 
 class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
@@ -125,10 +124,10 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 1)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         tempesta = self.get_tempesta()
-        tempesta.clean_logs_on_stop = False
+        tempesta.stop_procedures = list(set(tempesta.stop_procedures) - {tempesta.clean_logs})
         tempesta.stop()
 
         pattern = r".*Starting daemon.*Daemon started.*Stopping daemon.*Daemon stopped.*"
@@ -152,10 +151,10 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertWaitUntilEqual(lambda: self.loggers.dmesg.access_log_records_count(), 0)
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 0)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
 
 class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
@@ -176,10 +175,10 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         client.start()
 
         self.send_simple_request(client)
-        self.assertWaitUntilEqual(lambda: self.loggers.dmesg.access_log_records_count(), 1)
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
 
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 0)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
 
 class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
@@ -221,8 +220,8 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
             ),
         )
 
-        self.assertWaitUntilEqual(lambda: self.loggers.dmesg.access_log_records_count(), 1)
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 1)
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         record = self.loggers.clickhouse.access_log_last_message()
         t1 = record.timestamp.replace(microsecond=0, second=0, tzinfo=timezone.utc)
@@ -295,8 +294,8 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
 
         time_after = datetime.now(tz=timezone.utc)
         self.assertEqual((time_after - time_before).seconds, 2)
-        self.assertWaitUntilEqual(lambda: self.loggers.dmesg.access_log_records_count(), 1)
-        self.assertWaitUntilEqual(lambda: self.loggers.clickhouse.access_log_records_count(), 1)
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         record = self.loggers.clickhouse.access_log_last_message()
         self.assertIsNone(record.timestamp.tzname())

@@ -326,8 +326,7 @@ class Tempesta(stateful.Stateful):
         self.host = tf_cfg.cfg.get("Tempesta", "hostname")
         self.check_config = True
         self.clickhouse = ClickHouseFinder()
-        self.clean_logs_on_stop = True
-        self.__stop_procedures = [self.stop_tempesta, self.remove_config]
+        self.stop_procedures = [self.stop_tempesta, self.remove_config, self.clean_logs]
 
     def __wait_while_logger_start(self):
         if "mmap" not in self.config.get_config():
@@ -335,22 +334,10 @@ class Tempesta(stateful.Stateful):
 
         self.clickhouse.tfw_logger_wait_until_ready()
 
-    @property
-    def stop_procedures(self):
-        if self.clean_logs_on_stop:
-            return self.__stop_procedures + [self.clean_logs]
-
-        return self.__stop_procedures
-
-    @stop_procedures.setter
-    def stop_procedures(self, stop_procedures):
-        self.__stop_procedures = stop_procedures
-
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
         self.stats.clear()
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
-        self.__wait_while_logger_start()
 
     def reload(self):
         """Live reconfiguration"""
@@ -373,6 +360,7 @@ class Tempesta(stateful.Stateful):
                 {"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")},
             )
         self.node.run_cmd(cmd, timeout=30, env=env)
+        self.__wait_while_logger_start()
 
     def stop_tempesta(self):
         tf_cfg.dbg(3, "\tStopping TempestaFW on %s" % self.host)
@@ -414,7 +402,7 @@ class TempestaFI(Tempesta):
             self.modules_dir = "/lib/modules/$(uname -r)/custom/"
         else:
             self.stap_msg = "Cannot %s stap %s kernel."
-        self.__stop_procedures = [
+        self.stop_procedures = [
             self.letout,
             self.letout_finish,
             self.stop_tempesta,
