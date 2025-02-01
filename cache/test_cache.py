@@ -2108,6 +2108,11 @@ vhost default {
             result += f"{chunk}\r\n"
         return result + "0\r\n\r\n"
 
+    def __is_server(self, tr):
+        if tr.lower() == "server":
+            return True
+        return False
+
     def __is_hbp(self, tr):
         if tr.lower() == "connection" or tr.lower() == "keep-alive":
             return True
@@ -2129,7 +2134,7 @@ vhost default {
         self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
 
         if not isinstance(client, DeproxyClientH2):
-            if method != "HEAD" and not self.__is_hbp(tr1):
+            if method != "HEAD" and not self.__is_hbp(tr1) and not self.__is_server(tr1):
                 self.assertEqual(
                     client.last_response.trailer.get(tr1),
                     tr1_val,
@@ -2137,7 +2142,7 @@ vhost default {
                 )
             else:
                 self.assertFalse(client.last_response.trailer.get(tr1))
-            if method != "HEAD" and not self.__is_hbp(tr2):
+            if method != "HEAD" and not self.__is_hbp(tr2) and not self.__is_server(tr2):
                 self.assertEqual(
                     client.last_response.trailer.get(tr2),
                     tr2_val,
@@ -2147,16 +2152,22 @@ vhost default {
                 self.assertFalse(client.last_response.trailer.get(tr2))
             self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
             self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-            self.assertIsNone(client.last_response.headers.get(tr1))
-            self.assertIsNone(client.last_response.headers.get(tr2))
+            if not self.__is_server(tr1):
+                self.assertIsNone(client.last_response.headers.get(tr1))
+            else:
+                self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
+            if not self.__is_server(tr2):
+                self.assertIsNone(client.last_response.headers.get(tr2))
+            else:
+                self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
         else:
-            if method != "HEAD" and not self.__is_hbp(tr1):
+            if method != "HEAD" and not self.__is_hbp(tr1) and not self.__is_server(tr1):
                 self.assertEqual(
                     client.last_response.headers.get(tr1),
                     tr1_val,
                     "Moved trailer header value mismatch the original one",
                 )
-            if method != "HEAD" and not self.__is_hbp(tr2):
+            if method != "HEAD" and not self.__is_hbp(tr2) and not self.__is_server(tr2):
                 self.assertEqual(
                     client.last_response.headers.get(tr2),
                     tr2_val,
@@ -2244,6 +2255,71 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             method2,
             "X-Token1",
             "value1",
+            "X-Token2",
+            "value2",
+        )
+
+    def test_empty_body_head_to_get(self):
+        self.start_and_check_first_response(
+            client_id="deproxy",
+            method="HEAD",
+            response="HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token1 X-Token2\r\n\r\n"
+            + "0\r\n"
+            + f"X-Token1: value1\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            tr1="X-Token1",
+            tr1_val="value1",
+            tr2="X-Token2",
+            tr2_val="value2",
+            expected_status_code="200",
+        )
+
+        self.check_second_request(
+            "deproxy",
+            "GET",
+            "X-Token1",
+            "value1",
+            "X-Token2",
+            "value2",
+        )
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="GET_GET", method1="GET", method2="GET"),
+            marks.Param(name="HEAD_GET", method1="HEAD", method2="GET"),
+        ]
+    )
+    def test_server_in_trailers(self, name, method1, method2):
+        self.start_and_check_first_response(
+            client_id="deproxy",
+            method=method1,
+            response="HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: Server X-Token2\r\n\r\n"
+            + "0\r\n"
+            + f"Server: cloudfare\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            tr1="Server",
+            tr1_val="cloudfare",
+            tr2="X-Token2",
+            tr2_val="value2",
+            expected_status_code="200",
+        )
+
+        self.check_second_request(
+            "deproxy",
+            method2,
+            "Server",
+            "Tempesta FW/0.8.0",
             "X-Token2",
             "value2",
         )
