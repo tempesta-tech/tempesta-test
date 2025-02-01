@@ -529,7 +529,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         server.get_stats()
         self.assertGreater(server.requests, 0)
         self.assertTrue(
-            self.oops.find(expected_warning, cond=dmesg.amount_positive),
+            self.loggers.dmesg.find(expected_warning, cond=dmesg.amount_positive),
             f"Warning '{expected_warning}' wasn't found",
         )
 

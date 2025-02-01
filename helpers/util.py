@@ -3,6 +3,7 @@ Utils for the testing framework.
 """
 
 import time
+import typing
 from string import Template
 
 from . import remote, tf_cfg
@@ -12,7 +13,12 @@ __copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-def wait_until(wait_cond, timeout=5, poll_freq=0.01, abort_cond=lambda: False):
+def wait_until(
+    wait_cond: typing.Callable,
+    timeout=5,
+    poll_freq=0.01,
+    abort_cond: typing.Callable = lambda: False,
+) -> typing.Optional[bool]:
     t0 = time.time()
 
     while wait_cond():

@@ -8,6 +8,7 @@ import os
 import re
 
 from framework import stateful
+from helpers.clickhouse import ClickHouseFinder
 from test_suite import marks
 
 from . import error, nginx, remote, tempesta, tf_cfg
@@ -323,8 +324,15 @@ class Tempesta(stateful.Stateful):
         self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
         self.host = tf_cfg.cfg.get("Tempesta", "hostname")
-        self.stop_procedures = [self.stop_tempesta, self.remove_config]
         self.check_config = True
+        self.clickhouse = ClickHouseFinder()
+        self.stop_procedures = [self.stop_tempesta, self.remove_config, self.clean_logs]
+
+    def __wait_while_logger_start(self):
+        if "mmap" not in self.config.get_config():
+            return
+
+        self.clickhouse.tfw_logger_wait_until_ready()
 
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
@@ -335,6 +343,7 @@ class Tempesta(stateful.Stateful):
         """Live reconfiguration"""
         tf_cfg.dbg(3, "\tReconfiguring TempestaFW on %s" % self.host)
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload")
+        self.__wait_while_logger_start()
 
     def _do_run(self, cmd):
         cfg_content = self.config.get_config()
@@ -351,6 +360,7 @@ class Tempesta(stateful.Stateful):
                 {"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")},
             )
         self.node.run_cmd(cmd, timeout=30, env=env)
+        self.__wait_while_logger_start()
 
     def stop_tempesta(self):
         tf_cfg.dbg(3, "\tStopping TempestaFW on %s" % self.host)
@@ -369,6 +379,10 @@ class Tempesta(stateful.Stateful):
     def get_server_stats(self, path):
         cmd = "cat /proc/tempesta/servers/%s" % (path)
         return self.node.run_cmd(cmd)
+
+    def clean_logs(self):
+        self.clickhouse.tfw_log_file_remove()
+        self.clickhouse.access_log_clear()
 
 
 class TempestaFI(Tempesta):

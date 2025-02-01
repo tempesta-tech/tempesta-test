@@ -2068,7 +2068,7 @@ cache_fulfill * *;
         with self.assertRaises(error.ProcessBadExitStatusException):
             self.start_tempesta()
 
-        self.assertTrue(self.oops.find(expected_msg))
+        self.assertTrue(self.loggers.dmesg.find(expected_msg))
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

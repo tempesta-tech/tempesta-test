@@ -129,7 +129,9 @@ class X509(tester.TempestaTest):
         client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = client.wait_for_response(timeout=X509.TIMEOUT)
         self.assertFalse(res, "Erroneously established connection")
-        self.assertTrue(self.oops.find(msg), "Tempesta doesn't throw a warning on bad certificate")
+        self.assertTrue(
+            self.loggers.dmesg.find(msg), "Tempesta doesn't throw a warning on bad certificate"
+        )
 
     @dmesg.unlimited_rate_on_tempesta_node
     def check_cannot_start_impl(self, msg):
@@ -141,7 +143,8 @@ class X509(tester.TempestaTest):
         except:
             pass
         self.assertTrue(
-            self.oops.find(msg, cond=dmesg.amount_positive), "Tempesta doesn't report error"
+            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
+            "Tempesta doesn't report error",
         )
 
     @dmesg.unlimited_rate_on_tempesta_node

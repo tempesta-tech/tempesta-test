@@ -109,7 +109,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ["WARNING"]
         self.assertTrue(hs12.hs.alert_received, "Alert not recieved")
         warn = "ClientHello: bad extension size"
-        self.assertTrue(self.oops.find(warn), "No warning about bad ClientHello")
+        self.assertTrue(self.loggers.dmesg.find(warn), "No warning about bad ClientHello")
 
     def test_empty_sni_default(self):
         self.start_all()
@@ -133,7 +133,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ["WARNING"]
         self.assertTrue(hs12.hs.alert_received, "Alert not recieved")
         self.assertTrue(
-            self.oops.find("requested unknown server name 'badservername'"),
+            self.loggers.dmesg.find("requested unknown server name 'badservername'"),
             "Bad SNI isn't logged",
         )
 
@@ -149,7 +149,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ["WARNING"]
         self.assertTrue(hs12.hs.alert_received, "Alert not recieved")
         warn = "ClientHello: bad signature algorithm extension"
-        self.assertTrue(self.oops.find(warn), "No warning about bad ClientHello")
+        self.assertTrue(self.loggers.dmesg.find(warn), "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_elliptic_curves(self):
@@ -160,7 +160,7 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ["WARNING"]
         self.assertTrue(hs12.hs.alert_received, "Alert not recieved")
         warn = "None of the common ciphersuites is usable"
-        self.assertTrue(self.oops.find(warn), "No warning about bad ClientHello")
+        self.assertTrue(self.loggers.dmesg.find(warn), "No warning about bad ClientHello")
 
     @dmesg.unlimited_rate_on_tempesta_node
     def test_bad_renegotiation_info(self):
@@ -174,7 +174,9 @@ class TlsHandshakeTest(tester.TempestaTest):
         self.oops_ignore = ["WARNING"]
         self.assertTrue(hs12.hs.alert_received, "Alert not recieved")
         warn = "ClientHello: bad renegotiation_info"
-        self.assertTrue(self.oops.find(warn), "No warning about non-empty RenegotiationInfo")
+        self.assertTrue(
+            self.loggers.dmesg.find(warn), "No warning about non-empty RenegotiationInfo"
+        )
 
     def test_alert(self):
         self.start_all()
@@ -328,8 +330,12 @@ class TlsMissingDefaultKey(tester.TempestaTest):
         hs.sni = ""
         hs.do_12()
         self.assertTrue(hs.hs.alert_received, "Alert not recieved")
-        self.assertTrue(self.oops.find(" requested unknown server name"), "Bad SNI isn't logged")
-        self.assertTrue(self.oops.find("requested missing server name"), "Bad SNI isn't logged")
+        self.assertTrue(
+            self.loggers.dmesg.find(" requested unknown server name"), "Bad SNI isn't logged"
+        )
+        self.assertTrue(
+            self.loggers.dmesg.find("requested missing server name"), "Bad SNI isn't logged"
+        )
 
 
 class TlsVhostHandshakeTest(tester.TempestaTest):

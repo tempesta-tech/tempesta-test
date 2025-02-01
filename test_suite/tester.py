@@ -1,5 +1,6 @@
 from __future__ import annotations, print_function
 
+import dataclasses
 import datetime
 import os
 import re
@@ -22,7 +23,7 @@ from framework.docker_server import DockerServer, docker_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
-from helpers import control, dmesg, error, remote, tf_cfg, util
+from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
 from helpers.deproxy import dbg
 from helpers.util import fill_template
 from test_suite import sysnet
@@ -99,7 +100,106 @@ register_backend("lxc", lxc_srv_factory)
 register_backend("docker", docker_srv_factory)
 
 
-class TempestaTest(unittest.TestCase):
+@dataclasses.dataclass
+class TempestaLoggers:
+    dmesg: dmesg.DmesgFinder
+    get_tempesta: typing.Callable
+
+    @property
+    def clickhouse(self) -> clickhouse.ClickHouseFinder:
+        return self.get_tempesta().clickhouse
+
+
+class WaitUntilAsserts(unittest.TestCase):
+    def assertWaitUntilEqual(
+        self,
+        func: typing.Callable,
+        second,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() != second, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Not equals even after {timeout} seconds"))
+
+    def assertWaitUntilNotEqual(
+        self,
+        func: typing.Callable,
+        second,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() == second, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Still equals even after {timeout} seconds"))
+
+    def assertWaitUntilIsNotNone(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is None, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is None event after {timeout} seconds"))
+
+    def assertWaitUntilCountEqual(
+        self,
+        func: typing.Callable,
+        count,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: len(func()) != count, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Count is not equals event after {timeout} seconds"))
+
+    def assertWaitUntilTrue(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is False, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is False event after {timeout} seconds"))
+
+    def assertWaitUntilFalse(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is True, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
+
+
+class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     """Basic tempesta test class.
     Tempesta tests should have:
     1) backends: [...]
@@ -350,7 +450,7 @@ class TempestaTest(unittest.TestCase):
         self.deproxy_manager = deproxy_manager.DeproxyManager()
         self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
         self.__save_memory_consumption()
-        self.oops = dmesg.DmesgFinder()
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=self.get_tempesta)
         self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
@@ -368,6 +468,7 @@ class TempestaTest(unittest.TestCase):
 
     def cleanup_services(self):
         tf_cfg.dbg(3, "\tCleanup: services")
+
         for service in self.get_all_services():
             service.stop()
             if service.exceptions:
@@ -403,13 +504,13 @@ class TempestaTest(unittest.TestCase):
 
     def cleanup_check_dmesg(self):
         tf_cfg.dbg(3, "\tCleanup: checking dmesg")
-        self.oops.update()
+        self.loggers.dmesg.update()
 
         tf_cfg.dbg(
             4,
             (
                 "----------------------dmesg---------------------\n"
-                + self.oops.log.decode(errors="ignore")
+                + self.loggers.dmesg.log.decode(errors="ignore")
                 + "-------------------end dmesg--------------------"
             ),
         )
@@ -417,8 +518,8 @@ class TempestaTest(unittest.TestCase):
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue
-            if len(self.oops.log_findall(err)) > 0:
-                self.oops.show()
+            if len(self.loggers.dmesg.log_findall(err)) > 0:
+                self.loggers.dmesg.show()
                 self.oops_ignore = []
                 raise Exception(f"{err} happened during test on Tempesta")
         # Drop the list of ignored errors to allow set different errors masks
