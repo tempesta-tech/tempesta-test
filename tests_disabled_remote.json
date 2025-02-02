@@ -87,15 +87,15 @@
         },
         {
             "name": "t_tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
-            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+            "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
             "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
-            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+            "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
             "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
-            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+            "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
@@ -156,6 +156,10 @@
         {
             "name" : "t_stress.test_stress.TlsWrkStressDocker",
             "reason" : "Disabled by issue #2266"
-        }
+        },
+        {
+            "name": "http2_general.test_h2_frame.TestPostponedFrames",
+	    "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
+	}
     ]
 }
