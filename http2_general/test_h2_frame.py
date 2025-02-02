@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import run_config
+
 from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
@@ -897,6 +899,7 @@ class TestPostponedFrames(H2Base, NetWorker):
         client.send_bytes(client.h2_connection.data_to_send())
         client.wait_for_ack_settings()
 
+        timeout = 15 if run_config.TCP_SEGMENTATION else 5
         ping_count = 500
 
         stream_id = client.stream_id
@@ -904,8 +907,8 @@ class TestPostponedFrames(H2Base, NetWorker):
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(client.wait_for_ping_frames(ping_count))
+        self.assertTrue(client.wait_for_headers_frame(stream_id, timeout=timeout))
+        self.assertTrue(client.wait_for_ping_frames(ping_count, timeout=timeout))
 
         client.send_settings_frame(initial_window_size=65535)
         client.wait_for_ack_settings()
@@ -913,8 +916,8 @@ class TestPostponedFrames(H2Base, NetWorker):
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(client.wait_for_ping_frames(2 * ping_count))
+        self.assertTrue(client.wait_for_headers_frame(stream_id, timeout=timeout))
+        self.assertTrue(client.wait_for_ping_frames(2 * ping_count, timeout=timeout))
 
         self.assertTrue(client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")
@@ -940,4 +943,17 @@ class TestPostponedFrames(H2Base, NetWorker):
             + f"X-Token: {token}\r\n\r\n"
         )
 
-        self.run_test_tso_gro_gso_disabled(client, server, self._test, 100)
+        ipv6_addr = None
+
+        try:
+            dev = super().get_dev()
+            # When we set small mtu, linux reset ipv6 address, so we should
+            # restore it later.
+            try:
+                ipv6_addr = super().get_ipv6_addr(dev)
+            except:
+                pass
+            self.run_test_tso_gro_gso_disabled(client, server, self._test, 100)
+        finally:
+            if ipv6_addr:
+                super().set_ipv6_addr(dev, ipv6_addr)

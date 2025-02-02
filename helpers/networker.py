@@ -9,6 +9,34 @@ __license__ = "GPL2"
 
 
 class NetWorker:
+    def _get_ipv6_addr(self, dev):
+        was_found = False
+        cmd = f"ip -6 addr show dev {dev} | grep inet6"
+        out = remote.client.run_cmd(cmd)
+        out = out[0].decode("utf-8").split(" ")
+        for val in out:
+            if val == "inet6":
+                was_found = True
+                # Next value is address
+                continue
+            if was_found:
+                return val.split("/")
+        return None
+
+    def _set_ipv6_addr(self, dev, addr, prefix):
+        cmd = f"ip -6 addr add {addr}/{prefix} dev {dev}"
+        out = remote.client.run_cmd(cmd)
+
+    def get_dev(self):
+        dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+        return dev
+
+    def get_ipv6_addr(self, dev):
+        return self._get_ipv6_addr(dev)
+
+    def set_ipv6_addr(self, dev, ipv6_addr):
+        self._set_ipv6_addr(dev, ipv6_addr[0], ipv6_addr[1])
+
     def _get_state(self, dev, what):
         cmd = f"ethtool --show-features {dev} | grep {what}"
         out = remote.client.run_cmd(cmd)
@@ -74,7 +102,7 @@ class NetWorker:
             # interface, so, regardless where the Tempesta node resides, we can
             # change MTU on the local interface only to get the same MTU for
             # both the client and server connections.
-            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+            dev = self.get_dev()
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
         except Exception as err:
             self.fail(err)
@@ -109,7 +137,7 @@ class NetWorker:
         self, client, server, test, mtu, option_name=None, option_val=None
     ):
         try:
-            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+            dev = self.get_dev()
         except Exception as err:
             self.fail(err)
 
