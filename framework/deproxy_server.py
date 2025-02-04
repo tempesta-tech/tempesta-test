@@ -24,7 +24,7 @@ class ServerConnection(asyncore.dispatcher):
     def __init__(
         self,
         server: "StaticDeproxyServer",
-        drop_conn_when_receiving_data: bool,
+        drop_conn_when_receiving_request: bool,
         sleep_when_receiving_data: float,
         sock: socket.socket,
         keep_alive: int = 0,
@@ -37,7 +37,7 @@ class ServerConnection(asyncore.dispatcher):
         self._responses_done: int = 0
         self._request_buffer: str = ""
         self._response_buffer: list[bytes] = []
-        self._drop_conn_when_receiving_data = drop_conn_when_receiving_data
+        self._drop_conn_when_receiving_request = drop_conn_when_receiving_request
         self._sleep_when_receiving_data = sleep_when_receiving_data
         self._pipelined = pipelined
         self._cur_pipelined = 0
@@ -76,9 +76,6 @@ class ServerConnection(asyncore.dispatcher):
         if self._request_buffer and self._sleep_when_receiving_data:
             time.sleep(self._sleep_when_receiving_data)
 
-        if self._drop_conn_when_receiving_data:
-            self.close()
-
         while self._request_buffer:
             try:
                 request = deproxy.Request(
@@ -97,6 +94,8 @@ class ServerConnection(asyncore.dispatcher):
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
             response, need_close = self._server.receive_request(request)
+            if self._drop_conn_when_receiving_request:
+                self.handle_close()
             if response:
                 dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
@@ -148,7 +147,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         segment_size: int = 0,
         segment_gap: int = 0,
         keep_original_data: bool = False,
-        drop_conn_when_receiving_data: bool = False,
+        drop_conn_when_receiving_request: bool = False,
         sleep_when_receiving_data: float = 0,
         hang_on_req_num: int = 0,
         pipelined: int = 0,
@@ -167,7 +166,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.conns_n = conns_n
         self.keep_alive = keep_alive
         self.keep_original_data = keep_original_data
-        self.drop_conn_when_receiving_data = drop_conn_when_receiving_data
+        self.drop_conn_when_receiving_request = drop_conn_when_receiving_request
         self.sleep_when_receiving_data = sleep_when_receiving_data
         self.hang_on_req_num = hang_on_req_num
         self._port_checker = port_checks.FreePortsChecker()
@@ -200,7 +199,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             handler = ServerConnection(
                 server=self,
-                drop_conn_when_receiving_data=self._drop_conn_when_receiving_data,
+                drop_conn_when_receiving_request=self.drop_conn_when_receiving_request,
                 sleep_when_receiving_data=self._sleep_when_receiving_data,
                 sock=sock,
                 keep_alive=self.keep_alive,
@@ -222,12 +221,26 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.close()
         self.state = stateful.STATE_STOPPED
 
+    def reset_new_connections(self) -> None:
+        """
+        Close the server socket.
+        This method should not be used to stop the server
+        because the existing connections will be work.
+        """
+        self.close()
+
     def run_start(self):
         dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
         self._reinit_variables()
         self.port_checker.check_ports_status()
-        self._polling_lock.acquire()
+        self.init_socket()
 
+    def init_socket(self):
+        """
+        Create the server socket.
+        This method should not be used to run the server.
+        """
+        self._polling_lock.acquire()
         try:
             self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
             self.set_reuse_addr()
@@ -356,14 +369,14 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self._connections.remove(connection)
 
     @property
-    def drop_conn_when_receiving_data(self) -> bool:
+    def drop_conn_when_receiving_request(self) -> bool:
         return self._drop_conn_when_receiving_data
 
-    @drop_conn_when_receiving_data.setter
-    def drop_conn_when_receiving_data(self, drop_conn: bool) -> None:
+    @drop_conn_when_receiving_request.setter
+    def drop_conn_when_receiving_request(self, drop_conn: bool) -> None:
         self._drop_conn_when_receiving_data = drop_conn
         for connection in self.connections:
-            connection._drop_conn_when_receiving_data = drop_conn
+            connection._drop_conn_when_receiving_request = drop_conn
 
     @property
     def sleep_when_receiving_data(self) -> float:

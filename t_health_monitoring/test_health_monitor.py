@@ -419,7 +419,7 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         """
         self.start_all_services()
         s = self.get_server("deproxy")
-        s.drop_conn_when_receiving_data = True
+        s.drop_conn_when_receiving_request = True
         time.sleep(1)
 
 

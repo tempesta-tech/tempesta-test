@@ -870,7 +870,7 @@ srv_group default {{
 
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
-        self.get_server("deproxy").drop_conn_when_receiving_data = True
+        self.get_server("deproxy").drop_conn_when_receiving_request = True
 
         tempesta.config.set_defconfig(
             f"""
@@ -943,7 +943,7 @@ srv_group default {{
         self, name, first_config, second_config, dmesg_cond, expect_response
     ):
         client = self.get_client("deproxy")
-        self.get_server("deproxy").drop_conn_when_receiving_data = True
+        self.get_server("deproxy").drop_conn_when_receiving_request = True
 
         first_config(self)
         self.start_all_services()
@@ -978,7 +978,7 @@ srv_group default {{
         self, name, first_config, second_config, expected_warning
     ):
         client = self.get_client("deproxy")
-        self.get_server("deproxy").drop_conn_when_receiving_data = True
+        self.get_server("deproxy").drop_conn_when_receiving_request = True
 
         first_config(self)
         self.start_all_services()
