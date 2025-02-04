@@ -147,7 +147,7 @@ class DmesgFinder(BaseTempestaLogger):
         """Show tempesta system log."""
         print(self.log)
 
-    def log_findall(self, pattern: str):
+    def log_findall(self, pattern: str) -> list[str]:
         if isinstance(self.log, bytes):
             return re.findall(pattern, self.log.decode(errors="ignore"))
 

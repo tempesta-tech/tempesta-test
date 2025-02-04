@@ -14,6 +14,10 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
+            "name": "t_server_options",
+            "reason": "These tests should not be run with remote setup. Remote setup has no effect on these tests."
+        },
+        {
             "name": "t_fault_injection",
             "reason": "These tests should not be run with remote setup."
         },
