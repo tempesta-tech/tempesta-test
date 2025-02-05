@@ -2,11 +2,7 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "t_fault_injection.test_fault_injection_base.TestFailFunction",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "t_fault_injection.test_fault_injection_base.TestFailFunctionPipelinedResponses",
+            "name": "t_fault_injection",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
