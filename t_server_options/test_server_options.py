@@ -90,7 +90,7 @@ http_chain {-> main;}
 
         self.assertGreater(time_end - time_start, 2, "Tempesta evicted a request earlier.")
         self.assertTrue(
-            self.oops.find("request evicted: timed out", cond=dmesg.amount_one),
+            self.loggers.dmesg.find("request evicted: timed out", cond=dmesg.amount_one),
             "An unexpected number of warnings were received",
         )
 
@@ -129,7 +129,7 @@ http_chain {-> main;}
 
         self.assertEqual(client.last_response.status, "200")
         self.assertTrue(
-            self.oops.find("request evicted: timed out", cond=dmesg.amount_zero),
+            self.loggers.dmesg.find("request evicted: timed out", cond=dmesg.amount_zero),
             "An unexpected number of warnings were received",
         )
 
@@ -164,7 +164,7 @@ http_chain {-> main;}
         client.send_request(client.create_request(method="GET", headers=[]), "504")
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_one
             ),
             "An unexpected number of warnings were received",
@@ -206,7 +206,7 @@ http_chain {-> main;}
         client.send_request(client.create_request(method="GET", headers=[]), "504")
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_one
             ),
             "An unexpected number of warnings were received",
@@ -252,7 +252,7 @@ http_chain {-> main;}
         client.wait_for_response(timeout=5, strict=True)
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_zero
             ),
             "An unexpected number of warnings were received",
@@ -306,7 +306,7 @@ http_chain {-> main;}
 
         self.assertEqual(client.statuses, {502: 10})
         self.assertTrue(
-            self.oops.find("request evicted:", cond=dmesg.amount_zero),
+            self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
             "An unexpected number of warnings were received",
         )
 
@@ -350,7 +350,9 @@ http_chain {-> main;}
 
         self.assertEqual(client.statuses, {})
         self.assertTrue(
-            self.oops.find("request evicted: timed out, status 504", cond=dmesg.amount_zero),
+            self.loggers.dmesg.find(
+                "request evicted: timed out, status 504", cond=dmesg.amount_zero
+            ),
             "An unexpected number of warnings were received",
         )
 
@@ -390,7 +392,7 @@ http_chain {-> main;}
         self.assertTrue(client.wait_for_connection_close())
 
         self.assertTrue(
-            self.oops.find("request evicted:", cond=dmesg.amount_zero),
+            self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
             "An unexpected number of warnings were received",
         )
         self.assertEqual(len(server.requests), 1)
@@ -419,7 +421,7 @@ http_chain {-> main;}
         client.send_request(client.create_request(method="POST", headers=[]), "504")
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_one
             ),
             "An unexpected number of warnings were received",
@@ -451,7 +453,7 @@ http_chain {-> main;}
         client.send_request(client.create_request(method="POST", headers=[]), "504")
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_zero
             ),
             "An unexpected number of warnings were received",
@@ -508,7 +510,7 @@ http_chain {-> main;}
         )
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request dropped: unable to find an available back end server",
                 cond=dmesg.amount_one,
             ),
@@ -563,7 +565,7 @@ http_chain {-> main;}
         )
 
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request dropped: unable to find an available back end server",
                 cond=dmesg.amount_zero,
             ),
@@ -610,7 +612,7 @@ http_chain {-> main;}
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.connections), 2)
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request dropped: unable to find an available back end server",
                 cond=dmesg.amount_zero,
             ),

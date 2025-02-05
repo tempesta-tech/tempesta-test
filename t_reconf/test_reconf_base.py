@@ -850,9 +850,9 @@ srv_group default {{
         self.assertTrue(client.wait_for_response(15))
         self.assertEqual(client.last_response.status, "200")
 
-        self.oops.update()
+        self.loggers.dmesg.update()
         self.assertFalse(
-            self.oops.log_findall(
+            self.loggers.dmesg.log_findall(
                 "request dropped: unable to find an available back end server",
             ),
             "An unexpected number of warnings were received",
