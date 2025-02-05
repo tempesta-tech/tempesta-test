@@ -5,7 +5,7 @@ __license__ = "GPL2"
 import time
 
 from helpers import analyzer, dmesg, remote, tf_cfg
-from test_suite import tester
+from test_suite import marks, tester
 
 SERVER_IP = tf_cfg.cfg.get("Server", "ip")
 
@@ -133,12 +133,18 @@ http_chain {-> main;}
             "An unexpected number of warnings were received",
         )
 
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="exceeded_5", server_forward_retries=5),
+            marks.Param(name="exceeded_0", server_forward_retries=0),
+        ]
+    )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_forward_retries_exceeded(self):
+    def test_server_forward_retries(self, name, server_forward_retries):
         """
-        Tempesta forwards a request to a server 6 times,
+        Tempesta forwards a request to a server 6/1 times,
         but the server always drops this request.
-        The server exceeds `server_forward_retries 5` limit
+        The server exceeds `server_forward_retries 5/0` limit
         and the request will be evicted with a 504 response.
         """
         server = self.get_server("deproxy")
@@ -151,7 +157,7 @@ http_chain {-> main;}
             % f"""
             srv_group main {{
                 server {SERVER_IP}:8000 conns_n=2;
-                server_forward_retries 5;
+                server_forward_retries {server_forward_retries};
                 server_forward_timeout 60;
                 server_connect_retries 1000;
             }}
@@ -171,7 +177,7 @@ http_chain {-> main;}
         )
         self.assertEqual(
             len(server.requests),
-            6,
+            server_forward_retries + 1,
             "Tempesta forwarded an unexpected number of requests "
             "to server for `server_forward_retries`.",
         )
