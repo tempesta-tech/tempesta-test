@@ -37,6 +37,13 @@ class TestFailFunctionBase(tester.TempestaTest):
             "port": "80",
         },
         {
+            "id": "deproxy_ssl",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
             "id": "deproxy_h2",
             "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
@@ -48,7 +55,7 @@ class TestFailFunctionBase(tester.TempestaTest):
     tempesta = {
         "config": """
             listen 80;
-            listen 443 proto=h2;
+            listen 443 proto=h2,https;
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -217,6 +224,62 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 func_name="tfw_h2_entail_stream_skb",
                 id="deproxy_h2",
                 msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_ssl",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_ssl",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_h2",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_ssl",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_ssl",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_h2",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_h2",
+                msg="Cannot setup hash ctx",
                 times=1,
                 response=deproxy.Response.create_simple_response(
                     status="200",
