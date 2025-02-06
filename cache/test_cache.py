@@ -2152,11 +2152,15 @@ vhost default {
                 self.assertFalse(client.last_response.trailer.get(tr2))
             self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
             self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-            if not self.__is_server(tr1):
+            if tr1 == "hdr_and_trailer":
+                self.assertEqual(client.last_response.headers.get(tr1), "header")
+            elif not self.__is_server(tr1):
                 self.assertIsNone(client.last_response.headers.get(tr1))
             else:
                 self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
-            if not self.__is_server(tr2):
+            if tr2 == "hdr_and_trailer":
+                self.assertEqual(client.last_response.headers.get(tr2), "header")
+            elif not self.__is_server(tr2):
                 self.assertIsNone(client.last_response.headers.get(tr2))
             else:
                 self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
@@ -2183,7 +2187,19 @@ vhost default {
         client.send_request(request, "200")
         self.assertIn("age", client.last_response.headers)
 
-        if not self.__is_hbp(tr1):
+        if tr1 == "trailer_and_trailer":
+            count = 0
+            for val in client.last_response.headers.find_all(tr1):
+                self.assertTrue(val == tr1_val or val == tr2_val)
+                count = count + 1
+            self.assertEqual(count, 2)
+        elif tr1 == "hdr_and_trailer":
+            count = 0
+            for val in client.last_response.headers.find_all(tr1):
+                self.assertTrue(val == tr1_val or val == "header")
+                count = count + 1
+            self.assertEqual(count, 2)
+        elif not self.__is_hbp(tr1):
             self.assertEqual(
                 client.last_response.headers.get(tr1),
                 tr1_val,
@@ -2192,7 +2208,19 @@ vhost default {
         else:
             self.assertFalse(client.last_response.headers.get(tr1))
 
-        if not self.__is_hbp(tr2):
+        if tr2 == "trailer_and_trailer":
+            count = 0
+            for val in client.last_response.headers.find_all(tr2):
+                self.assertTrue(val == tr1_val or val == tr2_val)
+                count = count + 1
+            self.assertEqual(count, 2)
+        elif tr2 == "hdr_and_trailer":
+            count = 0
+            for val in client.last_response.headers.find_all(tr2):
+                self.assertTrue(val == tr2_val or val == "header")
+                count = count + 1
+            self.assertEqual(count, 2)
+        elif not self.__is_hbp(tr2):
             self.assertEqual(
                 client.last_response.headers.get(tr2),
                 tr2_val,
@@ -2286,6 +2314,67 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             "X-Token1",
             "value1",
             "X-Token2",
+            "value2",
+        )
+
+    def test_same_hdr_and_trailer_head_to_get(self):
+        self.start_and_check_first_response(
+            client_id="deproxy",
+            method="HEAD",
+            response="HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "hdr_and_trailer: header\r\n"
+            + "Trailer: hdr_and_trailer X-Token2\r\n\r\n"
+            + "0\r\n"
+            + f"hdr_and_trailer: trailer\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+            tr1="hdr_and_trailer",
+            tr1_val="trailer",
+            tr2="X-Token2",
+            tr2_val="value2",
+            expected_status_code="200",
+        )
+
+        self.check_second_request(
+            "deproxy",
+            "GET",
+            "hdr_and_trailer",
+            "trailer",
+            "X-Token2",
+            "value2",
+        )
+
+    def test_same_trailer_head_to_get(self):
+        self.start_and_check_first_response(
+            client_id="deproxy",
+            method="HEAD",
+            response="HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: trailer_and_trailer trailer_and_trailer\r\n\r\n"
+            + "0\r\n"
+            + f"trailer_and_trailer: value1\r\n"
+            + f"trailer_and_trailer: value2\r\n\r\n",
+            tr1="trailer_and_trailer",
+            tr1_val="value1",
+            tr2="trailer_and_trailer",
+            tr2_val="value2",
+            expected_status_code="200",
+        )
+
+        self.check_second_request(
+            "deproxy",
+            "GET",
+            "trailer_and_trailer",
+            "value1",
+            "trailer_and_trailer",
             "value2",
         )
 
