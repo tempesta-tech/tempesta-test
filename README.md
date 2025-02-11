@@ -81,7 +81,7 @@ You can also create default tests configuration
 (see `TestFrameworkCfg.defaults` method from `helpers/tf_cfg.py`) by calling:
 
 ```sh
-./run_tests.py -d
+./run_tests.py -d local
 ```
 
 There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
