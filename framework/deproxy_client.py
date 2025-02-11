@@ -1,5 +1,4 @@
 import abc
-import asyncore
 import dataclasses
 import socket
 import ssl
@@ -27,7 +26,7 @@ from hpack import Encoder
 
 import run_config
 from framework import stateful
-from framework.deproxy_manager import _PoolingLock
+from framework.deproxy_base import BaseDeproxy
 from helpers import deproxy, error, tf_cfg, util
 from helpers.deproxy import ParseError
 
@@ -38,26 +37,31 @@ __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-def adjust_timeout_for_tcp_segmentation(timeout):
-    if run_config.TCP_SEGMENTATION and timeout < 30:
-        timeout = 60
-    return timeout
-
-
-class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
+class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def __init__(
         self,
+        # BaseDeproxy
         *,
         deproxy_auto_parser,
-        conn_addr: Optional[str],
         port: int,
-        is_ssl: bool,
         bind_addr: Optional[str],
+        segment_size: int,
+        segment_gap: int,
         is_ipv6: bool,
+        # BaseDeproxyClient
+        conn_addr: Optional[str],
+        is_ssl: bool,
         server_hostname: str,
     ):
-        asyncore.dispatcher.__init__(self)
-        stateful.Stateful.__init__(self)
+        # Initialize the `BaseDeproxy`
+        super().__init__(
+            deproxy_auto_parser=deproxy_auto_parser,
+            port=port,
+            bind_addr=bind_addr,
+            segment_size=segment_size,
+            segment_gap=segment_gap,
+            is_ipv6=is_ipv6,
+        )
 
         self.ssl = is_ssl
         self._is_http2 = isinstance(self, DeproxyClientH2)
@@ -67,24 +71,11 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
         self.request_buffer = ""
         self.response_buffer = ""
         self.conn_addr = conn_addr
-        self.port = port
         self.conn_is_closed = True
         self.conn_was_opened = False
-        self.bind_addr = bind_addr
         self.error_codes = []
-        self.is_ipv6 = is_ipv6
 
-        self._deproxy_auto_parser = deproxy_auto_parser
-        self._polling_lock: _PoolingLock | None = None
-        self.stop_procedures = [self.__stop_client]
         self.rps = 0
-        # Following 2 parameters control heavy chunked testing
-        # You can set it programmaticaly or via client config
-        # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
-        self.segment_size = 0
-        # Inter-segment gap, ms, 0 for disable.
-        # You usualy do not need it; update timeouts if you use it.
-        self.segment_gap = 0
         self.parsing = True
         self._reinit_variables()
 
@@ -105,26 +96,6 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
             # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
             # compression.
             self._context.options |= ssl.OP_NO_COMPRESSION
-
-    def bind(self, address: tuple):
-        """
-        Wrapper for `bind` method to add some log details.
-
-        `bind` is originally `asyncore.dispatcher` method and declared in there.
-
-        Args:
-            address (tuple): address to bind
-        """
-        tf_cfg.dbg(6, f"Trying to bind {str(address)} for {self.__class__.__name__}")
-        try:
-            return super().bind(address)
-        # When we cannot bind an address, adding more details
-        except OSError as os_exc:
-            os_err_msg = (
-                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
-            )
-            tf_cfg.dbg(6, os_err_msg)
-            raise OSError(os_err_msg) from os_exc
 
     @property
     def statuses(self) -> Dict[int, int]:
@@ -201,31 +172,10 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
     def set_rps(self, rps):
         self.rps = rps
 
-    def set_events(self, polling_lock: _PoolingLock) -> None:
-        self._polling_lock = polling_lock
+    def _stop_deproxy(self):
+        self.close()
 
-    def __stop_client(self):
-        tf_cfg.dbg(4, "\tStop deproxy client")
-        self._polling_lock.acquire()
-
-        try:
-            self.close()
-        except Exception as e:
-            tf_cfg.dbg(2, "Exception while stop: %s" % str(e))
-            raise e
-        finally:
-            self._polling_lock.release()
-
-    def __run_start(self):
-        dbg(self, 3, "Start", prefix="\t", use_getsockname=False)
-        dbg(
-            self,
-            4,
-            "Connect to %s:%d" % (self.conn_addr, self.port),
-            prefix="\t",
-            use_getsockname=False,
-        )
-
+    def _run_deproxy(self):
         self.create_socket(socket.AF_INET6 if self.is_ipv6 else socket.AF_INET, socket.SOCK_STREAM)
         if self.bind_addr:
             self.bind(
@@ -234,36 +184,6 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
 
         tf_cfg.dbg(6, f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
-
-    def run_start(self):
-        self._reinit_variables()
-        self._polling_lock.acquire()
-
-        # TODO should be changed by issue #361
-        t0 = time.time()
-        while True:
-            t = time.time()
-            if t - t0 > 5:
-                self._polling_lock.release()
-                raise TimeoutError("Deproxy client start failed.")
-
-            try:
-                self.__run_start()
-                self._polling_lock.release()
-                break
-
-            except OSError as e:
-                if e.args == (9, "EBADF"):
-                    continue
-
-                self._polling_lock.release()
-                tf_cfg.dbg(2, "Exception while start: %s" % str(e))
-                raise e
-
-            except Exception as e:
-                self._polling_lock.release()
-                tf_cfg.dbg(2, "Exception while start: %s" % str(e))
-                raise e
 
     @abc.abstractmethod
     def handle_read(self): ...
@@ -338,12 +258,11 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        if adjust_timeout:
-            timeout = adjust_timeout_for_tcp_segmentation(timeout)
         timeout_not_exceeded = util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
             abort_cond=lambda: self.state == stateful.STATE_ERROR,
+            adjust_timeout=adjust_timeout,
         )
         if strict:
             assert (
@@ -352,18 +271,17 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
         return timeout_not_exceeded
 
     def wait_for_response(
-        self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
+        self, timeout=5, strict=False, adjust_timeout=False, n: Optional[int] = None
     ):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        if adjust_timeout:
-            timeout = adjust_timeout_for_tcp_segmentation(timeout)
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            adjust_timeout=adjust_timeout,
         )
         if strict:
             assert (
@@ -402,6 +320,14 @@ class BaseDeproxyClient(asyncore.dispatcher, stateful.Stateful, abc.ABC):
     @property
     def conn_is_active(self):
         return self.conn_was_opened and not self.conn_is_closed
+
+    @property
+    def conn_addr(self) -> str:
+        return str(self._conn_addr)
+
+    @conn_addr.setter
+    def conn_addr(self, conn_addr: str) -> None:
+        self._conn_addr = self._set_and_check_ip_addr(conn_addr)
 
 
 class DeproxyClient(BaseDeproxyClient):
