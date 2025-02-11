@@ -242,13 +242,17 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         }
 
         return client_factories[client["type"]](
+            # BaseDeproxy
             deproxy_auto_parser=self._deproxy_auto_parser,
-            conn_addr=fill_template(client["addr"], client),
             port=int(fill_template(client["port"], client)),
-            is_ssl=ssl,
             bind_addr=bind_addr,
+            segment_size=client.get("segment_size", 0),
+            segment_gap=client.get("segment_gap", 0),
             is_ipv6=client.get("is_ipv6", False),
-            server_hostname=fill_template(client.get("ssl_hostname", ""), client),
+            # BaseDeproxyClient
+            conn_addr=fill_template(client["addr"], client),
+            is_ssl=ssl,
+            server_hostname=fill_template(client.get("ssl_hostname", None), client),
         )
 
     def __create_client_wrk(self, client, ssl):
