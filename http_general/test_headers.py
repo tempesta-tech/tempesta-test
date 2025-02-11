@@ -2,8 +2,10 @@
 Tests for correct handling of HTTP/1.1 headers.
 """
 
-from helpers import deproxy, dmesg
+import unittest
+
 from framework.deproxy_client import DeproxyClientH2
+from helpers import deproxy, dmesg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -298,6 +300,91 @@ class TestHost(TestHostBase):
         )
 
 
+class AssertTrailersInResponse:
+    @staticmethod
+    def is_server(tr):
+        if tr.lower() == "server":
+            return True
+        return False
+
+    def is_hop_byp_hop_header(tr):
+        if tr.lower() in [
+            "connection",
+            "keep-alive",
+            "proxy-connection",
+            "hbpheader1",
+            "hbpheader2",
+        ]:
+            return True
+        return False
+
+    @staticmethod
+    def __assert_http1_response_common(response, tr1, tr2):
+        unittest.TestCase().assertEqual(response.headers.get("Transfer-Encoding"), "chunked")
+        unittest.TestCase().assertEqual(response.headers.get("Trailer"), tr1 + " " + tr2)
+        unittest.TestCase().assertIsNone(response.headers.get(tr1))
+        unittest.TestCase().assertIsNone(response.headers.get(tr2))
+
+    @staticmethod
+    def assert_HEAD_http1_response(response, tr1, tr1_val, tr2, tr2_val):
+        unittest.TestCase().assertIsNone(response.trailer.get(tr1))
+        unittest.TestCase().assertIsNone(response.trailer.get(tr2))
+        AssertTrailersInResponse.__assert_http1_response_common(response, tr1, tr2)
+
+    @staticmethod
+    def assert_GET_OR_POST_http1_response(response, tr1, tr1_val, tr2, tr2_val):
+        if not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
+            unittest.TestCase().assertEqual(
+                response.trailer.get(tr1),
+                tr1_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            unittest.TestCase().assertIsNone(response.trailer.get(tr1))
+        if not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
+            unittest.TestCase().assertEqual(
+                response.trailer.get(tr2),
+                tr2_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            unittest.TestCase().assertIsNone(response.trailer.get(tr2))
+        AssertTrailersInResponse.__assert_http1_response_common(response, tr1, tr2)
+
+    @staticmethod
+    def __assert_http2_response_common(response, tr1, tr2):
+        unittest.TestCase().assertIsNone(response.headers.get("Transfer-Encoding"))
+        unittest.TestCase().assertIsNone(response.trailer.get(tr1))
+        unittest.TestCase().assertIsNone(response.trailer.get(tr2))
+
+    @staticmethod
+    def assert_HEAD_http2_response(response, tr1, tr1_val, tr2, tr2_val):
+        unittest.TestCase().assertIsNone(response.headers.get(tr1))
+        unittest.TestCase().assertIsNone(response.headers.get(tr2))
+        AssertTrailersInResponse.__assert_http2_response_common(response, tr1, tr2)
+
+    @staticmethod
+    def assert_GET_OR_POST_http2_response(response, tr1, tr1_val, tr2, tr2_val):
+        if not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
+            unittest.TestCase().assertEqual(
+                response.headers.get(tr1),
+                tr1_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            unittest.TestCase().assertIsNone(response.headers.get(tr1))
+        if not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
+            unittest.TestCase().assertEqual(
+                response.headers.get(tr2),
+                tr2_val,
+                "Moved trailer header value mismatch the original one",
+            )
+        else:
+            unittest.TestCase().assertIsNone(response.headers.get(tr2))
+
+        AssertTrailersInResponse.__assert_HEAD_http2_response(response, tr1, tr2)
+
+
 class TestHeadersParsing(tester.TempestaTest):
     backends = [
         {
@@ -333,11 +420,6 @@ class TestHeadersParsing(tester.TempestaTest):
             "port": "80",
         },
     ]
-
-    def __is_hbp(self, tr):
-        if tr.lower() == "connection" or tr.lower() == "keep-alive" or tr.lower() == "proxy-connection" or tr == "HbpHeader1" or tr == "HbpHeader2":
-            return True
-        return False
 
     def test_long_header_name_in_request(self):
         """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
@@ -426,7 +508,9 @@ class TestHeadersParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_trailers_in_request(self, name, method, tr1, tr1_val, tr2, tr2_val, expected_status_code):
+    def test_trailers_in_request(
+        self, name, method, tr1, tr1_val, tr2, tr2_val, expected_status_code
+    ):
         self.start_all_services()
         self.disable_deproxy_auto_parser()
 
@@ -453,11 +537,15 @@ class TestHeadersParsing(tester.TempestaTest):
         if expected_status_code != "200":
             return
 
-        self.assertEqual(server.last_request.headers.get('trailer'), tr1 + " " + tr2)
-        if not self.__is_hbp(tr1):
+        self.assertEqual(server.last_request.headers.get("trailer"), tr1 + " " + tr2)
+        if not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
             self.assertEqual(server.last_request.trailer.get(tr1), tr1_val)
-        if not self.__is_hbp(tr2):
+        else:
+            self.assertIsNone(server.last_request.trailer.get(tr1))
+        if not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
             self.assertEqual(server.last_request.trailer.get(tr2), tr2_val)
+        else:
+            self.assertIsNone(server.last_request.trailer.get(tr2))
 
     @marks.Parameterize.expand(
         [
@@ -468,7 +556,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="X-Token2",
                 tr2_val="value2",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_GET_OR_POST_http1_response,
             ),
             marks.Param(
                 name="no_hbp_HEAD",
@@ -477,7 +565,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="X-Token2",
                 tr2_val="value2",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_HEAD_http1_response,
             ),
             marks.Param(
                 name="hbp_GET",
@@ -486,7 +574,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="keep-alive",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_GET_OR_POST_http1_response,
             ),
             marks.Param(
                 name="hbp_HEAD",
@@ -495,7 +583,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="keep-alive",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_HEAD_http1_response,
             ),
             marks.Param(
                 name="mix_GET",
@@ -504,7 +592,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="Connection",
                 tr2_val="keep-alive",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_GET_OR_POST_http1_response,
             ),
             marks.Param(
                 name="mix_HEAD",
@@ -513,7 +601,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="keep-alive",
                 tr2="X-Token1",
                 tr2_val="value",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_HEAD_http1_response,
             ),
             marks.Param(
                 name="hbp_from_connection_GET",
@@ -522,7 +610,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="HbpHeader2",
                 tr2_val="value2",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_GET_OR_POST_http1_response,
             ),
             marks.Param(
                 name="hbp_from_connection_HEAD",
@@ -531,7 +619,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="HbpHeader2",
                 tr2_val="value2",
-                expected_status_code="200",
+                assert_func=AssertTrailersInResponse.assert_HEAD_http1_response,
             ),
             marks.Param(
                 name="hbp_proxy_connection",
@@ -540,15 +628,12 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="keep-alive",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                expected_status_code="200"
-            )
+                assert_func=AssertTrailersInResponse.assert_GET_OR_POST_http1_response,
+            ),
         ]
     )
-    def test_trailers_in_response(
-        self, name, method, tr1, tr1_val, tr2, tr2_val, expected_status_code
-    ):
+    def test_trailers_in_response(self, name, method, tr1, tr1_val, tr2, tr2_val, assert_func):
         self.start_all_services()
-        self.disable_deproxy_auto_parser()
 
         response = (
             "HTTP/1.1 200 OK\r\n"
@@ -572,47 +657,9 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         request = client.create_request(method=method, headers=[])
-        client.send_request(request, expected_status_code)
+        client.send_request(request, "200")
 
-        self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-
-        if not isinstance(client, DeproxyClientH2):
-            if method != "HEAD" and not self.__is_hbp(tr1):
-                self.assertEqual(
-                    client.last_response.trailer.get(tr1),
-                    tr1_val,
-                    "Moved trailer header value mismatch the original one",
-                )
-            else:
-                self.assertFalse(client.last_response.trailer.get(tr1))
-            if method != "HEAD" and not self.__is_hbp(tr2):
-                self.assertEqual(
-                    client.last_response.trailer.get(tr2),
-                    tr2_val,
-                    "Moved trailer header value mismatch the original one",
-                )
-            else:
-                self.assertFalse(client.last_response.trailer.get(tr2))
-            self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
-            self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
-            self.assertIsNone(client.last_response.headers.get(tr1))
-            self.assertIsNone(client.last_response.headers.get(tr2))
-        else:
-            if method != "HEAD" and not self.__is_hbp(tr1):
-                self.assertEqual(
-                    client.last_response.headers.get(tr1),
-                    tr1_val,
-                    "Moved trailer header value mismatch the original one",
-                )
-            if method != "HEAD" and not self.__is_hbp(tr2):
-                self.assertEqual(
-                    client.last_response.headers.get(tr2),
-                    tr2_val,
-                    "Moved trailer header value mismatch the original one",
-                )
-            self.assertIsNone(client.last_response.headers.get("Transfer-Encoding"))
-            self.assertIsNone(client.last_response.trailer.get(tr1))
-            self.assertIsNone(client.last_response.trailer.get(tr2))
+        assert_func(client.last_response, tr1, tr1_val, tr2, tr2_val)
 
     def test_without_trailers_in_request(self):
         self.start_all_services()

@@ -14,6 +14,7 @@ from framework.deproxy_server import StaticDeproxyServer
 from helpers import deproxy, error, remote
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
+from http_general.test_headers import AssertTrailersInResponse
 from test_suite import checks_for_tests as checks
 from test_suite import marks, tester
 
@@ -2108,18 +2109,8 @@ vhost default {
             result += f"{chunk}\r\n"
         return result + "0\r\n\r\n"
 
-    def __is_server(self, tr):
-        if tr.lower() == "server":
-            return True
-        return False
-
-    def __is_hbp(self, tr):
-        if tr.lower() == "connection" or tr.lower() == "keep-alive":
-            return True
-        return False
-
     def start_and_check_first_response(
-        self, client_id, method, response, tr1, tr1_val, tr2, tr2_val, expected_status_code
+        self, client_id, method, response, tr1, tr1_val, tr2, tr2_val
     ):
         self.start_all_services()
         self.disable_deproxy_auto_parser()
@@ -2129,12 +2120,16 @@ vhost default {
 
         client = self.get_client(client_id)
         request = client.create_request(method=method, headers=[])
-        client.send_request(request, expected_status_code)
+        client.send_request(request, "200")
 
         self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
 
         if not isinstance(client, DeproxyClientH2):
-            if method != "HEAD" and not self.__is_hbp(tr1) and not self.__is_server(tr1):
+            if (
+                method != "HEAD"
+                and not AssertTrailersInResponse.is_hop_byp_hop_header(tr1)
+                and not AssertTrailersInResponse.is_server(tr1)
+            ):
                 self.assertEqual(
                     client.last_response.trailer.get(tr1),
                     tr1_val,
@@ -2142,7 +2137,11 @@ vhost default {
                 )
             else:
                 self.assertFalse(client.last_response.trailer.get(tr1))
-            if method != "HEAD" and not self.__is_hbp(tr2) and not self.__is_server(tr2):
+            if (
+                method != "HEAD"
+                and not AssertTrailersInResponse.is_hop_byp_hop_header(tr2)
+                and not AssertTrailersInResponse.is_server(tr2)
+            ):
                 self.assertEqual(
                     client.last_response.trailer.get(tr2),
                     tr2_val,
@@ -2154,24 +2153,24 @@ vhost default {
             self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
             if tr1 == "hdr_and_trailer":
                 self.assertEqual(client.last_response.headers.get(tr1), "header")
-            elif not self.__is_server(tr1):
+            elif not AssertTrailersInResponse.is_server(tr1):
                 self.assertIsNone(client.last_response.headers.get(tr1))
             else:
                 self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
             if tr2 == "hdr_and_trailer":
                 self.assertEqual(client.last_response.headers.get(tr2), "header")
-            elif not self.__is_server(tr2):
+            elif not AssertTrailersInResponse.is_server(tr2):
                 self.assertIsNone(client.last_response.headers.get(tr2))
             else:
                 self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
         else:
-            if method != "HEAD" and not self.__is_hbp(tr1) and not self.__is_server(tr1):
+            if method != "HEAD" and not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
                 self.assertEqual(
                     client.last_response.headers.get(tr1),
                     tr1_val,
                     "Moved trailer header value mismatch the original one",
                 )
-            if method != "HEAD" and not self.__is_hbp(tr2) and not self.__is_server(tr2):
+            if method != "HEAD" and not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
                 self.assertEqual(
                     client.last_response.headers.get(tr2),
                     tr2_val,
@@ -2199,7 +2198,7 @@ vhost default {
                 self.assertTrue(val == tr1_val or val == "header")
                 count = count + 1
             self.assertEqual(count, 2)
-        elif not self.__is_hbp(tr1):
+        elif not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
             self.assertEqual(
                 client.last_response.headers.get(tr1),
                 tr1_val,
@@ -2220,7 +2219,7 @@ vhost default {
                 self.assertTrue(val == tr2_val or val == "header")
                 count = count + 1
             self.assertEqual(count, 2)
-        elif not self.__is_hbp(tr2):
+        elif not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
             self.assertEqual(
                 client.last_response.headers.get(tr2),
                 tr2_val,
@@ -2249,15 +2248,13 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="GET_GET", method1="GET", method2="GET", expected_status_code="200"),
-            marks.Param(name="HEAD_GET", method1="HEAD", method2="GET", expected_status_code="200"),
-            marks.Param(name="GET_HEAD", method1="GET", method2="HEAD", expected_status_code="200"),
-            marks.Param(
-                name="HEAD_HEAD", method1="HEAD", method2="HEAD", expected_status_code="200"
-            ),
+            marks.Param(name="GET_GET", method1="GET", method2="GET"),
+            marks.Param(name="HEAD_GET", method1="HEAD", method2="GET"),
+            marks.Param(name="GET_HEAD", method1="GET", method2="HEAD"),
+            marks.Param(name="HEAD_HEAD", method1="HEAD", method2="HEAD"),
         ]
     )
-    def test(self, name, method1, method2, expected_status_code):
+    def test(self, name, method1, method2):
         self.start_and_check_first_response(
             client_id="deproxy",
             method=method1,
@@ -2275,7 +2272,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1_val="value1",
             tr2="X-Token2",
             tr2_val="value2",
-            expected_status_code=expected_status_code,
         )
 
         self.check_second_request(
@@ -2305,7 +2301,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1_val="value1",
             tr2="X-Token2",
             tr2_val="value2",
-            expected_status_code="200",
         )
 
         self.check_second_request(
@@ -2336,7 +2331,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1_val="trailer",
             tr2="X-Token2",
             tr2_val="value2",
-            expected_status_code="200",
         )
 
         self.check_second_request(
@@ -2366,7 +2360,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1_val="value1",
             tr2="trailer_and_trailer",
             tr2_val="value2",
-            expected_status_code="200",
         )
 
         self.check_second_request(
@@ -2401,7 +2394,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1_val="cloudfare",
             tr2="X-Token2",
             tr2_val="value2",
-            expected_status_code="200",
         )
 
         self.check_second_request(
@@ -2422,7 +2414,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
                 tr1_val="keep-alive",
                 tr2="X-Token1",
                 tr2_val="value1",
-                expected_status_code="200",
             ),
             marks.Param(
                 name="hbp_GET",
@@ -2431,7 +2422,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
                 tr1_val="keep-alive",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                expected_status_code="200",
             ),
             marks.Param(
                 name="mix_HEAD",
@@ -2440,7 +2430,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
                 tr1_val="keep-alive",
                 tr2="X-Token1",
                 tr2_val="value1",
-                expected_status_code="200",
             ),
             marks.Param(
                 name="hbp_HEAD",
@@ -2449,11 +2438,10 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
                 tr1_val="keep-alive",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
-                expected_status_code="200",
             ),
         ]
     )
-    def test_hbp_headers(self, name, method, tr1, tr1_val, tr2, tr2_val, expected_status_code):
+    def test_hbp_headers(self, name, method, tr1, tr1_val, tr2, tr2_val):
         self.start_and_check_first_response(
             client_id="deproxy",
             method=method,
@@ -2471,7 +2459,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1_val=tr1_val,
             tr2=tr2,
             tr2_val=tr2_val,
-            expected_status_code=expected_status_code,
         )
 
         self.check_second_request(
@@ -2551,7 +2538,6 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             tr1_val="value1",
             tr2="X-Token2",
             tr2_val="value2",
-            expected_status_code="200",
         )
         self.check_second_request(
             client_id=client_id2,

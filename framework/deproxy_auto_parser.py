@@ -6,7 +6,7 @@ import copy
 import sys
 
 import run_config
-from framework.deproxy_client import BaseDeproxyClient
+from framework.deproxy_client import BaseDeproxyClient, DeproxyClient, DeproxyClientH2
 from framework.deproxy_manager import DeproxyManager
 from helpers.deproxy import (
     H2Request,
@@ -199,10 +199,20 @@ class DeproxyAutoParser:
             4,
             self.__dbg_msg.format("Remove hop-by-hop headers from expected response/request"),
         )
+        connection = message.headers.get("connection")
+        if connection:
+            connection = connection.split(" ")
+            for hdr in connection:
+                message.trailer.delete_all(hdr.lower())
+
         message.headers.delete_all("connection")
         message.headers.delete_all("keep-alive")
         message.headers.delete_all("proxy-connection")
         message.headers.delete_all("upgrade")
+        message.trailer.delete_all("connection")
+        message.trailer.delete_all("keep-alive")
+        message.trailer.delete_all("proxy-connection")
+        message.trailer.delete_all("upgrade")
 
     def __prepare_chunked_expected_response(self, expected_response: Response | H2Response) -> None:
         """
