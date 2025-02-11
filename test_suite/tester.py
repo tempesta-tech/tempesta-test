@@ -283,26 +283,27 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         tf_cfg.populate_properties(client)
         ssl = client.setdefault("ssl", False)
         cid = client["id"]
-        if client.get("is_ipv6", False) and client.get("interface", False):
+        is_ipv6 = client.get("is_ipv6", False)
+        if is_ipv6 and client.get("interface", False):
             raise ValueError("The framework does not support interfaces for IPv6.")
-        client_ip = tf_cfg.cfg.get("Client", "ip")
+        client_ip = tf_cfg.cfg.get("Client", "ipv6" if is_ipv6 else "ip")
         if client["type"] in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-                (_, ip) = sysnet.create_interface(len(self.__ips), interface, base_ip)
-                sysnet.create_route(interface, ip, client_ip)
-                self.__ips.append(ip)
+                (_, bind_addr) = sysnet.create_interface(len(self.__ips), interface, base_ip)
+                sysnet.create_route(interface, bind_addr, client_ip)
+                self.__ips.append(bind_addr)
             else:
-                ip = client_ip
+                bind_addr = client_ip
         if client["type"] in ["deproxy", "deproxy_h2"]:
-            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip)
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl, bind_addr)
             self.__clients[cid].set_rps(client.get("rps", 0))
             self.deproxy_manager.add_client(self.__clients[cid])
         elif client["type"] == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif client["type"] == "curl":
-            self.__clients[cid] = self.__create_client_curl(client, ip)
+            self.__clients[cid] = self.__create_client_curl(client, bind_addr)
         elif client["type"] == "external":
             self.__clients[cid] = self.__create_client_external(client)
 
