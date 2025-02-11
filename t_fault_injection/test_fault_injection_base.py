@@ -116,7 +116,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                     headers=[("content-length", "0")],
                     date=deproxy.HttpMessage.date_time_string(),
                 ),
-                mtu=None,
                 retval=0,
             ),
             marks.Param(
@@ -130,7 +129,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                     headers=[("content-length", "0")],
                     date=deproxy.HttpMessage.date_time_string(),
                 ),
-                mtu=None,
                 retval=0,
             ),
             marks.Param(
@@ -144,7 +142,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                     headers=[("content-length", "0")],
                     date=deproxy.HttpMessage.date_time_string(),
                 ),
-                mtu=None,
                 retval=-12,
             ),
             marks.Param(
@@ -158,7 +155,120 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                     headers=[("content-length", "0")],
                     date=deproxy.HttpMessage.date_time_string(),
                 ),
-                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="ss_skb_to_sgvec_with_new_pages",
+                func_name="ss_skb_to_sgvec_with_new_pages",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_h2_stream_xmit_prepare_resp",
+                func_name="tfw_h2_stream_xmit_prepare_resp",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_h2_entail_stream_skb",
+                func_name="tfw_h2_entail_stream_skb",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_ssl",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_ssl",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_h2",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_ssl",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_ssl",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_h2",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_h2",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+        ]
+    )
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test(self, name, func_name, id, msg, times, response, retval):
+        self._test(name, func_name, id, msg, times, response, retval)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="ss_skb_to_sgvec_with_new_pages_long_resp",
+                func_name="ss_skb_to_sgvec_with_new_pages",
+                id="deproxy_h2",
+                msg="tfw_tls_encrypt: cannot encrypt data",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 100000,
+                ),
+                mtu=100,
                 retval=-12,
             ),
             marks.Param(
@@ -176,132 +286,17 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=100,
                 retval=-12,
             ),
-            marks.Param(
-                name="ss_skb_to_sgvec_with_new_pages",
-                func_name="ss_skb_to_sgvec_with_new_pages",
-                id="deproxy_h2",
-                msg="tfw_tls_encrypt: cannot encrypt data",
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
-            marks.Param(
-                name="ss_skb_to_sgvec_with_new_pages_long_resp",
-                func_name="ss_skb_to_sgvec_with_new_pages",
-                id="deproxy_h2",
-                msg="tfw_tls_encrypt: cannot encrypt data",
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                    body="y" * 100000,
-                ),
-                mtu=100,
-                retval=-12,
-            ),
-            marks.Param(
-                name="tfw_h2_stream_xmit_prepare_resp",
-                func_name="tfw_h2_stream_xmit_prepare_resp",
-                id="deproxy_h2",
-                msg=None,
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
-            marks.Param(
-                name="tfw_h2_entail_stream_skb",
-                func_name="tfw_h2_entail_stream_skb",
-                id="deproxy_h2",
-                msg=None,
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
-            marks.Param(
-                name="crypto_alloc_aead_atomic_ssl",
-                func_name="crypto_alloc_aead_atomic",
-                id="deproxy_ssl",
-                msg=None,
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
-            marks.Param(
-                name="crypto_alloc_aead_atomic_h2",
-                func_name="crypto_alloc_aead_atomic",
-                id="deproxy_h2",
-                msg=None,
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
-            marks.Param(
-                name="crypto_alloc_shash_atomic_ssl",
-                func_name="crypto_alloc_shash_atomic",
-                id="deproxy_ssl",
-                msg="Cannot setup hash ctx",
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
-            marks.Param(
-                name="crypto_alloc_shash_atomic_h2",
-                func_name="crypto_alloc_shash_atomic",
-                id="deproxy_h2",
-                msg="Cannot setup hash ctx",
-                times=1,
-                response=deproxy.Response.create_simple_response(
-                    status="200",
-                    headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
-                ),
-                mtu=None,
-                retval=-12,
-            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, response, mtu, retval):
-        if mtu:
-            try:
-                dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
-                prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-                self._test(name, func_name, id, msg, times, response, retval)
-            finally:
-                sysnet.change_mtu(remote.client, dev, prev_mtu)
-        else:
+    @NetWorker.protect_ipv6_addr_on_dev
+    def test_with_mtu(self, name, func_name, id, msg, times, response, mtu, retval):
+        try:
+            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+            prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
             self._test(name, func_name, id, msg, times, response, retval)
+        finally:
+            sysnet.change_mtu(remote.client, dev, prev_mtu)
 
     def _test(self, name, func_name, id, msg, times, response, retval):
         """
@@ -339,6 +334,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
 
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
     @dmesg.unlimited_rate_on_tempesta_node
+    @NetWorker.protect_ipv6_addr_on_dev
     def test_tfw_h2_prep_resp_for_error_response(self):
         """
         Basic test to check how Tempesta FW works when some internal

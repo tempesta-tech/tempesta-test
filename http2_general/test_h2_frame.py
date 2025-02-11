@@ -4,8 +4,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import run_config
-
 from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
@@ -23,6 +21,7 @@ from hyperframe.frame import (
     WindowUpdateFrame,
 )
 
+import run_config
 from framework import deproxy_client, stateful
 from framework.deproxy_client import HuffmanEncoder
 from helpers import util
@@ -928,6 +927,7 @@ class TestPostponedFrames(H2Base, NetWorker):
             marks.Param(name="trailers", header="value", token="a" * 30000),
         ]
     )
+    @NetWorker.protect_ipv6_addr_on_dev
     def test(self, name, header, token):
         self.start_all_services()
         client = self.get_client("deproxy")
@@ -943,17 +943,4 @@ class TestPostponedFrames(H2Base, NetWorker):
             + f"X-Token: {token}\r\n\r\n"
         )
 
-        ipv6_addr = None
-
-        try:
-            dev = super().get_dev()
-            # When we set small mtu, linux reset ipv6 address, so we should
-            # restore it later.
-            try:
-                ipv6_addr = super().get_ipv6_addr(dev)
-            except:
-                pass
-            self.run_test_tso_gro_gso_disabled(client, server, self._test, 100)
-        finally:
-            if ipv6_addr:
-                super().set_ipv6_addr(dev, ipv6_addr)
+        self.run_test_tso_gro_gso_disabled(client, server, self._test, 100)
