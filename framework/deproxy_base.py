@@ -1,3 +1,7 @@
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import abc
 import asyncore
 import threading
