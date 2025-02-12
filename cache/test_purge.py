@@ -1,7 +1,7 @@
 """Functional tests of caching different methods."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy_client import DeproxyClient
@@ -55,24 +55,24 @@ cache_methods GET;
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="ipv4", purge_ip=tf_cfg.cfg.get("Client", "ip"), family="ipv4"),
-            marks.Param(name="ipv6", purge_ip=tf_cfg.cfg.get("Client", "ipv6"), family="ipv6"),
+            marks.Param(name="ipv4", purge_ip=tf_cfg.cfg.get("Client", "ip"), is_ipv6=False),
+            marks.Param(name="ipv6", purge_ip=tf_cfg.cfg.get("Client", "ipv6"), is_ipv6=True),
             marks.Param(
-                name="ipv4_with_mask", purge_ip=f'{tf_cfg.cfg.get("Client", "ip")}/8', family="ipv4"
+                name="ipv4_with_mask", purge_ip=f'{tf_cfg.cfg.get("Client", "ip")}/8', is_ipv6=False
             ),
             marks.Param(
                 name="ipv6_with_mask",
                 purge_ip=f'{tf_cfg.cfg.get("Client", "ipv6")}/120',
-                family="ipv6",
+                is_ipv6=True,
             ),
             marks.Param(
                 name="ipv4_and_ipv6",
                 purge_ip=f'{tf_cfg.cfg.get("Client", "ip")} {tf_cfg.cfg.get("Client", "ipv6")}',
-                family="ipv4",
+                is_ipv6=False,
             ),
         ]
     )
-    def test_purge_acl(self, name, purge_ip, family):
+    def test_purge_acl(self, name, purge_ip, is_ipv6):
         tempesta = self.get_tempesta()
         client = self.get_client("deproxy")
         srv = self.get_server("deproxy")
@@ -80,9 +80,9 @@ cache_methods GET;
         tempesta.config.set_defconfig(
             tempesta.config.defconfig + f"cache_purge;\ncache_purge_acl {purge_ip};\n"
         )
-        client.bind_addr = tf_cfg.cfg.get("Client", "ip" if family == "ipv4" else "ipv6")
-        client.socket_family = family
-        client.conn_addr = tf_cfg.cfg.get("Tempesta", "ip" if family == "ipv4" else "ipv6")
+        client.is_ipv6 = is_ipv6
+        client.bind_addr = tf_cfg.cfg.get("Client", "ipv6" if is_ipv6 else "ip")
+        client.conn_addr = tf_cfg.cfg.get("Tempesta", "ipv6" if is_ipv6 else "ip")
         request = client.create_request(method="GET", uri="/page.html", headers=[])
 
         self.start_all_services()
