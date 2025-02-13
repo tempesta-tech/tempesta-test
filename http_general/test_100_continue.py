@@ -73,3 +73,133 @@ class Test100ContinueResponse(tester.TempestaTest):
         client.start()
 
         self.wait_while_busy(client)
+
+
+class TestMissedContentLengthIn204StatusResponse(tester.TempestaTest):
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": (
+                "pid ${pid}; "
+                "worker_processes  auto; "
+                "events { "
+                "   worker_connections   1024; "
+                "   use epoll; "
+                "} "
+                "http { "
+                "   keepalive_timeout ${server_keepalive_timeout}; "
+                "   keepalive_requests ${server_keepalive_requests}; "
+                "   access_log off; "
+                "   server { "
+                "       listen        ${server_ip}:8000; "
+                "       location / { "
+                "          add_header Content-Length 0; "
+                "          return 204 'hello'; "
+                "       } "
+                "       location /nginx_status { "
+                "           stub_status on; "
+                "       } "
+                "   } "
+                "} "
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            access_log dmesg;
+            frang_limits {http_methods PUT;}
+            server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def test_request_success(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=client.create_request(method="PUT", headers=[]),
+            expected_status_code="204",
+        )
+        self.assertEqual(
+            client.last_response.headers["content-length"],
+            "0",
+            msg="Tempesta should proxy the Content-Length header for the 204 status code also",
+        )
+
+
+class TestMissedContentTypeInDeleteRequest(tester.TempestaTest):
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": (
+                "pid ${pid}; "
+                "worker_processes  auto; "
+                "events { "
+                "   worker_connections   1024; "
+                "   use epoll; "
+                "} "
+                "http { "
+                "   keepalive_timeout ${server_keepalive_timeout}; "
+                "   keepalive_requests ${server_keepalive_requests}; "
+                "   access_log off; "
+                "   server { "
+                "       listen        ${server_ip}:8000; "
+                "       location / { "
+                "          add_header Content-Type application/json; "
+                "          return 200 '{}'; "
+                "       } "
+                "       location /nginx_status { "
+                "           stub_status on; "
+                "       } "
+                "   } "
+                "} "
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            access_log dmesg;
+            frang_limits {http_methods DELETE;}
+            server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    def test_request_success(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=client.create_request(method="DELETE", headers=[]),
+            expected_status_code="200",
+        )
+        self.assertEqual(
+            client.last_response.headers["content-type"],
+            "application/json",
+            msg="Tempesta should proxy the Content-Type header for the DELETE method also",
+        )
