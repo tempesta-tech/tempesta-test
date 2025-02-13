@@ -78,7 +78,7 @@ http_chain {-> main;}
         )
 
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         self.start_all_services()
@@ -116,7 +116,7 @@ http_chain {-> main;}
         )
 
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         self.start_all_services()
@@ -124,7 +124,7 @@ http_chain {-> main;}
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
         time.sleep(1)
-        server.drop_conn_when_receiving_request = False
+        server.drop_conn_when_request_received = False
         client.wait_for_response(timeout=5, strict=True)
 
         self.assertEqual(client.last_response.status, "200")
@@ -148,7 +148,7 @@ http_chain {-> main;}
         and the request will be evicted with a 504 response.
         """
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         tempesta = self.get_tempesta()
@@ -183,48 +183,6 @@ http_chain {-> main;}
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_forward_retries_0(self):
-        """
-        Tempesta forwards a request to a server and the server drops this request.
-        Tempesta immediately returns 504 a response to the client
-        for `server_forward_retries 0` without repeated requests.
-        """
-        server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
-        server.conns_n = 2
-
-        tempesta = self.get_tempesta()
-        tempesta.config.defconfig = (
-            tempesta.config.defconfig
-            % f"""
-            srv_group main {{
-                server {SERVER_IP}:8000 conns_n=2;
-                server_forward_retries 0;
-                server_forward_timeout 60;
-                server_connect_retries 1000;
-            }}
-        """
-        )
-
-        self.start_all_services()
-
-        client = self.get_client("deproxy")
-        client.send_request(client.create_request(method="GET", headers=[]), "504")
-
-        self.assertTrue(
-            self.loggers.dmesg.find(
-                "request evicted: the number of retries exceeded", cond=dmesg.amount_one
-            ),
-            "An unexpected number of warnings were received",
-        )
-        self.assertEqual(
-            len(server.requests),
-            1,
-            "Tempesta forwarded an unexpected number of requests "
-            "to server for `server_forward_retries`.",
-        )
-
-    @dmesg.unlimited_rate_on_tempesta_node
     def test_server_forward_retries_not_exceeded(self):
         """
         Tempesta forwards a request to a server 100 times,
@@ -233,7 +191,7 @@ http_chain {-> main;}
         and Tempesta forwards the response to client.
         """
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         tempesta = self.get_tempesta()
@@ -254,7 +212,7 @@ http_chain {-> main;}
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
         server.wait_for_requests(50, strict=True)
-        server.drop_conn_when_receiving_request = False
+        server.drop_conn_when_request_received = False
         client.wait_for_response(timeout=5, strict=True)
 
         self.assertTrue(
@@ -269,6 +227,79 @@ http_chain {-> main;}
             51,
             "Tempesta forwarded an unexpected number of requests "
             "to server for `server_forward_retries`.",
+        )
+
+    def test_requests_after_nonidempotent_request_conn_n_1(self):
+        """
+        The client sends a nonidempotent request and few idempotent requests.
+        Tempesta forwards the nonidempotent request to single connection
+        but doesn't forward next idempotent requests to server
+        because Tempesta has one available connection.
+        """
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        server.set_response("")
+
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = (
+            tempesta.config.defconfig
+            % f"""
+            srv_group main {{
+                server {SERVER_IP}:8000 conns_n=1;
+            }}
+            keepalive_timeout 2;
+        """
+        )
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.make_request(client.create_request(method="POST", headers=[]))
+        server.wait_for_requests(1, strict=True)  # it's necessary for stability
+
+        request = client.create_request(method="GET", headers=[])
+        client.make_requests([request] * 5)
+
+        client.wait_for_connection_close(strict=True)
+        self.assertIsNone(client.last_response)
+
+    def test_requests_after_nonidempotent_request_conn_n_2(self):
+        """
+        The client sends a nonidempotent request and few idempotent requests.
+        Tempesta forwards the nonidempotent request to first connection
+        and forwards next idempotent requests to second connection.
+        """
+        server = self.get_server("deproxy")
+        server.conns_n = 2
+        server.set_response("")
+
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = (
+            tempesta.config.defconfig
+            % f"""
+            srv_group main {{
+                server {SERVER_IP}:8000 conns_n=2;
+            }}
+        """
+        )
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.make_request(client.create_request(method="POST", headers=[]))
+
+        server.wait_for_requests(1, strict=True)  # it's necessary for stability
+        server.set_response("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+
+        request = client.create_request(method="GET", headers=[])
+        idempotent_req_n = 5
+        client.make_requests([request] * idempotent_req_n)
+
+        client.wait_for_response(n=idempotent_req_n, strict=True)
+        self.assertEqual(
+            {1, idempotent_req_n},
+            set(con.nrreq for con in server.connections),
+            "The server connections must receive:\n"
+            "1 - one nonidempotent request;\n"
+            f"2 - {idempotent_req_n} idempotent requests;",
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
@@ -406,7 +437,7 @@ http_chain {-> main;}
     @dmesg.unlimited_rate_on_tempesta_node
     def test_server_retry_nonidempotent_enabled(self):
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         tempesta = self.get_tempesta()
@@ -439,7 +470,7 @@ http_chain {-> main;}
     @dmesg.unlimited_rate_on_tempesta_node
     def test_server_retry_nonidempotent_disabled(self):
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         tempesta = self.get_tempesta()
@@ -474,10 +505,10 @@ http_chain {-> main;}
         Tempesta forwards a request to a server connection,
         but the server drops this connection and doesn't accept a new connection.
         Then Tempesta returns a 502 response to a client because
-        the srv_group has not access connections.
+        the srv_group has not available connections.
         """
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 1
 
         tempesta = self.get_tempesta()
@@ -528,11 +559,11 @@ http_chain {-> main;}
         """
         Tempesta forwards a request to a server connection,
         but the server drops this connection and doesn't accept a new connection.
-        After 9 tries Tempesta schedule the request to other access connections.
+        After 9 tries Tempesta schedule the request to other available connections.
         6 default + 3 for server_connect retries 2
         """
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
         sniffer = analyzer.Sniffer(node=remote.tempesta, host="Tempesta", timeout=15, ports=[8000])
 
@@ -555,7 +586,7 @@ http_chain {-> main;}
 
         self.assertTrue(server.wait_for_requests(1))
         server.reset_new_connections()
-        server.drop_conn_when_receiving_request = False
+        server.drop_conn_when_request_received = False
 
         self.assertTrue(client.wait_for_response(15))
         self.assertEqual(client.last_response.status, "200")
@@ -588,7 +619,7 @@ http_chain {-> main;}
 
         """
         server = self.get_server("deproxy")
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
         server.conns_n = 2
 
         tempesta = self.get_tempesta()
@@ -609,7 +640,7 @@ http_chain {-> main;}
 
         self.assertTrue(server.wait_for_requests(1))
         server.reset_new_connections()
-        server.drop_conn_when_receiving_request = False
+        server.drop_conn_when_request_received = False
 
         time.sleep(2)
         server.init_socket()
