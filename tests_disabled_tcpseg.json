@@ -182,6 +182,10 @@
             "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
         },
         {
+            "name": "t_server_options",
+            "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

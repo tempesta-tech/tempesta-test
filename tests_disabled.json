@@ -270,22 +270,6 @@
             "reason": "Disabled by issue #1801"
         },
         {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_with_conns_n_1",
-            "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_with_conns_n_3",
-            "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_default",
-            "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_0",
-            "reason": "Disabled by issue #2046"
-        },
-        {
             "name": "t_custom_branges.test_http_brange.TestConfigParsing",
             "reason": "Disabled by issue #2069"
         },

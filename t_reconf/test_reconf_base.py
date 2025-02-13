@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -788,32 +788,25 @@ srv_group default {{
     @marks.Parameterize.expand(
         [
             marks.Param(
-                name="with_conns_n_1",
-                conns_n=1,
-                old_srv_conn_retries="server_connect_retries 10;",
-            ),
-            marks.Param(
-                name="with_conns_n_3",
-                conns_n=3,
+                name="from_10",
                 old_srv_conn_retries="server_connect_retries 10;",
             ),
             marks.Param(
                 name="from_default",
-                conns_n=1,
                 old_srv_conn_retries="",
             ),
             marks.Param(
                 name="from_0",
-                conns_n=1,
                 old_srv_conn_retries="server_connect_retries 0;",
             ),
         ]
     )
-    def test_reconf_server_connect_retries(self, name, conns_n, old_srv_conn_retries):
+    def test_reconf_server_connect_retries(self, name, old_srv_conn_retries):
         new_srv_conn_retries = 3
         tempesta = self.get_tempesta()
         server = self.get_server("deproxy")
-        server.conns_n = conns_n
+        server.conns_n = 2
+        server.drop_conn_when_request_received = True
 
         tempesta.config.set_defconfig(
             f"""
@@ -823,13 +816,13 @@ tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
-    server {SERVER_IP}:8000 conns_n={conns_n};
+    server {SERVER_IP}:8000 conns_n=2;
     {old_srv_conn_retries}
 }}
 """
         )
 
-        self.start_all_services(client=False)
+        self.start_all_services()
 
         tempesta.config.set_defconfig(
             f"""
@@ -839,22 +832,30 @@ tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
-    server {SERVER_IP}:8000 conns_n={conns_n};
+    server {SERVER_IP}:8000 conns_n=2;
     server_connect_retries {new_srv_conn_retries};
 }}
 """
         )
 
         tempesta.reload()
-        server.stop()
 
-        self.assertTrue(
-            self.dmesg.find(
-                f"sock_srv: cannot establish connection for {SERVER_IP}:8000: "
-                f"{new_srv_conn_retries + 1} tries, keep trying",
-                cond=dmesg.amount_equals(conns_n),
+        client = self.get_client("deproxy")
+        client.make_request(client.create_request(method="GET", headers=[]))
+
+        self.assertTrue(server.wait_for_requests(1))
+        server.reset_new_connections()
+        server.drop_conn_when_request_received = False
+
+        self.assertTrue(client.wait_for_response(15))
+        self.assertEqual(client.last_response.status, "200")
+
+        self.loggers.dmesg.update()
+        self.assertFalse(
+            self.loggers.dmesg.log_findall(
+                "request dropped: unable to find an available back end server",
             ),
-            DMESG_WARNING,
+            "An unexpected number of warnings were received",
         )
 
     @marks.Parameterize.expand(
@@ -870,7 +871,7 @@ srv_group default {{
 
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
-        self.get_server("deproxy").drop_conn_when_receiving_data = True
+        self.get_server("deproxy").drop_conn_when_request_received = True
 
         tempesta.config.set_defconfig(
             f"""
@@ -943,7 +944,7 @@ srv_group default {{
         self, name, first_config, second_config, dmesg_cond, expect_response
     ):
         client = self.get_client("deproxy")
-        self.get_server("deproxy").drop_conn_when_receiving_data = True
+        self.get_server("deproxy").drop_conn_when_request_received = True
 
         first_config(self)
         self.start_all_services()
@@ -978,7 +979,7 @@ srv_group default {{
         self, name, first_config, second_config, expected_warning
     ):
         client = self.get_client("deproxy")
-        self.get_server("deproxy").drop_conn_when_receiving_data = True
+        self.get_server("deproxy").drop_conn_when_request_received = True
 
         first_config(self)
         self.start_all_services()

@@ -21,7 +21,7 @@ import run_config
 from helpers import error, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # Don't remove files from remote node. Helpful for tests development.
@@ -216,7 +216,7 @@ class LocalNode(ANode):
         if run_config.SAVE_SECRETS and "curl" in cmd:
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
-        self._logger.debug(f"All environment variables after updating: {env_full}")
+        self._logger.log(6, f"All environment variables after updating: {env_full}")
         self._logger.info(
             f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}"
         )

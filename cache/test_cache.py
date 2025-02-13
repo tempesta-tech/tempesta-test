@@ -584,7 +584,7 @@ tls_match_any_server_name;
             )
 
         if should_be_cached:
-            # self.assertIn("age", client.last_response.headers)
+            self.assertIn("age", client.last_response.headers)
             checks.check_tempesta_cache_stats(
                 self.get_tempesta(),
                 cache_hits=1,
