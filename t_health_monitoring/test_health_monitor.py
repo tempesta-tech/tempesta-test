@@ -13,7 +13,7 @@ from http2_general.test_h2_responses import H2ResponsesPipelinedBase
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 REQ_COUNT = 100
@@ -412,14 +412,14 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         This test reproduce crash from #2066 issue in Tempesta FW:
         When health monitor is enabled Tempesta FW sends request to
         server to check it status every @timeout seconds.
-        Since drop_conn_when_receiving_data is set to True, server
+        Since drop_conn_when_request_received is set to True, server
         drops requests from Tempesta FW. Tempesta FW tries to resend
         request and because health motinor requests have no connection
         pointer kernel BUG occurs.
         """
         self.start_all_services()
         s = self.get_server("deproxy")
-        s.drop_conn_when_receiving_request = True
+        s.drop_conn_when_request_received = True
         time.sleep(1)
 
 

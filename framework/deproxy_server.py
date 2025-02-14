@@ -16,7 +16,7 @@ dbg = deproxy.dbg
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -24,7 +24,7 @@ class ServerConnection(asyncore.dispatcher):
     def __init__(
         self,
         server: "StaticDeproxyServer",
-        drop_conn_when_receiving_request: bool,
+        drop_conn_when_request_received: bool,
         sleep_when_receiving_data: float,
         sock: socket.socket,
         keep_alive: int = 0,
@@ -37,11 +37,12 @@ class ServerConnection(asyncore.dispatcher):
         self._responses_done: int = 0
         self._request_buffer: str = ""
         self._response_buffer: list[bytes] = []
-        self._drop_conn_when_receiving_request = drop_conn_when_receiving_request
+        self._drop_conn_when_request_received = drop_conn_when_request_received
         self._sleep_when_receiving_data = sleep_when_receiving_data
         self._pipelined = pipelined
         self._cur_pipelined = 0
         self._cur_responses_list = []
+        self.nrreq: int = 0
         dbg(self, 6, "New server connection", prefix="\t")
 
     def flush(self):
@@ -81,6 +82,7 @@ class ServerConnection(asyncore.dispatcher):
                 request = deproxy.Request(
                     self._request_buffer, keep_original_data=self._server.keep_original_data
                 )
+                self.nrreq += 1
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
@@ -94,7 +96,7 @@ class ServerConnection(asyncore.dispatcher):
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
             response, need_close = self._server.receive_request(request)
-            if self._drop_conn_when_receiving_request:
+            if self._drop_conn_when_request_received:
                 self.handle_close()
             if response:
                 dbg(self, 4, "Send response:", prefix="\t")
@@ -147,7 +149,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         segment_size: int = 0,
         segment_gap: int = 0,
         keep_original_data: bool = False,
-        drop_conn_when_receiving_request: bool = False,
+        drop_conn_when_request_received: bool = False,
         sleep_when_receiving_data: float = 0,
         hang_on_req_num: int = 0,
         pipelined: int = 0,
@@ -166,7 +168,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self.conns_n = conns_n
         self.keep_alive = keep_alive
         self.keep_original_data = keep_original_data
-        self.drop_conn_when_receiving_request = drop_conn_when_receiving_request
+        self.drop_conn_when_request_received = drop_conn_when_request_received
         self.sleep_when_receiving_data = sleep_when_receiving_data
         self.hang_on_req_num = hang_on_req_num
         self._port_checker = port_checks.FreePortsChecker()
@@ -199,7 +201,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             handler = ServerConnection(
                 server=self,
-                drop_conn_when_receiving_request=self.drop_conn_when_receiving_request,
+                drop_conn_when_request_received=self.drop_conn_when_request_received,
                 sleep_when_receiving_data=self._sleep_when_receiving_data,
                 sock=sock,
                 keep_alive=self.keep_alive,
@@ -369,14 +371,14 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self._connections.remove(connection)
 
     @property
-    def drop_conn_when_receiving_request(self) -> bool:
-        return self._drop_conn_when_receiving_data
+    def drop_conn_when_request_received(self) -> bool:
+        return self._drop_conn_when_request_received
 
-    @drop_conn_when_receiving_request.setter
-    def drop_conn_when_receiving_request(self, drop_conn: bool) -> None:
-        self._drop_conn_when_receiving_data = drop_conn
+    @drop_conn_when_request_received.setter
+    def drop_conn_when_request_received(self, drop_conn: bool) -> None:
+        self._drop_conn_when_request_received = drop_conn
         for connection in self.connections:
-            connection._drop_conn_when_receiving_request = drop_conn
+            connection._drop_conn_when_request_received = drop_conn
 
     @property
     def sleep_when_receiving_data(self) -> float:

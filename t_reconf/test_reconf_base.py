@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -806,7 +806,7 @@ srv_group default {{
         tempesta = self.get_tempesta()
         server = self.get_server("deproxy")
         server.conns_n = 2
-        server.drop_conn_when_receiving_request = True
+        server.drop_conn_when_request_received = True
 
         tempesta.config.set_defconfig(
             f"""
@@ -845,7 +845,7 @@ srv_group default {{
 
         self.assertTrue(server.wait_for_requests(1))
         server.reset_new_connections()
-        server.drop_conn_when_receiving_request = False
+        server.drop_conn_when_request_received = False
 
         self.assertTrue(client.wait_for_response(15))
         self.assertEqual(client.last_response.status, "200")
@@ -871,7 +871,7 @@ srv_group default {{
 
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
-        self.get_server("deproxy").drop_conn_when_receiving_request = True
+        self.get_server("deproxy").drop_conn_when_request_received = True
 
         tempesta.config.set_defconfig(
             f"""
@@ -944,7 +944,7 @@ srv_group default {{
         self, name, first_config, second_config, dmesg_cond, expect_response
     ):
         client = self.get_client("deproxy")
-        self.get_server("deproxy").drop_conn_when_receiving_request = True
+        self.get_server("deproxy").drop_conn_when_request_received = True
 
         first_config(self)
         self.start_all_services()
@@ -979,7 +979,7 @@ srv_group default {{
         self, name, first_config, second_config, expected_warning
     ):
         client = self.get_client("deproxy")
-        self.get_server("deproxy").drop_conn_when_receiving_request = True
+        self.get_server("deproxy").drop_conn_when_request_received = True
 
         first_config(self)
         self.start_all_services()
