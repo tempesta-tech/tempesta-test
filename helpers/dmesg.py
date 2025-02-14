@@ -11,7 +11,7 @@ from typing import Callable, List
 from . import error, remote, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from .access_log import AccessLogLine
@@ -147,7 +147,7 @@ class DmesgFinder(BaseTempestaLogger):
         """Show tempesta system log."""
         print(self.log)
 
-    def log_findall(self, pattern: str):
+    def log_findall(self, pattern: str) -> list[str]:
         if isinstance(self.log, bytes):
             return re.findall(pattern, self.log.decode(errors="ignore"))
 
