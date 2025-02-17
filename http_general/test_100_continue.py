@@ -38,7 +38,7 @@ class Test100ContinueResponse(tester.TempestaTest):
             listen 80;
             access_log dmesg;
             frang_limits {http_methods GET HEAD POST PUT DELETE;}
-            server ${server_ip}:8000;
+            server ${server_ip}:8001;
         """
     }
 
@@ -73,3 +73,132 @@ class Test100ContinueResponse(tester.TempestaTest):
         client.start()
 
         self.wait_while_busy(client)
+
+
+class Test100ContinueResponseSeg(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            access_log dmesg;
+            frang_limits {http_methods GET HEAD POST PUT DELETE;}
+            server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-seg",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "segment_gap": 250,  # ms
+            "segment_size": 75,
+        },
+        {
+            "id": "deproxy-seg-76",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "segment_gap": 100,  # ms
+            "segment_size": 76,
+        },
+    ]
+
+    def test_request_with_body(self):
+        """
+        Send request that contains 'Expect: 100-continue' header and body. Don't wait
+        for 100-continue response. Due to we send body right after header without any
+        time intervals '101-continue' response must not be sent by Tempesta. Only one
+        response is expected in this test.
+        """
+        self.disable_deproxy_auto_parser()
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        request = f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\nasd"
+
+        client.send_request(
+            request=request,
+            expected_status_code="200",
+        )
+
+    def test_request_with_body_seg_100(self):
+        """
+        Send request that contains 'Expect: 100-continue' header and body. Send only
+        headers, then wait for 100-continue response.
+
+        NOTE: Implemented via sending request by multiple segments, maybe we can
+        implement this sending only 2 segments(headers and body) send headers then wait
+        for 100-response, then send body?
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy-seg")
+
+        request = f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\nasd"
+
+        client.send_request(
+            request=request,
+            expected_status_code="100",
+        )
+        # TODO: Ensure that 200 response received as well.
+
+    def test_request_with_body_seg_76(self):
+        """
+        Send request that contains 'Expect: 100-continue' header and body. But send
+        only part of the body, in this case '100-continue' response is not expected.
+        """
+        self.disable_deproxy_auto_parser()
+        self.start_all_services()
+        client = self.get_client("deproxy-seg-76")
+
+        request = f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\nasd"
+
+        client.send_request(
+            request=request,
+            expected_status_code="200",
+        )
+
+    def test_request_pipeline_delay(self):
+        """
+        Send two pipelined requests, the first request will be forwarded to upstream,
+        then Tempesta processes second request that contains 'Expect: 100-continue'
+        header, prepares '100-continue' response and puts it into a queue. Then Tempesta
+        receives response to the first request, forwards it to the client and then
+        forwards '100-continue' response to the client.
+        NOTE: To have deterministic behavior upstream sleeps for a 2 seconds when
+        request received.
+        """
+        self.disable_deproxy_auto_parser()
+        self.get_server("deproxy").sleep_when_receiving_data = 2
+        self.start_all_services()
+        client = self.get_client("deproxy-seg")
+
+        client.parsing = False
+        client.make_requests(
+            requests=[
+                f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nqwr: 100-continue\r\n\r\nasd",
+                f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\n",
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response(timeout=10)
+
+        # TODO: Ensure that received 3 responses with status-codes: 200, 101, 200.
+        # Also would be great, to have ID for each request/response to verify correct
+        # orders of responses.

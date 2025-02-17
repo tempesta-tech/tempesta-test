@@ -714,7 +714,7 @@ class Response(HttpMessage):
             raise ParseError("Invalid Status line!")
         try:
             status = int(self.status)
-            assert status > 100 and status < 600
+            assert status > 99 and status < 600
         except:
             raise ParseError("Invalid Status code!")
 
@@ -994,7 +994,9 @@ class TlsClient(asyncore.dispatcher):
             return super().bind(address)
         # When we cannot bind an address, adding more details
         except OSError as os_exc:
-            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            os_err_msg = (
+                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            )
             tf_cfg.dbg(6, os_err_msg)
             raise OSError(os_err_msg) from os_exc
 

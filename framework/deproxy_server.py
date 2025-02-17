@@ -68,13 +68,12 @@ class ServerConnection(asyncore.dispatcher):
             self._server.remove_connection(connection=self)
 
     def handle_read(self):
+        if self._sleep_when_receiving_data and time.time() < self._sleep_when_receiving_data:
+            return None
         self._request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
 
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self._request_buffer)
-
-        if self._request_buffer and self._sleep_when_receiving_data:
-            time.sleep(self._sleep_when_receiving_data)
 
         if self._drop_conn_when_receiving_data:
             self.close()
@@ -371,9 +370,9 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
     @sleep_when_receiving_data.setter
     def sleep_when_receiving_data(self, sleep: float) -> None:
-        self._sleep_when_receiving_data = sleep
+        self._sleep_when_receiving_data = time.time() + sleep
         for connection in self.connections:
-            connection._sleep_when_receiving_data = sleep
+            connection._sleep_when_receiving_data = time.time() + sleep
 
     @property
     def hang_on_req_num(self) -> int:
