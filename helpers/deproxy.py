@@ -714,7 +714,7 @@ class Response(HttpMessage):
             raise ParseError("Invalid Status line!")
         try:
             status = int(self.status)
-            assert status > 100 and status < 600
+            assert status > 99 and status < 600
         except:
             raise ParseError("Invalid Status code!")
 

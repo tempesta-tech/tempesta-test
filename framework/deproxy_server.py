@@ -64,6 +64,7 @@ class ServerConnection(asyncore.dispatcher):
         if self._request_buffer and self._server.sleep_when_receiving_data:
             time.sleep(self._server.sleep_when_receiving_data)
 
+
         while self._request_buffer:
             try:
                 request = deproxy.Request(self._request_buffer)
