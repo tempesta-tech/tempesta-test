@@ -6,10 +6,6 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "cache.test_purge",
-            "reason": "These tests should not be run with remote setup."
-        },
-        {
             "name": "t_reconf",
             "reason": "These tests should not be run with remote setup."
         },
