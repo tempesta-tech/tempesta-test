@@ -423,8 +423,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
                 raise ParseError("Error in chunked body")
 
         """
-        if trailer is not present don't pass the last CRLF to parse_trailer,
-        we must append it to body
+        If trailer is not present don't pass the last CRLF to parse_trailer.
         """
         pos = stream.tell()
         end = stream.read(2)
@@ -432,6 +431,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             self.body += end
             if 2 != self.body[-3:].count("\n"):
                 raise IncompleteMessage("Incomplete chunked body.")
+            self.body = self.body[:-2]
             return
         elif end == "":
             raise IncompleteMessage("Incomplete last CRLF in chunked body.")
@@ -994,7 +994,9 @@ class TlsClient(asyncore.dispatcher):
             return super().bind(address)
         # When we cannot bind an address, adding more details
         except OSError as os_exc:
-            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            os_err_msg = (
+                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            )
             tf_cfg.dbg(6, os_err_msg)
             raise OSError(os_err_msg) from os_exc
 
