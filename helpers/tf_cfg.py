@@ -132,6 +132,8 @@ class TestFrameworkCfg(object):
         self.config["Server"]["website_user"] = website_user
         self.config["Server"]["website_password"] = website_password
 
+        self.config["TFW_Logger"]["clickhouse_host"] = remote_ip
+
     def defaults(self):
         self.config = configparser.ConfigParser()
         self.config.read_dict(
