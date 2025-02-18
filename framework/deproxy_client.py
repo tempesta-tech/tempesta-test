@@ -318,6 +318,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         return self.conn_is_closed
 
     @property
+    def is_http2(self) -> bool:
+        return self._is_http2
+
+    @property
     def conn_is_active(self):
         return self.conn_was_opened and not self.conn_is_closed
 
