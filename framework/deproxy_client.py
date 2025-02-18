@@ -37,6 +37,26 @@ __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
+def _wait_for_connection_was_opened(wait_func: callable) -> callable:
+    """
+    All `wait_for_` methods should be covered by this decorator.
+    This is necessary to avoid a race condition when the main thread
+    calls `wait_for_` method but the `deproxy_manager` thread hasn't
+    yet called the `handle_connect` method for the client.
+    """
+
+    def wrapper(self: "BaseDeproxyClient", *args, **kwargs):
+        result = util.wait_until(
+            lambda: not self.conn_was_opened,
+            timeout=1,
+            abort_cond=lambda: self.state == stateful.STATE_ERROR,
+        )
+        assert result, "The client connection must be opened."
+        return wait_func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def __init__(
         self,
@@ -253,6 +273,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if expect_response:
             self.valid_req_num += 1
 
+    @_wait_for_connection_was_opened
     def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
@@ -270,6 +291,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
+    @_wait_for_connection_was_opened
     def wait_for_response(
         self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
     ):
@@ -595,6 +617,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
         self.send_bytes(data=self.h2_connection.data_to_send())
 
+    @_wait_for_connection_was_opened
     def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
         return util.wait_until(
@@ -603,6 +626,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    @_wait_for_connection_was_opened
     def wait_for_reset_stream(self, stream_id: int, timeout=5):
         """Wait RST_STREAM frame for stream."""
         return util.wait_until(
@@ -611,6 +635,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    @_wait_for_connection_was_opened
     def wait_for_headers_frame(self, stream_id: int, timeout=5):
         """Wait HEADERS frame for stream."""
         stream: h2.connection.H2Stream = self.h2_connection._get_stream_by_id(stream_id=stream_id)
@@ -620,6 +645,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
 
+    @_wait_for_connection_was_opened
     def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return util.wait_until(
             lambda: self._ping_received >= ping_count,
