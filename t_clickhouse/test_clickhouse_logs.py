@@ -127,12 +127,14 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         tempesta = self.get_tempesta()
-        tempesta.stop_procedures = list(set(tempesta.stop_procedures) - {tempesta.clean_logs})
+        tempesta.stop_procedures = list(
+            set(tempesta.stop_procedures) - {tempesta.clickhouse.clean_logs}
+        )
         tempesta.stop()
 
         pattern = r".*Starting daemon.*Daemon started.*Stopping daemon.*Daemon stopped.*"
         self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find(pattern))
-        tempesta.clean_logs()
+        tempesta.clickhouse.clean_logs()
 
 
 class TestNoLogs(TestClickhouseLogsBaseTest):
@@ -153,6 +155,7 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         self.send_simple_request(client)
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
+        self.get_tempesta().clickhouse.connect()
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
@@ -177,6 +180,7 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         self.send_simple_request(client)
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
 
+        self.get_tempesta().clickhouse.connect()
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
