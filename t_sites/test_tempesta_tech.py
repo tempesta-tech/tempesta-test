@@ -278,11 +278,7 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
                 self.assertFalse(response.stderr)
                 self.assertTrue(response.stdout.endswith("</html>"))
                 self.assertGreater(len(response.stdout), 65000, len(response.stdout))
-                length = response.headers.get("content-length")
-                if length:
-                    self.assertEqual(len(response.stdout_raw), int(length))
-                elif cached:
-                    raise Exception("No Content-Length for cached response", response.headers)
+                self.assertFalse(response.headers.get("content-length"))
                 self.assertEqual(
                     self.check_cached_headers(response.headers),
                     cached,
