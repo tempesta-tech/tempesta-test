@@ -271,7 +271,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         return timeout_not_exceeded
 
     def wait_for_response(
-        self, timeout=5, strict=False, adjust_timeout=False, n: Optional[int] = None
+        self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
     ):
         """
         Try to use strict mode whenever it's possible
@@ -316,6 +316,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     def connection_is_closed(self):
         return self.conn_is_closed
+
+    @property
+    def is_http2(self) -> bool:
+        return self._is_http2
 
     @property
     def conn_is_active(self):

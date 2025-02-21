@@ -61,7 +61,6 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
             raise OSError(os_err_msg) from os_exc
 
     def run_start(self):
-        self._reinit_variables()
         self.__acquire()
 
         try:
