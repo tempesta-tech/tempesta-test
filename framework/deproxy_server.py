@@ -1,15 +1,13 @@
 import asyncore
-import copy
-import ipaddress
 import socket
 import sys
 import time
+from typing import Optional
 
 import run_config
 from framework import stateful
-from framework.deproxy_auto_parser import DeproxyAutoParser
-from framework.deproxy_manager import _PoolingLock
-from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
+from framework.deproxy_base import BaseDeproxy
+from helpers import deproxy, error, tempesta, tf_cfg, util
 
 dbg = deproxy.dbg
 
@@ -21,25 +19,14 @@ __license__ = "GPL2"
 
 
 class ServerConnection(asyncore.dispatcher):
-    def __init__(
-        self,
-        server: "StaticDeproxyServer",
-        drop_conn_when_request_received: bool,
-        sleep_when_receiving_data: float,
-        sock: socket.socket,
-        keep_alive: int = 0,
-        pipelined: int = 0,
-    ):
+    def __init__(self, *, server: "StaticDeproxyServer", sock: socket.socket):
         super().__init__(sock=sock)
         self._server = server
-        self._keep_alive = keep_alive
         self._last_segment_time: int = 0
         self._responses_done: int = 0
         self._request_buffer: str = ""
         self._response_buffer: list[bytes] = []
-        self._drop_conn_when_request_received = drop_conn_when_request_received
-        self._sleep_when_receiving_data = sleep_when_receiving_data
-        self._pipelined = pipelined
+
         self._cur_pipelined = 0
         self._cur_responses_list = []
         self.nrreq: int = 0
@@ -74,14 +61,12 @@ class ServerConnection(asyncore.dispatcher):
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self._request_buffer)
 
-        if self._request_buffer and self._sleep_when_receiving_data:
-            time.sleep(self._sleep_when_receiving_data)
+        if self._request_buffer and self._server.sleep_when_receiving_data:
+            time.sleep(self._server.sleep_when_receiving_data)
 
         while self._request_buffer:
             try:
-                request = deproxy.Request(
-                    self._request_buffer, keep_original_data=self._server.keep_original_data
-                )
+                request = deproxy.Request(self._request_buffer)
                 self.nrreq += 1
             except deproxy.IncompleteMessage:
                 return None
@@ -96,14 +81,14 @@ class ServerConnection(asyncore.dispatcher):
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
             response, need_close = self._server.receive_request(request)
-            if self._drop_conn_when_request_received:
+            if self._server.drop_conn_when_request_received:
                 self.handle_close()
             if response:
                 dbg(self, 4, "Send response:", prefix="\t")
                 tf_cfg.dbg(5, response)
                 self._cur_responses_list.append(response)
                 self._cur_pipelined += 1
-                if self._cur_pipelined >= self._pipelined:
+                if self._cur_pipelined >= self._server.pipelined:
                     self.flush()
 
             if need_close:
@@ -132,65 +117,51 @@ class ServerConnection(asyncore.dispatcher):
         if self._response_buffer[self._responses_done] == b"":
             self._responses_done += 1
 
-        if self._responses_done == self._keep_alive and self._keep_alive:
+        if self._responses_done == self._server.keep_alive and self._server.keep_alive:
             self.handle_close()
 
 
-class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
+class StaticDeproxyServer(BaseDeproxy):
 
     def __init__(
         self,
+        # BaseDeproxy
+        *,
+        deproxy_auto_parser,
         port: int,
-        deproxy_auto_parser: DeproxyAutoParser,
-        response: str | bytes | deproxy.Response = "",
-        ip: str = tf_cfg.cfg.get("Server", "ip"),
-        conns_n: int = tempesta.server_conns_default(),
-        keep_alive: int = 0,
-        segment_size: int = 0,
-        segment_gap: int = 0,
-        keep_original_data: bool = False,
-        drop_conn_when_request_received: bool = False,
-        sleep_when_receiving_data: float = 0,
-        hang_on_req_num: int = 0,
-        pipelined: int = 0,
+        bind_addr: Optional[str],
+        segment_size: int,
+        segment_gap: int,
+        is_ipv6: bool,
+        # StaticDeproxyServer
+        response: str | bytes | deproxy.Response,
+        keep_alive: int,
+        drop_conn_when_request_received: bool,
+        sleep_when_receiving_data: float,
+        hang_on_req_num: int,
+        pipelined: int,
     ):
-        # Initialize the base `dispatcher`
-        asyncore.dispatcher.__init__(self)
-        stateful.Stateful.__init__(self)
+        # Initialize the `BaseDeproxy`
+        super().__init__(
+            deproxy_auto_parser=deproxy_auto_parser,
+            port=port,
+            bind_addr=bind_addr,
+            segment_size=segment_size,
+            segment_gap=segment_gap,
+            is_ipv6=is_ipv6,
+        )
 
         self._reinit_variables()
-        self._deproxy_auto_parser = deproxy_auto_parser
-        self._polling_lock: _PoolingLock | None = None
-        self._expected_response: deproxy.Response | None = None
-        self.port = port
-        self.ip = ip
         self.response = response
-        self.conns_n = conns_n
+        self.conns_n = tempesta.server_conns_default()
         self.keep_alive = keep_alive
-        self.keep_original_data = keep_original_data
         self.drop_conn_when_request_received = drop_conn_when_request_received
         self.sleep_when_receiving_data = sleep_when_receiving_data
         self.hang_on_req_num = hang_on_req_num
-        self._port_checker = port_checks.FreePortsChecker()
-        self._pipelined = pipelined
-
-        # Following 2 parameters control heavy chunked testing
-        # You can set it programmaticaly or via client config
-        # TCP segment size, bytes, 0 for disable, usualy value of 1 is sufficient
-        self.segment_size = segment_size
-        # Inter-segment gap, ms, 0 for disable.
-        # You usualy do not need it; update timeouts if you use it.
-        self.segment_gap = segment_gap
-
-        self.stop_procedures: list[callable] = [self.__stop_server]
-        self.node: remote.ANode = remote.host
-
-    def set_events(self, polling_lock: _PoolingLock) -> None:
-        self._polling_lock = polling_lock
+        self.pipelined = pipelined
 
     def _reinit_variables(self):
         self._connections: list[ServerConnection] = list()
-        self._last_request: deproxy.Request | None = None
         self._requests: list[deproxy.Request] = list()
 
     def handle_accept(self):
@@ -199,14 +170,7 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             sock, _ = pair
             if self.segment_size:
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-            handler = ServerConnection(
-                server=self,
-                drop_conn_when_request_received=self.drop_conn_when_request_received,
-                sleep_when_receiving_data=self._sleep_when_receiving_data,
-                sock=sock,
-                keep_alive=self.keep_alive,
-                pipelined=self._pipelined,
-            )
+            handler = ServerConnection(server=self, sock=sock)
             self._connections.append(handler)
             # ATTENTION
             # Due to the polling cycle, creating new connection can be
@@ -231,42 +195,17 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         """
         self.close()
 
-    def run_start(self):
-        dbg(self, 3, "Start on %s:%d" % (self.ip, self.port), prefix="\t")
-        self._reinit_variables()
-        self.port_checker.check_ports_status()
-        self.init_socket()
+    def _run_deproxy(self):
+        self.create_socket(socket.AF_INET6 if self.is_ipv6 else socket.AF_INET, socket.SOCK_STREAM)
+        self.set_reuse_addr()
+        self.bind((self.bind_addr, self.port))
+        self.listen(socket.SOMAXCONN)
 
-    def init_socket(self):
-        """
-        Create the server socket.
-        This method should not be used to run the server.
-        """
-        self._polling_lock.acquire()
-        try:
-            self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.set_reuse_addr()
-            self.bind(
-                (self.ip, self.port),
-            )
-            self.listen(socket.SOMAXCONN)
-        except Exception as e:
-            tf_cfg.dbg(2, f"Error while creating socket {self.ip}:{self.port}: {str(e)}")
-            raise e
-        finally:
-            self._polling_lock.release()
-
-    def __stop_server(self):
-        dbg(self, 3, "Stop", prefix="\t")
-        self._polling_lock.acquire()
-
-        try:
-            self.close()
-            connections = [conn for conn in self._connections]
-            for conn in connections:
-                conn.handle_close()
-        finally:
-            self._polling_lock.release()
+    def _stop_deproxy(self):
+        self.close()
+        connections = [conn for conn in self._connections]
+        for conn in connections:
+            conn.handle_close()
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
@@ -297,25 +236,6 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             self.__response = response.msg.encode()
 
     @property
-    def port(self) -> int:
-        return self._port
-
-    @port.setter
-    def port(self, port: int) -> None:
-        if port <= 0:
-            raise ValueError("The server port MUST be greater than 0.")
-        self._port = port
-
-    @property
-    def ip(self) -> str:
-        return self._ip
-
-    @ip.setter
-    def ip(self, ip: str) -> None:
-        ipaddress.ip_address(ip)
-        self._ip = ip
-
-    @property
     def conns_n(self) -> int:
         return self._conns_n
 
@@ -326,97 +246,28 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
         self._conns_n = conns_n
 
     @property
-    def keep_alive(self) -> int:
-        return self._keep_alive
-
-    @keep_alive.setter
-    def keep_alive(self, keep_alive: int) -> None:
-        if keep_alive < 0:
-            raise ValueError("`keep_alive` MUST be greater than or equal to 0.")
-        self._keep_alive = keep_alive
-
-    @property
-    def segment_size(self) -> int:
-        return self._segment_size
-
-    @segment_size.setter
-    def segment_size(self, segment_size: int) -> None:
-        if segment_size < 0:
-            raise ValueError("`segment_size` MUST be greater than or equal to 0.")
-        self._segment_size = segment_size
-
-    @property
-    def segment_gap(self) -> int:
-        return self._segment_gap
-
-    @segment_gap.setter
-    def segment_gap(self, segment_gap: int) -> None:
-        if segment_gap < 0:
-            raise ValueError("`segment_gap` MUST be greater than or equal to 0.")
-        self._segment_gap = segment_gap
-
-    @property
-    def last_request(self) -> deproxy.Request:
-        return copy.deepcopy(self._last_request)
+    def last_request(self) -> Optional[deproxy.Request]:
+        if not self.requests:
+            return None
+        return self.requests[-1]
 
     @property
     def requests(self) -> list[deproxy.Request]:
-        return list(self._requests)
+        return self._requests
 
     @property
     def connections(self) -> list[ServerConnection]:
-        return list(self._connections)
+        return self._connections
 
     def remove_connection(self, connection: ServerConnection) -> None:
         self._connections.remove(connection)
 
-    @property
-    def drop_conn_when_request_received(self) -> bool:
-        return self._drop_conn_when_request_received
-
-    @drop_conn_when_request_received.setter
-    def drop_conn_when_request_received(self, drop_conn: bool) -> None:
-        self._drop_conn_when_request_received = drop_conn
-        for connection in self.connections:
-            connection._drop_conn_when_request_received = drop_conn
-
-    @property
-    def sleep_when_receiving_data(self) -> float:
-        return self._sleep_when_receiving_data
-
-    @sleep_when_receiving_data.setter
-    def sleep_when_receiving_data(self, sleep: float) -> None:
-        self._sleep_when_receiving_data = sleep
-        for connection in self.connections:
-            connection._sleep_when_receiving_data = sleep
-
-    @property
-    def hang_on_req_num(self) -> int:
-        return self._hang_on_req_num
-
-    @hang_on_req_num.setter
-    def hang_on_req_num(self, hang_on_req_num: int) -> None:
-        self._hang_on_req_num = hang_on_req_num
-
-    @property
-    def pipelined(self) -> int:
-        return self._pipelined
-
-    @pipelined.setter
-    def pipelined(self, pipelined: int) -> None:
-        self._pipelined = pipelined
-
-    @property
-    def port_checker(self) -> port_checks.FreePortsChecker:
-        return self._port_checker
-
     def receive_request(self, request: deproxy.Request) -> (bytes, bool):
         self._requests.append(request)
-        self._last_request = request
         req_num = len(self.requests)
 
         # Don't send response to this request w/o disconnect
-        if self.hang_on_req_num > 0 and self.hang_on_req_num <= req_num:
+        if 0 < self.hang_on_req_num <= req_num:
             return "", True
 
         if self._deproxy_auto_parser.parsing:
@@ -426,12 +277,13 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
         return self.__response, False
 
-    def wait_for_requests(self, n: int, timeout=5, strict=False) -> bool:
+    def wait_for_requests(self, n: int, timeout=5, strict=False, adjust_timeout=False) -> bool:
         """wait for the `n` number of responses to be received"""
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.requests) < n,
             timeout=timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            adjust_timeout=adjust_timeout,
         )
         if strict:
             assert (
@@ -439,46 +291,25 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
-    def bind(self, address: tuple):
-        """
-        Wrapper for `bind` method to add some log details.
 
-        `bind` is originally `asyncore.dispatcher` method and declared in there.
-
-        Args:
-            address (tuple): address to bind
-        """
-        tf_cfg.dbg(6, f"Trying to bind {str(address)} for {self.__class__.__name__}")
-        try:
-            return super().bind(address)
-        # When we cannot bind an address, adding more details
-        except OSError as os_exc:
-            os_err_msg = (
-                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
-            )
-            tf_cfg.dbg(6, os_err_msg)
-            raise OSError(os_err_msg) from os_exc
-
-
-def deproxy_srv_factory(server, name, tester):
-    port = server["port"]
-    rtype = server["response"]
-    if rtype == "static":
-        content = (
-            fill_template(server["response_content"], server)
-            if "response_content" in server
-            else None
-        )
-        srv = StaticDeproxyServer(
-            port=tempesta.upstream_port_start_from() if port == "default" else int(port),
-            response=content,
-            keep_original_data=server.get("keep_original_data", None),
-            segment_size=server.get("segment_size", 0),
-            segment_gap=server.get("segment_gap", 0),
-            deproxy_auto_parser=tester._deproxy_auto_parser,
-        )
-    else:
-        raise Exception("Invalid response type: %s" % str(rtype))
+def deproxy_srv_factory(server: dict, name, tester):
+    is_ipv6 = server.get("is_ipv6", False)
+    srv = StaticDeproxyServer(
+        # BaseDeproxy
+        deproxy_auto_parser=tester._deproxy_auto_parser,
+        port=int(server["port"]),
+        bind_addr=tf_cfg.cfg.get("Server", "ipv6" if is_ipv6 else "ip"),
+        segment_size=server.get("segment_size", 0),
+        segment_gap=server.get("segment_gap", 0),
+        is_ipv6=is_ipv6,
+        # StaticDeproxyServer
+        response=fill_template(server.get("response_content", ""), server),
+        keep_alive=server.get("keep_alive", 0),
+        drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
+        sleep_when_receiving_data=server.get("sleep_when_receiving_data", 0.0),
+        hang_on_req_num=server.get("hang_on_req_num", 0),
+        pipelined=server.get("pipelined", False),
+    )
 
     tester.deproxy_manager.add_server(srv)
     return srv

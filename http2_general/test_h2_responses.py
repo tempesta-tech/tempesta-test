@@ -248,7 +248,7 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client.last_response.status, expected_status)
             else:
-                self.assertFalse(client._last_response)
+                self.assertFalse(client.last_response)
 
         # Tempesta FW drops connections with backend after invalid response
         # processing and then immmediatly reestablish it and sends requests
@@ -264,4 +264,4 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
                 self.assertTrue(srv.wait_for_requests(req_count + i))
                 srv.flush()
                 self.assertTrue(client.wait_for_response())
-                self.assertEqual(client._last_response.status, "200")
+                self.assertEqual(client.last_response.status, "200")

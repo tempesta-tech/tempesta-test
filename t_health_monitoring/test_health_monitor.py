@@ -716,4 +716,4 @@ class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
 
         for client in clients:
             self.assertTrue(client.wait_for_response())
-            self.assertEqual(client._last_response.status, "200")
+            self.assertEqual(client.last_response.status, "200")

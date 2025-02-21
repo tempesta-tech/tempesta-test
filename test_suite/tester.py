@@ -235,37 +235,25 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         """
         self._deproxy_auto_parser.parsing = False
 
-    def __create_client_deproxy(self, client, ssl, bind_addr, socket_family):
-        addr = fill_template(client["addr"], client)
-        port = int(fill_template(client["port"], client))
-        if client["type"] == "deproxy_h2":
-            clt = deproxy_client.DeproxyClientH2(
-                addr=addr,
-                port=port,
-                ssl=ssl,
-                bind_addr=bind_addr,
-                proto="h2",
-                socket_family=socket_family,
-                deproxy_auto_parser=self._deproxy_auto_parser,
-            )
-        else:
-            clt = deproxy_client.DeproxyClient(
-                addr=addr,
-                port=port,
-                ssl=ssl,
-                bind_addr=bind_addr,
-                socket_family=socket_family,
-                deproxy_auto_parser=self._deproxy_auto_parser,
-            )
-        if ssl and "ssl_hostname" in client:
-            # Don't set SNI by default, do this only if it was specified in
-            # the client configuration.
-            server_hostname = fill_template(client["ssl_hostname"], client)
-            clt.set_server_hostname(server_hostname)
-        clt.segment_size = int(client.get("segment_size", 0))
-        clt.segment_gap = int(client.get("segment_gap", 0))
-        clt.keep_original_data = bool(client.get("keep_original_data", None))
-        return clt
+    def __create_client_deproxy(self, client: dict, ssl: bool, bind_addr: str):
+        client_factories = {
+            "deproxy_h2": deproxy_client.DeproxyClientH2,
+            "deproxy": deproxy_client.DeproxyClient,
+        }
+
+        return client_factories[client["type"]](
+            # BaseDeproxy
+            deproxy_auto_parser=self._deproxy_auto_parser,
+            port=int(fill_template(client["port"], client)),
+            bind_addr=bind_addr,
+            segment_size=client.get("segment_size", 0),
+            segment_gap=client.get("segment_gap", 0),
+            is_ipv6=client.get("is_ipv6", False),
+            # BaseDeproxyClient
+            conn_addr=fill_template(client["addr"], client),
+            is_ssl=ssl,
+            server_hostname=fill_template(client.get("ssl_hostname", None), client),
+        )
 
     def __create_client_wrk(self, client, ssl):
         addr = fill_template(client["addr"], client)
@@ -295,26 +283,27 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         tf_cfg.populate_properties(client)
         ssl = client.setdefault("ssl", False)
         cid = client["id"]
-        socket_family = client.get("socket_family", "ipv4")
-        client_ip_opt = "ipv6" if socket_family == "ipv6" else "ip"
-        client_ip = tf_cfg.cfg.get("Client", client_ip_opt)
+        is_ipv6 = client.get("is_ipv6", False)
+        if is_ipv6 and client.get("interface", False):
+            raise ValueError("The framework does not support interfaces for IPv6.")
+        client_ip = tf_cfg.cfg.get("Client", "ipv6" if is_ipv6 else "ip")
         if client["type"] in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-                (_, ip) = sysnet.create_interface(len(self.__ips), interface, base_ip)
-                sysnet.create_route(interface, ip, client_ip)
-                self.__ips.append(ip)
+                (_, bind_addr) = sysnet.create_interface(len(self.__ips), interface, base_ip)
+                sysnet.create_route(interface, bind_addr, client_ip)
+                self.__ips.append(bind_addr)
             else:
-                ip = client_ip
+                bind_addr = client_ip
         if client["type"] in ["deproxy", "deproxy_h2"]:
-            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip, socket_family)
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl, bind_addr)
             self.__clients[cid].set_rps(client.get("rps", 0))
             self.deproxy_manager.add_client(self.__clients[cid])
         elif client["type"] == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif client["type"] == "curl":
-            self.__clients[cid] = self.__create_client_curl(client, ip)
+            self.__clients[cid] = self.__create_client_curl(client, bind_addr)
         elif client["type"] == "external":
             self.__clients[cid] = self.__create_client_external(client)
 
