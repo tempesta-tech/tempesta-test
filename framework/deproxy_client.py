@@ -34,7 +34,7 @@ from helpers import deproxy, tf_cfg, util
 dbg = deproxy.dbg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -241,7 +241,9 @@ class BaseDeproxyClient(deproxy.Client, stateful.Stateful, abc.ABC):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
-    def wait_for_response(self, timeout=5, strict=False, adjust_timeout=True):
+    def wait_for_response(
+        self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
+    ):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
@@ -249,7 +251,7 @@ class BaseDeproxyClient(deproxy.Client, stateful.Stateful, abc.ABC):
         if adjust_timeout:
             timeout = adjust_timeout_for_tcp_segmentation(timeout)
         timeout_not_exceeded = util.wait_until(
-            lambda: len(self.responses) < self.valid_req_num,
+            lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )

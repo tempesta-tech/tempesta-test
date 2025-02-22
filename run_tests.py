@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import sys
+
 # we use `asyncore` that was removed from 3.12
 if sys.version_info.major != 3 or sys.version_info.minor > 11:
     sys.stderr.write(
@@ -27,7 +28,7 @@ from helpers import control, error, remote, tf_cfg, util
 from test_suite import prepare, shell, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -210,7 +211,7 @@ t_retry = False
 try:
     options, testname_args = getopt.getopt(
         sys.argv[1:],
-        "hv:HFdt:T:fr:ER:a:nl:LCDZpPIi:sSm",
+        "hv:HFd:t:T:fr:ER:a:nl:LCDZpPIi:sSm",
         [
             "help",
             "verbose=",
@@ -232,6 +233,7 @@ try:
             "dont-prepare",
             "ignore-errors",
             "identifier=",
+            "save-config=",
             "save-tcpdump",
             "save-secrets",
             "kernel-dbg",
@@ -262,8 +264,13 @@ for opt, arg in options:
             print("Invalid option: ", opt, arg)
             usage()
             sys.exit(2)
-    elif opt in ("-d", "--save"):
-        tf_cfg.cfg.save_defaults()
+    elif opt in ("-d", "--save-config"):
+        if arg not in ["local", "remote"]:
+            raise ValueError(
+                "You must declare the type of setup (local or remote).\n "
+                "The remote setup is used for CI, do not use it for yourself.\n"
+            )
+        tf_cfg.cfg.save_defaults(arg)
         sys.exit(0)
     elif opt in ("-h", "--help"):
         usage()

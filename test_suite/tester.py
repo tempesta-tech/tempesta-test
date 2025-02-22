@@ -29,7 +29,7 @@ from helpers.util import fill_template
 from test_suite import sysnet
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -525,7 +525,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
-        self.oops = None
+        self.loggers = None
 
     def cleanup_deproxy_auto_parser(self):
         tf_cfg.dbg(3, "\tCleanup: Cleanup the deproxy auto parser.")

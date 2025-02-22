@@ -2,11 +2,7 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "t_fault_injection.test_fault_injection_base.TestFailFunction",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "t_fault_injection.test_fault_injection_base.TestFailFunctionPipelinedResponses",
+            "name": "t_fault_injection",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
@@ -184,6 +180,10 @@
         {
             "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_server_options",
+            "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
             "name": "tls.test_tls_integrity.ProxyH2",

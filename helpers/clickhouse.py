@@ -5,6 +5,7 @@ import time
 import typing
 
 import clickhouse_connect
+from clickhouse_connect.driver import Client
 
 from helpers import dmesg, remote, tf_cfg
 from helpers.access_log import AccessLogLine
@@ -42,6 +43,10 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         self.daemon_log: str = tf_cfg.cfg.get("TFW_Logger", "daemon_log")
         self.node = remote.tempesta
         self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
+        self.__log_data: str = ""
+        self._clickhouse_client: typing.Optional[Client] = None
+
+    def connect(self) -> None:
         self._clickhouse_client = clickhouse_connect.get_client(
             host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
             port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
@@ -49,7 +54,11 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
             password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
             database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
         )
-        self.__log_data: str = ""
+
+    def clean_logs(self) -> None:
+        if self._clickhouse_client:
+            self.tfw_log_file_remove()
+            self.access_log_clear()
 
     def __build_log_line(self, db_record) -> AccessLogLine:
         return AccessLogLine(
@@ -91,6 +100,11 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         """
         Delete all log records
         """
+        response = self._clickhouse_client.query("exists table access_log")
+
+        if not response.result_rows[0][0]:
+            return
+
         self._clickhouse_client.command("delete from access_log where true")
 
     def access_log_records_count(self) -> int:

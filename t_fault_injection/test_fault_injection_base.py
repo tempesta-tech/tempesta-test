@@ -37,6 +37,13 @@ class TestFailFunctionBase(tester.TempestaTest):
             "port": "80",
         },
         {
+            "id": "deproxy_ssl",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
             "id": "deproxy_h2",
             "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
@@ -48,7 +55,7 @@ class TestFailFunctionBase(tester.TempestaTest):
     tempesta = {
         "config": """
             listen 80;
-            listen 443 proto=h2;
+            listen 443 proto=h2,https;
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -226,6 +233,62 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=-12,
             ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_ssl",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_ssl",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_h2",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_ssl",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_ssl",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_h2",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_h2",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
@@ -269,6 +332,114 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
                 "Tempesta doesn't report error",
             )
+
+        # This should be called in case if test fails also
+        self.teardown_fail_function_test()
+
+
+class TestFailFunctionPrepareResp(TestFailFunctionBase):
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_tfw_h2_prep_resp_for_error_response(self):
+        """
+        Basic test to check how Tempesta FW works when some internal
+        function fails. Function should be marked as ALLOW_ERROR_INJECTION
+        in Tempesta FW source code.
+        """
+
+        try:
+            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+            prev_mtu = sysnet.change_mtu(remote.client, dev, 100)
+            self._test_tfw_h2_prep_resp_for_error_response()
+        finally:
+            sysnet.change_mtu(remote.client, dev, prev_mtu)
+
+    def _test_tfw_h2_prep_resp_for_error_response(self):
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.disable_deproxy_auto_parser()
+
+        header = ("qwerty", "x" * 1500000)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
+            + f"Content-Length: 0\r\n\r\n"
+        )
+        self.start_all_services(client=False)
+
+        self.setup_fail_function_test("tfw_h2_append_predefined_body", -1, -12)
+        client = self.get_client("deproxy_h2")
+        request1 = client.create_request(method="GET", headers=[])
+        request2 = client.create_request(method="GET", headers=[("Content-Type", "!!!!")])
+        client.start()
+
+        client.update_initial_settings(max_header_list_size=1600000)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta foes not returns SETTINGS frame with ACK flag.",
+        )
+
+        self.oops_ignore = ["ERROR"]
+        client.make_request(request1)
+        server.wait_for_requests(1)
+        client.make_request(request2)
+
+        # This is necessary to be sure that Tempesta FW write
+        # appropriate message in dmesg.
+        self.assertFalse(client.wait_for_response(3))
+        self.assertTrue(client.wait_for_connection_close())
+
+        # This should be called in case if test fails also
+        self.teardown_fail_function_test()
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_tfw_h2_prep_resp_for_sticky_ccokie(self):
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.disable_deproxy_auto_parser()
+
+        srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.js.tpl {workdir}")
+        remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.tpl {workdir}/js1.tpl")
+
+        new_config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = (
+            new_config
+            + """
+            sticky {
+                cookie enforce name=cname max_misses=5;
+                js_challenge resp_code=503 delay_min=1 delay_range=3 %s/js1.html;
+            }
+        """
+            % workdir
+        )
+
+        server.set_response(
+            deproxy.Response.create_simple_response(
+                status="200",
+                headers=[("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        ),
+
+        self.start_all_services(client=False)
+        self.setup_fail_function_test("tfw_h2_append_predefined_body", 1, -12)
+        client = self.get_client("deproxy_h2")
+        request = client.create_request(method="GET", headers=[("accept", "text/html")])
+        client.start()
+
+        self.oops_ignore = ["ERROR"]
+        client.make_request(request)
+
+        # This is necessary to be sure that Tempesta FW write
+        # appropriate message in dmesg.
+        self.assertTrue(client.wait_for_response(3))
+        self.assertEqual(client.last_response.status, "500")
+        self.assertTrue(client.wait_for_connection_close())
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()
