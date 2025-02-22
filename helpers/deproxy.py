@@ -310,6 +310,9 @@ class HeaderCollection(object):
     def __check_other_headers(h_expected: dict, h_received: dict) -> None:
         headers = h_expected if len(h_expected) > len(h_received) else h_received
         for header_name in headers.keys():
+            if header_name.lower() == "expect":
+                continue
+
             received_header_value = h_received.get(header_name, None)
             expected_header_value = h_expected.get(header_name, None)
             assert received_header_value == expected_header_value, (
@@ -601,6 +604,10 @@ class Request(HttpMessage):
             self.read_sized_body(stream)
             return
         # 3.3.3 6
+
+        if stream.read():
+            raise ParseError("You have missed the Transfer-Encoding or Content-Length header!")
+
         self.body = ""
 
     def __eq__(self, other: "Request"):

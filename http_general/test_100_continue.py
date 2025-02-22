@@ -4,80 +4,6 @@ from test_suite import tester
 class Test100ContinueResponse(tester.TempestaTest):
     backends = [
         {
-            "id": "nginx",
-            "type": "nginx",
-            "port": "8000",
-            "status_uri": "http://${server_ip}:8000/nginx_status",
-            "config": (
-                "pid ${pid}; "
-                "worker_processes  auto; "
-                "events { "
-                "   worker_connections   1024; "
-                "   use epoll; "
-                "} "
-                "http { "
-                "   keepalive_timeout ${server_keepalive_timeout}; "
-                "   keepalive_requests ${server_keepalive_requests}; "
-                "   access_log off; "
-                "   server { "
-                "       listen        ${server_ip}:8000; "
-                "       location / { "
-                "          return 200 'hello'; "
-                "       } "
-                "       location /nginx_status { "
-                "           stub_status on; "
-                "       } "
-                "   } "
-                "} "
-            ),
-        }
-    ]
-
-    tempesta = {
-        "config": """
-            listen 80;
-            access_log dmesg;
-            frang_limits {http_methods GET HEAD POST PUT DELETE;}
-            server ${server_ip}:8001;
-        """
-    }
-
-    clients = [
-        {
-            "id": "curl",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": (
-                "-XPUT "
-                '-H "Accept-Encoding: identity" '
-                '-H "X-Amz-Meta-Purpose: test" '
-                '-H "User-Agent: Boto3/1.35.99 md/Botocore#1.35.99 ua/2.0 os/linux#6.8.0-52-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython cfg/retry-mode#legacy Botocore/1.35.99" '
-                '-H "Content-Md5: tqko9U/zjvYv0x7KrNw4kg==" '
-                '-H "Expect: 100-continue" '
-                '-H "X-Amz-Date: 20250205T211821Z" '
-                '-H "X-Amz-Content-Sha256: 1e9415183638cd30c03fb2cff9ba7d85a3604dccd1cbc1b7d32355174e2858b8" '
-                '-H "Authorization: WS4-HMAC-SHA256 Credential=3VJTIQ8OQG642KKXLLMG/20250205/us-east-1/s3/aws4_request, SignedHeaders=content-md5;host;x-amz-content-sha256;x-amz-date;x-amz-meta-purpose, Signature=717bf26945806cfc48b2a392110ac96b5e587fb0149c6df8e8b8db7c794b3b48" '
-                '-H "Amz-Sdk-Invocation-Id: 8c3e4ebb-0dc8-49a6-b0ab-afbfcb22b649" '
-                '-H "Amz-Sdk-Request: attempt=2; max=2" '
-                '-H "Content-Length: 8" '
-                '-d "limits66" '
-                "-vvv "
-                " http://localhost:80/ "
-            ),
-        }
-    ]
-
-    def test_request_success(self):
-        self.start_all_services()
-        client = self.get_client("curl")
-        client.start()
-
-        self.wait_while_busy(client)
-
-
-class Test100ContinueResponseSeg(tester.TempestaTest):
-    backends = [
-        {
             "id": "deproxy",
             "type": "deproxy",
             "port": "8000",
@@ -120,57 +46,57 @@ class Test100ContinueResponseSeg(tester.TempestaTest):
         },
     ]
 
-    def test_request_with_body(self):
+    def test_send_full_request(self):
         """
         Send request that contains 'Expect: 100-continue' header and body. Don't wait
         for 100-continue response. Due to we send body right after header without any
         time intervals '101-continue' response must not be sent by Tempesta. Only one
         response is expected in this test.
         """
-        self.disable_deproxy_auto_parser()
-        self.start_all_services()
-        client = self.get_client("deproxy")
+        self.start_all_services(client=False)
 
-        request = f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\nasd"
+        client = self.get_client("deproxy")
+        client.allow_expect_100_continue_behavior = False
+        client.start()
 
         client.send_request(
-            request=request,
+            request=client.create_request(
+                method="PUT",
+                headers=[
+                    ("Expect", "100-continue"),
+                    ("Content-Length", "9"),
+                    ("Content-Type", "application/json"),
+                ],
+                uri="/test_100",
+                body="1" * 9,
+                version="HTTP/1.1",
+            ),
             expected_status_code="200",
         )
 
-    def test_request_with_body_seg_100(self):
+    def test_regular_behaviour(self):
         """
         Send request that contains 'Expect: 100-continue' header and body. Send only
-        headers, then wait for 100-continue response.
-
-        NOTE: Implemented via sending request by multiple segments, maybe we can
-        implement this sending only 2 segments(headers and body) send headers then wait
-        for 100-response, then send body?
+        headers, then wait for 100-continue response, and send after that body,
+        wait for server response.
         """
-        self.start_all_services()
-        client = self.get_client("deproxy-seg")
+        self.start_all_services(client=False)
 
-        request = f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\nasd"
+        client = self.get_client("deproxy")
+        client.start()
 
         client.send_request(
-            request=request,
-            expected_status_code="100",
-        )
-        # TODO: Ensure that 200 response received as well.
-
-    def test_request_with_body_seg_76(self):
-        """
-        Send request that contains 'Expect: 100-continue' header and body. But send
-        only part of the body, in this case '100-continue' response is not expected.
-        """
-        self.disable_deproxy_auto_parser()
-        self.start_all_services()
-        client = self.get_client("deproxy-seg-76")
-
-        request = f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\nasd"
-
-        client.send_request(
-            request=request,
+            request=client.create_request(
+                method="PUT",
+                headers=[
+                    ("Expect", "100-continue"),
+                    ("Content-Length", "9"),
+                    ("Content-Type", "application/json"),
+                ],
+                uri="/test_100",
+                body="1" * 9,
+                version="HTTP/1.1",
+            ),
             expected_status_code="200",
         )
 
@@ -185,20 +111,49 @@ class Test100ContinueResponseSeg(tester.TempestaTest):
         request received.
         """
         self.disable_deproxy_auto_parser()
-        self.get_server("deproxy").sleep_when_receiving_data = 2
+
+        server = self.get_server("deproxy")
+        server.sleep_when_receiving_data = 2
+
         self.start_all_services()
         client = self.get_client("deproxy-seg")
+        client.allow_expect_100_continue_behavior = False
 
-        client.parsing = False
         client.make_requests(
             requests=[
-                f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nqwr: 100-continue\r\n\r\nasd",
-                f"PUT / HTTP/1.1\r\nHost: localhost\r\nContent-Length:3\r\nExpect: 100-continue\r\n\r\n",
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/test",
+                    body="3" * 9,
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "0"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="GET",
+                    headers=[],
+                    uri="/test",
+                    version="HTTP/1.1",
+                ),
             ],
             pipelined=True,
         )
         client.wait_for_response(timeout=10)
 
-        # TODO: Ensure that received 3 responses with status-codes: 200, 101, 200.
-        # Also would be great, to have ID for each request/response to verify correct
-        # orders of responses.
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 100, 200],
+            "Invalid responses sequence",
+        )
