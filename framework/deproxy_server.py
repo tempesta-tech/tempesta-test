@@ -10,6 +10,7 @@ from framework import stateful
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_manager import _PoolingLock
 from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
+from helpers.deproxy import Response
 
 dbg = deproxy.dbg
 
@@ -43,6 +44,11 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_pipelined = 0
         self._cur_responses_list = []
         self.nrreq: int = 0
+
+        self.allow_expect_100_continue_behavior = True
+        self._100_buffer: str = ""
+        self._100_waiting_body: bool = False
+
         dbg(self, 6, "New server connection", prefix="\t")
 
     def flush(self):
@@ -68,17 +74,49 @@ class ServerConnection(asyncore.dispatcher):
         if self._server and self in self._server.connections:
             self._server.remove_connection(connection=self)
 
+    @staticmethod
+    def is_request_100_continue(request: str) -> bool:
+        return "expect: 100-continue" in request.lower()
+
+    def caught_100_continue(self) -> bool:
+        if self.is_request_100_continue(self._request_buffer):
+            self._100_buffer += self._request_buffer
+            self._request_buffer = []
+            self._cur_responses_list.append(
+                Response.create_simple_response(100, headers=[]).encode()
+            )
+            self._100_waiting_body = True
+            self.flush()
+            return True
+
+        if self._100_waiting_body:
+            self._100_waiting_body = False
+            self._request_buffer = self._100_buffer + self._request_buffer
+            self._100_buffer = ""
+
+        return False
+
     def handle_read(self):
+        if self._sleep_when_receiving_data and time.time() < self._sleep_when_receiving_data:
+            return None
+
         self._request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
 
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self._request_buffer)
 
-        if self._request_buffer and self._sleep_when_receiving_data:
-            time.sleep(self._sleep_when_receiving_data)
-
         while self._request_buffer:
             try:
+                if isinstance(self._request_buffer, list):
+                    self._request_buffer = "".join(self._request_buffer)
+
+                if (
+                    self.allow_expect_100_continue_behavior
+                    and self.is_request_100_continue(self._request_buffer)
+                    and self.caught_100_continue()
+                ):
+                    return
+
                 request = deproxy.Request(
                     self._request_buffer, keep_original_data=self._server.keep_original_data
                 )
@@ -386,9 +424,9 @@ class StaticDeproxyServer(asyncore.dispatcher, stateful.Stateful):
 
     @sleep_when_receiving_data.setter
     def sleep_when_receiving_data(self, sleep: float) -> None:
-        self._sleep_when_receiving_data = sleep
+        self._sleep_when_receiving_data = time.time() + sleep
         for connection in self.connections:
-            connection._sleep_when_receiving_data = sleep
+            connection._sleep_when_receiving_data = time.time() + sleep
 
     @property
     def hang_on_req_num(self) -> int:
