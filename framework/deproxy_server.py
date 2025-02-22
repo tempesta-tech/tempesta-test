@@ -99,16 +99,11 @@ class ServerConnection(asyncore.dispatcher):
     def handle_read(self):
         if self._sleep_when_receiving_data and time.time() < self._sleep_when_receiving_data:
             return None
+
         self._request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
 
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self._request_buffer)
-
-        if self._request_buffer and self._sleep_when_receiving_data:
-            time.sleep(self._sleep_when_receiving_data)
-
-        if self._drop_conn_when_receiving_data:
-            self.close()
 
         while self._request_buffer:
             try:
