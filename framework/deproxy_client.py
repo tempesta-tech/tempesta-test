@@ -468,9 +468,6 @@ class DeproxyClient(BaseDeproxyClient):
 
         return True
 
-    def __is_request_pipelined(self, request_data: str) -> bool:
-        return len(request_data.lower().split("host")) > 2
-
     def handle_write(self):
         """Send data from `self.request_buffers` and cut them."""
         request_data: bytes = self.request_buffers[self.cur_req_num]
