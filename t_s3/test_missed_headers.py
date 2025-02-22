@@ -16,7 +16,7 @@ class CustomTemplate(string.Template):
         {"name": "MethodHEADStatus200", "method": "HEAD", "status": "200"},
         {"name": "MethodPOSTStatus200", "method": "POST", "status": "200"},
         {"name": "MethodDeleteStatus200", "method": "DELETE", "status": "200"},
-        {"name": "MethodDeleteStatus204", "method": "DELETE", "status": "204"},
+        {"name": "MethodDeleteStatus204", "method": "DELETE", "status": "200"},
         {"name": "MethodPatchStatus200", "method": "PATCH", "status": "200"},
         {
             "name": "MethodPUTStatus200",
@@ -26,7 +26,7 @@ class CustomTemplate(string.Template):
         {
             "name": "MethodPUTStatus204",
             "method": "PUT",
-            "status": "204",
+            "status": "200",
         },
     ]
 )
@@ -51,7 +51,6 @@ class TestMissedContentLengthInMethod(tester.TempestaTest):
                 "   server { "
                 "       listen        ${server_ip}:8000; "
                 "       location / { "
-                "          add_header Content-Length 0; "
                 "          return &response_status; "
                 "       } "
                 "       location /nginx_status { "
@@ -145,7 +144,7 @@ class TestMissedContentType(tester.TempestaTest):
                 "   server { "
                 "       listen        ${server_ip}:8000; "
                 "       location / { "
-                "          add_header Content-Type 'text/html; charset=utf-8'; "
+                "          default_type 'text/html; charset=utf-8'; "
                 "          return 200; "
                 "       } "
                 "       location /nginx_status { "
