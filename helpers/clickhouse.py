@@ -91,12 +91,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         """
         Delete all log records
         """
-        response = self._clickhouse_client.query("exists table access_log")
-
-        if not response.result_rows[0][0]:
-            return
-
-        self._clickhouse_client.command("delete from access_log where true")
+        if self.access_log_table_exists():
+            self._clickhouse_client.command("delete from access_log where true")
 
     def access_log_records_count(self) -> int:
         """

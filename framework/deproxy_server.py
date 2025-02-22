@@ -10,6 +10,7 @@ from framework import stateful
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_manager import _PoolingLock
 from helpers import deproxy, error, port_checks, remote, tempesta, tf_cfg, util
+from helpers.deproxy import Response
 
 dbg = deproxy.dbg
 
@@ -42,6 +43,11 @@ class ServerConnection(asyncore.dispatcher):
         self._pipelined = pipelined
         self._cur_pipelined = 0
         self._cur_responses_list = []
+
+        self.allow_expect_100_continue_behavior = True
+        self._100_buffer: str = ""
+        self._100_waiting_body: bool = False
+
         dbg(self, 6, "New server connection", prefix="\t")
 
     def flush(self):
@@ -67,6 +73,28 @@ class ServerConnection(asyncore.dispatcher):
         if self._server and self in self._server.connections:
             self._server.remove_connection(connection=self)
 
+    @staticmethod
+    def is_request_100_continue(request: str) -> bool:
+        return "expect: 100-continue" in request.lower()
+
+    def caught_100_continue(self) -> bool:
+        if self.is_request_100_continue(self._request_buffer):
+            self._100_buffer += self._request_buffer
+            self._request_buffer = []
+            self._cur_responses_list.append(
+                Response.create_simple_response(100, headers=[]).encode()
+            )
+            self._100_waiting_body = True
+            self.flush()
+            return True
+
+        if self._100_waiting_body:
+            self._100_waiting_body = False
+            self._request_buffer = self._100_buffer + self._request_buffer
+            self._100_buffer = ""
+
+        return False
+
     def handle_read(self):
         if self._sleep_when_receiving_data and time.time() < self._sleep_when_receiving_data:
             return None
@@ -80,6 +108,16 @@ class ServerConnection(asyncore.dispatcher):
 
         while self._request_buffer:
             try:
+                if isinstance(self._request_buffer, list):
+                    self._request_buffer = "".join(self._request_buffer)
+
+                if (
+                    self.allow_expect_100_continue_behavior
+                    and self.is_request_100_continue(self._request_buffer)
+                    and self.caught_100_continue()
+                ):
+                    return
+
                 request = deproxy.Request(
                     self._request_buffer, keep_original_data=self._server.keep_original_data
                 )
