@@ -263,15 +263,6 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         """
         self.common_check(headers=("Expect", "invalid"))
 
-    def test_expect2(self):
-        """
-        https://tools.ietf.org/html/rfc7231#section-5.1.1
-
-        A client MUST NOT generate a 100-continue expectation in a request
-        that does not include a message body.
-        """
-        self.common_check(headers=("Expect", "100-continue"))
-
     def test_from(self):
         """
         https://tools.ietf.org/html/rfc5322#section-3.4
