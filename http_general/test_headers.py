@@ -637,8 +637,13 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
 
     tempesta = {
         "config": """
-            listen 80;
+            listen 443 proto=https;
             access_log dmesg;
+            
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            
             frang_limits {http_methods OPTIONS HEAD GET PUT POST PUT PATCH DELETE;}
             server ${server_ip}:8000;
         """
@@ -649,7 +654,8 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
             "id": "deproxy",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
-            "port": "80",
+            "port": "443",
+            "ssl": True,
         },
     ]
     method: str = None
@@ -735,10 +741,14 @@ class TestContentTypeWithEmptyBody(tester.TempestaTest):
 
     tempesta = {
         "config": """
-            listen 80;
+            listen 443 proto=https;
             access_log dmesg;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
             frang_limits {http_methods OPTIONS HEAD GET PUT POST PUT PATCH DELETE;}
-            http_allow_empty_body_content_type true;
             server ${server_ip}:8000;
         """
     }
@@ -748,7 +758,8 @@ class TestContentTypeWithEmptyBody(tester.TempestaTest):
             "id": "deproxy",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
-            "port": "80",
+            "port": "443",
+            "ssl": True,
         },
     ]
     method: str = None

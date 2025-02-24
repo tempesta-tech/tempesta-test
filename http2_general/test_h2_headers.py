@@ -4,6 +4,8 @@ For now tests run curl as external program capable to generate h2 messages and
 analises its return code.
 """
 
+import string
+
 from h2.errors import ErrorCodes
 from hpack import HeaderTuple
 from hyperframe import frame
@@ -1420,74 +1422,54 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
 
-import string
-
-from test_suite import marks, tester
-
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
-__license__ = "GPL2"
-
-
 class CustomTemplate(string.Template):
     delimiter = "&"
 
 
 @marks.parameterize_class(
     [
-        {"name": "MethodHEADStatus200", "method": "HEAD", "status": "200"},
-        {"name": "MethodPOSTStatus200", "method": "POST", "status": "200"},
-        {"name": "MethodDeleteStatus200", "method": "DELETE", "status": "200"},
-        {"name": "MethodDeleteStatus204", "method": "DELETE", "status": "204"},
-        {"name": "MethodPatchStatus200", "method": "PATCH", "status": "200"},
+        {"name": "MethodHEAD", "method": "HEAD", "statuses": [200]},
+        {"name": "MethodGET", "method": "GET", "statuses": [200, 302, 304, 400, 401, 404, 500]},
         {
-            "name": "MethodPUTStatus200",
-            "method": "PUT",
-            "status": "200",
+            "name": "MethodPOST",
+            "method": "POST",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
         },
         {
-            "name": "MethodPUTStatus204",
+            "name": "MethodDELETE",
+            "method": "DELETE",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
+        },
+        {
+            "name": "MethodPATCH",
+            "method": "PATCH",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
+        },
+        {
+            "name": "MethodPUT",
             "method": "PUT",
-            "status": "204",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
         },
     ]
 )
-class TestMissedContentLengthInMethod(tester.TempestaTest):
+class TestNoContentLengthInMethod(tester.TempestaTest):
     backends = [
         {
-            "id": "nginx",
-            "type": "nginx",
+            "id": "deproxy",
+            "type": "deproxy",
             "port": "8000",
-            "status_uri": "http://${server_ip}:8000/nginx_status",
-            "config": (
-                "pid ${pid};\n"
-                "worker_processes  auto;\n"
-                "events { "
-                "   worker_connections   1024;\n"
-                "   use epoll;\n"
-                "}\n"
-                "http {\n"
-                "   keepalive_timeout ${server_keepalive_timeout};\n"
-                "   keepalive_requests ${server_keepalive_requests};\n"
-                "   access_log off;\n"
-                "   server {\n"
-                "       listen        ${server_ip}:8000;\n"
-                "       location / {\n"
-                "          return &response_status;\n"
-                "       }\n"
-                "       location /nginx_status {\n"
-                "           stub_status on;\n"
-                "       }\n"
-                "   }\n"
-                "}\n"
-            ),
         }
     ]
 
     tempesta = {
         "config": """
-            listen 80;
+            listen 443 proto=https,h2;
             access_log dmesg;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
             frang_limits {http_methods OPTIONS HEAD GET PUT POST PUT PATCH DELETE;}
             server ${server_ip}:8000;
         """
@@ -1496,33 +1478,55 @@ class TestMissedContentLengthInMethod(tester.TempestaTest):
     clients = [
         {
             "id": "deproxy",
-            "type": "deproxy",
+            "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
-            "port": "80",
+            "port": "443",
+            "ssl": True,
         },
     ]
     method: str = None
-    status: str = None
+    statuses: list[int] = None
 
-    def setUp(self):
-        nginx_conf = self.backends[0]["config"]
-        self.backends[0]["config"] = CustomTemplate(nginx_conf).substitute(
-            response_status=self.status,
-        )
-        super().setUp()
+    @property
+    def statuses_description(self) -> dict[int, str]:
+        return {
+            200: "OK",
+            201: "Created",
+            302: "Found",
+            304: "Not Modified",
+            400: "Bad Request",
+            401: "Unauthorized",
+            403: "Forbidden",
+            404: "Not Found",
+            500: "Internal Server Error",
+        }
 
     def test_request_success(self):
         self.start_all_services()
+        self.disable_deproxy_auto_parser()
+
+        server = self.get_server("deproxy")
         client = self.get_client("deproxy")
-        client.send_request(
-            request=client.create_request(method=self.method, headers=[]),
-            expected_status_code=self.status,
-        )
-        self.assertEqual(
-            client.last_response.headers["content-length"],
-            "0",
-            msg=f"Tempesta should proxy the Content-Length header for the {self.status} status code also",
-        )
+        client.start()
+
+        for status in self.statuses:
+            server.set_response(
+                f"HTTP/1.1 {status} {self.statuses_description[status]}\r\n"
+                "Server: debian\r\n"
+                "Content-Length: 0\r\n\r\n\r\n"
+            )
+
+            client.send_request(
+                request=client.create_request(method=self.method, headers=[]),
+                expected_status_code=str(status),
+            )
+
+            self.assertEqual(
+                client.last_response.headers["content-length"],
+                "0",
+                msg=f"Tempesta should proxy the Content-Length header for the "
+                f"`{self.method} {status} {self.statuses_description[status]}` status code also",
+            )
 
 
 @marks.parameterize_class(
@@ -1545,45 +1549,32 @@ class TestMissedContentLengthInMethod(tester.TempestaTest):
         },
     ]
 )
-class TestMissedContentType(tester.TempestaTest):
+class TestContentTypeWithEmptyBody(tester.TempestaTest):
     backends = [
         {
-            "id": "nginx",
-            "type": "nginx",
+            "id": "deproxy",
+            "type": "deproxy",
             "port": "8000",
-            "status_uri": "http://${server_ip}:8000/nginx_status",
-            "config": (
-                "pid ${pid};\n"
-                "worker_processes  auto;\n"
-                "events {\n"
-                "   worker_connections   1024;\n"
-                "   use epoll;\n"
-                "}\n"
-                "http {\n"
-                "   keepalive_timeout ${server_keepalive_timeout};\n"
-                "   keepalive_requests ${server_keepalive_requests};\n"
-                "   access_log off;\n"
-                "   server {\n"
-                "       listen        ${server_ip}:8000;\n"
-                "       location / {\n"
-                "          default_type 'text/html; charset=utf-8';\n"
-                "          return 200;\n"
-                "       }\n"
-                "       location /nginx_status {\n"
-                "           stub_status on;\n"
-                "       }\n"
-                "   }\n"
-                "}\n"
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Server: debian\r\n"
+                "Content-Length: 0\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n\r\n\r\n"
             ),
         }
     ]
 
     tempesta = {
         "config": """
-            listen 80;
+            listen 443 proto=https,h2;
             access_log dmesg;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
             frang_limits {http_methods OPTIONS HEAD GET PUT POST PUT PATCH DELETE;}
-            http_allow_empty_body_content_type true;
             server ${server_ip}:8000;
         """
     }
@@ -1591,9 +1582,10 @@ class TestMissedContentType(tester.TempestaTest):
     clients = [
         {
             "id": "deproxy",
-            "type": "deproxy",
+            "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
-            "port": "80",
+            "port": "443",
+            "ssl": True,
         },
     ]
     method: str = None
