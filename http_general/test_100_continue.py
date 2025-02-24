@@ -152,7 +152,7 @@ class Test100ContinueResponse(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
-    def _test_request_pipeline_delay_3_requests(self):
+    def test_request_pipeline_delay_3_requests(self):
         self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
@@ -182,6 +182,54 @@ class Test100ContinueResponse(tester.TempestaTest):
                     ],
                     uri="/expect",
                     body="{}",
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="GET",
+                    headers=[],
+                    uri="/test",
+                    version="HTTP/1.1",
+                ),
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 200, 200],
+            "Invalid responses sequence",
+        )
+
+    def test_request_pipeline_delay_3_requests_empty_body(self):
+        self.disable_deproxy_auto_parser()
+
+        server = self.get_server("deproxy")
+        server.sleep_when_receiving_data = 2
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.make_requests(
+            requests=[
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/test",
+                    body="3" * 9,
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "0"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/expect",
                     version="HTTP/1.1",
                 ),
                 client.create_request(
