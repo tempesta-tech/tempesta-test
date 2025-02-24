@@ -10,6 +10,10 @@
             "reason": "These tests should not be run with remote setup."
         },
         {
+            "name": "cache.test_purge",
+            "reason": "Disabled by test issue #508"
+        },
+        {
             "name": "t_server_options",
             "reason": "These tests should not be run with remote setup. Remote setup has no effect on these tests."
         },

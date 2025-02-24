@@ -195,7 +195,7 @@ frang_limits {{http_strict_host_checking false;}}
                 name="default_to_ipv4_port_default",
                 first_config="",
                 second_config="listen 127.0.0.1 proto={0};\n",
-                old_ip="",
+                old_ip="0.0.0.0",
                 new_ip="127.0.0.1",
                 port=80,
             ),
