@@ -1,7 +1,7 @@
 """Functional tests of header modification logic."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import helpers
@@ -44,7 +44,7 @@ def generate_h2_request(optional_headers=[]) -> list:
 def get_expected_response(
     optional_headers: list, expected_headers: list, client, cache: bool, directive: str
 ) -> Response or H2Response:
-    if client.proto == "h2":
+    if client.is_http2:
         tempesta_headers = [
             ("via", f"2.0 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
         ]
@@ -62,7 +62,7 @@ def get_expected_response(
     else:
         expected_response = generate_response(optional_headers=tempesta_headers + expected_headers)
 
-    if client.proto == "h2":
+    if client.is_http2:
         expected_response = H2Response(expected_response.replace("HTTP/1.1 200 OK", ":status: 200"))
     else:
         expected_response = Response(expected_response)
@@ -86,7 +86,7 @@ def get_expected_request(
             optional_headers=tempesta_headers + optional_headers
         )
 
-    if client.proto == "h2":
+    if client.is_http2:
         expected_request = expected_request.replace("Connection: keep-alive\r\n", "")
 
     expected_request = Request(expected_request)

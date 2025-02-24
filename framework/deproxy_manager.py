@@ -8,7 +8,7 @@ from framework import stateful
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -54,17 +54,16 @@ class DeproxyManager(stateful.Stateful):
         self._exit_event = threading.Event()
 
         self._lock = threading.Lock()
-        self._polling_lock = _PoolingLock(self._lock)
 
         self.stop_procedures = [self.__stop]
         self._proc = None
 
     def add_server(self, server):
-        server.set_events(self._polling_lock)
+        server.set_lock(self._lock)
         self.servers.append(server)
 
     def add_client(self, client):
-        client.set_events(self._polling_lock)
+        client.set_lock(self._lock)
         self.clients.append(client)
 
     def run_start(self):
@@ -94,22 +93,3 @@ class DeproxyManager(stateful.Stateful):
         tf_cfg.dbg(3, "Stopping deproxy")
         self._exit_event.set()
         self._proc.join()
-
-
-class _PoolingLock:
-    """
-    lock/unlock deproxy manager thread.
-    """
-
-    def __init__(self, polling_lock: threading.Lock):
-        self._polling_lock: threading.Lock = polling_lock
-
-    def acquire(self) -> None:
-        tf_cfg.dbg(5, "Try to capture the thread Lock")
-        self._polling_lock.acquire()
-        tf_cfg.dbg(5, "Thread Lock was successfully captured")
-
-    def release(self) -> None:
-        tf_cfg.dbg(5, "Try to release the thread Lock")
-        self._polling_lock.release()
-        tf_cfg.dbg(5, "Thread Lock has been successfully released")
