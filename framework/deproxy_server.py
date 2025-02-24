@@ -9,7 +9,7 @@ from framework import stateful
 from framework.deproxy_base import BaseDeproxy
 from helpers import deproxy, error, tempesta, tf_cfg, util
 from helpers.deproxy import Response
-from framework.deproxy_auto_parser import DeproxyAutoParser
+
 dbg = deproxy.dbg
 
 from helpers.util import fill_template
@@ -91,7 +91,6 @@ class ServerConnection(asyncore.dispatcher):
 
         if self._request_buffer and self._server.sleep_when_receiving_data:
             time.sleep(self._server.sleep_when_receiving_data)
-
 
         while self._request_buffer:
             try:
