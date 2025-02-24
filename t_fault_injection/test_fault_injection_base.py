@@ -1,7 +1,7 @@
 """Bpf tests to check error handlings."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -528,7 +528,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
                 self.assertTrue(srv.wait_for_requests(req_count + j))
                 srv.flush()
                 self.assertTrue(client.wait_for_response())
-                self.assertEqual(client._last_response.status, "200")
+                self.assertEqual(client.last_response.status, "200")
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()

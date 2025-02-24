@@ -5,7 +5,7 @@ import typing
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 STATE_BEGIN_START = "begin_start"
@@ -49,6 +49,12 @@ class Stateful(abc.ABC):
     @abc.abstractmethod
     def run_start(self): ...
 
+    def _reinit_variables(self) -> None:
+        """
+        The optional method. It MUST be called only inside the `start` and `init` methods.
+        All counters or dynamic variables for the service should be reset here.
+        """
+
     def restart(self):
         self.stop()
         self.start()
@@ -59,6 +65,7 @@ class Stateful(abc.ABC):
             tf_cfg.dbg(3, f"{obj or self} not stopped")
             return
         self.state = STATE_BEGIN_START
+        self._reinit_variables()
         self.run_start()
         self.state = STATE_STARTED
 

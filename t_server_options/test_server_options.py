@@ -643,7 +643,8 @@ http_chain {-> main;}
         server.drop_conn_when_request_received = False
 
         time.sleep(2)
-        server.init_socket()
+        # Do not call the start method here because it reset all variables
+        server.run_start()
 
         self.assertTrue(client.wait_for_response(5))
         self.assertEqual(client.last_response.status, "200")

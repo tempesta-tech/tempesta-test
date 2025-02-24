@@ -36,7 +36,7 @@ from framework import stateful
 from . import error, tempesta, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # -------------------------------------------------------------------------------
@@ -994,7 +994,9 @@ class TlsClient(asyncore.dispatcher):
             return super().bind(address)
         # When we cannot bind an address, adding more details
         except OSError as os_exc:
-            os_err_msg = f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            os_err_msg = (
+                f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
+            )
             tf_cfg.dbg(6, os_err_msg)
             raise OSError(os_err_msg) from os_exc
 
@@ -1008,7 +1010,6 @@ class Client(TlsClient, stateful.Stateful):
         ssl=False,
         bind_addr=None,
         proto="http/1.1",
-        socket_family="ipv4",
     ):
         TlsClient.__init__(self, ssl, proto)
         stateful.Stateful.__init__(self)
@@ -1023,7 +1024,6 @@ class Client(TlsClient, stateful.Stateful):
         self.conn_was_opened = False
         self.bind_addr = bind_addr or tf_cfg.cfg.get("Client", "ip")
         self.error_codes = []
-        self.socket_family = socket_family
 
     def __stop_client(self):
         dbg(self, 4, "Stop", prefix="\t")
@@ -1039,9 +1039,7 @@ class Client(TlsClient, stateful.Stateful):
             use_getsockname=False,
         )
 
-        self.create_socket(
-            socket.AF_INET if self.socket_family == "ipv4" else socket.AF_INET6, socket.SOCK_STREAM
-        )
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.bind_addr:
             self.bind(
                 (self.bind_addr, 0),
@@ -1067,17 +1065,6 @@ class Client(TlsClient, stateful.Stateful):
     @property
     def conn_is_active(self):
         return self.conn_was_opened and not self.conn_is_closed
-
-    @property
-    def socket_family(self) -> str:
-        return self.__socket_family
-
-    @socket_family.setter
-    def socket_family(self, socket_family: str) -> None:
-        if socket_family in ("ipv4", "ipv6"):
-            self.__socket_family = socket_family
-        else:
-            raise Exception("Unexpected socket family.")
 
     def handle_connect(self):
         TlsClient.handle_connect(self)

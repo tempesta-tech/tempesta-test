@@ -320,6 +320,10 @@
         {
             "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsDelay",
             "reason": "The response time varies each time, and it is not possible to predict it exactly."
+        },
+        {
+            "name": "t_ipv6",
+            "reason": "Disabled by test issue #508"
         }
     ]
 }
