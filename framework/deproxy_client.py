@@ -450,6 +450,27 @@ class DeproxyClient(BaseDeproxyClient):
         self._100_continue_received_status = None
         self._100_body_sent = True
 
+    @staticmethod
+    def split_pipelined_100_request(request_data: bytes) -> tuple[bytes, bytes]:
+        parts = request_data.split(b"\r\n\r\n")
+
+        # single request
+        if len(parts) == 2:
+            return parts[0], parts[1]
+
+        # pipelined requests
+        split_index = 0
+
+        for index, part in enumerate(parts):
+            if b"expect: 100-continue" in part.lower():
+                split_index = index
+                break
+
+        return (
+            b"\r\n\r\n".join(parts[: split_index + 1]),
+            b"\r\n\r\n".join(parts[split_index + 1 :]),
+        )
+
     def handle_expect_100_continue(self, request_data: bytes) -> bool:
         """
         Special case of request with `Expect: 100-continue` header.
@@ -460,8 +481,8 @@ class DeproxyClient(BaseDeproxyClient):
         """
 
         if not self._100_headers_to_send and not self._100_body_to_send and self._100_body_sent:
-            self._100_headers_to_send, self._100_body_to_send = request_data.split(
-                b"\r\n\r\n", maxsplit=1
+            self._100_headers_to_send, self._100_body_to_send = self.split_pipelined_100_request(
+                request_data
             )
 
             if not self._100_body_to_send:
