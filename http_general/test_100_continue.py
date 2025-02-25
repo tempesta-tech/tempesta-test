@@ -99,6 +99,13 @@ class Test100ContinueResponse(tester.TempestaTest):
             ),
             expected_status_code="200",
         )
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [100, 200],
+            "Invalid responses sequence",
+        )
 
     def test_request_pipeline_delay(self):
         """
@@ -148,7 +155,7 @@ class Test100ContinueResponse(tester.TempestaTest):
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
-            [200, 200],
+            [200, 100, 200],
             "Invalid responses sequence",
         )
 
@@ -197,7 +204,7 @@ class Test100ContinueResponse(tester.TempestaTest):
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
-            [200, 200, 200],
+            [200, 100, 200, 200],
             "Invalid responses sequence",
         )
 

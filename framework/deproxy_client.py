@@ -80,6 +80,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self._reinit_variables()
 
         self.simple_get = self.create_request("GET", headers=[])
+        self.allow_expect_100_continue_behavior = False
 
     def _create_context(self):
         self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -227,12 +228,19 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.make_request(request)
         self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
 
-        if expected_status_code:
+        if not expected_status_code:
+            return
+
+        if self.allow_expect_100_continue_behavior and request.headers.get("expect"):
+            # with expect: 100-continue we have 2 responses from the server
+            assert curr_responses + 2 == len(self.responses), "Deproxy client has lost response."
+        else:
             assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
-            assert expected_status_code in self.last_response.status, (
-                f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-                + f"Received - {self.last_response.status}"
-            )
+
+        assert expected_status_code in self.last_response.status, (
+            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
+            + f"Received - {self.last_response.status}"
+        )
 
     def send_bytes(self, data: bytes, expect_response=False):
         self._add_to_request_buffers(data=data, end_stream=None)
@@ -428,19 +436,20 @@ class DeproxyClient(BaseDeproxyClient):
                 )
                 raise
 
-            if (
-                self.allow_expect_100_continue_behavior and self._100_waiting_first_response
-            ) or response.status == 100:
+            self.receive_response(response)
+
+            if self._100_waiting_first_response:
                 self._100_waiting_first_response = False
                 self._100_continue_received_status = int(response.status)
-                self.response_buffer = ""
                 continue
 
-            self.receive_response(response)
             self.nrresp += 1
 
     @staticmethod
     def __is_request_100_continue(http_message_body: bytes) -> bool:
+        if not http_message_body:
+            return False
+
         return b"expect: 100-continue" in http_message_body.lower()
 
     def reset_100_continue_variables(self):
@@ -537,8 +546,8 @@ class DeproxyClient(BaseDeproxyClient):
 
         if self.allow_expect_100_continue_behavior and self.__is_request_100_continue(request_data):
             if self.handle_expect_100_continue(request_data):
-                self.request_buffers[self.cur_req_num] = None
                 self.cur_req_num += 1
+                self.valid_req_num += 1
 
             return
 
