@@ -2,7 +2,9 @@
 Tests for correct handling of HTTP/1.1 headers.
 """
 
-from helpers import deproxy, dmesg
+import string
+
+from helpers import deproxy
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -592,3 +594,186 @@ class TestHostWithCache(TestHostBase):
                 expected_status_code=expected_status_code,
             )
             self.assertIn("age", client.last_response.headers)
+
+
+class CustomTemplate(string.Template):
+    delimiter = "&"
+
+
+@marks.parameterize_class(
+    [
+        {"name": "MethodHEAD", "method": "HEAD", "statuses": [200]},
+        {"name": "MethodGET", "method": "GET", "statuses": [200, 302, 304, 400, 401, 404, 500]},
+        {
+            "name": "MethodPOST",
+            "method": "POST",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
+        },
+        {
+            "name": "MethodDELETE",
+            "method": "DELETE",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
+        },
+        {
+            "name": "MethodPATCH",
+            "method": "PATCH",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
+        },
+        {
+            "name": "MethodPUT",
+            "method": "PUT",
+            "statuses": [200, 201, 302, 304, 400, 401, 404, 500],
+        },
+    ]
+)
+class TestNoContentLengthInMethod(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 443 proto=https;
+            access_log dmesg;
+            
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+            
+            frang_limits {http_methods OPTIONS HEAD GET PUT POST PUT PATCH DELETE;}
+            server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+    method: str = None
+    statuses: list[int] = None
+
+    @property
+    def statuses_description(self) -> dict[int, str]:
+        return {
+            200: "OK",
+            201: "Created",
+            302: "Found",
+            304: "Not Modified",
+            400: "Bad Request",
+            401: "Unauthorized",
+            403: "Forbidden",
+            404: "Not Found",
+            500: "Internal Server Error",
+        }
+
+    def test_request_success(self):
+        self.start_all_services()
+        self.disable_deproxy_auto_parser()
+
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+        client.start()
+
+        for status in self.statuses:
+            with self.subTest(status=status):
+                server.set_response(
+                    f"HTTP/1.1 {status} {self.statuses_description[status]}\r\n"
+                    "Server: debian\r\n"
+                    "Content-Length: 0\r\n\r\n\r\n"
+                )
+
+                client.send_request(
+                    request=client.create_request(method=self.method, headers=[]),
+                    expected_status_code=str(status),
+                )
+
+                self.assertEqual(
+                    client.last_response.headers["content-length"],
+                    "0",
+                    msg=f"Tempesta should proxy the Content-Length header for the "
+                    f"`{self.method} {status} {self.statuses_description[status]}` status code also",
+                )
+
+
+@marks.parameterize_class(
+    [
+        {
+            "name": "POST",
+            "method": "POST",
+        },
+        {
+            "name": "PUT",
+            "method": "PUT",
+        },
+        {
+            "name": "PATCH",
+            "method": "PATCH",
+        },
+        {
+            "name": "DELETE",
+            "method": "DELETE",
+        },
+    ]
+)
+class TestContentTypeWithEmptyBody(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                "Server: debian\r\n"
+                "Content-Length: 0\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 443 proto=https;
+            access_log dmesg;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            frang_limits {http_methods OPTIONS HEAD GET PUT POST PUT PATCH DELETE;}
+            server ${server_ip}:8000;
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+    method: str = None
+
+    def test_request_success(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=client.create_request(method=self.method, headers=[]),
+            expected_status_code="200",
+        )
+        self.assertEqual(
+            client.last_response.headers["content-type"],
+            "text/html; charset=utf-8",
+            msg="Tempesta should proxy the Content-Type header for the CRUD method with empty body also",
+        )

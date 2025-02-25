@@ -137,7 +137,7 @@ class ResponseSmallBodyLength(ResponseContentLengthBase):
 class ResponseForbiddenBodyLength(ResponseContentLengthBase):
     """
     Send request to server. Wait for the server response.
-    Check that Tempesta has not forwarded 204 server response without body and zero Content-Length
+    Check that Tempesta has forwarded 204 server response without body and zero Content-Length
     header.
     """
 
@@ -149,10 +149,10 @@ class ResponseForbiddenBodyLength(ResponseContentLengthBase):
         + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
     )
     keep_alive = 0
-    expected_response_status = "502"
+    expected_response_status = "204"
     expected_body_length = len(response_body)
     srv_msg_other_errors = 0
-    srv_msg_parsing_errors = 1
+    srv_msg_parsing_errors = 0
 
 
 class ResponseSecondBodyLength(ResponseContentLengthBase):
