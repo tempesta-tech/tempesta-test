@@ -231,7 +231,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if not expected_status_code:
             return
 
-        if self.allow_expect_100_continue_behavior and request.headers.get("expect"):
+        if (
+            self.allow_expect_100_continue_behavior
+            and isinstance(request, deproxy.Request)
+            and request.headers.get("expect")
+        ):
             # with expect: 100-continue we have 2 responses from the server
             assert curr_responses + 2 == len(self.responses), "Deproxy client has lost response."
         else:
