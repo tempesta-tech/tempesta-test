@@ -1510,23 +1510,23 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
         client.start()
 
         for status in self.statuses:
-            server.set_response(
-                f"HTTP/1.1 {status} {self.statuses_description[status]}\r\n"
-                "Server: debian\r\n"
-                "Content-Length: 0\r\n\r\n\r\n"
-            )
+            with self.subTest(status=status):
+                server.set_response(
+                    f"HTTP/1.1 {status} {self.statuses_description[status]}\r\n"
+                    "Server: debian\r\n"
+                    "Content-Length: 0\r\n\r\n\r\n"
+                )
+                client.send_request(
+                    request=client.create_request(method=self.method, headers=[]),
+                    expected_status_code=str(status),
+                )
 
-            client.send_request(
-                request=client.create_request(method=self.method, headers=[]),
-                expected_status_code=str(status),
-            )
-
-            self.assertEqual(
-                client.last_response.headers["content-length"],
-                "0",
-                msg=f"Tempesta should proxy the Content-Length header for the "
-                f"`{self.method} {status} {self.statuses_description[status]}` status code also",
-            )
+                self.assertEqual(
+                    client.last_response.headers["content-length"],
+                    "0",
+                    msg=f"Tempesta should proxy the Content-Length header for the "
+                    f"`{self.method} {status} {self.statuses_description[status]}` status code also",
+                )
 
 
 @marks.parameterize_class(
