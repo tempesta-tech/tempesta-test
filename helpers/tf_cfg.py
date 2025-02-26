@@ -132,7 +132,7 @@ class TestFrameworkCfg(object):
         self.config["Server"]["website_user"] = website_user
         self.config["Server"]["website_password"] = website_password
 
-        self.config["TFW_Logger"]["clickhouse_host"] = remote_ip
+        self.config["TFW_Logger"]["clickhouse_host"] = host_ip
 
     def defaults(self):
         self.config = configparser.ConfigParser()
@@ -198,7 +198,7 @@ class TestFrameworkCfg(object):
                     "website_password": os.getenv("WEBSITE_PASSWORD", ""),
                 },
                 "TFW_Logger": {
-                    "clickhouse_host": "localhost",
+                    "clickhouse_host": "127.0.0.1",
                     "clickhouse_port": "8123",
                     "clickhouse_username": "default",
                     "clickhouse_password": "",
