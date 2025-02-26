@@ -68,7 +68,6 @@ class ServerConnection(asyncore.dispatcher):
             try:
                 request = deproxy.Request(self._request_buffer)
                 self.nrreq += 1
-
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
@@ -78,6 +77,7 @@ class ServerConnection(asyncore.dispatcher):
                     ("Can't parse message\n" "<<<<<\n%s>>>>>" % self._request_buffer),
                 )
                 return None
+
             dbg(self, 4, "Receive request:", prefix="\t")
             tf_cfg.dbg(5, request)
             response, need_close = self._server.receive_request(request)
