@@ -379,6 +379,8 @@ class DeproxyClient(BaseDeproxyClient):
             tf_cfg.dbg(3, "Request parsing is complete.")
         elif isinstance(request, deproxy.Request):
             self.methods.append(request.method)
+            if request.headers.get("expect") == "100-continue" and not request.body:
+                self.methods.append(request.method)
             expected_request = request.msg.encode()
         else:
             tf_cfg.dbg(2, "Request parsing has been disabled.")
@@ -434,7 +436,7 @@ class DeproxyClient(BaseDeproxyClient):
             self.receive_response(response)
             self.nrresp += 1
 
-    def _add_to_request_buffers(self, data) -> None:
+    def _add_to_request_buffers(self, data, *args, **kwargs) -> None:
         data = data if isinstance(data, list) else [data]
         for request in data:
             self._request_buffers.append(
