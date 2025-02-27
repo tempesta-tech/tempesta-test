@@ -694,3 +694,57 @@ class DeproxyClientTest(tester.TempestaTest):
             [200, 100, 200, 200],
             "Invalid responses sequence",
         )
+
+    def test_request_pipeline_3_all_100(self):
+        self.disable_deproxy_auto_parser()
+
+        self.start_all_services(client=False)
+
+        client = self.get_client("deproxy")
+        client.start()
+
+        client.make_requests(
+            requests=[
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "2"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    body="{}",
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "2"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    body="{}",
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "2"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    body="{}",
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 200, 200],
+            "Invalid responses sequence",
+        )
