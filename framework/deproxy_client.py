@@ -200,6 +200,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             return False
         return True
 
+    def next_request_time(self):
+        if self.rps == 0:
+            return self.start_time
+        return self.start_time + float(self.cur_req_num) / self.rps
+
     def handle_write(self):
         """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
@@ -219,11 +224,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if len(self.request_buffers[self.cur_req_num]) == 0:
             self.cur_req_num += 1
 
-    def next_request_time(self):
-        if self.rps == 0:
-            return self.start_time
-        return self.start_time + float(self.cur_req_num) / self.rps
-
     @abc.abstractmethod
     def make_requests(self, requests): ...
 
@@ -241,6 +241,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
 
         if expected_status_code:
+            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
             assert expected_status_code in self.last_response.status, (
                 f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
                 + f"Received - {self.last_response.status}"
@@ -378,6 +379,10 @@ class DeproxyClient(BaseDeproxyClient):
             tf_cfg.dbg(3, "Request parsing is complete.")
         elif isinstance(request, deproxy.Request):
             self.methods.append(request.method)
+
+            if request.headers.get("expect") == "100-continue" and not request.body:
+                self.methods.append(request.method)
+
             expected_request = request.msg.encode()
         else:
             tf_cfg.dbg(2, "Request parsing has been disabled.")
@@ -433,7 +438,7 @@ class DeproxyClient(BaseDeproxyClient):
             self.receive_response(response)
             self.nrresp += 1
 
-    def _add_to_request_buffers(self, data) -> None:
+    def _add_to_request_buffers(self, data, *_, **__) -> None:
         data = data if isinstance(data, list) else [data]
         for request in data:
             self._request_buffers.append(
