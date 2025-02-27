@@ -56,7 +56,7 @@ class ServerConnection(asyncore.dispatcher):
 
         return self.__time_to_send > time.time()
 
-    def is_waked_up_after_sleeping(self) -> bool:
+    def is_woken_up_after_sleeping(self) -> bool:
         """
         True if server has maid a delay and respond
         """
@@ -95,7 +95,7 @@ class ServerConnection(asyncore.dispatcher):
         tf_cfg.dbg(5, self._request_buffer)
 
         while self._request_buffer:
-            if not self.is_waked_up_after_sleeping():
+            if not self.is_woken_up_after_sleeping():
                 return None
 
             try:
