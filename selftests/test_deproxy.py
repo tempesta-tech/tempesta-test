@@ -2,6 +2,7 @@ from h2.exceptions import ProtocolError
 
 from framework import deproxy_client
 from helpers import deproxy
+from helpers.remote import client
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -475,8 +476,13 @@ class DeproxyClientTest(tester.TempestaTest):
         """
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services()
+        self.start_all_services(client=False)
+
+        server = self.get_server("deproxy")
+        server.sleep_when_receiving_data = 2
+
         client = self.get_client("deproxy")
+        client.start()
 
         client.make_requests(
             requests=[
@@ -494,7 +500,7 @@ class DeproxyClientTest(tester.TempestaTest):
                     method="PUT",
                     headers=[
                         ("Expect", "100-continue"),
-                        ("Content-Length", "2"),
+                        ("Content-Length", "9"),
                         ("Content-Type", "application/json"),
                     ],
                     uri="/expect",
@@ -521,5 +527,170 @@ class DeproxyClientTest(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
+    def test_request_pipeline_delay_3_requests(self):
+        self.disable_deproxy_auto_parser()
 
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+        self.start_all_services(client=False)
+
+        server = self.get_server("deproxy")
+        server.sleep_when_receiving_data = 2
+
+        client = self.get_client("deproxy")
+        client.start()
+
+        client.make_requests(
+            requests=[
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/test",
+                    body="3" * 9,
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "2"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 100],
+            "Invalid responses sequence",
+        )
+
+        request = client.create_request(
+            method="GET",
+            headers=[],
+            uri="/test",
+            version="HTTP/1.1",
+        )
+        client.send_bytes(b"{}" + request.msg.encode(), expect_response=True)
+        client.methods.append("GET")
+        client.wait_for_response(strict=True, n=4)
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 100, 200, 200],
+            "Invalid responses sequence",
+        )
+
+    def test_request_pipeline_3_requests_empty_body(self):
+        self.disable_deproxy_auto_parser()
+
+        self.start_all_services(client=False)
+
+        server = self.get_server("deproxy")
+        server.sleep_when_receiving_data = 2
+
+        client = self.get_client("deproxy")
+        client.start()
+
+        client.make_requests(
+            requests=[
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/test",
+                    body="3" * 9,
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "0"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="GET",
+                    headers=[],
+                    uri="/test",
+                    version="HTTP/1.1",
+                ),
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 200, 200],
+            "Invalid responses sequence",
+        )
+
+    def test_request_pipeline_3_requests_encoding_chunked(self):
+        self.disable_deproxy_auto_parser()
+
+        self.start_all_services(client=False)
+
+        client = self.get_client("deproxy")
+        client.start()
+
+        client.make_requests(
+            requests=[
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/test",
+                    body="3" * 9,
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "100"),
+                        ("Content-Type", "text/plain"),
+                        ("Content-Encoding", "chunked"),
+                    ],
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+            ],
+            pipelined=True,
+        )
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 100],
+            "Invalid responses sequence",
+        )
+
+        request = client.create_request(
+            method="GET",
+            headers=[],
+            uri="/test",
+            version="HTTP/1.1",
+        )
+        client.send_bytes(b"a" * 100 + request.msg.encode(), expect_response=True)
+        client.methods.append("GET")
+        client.wait_for_response(strict=True, n=4)
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 100, 200, 200],
+            "Invalid responses sequence",
+        )
