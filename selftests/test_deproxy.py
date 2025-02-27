@@ -1,3 +1,5 @@
+import time
+
 from h2.exceptions import ProtocolError
 
 from framework import deproxy_client
@@ -523,6 +525,57 @@ class DeproxyClientTest(tester.TempestaTest):
         self.assertEqual(
             [int(response.status) for response in client.responses],
             [200, 100, 200],
+            "Invalid responses sequence",
+        )
+
+    def test_request_pipeline_delay_no_wait(self):
+        """
+        Tempesta should remove response 100-continue
+        if the request body comes earlier than responding starts
+        """
+        self.disable_deproxy_auto_parser()
+
+        self.start_all_services(client=False)
+
+        server = self.get_server("deproxy")
+        server.sleep_when_receiving_data = 2
+
+        client = self.get_client("deproxy")
+        client.start()
+
+        client.make_requests(
+            requests=[
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/test",
+                    body="3" * 9,
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="PUT",
+                    headers=[
+                        ("Expect", "100-continue"),
+                        ("Content-Length", "9"),
+                        ("Content-Type", "application/json"),
+                    ],
+                    uri="/expect",
+                    version="HTTP/1.1",
+                ),
+            ],
+            pipelined=True,
+        )
+        time.sleep(0.2)
+        client.send_bytes(b"1" * 9)
+
+        client.wait_for_response(timeout=10)
+
+        self.assertEqual(
+            [int(response.status) for response in client.responses],
+            [200, 200],
             "Invalid responses sequence",
         )
 
