@@ -80,7 +80,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self._reinit_variables()
 
         self.simple_get = self.create_request("GET", headers=[])
-        self.allow_expect_100_continue_behavior = False
 
     def _create_context(self):
         self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -189,12 +188,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     @abc.abstractmethod
     def handle_read(self): ...
 
-    @abc.abstractmethod
-    def handle_write(self):
-        """
-        send http message to socket
-        """
-
     def writable(self):
         if self.cur_req_num >= self.nrreq:
             return False
@@ -206,6 +199,25 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         ):
             return False
         return True
+
+    def handle_write(self):
+        """Send data from `self.request_buffers` and cut them."""
+        reqs = self.request_buffers[self.cur_req_num]
+        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
+        tf_cfg.dbg(5, reqs)
+
+        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
+            self.segment_size = run_config.TCP_SEGMENTATION
+
+        self.segment_size = self.segment_size if self.segment_size else deproxy.MAX_MESSAGE_SIZE
+
+        sent = self.send(reqs[: self.segment_size])
+        if sent < 0:
+            return
+        self.last_segment_time = time.time()
+        self.request_buffers[self.cur_req_num] = reqs[sent:]
+        if len(self.request_buffers[self.cur_req_num]) == 0:
+            self.cur_req_num += 1
 
     def next_request_time(self):
         if self.rps == 0:
@@ -228,23 +240,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.make_request(request)
         self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
 
-        if not expected_status_code:
-            return
-
-        if (
-            self.allow_expect_100_continue_behavior
-            and isinstance(request, deproxy.Request)
-            and request.headers.get("expect")
-        ):
-            # with expect: 100-continue we have 2 responses from the server
-            assert curr_responses + 2 == len(self.responses), "Deproxy client has lost response."
-        else:
-            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
-
-        assert expected_status_code in self.last_response.status, (
-            f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-            + f"Received - {self.last_response.status}"
-        )
+        if expected_status_code:
+            assert expected_status_code in self.last_response.status, (
+                f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
+                + f"Received - {self.last_response.status}"
+            )
 
     def send_bytes(self, data: bytes, expect_response=False):
         self._add_to_request_buffers(data=data, end_stream=None)
@@ -334,15 +334,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
 
 class DeproxyClient(BaseDeproxyClient):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.allow_expect_100_continue_behavior = True
-        self._100_headers_to_send: Optional[bytes] = None
-        self._100_body_to_send: Optional[bytes] = None
-        self._100_waiting_first_response: bool = False
-        self._100_continue_received_status: Optional[int] = None
-        self._100_body_sent = True
 
     def make_requests(self, requests: list[deproxy.Request | str], pipelined=False) -> None:
         """
@@ -439,132 +430,8 @@ class DeproxyClient(BaseDeproxyClient):
                     ("Can't parse message\n" "<<<<<\n%s\n>>>>>" % self.response_buffer),
                 )
                 raise
-
             self.receive_response(response)
-
-            if self._100_waiting_first_response:
-                self._100_waiting_first_response = False
-                self._100_continue_received_status = int(response.status)
-                continue
-
             self.nrresp += 1
-
-    @staticmethod
-    def __is_request_100_continue(http_message_body: bytes) -> bool:
-        if not http_message_body:
-            return False
-
-        return b"expect: 100-continue" in http_message_body.lower()
-
-    def reset_100_continue_variables(self):
-        self._100_headers_to_send = None
-        self._100_body_to_send = None
-        self._100_waiting_first_response = False
-        self._100_continue_received_status = None
-        self._100_body_sent = True
-
-    @staticmethod
-    def split_pipelined_100_request(request_data: bytes) -> tuple[bytes, bytes]:
-        parts = request_data.split(b"\r\n\r\n")
-
-        # single request
-        if len(parts) == 2:
-            return parts[0], parts[1]
-
-        # pipelined requests
-        split_index = 0
-
-        for index, part in enumerate(parts):
-            if b"expect: 100-continue" in part.lower():
-                split_index = index
-                break
-
-        return (
-            b"\r\n\r\n".join(parts[: split_index + 1]),
-            b"\r\n\r\n".join(parts[split_index + 1 :]),
-        )
-
-    def handle_expect_100_continue(self, request_data: bytes) -> bool:
-        """
-        Special case of request with `Expect: 100-continue` header.
-
-        Warning: this type of request makes the sending - receiving requests synchronous.
-        You might send 100 requests and if one is Expect-100-Continue, sending might become
-        stopped until its finished.
-        """
-
-        if not self._100_headers_to_send and not self._100_body_to_send and self._100_body_sent:
-            self._100_headers_to_send, self._100_body_to_send = self.split_pipelined_100_request(
-                request_data
-            )
-
-            if not self._100_body_to_send:
-                raise ValueError("Can not set Expect: 100-continue request with empty body")
-
-            self._100_headers_to_send += b"\r\n\r\n"
-            self._100_body_sent = False
-
-        total_send_bytes = 0
-
-        # send the headers firstly
-        if self._100_headers_to_send:
-            total_send_bytes = self.send(self._100_headers_to_send[: self.segment_size])
-            self._100_headers_to_send = self._100_headers_to_send[self.segment_size :]
-            self.last_segment_time = time.time()
-
-        if total_send_bytes and not self._100_headers_to_send:
-            self._100_waiting_first_response = True
-
-        # wait until server respond
-        if not self._100_continue_received_status:
-            return False
-
-        # server respond with error and cancelled body sending
-        if self._100_continue_received_status > 399:
-            self.reset_100_continue_variables()
-            return True
-
-        # send the rest body
-        if self._100_body_to_send:
-            self.send(self._100_body_to_send[: self.segment_size])
-            self._100_body_to_send = self._100_body_to_send[self.segment_size :]
-            self.last_segment_time = time.time()
-
-        if self._100_body_to_send:
-            return False
-
-        self.reset_100_continue_variables()
-
-        return True
-
-    def handle_write(self):
-        """Send data from `self.request_buffers` and cut them."""
-        request_data: bytes = self.request_buffers[self.cur_req_num]
-        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
-        tf_cfg.dbg(5, request_data)
-
-        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
-            self.segment_size = run_config.TCP_SEGMENTATION
-
-        self.segment_size = self.segment_size if self.segment_size else deproxy.MAX_MESSAGE_SIZE
-
-        if self.allow_expect_100_continue_behavior and self.__is_request_100_continue(request_data):
-            if self.handle_expect_100_continue(request_data):
-                self.cur_req_num += 1
-                self.valid_req_num += 1
-
-            return
-
-        sent = self.send(request_data[: self.segment_size])
-
-        if sent < 0:
-            return
-
-        self.last_segment_time = time.time()
-        self.request_buffers[self.cur_req_num] = request_data[sent:]
-
-        if len(self.request_buffers[self.cur_req_num]) == 0:
-            self.cur_req_num += 1
 
     def _add_to_request_buffers(self, data) -> None:
         data = data if isinstance(data, list) else [data]
