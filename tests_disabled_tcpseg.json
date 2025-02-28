@@ -300,6 +300,10 @@
         {
             "name": "http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_request_pipeline_3_all_100",
             "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_request_pipeline_3_requests_encoding_chunked",
+            "reason": "These tests should not be run with TCP segmentation."
         }
     ]
 }

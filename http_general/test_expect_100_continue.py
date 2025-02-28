@@ -344,11 +344,17 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
                     method="PUT",
                     headers=[
                         ("Expect", "100-continue"),
-                        ("Content-Length", "100"),
                         ("Content-Type", "text/plain"),
-                        ("Content-Encoding", "chunked"),
+                        ("Transfer-Encoding", "chunked"),
                     ],
+                    body="3\r\n111\r\n3\r\n222\r\n3\r\n333\r\n0\r\n\r\n",
                     uri="/expect",
+                    version="HTTP/1.1",
+                ),
+                client.create_request(
+                    method="GET",
+                    headers=[],
+                    uri="/test",
                     version="HTTP/1.1",
                 ),
             ],
@@ -358,23 +364,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
-            [200, 100],
-            "Invalid responses sequence",
-        )
-
-        request = client.create_request(
-            method="GET",
-            headers=[],
-            uri="/test",
-            version="HTTP/1.1",
-        )
-        client.send_bytes(b"a" * 100 + request.msg.encode(), expect_response=True)
-        client.methods.append("GET")
-        client.wait_for_response(strict=True, n=4)
-        self.assertEqual(client.last_response.status, "200")
-        self.assertEqual(
-            [int(response.status) for response in client.responses],
-            [200, 100, 200, 200],
+            [200, 200, 200],
             "Invalid responses sequence",
         )
 
