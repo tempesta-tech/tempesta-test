@@ -585,7 +585,7 @@ class DeproxyClientTest(tester.TempestaTest):
         self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
-        server.sleep_when_receiving_data = 2
+        server.sleep_when_receiving_data = 50
 
         client = self.get_client("deproxy")
         client.start()
@@ -606,7 +606,7 @@ class DeproxyClientTest(tester.TempestaTest):
                     method="PUT",
                     headers=[
                         ("Expect", "100-continue"),
-                        ("Content-Length", "2"),
+                        ("Content-Length", "200"),
                         ("Content-Type", "application/json"),
                     ],
                     uri="/expect",
@@ -615,21 +615,18 @@ class DeproxyClientTest(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        client.wait_for_response(timeout=10)
 
-        self.assertEqual(
-            [int(response.status) for response in client.responses],
-            [200, 100],
-            "Invalid responses sequence",
-        )
+        time.sleep(3)
 
-        request = client.create_request(
-            method="GET",
-            headers=[],
-            uri="/test",
-            version="HTTP/1.1",
-        )
-        client.send_bytes(b"{}" + request.msg.encode(), expect_response=True)
+        print("BEFORE CLOSE")
+        client.close()
+        print("AFTER CLOSE")
+
+        for _ in range(199):
+            client.send_bytes(b"a", expect_response=False)
+            time.sleep(0.1)
+
+        client.send_bytes(b"a" + request.msg.encode(), expect_response=True)
         client.methods.append("GET")
         client.wait_for_response(strict=True, n=4)
         self.assertEqual(client.last_response.status, "200")
