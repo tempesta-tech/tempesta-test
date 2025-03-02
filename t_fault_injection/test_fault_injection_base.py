@@ -1,7 +1,7 @@
 """Bpf tests to check error handlings."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -37,6 +37,13 @@ class TestFailFunctionBase(tester.TempestaTest):
             "port": "80",
         },
         {
+            "id": "deproxy_ssl",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+        {
             "id": "deproxy_h2",
             "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
@@ -48,7 +55,7 @@ class TestFailFunctionBase(tester.TempestaTest):
     tempesta = {
         "config": """
             listen 80;
-            listen 443 proto=h2;
+            listen 443 proto=h2,https;
 
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -226,6 +233,62 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 mtu=None,
                 retval=-12,
             ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_ssl",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_ssl",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_aead_atomic_h2",
+                func_name="crypto_alloc_aead_atomic",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_ssl",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_ssl",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
+            marks.Param(
+                name="crypto_alloc_shash_atomic_h2",
+                func_name="crypto_alloc_shash_atomic",
+                id="deproxy_h2",
+                msg="Cannot setup hash ctx",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                mtu=None,
+                retval=-12,
+            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
@@ -266,9 +329,117 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
 
         if msg:
             self.assertTrue(
-                self.oops.find(msg, cond=dmesg.amount_positive),
+                self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
                 "Tempesta doesn't report error",
             )
+
+        # This should be called in case if test fails also
+        self.teardown_fail_function_test()
+
+
+class TestFailFunctionPrepareResp(TestFailFunctionBase):
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_tfw_h2_prep_resp_for_error_response(self):
+        """
+        Basic test to check how Tempesta FW works when some internal
+        function fails. Function should be marked as ALLOW_ERROR_INJECTION
+        in Tempesta FW source code.
+        """
+
+        try:
+            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
+            prev_mtu = sysnet.change_mtu(remote.client, dev, 100)
+            self._test_tfw_h2_prep_resp_for_error_response()
+        finally:
+            sysnet.change_mtu(remote.client, dev, prev_mtu)
+
+    def _test_tfw_h2_prep_resp_for_error_response(self):
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.disable_deproxy_auto_parser()
+
+        header = ("qwerty", "x" * 1500000)
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + f"{header[0]}: {header[1]}\r\n"
+            + f"Content-Length: 0\r\n\r\n"
+        )
+        self.start_all_services(client=False)
+
+        self.setup_fail_function_test("tfw_h2_append_predefined_body", -1, -12)
+        client = self.get_client("deproxy_h2")
+        request1 = client.create_request(method="GET", headers=[])
+        request2 = client.create_request(method="GET", headers=[("Content-Type", "!!!!")])
+        client.start()
+
+        client.update_initial_settings(max_header_list_size=1600000)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta foes not returns SETTINGS frame with ACK flag.",
+        )
+
+        self.oops_ignore = ["ERROR"]
+        client.make_request(request1)
+        server.wait_for_requests(1)
+        client.make_request(request2)
+
+        # This is necessary to be sure that Tempesta FW write
+        # appropriate message in dmesg.
+        self.assertFalse(client.wait_for_response(3))
+        self.assertTrue(client.wait_for_connection_close())
+
+        # This should be called in case if test fails also
+        self.teardown_fail_function_test()
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_tfw_h2_prep_resp_for_sticky_ccokie(self):
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.disable_deproxy_auto_parser()
+
+        srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
+        remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.js.tpl {workdir}")
+        remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.tpl {workdir}/js1.tpl")
+
+        new_config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = (
+            new_config
+            + """
+            sticky {
+                cookie enforce name=cname max_misses=5;
+                js_challenge resp_code=503 delay_min=1 delay_range=3 %s/js1.html;
+            }
+        """
+            % workdir
+        )
+
+        server.set_response(
+            deproxy.Response.create_simple_response(
+                status="200",
+                headers=[("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        ),
+
+        self.start_all_services(client=False)
+        self.setup_fail_function_test("tfw_h2_append_predefined_body", 1, -12)
+        client = self.get_client("deproxy_h2")
+        request = client.create_request(method="GET", headers=[("accept", "text/html")])
+        client.start()
+
+        self.oops_ignore = ["ERROR"]
+        client.make_request(request)
+
+        # This is necessary to be sure that Tempesta FW write
+        # appropriate message in dmesg.
+        self.assertTrue(client.wait_for_response(3))
+        self.assertEqual(client.last_response.status, "500")
+        self.assertTrue(client.wait_for_connection_close())
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()
@@ -340,7 +511,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertTrue(client.last_response.status, "200")
         self.assertTrue(
-            self.oops.find(msg, cond=dmesg.amount_positive),
+            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
 
@@ -357,184 +528,9 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
                 self.assertTrue(srv.wait_for_requests(req_count + j))
                 srv.flush()
                 self.assertTrue(client.wait_for_response())
-                self.assertEqual(client._last_response.status, "200")
+                self.assertEqual(client.last_response.status, "200")
 
         # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
-
-class TestFailFunctionBlockAction(TestFailFunctionBase):
-    tempesta_tmpl = """
-            listen 80;
-            listen 443 proto=h2;
-
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-
-            block_action attack %s;
-            block_action error %s;
-            %s
-
-            server ${server_ip}:8000 conns_n=1;
-            
-            frang_limits {
-                http_strict_host_checking false;
-            }
-    """
-
-    ERROR_RESPONSE_BODY = "a" * 1000
-    INITIAL_WINDOW_SIZE = 100
-    resp_tempesta_conf = "response_body 4* {0};"
-
-    def _generate_custom_error_page(self, data):
-        workdir = tf_cfg.cfg.get("General", "workdir")
-        cpage_gen = CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
-        path = cpage_gen.get_file_path()
-        remote.tempesta.copy_file(path, data)
-        return path
-
-    def setUp(self):
-        path = self._generate_custom_error_page(self.ERROR_RESPONSE_BODY)
-        self.tempesta = {
-            "config": self.tempesta_tmpl % ("reply", "reply", self.resp_tempesta_conf.format(path)),
-        }
-        TestFailFunctionBase.setUp(self)
-
-    @marks.Parameterize.expand(
-        [
-            # Error occurs when we receive ping frame Conn_Stop
-            # bit is not set, so Tempesta FW immediately closes
-            # connection and stops process any other frames.
-            marks.Param(
-                name="tfw_h2_send_ping_0",
-                func_name="tfw_h2_send_ping",
-                times=-1,
-                retval=-12,
-                increment=1,
-                count=999,
-                frame_num=0,
-                frame=PingFrame(0),
-                expect_response=False,
-            ),
-            # Error occurs when Tempesta FW process invalid request,
-            # Tempesta FW continue to process frames, but doesn't
-            # skip any types of frames except WINDOW_UPDATE, so
-            # `tfw_h2_send_ping` never called.
-            marks.Param(
-                name="tfw_h2_send_ping_1",
-                func_name="tfw_h2_send_ping",
-                times=-1,
-                retval=-12,
-                increment=100,
-                count=9,
-                frame_num=1,
-                frame=PingFrame(0),
-                expect_response=True,
-            ),
-            marks.Param(
-                name="tfw_h2_send_ping_2",
-                func_name="tfw_h2_send_ping",
-                times=-1,
-                retval=-12,
-                increment=100,
-                count=9,
-                frame_num=2,
-                frame=PingFrame(0),
-                expect_response=True,
-            ),
-            # Error occurs when Tempesta FW process invalid request,
-            # but next error occurs when Tempsta FW process invlid
-            # WINDOW_UPDATE frame. Tempesta FW immediately closes
-            # connection.
-            marks.Param(
-                name="tfw_h2_wnd_update_process",
-                func_name="tfw_h2_wnd_update_process",
-                times=-1,
-                retval=-12,
-                increment=10,
-                count=90,
-                frame_num=0,
-                frame=WindowUpdateFrame(0),
-                expect_response=False,
-            ),
-        ]
-    )
-    @dmesg.unlimited_rate_on_tempesta_node
-    def test(
-        self,
-        name,
-        func_name,
-        times,
-        retval,
-        increment,
-        count,
-        frame_num,
-        frame,
-        expect_response,
-    ):
-        server = self.get_server("deproxy")
-        server.conns_n = 1
-        self.start_all_services(client=False)
-
-        self.setup_fail_function_test(func_name, times, retval)
-        client = self.get_client("deproxy_h2")
-        client.start()
-        client.update_initial_settings(initial_window_size=self.INITIAL_WINDOW_SIZE)
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(
-            client.wait_for_ack_settings(),
-            "Tempesta does not returns SETTINGS frame with ACK flag.",
-        )
-
-        client.auto_flow_control = False
-
-        stream = client.init_stream_for_send(client.stream_id)
-        stream_id = client.stream_id
-
-        headers_frame = HeadersFrame(
-            stream_id=stream_id,
-            data=HuffmanEncoder().encode(
-                [
-                    (":authority", "good.com"),
-                    (":path", "/"),
-                    (":scheme", "https"),
-                    (":method", "GET"),
-                    ("Content-Type", "invalid"),
-                ]
-            ),
-            flags=["END_HEADERS", "END_STREAM"],
-        )
-
-        stream = client.h2_connection.streams[stream_id]
-        stream_wnd_update_frame = b""
-        for _ in range(0, count):
-            stream_wnd_update_frame += stream.increase_flow_control_window(increment)[0].serialize()
-            client.h2_connection.increment_flow_control_window(increment)
-
-        to_send = [
-            headers_frame.serialize(),
-            client.h2_connection.data_to_send(),
-            stream_wnd_update_frame,
-        ]
-        client.h2_connection.clear_outbound_data_buffer()
-        to_send.insert(frame_num, frame.serialize())
-
-        client.send_bytes(
-            b"".join(to_send),
-            expect_response=True,
-        )
-
-        self.assertTrue(client.wait_for_connection_close())
-        self.assertEqual(client.ping_received, 0)
-        if expect_response:
-            self.assertIsNotNone(client.last_response)
-            self.assertEqual(client.last_response.status, "400")
-            self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
-        else:
-            self.assertFalse(client.last_response)
-
         self.teardown_fail_function_test()
 
 

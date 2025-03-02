@@ -5,8 +5,7 @@ __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers import dmesg
-
-from .common import AccessLogLine
+from helpers.access_log import AccessLogLine
 
 
 class CheckedResponses(tester.TempestaTest):
@@ -126,7 +125,7 @@ class CheckedResponses(tester.TempestaTest):
         log_string = self.get_expected_log_msg()
         found = False
         for line in klog.log.decode().split("\n"):
-            if line[-len(log_string) :] == log_string:
+            if log_string in line:
                 found = True
                 break
 
@@ -172,7 +171,7 @@ class AccessLogTest(CheckedResponses):
         self.assertEqual(msg.uri[-4:], "1...", "URI does not looks truncated")
         self.assertEqual(msg.user_agent, "user-agent", "Wrong user-agent")
         self.assertEqual(msg.referer, "referer", "Wrong referer")
-        self.assertNotEqual(msg.ip, "-", "Wrong ip")
+        self.assertNotEqual(msg.address, "-", "Wrong ip")
 
     def test_bad_user_agent(self):
         self.start_all()
@@ -184,7 +183,7 @@ class AccessLogTest(CheckedResponses):
         # Make sure that some fields are properly set
         self.assertEqual(msg.method, "GET", "Wrong method")
         self.assertEqual(msg.uri, "/some-uri", "Wrong uri")
-        self.assertNotEqual(msg.ip, "-", "Wrong ip")
+        self.assertNotEqual(msg.address, "-", "Wrong ip")
 
 
 # Ensure message is logged when request is rejected by frang
@@ -217,4 +216,4 @@ class AccessLogFrang(CheckedResponses):
         self.assertEqual(msg.uri, "/longer-than-10-symbols-uri", "Wrong uri")
         self.assertEqual(msg.user_agent, "user-agent", "Wrong user-agent")
         self.assertEqual(msg.referer, "referer", "Wrong referer")
-        self.assertNotEqual(msg.ip, "-", "Wrong ip")
+        self.assertNotEqual(msg.address, "-", "Wrong ip")

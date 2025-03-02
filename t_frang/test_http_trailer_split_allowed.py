@@ -12,7 +12,7 @@ from test_suite import marks
 WARN = "frang: HTTP field appear in header and trailer"
 
 REQUEST_WITH_TRAILER = (
-    "GET / HTTP/1.1\r\n"
+    "POST / HTTP/1.1\r\n"
     "Host: debian\r\n"
     "HdrTest: testVal\r\n"
     "Transfer-Encoding: gzip, chunked\r\n"
@@ -32,7 +32,7 @@ class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
             requests=[
                 REQUEST_WITH_TRAILER,
                 (
-                    "GET / HTTP/1.1\r\n"
+                    "POST / HTTP/1.1\r\n"
                     "Host: debian\r\n"
                     "HdrTest: testVal\r\n"
                     "Transfer-Encoding: chunked\r\n"

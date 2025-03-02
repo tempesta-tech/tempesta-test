@@ -90,7 +90,7 @@ block_action error reply;
 
         self.assertTrue(client.wait_for_response(30))
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(self.oops.find("frang: HTTP body length exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     @unlimited_rate_on_tempesta_node
     def test_http_strict_host_checking(self):
@@ -109,7 +109,7 @@ block_action error reply;
             ),
             expected_status_code="403",
         )
-        self.assertTrue(self.oops.find("frang: Request :authority differs from Host for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: Request :authority differs from Host for"))
 
     @unlimited_rate_on_tempesta_node
     def test_http_ct_required(self):
@@ -125,7 +125,7 @@ block_action error reply;
             request=client.create_request(method="POST", headers=[]),
             expected_status_code="200",
         )
-        self.assertFalse(self.oops.find("frang: Content-Type header field for"))
+        self.assertFalse(self.loggers.dmesg.find("frang: Content-Type header field for"))
 
     @unlimited_rate_on_tempesta_node
     def test_http_trailer_split_allowed(self):
@@ -153,7 +153,7 @@ block_action error reply;
 
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(self.oops.find("frang: HTTP field appear in header and trailer"))
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP field appear in header and trailer"))
 
     @unlimited_rate_on_tempesta_node
     def test_http_methods(self):
@@ -169,7 +169,7 @@ block_action error reply;
             request=client.create_request(method="PUT", headers=[]),
             expected_status_code="403",
         )
-        self.assertTrue(self.oops.find("frang: restricted HTTP method"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method"))
 
     @limited_rate_on_tempesta_node
     def test_concurrent_tcp_connections(self):
@@ -186,7 +186,9 @@ block_action error reply;
         self.wait_while_busy(client)
         client.stop()
 
-        self.assertTrue(self.oops.find("frang: connections max num. exceeded for", amount_positive))
+        self.assertTrue(
+            self.loggers.dmesg.find("frang: connections max num. exceeded for", amount_positive)
+        )
         self.assertGreater(client.statuses[200], 0)
 
     @unlimited_rate_on_tempesta_node
@@ -205,7 +207,7 @@ block_action error reply;
             ),
             expected_status_code="403",
         )
-        self.assertTrue(self.oops.find("frang: HTTP headers count exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP headers count exceeded for"))
 
     @unlimited_rate_on_tempesta_node
     def test_ip_block(self):
@@ -230,7 +232,7 @@ block_action error reply;
             expected_status_code="200",
         )
 
-        self.assertTrue(self.oops.find("frang: "))
+        self.assertTrue(self.loggers.dmesg.find("frang: "))
 
 
 class TestOverridingInheritance(tester.TempestaTest):
@@ -303,7 +305,7 @@ block_action error reply;
         client.send_request(
             client.create_request(method="POST", headers=[("x-my-xdr", "a" * 150)]), "403"
         )
-        self.assertTrue(self.oops.find("frang: HTTP header length exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
 
     @marks.Parameterize.expand(
         [
@@ -338,7 +340,7 @@ block_action error reply;
         client = self.get_client("deproxy")
 
         client.send_request(client.create_request(method="GET", headers=[]), "403")
-        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @marks.Parameterize.expand(
         [
@@ -436,7 +438,7 @@ block_action error reply;
         client = self.get_client("deproxy")
 
         client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
-        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @unlimited_rate_on_tempesta_node
     def test_inheritance_global_to_location(self):
@@ -454,7 +456,7 @@ block_action error reply;
         client = self.get_client("deproxy")
 
         client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
-        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @unlimited_rate_on_tempesta_node
     def test_inheritance_vhost_to_location_limits_after_location(self):
@@ -479,12 +481,14 @@ block_action error reply;
 
         # request to location /vhost_1 with http_methods get post head (global limits)
         client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "200")
-        self.oops.update()
-        self.assertEqual(0, len(self.oops.log_findall("frang: restricted HTTP method for")))
+        self.loggers.dmesg.update()
+        self.assertEqual(
+            0, len(self.loggers.dmesg.log_findall("frang: restricted HTTP method for"))
+        )
 
         # request to vhost vhost_1 with http_methods post put (vhost limits and default location)
         client.send_request(client.create_request(method="HEAD", uri="/", headers=[]), "403")
-        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @marks.Parameterize.expand(
         [
@@ -523,8 +527,8 @@ block_action error reply;
 
         client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "200")
         client.send_request(client.create_request(method="GET", uri="/vhost_2", headers=[]), "200")
-        self.oops.update()
-        self.assertEqual(0, len(self.oops.log_findall("frang: ")))
+        self.loggers.dmesg.update()
+        self.assertEqual(0, len(self.loggers.dmesg.log_findall("frang: ")))
 
     @marks.Parameterize.expand(
         [
@@ -588,13 +592,13 @@ block_action error reply;
         client = self.get_client("deproxy")
 
         client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
-        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     def _test_not_override_http_methods(self):
         client = self.get_client("deproxy")
         client.start()
         client.send_request(client.create_request(method="GET", headers=[]), "403")
-        self.assertTrue(self.oops.find("frang: restricted HTTP method for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     def _test_not_override_concurrent_tcp_connections(self):
         client = self.get_client("deproxy")
@@ -608,7 +612,7 @@ block_action error reply;
         client.wait_for_response(timeout=2)
         client_1.wait_for_response(timeout=2)
 
-        self.assertTrue(self.oops.find("frang: connections max num. exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: connections max num. exceeded for"))
         self.assertEqual(1, len(client.responses) + len(client_1.responses))
 
     def _test_not_override_http_body_len_0(self):
@@ -618,21 +622,21 @@ block_action error reply;
             f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1000\r\n\r\n{'x' * 1000}"
         )
         client.send_request(request, "200")
-        self.assertFalse(self.oops.find("frang: HTTP body length exceeded for"))
+        self.assertFalse(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     def _test_not_override_http_body_len_1(self):
         client = self.get_client("deproxy_http")
         client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
         client.send_request(request, "403")
-        self.assertTrue(self.oops.find("frang: HTTP body length exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     def _test_not_override_http_body_len_2(self):
         client = self.get_client("deproxy_http")
         client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
         client.send_request(request, "200")
-        self.assertFalse(self.oops.find("frang: HTTP body length exceeded for"))
+        self.assertFalse(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     def _test_not_override_http_resp_code_block_1(self):
         client = self.get_client("deproxy")
@@ -641,7 +645,7 @@ block_action error reply;
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         client.wait_for_response(5)
-        self.assertFalse(self.oops.find("frang: http_resp_code_block limit exceeded for"))
+        self.assertFalse(self.loggers.dmesg.find("frang: http_resp_code_block limit exceeded for"))
 
     def _test_not_override_http_resp_code_block_2(self):
         client = self.get_client("deproxy")
@@ -649,7 +653,7 @@ block_action error reply;
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         client.wait_for_response(5)
-        self.assertTrue(self.oops.find("frang: http_resp_code_block limit exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: http_resp_code_block limit exceeded for"))
         self.assertEqual(len(client.responses), 2)
 
     @marks.Parameterize.expand(
@@ -785,7 +789,7 @@ block_action error reply;
         client = self.get_client("deproxy")
         client.start()
         client.send_request(client.create_request(method="GET", headers=[]), "200")
-        self.assertFalse(self.oops.find("frang: restricted HTTP method for"))
+        self.assertFalse(self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     def _test_override_ct_vals_after_reload(self):
         client = self.get_client("deproxy")
@@ -793,14 +797,14 @@ block_action error reply;
         client.send_request(
             client.create_request(method="POST", headers=[("content-type", "text/html")]), "200"
         )
-        self.assertFalse(self.oops.find("frang: restricted Content-Type for"))
+        self.assertFalse(self.loggers.dmesg.find("frang: restricted Content-Type for"))
         client.send_request(
             client.create_request(
                 method="POST", authority="tests.com", headers=[("content-type", "text/html")]
             ),
             "403",
         )
-        self.assertTrue(self.oops.find("frang: restricted Content-Type for"))
+        self.assertTrue(self.loggers.dmesg.find("frang: restricted Content-Type for"))
 
     @marks.Parameterize.expand(
         [
@@ -1100,7 +1104,8 @@ block_action error reply;
         self.__update_tempesta_config(wrong_config)
 
         with self.assertRaises(
-            expected_exception=ProcessBadExitStatusException, msg="TempestaFW reloads with wrong config"
+            expected_exception=ProcessBadExitStatusException,
+            msg="TempestaFW reloads with wrong config",
         ):
             self.oops_ignore = ["ERROR"]
             self.get_tempesta().reload()

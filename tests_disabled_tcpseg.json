@@ -2,11 +2,7 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "t_fault_injection.test_fault_injection_base.TestFailFunction",
-            "reason": "These tests should not be run with TCP segmentation."
-        },
-        {
-            "name": "t_fault_injection.test_fault_injection_base.TestFailFunctionPipelinedResponses",
+            "name": "t_fault_injection",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
@@ -46,7 +42,7 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "access_log.test_access_log.AccessLogFrang",
+            "name": "t_access_log.test_access_log.AccessLogFrang",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
@@ -130,11 +126,39 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_error_reply_with_conn_close",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply_not_on_req_rcv_event",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_attack_reply",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_error_reply_with_conn_close",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_attack_reply_not_on_req_rcv_event",
+            "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
             "name": "http2_general.test_h2_hpack.TestHpackBomb",
             "reason": "These tests should not be run with TCP segmentation. We have separate tests for `http_max_header_list_size`."
         },
         {
             "name": "t_sites",
+            "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
+        },
+        {
+            "name": "t_stress.test_ddos",
             "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
         },
         {
@@ -144,6 +168,22 @@
         {
             "name": "cache.test_purge.TestPurgeInvalidConfig",
             "reason": "These tests should not be run with TCP segmentation."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
+        },
+        {
+            "name": "t_server_options",
+            "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
             "name": "tls.test_tls_integrity.ProxyH2",
@@ -248,6 +288,10 @@
         {
             "name": "http2_general.test_h2_headers.TestIPv6.test_request_with_some_data",
             "reason": "Disabled by test issue #525"
+        },
+        {
+            "name": "t_ja5.test_ja5t.TestJa5tStress",
+            "reason": "This test should not be run with TCP segmentation. It use h2load and wrk clients and ja5 only works for requests."
         }
     ]
 }

@@ -5,7 +5,7 @@ import typing
 from helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 STATE_BEGIN_START = "begin_start"
@@ -15,8 +15,10 @@ STATE_ERROR = "error"
 
 
 class Stateful(abc.ABC):
-    """Class for stateful items, who have states
-    stopped -> started -> stopped"""
+    """
+    Class for stateful items, who have states
+    stopped -> started -> stopped
+    """
 
     def __init__(self):
         self._state = STATE_STOPPED
@@ -44,9 +46,14 @@ class Stateful(abc.ABC):
         self._exceptions.append(exception)
         self.state = STATE_ERROR
 
-    def run_start(self):
-        """Should be overridden"""
-        pass
+    @abc.abstractmethod
+    def run_start(self): ...
+
+    def _reinit_variables(self) -> None:
+        """
+        The optional method. It MUST be called only inside the `start` and `init` methods.
+        All counters or dynamic variables for the service should be reset here.
+        """
 
     def restart(self):
         self.stop()
@@ -55,12 +62,10 @@ class Stateful(abc.ABC):
     def start(self, obj=""):
         """Try to start object"""
         if self.state != STATE_STOPPED:
-            if obj == "":
-                tf_cfg.dbg(3, "Not stopped")
-            else:
-                tf_cfg.dbg(3, "%s not stopped" % obj)
+            tf_cfg.dbg(3, f"{obj or self} not stopped")
             return
         self.state = STATE_BEGIN_START
+        self._reinit_variables()
         self.run_start()
         self.state = STATE_STARTED
 
@@ -69,6 +74,7 @@ class Stateful(abc.ABC):
         for stop_proc in self.stop_procedures:
             try:
                 stop_proc()
+                self.state = STATE_STOPPED
             except Exception as exc:
                 tb_msg = traceback.format_exc()
                 tf_cfg.dbg(
@@ -77,16 +83,10 @@ class Stateful(abc.ABC):
                 )
                 self.append_exception(tb_msg)
 
-        if self.state != STATE_ERROR:
-            self.state = STATE_STOPPED
-
     def stop(self, obj=""):
         """Try to stop object"""
         if self.state != STATE_STARTED and self.state != STATE_BEGIN_START:
-            if obj == "":
-                tf_cfg.dbg(3, "Not started")
-            else:
-                tf_cfg.dbg(3, "%s not started" % obj)
+            tf_cfg.dbg(3, f"{obj or self} not started")
             return
         self.force_stop()
 

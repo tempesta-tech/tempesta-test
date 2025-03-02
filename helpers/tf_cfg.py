@@ -8,7 +8,7 @@ import os
 import sys
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
@@ -18,7 +18,7 @@ from rich import pretty
 from rich.logging import Console, RichHandler
 
 if TYPE_CHECKING:
-    from helpers.remote import INode
+    from helpers.remote import ANode
 
 
 LOGGER = logging.getLogger(__name__)
@@ -83,11 +83,56 @@ class TestFrameworkCfg(object):
         self.configure_logger()
 
     def __fill_kvs(self):
-        for section in ["General", "Client", "Tempesta", "Server"]:
+        for section in ["General", "Client", "Tempesta", "Server", "TFW_Logger"]:
             cfg = self.config[section]
             for key in cfg.keys():
                 id = "_".join([section.lower(), key])
                 self.kvs[id] = cfg[key]
+
+    def __update_config_for_remote_setup(self) -> None:
+        """
+        Update values for CI machines with remote setup.
+        HOST_IP, HOST_IPV6, REMOTE_IP, REMOTE_IPV6 should store as VM variables
+        WEBSITE_USER and WEBSITE_PASSWORD should store as global jenkins variables.
+        """
+        host_ip = os.getenv("HOST_IP", None)
+        host_ipv6 = os.getenv("HOST_IPV6", None)
+        remote_ip = os.getenv("REMOTE_IP", None)
+        remote_ipv6 = os.getenv("REMOTE_IPV6", None)
+        website_user = os.getenv("WEBSITE_USER", None)
+        website_password = os.getenv("WEBSITE_PASSWORD", None)
+
+        if (
+            host_ip is None
+            or host_ipv6 is None
+            or remote_ip is None
+            or remote_ipv6 is None
+            or website_user is None
+            or website_password is None
+        ):
+            self.logger.log(
+                FATAL,
+                "IP and IPv6 addresses, login and password for tempesta-tech.com "
+                "must be declared in the environment variables",
+            )
+            sys.exit(-1)
+
+        self.config["General"]["ip"] = remote_ip
+        self.config["General"]["ipv6"] = remote_ipv6
+
+        self.config["Client"]["ip"] = remote_ip
+        self.config["Client"]["ipv6"] = remote_ipv6
+
+        self.config["Tempesta"]["ip"] = host_ip
+        self.config["Tempesta"]["ipv6"] = host_ipv6
+        self.config["Tempesta"]["hostname"] = host_ip
+
+        self.config["Server"]["ip"] = remote_ip
+        self.config["Server"]["ipv6"] = remote_ipv6
+        self.config["Server"]["website_user"] = website_user
+        self.config["Server"]["website_password"] = website_password
+
+        self.config["TFW_Logger"]["clickhouse_host"] = remote_ip
 
     def defaults(self):
         self.config = configparser.ConfigParser()
@@ -142,15 +187,23 @@ class TestFrameworkCfg(object):
                     "nginx": "nginx",
                     "workdir": "/tmp/nginx",
                     "resources": "/var/www/html/",
-                    "aliases_interface": "eth0",
-                    "aliases_base_ip": "192.168.10.1",
+                    "aliases_interface": "enp1s0",
+                    "aliases_base_ip": "192.168.123.2",
                     "max_workers": "16",
                     "keepalive_timeout": "60",
                     "keepalive_requests": "100",
                     "unavailable_timeout": "300",
                     "lxc_container_name": "tempesta-site-stage",
-                    "website_user": "",
-                    "website_password": "",
+                    "website_user": os.getenv("WEBSITE_USER", ""),
+                    "website_password": os.getenv("WEBSITE_PASSWORD", ""),
+                },
+                "TFW_Logger": {
+                    "clickhouse_host": "localhost",
+                    "clickhouse_port": "8123",
+                    "clickhouse_username": "default",
+                    "clickhouse_password": "",
+                    "clickhouse_database": "default",
+                    "daemon_log": "/tmp/tfw_logger.log",
                 },
             }
         )
@@ -184,8 +237,10 @@ class TestFrameworkCfg(object):
             return self.config[section][binary]
         return binary
 
-    def save_defaults(self):
+    def save_defaults(self, setup: str):
         self.defaults()
+        if setup == "remote":
+            self.__update_config_for_remote_setup()
         with open(self.cfg_file, "w") as configfile:
             self.config.write(configfile)
         print("Default configuration saved to %s" % self.cfg_file)
@@ -263,7 +318,7 @@ def dbg(level: int, msg: str, *args, **kwargs) -> None:
     )
 
 
-def log_dmesg(node: 'INode', msg: str) -> None:
+def log_dmesg(node: "ANode", msg: str) -> None:
     """Forward a message to kernel log at given node."""
     try:
         node.run_cmd(f"echo '{msg}' > /dev/kmsg")

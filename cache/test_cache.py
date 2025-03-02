@@ -1,7 +1,7 @@
 """Functional tests of caching config."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
@@ -10,7 +10,7 @@ from http import HTTPStatus
 from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import deproxy, error
+from helpers import deproxy, error, remote
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from test_suite import checks_for_tests as checks
@@ -584,7 +584,7 @@ tls_match_any_server_name;
             )
 
         if should_be_cached:
-            # self.assertIn("age", client.last_response.headers)
+            self.assertIn("age", client.last_response.headers)
             checks.check_tempesta_cache_stats(
                 self.get_tempesta(),
                 cache_hits=1,
@@ -1970,6 +1970,8 @@ class TestCacheClean(tester.TempestaTest):
 
     def test(self):
         """
+        Only for cache REPLICA mode, SHARD mode is not expected.
+
         Send request, Tempesta cache it, wait for max-age time then send second request.
         At this stage we expected that first request evicted from cache and only new version
         is presented in the cache. Send third request with different uri to verify we don't clean
@@ -1979,6 +1981,7 @@ class TestCacheClean(tester.TempestaTest):
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
+        nodes_num = remote.tempesta.get_numa_nodes_count()
 
         server.set_response(
             f"HTTP/1.1 200 OK\r\n"
@@ -1997,16 +2000,19 @@ class TestCacheClean(tester.TempestaTest):
         time.sleep(3)
         client.send_request(request, expected_status_code="200")
 
+        # We testing cache REPLICA mode, thus we expect response will be copied to each numa node
+        expected_objects_num = nodes_num
         tempesta.get_stats()
-        self.assertEqual(tempesta.stats.cache_objects, 1)
+        self.assertEqual(tempesta.stats.cache_objects, expected_objects_num)
 
         request = client.create_request(
             uri="/2", authority="tempesta-tech.com", method="GET", headers=[]
         )
         client.send_request(request, expected_status_code="200")
 
+        expected_objects_num = nodes_num * 2
         tempesta.get_stats()
-        self.assertEqual(tempesta.stats.cache_objects, 2)
+        self.assertEqual(tempesta.stats.cache_objects, expected_objects_num)
 
 
 class TestCacheUseStaleCfg(tester.TempestaTest):
@@ -2062,7 +2068,7 @@ cache_fulfill * *;
         with self.assertRaises(error.ProcessBadExitStatusException):
             self.start_tempesta()
 
-        self.assertTrue(self.oops.find(expected_msg))
+        self.assertTrue(self.loggers.dmesg.find(expected_msg))
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

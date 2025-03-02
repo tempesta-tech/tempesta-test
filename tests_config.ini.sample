@@ -296,3 +296,44 @@ lxc_container_name = tempesta-site-stage
 
 # website_user and website_password - login and pwaaword for tempesta-tech.com tests.
 # It must exist in SQL dump in tempesta-tech repo.
+
+[TFW_Logger]
+# Configuration of the TFW Logger daemon.
+# The daemon is responsible for storing HTTP request logs in the ClickHouse database.
+# It also maintains its own log file containing information about its lifespan.
+
+# The host of the Clickhouse Database
+#
+# ex.: clickhouse_host = localhost (default localhost)
+#
+clickhouse_host = localhost
+
+# The port of the Clickhouse Database
+#
+# ex.: clickhouse_port = 8123 (default 8123)
+#
+clickhouse_port = 8123
+
+# The username of the Clickhouse Database
+#
+# ex.: clickhouse_username = default (default default)
+#
+clickhouse_username = default
+
+# The password of the Clickhouse Database
+#
+# ex.: clickhouse_password = password (default is empty)
+#
+clickhouse_password =
+
+# The database name of the Clickhouse Database
+#
+# ex.: clickhouse_database = my_database (default default)
+#
+clickhouse_database = default
+
+# The TFW Logger daemon log file path.
+#
+# ex.: daemon_log = /var/log/tfw_logger.log (default /tmp/tfw_logger.log)
+#
+daemon_log = /tmp/tfw_logger.log

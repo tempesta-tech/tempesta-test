@@ -1,12 +1,12 @@
 """
 Instruments for network traffic analysis.
 """
+
 from __future__ import print_function
 
 import abc
 
 from scapy.all import *
-
 
 from helpers import error, remote, tf_cfg, util
 
@@ -27,7 +27,7 @@ CWR = 0x80
 
 class Sniffer(object, metaclass=abc.ABCMeta):
 
-    def __init__(self, node: remote.INode, host, count=0, timeout=30, ports=(80,), node_close=True):
+    def __init__(self, node: remote.ANode, host, count=0, timeout=30, ports=(80,), node_close=True):
         self.node = node
         self.ports = ports
         self.thread = None

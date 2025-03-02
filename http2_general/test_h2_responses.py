@@ -7,7 +7,7 @@ from http2_general.helpers import H2Base
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -248,7 +248,7 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client.last_response.status, expected_status)
             else:
-                self.assertFalse(client._last_response)
+                self.assertFalse(client.last_response)
 
         # Tempesta FW drops connections with backend after invalid response
         # processing and then immmediatly reestablish it and sends requests
@@ -264,4 +264,4 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
                 self.assertTrue(srv.wait_for_requests(req_count + i))
                 srv.flush()
                 self.assertTrue(client.wait_for_response())
-                self.assertEqual(client._last_response.status, "200")
+                self.assertEqual(client.last_response.status, "200")

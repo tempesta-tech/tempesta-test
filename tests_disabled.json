@@ -74,7 +74,7 @@
             "reason" : "Disabled by issue #1684"
         },
         {
-            "name" : "access_log.test_access_log.AccessLogTest.test_bad_user_agent",
+            "name" : "t_access_log.test_access_log.AccessLogTest.test_bad_user_agent",
             "reason" : "Disabled by issue #198"
         },
         {
@@ -270,22 +270,6 @@
             "reason": "Disabled by issue #1801"
         },
         {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_with_conns_n_1",
-            "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_with_conns_n_3",
-            "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_default",
-            "reason": "Disabled by issue #2046"
-        },
-        {
-            "name": "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_connect_retries_from_0",
-            "reason": "Disabled by issue #2046"
-        },
-        {
             "name": "t_custom_branges.test_http_brange.TestConfigParsing",
             "reason": "Disabled by issue #2069"
         },
@@ -312,6 +296,34 @@
         {
             "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
             "reason": "The test does not work on the SUT server - crash, issue #2255"
+        },
+        {
+            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteTls",
+            "reason": "Only TLS1.2 is available now"
+        },
+        {
+            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteCurves",
+            "reason": "Only curve prime256v1 is available now"
+        },
+        {
+            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteAlpn",
+            "reason": "Disabled by test issue #2329"
+        },
+        {
+            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogsBufferConfiguration.test_mmap_buffer",
+            "reason": "Disabled by issue #2313"
+        },
+        {
+            "name": "t_stress.test_clickhouse.TestClickHouseLogsUnderLoad",
+            "reason": "Disabled by issue #2314"
+        },
+        {
+            "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsDelay",
+            "reason": "The response time varies each time, and it is not possible to predict it exactly."
+        },
+        {
+            "name": "t_ipv6",
+            "reason": "Disabled by test issue #508"
         }
     ]
 }

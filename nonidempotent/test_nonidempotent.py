@@ -1,10 +1,10 @@
 from framework import deproxy_server
-from helpers import deproxy, tempesta
+from helpers import deproxy, tempesta, tf_cfg
 from helpers.util import fill_template
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.deproxy import HttpMessage
@@ -106,21 +106,23 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
 
 
 def build_deproxy_drop(server, name, tester):
-    port = server["port"]
-    if port == "default":
-        port = tempesta.upstream_port_start_from()
-    else:
-        port = int(port)
-    srv = None
-    rtype = server["response"]
-
-    if rtype == "static":
-        content = fill_template(server["response_content"], server)
-        srv = DeproxyDropServer(
-            port=port, response=content, deproxy_auto_parser=tester._deproxy_auto_parser
-        )
-    else:
-        raise Exception("Invalid response type: %s" % str(rtype))
+    is_ipv6 = server.get("is_ipv6", False)
+    srv = DeproxyDropServer(
+        # BaseDeproxy
+        deproxy_auto_parser=tester._deproxy_auto_parser,
+        port=int(server["port"]),
+        bind_addr=tf_cfg.cfg.get("Server", "ipv6" if is_ipv6 else "ip"),
+        segment_size=server.get("segment_size", 0),
+        segment_gap=server.get("segment_gap", 0),
+        is_ipv6=is_ipv6,
+        # StaticDeproxyServer
+        response=fill_template(server.get("response_content", ""), server),
+        keep_alive=server.get("keep_alive", 0),
+        drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
+        sleep_when_receiving_data=server.get("sleep_when_receiving_data", 0.0),
+        hang_on_req_num=server.get("hang_on_req_num", 0),
+        pipelined=server.get("pipelined", False),
+    )
     tester.deproxy_manager.add_server(srv)
     return srv
 

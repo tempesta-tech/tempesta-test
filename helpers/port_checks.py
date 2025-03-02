@@ -6,7 +6,7 @@ import ipaddress
 from typing import List
 
 from helpers import remote, tf_cfg
-from helpers.remote import INode
+from helpers.remote import ANode
 
 
 class FreePortsChecker(object):
@@ -16,11 +16,11 @@ class FreePortsChecker(object):
         super().__init__()
 
     @property
-    def node(self) -> INode:
+    def node(self) -> ANode:
         return self.__node
 
     @node.setter
-    def node(self, node: INode) -> None:
+    def node(self, node: ANode) -> None:
         self.__node = node
 
     def add_port_to_checks(self, ip: str, port: int) -> None:

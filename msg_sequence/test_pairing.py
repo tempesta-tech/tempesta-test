@@ -81,6 +81,6 @@ tls_match_any_server_name;
         client.send_request(request, "200")
 
         self.assertTrue(
-            self.oops.find(dmesg.WARN_SPLIT_ATTACK, cond=dmesg.amount_zero),
+            self.loggers.dmesg.find(dmesg.WARN_SPLIT_ATTACK, cond=dmesg.amount_zero),
             msg=("Got '%s'" % dmesg.WARN_SPLIT_ATTACK),
         )

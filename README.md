@@ -44,7 +44,7 @@ as root:
 
 - Python version till 3.11 is supported, version **3.12 is NOT supported**
 (we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
-
+- ClickHouse Database 25 (Optional, used for storing logs in the database). See installation [here](https://clickhouse.com/docs/en/install#quick-install)
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
 `curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, `docker.io`, web content 
 directory accessible by nginx, nginx should not be running before the tests start.
@@ -81,10 +81,10 @@ You can also create default tests configuration
 (see `TestFrameworkCfg.defaults` method from `helpers/tf_cfg.py`) by calling:
 
 ```sh
-./run_tests.py -d
+./run_tests.py -d local
 ```
 
-There is 4 sections in configuration: `General`, `Client`, `Tempesta`, `Server`.
+There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
 
 ### Run tests
 
@@ -404,6 +404,8 @@ and handling corresponding types of items.
 In the project we use [![wemake-python-styleguide](https://img.shields.io/badge/style-wemake-000000.svg)](https://github.com/wemake-services/wemake-python-styleguide)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+
+This project uses solutions from [MHDDoS](https://github.com/MatrixTM/MHDDoS).
 
 Install dependencies: `pip3 install -r requirements.txt`
 

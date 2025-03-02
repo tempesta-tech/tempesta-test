@@ -3,17 +3,35 @@ Utils for the testing framework.
 """
 
 import time
+import typing
 from string import Template
+
+import run_config
 
 from . import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-def wait_until(wait_cond, timeout=5, poll_freq=0.01, abort_cond=lambda: False):
+def __adjust_timeout_for_tcp_segmentation(timeout: int) -> int:
+    if run_config.TCP_SEGMENTATION and timeout < 30:
+        timeout = 60
+    return timeout
+
+
+def wait_until(
+    wait_cond: typing.Callable,
+    timeout=5,
+    poll_freq=0.01,
+    abort_cond: typing.Callable = lambda: False,
+    adjust_timeout: bool = False,
+) -> typing.Optional[bool]:
     t0 = time.time()
+
+    if adjust_timeout:
+        timeout = __adjust_timeout_for_tcp_segmentation(timeout)
 
     while wait_cond():
         t = time.time()
@@ -58,5 +76,7 @@ def get_used_memory():
     return used_memory
 
 
-def fill_template(template, properties):
+def fill_template(template: str | None, properties: dict) -> str | None:
+    if template is None:
+        return None
     return Template(template).substitute(properties)

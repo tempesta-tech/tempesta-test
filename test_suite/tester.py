@@ -1,5 +1,6 @@
 from __future__ import annotations, print_function
 
+import dataclasses
 import datetime
 import os
 import re
@@ -22,13 +23,13 @@ from framework.docker_server import DockerServer, docker_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
-from helpers import control, dmesg, error, remote, tf_cfg, util
+from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
 from helpers.deproxy import dbg
 from helpers.util import fill_template
 from test_suite import sysnet
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -99,7 +100,106 @@ register_backend("lxc", lxc_srv_factory)
 register_backend("docker", docker_srv_factory)
 
 
-class TempestaTest(unittest.TestCase):
+@dataclasses.dataclass
+class TempestaLoggers:
+    dmesg: dmesg.DmesgFinder
+    get_tempesta: typing.Callable
+
+    @property
+    def clickhouse(self) -> clickhouse.ClickHouseFinder:
+        return self.get_tempesta().clickhouse
+
+
+class WaitUntilAsserts(unittest.TestCase):
+    def assertWaitUntilEqual(
+        self,
+        func: typing.Callable,
+        second,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() != second, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Not equals even after {timeout} seconds"))
+
+    def assertWaitUntilNotEqual(
+        self,
+        func: typing.Callable,
+        second,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() == second, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Still equals even after {timeout} seconds"))
+
+    def assertWaitUntilIsNotNone(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is None, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is None event after {timeout} seconds"))
+
+    def assertWaitUntilCountEqual(
+        self,
+        func: typing.Callable,
+        count,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = 0.1,
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: len(func()) != count, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Count is not equals event after {timeout} seconds"))
+
+    def assertWaitUntilTrue(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is False, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is False event after {timeout} seconds"))
+
+    def assertWaitUntilFalse(
+        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    ):
+        success = util.wait_until(
+            wait_cond=lambda: func() is True, timeout=timeout, poll_freq=poll_freq
+        )
+
+        if success:
+            return None
+
+        self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
+
+
+class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     """Basic tempesta test class.
     Tempesta tests should have:
     1) backends: [...]
@@ -135,37 +235,25 @@ class TempestaTest(unittest.TestCase):
         """
         self._deproxy_auto_parser.parsing = False
 
-    def __create_client_deproxy(self, client, ssl, bind_addr, socket_family):
-        addr = fill_template(client["addr"], client)
-        port = int(fill_template(client["port"], client))
-        if client["type"] == "deproxy_h2":
-            clt = deproxy_client.DeproxyClientH2(
-                addr=addr,
-                port=port,
-                ssl=ssl,
-                bind_addr=bind_addr,
-                proto="h2",
-                socket_family=socket_family,
-                deproxy_auto_parser=self._deproxy_auto_parser,
-            )
-        else:
-            clt = deproxy_client.DeproxyClient(
-                addr=addr,
-                port=port,
-                ssl=ssl,
-                bind_addr=bind_addr,
-                socket_family=socket_family,
-                deproxy_auto_parser=self._deproxy_auto_parser,
-            )
-        if ssl and "ssl_hostname" in client:
-            # Don't set SNI by default, do this only if it was specified in
-            # the client configuration.
-            server_hostname = fill_template(client["ssl_hostname"], client)
-            clt.set_server_hostname(server_hostname)
-        clt.segment_size = int(client.get("segment_size", 0))
-        clt.segment_gap = int(client.get("segment_gap", 0))
-        clt.keep_original_data = bool(client.get("keep_original_data", None))
-        return clt
+    def __create_client_deproxy(self, client: dict, ssl: bool, bind_addr: str):
+        client_factories = {
+            "deproxy_h2": deproxy_client.DeproxyClientH2,
+            "deproxy": deproxy_client.DeproxyClient,
+        }
+
+        return client_factories[client["type"]](
+            # BaseDeproxy
+            deproxy_auto_parser=self._deproxy_auto_parser,
+            port=int(fill_template(client["port"], client)),
+            bind_addr=bind_addr,
+            segment_size=client.get("segment_size", 0),
+            segment_gap=client.get("segment_gap", 0),
+            is_ipv6=client.get("is_ipv6", False),
+            # BaseDeproxyClient
+            conn_addr=fill_template(client["addr"], client),
+            is_ssl=ssl,
+            server_hostname=fill_template(client.get("ssl_hostname", None), client),
+        )
 
     def __create_client_wrk(self, client, ssl):
         addr = fill_template(client["addr"], client)
@@ -195,26 +283,27 @@ class TempestaTest(unittest.TestCase):
         tf_cfg.populate_properties(client)
         ssl = client.setdefault("ssl", False)
         cid = client["id"]
-        socket_family = client.get("socket_family", "ipv4")
-        client_ip_opt = "ipv6" if socket_family == "ipv6" else "ip"
-        client_ip = tf_cfg.cfg.get("Client", client_ip_opt)
+        is_ipv6 = client.get("is_ipv6", False)
+        if is_ipv6 and client.get("interface", False):
+            raise ValueError("The framework does not support interfaces for IPv6.")
+        client_ip = tf_cfg.cfg.get("Client", "ipv6" if is_ipv6 else "ip")
         if client["type"] in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-                (_, ip) = sysnet.create_interface(len(self.__ips), interface, base_ip)
-                sysnet.create_route(interface, ip, client_ip)
-                self.__ips.append(ip)
+                (_, bind_addr) = sysnet.create_interface(len(self.__ips), interface, base_ip)
+                sysnet.create_route(interface, bind_addr, client_ip)
+                self.__ips.append(bind_addr)
             else:
-                ip = client_ip
+                bind_addr = client_ip
         if client["type"] in ["deproxy", "deproxy_h2"]:
-            self.__clients[cid] = self.__create_client_deproxy(client, ssl, ip, socket_family)
+            self.__clients[cid] = self.__create_client_deproxy(client, ssl, bind_addr)
             self.__clients[cid].set_rps(client.get("rps", 0))
             self.deproxy_manager.add_client(self.__clients[cid])
         elif client["type"] == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif client["type"] == "curl":
-            self.__clients[cid] = self.__create_client_curl(client, ip)
+            self.__clients[cid] = self.__create_client_curl(client, bind_addr)
         elif client["type"] == "external":
             self.__clients[cid] = self.__create_client_external(client)
 
@@ -278,9 +367,9 @@ class TempestaTest(unittest.TestCase):
     def get_all_services(self) -> typing.List[Stateful]:
         return (
             self.get_clients()
+            + ([self.__tempesta] if self.__tempesta is not None else [])
             + list(self.get_servers())
             + [self.deproxy_manager]
-            + ([self.__tempesta] if self.__tempesta is not None else [])
         )
 
     def get_clients_id(self):
@@ -350,7 +439,7 @@ class TempestaTest(unittest.TestCase):
         self.deproxy_manager = deproxy_manager.DeproxyManager()
         self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
         self.__save_memory_consumption()
-        self.oops = dmesg.DmesgFinder()
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=self.get_tempesta)
         self.oops_ignore = []
         self.__create_servers()
         self.__create_tempesta()
@@ -368,6 +457,7 @@ class TempestaTest(unittest.TestCase):
 
     def cleanup_services(self):
         tf_cfg.dbg(3, "\tCleanup: services")
+
         for service in self.get_all_services():
             service.stop()
             if service.exceptions:
@@ -403,13 +493,13 @@ class TempestaTest(unittest.TestCase):
 
     def cleanup_check_dmesg(self):
         tf_cfg.dbg(3, "\tCleanup: checking dmesg")
-        self.oops.update()
+        self.loggers.dmesg.update()
 
         tf_cfg.dbg(
             4,
             (
                 "----------------------dmesg---------------------\n"
-                + self.oops.log.decode(errors="ignore")
+                + self.loggers.dmesg.log.decode(errors="ignore")
                 + "-------------------end dmesg--------------------"
             ),
         )
@@ -417,14 +507,14 @@ class TempestaTest(unittest.TestCase):
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
             if err in self.oops_ignore:
                 continue
-            if len(self.oops.log_findall(err)) > 0:
-                self.oops.show()
+            if len(self.loggers.dmesg.log_findall(err)) > 0:
+                self.loggers.dmesg.show()
                 self.oops_ignore = []
                 raise Exception(f"{err} happened during test on Tempesta")
         # Drop the list of ignored errors to allow set different errors masks
         # for different tests.
         self.oops_ignore = []
-        self.oops = None
+        self.loggers = None
 
     def cleanup_deproxy_auto_parser(self):
         tf_cfg.dbg(3, "\tCleanup: Cleanup the deproxy auto parser.")

@@ -144,7 +144,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
 
         # check request is filtering out
         self.assertTrue(
-            self.oops.find(
+            self.loggers.dmesg.find(
                 "request has been filtered out via http table",
             ),
             "Filtered request warning is not shown",

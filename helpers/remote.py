@@ -4,14 +4,12 @@ Module to work with nodes: local and remote(via SSH).
 The API is required to transparently handle both cases - Tempesta and the framework
 on the same node (developer test case), or on separate machines (CI case).
 """
-from __future__ import print_function
 
 import abc
 import errno
 import logging
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import time
@@ -23,7 +21,7 @@ import run_config
 from helpers import error, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # Don't remove files from remote node. Helpful for tests development.
@@ -39,29 +37,8 @@ DEFAULT_TIMEOUT = 10
 logger = tf_cfg.LOGGER
 
 
-def modify_cmd(cmd: str) -> str:
-    """
-    Updates command line.
-
-    Adds `sudo`-prefix at the beginning of the `cmd`, and
-    wrap `cmd` with shell i.e. `sh -c '<cmd>'`
-
-    Returns:
-        (str): updated command line
-    """
-    # from the docs:
-    # Return a shell-escaped version of the string s. The returned value is a string that can safely be used
-    # as one token in a shell command line, for cases where you cannot use a list.
-    # We cannot use a list for `paramiko.exec_command`
-    # `-E` we set up some parameters via environment vars, and we need this option to preserve a user environment
-    cmd = f"sudo -E sh -c {shlex.quote(cmd)}"
-    logger.debug(f"The command was updated: wrapped with shell and added sudo-prefix `{cmd}`")
-
-    return cmd
-
-
-class INode(object, metaclass=abc.ABCMeta):
-    """Node interfaces."""
+class ANode(object, metaclass=abc.ABCMeta):
+    """Node abstract class."""
 
     _logger: logging.Logger = logger
 
@@ -79,6 +56,34 @@ class INode(object, metaclass=abc.ABCMeta):
         self.host = hostname
         self.workdir = workdir
         self.type = ntype
+        self._numa_nodes_n: int = 0
+        self._max_threads_n: int = 0
+
+    def _numa_nodes_count(self) -> int:
+        """
+        Executes shell command on the node to get number of NUMA nodes
+
+        Returns:
+            (int) number of NUMA nodes
+        """
+        cmd = f"lscpu | grep -oP 'NUMA node\(s\):\s*\K\d+'"
+        out = self.run_cmd(cmd)
+        return int(out[0].decode().strip("\n"))
+
+    def _threads_count(self) -> int:
+        """
+        Executes shell command on the node to get number of CPU threads
+
+        Returns:
+            (int) number of CPU threads
+        """
+        out, _ = self.run_cmd("grep -c processor /proc/cpuinfo")
+        math_obj = re.match(r"^(\d+)$", out.decode())
+
+        if not math_obj:
+            return 1
+
+        return int(math_obj.group(1))
 
     @abc.abstractmethod
     def run_cmd(
@@ -139,15 +144,6 @@ class INode(object, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def get_max_thread_count(self) -> int:
-        """
-        Get number of max threads on a node.
-
-        Returns:
-            (int) number of max threads
-        """
-
-    @abc.abstractmethod
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
         Copy a file to a node.
@@ -157,8 +153,33 @@ class INode(object, metaclass=abc.ABCMeta):
             (dest_dir): destination directory
         """
 
+    def get_max_thread_count(self) -> int:
+        """
+        Get number of max threads on a node.
 
-class LocalNode(INode):
+        Returns:
+            (int) number of max threads
+        """
+        return self._max_threads_n
+
+    def get_numa_nodes_count(self) -> int:
+        """
+        Get number of NUMA nodes on a node.
+
+        Returns:
+            (int) number of NUMA nodes
+        """
+        return self._numa_nodes_n
+
+    def _post_init(self):
+        """
+        Finilize initialization of the Node.
+        """
+        self._numa_nodes_n = self._numa_nodes_count()
+        self._max_threads_n = self._threads_count()
+
+
+class LocalNode(ANode):
     """Local node class."""
 
     def run_cmd(
@@ -188,8 +209,6 @@ class LocalNode(INode):
         msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
         self._logger.debug(f"An initial command before changes: '{cmd}'")
 
-        cmd = modify_cmd(cmd)
-
         # Popen() expects full environment
         env_full = os.environ.copy()
         if env:
@@ -197,8 +216,10 @@ class LocalNode(INode):
         if run_config.SAVE_SECRETS and "curl" in cmd:
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
-        self._logger.debug(f"All environment variables after updating: {env_full}")
-        self._logger.info(f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}")
+        self._logger.log(6, f"All environment variables after updating: {env_full}")
+        self._logger.info(
+            f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}"
+        )
 
         if is_blocking:
             std_arg = subprocess.PIPE
@@ -217,18 +238,6 @@ class LocalNode(INode):
                 # thread didn't finish before all assumptions are checked in the
                 # main thread.
                 stdout, stderr = current_proc.communicate(timeout=timeout)
-
-                # it was put here for `lxc`, maybe, lxc has a bug,
-                # to receive an exit code after `wait()`, we need to wait extra time (~3 sec),
-                # otherwise a related process is still running,
-                # and this case was caught on a bare metal server that may work slower
-                # TODO it is not good place for it, and
-                # TODO it is not a good workaround at all, need to create something else in the future
-                if timeout and ("lxc " in cmd) and ("stop" in cmd):
-                    self._logger.warning(
-                        f"Possibly, a command to stop LXC is in the progress, wait extra {timeout} sec.",
-                    )
-                    time.sleep(timeout)
 
             except subprocess.TimeoutExpired as to_exc:
                 current_proc.kill()
@@ -312,21 +321,6 @@ class LocalNode(INode):
         """
         return True
 
-    def get_max_thread_count(self) -> int:
-        """
-        Get number of max threads on a node.
-
-        Returns:
-            (int) number of max threads
-        """
-        out, _ = self.run_cmd("grep -c processor /proc/cpuinfo")
-        math_obj = re.match(r"^(\d+)$", out.decode())
-
-        if not math_obj:
-            return 1
-
-        return int(math_obj.group(1))
-
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
         Copy a file to a node.
@@ -339,23 +333,29 @@ class LocalNode(INode):
         shutil.copy(file, dest_dir)
 
 
-class RemoteNode(INode):
+class RemoteNode(ANode):
     """Remote node class."""
-    
+
     def __init__(
-        self, ntype: str, hostname: str, workdir: str, user: str, port: int = 22, ssh_key: Optional[str] = None,
+        self,
+        ntype: str,
+        hostname: str,
+        workdir: str,
+        user: str,
+        port: int = 22,
+        ssh_key: Optional[str] = None,
     ):
         """
-       Init class instance.
+        Init class instance.
 
-       Args:
-           ntype (str): node type
-           hostname (str): node hostname
-           workdir (str): node workdir
-           user (str): username to work with a node
-           ssh_key (str): ssh key location
-           port (str): port to connect to a remote node
-       """
+        Args:
+            ntype (str): node type
+            hostname (str): node hostname
+            workdir (str): node workdir
+            user (str): username to work with a node
+            ssh_key (str): ssh key location
+            port (str): port to connect to a remote node
+        """
         super().__init__(ntype=ntype, hostname=hostname, workdir=workdir)
         self.user = user
         self.port = port
@@ -383,12 +383,17 @@ class RemoteNode(INode):
 
     def __connect_by_loading_keys_from_system(self):
         """Open SSH connection to a node by loading host keys from a system."""
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system.")
+        self._logger.info(
+            f"Trying to connect by SSH to {self.host}:{self.port} by load host keys from a system."
+        )
 
         try:
             self._ssh.load_system_host_keys()
             self._ssh.connect(
-                hostname=self.host, username=self.user, port=self.port, timeout=DEFAULT_TIMEOUT,
+                hostname=self.host,
+                username=self.user,
+                port=self.port,
+                timeout=DEFAULT_TIMEOUT,
             )
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
@@ -400,7 +405,9 @@ class RemoteNode(INode):
 
         Before invoking the method, it is better to check for existence of a `self._ssh_key` attr.
         """
-        self._logger.info(f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}.")
+        self._logger.info(
+            f"Trying to connect by SSH to {self.host}:{self.port} using key {self._ssh_key}."
+        )
 
         try:
             self._ssh.connect(
@@ -413,21 +420,6 @@ class RemoteNode(INode):
         except Exception as conn_exc:
             self._logger.exception(f"Error connecting to {self.host} by SSH: {conn_exc}")
             raise conn_exc
-
-    def _change_perm(self, target: str, perm: Union[int, str] = 775):
-        """
-        Changes permissions recursively for a target.
-
-        Everywhere we work as a privileged user, and we may have permission problems working with files and dirs
-        using `paramiko` or particularly `sftp`.
-        Usually, created by our privileged user files and dirs have `755` permissions
-        we need to change it to `775` to have write access.
-
-        Args:
-            target (str): file or dir to change permissions
-            perm (Union[int, str]): permissions to apply
-        """
-        self.run_cmd(f"chmod -R {perm} {os.path.dirname(target)}")
 
     def run_cmd(
         self,
@@ -467,8 +459,6 @@ class RemoteNode(INode):
             )
             self._logger.debug(f"Effective command `{cmd}` after injecting environment")
 
-        cmd = modify_cmd(cmd=cmd)
-
         self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
 
         try:
@@ -480,7 +470,7 @@ class RemoteNode(INode):
             stderr = err_f.read()
 
         except Exception as exc:
-            err_msg = f"Error running command `{cmd}` on {self.host}",
+            err_msg = (f"Error running command `{cmd}` on {self.host}",)
             self._logger.exception(err_msg)
             raise error.CommandExecutionException(err_msg) from exc
 
@@ -527,9 +517,6 @@ class RemoteNode(INode):
         if dirname != self.workdir:
             self.mkdir(dirname)
 
-        # change perm for dir, because file itself does not exist yet, we are copying it
-        self._change_perm(target=dirname)
-
         try:
             sftp = self._ssh.open_sftp()
             sfile = sftp.file(filename, "wt", -1)
@@ -553,8 +540,6 @@ class RemoteNode(INode):
 
         else:
             self._logger.debug(f"Removing `{filename}`.")
-
-            self._change_perm(target=filename)
 
             sftp = self._ssh.open_sftp()
             try:
@@ -592,21 +577,6 @@ class RemoteNode(INode):
 
             time.sleep(1)
 
-    def get_max_thread_count(self) -> int:
-        """
-        Get number of max threads on a node.
-
-        Returns:
-            (int) number of max threads
-        """
-        out, _ = self.run_cmd("grep -c processor /proc/cpuinfo")
-        math_obj = re.match(r"^(\d+)$", out.decode())
-
-        if not math_obj:
-            return 1
-
-        return int(math_obj.group(1))
-
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
         Copy a file to a node.
@@ -632,7 +602,7 @@ def create_node(host_type: str):
     workdir = tf_cfg.cfg.get(host_type, "workdir")
 
     if hostname != "localhost":
-        return RemoteNode(
+        node = RemoteNode(
             ntype=host_type,
             hostname=hostname,
             workdir=workdir,
@@ -640,17 +610,22 @@ def create_node(host_type: str):
             port=int(tf_cfg.cfg.get(host_type, "port")),
             ssh_key=tf_cfg.cfg.get(host_type, "ssh_key"),
         )
-    return LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
+
+        node._post_init()
+        return node
+    node = LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
+    node._post_init()
+    return node
 
 
 # -------------------------------------------------------------------------------
 # Global accessible SSH/Local connections
 # -------------------------------------------------------------------------------
 
-client: Optional[INode] = None
-tempesta: Optional[INode] = None
-server: Optional[INode] = None
-host: Optional[INode] = None
+client: Optional[ANode] = None
+tempesta: Optional[ANode] = None
+server: Optional[ANode] = None
+host: Optional[ANode] = None
 
 
 def connect():
