@@ -29,8 +29,38 @@ class ServerConnection(asyncore.dispatcher):
 
         self._cur_pipelined = 0
         self._cur_responses_list = []
+        self.__time_to_send: float = 0
         self.nrreq: int = 0
+        self.wait_for_response = False
+
         dbg(self, 6, "New server connection", prefix="\t")
+
+    def sleep(self) -> None:
+        """
+        Stops server responding. Required in the cases when the server have
+        to respond with the some delay
+        """
+        self.wait_for_response = True
+        self.__time_to_send = time.time() + self._server.sleep_when_receiving_data
+
+    def is_sleeping(self) -> bool:
+        """
+        Return true in server does not responding now and waiting for
+        some delay
+        """
+        if not self._server.sleep_when_receiving_data:
+            return False
+
+        if not self.__time_to_send:
+            return False
+
+        return self.__time_to_send > time.time()
+
+    def is_woken_up_after_sleeping(self) -> bool:
+        """
+        True if server has maid a delay and respond
+        """
+        return self.wait_for_response is False
 
     def flush(self):
         self._response_buffer.append(b"".join(self._cur_responses_list))
@@ -38,6 +68,9 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_responses_list = []
 
     def writable(self):
+        if self.is_sleeping():
+            return False
+
         if (
             self._server.segment_gap != 0
             and time.time() - self._last_segment_time < self._server.segment_gap / 1000.0
@@ -61,13 +94,17 @@ class ServerConnection(asyncore.dispatcher):
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self._request_buffer)
 
-        if self._request_buffer and self._server.sleep_when_receiving_data:
-            time.sleep(self._server.sleep_when_receiving_data)
-
         while self._request_buffer:
+            if not self.is_woken_up_after_sleeping():
+                return None
+
             try:
                 request = deproxy.Request(self._request_buffer)
                 self.nrreq += 1
+
+                if self._server.sleep_when_receiving_data:
+                    self.sleep()
+
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
@@ -111,11 +148,13 @@ class ServerConnection(asyncore.dispatcher):
 
         if sent < 0:
             return
+
         self._response_buffer[self._responses_done] = resp[sent:]
 
         self._last_segment_time = time.time()
         if self._response_buffer[self._responses_done] == b"":
             self._responses_done += 1
+            self.wait_for_response = False
 
         if self._responses_done == self._server.keep_alive and self._server.keep_alive:
             self.handle_close()
