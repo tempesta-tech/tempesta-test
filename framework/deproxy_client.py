@@ -626,7 +626,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
     def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return util.wait_until(
-            lambda: not self._ping_received >= ping_count,
+            lambda: self._ping_received <= ping_count,
             timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )

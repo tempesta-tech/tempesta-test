@@ -98,6 +98,10 @@
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
+            "name": "http2_general.test_h2_frame.TestPostponedFrames",
+	        "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
+	    },
+        {
             "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
             "reason": "Disabled by issue #1103"
         },
@@ -156,10 +160,6 @@
         {
             "name" : "t_stress.test_stress.TlsWrkStressDocker",
             "reason" : "Disabled by issue #2266"
-        },
-        {
-            "name": "http2_general.test_h2_frame.TestPostponedFrames",
-	    "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
-	}
+        }
     ]
 }
