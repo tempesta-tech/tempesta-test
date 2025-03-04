@@ -322,6 +322,14 @@
             "reason": "The response time varies each time, and it is not possible to predict it exactly."
         },
         {
+            "name": "t_clickhouse",
+            "reason": "Disabled by test issue #778"
+        },
+        {
+            "name": "t_stress.test_clickhouse",
+            "reason": "Disabled by test issue #778"
+        },
+        {
             "name": "t_ipv6",
             "reason": "Disabled by test issue #508"
         }
