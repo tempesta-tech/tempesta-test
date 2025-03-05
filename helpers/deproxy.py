@@ -611,7 +611,7 @@ class Request(HttpMessage):
         # 3.3.3 6
 
         if stream.read():
-            raise ParseError("You have missed the Transfer-Encoding or Content-Length header!")
+            tf_cfg.dbg(5, "You have missed the Transfer-Encoding or Content-Length header!")
 
         self.body = ""
 

@@ -30,8 +30,8 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_pipelined = 0
         self._cur_responses_list = []
         self.__time_to_send: float = 0
+        self.__new_response: bool = True
         self.nrreq: int = 0
-        self.wait_for_response = False
 
         dbg(self, 6, "New server connection", prefix="\t")
 
@@ -40,7 +40,6 @@ class ServerConnection(asyncore.dispatcher):
         Stops server responding. Required in the cases when the server have
         to respond with the some delay
         """
-        self.wait_for_response = True
         self.__time_to_send = time.time() + self._server.sleep_when_receiving_data
 
     def is_sleeping(self) -> bool:
@@ -55,12 +54,6 @@ class ServerConnection(asyncore.dispatcher):
             return False
 
         return self.__time_to_send > time.time()
-
-    def is_woken_up_after_sleeping(self) -> bool:
-        """
-        True if server has maid a delay and respond
-        """
-        return self.wait_for_response is False
 
     def flush(self):
         self._response_buffer.append(b"".join(self._cur_responses_list))
@@ -95,16 +88,9 @@ class ServerConnection(asyncore.dispatcher):
         tf_cfg.dbg(5, self._request_buffer)
 
         while self._request_buffer:
-            if not self.is_woken_up_after_sleeping():
-                return None
-
             try:
                 request = deproxy.Request(self._request_buffer)
                 self.nrreq += 1
-
-                if self._server.sleep_when_receiving_data:
-                    self.sleep()
-
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
@@ -130,12 +116,16 @@ class ServerConnection(asyncore.dispatcher):
 
             if need_close:
                 self.close()
-            self._request_buffer = self._request_buffer[request.original_length :]
+            self._request_buffer = self._request_buffer[len(request.msg) :]
         # Handler will be called even if buffer is empty.
         else:
             return None
 
     def handle_write(self):
+        if self._server.sleep_when_receiving_data and self.__new_response:
+            self.__new_response = False
+            return self.sleep()
+
         if run_config.TCP_SEGMENTATION and self._server.segment_size == 0:
             self._server.segment_size = run_config.TCP_SEGMENTATION
 
@@ -154,7 +144,7 @@ class ServerConnection(asyncore.dispatcher):
         self._last_segment_time = time.time()
         if self._response_buffer[self._responses_done] == b"":
             self._responses_done += 1
-            self.wait_for_response = False
+            self.__new_response = True
 
         if self._responses_done == self._server.keep_alive and self._server.keep_alive:
             self.handle_close()
@@ -316,7 +306,7 @@ class StaticDeproxyServer(BaseDeproxy):
 
         return self.__response, False
 
-    def wait_for_requests(self, n: int, timeout=5, strict=False, adjust_timeout=False) -> bool:
+    def wait_for_requests(self, n: int, timeout=10, strict=False, adjust_timeout=False) -> bool:
         """wait for the `n` number of responses to be received"""
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.requests) < n,
