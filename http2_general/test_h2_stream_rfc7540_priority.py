@@ -49,6 +49,16 @@ class TestPriorityBase(H2Base, NetWorker):
         """
     }
 
+    post_request = [
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+        # Add extra priority parameter from RFC 9128 and check that
+        # it is ignored.
+        ("priority", "i, u=3"),
+    ]
+
     def setup_test_priority(self, extra_header="", initial_window_size=0):
         self.start_all_services()
         client = self.get_client("deproxy")

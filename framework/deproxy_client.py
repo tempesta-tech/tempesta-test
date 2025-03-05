@@ -550,6 +550,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
+        no_rfc7540_priority: bool = False,
     ) -> None:
         """Update initial SETTINGS frame and add preamble + SETTINGS frame in `data_to_send`."""
         self.h2_connection = h2.connection.H2Connection()
@@ -562,6 +563,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             initial_window_size,
             max_frame_size,
             max_header_list_size,
+            no_rfc7540_priority,
         )
 
         # if settings is empty, we should not change them
@@ -579,6 +581,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
+        no_rfc7540_priority: bool = False,
     ) -> None:
         self.ack_settings = False
 
@@ -589,6 +592,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             initial_window_size,
             max_frame_size,
             max_header_list_size,
+            no_rfc7540_priority,
         )
 
         self.h2_connection.update_settings(new_settings)
@@ -787,7 +791,10 @@ class DeproxyClientH2(BaseDeproxyClient):
         initial_window_size: int = None,
         max_frame_size: int = None,
         max_header_list_size: int = None,
+        no_rfc7540_priority: bool = False,
     ) -> dict:
+        NO_RFC7540_PRIORITY = 0x09
+
         new_settings = dict()
         if header_table_size is not None:
             new_settings[SettingCodes.HEADER_TABLE_SIZE] = header_table_size
@@ -801,6 +808,9 @@ class DeproxyClientH2(BaseDeproxyClient):
             new_settings[SettingCodes.MAX_FRAME_SIZE] = max_frame_size
         if max_header_list_size is not None:
             new_settings[SettingCodes.MAX_HEADER_LIST_SIZE] = max_header_list_size
+        if no_rfc7540_priority is not False:
+            new_settings[NO_RFC7540_PRIORITY] = True
+
         return new_settings
 
     def __prepare_data_frames(self, body: bytes, end_stream: bool, stream_id: int):
