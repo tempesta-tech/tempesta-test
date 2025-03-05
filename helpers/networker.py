@@ -10,26 +10,6 @@ __license__ = "GPL2"
 
 class NetWorker:
     @staticmethod
-    def _get_ipv6_addr(dev):
-        was_found = False
-        cmd = f"ip -6 addr show dev {dev} | grep inet6"
-        out = remote.client.run_cmd(cmd)
-        out = out[0].decode("utf-8").split(" ")
-        for val in out:
-            if val == "inet6":
-                was_found = True
-                # Next value is address
-                continue
-            if was_found:
-                return val.split("/")
-        return None
-
-    @staticmethod
-    def _set_ipv6_addr(dev, addr, prefix):
-        cmd = f"ip -6 addr add {addr}/{prefix} dev {dev}"
-        out = remote.client.run_cmd(cmd)
-
-    @staticmethod
     def _get_dev():
         dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
         return dev
@@ -51,21 +31,9 @@ class NetWorker:
     @staticmethod
     def __protect_ipv6_addr_on_dev(func, *args, **kwargs):
         dev = NetWorker._get_dev()
-        cmd = f"ip -6 addr show dev {dev} | grep inet6"
-        ipv6_addr = None
-        was_found = False
+        ipv6_addr = tf_cfg.cfg.get("Tempesta", "ipv6")
 
         try:
-            out = remote.client.run_cmd(cmd)
-            out = out[0].decode("utf-8").split(" ")
-            for val in out:
-                if val == "inet6":
-                    was_found = True
-                    # Next value is address
-                    continue
-                if was_found:
-                    ipv6_addr = val.split("/")
-                    break
             return func(*args, **kwargs)
         finally:
             if ipv6_addr:

@@ -199,6 +199,7 @@ class DeproxyAutoParser:
             4,
             self.__dbg_msg.format("Remove hop-by-hop headers from expected response/request"),
         )
+        # headers specified in the connection header are hop-by-hop headers
         connection = message.headers.get("connection")
         if connection:
             connection = connection.split(" ")

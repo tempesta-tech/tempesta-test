@@ -896,9 +896,8 @@ class TestPostponedFrames(H2Base, NetWorker):
     def _test(self, client, server):
         client.update_initial_settings(initial_window_size=0)
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        self.assertTrue(client.wait_for_ack_settings())
 
-        timeout = 15 if run_config.TCP_SEGMENTATION else 5
         ping_count = 500
 
         stream_id = client.stream_id
@@ -906,17 +905,19 @@ class TestPostponedFrames(H2Base, NetWorker):
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id, timeout=timeout))
-        self.assertTrue(client.wait_for_ping_frames(ping_count, timeout=timeout))
+        self.assertTrue(client.wait_for_headers_frame(stream_id))
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
+        print(ping_count)
 
         client.send_settings_frame(initial_window_size=65535)
-        client.wait_for_ack_settings()
+        self.assertTrue(client.wait_for_ack_settings())
 
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id, timeout=timeout))
-        self.assertTrue(client.wait_for_ping_frames(2 * ping_count, timeout=timeout))
+        self.assertTrue(client.wait_for_headers_frame(stream_id))
+        self.assertTrue(client.wait_for_ping_frames(2 * ping_count))
+        print(ping_count)
 
         self.assertTrue(client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")

@@ -14,7 +14,8 @@ from framework.deproxy_server import StaticDeproxyServer
 from helpers import deproxy, error, remote
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
-from http_general.test_headers import AssertTrailersInResponse
+
+# from http_general.test_headers import AssertTrailersInResponse
 from test_suite import checks_for_tests as checks
 from test_suite import marks, tester
 
@@ -2073,7 +2074,7 @@ cache_fulfill * *;
         self.assertTrue(self.loggers.dmesg.find(expected_msg))
 
 
-class TestCacheResponseWithTrailersBase(tester.TempestaTest):
+class CacheResponseWithTrailersBase(tester.TempestaTest):
     tempesta = {
         "config": """
 listen 80;
@@ -2127,7 +2128,7 @@ vhost default {
         if not isinstance(client, DeproxyClientH2):
             if (
                 method != "HEAD"
-                and not AssertTrailersInResponse.is_hop_byp_hop_header(tr1)
+                and not AssertTrailersInResponse.is_hop_by_hop_header(tr1)
                 and not AssertTrailersInResponse.is_server(tr1)
             ):
                 self.assertEqual(
@@ -2139,7 +2140,7 @@ vhost default {
                 self.assertFalse(client.last_response.trailer.get(tr1))
             if (
                 method != "HEAD"
-                and not AssertTrailersInResponse.is_hop_byp_hop_header(tr2)
+                and not AssertTrailersInResponse.is_hop_by_hop_header(tr2)
                 and not AssertTrailersInResponse.is_server(tr2)
             ):
                 self.assertEqual(
@@ -2164,13 +2165,13 @@ vhost default {
             else:
                 self.assertEqual(client.last_response.headers.get(tr1), "Tempesta FW/0.8.0")
         else:
-            if method != "HEAD" and not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
+            if method != "HEAD" and not AssertTrailersInResponse.is_hop_by_hop_header(tr1):
                 self.assertEqual(
                     client.last_response.headers.get(tr1),
                     tr1_val,
                     "Moved trailer header value mismatch the original one",
                 )
-            if method != "HEAD" and not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
+            if method != "HEAD" and not AssertTrailersInResponse.is_hop_by_hop_header(tr2):
                 self.assertEqual(
                     client.last_response.headers.get(tr2),
                     tr2_val,
@@ -2198,7 +2199,7 @@ vhost default {
                 self.assertTrue(val == tr1_val or val == "header")
                 count = count + 1
             self.assertEqual(count, 2)
-        elif not AssertTrailersInResponse.is_hop_byp_hop_header(tr1):
+        elif not AssertTrailersInResponse.is_hop_by_hop_header(tr1):
             self.assertEqual(
                 client.last_response.headers.get(tr1),
                 tr1_val,
@@ -2219,7 +2220,7 @@ vhost default {
                 self.assertTrue(val == tr2_val or val == "header")
                 count = count + 1
             self.assertEqual(count, 2)
-        elif not AssertTrailersInResponse.is_hop_byp_hop_header(tr2):
+        elif not AssertTrailersInResponse.is_hop_by_hop_header(tr2):
             self.assertEqual(
                 client.last_response.headers.get(tr2),
                 tr2_val,
@@ -2240,7 +2241,7 @@ vhost default {
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
     ]
 )
-class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
+class TestCacheResponseWithTrailers(CacheResponseWithTrailersBase):
     """
     This class contains checks for tempesta cache config and trailers
     in response.
@@ -2471,7 +2472,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         )
 
 
-class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBase):
+class TestCacheResponseWithCacheDifferentClients(CacheResponseWithTrailersBase):
     """
     Same as previous but requests made from different clients
     """

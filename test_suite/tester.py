@@ -199,6 +199,74 @@ class WaitUntilAsserts(unittest.TestCase):
         self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
 
 
+class TrailersAsserts(unittest.TestCase):
+
+    @staticmethod
+    def is_server(tr):
+        if tr.lower() == "server":
+            return True
+        return False
+
+    @staticmethod
+    def is_hop_by_hop_header(tr):
+        if tr.lower() in [
+            "connection",
+            "keep-alive",
+            "proxy-connection",
+            "hbpheader1",
+            "hbpheader2",
+        ]:
+            return True
+        return False
+
+    def __assert_http1_response_common(self, response, tr1, tr2):
+        self.assertEqual(response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertEqual(response.headers.get("Trailer"), tr1 + " " + tr2)
+        self.assertIsNone(response.headers.get(tr1))
+        self.assertIsNone(response.headers.get(tr2))
+
+    def assert_HEAD_http1_response(self, response, tr1, tr1_val, tr2, tr2_val):
+        self.assertIsNone(response.trailer.get(tr1))
+        self.assertIsNone(response.trailer.get(tr2))
+        self.__assert_http1_response_common(response, tr1, tr2)
+
+    def assert_GET_OR_POST_http1_response(self, response, tr1, tr1_val, tr2, tr2_val):
+        for tr, tr_val in [(tr1, tr1_val), (tr2, tr2_val)]:
+            if self.is_hop_by_hop_header(tr):
+                self.assertIsNone(response.trailer.get(tr))
+            else:
+                self.assertEqual(
+                    response.trailer.get(tr),
+                    tr_val,
+                    "Moved trailer header value mismatch the original one",
+                )
+
+        self.__assert_http1_response_common(response, tr1, tr2)
+
+    def __assert_http2_response_common(self, response, tr1, tr2):
+        self.assertIsNone(response.headers.get("Transfer-Encoding"))
+        self.assertIsNone(response.trailer.get(tr1))
+        self.assertIsNone(response.trailer.get(tr2))
+
+    def assert_HEAD_http2_response(self, response, tr1, tr1_val, tr2, tr2_val):
+        self.assertIsNone(response.headers.get(tr1))
+        self.assertIsNone(response.headers.get(tr2))
+        self.__assert_http2_response_common(response, tr1, tr2)
+
+    def assert_GET_OR_POST_http2_response(self, response, tr1, tr1_val, tr2, tr2_val):
+        for tr, tr_val in [(tr1, tr1_val), (tr2, tr2_val)]:
+            if self.is_hop_by_hop_header(tr):
+                self.assertIsNone(response.headers.get(tr))
+            else:
+                self.assertEqual(
+                    response.headers.get(tr),
+                    tr_val,
+                    "Moved trailer header value mismatch the original one",
+                )
+
+        self.__assert_HEAD_http2_response(response, tr1, tr2)
+
+
 class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     """Basic tempesta test class.
     Tempesta tests should have:
