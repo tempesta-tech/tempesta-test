@@ -437,12 +437,14 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.__ips = []
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
-        self._deproxy_auto_parser = DeproxyAutoParser(self.deproxy_manager)
         self.__save_memory_consumption()
         self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=self.get_tempesta)
         self.oops_ignore = []
-        self.__create_servers()
         self.__create_tempesta()
+        self._deproxy_auto_parser = DeproxyAutoParser(
+            self.deproxy_manager, self.get_tempesta().config
+        )
+        self.__create_servers()
         self.__create_clients()
         self.__run_tcpdump()
         # Cleanup part
