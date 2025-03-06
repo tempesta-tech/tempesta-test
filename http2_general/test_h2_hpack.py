@@ -1015,6 +1015,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
     tempesta = {
         "config": f"""
             listen 443 proto=h2;
+            access_log dmesg;
             srv_group default {{
                 server {tf_cfg.cfg.get("Server", "ip")}:8000;
             }}
@@ -1043,6 +1044,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
     tempesta_cache = {
         "config": f"""
             listen 443 proto=h2;
+            access_log dmesg;
             srv_group default {{
                 server {tf_cfg.cfg.get("Server", "ip")}:8000;
             }}
@@ -1074,6 +1076,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
     tempesta_override_allowed = {
         "config": f"""
             listen 443 proto=h2;
+            access_log dmesg;
             srv_group default {{
                 server {tf_cfg.cfg.get("Server", "ip")}:8000;
             }}
@@ -1212,12 +1215,13 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
         client.send_request(request_hashed, "200")
 
+        last_response = self.loggers.dmesg.access_log_last_message()
         # Do not allow requests with same hash from the client.
         self.__reload_tempesta_with_ja5h(
-            """
-            ja5h {
-                hash 1032008c02c0 0 0;
-            }
+            f"""
+            ja5h {{
+                hash {last_response.ja5h} 0 0;
+            }}
         """
         )
 
@@ -1271,11 +1275,6 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                     HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
                     HeaderTuple("cookie", "z=q; e=d"),
                 ],
-                ja5_config="""
-                    ja5h {
-                        hash 2a679c7008cc440 0 0;
-                    }
-                """,
             ),
             marks.Param(
                 name="no_huffman_1",
@@ -1300,11 +1299,6 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                     HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
                     HeaderTuple("cookie", "z=q; e=d"),
                 ],
-                ja5_config="""
-                    ja5h {
-                        hash 2a679c7008cc440 0 0;
-                    }
-                """,
             ),
             marks.Param(
                 name="huffman_2",
@@ -1361,11 +1355,6 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                     HeaderTuple("cookie", "a=b; dd=dfds"),
                     HeaderTuple("cookie", "a=b; dd=dfds"),
                 ],
-                ja5_config="""
-                    ja5h {
-                        hash 8edd69e7008fec40 0 0;
-                    }
-                """,
             ),
             marks.Param(
                 name="no_huffman_2",
@@ -1422,23 +1411,17 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                     HeaderTuple("cookie", "a=b; dd=dfds"),
                     HeaderTuple("cookie", "a=b; dd=dfds"),
                 ],
-                ja5_config="""
-                    ja5h {
-                        hash 8edd69e7008fec40 0 0;
-                    }
-                """,
             ),
         ]
     )
-    def test_cookie_from_hpack_table(
-        self, name, huffman, first_request, second_request, ja5_config
-    ):
+    def test_cookie_from_hpack_table(self, name, huffman, first_request, second_request):
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
         self.initiate_h2_connection(client)
         self.__send_add_check_req_with_huffman(client, first_request, huffman, "200")
+        ja5h = self.loggers.dmesg.access_log_last_message().ja5h
 
         request_to_save_cookie_in_hpack = [
             HeaderTuple(":authority", "localhost"),
@@ -1455,7 +1438,13 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
 
         # Block requests with refer and 'n' cookies
-        self.__reload_tempesta_with_ja5h(ja5_config)
+        self.__reload_tempesta_with_ja5h(
+            f"""
+            ja5h {{
+                hash {ja5h} 0 0;
+            }}
+            """
+        )
 
         # Cookie was reloaded from hpack table, count is 6 blocked.
         self.__send_add_check_req_with_huffman(client, second_request, huffman, "403")
