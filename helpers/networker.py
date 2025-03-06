@@ -4,7 +4,7 @@ from helpers import remote, tf_cfg
 from test_suite import sysnet
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -27,7 +27,7 @@ class NetWorker:
     @staticmethod
     def _set_ipv6_addr(dev, addr, prefix):
         cmd = f"ip -6 addr add {addr}/{prefix} dev {dev}"
-        out = remote.client.run_cmd(cmd)
+        remote.client.run_cmd(cmd)
 
     @staticmethod
     def _get_dev():
@@ -48,36 +48,21 @@ class NetWorker:
             cmd = f"ethtool -K {dev} {what} off"
         out = remote.client.run_cmd(cmd)
 
-    @staticmethod
-    def __protect_ipv6_addr_on_dev(func, *args, **kwargs):
+    def __protect_ipv6_addr_on_dev(self, func, *args, **kwargs):
         dev = NetWorker._get_dev()
-        cmd = f"ip -6 addr show dev {dev} | grep inet6"
-        ipv6_addr = None
-        was_found = False
-
+        ipv6_addr = self._get_ipv6_addr(dev)
         try:
-            out = remote.client.run_cmd(cmd)
-            out = out[0].decode("utf-8").split(" ")
-            for val in out:
-                if val == "inet6":
-                    was_found = True
-                    # Next value is address
-                    continue
-                if was_found:
-                    ipv6_addr = val.split("/")
-                    break
             return func(*args, **kwargs)
         finally:
             if ipv6_addr:
-                cmd = f"ip -6 addr add {ipv6_addr[0]}/{ipv6_addr[1]} dev {dev}"
-                remote.client.run_cmd(cmd)
+                self._set_ipv6_addr(dev, ipv6_addr[0], ipv6_addr[1])
 
     @staticmethod
     def protect_ipv6_addr_on_dev(func):
         """The decorator protect ipv6 device settings."""
 
         def func_wrapper(*args, **kwargs):
-            return NetWorker.__protect_ipv6_addr_on_dev(func, *args, **kwargs)
+            return NetWorker().__protect_ipv6_addr_on_dev(func, *args, **kwargs)
 
         # we need to change name of function to work correctly with parametrize
         func_wrapper.__name__ = func.__name__

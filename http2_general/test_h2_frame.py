@@ -1,7 +1,7 @@
 """Functional tests for h2 frames."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from h2.connection import ConnectionInputs
@@ -9,25 +9,13 @@ from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from h2.settings import SettingCodes
 from hpack import HeaderTuple
-from hyperframe.frame import (
-    ContinuationFrame,
-    DataFrame,
-    Frame,
-    GoAwayFrame,
-    HeadersFrame,
-    PriorityFrame,
-    RstStreamFrame,
-    SettingsFrame,
-    WindowUpdateFrame,
-)
+from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
-import run_config
 from framework import deproxy_client, stateful
-from framework.deproxy_client import HuffmanEncoder
 from helpers import util
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
-from http2_general.helpers import BlockActionH2Base, H2Base, generate_custom_error_page
+from http2_general.helpers import H2Base
 from test_suite import checks_for_tests as checks
 from test_suite import marks
 
@@ -896,9 +884,8 @@ class TestPostponedFrames(H2Base, NetWorker):
     def _test(self, client, server):
         client.update_initial_settings(initial_window_size=0)
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        self.assertTrue(client.wait_for_ack_settings())
 
-        timeout = 15 if run_config.TCP_SEGMENTATION else 5
         ping_count = 500
 
         stream_id = client.stream_id
@@ -906,17 +893,17 @@ class TestPostponedFrames(H2Base, NetWorker):
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id, timeout=timeout))
-        self.assertTrue(client.wait_for_ping_frames(ping_count, timeout=timeout))
+        self.assertTrue(client.wait_for_headers_frame(stream_id))
+        self.assertTrue(client.wait_for_ping_frames(ping_count))
 
         client.send_settings_frame(initial_window_size=65535)
-        client.wait_for_ack_settings()
+        self.assertTrue(client.wait_for_ack_settings())
 
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id, timeout=timeout))
-        self.assertTrue(client.wait_for_ping_frames(2 * ping_count, timeout=timeout))
+        self.assertTrue(client.wait_for_headers_frame(stream_id))
+        self.assertTrue(client.wait_for_ping_frames(2 * ping_count))
 
         self.assertTrue(client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")

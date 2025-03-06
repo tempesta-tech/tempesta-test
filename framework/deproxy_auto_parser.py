@@ -1,12 +1,13 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import copy
+import re
 import sys
 
 import run_config
-from framework.deproxy_client import BaseDeproxyClient, DeproxyClient, DeproxyClientH2
+from framework.deproxy_client import BaseDeproxyClient
 from framework.deproxy_manager import DeproxyManager
 from helpers.deproxy import (
     H2Request,
@@ -16,6 +17,7 @@ from helpers.deproxy import (
     Request,
     Response,
 )
+from helpers.tempesta import Config
 from helpers.tf_cfg import dbg
 
 
@@ -31,7 +33,7 @@ class DeproxyAutoParser:
     Please do not create class objects in tests!!!
     """
 
-    def __init__(self, deproxy_manager: DeproxyManager):
+    def __init__(self, deproxy_manager: DeproxyManager, tempesta_config: Config):
         self.__deproxy_manager: DeproxyManager = deproxy_manager
         self.__expected_response: Response | None = None
         self.__expected_request: Request | None = None
@@ -39,6 +41,7 @@ class DeproxyAutoParser:
         self.__parsing: bool = run_config.AUTO_PARSER
         self.__dbg_msg = "\tDeproxy: AutoParser: {0}"
         self.__exceptions: list[AssertionError] = list()
+        self.__tempesta_config: Config = tempesta_config
 
     def cleanup(self) -> None:
         self.__parsing = run_config.AUTO_PARSER
@@ -58,6 +61,11 @@ class DeproxyAutoParser:
     @parsing.setter
     def parsing(self, parsing: bool) -> None:
         self.__parsing = parsing
+
+    @property
+    def __cache_on_tempesta(self) -> bool:
+        matches = re.search(r"cache ([012]);", self.__tempesta_config.get_config())
+        return bool(int(matches.group(1)[0]) if matches else 0)
 
     def check_expected_request(self, request: Request) -> None:
         if self.__expected_request is not None:
@@ -157,8 +165,6 @@ class DeproxyAutoParser:
         else:
             expected_response = copy.deepcopy(self.__expected_response)
 
-        self.__prepare_body_for_HEAD_request(expected_response)
-
         self.__prepare_hop_by_hop_headers(expected_response)
 
         is_cache = "age" in received_response.headers
@@ -171,11 +177,15 @@ class DeproxyAutoParser:
         if not http2:
             self.__add_content_length_header_to_expected_response(expected_response)
 
+        self.__prepare_body_for_HEAD_request(expected_response)
         return expected_response
 
     def __prepare_method_for_expected_request(self, request: Request) -> None:
-        """Tempesta changes request method from 'PURGE' to 'GET'"""
-        if request.method == "PURGE":
+        """
+        Tempesta changes request method from 'PURGE' to 'GET'.
+        And changes 'HEAD' to 'GET' when cache is enabled.
+        """
+        if request.method == "PURGE" or (request.method == "HEAD" and self.__cache_on_tempesta):
             dbg(
                 4,
                 self.__dbg_msg.format(
@@ -185,6 +195,7 @@ class DeproxyAutoParser:
             request.method = "GET"
 
     def __prepare_body_for_HEAD_request(self, response: Response | H2Response) -> None:
+        """Tempesta doesn't return trailers for HEAD requests."""
         if self.__client_request.method == "HEAD":
             dbg(
                 4,
@@ -193,6 +204,8 @@ class DeproxyAutoParser:
                 ),
             )
             response.body = ""
+            for name in response.trailer.keys():
+                response.trailer.delete_all(name)
 
     def __prepare_hop_by_hop_headers(self, message: HttpMessage) -> None:
         dbg(

@@ -775,6 +775,8 @@ class Response(HttpMessage):
         self.headers.add("via", self._via_header)
         self.headers.delete_all("server")
         self.headers.add("server", self._server_header)
+        self.trailer.delete_all("server")
+        self.trailer.delete_all("via")
         if self.headers.get("date", None) is None:
             self.headers.add("date", self.date_time_string())
 
