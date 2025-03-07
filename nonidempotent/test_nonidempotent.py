@@ -119,7 +119,7 @@ def build_deproxy_drop(server, name, tester):
         response=fill_template(server.get("response_content", ""), server),
         keep_alive=server.get("keep_alive", 0),
         drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
-        sleep_when_receiving_data=server.get("sleep_when_receiving_data", 0.0),
+        delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
         hang_on_req_num=server.get("hang_on_req_num", 0),
         pipelined=server.get("pipelined", False),
     )

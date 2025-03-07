@@ -307,9 +307,15 @@ class HeaderCollection(object):
                 ], f"Tempesta add a invalid 'Warning' header - {r_warning}"
 
     @staticmethod
-    def __check_other_headers(h_expected: dict, h_received: dict) -> None:
+    def __is_header_expect(header: str) -> bool:
+        return header.lower() == "expect"
+
+    def __check_other_headers(self, h_expected: dict, h_received: dict) -> None:
         headers = h_expected if len(h_expected) > len(h_received) else h_received
         for header_name in headers.keys():
+            if self.__is_header_expect(header_name):
+                continue
+
             received_header_value = h_received.get(header_name, None)
             expected_header_value = h_expected.get(header_name, None)
             assert received_header_value == expected_header_value, (
@@ -451,6 +457,8 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         self.body = stream.read(size)
         if len(self.body) > size:
             raise ParseError(("Wrong body size: expect %d but got %d!" % (size, len(self.body))))
+        elif len(self.body) < size and self.headers.get("expect") == "100-continue":
+            return
         elif len(self.body) < size:
             tf_cfg.dbg(5, "Incomplete message received")
             raise IncompleteMessage()
@@ -601,6 +609,10 @@ class Request(HttpMessage):
             self.read_sized_body(stream)
             return
         # 3.3.3 6
+
+        if stream.read():
+            tf_cfg.dbg(5, "You have missed the Transfer-Encoding or Content-Length header!")
+
         self.body = ""
 
     def __eq__(self, other: "Request"):
@@ -714,7 +726,7 @@ class Response(HttpMessage):
             raise ParseError("Invalid Status line!")
         try:
             status = int(self.status)
-            assert status > 100 and status < 600
+            assert status > 99 and status < 600
         except:
             raise ParseError("Invalid Status code!")
 

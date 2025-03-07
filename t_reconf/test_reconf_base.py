@@ -1048,7 +1048,7 @@ srv_group default {{
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.conns_n = 1
-        self.get_server("deproxy").sleep_when_receiving_data = 1
+        self.get_server("deproxy").delay_before_sending_response = 1
 
         first_config(self)
         self.start_all_services()

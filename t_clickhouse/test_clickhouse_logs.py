@@ -287,7 +287,7 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         timestamp value and timezone, response time
         """
         server = self.get_server("deproxy")
-        server.sleep_when_receiving_data = 2
+        server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
         client.start()

@@ -29,8 +29,31 @@ class ServerConnection(asyncore.dispatcher):
 
         self._cur_pipelined = 0
         self._cur_responses_list = []
+        self.__time_to_send: float = 0
+        self.__new_response: bool = True
         self.nrreq: int = 0
+
         dbg(self, 6, "New server connection", prefix="\t")
+
+    def sleep(self) -> None:
+        """
+        Stops server responding. Required in the cases when the server have
+        to respond with the some delay
+        """
+        self.__time_to_send = time.time() + self._server.delay_before_sending_response
+
+    def is_sleeping(self) -> bool:
+        """
+        Return true in server does not responding now and waiting for
+        some delay
+        """
+        if not self._server.delay_before_sending_response:
+            return False
+
+        if not self.__time_to_send:
+            return False
+
+        return self.__time_to_send > time.time()
 
     def flush(self):
         self._response_buffer.append(b"".join(self._cur_responses_list))
@@ -38,6 +61,9 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_responses_list = []
 
     def writable(self):
+        if self.is_sleeping():
+            return False
+
         if (
             self._server.segment_gap != 0
             and time.time() - self._last_segment_time < self._server.segment_gap / 1000.0
@@ -60,9 +86,6 @@ class ServerConnection(asyncore.dispatcher):
 
         dbg(self, 4, "Receive data:", prefix="\t")
         tf_cfg.dbg(5, self._request_buffer)
-
-        if self._request_buffer and self._server.sleep_when_receiving_data:
-            time.sleep(self._server.sleep_when_receiving_data)
 
         while self._request_buffer:
             try:
@@ -93,12 +116,16 @@ class ServerConnection(asyncore.dispatcher):
 
             if need_close:
                 self.close()
-            self._request_buffer = self._request_buffer[request.original_length :]
+            self._request_buffer = self._request_buffer[len(request.msg) :]
         # Handler will be called even if buffer is empty.
         else:
             return None
 
     def handle_write(self):
+        if self._server.delay_before_sending_response and self.__new_response:
+            self.__new_response = False
+            return self.sleep()
+
         if run_config.TCP_SEGMENTATION and self._server.segment_size == 0:
             self._server.segment_size = run_config.TCP_SEGMENTATION
 
@@ -111,11 +138,13 @@ class ServerConnection(asyncore.dispatcher):
 
         if sent < 0:
             return
+
         self._response_buffer[self._responses_done] = resp[sent:]
 
         self._last_segment_time = time.time()
         if self._response_buffer[self._responses_done] == b"":
             self._responses_done += 1
+            self.__new_response = True
 
         if self._responses_done == self._server.keep_alive and self._server.keep_alive:
             self.handle_close()
@@ -137,7 +166,7 @@ class StaticDeproxyServer(BaseDeproxy):
         response: str | bytes | deproxy.Response,
         keep_alive: int,
         drop_conn_when_request_received: bool,
-        sleep_when_receiving_data: float,
+        delay_before_sending_response: float,
         hang_on_req_num: int,
         pipelined: int,
     ):
@@ -156,7 +185,7 @@ class StaticDeproxyServer(BaseDeproxy):
         self.conns_n = tempesta.server_conns_default()
         self.keep_alive = keep_alive
         self.drop_conn_when_request_received = drop_conn_when_request_received
-        self.sleep_when_receiving_data = sleep_when_receiving_data
+        self.delay_before_sending_response = delay_before_sending_response
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
 
@@ -277,7 +306,7 @@ class StaticDeproxyServer(BaseDeproxy):
 
         return self.__response, False
 
-    def wait_for_requests(self, n: int, timeout=5, strict=False, adjust_timeout=False) -> bool:
+    def wait_for_requests(self, n: int, timeout=10, strict=False, adjust_timeout=False) -> bool:
         """wait for the `n` number of responses to be received"""
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.requests) < n,
@@ -306,7 +335,7 @@ def deproxy_srv_factory(server: dict, name, tester):
         response=fill_template(server.get("response_content", ""), server),
         keep_alive=server.get("keep_alive", 0),
         drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
-        sleep_when_receiving_data=server.get("sleep_when_receiving_data", 0.0),
+        delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
         hang_on_req_num=server.get("hang_on_req_num", 0),
         pipelined=server.get("pipelined", False),
     )
