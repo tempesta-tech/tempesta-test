@@ -40,6 +40,45 @@ class TestH2Stream(H2Base):
 
         self.assertIn(ErrorCodes.REFUSED_STREAM, client.error_codes)
 
+    def test_max_concurrent_stream_not_exceeded(self):
+        """
+        Check that Tempesta FW closes previously closed streams,
+        during new streams allocation.
+        """
+        new_config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = new_config + "max_concurrent_streams 10;\r\n"
+
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + "Content-Length: 10\r\n\r\n"
+            + ("x" * 10)
+        )
+        max_streams = 10
+
+        for _ in range(2):
+            client.send_request(self.post_request, "200")
+
+        client.send_settings_frame(initial_window_size=0)
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(client.wait_for_ack_settings())
+
+        for _ in range(max_streams):
+            client.make_request(self.post_request)
+
+        client.send_settings_frame(initial_window_size=65536)
+        client.h2_connection.clear_outbound_data_buffer()
+        self.assertTrue(client.wait_for_ack_settings())
+
+        client.wait_for_response()
+        self.assertEqual(len(client.responses), 12)
+        self.assertEqual(list(resp.status for resp in client.responses), ["200"] * 12)
+
     def test_reuse_stream_id(self):
         """
         Stream identifiers cannot be reused.
