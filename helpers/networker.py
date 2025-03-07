@@ -49,7 +49,7 @@ class NetWorker:
         out = remote.client.run_cmd(cmd)
 
     def __protect_ipv6_addr_on_dev(self, func, *args, **kwargs):
-        dev = NetWorker._get_dev()
+        dev = self._get_dev()
         ipv6_addr = self._get_ipv6_addr(dev)
         try:
             return func(*args, **kwargs)
@@ -122,7 +122,7 @@ class NetWorker:
             # interface, so, regardless where the Tempesta node resides, we can
             # change MTU on the local interface only to get the same MTU for
             # both the client and server connections.
-            dev = NetWorker._get_dev()
+            dev = self._get_dev()
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
         except Exception as err:
             self.fail(err)
@@ -134,7 +134,7 @@ class NetWorker:
             self.change_gro(dev, gro)
             self.change_gso(dev, gso)
             if option_name and option_val:
-                NetWorker._get_tcp_option(option_name)
+                self._get_tcp_option(option_name)
                 self._set_tcp_option(option_name, option_val)
 
             test(client, server)
