@@ -111,7 +111,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
-        server.sleep_when_receiving_data = 2
+        server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
         client.start()
@@ -169,7 +169,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
-        server.sleep_when_receiving_data = 2
+        server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
         client.start()
@@ -216,7 +216,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
-        server.sleep_when_receiving_data = 2
+        server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
         client.start()
@@ -276,7 +276,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
-        server.sleep_when_receiving_data = 2
+        server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
         client.start()

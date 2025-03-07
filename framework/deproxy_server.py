@@ -40,14 +40,14 @@ class ServerConnection(asyncore.dispatcher):
         Stops server responding. Required in the cases when the server have
         to respond with the some delay
         """
-        self.__time_to_send = time.time() + self._server.sleep_when_receiving_data
+        self.__time_to_send = time.time() + self._server.delay_before_sending_response
 
     def is_sleeping(self) -> bool:
         """
         Return true in server does not responding now and waiting for
         some delay
         """
-        if not self._server.sleep_when_receiving_data:
+        if not self._server.delay_before_sending_response:
             return False
 
         if not self.__time_to_send:
@@ -122,7 +122,7 @@ class ServerConnection(asyncore.dispatcher):
             return None
 
     def handle_write(self):
-        if self._server.sleep_when_receiving_data and self.__new_response:
+        if self._server.delay_before_sending_response and self.__new_response:
             self.__new_response = False
             return self.sleep()
 
@@ -166,7 +166,7 @@ class StaticDeproxyServer(BaseDeproxy):
         response: str | bytes | deproxy.Response,
         keep_alive: int,
         drop_conn_when_request_received: bool,
-        sleep_when_receiving_data: float,
+        delay_before_sending_response: float,
         hang_on_req_num: int,
         pipelined: int,
     ):
@@ -185,7 +185,7 @@ class StaticDeproxyServer(BaseDeproxy):
         self.conns_n = tempesta.server_conns_default()
         self.keep_alive = keep_alive
         self.drop_conn_when_request_received = drop_conn_when_request_received
-        self.sleep_when_receiving_data = sleep_when_receiving_data
+        self.delay_before_sending_response = delay_before_sending_response
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
 
@@ -335,7 +335,7 @@ def deproxy_srv_factory(server: dict, name, tester):
         response=fill_template(server.get("response_content", ""), server),
         keep_alive=server.get("keep_alive", 0),
         drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
-        sleep_when_receiving_data=server.get("sleep_when_receiving_data", 0.0),
+        delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
         hang_on_req_num=server.get("hang_on_req_num", 0),
         pipelined=server.get("pipelined", False),
     )
