@@ -437,7 +437,6 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             self.body += end
             if 2 != self.body[-3:].count("\n"):
                 raise IncompleteMessage("Incomplete chunked body.")
-            self.body = self.body[:-2]
             return
         elif end == "":
             raise IncompleteMessage("Incomplete last CRLF in chunked body.")
@@ -470,7 +469,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
     def __eq__(self, other: "HttpMessage"):
         assert (
             self.body == other.body
-        ), f"Invalid http body. \nReceived:\n{self.body}\nExpected:\n{other.body}"
+        ), f"Invalid http body. \nReceived:\n{self.body.encode()}\nExpected:\n{other.body.encode()}"
         self.headers.__eq__(other.headers)
         self.trailer.__eq__(other.trailer)
         return True

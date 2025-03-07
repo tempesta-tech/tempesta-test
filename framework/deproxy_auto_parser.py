@@ -213,6 +213,7 @@ class DeproxyAutoParser:
             self.__dbg_msg.format("Remove hop-by-hop headers from expected response/request"),
         )
         # headers specified in the connection header are hop-by-hop headers
+        is_chunked_msg = True if message.trailer.keys() else False
         connection = message.headers.get("connection")
         if connection:
             connection = connection.split(" ")
@@ -227,6 +228,15 @@ class DeproxyAutoParser:
         message.trailer.delete_all("keep-alive")
         message.trailer.delete_all("proxy-connection")
         message.trailer.delete_all("upgrade")
+        if (
+            not message.trailer.keys()
+            and message.body[-4:] not in ("\r\n\r\n", "\n\n")
+            and isinstance(message, (Response, Request))
+            and is_chunked_msg
+        ):
+            # We must add CRLF to a response from TempestaFW if trailers contain only hbp headers
+            # because this response has no trailer part
+            message.body += "\r\n"
 
     def __prepare_chunked_expected_response(self, expected_response: Response | H2Response) -> None:
         """

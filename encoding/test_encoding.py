@@ -189,6 +189,7 @@ class TestH2EmptyResponseBodyDechunkingHead(TestH2BodyDechunking):
     body = None
 
     def test(self):
+        self.disable_deproxy_auto_parser()
         self.run_test("HEAD", False)
 
 

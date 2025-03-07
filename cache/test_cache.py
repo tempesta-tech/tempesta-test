@@ -749,8 +749,6 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         to upstream to cache full response, but returns to client response
         with only headers as expected for HEAD request.
         """
-        if first_method == "HEAD":
-            self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -971,8 +969,6 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         client = self.get_client("deproxy")
 
         self.start_all_services()
-        if second_method == "HEAD":
-            self.disable_deproxy_auto_parser()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
