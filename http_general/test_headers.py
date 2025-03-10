@@ -333,18 +333,6 @@ class TestHeadersParsing(tester.TempestaTest):
         },
     ]
 
-    @staticmethod
-    def __is_hop_by_hop_header(key: str) -> bool:
-        if key.lower() in [
-            "connection",
-            "keep-alive",
-            "proxy-connection",
-            "hbpheader1",
-            "hbpheader2",
-        ]:
-            return True
-        return False
-
     def test_long_header_name_in_request(self):
         """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
         for length, status_code in ((1023, "200"), (1024, "200"), (1025, "400")):
@@ -401,6 +389,28 @@ class TestHeadersParsing(tester.TempestaTest):
             expected_status_code="400",
         )
 
+    def test_invalid_trailers_in_request(self):
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=(
+                "POST / HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Connection: HbpHeader1 HbpHeader2\r\n"
+                + "Content-type: text/html\r\n"
+                + "Transfer-Encoding: chunked\r\n"
+                + f"Trailer: X-Token1 cache-control X-Token2\r\n\r\n"
+                + "10\r\n"
+                + "abcdefghijklmnop\r\n"
+                + "0\r\n"
+                + "X-Token1: value1\r\n"
+                + "cache-control: no-cache\r\n"
+                + "X-Token2: value2\r\n\r\n"
+            ),
+            expected_status_code="400",
+        )
+
     @marks.Parameterize.expand(
         [
             marks.Param(
@@ -409,20 +419,31 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="X-Token2",
                 tr2_val="value2",
+                expected_status_code="200",
             ),
             marks.Param(
-                name="trailer_with_hbp_POST",
-                tr1="HbpHeader1",
-                tr1_val="value1",
-                tr2="Keep-Alive",
-                tr2_val="timeout=5, max=20",
-            ),
-            marks.Param(
-                name="trailer_mix_POST",
+                name="trailer_mix_POST_keep_alive",
                 tr1="X-Token1",
                 tr1_val="value1",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=20",
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_mix_POST_upgrade",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Upgrade",
+                tr2_val="websocket",
+                expected_status_code="400",
+            ),
+            marks.Param(
+                name="trailer_mix_POST_transfer_encoding",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Transfer-Encoding",
+                tr2_val="chunked",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="trailer_hbp_from_connection_POST",
@@ -430,10 +451,11 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="HbpHeader2",
                 tr2_val="value2",
+                expected_status_code="400",
             ),
         ]
     )
-    def test_trailers_in_request(self, name, tr1, tr1_val, tr2, tr2_val):
+    def test_trailers_in_request(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
         self.start_all_services()
         # self.disable_deproxy_auto_parser()
 
@@ -454,19 +476,19 @@ class TestHeadersParsing(tester.TempestaTest):
                 + f"{tr1}: {tr1_val}\r\n"
                 + f"{tr2}: {tr2_val}\r\n\r\n"
             ),
-            expected_status_code="200",
+            expected_status_code=expected_status_code,
         )
 
-        self.assertEqual(server.last_request.headers.get("trailer"), tr1 + " " + tr2)
+        if expected_status_code != "200":
+            return
+
+        self.assertIsNone(server.last_request.headers.get("trailer"))
         for tr, tr_val in [(tr1, tr1_val), (tr2, tr2_val)]:
-            if self.__is_hop_by_hop_header(tr):
-                self.assertIsNone(server.last_request.trailer.get(tr))
-            else:
-                self.assertEqual(
-                    server.last_request.trailer.get(tr),
-                    tr_val,
-                    "Moved trailer header value mismatch the original one",
-                )
+            self.assertEqual(
+                server.last_request.trailer.get(tr),
+                tr_val,
+                "Moved trailer header value mismatch the original one",
+            )
 
     @marks.Parameterize.expand(
         [
@@ -476,6 +498,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="X-Token2",
                 tr2_val="value2",
+                expected_status_code="200",
             ),
             marks.Param(
                 name="hbp_GET",
@@ -483,13 +506,39 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="keep-alive",
                 tr2="Keep-Alive",
                 tr2_val="timeout=5, max=100",
+                expected_status_code="502",
             ),
             marks.Param(
-                name="mix_GET",
+                name="mix_GET_keep_alive",
                 tr1="X-Token1",
                 tr1_val="value1",
                 tr2="Connection",
                 tr2_val="keep-alive",
+                expected_status_code="502",
+            ),
+            marks.Param(
+                name="mix_GET_upgrade",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Upgrade",
+                tr2_val="websocket",
+                expected_status_code="502",
+            ),
+            marks.Param(
+                name="mix_GET_transfer_encoding",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Transfer-Encoding",
+                tr2_val="chunked",
+                expected_status_code="502",
+            ),
+            marks.Param(
+                name="mix_GET_proxy_connection",
+                tr1="X-Token1",
+                tr1_val="value1",
+                tr2="Proxy-Connection",
+                tr2_val="keep-alive",
+                expected_status_code="502",
             ),
             marks.Param(
                 name="hbp_from_connection_GET",
@@ -497,17 +546,11 @@ class TestHeadersParsing(tester.TempestaTest):
                 tr1_val="value1",
                 tr2="HbpHeader2",
                 tr2_val="value2",
-            ),
-            marks.Param(
-                name="hbp_proxy_connection",
-                tr1="Proxy-Connection",
-                tr1_val="keep-alive",
-                tr2="Keep-Alive",
-                tr2_val="timeout=5, max=100",
+                expected_status_code="502",
             ),
         ]
     )
-    def test_trailers_in_response_get(self, name, tr1, tr1_val, tr2, tr2_val):
+    def test_trailers_in_response_get(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
         self.start_all_services()
 
         response = (
@@ -531,20 +574,20 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
-        client.send_request(request, "200")
+        client.send_request(request, expected_status_code)
+
+        if expected_status_code != "200":
+            return
 
         for tr, tr_val in [(tr1, tr1_val), (tr2, tr2_val)]:
-            if self.__is_hop_by_hop_header(tr):
-                self.assertIsNone(client.last_response.trailer.get(tr))
-            else:
-                self.assertEqual(
-                    client.last_response.trailer.get(tr),
-                    tr_val,
-                    "Moved trailer header value mismatch the original one",
-                )
+            self.assertEqual(
+                client.last_response.trailer.get(tr),
+                tr_val,
+                "Moved trailer header value mismatch the original one",
+            )
 
         self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
-        self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
         self.assertIsNone(client.last_response.headers.get(tr1))
         self.assertIsNone(client.last_response.headers.get(tr2))
 
@@ -578,7 +621,6 @@ class TestHeadersParsing(tester.TempestaTest):
         client.send_request(request, "200")
 
         self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
-        self.assertEqual(client.last_response.headers.get("Trailer"), tr1 + " " + tr2)
         for tr in (tr1, tr2):
             self.assertIsNone(client.last_response.trailer.get(tr))
             self.assertIsNone(client.last_response.headers.get(tr))
@@ -604,6 +646,66 @@ class TestHeadersParsing(tester.TempestaTest):
         )
 
         self.assertNotIn(("X-Token", "value"), server.last_request.trailer.headers)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "0\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+            marks.Param(
+                name="not_empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "10\r\n"
+                + "abcdefghijklmnop\r\n"
+                + "0\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+        ]
+    )
+    def test_trailers_in_response_simple(self, name, response):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(response)
+
+        client = self.get_client("deproxy")
+        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
+        self.assertIsNone(client.last_response.headers.get("X-Token"))
+        self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="cache_control", tr="cache-control", tr_val="no-cache"),
+            marks.Param(name="date", tr="date", tr_val="Mon, 12 Dec 2016 13:59:39 GMT"),
+            marks.Param(name="expires", tr="expires", tr_val="Thu, 01 Dec 2102 16:00:00 GMT"),
+            marks.Param(
+                name="last_modified", tr="last-modified", tr_val="Mon, 12 Dec 2016 13:59:39 GMT"
+            ),
+            marks.Param(name="vary", tr="vary", tr_val="accept"),
+        ]
+    )
+    def test_invalid_trailers_in_response(self, name, tr, tr_val):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\n"
+            + "Transfer-Encoding: chunked\n"
+            + f"Trailer: X-Token {tr}\r\n\r\n"
+            + "0\r\n"
+            + "X-Token: value\r\n"
+            + f"{tr}: {tr_val}\r\n\r\n",
+        )
+
+        client = self.get_client("deproxy")
+        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
 
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
