@@ -8,6 +8,7 @@ from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from h2.settings import SettingCodes
+from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
