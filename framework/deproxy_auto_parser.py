@@ -7,7 +7,7 @@ import re
 import sys
 
 import run_config
-from framework.deproxy_client import BaseDeproxyClient
+from framework.deproxy_client import BaseDeproxyClient, DeproxyClient, DeproxyClientH2
 from framework.deproxy_manager import DeproxyManager
 from helpers.deproxy import (
     H2Request,
@@ -126,6 +126,9 @@ class DeproxyAutoParser:
         self.__client_request = copy.deepcopy(request)
         request.set_expected()
         request.add_tempesta_headers(x_forwarded_for=client.bind_addr or client.conn_addr)
+
+        if not isinstance(client, DeproxyClientH2):
+            request.headers.delete_all("trailer")
         self.__prepare_hop_by_hop_headers(request)
 
         self.__prepare_method_for_expected_request(request)
@@ -165,6 +168,9 @@ class DeproxyAutoParser:
         else:
             expected_response = copy.deepcopy(self.__expected_response)
 
+        self.__prepare_body_for_HEAD_request(expected_response)
+
+        expected_response.headers.delete_all("trailer")
         self.__prepare_hop_by_hop_headers(expected_response)
 
         is_cache = "age" in received_response.headers
@@ -172,7 +178,11 @@ class DeproxyAutoParser:
             # Tempesta doesn't cache "set-cookie" header
             expected_response.headers.delete_all("set-cookie")
         if http2 or is_cache:
-            self.__prepare_chunked_expected_response(expected_response)
+            self.__prepare_chunked_expected_response(expected_response, http2)
+        else:
+            if self.__client_request.method == "HEAD":
+                for name, value in expected_response.trailer.headers:
+                    expected_response.trailer.delete_all(name)
 
         if not http2:
             self.__add_content_length_header_to_expected_response(expected_response)
@@ -238,15 +248,16 @@ class DeproxyAutoParser:
             # because this response has no trailer part
             message.body += "\r\n"
 
-    def __prepare_chunked_expected_response(self, expected_response: Response | H2Response) -> None:
+    def __prepare_chunked_expected_response(
+        self, expected_response: Response | H2Response, http2: bool
+    ) -> None:
         """
         For http2:
             - Tempesta convert Transfer-Encoding header to Content-Encoding
-            - Tempesta moves trailers to headers
         For cache response:
             - Tempesta store response with Content-Encoding and Content-length headers
-            - Tempesta moves trailers to headers
         """
+        method_is_head = self.__client_request.method == "HEAD"
         if "Transfer-Encoding" in expected_response.headers:
             dbg(
                 4,
@@ -255,24 +266,26 @@ class DeproxyAutoParser:
                 ),
             )
 
-            te = expected_response.headers.get("Transfer-Encoding")
-            ce = ",".join(te.split(", ")[:-1])
-            expected_response.headers.delete_all("Transfer-Encoding")
-            if ce:
-                dbg(
-                    4,
-                    self.__dbg_msg.format(
-                        "Response: Transfer-Encoding header convert to Content-Encoding"
-                    ),
-                )
-                expected_response.headers.add("content-encoding", ce)
-            expected_response.convert_chunked_body()
-            expected_response.headers.add("content-length", str(len(expected_response.body)))
+            if http2:
+                te = expected_response.headers.get("Transfer-Encoding")
+                ce = ",".join(te.split(", ")[:-1])
+                expected_response.headers.delete_all("Transfer-Encoding")
+                if ce:
+                    dbg(
+                        4,
+                        self.__dbg_msg.format(
+                            "Response: Transfer-Encoding header convert to Content-Encoding"
+                        ),
+                    )
+                    expected_response.headers.add("content-encoding", ce)
+            expected_response.convert_chunked_body(http2, method_is_head)
+            if http2:
+                expected_response.headers.delete_all("Trailer")
 
-            for name, value in expected_response.trailer.headers:
-                dbg(4, self.__dbg_msg.format(f"Response: Trailer '{name}' moved to headers."))
-                expected_response.trailer.delete_all(name)
-                expected_response.headers.add(name, value)
+            # Tempesta FW remove trailers from response for HEAD request.
+            if method_is_head:
+                for name, value in expected_response.trailer.headers:
+                    expected_response.trailer.delete_all(name)
 
     def __add_content_length_header_to_expected_response(
         self, expected_response: Response | H2Response

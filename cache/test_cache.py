@@ -1694,8 +1694,7 @@ class TestChunkedResponse(tester.TempestaTest):
             # check that response is from the cache
             self.assertEqual(len(srv.requests), 1)
             self.assertIn("age", response.headers)
-            # Cached response is dechunked after the #1418
-            self.assertEqual(response.stdout, "test-data")
+            self.assertEqual(response.stdout, resp_body_for_first_request)
 
 
 class TestCacheVhost(tester.TempestaTest):
@@ -2073,11 +2072,14 @@ class TestCacheResponseWithTrailersBase(tester.TempestaTest):
         "config": """
 listen 80;
 listen 443 proto=h2;
+
 server ${server_ip}:8000;
 cache 2;
 cache_methods GET HEAD;
 cache_fulfill * *;
+
 tls_match_any_server_name;
+
 vhost default {
     proxy_pass default;
     tls_certificate ${tempesta_workdir}/tempesta.crt;
@@ -2104,7 +2106,7 @@ vhost default {
             result += f"{chunk}\r\n"
         return result + "0\r\n\r\n"
 
-    def start_and_check_first_response(self, client, method, response, tr1, tr2):
+    def start_and_check_first_response(self, client, method, response):
         self.start_all_services()
 
         srv: StaticDeproxyServer = self.get_server("deproxy")
@@ -2113,17 +2115,14 @@ vhost default {
         request = client.create_request(method=method, headers=[])
         client.send_request(request, "200")
 
-        self.assertEqual(client.last_response.headers.get("Trailer"), f"{tr1} {tr2}")
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
 
     def check_second_request(self, *, client, method, tr1, tr2):
         request = client.create_request(method=method, headers=[])
         client.send_request(request, "200")
-        self.assertIn("age", client.last_response.headers)
 
-        self.assertIsNone(client.last_response.headers.get("Transfer-Encoding"))
-        self.assertEqual(client.last_response.headers.get("Trailer"), f"{tr1} {tr2}")
-        self.assertIsNone(client.last_response.trailer.get(tr1))
-        self.assertIsNone(client.last_response.trailer.get(tr2))
+        self.assertIn("age", client.last_response.headers)
+        self.assertIsNone(client.last_response.headers.get("Trailer"))
 
 
 @marks.parameterize_class(
@@ -2164,8 +2163,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            tr1="X-Token1",
-            tr2="X-Token2",
         )
         self.check_second_request(client=client, method=method2, tr1="X-Token1", tr2="X-Token2")
 
@@ -2185,8 +2182,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "0\r\n"
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            tr1="X-Token1",
-            tr2="X-Token2",
         )
         self.check_second_request(client=client, method="GET", tr1="X-Token1", tr2="X-Token2")
 
@@ -2207,8 +2202,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "0\r\n"
             + f"hdr_and_trailer: trailer\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            tr1="hdr_and_trailer",
-            tr2="X-Token2",
         )
         self.assertEqual(client.last_response.headers.get("hdr_and_trailer"), "header")
         self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer"))
@@ -2217,7 +2210,93 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             client=client, method="GET", tr1="hdr_and_trailer", tr2="X-Token2"
         )
         self.assertEqual(client.last_response.headers.get("hdr_and_trailer"), "header")
+        self.assertEqual(client.last_response.trailer.get("hdr_and_trailer"), "trailer")
+
+    def test_same_hdr_and_trailer_head_to_get_multiple_1(self):
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "hdr_and_trailer: header1\r\n"
+            + "hdr_and_trailer: header2\r\n"
+            + "Trailer: hdr_and_trailer X-Token2\r\n\r\n"
+            + "0\r\n"
+            + f"hdr_and_trailer: trailer1\r\n"
+            + f"hdr_and_trailer: trailer2\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+        )
+
+        client = self.get_client("deproxy")
+
+        request = client.create_request(method="HEAD", headers=[])
+        client.send_request(request, "200")
+
+        self.assertEqual(
+            tuple(client.last_response.headers.find_all("hdr_and_trailer")),
+            ("header1", "header2"),
+            "The response from cache MUST contain headers.",
+        )
         self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer"))
+
+        self.check_second_request(
+            client=client, method="GET", tr1="hdr_and_trailer", tr2="X-Token2"
+        )
+
+        self.assertEqual(
+            tuple(client.last_response.headers.find_all("hdr_and_trailer")),
+            ("header1", "header2"),
+            "The response from cache MUST contain headers.",
+        )
+        self.assertEqual(
+            tuple(client.last_response.trailer.find_all("hdr_and_trailer")),
+            ("trailer1", "trailer2"),
+            "The response from cache MUST contain trailers.",
+        )
+
+    def test_same_hdr_and_trailer_head_to_get_multiple_2(self):
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-type: text/html\r\n"
+            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "hdr_and_trailer_1: header1\r\n"
+            + "hdr_and_trailer_2: header2\r\n"
+            + "Trailer: hdr_and_trailer_1 hdr_and_trailer_2 X-Token2\r\n\r\n"
+            + "0\r\n"
+            + f"hdr_and_trailer_1: trailer1\r\n"
+            + f"hdr_and_trailer_2: trailer2\r\n"
+            + f"X-Token2: value2\r\n\r\n",
+        )
+
+        client = self.get_client("deproxy")
+
+        request = client.create_request(method="HEAD", headers=[])
+        client.send_request(request, "200")
+
+        self.assertEqual(client.last_response.headers.get("hdr_and_trailer_1"), "header1")
+        self.assertEqual(client.last_response.headers.get("hdr_and_trailer_2"), "header2")
+        self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer_1"))
+        self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer_2"))
+
+        self.check_second_request(
+            client=client, method="GET", tr1="hdr_and_trailer_1", tr2="X-Token2"
+        )
+
+        self.assertEqual(client.last_response.headers.get("hdr_and_trailer_1"), "header1")
+        self.assertEqual(client.last_response.headers.get("hdr_and_trailer_2"), "header2")
+        self.assertEqual(client.last_response.trailer.get("hdr_and_trailer_1"), "trailer1")
+        self.assertEqual(client.last_response.trailer.get("hdr_and_trailer_2"), "trailer2")
 
     def test_same_trailer_head_to_get(self):
         client = self.get_client("deproxy")
@@ -2235,25 +2314,18 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "0\r\n"
             + f"trailer_and_trailer: value1\r\n"
             + f"trailer_and_trailer: value2\r\n\r\n",
-            tr1="trailer_and_trailer",
-            tr2="trailer_and_trailer",
         )
 
-        if isinstance(client, DeproxyClientH2):
-            self.assertEqual(
-                tuple(client.last_response.headers.find_all("trailer_and_trailer")),
-                ("value1", "value2"),
-            )
-        else:
-            self.assertIsNone(client.last_response.headers.get("trailer_and_trailer"))
+        self.assertIsNone(client.last_response.headers.get("trailer_and_trailer"))
 
         self.check_second_request(
             client=client, method="GET", tr1="trailer_and_trailer", tr2="trailer_and_trailer"
         )
+
         self.assertEqual(
-            tuple(client.last_response.headers.find_all("trailer_and_trailer")),
+            tuple(client.last_response.trailer.find_all("trailer_and_trailer")),
             ("value1", "value2"),
-            "The response from cache MUST contain trailers in headers.",
+            "The response from cache MUST contain trailers",
         )
 
     @marks.Parameterize.expand(
@@ -2277,8 +2349,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "0\r\n"
             + f"Server: cloudfare\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            tr1="Server",
-            tr2="X-Token2",
         )
         self.assertEqual(client.last_response.headers.get("Server"), "Tempesta FW/0.8.0")
 
@@ -2322,12 +2392,11 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         ]
     )
     def test_hbh_headers(self, name, method, tr1, tr1_val, tr2, tr2_val):
-        client = self.get_client("deproxy")
+        self.start_all_services()
 
-        self.start_and_check_first_response(
-            client=client,
-            method=method,
-            response="HTTP/1.1 200 OK\r\n"
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
             + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
             + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
@@ -2336,12 +2405,12 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + f"Trailer: {tr1} {tr2}\r\n\r\n"
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"{tr1}: {tr1_val}\r\n"
-            + f"{tr2}: {tr2_val}\r\n\r\n",
-            tr1=tr1,
-            tr2=tr2,
+            + f"{tr2}: {tr2_val}\r\n\r\n"
         )
+        client = self.get_client("deproxy")
 
-        self.check_second_request(client=client, method=method, tr1=tr1, tr2=tr2)
+        request = client.create_request(method=method, headers=[])
+        client.send_request(request, "502")
 
 
 class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBase):
@@ -2412,8 +2481,6 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             + self.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
-            tr1="X-Token1",
-            tr2="X-Token2",
         )
         self.check_second_request(client=client2, method=method, tr1="X-Token1", tr2="X-Token2")
 
