@@ -75,10 +75,9 @@ class TestMaxFrameSize(H2Base):
         # but Tempesta has default SETTINGS_MAX_FRAME_SIZE = 16384.
         client.h2_connection.max_outbound_frame_size = 20000
 
-        request = self.post_request
-        request.append(("qwerty", "x" * 17000))
-
-        client.make_request(request=request, end_stream=True, huffman=False)
+        client.make_request(
+            request=self.post_request + [("qwerty", "x" * 17000)], end_stream=True, huffman=False
+        )
         self.assertTrue(client.wait_for_connection_close())
 
     def test_data_frame_is_large_than_max_frame_size(self):
