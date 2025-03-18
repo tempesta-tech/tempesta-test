@@ -678,7 +678,7 @@ class TestHeadersParsing(tester.TempestaTest):
         client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
         self.assertIsNone(client.last_response.headers.get("Trailer"))
         self.assertIsNone(client.last_response.headers.get("X-Token"))
-        self.assertTrue(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
 
     @marks.Parameterize.expand(

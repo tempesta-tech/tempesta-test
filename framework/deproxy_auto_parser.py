@@ -279,8 +279,6 @@ class DeproxyAutoParser:
                     )
                     expected_response.headers.add("content-encoding", ce)
             expected_response.convert_chunked_body(http2, method_is_head)
-            if http2:
-                expected_response.headers.delete_all("Trailer")
 
             # Tempesta FW remove trailers from response for HEAD request.
             if method_is_head:

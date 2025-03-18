@@ -924,7 +924,12 @@ class TestTrailers(H2Base):
         client.send_request(self.get_request, "200")
         self.assertIsNone(client.last_response.headers.get("Trailer"))
         self.assertIsNone(client.last_response.headers.get("X-Token"))
-        self.assertFalse(client.last_response.headers.get("Transfer-Encoding"), "chunked")
+        """
+        HTTP/2 uses DATA frames to carry message content. The chunked
+        transfer encoding defined in Section 7.1 of [HTTP/1.1] cannot
+        be used in HTTP/2; see Section 8.2.2.
+        """ 
+        self.assertIsNone(client.last_response.headers.get("Transfer-Encoding"))
         self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
 
 
