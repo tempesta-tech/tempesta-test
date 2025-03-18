@@ -278,7 +278,7 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
                 self.assertFalse(response.stderr)
                 self.assertTrue(response.stdout.endswith("</html>"))
                 self.assertGreater(len(response.stdout), 65000, len(response.stdout))
-                self.assertFalse(response.headers.get("content-length"))
+                self.assertIsNone(response.headers.get("content-length"))
                 self.assertEqual(
                     self.check_cached_headers(response.headers),
                     cached,

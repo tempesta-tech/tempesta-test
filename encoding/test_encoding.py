@@ -576,7 +576,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
             with self.subTest(response_from=from_):
                 client.send_request(self.request, "200")
                 response = client.last_response
-                self.assertFalse(client.last_response.headers.get("Trailer"))
+                self.assertIsNone(client.last_response.headers.get("Trailer"))
                 if self.h2:
                     self.assertIsNone(
                         client.last_response.headers.get("Transfer-Encoding"), "chunked"

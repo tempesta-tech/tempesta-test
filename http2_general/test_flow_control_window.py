@@ -88,10 +88,6 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         We also check how it works with trailers, because appropriate PR in Tempesta FW had
         errors.
         """
-
-        # need for trailers
-        self.disable_deproxy_auto_parser()
-
         client, server = self._initiate_client_and_server(response=(response_str))
 
         client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
