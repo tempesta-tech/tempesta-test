@@ -609,10 +609,7 @@ if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.sta
 __check_memory_consumption(python_memory_before, used_memory_before)
 __check_kmemleak()
 
-if len(result.errors) > 0:
-    sys.exit(-1)
-
-if len(result.failures) > 0:
+if len(result.failures) > 0 or len(result.unexpectedSuccesses) > 0 or len(result.errors) > 0:
     sys.exit(1)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

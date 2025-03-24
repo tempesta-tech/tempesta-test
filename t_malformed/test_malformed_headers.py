@@ -64,6 +64,17 @@ server ${server_ip}:8000;
 
 
 class MalformedRequestsTest(MalformedRequestsBase):
+
+    def test_expect(self):
+        """
+        https://tools.ietf.org/html/rfc7231#section-5.1.1
+
+        A server that receives an Expect field-value other than 100-continue
+        MAY respond with a 417 (Expectation Failed) status code to indicate
+        that the unexpected expectation cannot be met.
+        """
+        self.common_check(headers=("Expect", "invalid"))
+
     def test_missing_name(self):
         """
         Header name must contain at least one token character to be valid.
@@ -253,18 +264,7 @@ class MalformedRequestsWithoutStrictParsingTest(MalformedRequestsBase):
         self.disable_deproxy_auto_parser()
         self.common_check(headers=("Date", "invalid"))
 
-    def test_expect1(self):
-        """
-        https://tools.ietf.org/html/rfc7231#section-5.1.1
-
-        A server that receives an Expect field-value other than 100-continue
-        MAY respond with a 417 (Expectation Failed) status code to indicate
-        that the unexpected expectation cannot be met.
-        """
-        self.common_check(headers=("Expect", "invalid"))
-
-    @unittest.expectedFailure
-    def test_expect2(self):
+    def test_expect(self):
         """
         https://tools.ietf.org/html/rfc7231#section-5.1.1
         A client MUST NOT generate a 100-continue expectation in a request
