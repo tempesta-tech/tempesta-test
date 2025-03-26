@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import unittest
@@ -23,6 +23,10 @@ class H2MalformedRequestsTest(test_malformed_headers.MalformedRequestsTest):
 
     def test_te(self):
         self.common_check(headers=("TE", "invalid"))
+
+    def test_expect(self):
+        """TempestaFW blocks h2 requests with Expect header."""
+        self.common_check(headers=("Expect", "100-continue"))
 
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
@@ -64,6 +68,10 @@ class H2MalformedRequestsWithoutStrictParsingTest(
     @unittest.SkipTest
     def test_te(self):
         pass
+
+    @unittest.SkipTest
+    def test_expect(self):
+        """This test move to H2MalformedRequestsTest."""
 
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
