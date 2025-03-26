@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import unittest
@@ -65,7 +65,7 @@ server ${server_ip}:8000;
 
 class MalformedRequestsTest(MalformedRequestsBase):
 
-    def test_expect(self):
+    def test_expect_invalid(self):
         """
         https://tools.ietf.org/html/rfc7231#section-5.1.1
 
