@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
+from helpers.networker import NetWorker
 from test_suite import marks, sysnet, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -226,6 +227,7 @@ class BaseWrk(tester.TempestaTest):
 
 class BaseWrkStress(CustomMtuMixin, LargePageNginxBackendMixin, BaseWrk, base=True):
     @dmesg.limited_rate_on_tempesta_node
+    @NetWorker.protect_ipv6_addr_on_dev
     def test_concurrent_connections(self):
         self._test_concurrent_connections()
 
@@ -603,6 +605,7 @@ class H2LoadStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTe
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
+    @NetWorker.protect_ipv6_addr_on_dev
     def test(self, name, cache_mode):
         self.start_all(cache_mode)
         client = self.get_client("h2load")
