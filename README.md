@@ -36,14 +36,19 @@ This configuration is recommended for TempestaFW developers.
 ## Setup
 
 To run requirements auto installation run setup.sh from `tempesta-test` directory 
-as root:
+as root (please use the root user directly; running with sudo is not suitable):
 
 `./setup.sh`
 
 ## Requirements
-
-- Python version till 3.11 is supported, version **3.12 is NOT supported**
-(we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
+- Ubuntu 24.04 
+- Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment (also we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
+```sh
+add-apt-repository ppa:deadsnakes/ppa
+apt update
+apt install python3.10
+apt install python3.10-venv
+```
 - ClickHouse Database 25 (Optional, used for storing logs in the database). See installation [here](https://clickhouse.com/docs/en/install#quick-install)
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
 `curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, `docker.io`, web content 
