@@ -1,5 +1,7 @@
 """ Helpers to control different network adapter settings. """
 
+import socket
+import pyroute2
 from helpers import remote, tf_cfg
 from test_suite import sysnet
 
@@ -11,23 +13,22 @@ __license__ = "GPL2"
 class NetWorker:
     @staticmethod
     def _get_ipv6_addr(dev):
-        was_found = False
-        cmd = f"ip -6 addr show dev {dev} | grep inet6"
-        out = remote.client.run_cmd(cmd)
-        out = out[0].decode("utf-8").split(" ")
-        for val in out:
-            if val == "inet6":
-                was_found = True
-                # Next value is address
-                continue
-            if was_found:
-                return val.split("/")
-        return None
+        ip = pyroute2.IPRoute()
+        index = ip.link_lookup(ifname=dev)[0]
+
+        return ip.get_addr(family=socket.AF_INET6, index=index)
 
     @staticmethod
-    def _set_ipv6_addr(dev, addr, prefix):
-        cmd = f"ip -6 addr add {addr}/{prefix} dev {dev}"
-        remote.client.run_cmd(cmd)
+    def _set_ipv6_addr(dev, old_ipv6_addresses):
+        curr_ipv6_addresses = NetWorker()._get_ipv6_addr(dev)
+        ip = pyroute2.IPRoute()
+        index = ip.link_lookup(ifname=dev)[0]
+
+        for ipv6_addr in old_ipv6_addresses:
+            if ipv6_addr not in curr_ipv6_addresses:
+                addr = ipv6_addr.get_attr('IFA_ADDRESS')
+                mask = ipv6_addr['prefixlen']
+                ip.addr('add', index=index, address=addr, mask=mask)
 
     @staticmethod
     def _get_dev():
@@ -49,13 +50,13 @@ class NetWorker:
         out = remote.client.run_cmd(cmd)
 
     def __protect_ipv6_addr_on_dev(self, func, *args, **kwargs):
-        dev = self._get_dev()
-        ipv6_addr = self._get_ipv6_addr(dev)
+        dev = NetWorker()._get_dev()
+        ipv6_addresses = NetWorker()._get_ipv6_addr(dev)
         try:
             return func(*args, **kwargs)
         finally:
-            if ipv6_addr:
-                self._set_ipv6_addr(dev, ipv6_addr[0], ipv6_addr[1])
+            if ipv6_addresses:
+                NetWorker()._set_ipv6_addr(dev, ipv6_addresses)
 
     @staticmethod
     def protect_ipv6_addr_on_dev(func):
@@ -76,34 +77,34 @@ class NetWorker:
             sysnet.change_mtu(node, dev, mtu)
 
     def get_tso_state(self, dev):
-        tso_state = self._get_state(dev, "tcp-segmentation-offload")
+        tso_state = NetWorker()._get_state(dev, "tcp-segmentation-offload")
         if tso_state == "on":
             self.tso_state = True
         else:
             self.tso_state = False
 
     def get_gro_state(self, dev):
-        gro_state = self._get_state(dev, "generic-receive-offload")
+        gro_state = NetWorker()._get_state(dev, "generic-receive-offload")
         if gro_state == "on":
             self.gro_state = True
         else:
             self.gro_state = False
 
     def get_gso_state(self, dev):
-        gso_state = self._get_state(dev, "generic-segmentation-offload")
+        gso_state = NetWorker()._get_state(dev, "generic-segmentation-offload")
         if gso_state == "on":
             self.gso_state = True
         else:
             self.gso_state = False
 
     def change_tso(self, dev, on=True):
-        self._set_state(dev, "tso", on)
+        NetWorker()._set_state(dev, "tso", on)
 
     def change_gro(self, dev, on=True):
-        self._set_state(dev, "gro", on)
+        NetWorker()._set_state(dev, "gro", on)
 
     def change_gso(self, dev, on=True):
-        self._set_state(dev, "gso", on)
+        NetWorker()._set_state(dev, "gso", on)
 
     def _get_tcp_option(self, option_name):
         cmd = f"sysctl {option_name}"
@@ -122,7 +123,7 @@ class NetWorker:
             # interface, so, regardless where the Tempesta node resides, we can
             # change MTU on the local interface only to get the same MTU for
             # both the client and server connections.
-            dev = self._get_dev()
+            dev = NetWorker()._get_dev()
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
         except Exception as err:
             self.fail(err)
@@ -157,7 +158,7 @@ class NetWorker:
         self, client, server, test, mtu, option_name=None, option_val=None
     ):
         try:
-            dev = self._get_dev()
+            dev = NetWorker()._get_dev()
         except Exception as err:
             self.fail(err)
 
