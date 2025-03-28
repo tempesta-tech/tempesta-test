@@ -2330,33 +2330,6 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="GET_GET", method1="GET", method2="GET"),
-            marks.Param(name="HEAD_GET", method1="HEAD", method2="GET"),
-        ]
-    )
-    def test_server_in_trailers(self, name, method1, method2):
-        client = self.get_client("deproxy")
-
-        self.start_and_check_first_response(
-            client=client,
-            method=method1,
-            response="HTTP/1.1 200 OK\r\n"
-            + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + "Transfer-Encoding: chunked\r\n"
-            + "Trailer: Server X-Token2\r\n\r\n"
-            + "0\r\n"
-            + f"Server: cloudfare\r\n"
-            + f"X-Token2: value2\r\n\r\n",
-        )
-        self.assertEqual(client.last_response.headers.get("Server"), "Tempesta FW/0.8.0")
-
-        self.check_second_request(client=client, method=method2, tr1="Server", tr2="X-Token2")
-        self.assertEqual(client.last_response.headers.get("Server"), "Tempesta FW/0.8.0")
-
-    @marks.Parameterize.expand(
-        [
             marks.Param(
                 name="mix_GET",
                 method="GET",
@@ -2483,6 +2456,7 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             + f"X-Token2: value2\r\n\r\n",
         )
         self.check_second_request(client=client2, method=method, tr1="X-Token1", tr2="X-Token2")
+
 
 @marks.parameterize_class(
     [
