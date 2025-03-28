@@ -687,6 +687,38 @@ class TestHeadersParsing(tester.TempestaTest):
                 + "Transfer-Encoding: chunked\n"
                 + "Trailer: X-Token\r\n\r\n"
                 + "0\r\n"
+                + "Server: deproxy\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+            marks.Param(
+                name="not_empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "10\r\n"
+                + "abcdefghijklmnop\r\n"
+                + "0\r\n"
+                + "Server: deproxy\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+        ]
+    )
+    def test_server_in_trailers_response(self, name, response):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(response)
+
+        client = self.get_client("deproxy")
+        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "0\r\n"
                 + "X-Token: value\r\n\r\n",
             ),
             marks.Param(
