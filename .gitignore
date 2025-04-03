@@ -10,3 +10,4 @@ certgen.sh
 secrets.txt
 /tools/mhddos/files/proxies/proxies.txt
 .idea
+/env/*

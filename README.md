@@ -5,7 +5,7 @@
 Running tests during development process can cause crashes to TempestaFW.
 Since TempestaFW is implemented as a set of kernel modules it is not convenient
 to run testing framework on the same host. It is recommended to run TempestaFW 
-on a separated host.
+on a separated host. Please use a separate computer or a virtual machine (containerization is not suitable).
 
 Recommended test-beds:
 
@@ -35,12 +35,14 @@ This configuration is recommended for TempestaFW developers.
 
 ## Setup
 
-To run requirements auto installation run setup.sh from `tempesta-test` directory 
-as root (please use the root user directly; running with sudo is not suitable):
+To run requirements auto installation run setup.py from `tempesta-test` directopy. Some operations must be performed with root privileges. At the start, the script will ask for the sudo user’s password.
 
-`./setup.sh`
+```sh
+python3 setup.py
+```
 
 ## Requirements
+
 - Ubuntu 24.04 
 - Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment (also we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
 ```sh
@@ -86,16 +88,22 @@ You can also create default tests configuration
 (see `TestFrameworkCfg.defaults` method from `helpers/tf_cfg.py`) by calling:
 
 ```sh
-./run_tests.py -d local
+env/bin/python3 run_tests.py -d local
 ```
 
 There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
 
 ### Run tests
+The tests work with Ubuntu settings, please use the root user directly.
+
+It's important that all tests are run from the Python 3.10 virtual environment. If the tests are executed from the tempesta-test folder, the easiest way is:
+```sh
+env/bin/python3 run_test.py
+```
 
 To run all the tests simply run:
 ```sh
-./run_tests.py
+env/bin/python3 run_tests.py
 ```
 
 To run individual tests, name them in the arguments to the `run_tests.py` script
@@ -103,19 +111,19 @@ in dot-separated format (as if you were importing them as python modules,
 although it is also possible to run specific testcases or even methods inside a
 testcase):
 ```sh
-./run_tests.py cache.test_cache
-./run_tests.py cache.test_cache.TestCacheDisabled.test_cache_fullfill_all
+env/bin/python3 run_tests.py cache.test_cache
+env/bin/python3 run_tests.py cache.test_cache.TestCacheDisabled.test_cache_fullfill_all
 ```
 
 Or you can run all tests from a file:
 ```sh
-./run_tests.py selftests/test_deproxy.py 
+env/bin/python3 run_tests.py selftests/test_deproxy.py 
 ```
 
 Or you can run individual tests (or test class) using `-H` options:
 
 ```sh
-./run_tests.py -H selftests/test_deproxy.py 
+env/bin/python3 run_tests.py -H selftests/test_deproxy.py 
 [?] Select test class: DeproxyTestH2
    DeproxyChunkedTest
    DeproxyClientTest
@@ -140,8 +148,8 @@ Or you can run individual tests (or test class) using `-H` options:
 To ignore specific tests, specify them in the arguments prefixed with `-`
 (you may need to use `--` to avoid treating that as a flag):
 ```sh
-./run_tests.py cache -cache.test_purge # run cache.*, except cache.test_purge.*
-./run_tests.py -- -cache # run everything, except cache.*
+env/bin/python3 run_tests.py cache -cache.test_purge # run cache.*, except cache.test_purge.*
+env/bin/python3 run_tests.py -- -cache # run everything, except cache.*
 ```
 
 If the testsuite was interrupted or aborted, next run will continue from the
@@ -149,8 +157,8 @@ interruption point. The resumption information is stored in the
 `tests_resume.txt` file in the current working directory. It is also possible
 to resume the testsuite from a specific test:
 ```sh
-./run_tests.py --resume flacky_net
-./run_tests.py --resume-after cache.test_purge
+env/bin/python3 run_tests.py --resume flacky_net
+env/bin/python3 run_tests.py --resume-after cache.test_purge
 ```
 
 In all cases, prefix specifications are allowed, i. e. `cache.test_cache` will
@@ -277,7 +285,7 @@ This division is controlled by `segment_size` parameter of the client or the bac
 or backend configuration. You can run any test with TCP segmentation using `-T` option:
 
 ```shell
-./run_tests.py -T 10 selftests/test_deproxy.py 
+env/bin/python3 run_tests.py -T 10 selftests/test_deproxy.py 
 ```
 
 ## Internal structure and motivation of user configured tests
