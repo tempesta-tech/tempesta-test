@@ -12,9 +12,13 @@ class NetWorker:
     @staticmethod
     def _get_ipv6_addr(dev):
         was_found = False
+        out = []
         cmd = f"ip -6 addr show dev {dev} | grep inet6"
-        out = remote.client.run_cmd(cmd)
-        out = out[0].decode("utf-8").split(" ")
+        try:
+            out = remote.client.run_cmd(cmd)
+            out = out[0].decode("utf-8").split(" ")
+        except:
+            pass
         for val in out:
             if val == "inet6":
                 was_found = True
