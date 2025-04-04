@@ -11,7 +11,7 @@ import websockets
 
 from helpers import dmesg, tf_cfg
 from helpers.cert_generator_x509 import CertGenerator
-from test_suite import tester
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -223,7 +223,7 @@ def gen_cert(host_name):
     cgen.generate()
 
 
-class WsPing(tester.TempestaTest):
+class BaseWsPing(tester.TempestaTest):
     """Ping test for websocket ws scheme"""
 
     backends = []
@@ -267,14 +267,6 @@ class WsPing(tester.TempestaTest):
             asyncio.ensure_future(websockets.serve(self.handler, SERVER_IP, port + i))
         loop.run_forever()
 
-    def test(self):
-        self.p1 = Process(target=self.run_ws, args=(18099,))
-        self.p2 = Process(target=self.run_test, args=(81, 4))
-        self.p1.start()
-        self.start_tempesta()
-        self.p2.start()
-        self.p2.join(timeout=5)
-
     # Backend
 
     async def handler(self, websocket, path):
@@ -303,7 +295,18 @@ class WsPing(tester.TempestaTest):
             self.p2 = None
 
 
-class WssPing(WsPing):
+class WsPing(BaseWsPing):
+
+    def test(self):
+        self.p1 = Process(target=self.run_ws, args=(8099,))
+        self.p2 = Process(target=self.run_test, args=(81, 4))
+        self.p1.start()
+        self.start_tempesta()
+        self.p2.start()
+        self.p2.join(timeout=5)
+
+
+class BaseWssPing(BaseWsPing):
     """Ping test for websocket wss scheme."""
 
     def run_test(self, port, n):
@@ -318,9 +321,59 @@ class WssPing(WsPing):
             asyncio.ensure_future(websockets.serve(self.handler, SERVER_IP, port + i))
         loop.run_forever()
 
+
+class WssPing(BaseWssPing):
+
     def test(self):
         gen_cert(hostname)
         self.p1 = Process(target=self.run_wss, args=(18099,))
+        self.p2 = Process(target=self.run_test, args=(82, 4))
+        self.p1.start()
+        self.start_tempesta()
+        self.p2.start()
+        self.p2.join()
+
+
+@marks.parameterize_class(
+    [{"name": "HttpsH2", "proto": "https,h2"}, {"name": "H2Https", "proto": "h2,https"}]
+)
+class WssPingMultipleListeners(BaseWssPing):
+    """
+        The inheritance here is related to legacy code, please do not repeat this
+        example in other tests
+    """
+
+    tempesta_template = {
+        "config": """
+listen 81;
+listen 82 proto=%s;
+
+srv_group default {
+
+    server ${server_ip}:8099;
+}
+frang_limits {http_strict_host_checking false;}
+tls_certificate ${general_workdir}/cert.pem;
+tls_certificate_key ${general_workdir}/key.pem;
+tls_match_any_server_name;
+vhost default {
+    proxy_pass default;
+}
+
+http_chain {
+    -> default;
+}
+""",
+    }
+
+    def setUp(self):
+        self.tempesta["config"] = self.tempesta_template["config"] % self.proto
+        super().setUp()
+
+    def test(self):
+        """copy/paste from WssPing.test()"""
+        gen_cert(hostname)
+        self.p1 = Process(target=self.run_wss, args=(8099,))
         self.p2 = Process(target=self.run_test, args=(82, 4))
         self.p1.start()
         self.start_tempesta()
