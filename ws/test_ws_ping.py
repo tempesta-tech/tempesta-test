@@ -223,7 +223,7 @@ def gen_cert(host_name):
     cgen.generate()
 
 
-class StageWsPing(tester.TempestaTest):
+class BaseWsPing(tester.TempestaTest):
     """Ping test for websocket ws scheme"""
 
     backends = []
@@ -295,7 +295,7 @@ class StageWsPing(tester.TempestaTest):
             self.p2 = None
 
 
-class WsPing(StageWsPing):
+class WsPing(BaseWsPing):
 
     def test(self):
         self.p1 = Process(target=self.run_ws, args=(8099,))
@@ -306,7 +306,7 @@ class WsPing(StageWsPing):
         self.p2.join(timeout=5)
 
 
-class StageWssPing(StageWsPing):
+class BaseWssPing(BaseWsPing):
     """Ping test for websocket wss scheme."""
 
     def run_test(self, port, n):
@@ -322,7 +322,7 @@ class StageWssPing(StageWsPing):
         loop.run_forever()
 
 
-class WssPing(StageWssPing):
+class WssPing(BaseWssPing):
 
     def test(self):
         gen_cert(hostname)
@@ -337,7 +337,7 @@ class WssPing(StageWssPing):
 @marks.parameterize_class(
     [{"name": "HttpsH2", "proto": "https,h2"}, {"name": "H2Https", "proto": "h2,https"}]
 )
-class WssPingMultipleListeners(StageWssPing):
+class WssPingMultipleListeners(BaseWssPing):
     """
         The inheritance here is related to legacy code, please do not repeat this
         example in other tests
