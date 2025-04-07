@@ -12,6 +12,8 @@ __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
+import traceback
+from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING, Union
 
 from rich import pretty
@@ -272,6 +274,10 @@ class TestFrameworkCfg(object):
 
     def configure_logger(self):
         """Configure a logger."""
+
+        self._configure_logger()
+        return
+
         pretty.install()
 
         date_format = "%y-%m-%d %H:%M:%S"
@@ -300,6 +306,88 @@ class TestFrameworkCfg(object):
             ),
         )
 
+    def _configure_logger(self):
+
+        # this part will be remove into settings now just constant
+        FILE_HANDLER_LEVEL = logging.DEBUG
+        STREAM_HANDLER_LEVEL = logging.DEBUG
+
+        # log level for tests
+        LOG_LEVELS = {
+            "base": logging.DEBUG,
+            "tcp": logging.CRITICAL,  # tcp logs
+            "http": logging.DEBUG,   # http logs
+            "env": logging.INFO,  # env logs (subprocess calls, environment settitngs)
+        }
+
+        # file handle rotate files with every launch
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+
+        log_file = os.path.join(log_dir, "test.log")
+        file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
+        file_handler.doRollover()
+        date_format = "%H:%M:%S"
+        file_handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s.%(msecs)03d | %(levelname)8s | %(name)5s | %(module)s | %(lineno)03d | %(message)s",
+                datefmt=date_format,
+            )
+        )
+        file_handler.setLevel(FILE_HANDLER_LEVEL)
+
+        # console handlers
+        pretty.install()
+        stream_handler = RichHandler(
+            console=Console(width=180, color_system="256"),
+            rich_tracebacks=True,
+            tracebacks_extra_lines=2,
+        )
+        stream_handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s.%(msecs)03d | %(levelname)8s | %(name)5s | %(message)s | %(module)s | %(lineno)03d",
+                datefmt=date_format,
+            )
+        )
+        stream_handler.setLevel(STREAM_HANDLER_LEVEL)
+
+        # Base logger
+        logging.basicConfig(level=LOG_LEVELS["base"], handlers=[file_handler, stream_handler])
+
+        tcp_logger = logging.getLogger("tcp")
+        tcp_logger.setLevel(LOG_LEVELS["tcp"])
+
+        http_logger = logging.getLogger("http")
+        http_logger.setLevel(LOG_LEVELS["http"])
+
+        env_logger = logging.getLogger("env")
+        env_logger.setLevel(LOG_LEVELS["env"])
+
+        # Deprecated logger
+        self.logger = logging.getLogger("dprct")
+
+        # examples
+
+        # base logger
+        logging.critical("USE BASE LOGGER")
+
+        # http
+        new_http = logging.getLogger("http")
+        new_http.info("may use any ")
+
+        try:
+            raise RuntimeError()
+        except Exception:
+            new_http.exception("With traceback")
+
+        # old in config
+        self.logger.critical(" old logger")
+        # old with function
+        dbg(5, "Test old function line")
+        dbg(5, "Test old function line + 1")
+
+        # sys.exit(1)  # for fast lock
+
 
 def debug() -> bool:
     return int(cfg.get("General", "Verbose")) >= 3
@@ -310,8 +398,22 @@ def v_level():
 
 
 def dbg(level: int, msg: str, *args, **kwargs) -> None:
-    LOGGER.log(
-        bring_log_level(level),
+
+    logger = logging.getLogger("dprct")
+    if level in (0, 1):
+        level = logging.CRITICAL
+    elif level in (5, 6):
+        level = logging.DEBUG
+    else:
+        level = 60 - level * 10
+
+    stack = traceback.extract_stack()
+    file_name, line, func_name, _ = stack[-2]  # -1 current function
+
+    msg = f"{msg} \n {file_name} - {line}"
+
+    logger.log(
+        level,  # bring_log_level(level),
         msg,
         *args,
         **kwargs,
