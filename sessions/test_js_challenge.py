@@ -158,10 +158,10 @@ class JSChallenge(BaseJSChallenge):
     tempesta = {
         "config": f"""
         server ${{server_ip}}:8000;
-        
+
         listen 80;
         listen 443 proto=h2;
-        
+
         tls_certificate ${{tempesta_workdir}}/tempesta.crt;
         tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
         tls_match_any_server_name;
@@ -170,18 +170,32 @@ class JSChallenge(BaseJSChallenge):
             http_method_override_allowed true;
             http_strict_host_checking false;
         }}
-        
+
+        vhost tempesta-tech.com {{
+            sticky {{
+            cookie enforce name=cname max_misses={MAX_MISSES};
+            js_challenge resp_code=503 delay_min={DELAY_MIN} delay_range={DELAY_RANGE} 
+                        ${{tempesta_workdir}}/js1.html;
+            }}
+            proxy_pass default;
+        }}
+
+        vhost dev.tempesta-tech.com {{
+            proxy_pass default;
+        }}
+
         block_action attack reply;
         block_action error reply;
 
         cache 2;
         cache_methods GET HEAD POST;
         cache_fulfill * *;
-        
-        sticky {{
-            cookie enforce name=cname max_misses={MAX_MISSES};
-            js_challenge resp_code=503 delay_min={DELAY_MIN} delay_range={DELAY_RANGE} 
-                        ${{tempesta_workdir}}/js1.html;
+
+        http_chain {{
+            hdr accept == "text/html" -> jsch;
+            hdr accept == "text/\*" -> jsch;
+            host == "dev.tempesta-tech.com" -> dev.tempesta-tech.com;
+            -> tempesta-tech.com;
         }}
         """
     }
@@ -217,7 +231,7 @@ class JSChallenge(BaseJSChallenge):
             marks.Param(name="GET_and_accept_html", method="GET", accept="text/html", status="503"),
             marks.Param(name="GET_and_accept_all", method="GET", accept="*/*", status="403"),
             marks.Param(
-                name="GET_and_accept_text_all", method="GET", accept="text/*", status="403"
+                name="GET_and_accept_text_all", method="GET", accept="text/*", status="503"
             ),
             marks.Param(name="GET_and_accept_image", method="GET", accept="image/*", status="403"),
             marks.Param(
@@ -229,9 +243,7 @@ class JSChallenge(BaseJSChallenge):
     def test_first_request(self, name, method, accept, status):
         """
         Not all requests are challengeable. Tempesta sends the challenge
-        only if the client can accept it, i.e. request should has GET method and
-        'Accept: text/html'. In other cases normal browsers don't eval
-        JS code and TempestaFW is not trying to send the challenge to bots.
+        only if the request matches http chain "jsch" rule.
         """
         self.start_all_services()
 
@@ -624,6 +636,24 @@ class JSChallenge(BaseJSChallenge):
             status,
         )
 
+    def test_vhost_no_jsch_configured(self):
+        """
+        Verify that vhost with non-configured "sticky" module doesn't send JS challenge
+        even if it matches http_chain "jsch" rule.
+        """
+        self.start_all_services()
+
+        client = self.get_client("client-1")
+        request = client.create_request(
+            method="GET", authority="dev.tempesta-tech.com", headers=[("accept", "text/html")]
+        )
+        client.send_request(request, "200")
+        resp = client.last_response
+        self.assertIsNone(
+            resp.headers.get("Set-Cookie", None),
+            "Tempesta added a Set-Cookie header, but js challange is not configured for vhost.",
+        )
+
 
 @marks.parameterize_class(
     [
@@ -657,6 +687,9 @@ class JSChallengeCookieExpiresAndMethodOverride(BaseJSChallenge):
         tls_certificate ${{tempesta_workdir}}/tempesta.crt;
         tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
         tls_match_any_server_name;
+        frang_limits {{
+            http_strict_host_checking false;
+        }}
 
         block_action attack reply;
         block_action error reply;
@@ -669,6 +702,15 @@ class JSChallengeCookieExpiresAndMethodOverride(BaseJSChallenge):
             js_challenge resp_code=503 delay_min={DELAY_MIN} delay_range={DELAY_RANGE}
                         ${{tempesta_workdir}}/js1.html;
             sess_lifetime 3;
+        }}
+
+        vhost tempesta {{
+            proxy_pass default;
+        }}
+
+        http_chain {{
+            hdr accept == "text/html" -> jsch;
+            -> tempesta;
         }}
         """
     }

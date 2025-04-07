@@ -410,6 +410,15 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
                 cookie enforce name=cname max_misses=5;
                 js_challenge resp_code=503 delay_min=1 delay_range=3 %s/js1.html;
             }
+
+            vhost default {
+                proxy_pass default;
+            }
+
+            http_chain {
+                hdr accept == "text/html" -> jsch;
+                -> default;
+            }
         """
             % workdir
         )
