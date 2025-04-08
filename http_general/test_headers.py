@@ -275,14 +275,46 @@ class TestHost(TestHostBase):
             expected_status_code="400",
         )
 
-    def test_different_host_in_uri_and_headers(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="full_path",
+                uri_host="tempesta-tech.com",
+                uri_path="/path/to/file",
+            ),
+            marks.Param(
+                name="empty_path",
+                uri_host="tempesta-tech.com",
+                uri_path="",
+            ),
+            marks.Param(
+                name="default_path",
+                uri_host="tempesta-tech.com",
+                uri_path="/",
+            ),
+        ]
+    )
+    def test_forward_absolute_uri(self, name, uri_host, uri_path):
+        """
+        Verify correctness of forwarding a request with absolute URI.
+        During forwarding Tempesta modifies request's URI transforming
+        to non absolute form. Therefore on upstream always expected non
+        absolute URI.
+        """
+
         self.start_all_services()
         client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
 
         client.send_request(
-            request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            request=f"GET http://{uri_host}{uri_path} HTTP/1.1\r\nHost: localhost\r\n\r\n",
             expected_status_code="200",
         )
+
+        # non absolute uri is expected on upstream.
+        expected_uri = "/" if uri_path == "" else uri_path
+        self.assertEqual(server.last_request.uri, expected_uri)
+        self.assertEqual(server.last_request.headers.get("host"), uri_host)
 
     def test_forwarded_and_empty_host_header(self):
         """Host header must be present. Forwarded header does not set host header."""
@@ -291,7 +323,7 @@ class TestHost(TestHostBase):
 
         client.send_request(
             request=(
-                f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nForwarded: host=localhost\r\n\r\n"
+                f"GET http://tempesta-tech.com/ HTTP/1.1\r\nForwarded: host=localhost\r\n\r\n"
             ),
             expected_status_code="400",
         )
@@ -655,6 +687,38 @@ class TestHeadersParsing(tester.TempestaTest):
                 + "Transfer-Encoding: chunked\n"
                 + "Trailer: X-Token\r\n\r\n"
                 + "0\r\n"
+                + "Server: deproxy\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+            marks.Param(
+                name="not_empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "10\r\n"
+                + "abcdefghijklmnop\r\n"
+                + "0\r\n"
+                + "Server: deproxy\r\n"
+                + "X-Token: value\r\n\r\n",
+            ),
+        ]
+    )
+    def test_server_in_trailers_response(self, name, response):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(response)
+
+        client = self.get_client("deproxy")
+        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="empty_body",
+                response="HTTP/1.1 200 OK\n"
+                + "Transfer-Encoding: chunked\n"
+                + "Trailer: X-Token\r\n\r\n"
+                + "0\r\n"
                 + "X-Token: value\r\n\r\n",
             ),
             marks.Param(
@@ -730,7 +794,6 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             server ${server_ip}:8000;
 
             http_max_header_list_size 23;
-
             block_action attack reply;
             block_action error reply;
         """
@@ -806,13 +869,13 @@ class TestHostWithCache(TestHostBase):
         [
             marks.Param(
                 name="1",
-                request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-                expected_status_code="200",
+                request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="2",
-                request=f"GET http://user@-x/ HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-                expected_status_code="200",
+                request=f"GET http://user@-x/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="3",
@@ -852,12 +915,7 @@ class TestHostWithCache(TestHostBase):
             marks.Param(
                 name="10",
                 request=f"GET http:///path HTTP/1.1\r\nHost: localhost\r\n\r\n",
-                expected_status_code="200",
-            ),
-            marks.Param(
-                name="11",
-                request=f"GET http:///path HTTP/1.1\r\nHost: bad.com\r\n\r\n",
-                expected_status_code="403",
+                expected_status_code="400",
             ),
             marks.Param(
                 name="11",
@@ -1072,3 +1130,99 @@ class TestContentTypeWithEmptyBody(tester.TempestaTest):
             "text/html; charset=utf-8",
             msg="Tempesta should proxy the Content-Type header for the CRUD method with empty body also",
         )
+
+
+"""
+Methods known to Tempesta except PURGE it's covered by another tests.
+See tempesta enum tfw_http_meth_t in fw/http.h
+"""
+KNOWN_METHODS = [
+    "COPY",
+    "DELETE",
+    "GET",
+    "HEAD",
+    "LOCK",
+    "MKCOL",
+    "MOVE",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PROPFIND",
+    "PROPPATCH",
+    "PUT",
+    "TRACE",
+    "UNLOCK",
+]
+
+UNKNOWN_METHODS = [
+    "ACL",
+    "UPDATEREDIRECTREF",
+]
+
+
+class TestMethods(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+            block_action attack reply;
+            block_action error reply;
+            frang_limits {
+                http_methods copy delete get head lock mkcol move options patch post propfind proppatch put trace unlock unknown;
+            }
+        """
+    }
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+    ]
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="known_methods", methods=KNOWN_METHODS, crlf=""),
+            marks.Param(name="known_methods_leading_crlf", methods=KNOWN_METHODS, crlf="\r\n"),
+            marks.Param(name="unknown_methods", methods=UNKNOWN_METHODS, crlf=""),
+            marks.Param(name="unknown_methods_leading_crlf", methods=UNKNOWN_METHODS, crlf="\r\n"),
+        ]
+    )
+    def test(self, name, methods, crlf):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        for i, method in enumerate(methods):
+            client.make_request(
+                request=crlf + method + " / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            )
+            client.wait_for_response()
+            self.assertEqual(
+                client.last_response.status,
+                "200",
+                f'Wrong status {client.last_response.status} for method "{method}"',
+            )
+            self.assertEqual(len(client.responses), i + 1, f"Lost response for method {method}")
+            self.assertEqual(
+                server.last_request.method,
+                method,
+                f"Wrong method received on server",
+            )

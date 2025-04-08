@@ -134,14 +134,6 @@
             "reason": "Disable by issue #1692"
         },
         {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
-            "reason": "Disabled by issue #1719"
-        },
-        {
-            "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_uri",
-            "reason": "Disabled by issue #1719"
-        },
-        {
             "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1771"
         },
@@ -236,18 +228,6 @@
         {
             "name": "selftests.test_deproxy.DeproxyTestH2.test_no_parsing_make_request",
             "reason": "Disabled by issue #1883"
-        },
-        {
-            "name": "t_modify_http_headers.test_logic.TestManyResponseHeaders",
-            "reason": "Disabled by issue #1103"
-        },
-        {
-            "name": "t_modify_http_headers.test_logic.TestManyCachedResponseHeaders",
-            "reason": "Disabled by issue #1103"
-        },
-        {
-            "name": "t_modify_http_headers.test_logic.TestManyRequestHeadersH2",
-            "reason": "Disabled by issue #1103"
         },
         {
             "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
