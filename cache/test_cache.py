@@ -2485,4 +2485,74 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
         self.check_second_request(client=client2, method=method, tr1="X-Token1", tr2="X-Token2")
 
 
+@marks.parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestCacheAgeInResponse(tester.TempestaTest):
+    """
+    Tempesta FW should not save 'Age' response header in cache,
+    to prevent adding second 'Age' header during building response
+    from cache. But Tempesta FW should take it into account according
+    RFC 7234 4.2.3 during satisfying the next request using this
+    saved response.
+    """
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+cache 2;
+cache_fulfill * *;
+
+server ${server_ip}:8000;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+""",
+    }
+
+    backends = [DEPROXY_SERVER]
+
+    def test(self):
+        self.start_all_services()
+
+        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-Length: 13\r\n"
+            + "Content-Type: text/html\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "age: 333\r\n"
+            + "\r\n"
+            + "<html></html>"
+        )
+
+        client = self.get_client("deproxy")
+
+        request = client.create_request(
+            method="GET",
+            uri="/",
+            headers=[],
+        )
+
+        client.send_request(request, "200")
+        self.assertEqual(client.last_response.headers.get("age"), "333")
+        self.assertEqual(len(srv.requests), 1)
+
+        """
+        Tempesta FW satisfy this request from cache.
+        'Age' header constructed according RFC 7234 4.2.3
+        (Tempesta FW should take into account 'age' header
+         of previouly received response).
+        """
+        client.send_request(request, "200")
+        self.assertEqual(client.last_response.headers.get("age"), "333")
+        self.assertEqual(len(srv.requests), 1)
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
