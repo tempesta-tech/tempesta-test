@@ -62,7 +62,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -R, --repeat <N>                  - Repeat every test for N times
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
--m, --check-memory-leaks          - Check memory leaks for each test                                    
+-m, --check-memory-leaks          - Check memory leaks for each test
 -n, --no-resume                   - Do not resume from state file
 -l, --log <file>                  - Duplcate tests' stderr to this file
 -L, --list                        - List all discovered tests subject to filters
@@ -79,7 +79,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -S, --save-secrets                - Save TLS secrets for deproxy and curl client to
                                     secrets.txt in main directory.
     --kernel-dbg                  - Run tests for the kernel with sanitizers and checkers.
-                                    You should use this option carefully because the tests 
+                                    You should use this option carefully because the tests
                                     take a very long time.
 -T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
                                     deproxy client and server.
@@ -248,6 +248,7 @@ except getopt.GetoptError as e:
     usage()
     sys.exit(2)
 
+
 for opt, arg in options:
     if opt in ("-f", "--failfast"):
         fail_fast = True
@@ -320,6 +321,7 @@ for opt, arg in options:
 
 
 tf_cfg.cfg.check()
+tf_cfg.cfg.configure_logger()
 
 # Verbose level for unit tests must be > 1.
 v_level = int(tf_cfg.cfg.get("General", "Verbose")) + 1

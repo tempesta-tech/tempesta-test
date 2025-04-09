@@ -14,7 +14,7 @@ __license__ = "GPL2"
 import logging
 import traceback
 from logging.handlers import RotatingFileHandler
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from rich import pretty
 from rich.logging import Console, RichHandler
@@ -23,39 +23,22 @@ if TYPE_CHECKING:
     from helpers.remote import ANode
 
 
-LOGGER = logging.getLogger(__name__)
+# Deprecated variable — kept temporarily for compatibility.
+LOGGER = logging.getLogger("dprct_gl")
 
-
-# we are adding custom levels to have initial 7 levels
-# we may add custom methods to log class to have possibilities to cal custom method as default ones as `logger.debug`
-TRACE = 5
-FATAL = 60
-logging.addLevelName(TRACE, "TRACE")
-logging.addLevelName(FATAL, "FATAL")
-
-
-log_levels = {
-    0: FATAL,
-    1: logging.CRITICAL,
-    2: logging.ERROR,
-    3: logging.WARNING,
-    4: logging.INFO,
-    5: logging.DEBUG,
-    6: TRACE,
+# The system uses the following loggers
+LOG_LEVELS = {
+    "dprct_gl": logging.DEBUG,  # for LOGGER const
+    "deprc": logging.DEBUG,  # for cfg.dbg
+    "test": logging.DEBUG,  # for test logs
+    "tcp": logging.CRITICAL,  # tcp logs
+    "http": logging.CRITICAL,  # http logs
+    "env": logging.INFO,  # env logs (subprocess calls, environment settitngs)
+    "dap": logging.INFO,  # DeproxyAutoParser logs
+    "websockets": logging.CRITICAL,  # ext module
+    "hpack": logging.CRITICAL,  # ext module
+    "asyncio": logging.CRITICAL,  # ext module
 }
-
-
-def bring_log_level(initial_lvl: Union[int, str]) -> int:
-    """
-    Bring log level to correct one for logging module based on initial one.
-
-    Args:
-        initial_lvl (Union[int, str]): old log level representation
-
-    Returns:
-        (int): leg level for logging module
-    """
-    return log_levels.get(int(initial_lvl), logging.DEBUG)
 
 
 class ConfigError(Exception):
@@ -81,8 +64,6 @@ class TestFrameworkCfg(object):
             self.__fill_kvs()
         except:
             self.cfg_err = sys.exc_info()
-
-        self.configure_logger()
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server", "TFW_Logger"]:
@@ -112,8 +93,7 @@ class TestFrameworkCfg(object):
             or website_user is None
             or website_password is None
         ):
-            self.logger.log(
-                FATAL,
+            self.logger.critical(
                 "IP and IPv6 addresses, login and password for tempesta-tech.com "
                 "must be declared in the environment variables",
             )
@@ -154,6 +134,14 @@ class TestFrameworkCfg(object):
                     "stress_mtu": "1500",
                     "long_body_size": "500",
                     "memory_leak_threshold": "65536",
+                },
+                "Loggers": {
+                    "file_handler": "INFO",  # logs/test.log
+                    "test": "DEBUG",  # test
+                    "tcp": "DEBUG",  # tcp
+                    "http": "DEBUG",  # http, https
+                    "env": "DEBUG",  # env logs (subprocess calls, environment settitngs)
+                    "dap": "DEBUG",  # DeproxyAutoParser
                 },
                 "Client": {
                     "ip": "127.0.0.2",
@@ -213,7 +201,6 @@ class TestFrameworkCfg(object):
     def set_v_level(self, level):
         assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
         self.config["General"]["Verbose"] = str(level)
-        self.logger.level = bring_log_level(level)
 
     def set_duration(self, val):
         try:
@@ -273,68 +260,33 @@ class TestFrameworkCfg(object):
             raise ConfigError(msg)
 
     def configure_logger(self):
-        """Configure a logger."""
+        """
+        Configures the logging setup for the test framework.
 
-        self._configure_logger()
-        return
+        This method does the following:
+        Sets up a rotating file handler for log files with a maximum of 10 backups.
+        Sets the log level for the file handler based on the configuration.
+        Integrates RichHandler for enhanced console logging.
+        Iterates over predefined loggers to set their log levels according to the configuration.
+        """
 
-        pretty.install()
+        date_format = "%H:%M:%S"
 
-        date_format = "%y-%m-%d %H:%M:%S"
-        file_handler = logging.FileHandler(self.get("General", "log_file"))
-        file_handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s", datefmt=date_format
-            )
-        )
-        # 180 - width of a console, was determined empirically
-        stream_handler = RichHandler(
-            console=Console(width=180),
-        )
-        stream_handler.setFormatter(
-            logging.Formatter(fmt=" | %(message)s", datefmt=date_format + ".%f")
-        )
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(stream_handler)
-
-        # set default logging level as in config file,
-        # otherwise a correct log level sets up during initialisation of cmd arguments after config is initialised.
-        # default level for logging module is Warning
-        self.logger.setLevel(
-            bring_log_level(
-                self.get("General", "verbose"),
-            ),
-        )
-
-    def _configure_logger(self):
-
-        # this part will be remove into settings now just constant
-        FILE_HANDLER_LEVEL = logging.DEBUG
-        STREAM_HANDLER_LEVEL = logging.DEBUG
-
-        # log level for tests
-        LOG_LEVELS = {
-            "base": logging.DEBUG,
-            "tcp": logging.CRITICAL,  # tcp logs
-            "http": logging.DEBUG,   # http logs
-            "env": logging.INFO,  # env logs (subprocess calls, environment settitngs)
-        }
-
-        # file handle rotate files with every launch
         log_dir = "logs"
         os.makedirs(log_dir, exist_ok=True)
 
         log_file = os.path.join(log_dir, "test.log")
         file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
         file_handler.doRollover()
-        date_format = "%H:%M:%S"
         file_handler.setFormatter(
             logging.Formatter(
                 fmt="%(asctime)s.%(msecs)03d | %(levelname)8s | %(name)5s | %(module)s | %(lineno)03d | %(message)s",
                 datefmt=date_format,
             )
         )
-        file_handler.setLevel(FILE_HANDLER_LEVEL)
+
+        file_handler_level = self.config["Loggers"]["file_handler"]
+        file_handler.setLevel(file_handler_level)
 
         # console handlers
         pretty.install()
@@ -349,44 +301,18 @@ class TestFrameworkCfg(object):
                 datefmt=date_format,
             )
         )
-        stream_handler.setLevel(STREAM_HANDLER_LEVEL)
 
-        # Base logger
-        logging.basicConfig(level=LOG_LEVELS["base"], handlers=[file_handler, stream_handler])
+        stream_level = 50 - int(self.config["General"]["Verbose"]) * 10
+        stream_level = 10 if stream_level <= 10 else stream_level
 
-        tcp_logger = logging.getLogger("tcp")
-        tcp_logger.setLevel(LOG_LEVELS["tcp"])
+        stream_handler.setLevel(stream_level)
 
-        http_logger = logging.getLogger("http")
-        http_logger.setLevel(LOG_LEVELS["http"])
+        logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
 
-        env_logger = logging.getLogger("env")
-        env_logger.setLevel(LOG_LEVELS["env"])
-
-        # Deprecated logger
-        self.logger = logging.getLogger("dprct")
-
-        # examples
-
-        # base logger
-        logging.critical("USE BASE LOGGER")
-
-        # http
-        new_http = logging.getLogger("http")
-        new_http.info("may use any ")
-
-        try:
-            raise RuntimeError()
-        except Exception:
-            new_http.exception("With traceback")
-
-        # old in config
-        self.logger.critical(" old logger")
-        # old with function
-        dbg(5, "Test old function line")
-        dbg(5, "Test old function line + 1")
-
-        # sys.exit(1)  # for fast lock
+        for name, value in LOG_LEVELS.items():
+            if name in self.config["Loggers"]:
+                value = self.config["Loggers"][name]
+            logging.getLogger(name).setLevel(value)
 
 
 def debug() -> bool:
@@ -425,7 +351,10 @@ def log_dmesg(node: "ANode", msg: str) -> None:
     try:
         node.run_cmd(f"echo '{msg}' > /dev/kmsg")
     except Exception as e:
-        dbg(2, f"Can not access node {node.type}: {str(e)}")
+        logger = logging.getLogger("dprct")
+        logger.error(f"Can not access node {node.type}: {str(e)}")
+
+        # dbg(2, f"Can not access node {node.type}: {str(e)}")
 
 
 cfg = TestFrameworkCfg()
