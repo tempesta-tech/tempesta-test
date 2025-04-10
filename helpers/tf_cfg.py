@@ -24,12 +24,11 @@ if TYPE_CHECKING:
 
 
 # Deprecated variable — kept temporarily for compatibility.
-LOGGER = logging.getLogger("dprct_gl")
+LOGGER = logging.getLogger("dprct")
 
 # The system uses the following loggers
 LOG_LEVELS = {
-    "dprct_gl": logging.DEBUG,  # for LOGGER const
-    "deprc": logging.DEBUG,  # for cfg.dbg
+    "dprct": logging.DEBUG,  # for old logs case
     "test": logging.DEBUG,  # for test logs
     "tcp": logging.CRITICAL,  # tcp logs
     "http": logging.CRITICAL,  # http logs
@@ -38,6 +37,7 @@ LOG_LEVELS = {
     "websockets": logging.CRITICAL,  # ext module
     "hpack": logging.CRITICAL,  # ext module
     "asyncio": logging.CRITICAL,  # ext module
+    "paramiko": logging.CRITICAL,  # ext module
 }
 
 
@@ -46,7 +46,7 @@ class ConfigError(Exception):
         Exception.__init__(self, "Test configuration error: %s" % msg)
 
 
-class TestFrameworkCfg(object):
+class TestFrameworkCfg():
 
     logger = LOGGER
 
@@ -55,15 +55,25 @@ class TestFrameworkCfg(object):
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
 
     def __init__(self, filename=None):
+
         if filename:
             self.cfg_file = filename
+
+        self.config = configparser.ConfigParser()
         self.defaults()
         self.cfg_err = None
+
         try:
             self.config.read(self.cfg_file)
             self.__fill_kvs()
         except:
             self.cfg_err = sys.exc_info()
+
+        self.test_logger: logging.Logger
+        self.tcp_logger: logging.Logger
+        self.http_logger: logging.Logger
+        self.env_logger: logging.Logger
+        self.dap_logger: logging.Logger
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server", "TFW_Logger"]:
@@ -93,7 +103,7 @@ class TestFrameworkCfg(object):
             or website_user is None
             or website_password is None
         ):
-            self.logger.critical(
+            logging.critical(
                 "IP and IPv6 addresses, login and password for tempesta-tech.com "
                 "must be declared in the environment variables",
             )
@@ -117,7 +127,6 @@ class TestFrameworkCfg(object):
         self.config["TFW_Logger"]["clickhouse_host"] = host_ip
 
     def defaults(self):
-        self.config = configparser.ConfigParser()
         self.config.read_dict(
             {
                 "General": {
@@ -313,6 +322,12 @@ class TestFrameworkCfg(object):
             if name in self.config["Loggers"]:
                 value = self.config["Loggers"][name]
             logging.getLogger(name).setLevel(value)
+
+        self.test_logger = logging.getLogger("test")
+        self.tcp_logger = logging.getLogger("tcp")
+        self.http_logger = logging.getLogger("http")
+        self.env_logger = logging.getLogger("env")
+        self.dap_logger = logging.getLogger("dap")
 
 
 def debug() -> bool:
