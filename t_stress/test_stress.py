@@ -170,6 +170,10 @@ class CustomMtuMixin:
             self.skipTest("This is an abstract class")
         super().setUp()
         self._prev_mtu = {}
+        self._dev = NetWorker().get_dev()
+        self._ipv6_addresses = NetWorker().get_ipv6_addr(self._dev)
+        self._prev_mtu_expires = sysnet.get_mtu_expires(remote.tempesta)
+        sysnet.set_mtu_expires(remote.tempesta, 0)
         self.set_mtu(
             node=remote.tempesta,
             destination_ip=tf_cfg.cfg.get("Client", "ip"),
@@ -192,6 +196,9 @@ class CustomMtuMixin:
         # Restore previous MTU values
         for args in self._prev_mtu.values():
             sysnet.change_mtu(*args)
+        if self._ipv6_addresses:
+            NetWorker.set_ipv6_addr(self._dev, self._ipv6_addresses)
+        sysnet.set_mtu_expires(remote.tempesta, self._prev_mtu_expires)
 
     def set_mtu(self, node, destination_ip, mtu):
         if mtu:
@@ -227,7 +234,6 @@ class BaseWrk(tester.TempestaTest):
 
 class BaseWrkStress(CustomMtuMixin, LargePageNginxBackendMixin, BaseWrk, base=True):
     @dmesg.limited_rate_on_tempesta_node
-    @NetWorker.protect_ipv6_addr_on_dev
     def test_concurrent_connections(self):
         self._test_concurrent_connections()
 
@@ -605,7 +611,6 @@ class H2LoadStress(CustomMtuMixin, LargePageNginxBackendMixin, tester.TempestaTe
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    @NetWorker.protect_ipv6_addr_on_dev
     def test(self, name, cache_mode):
         self.start_all(cache_mode)
         client = self.get_client("h2load")
