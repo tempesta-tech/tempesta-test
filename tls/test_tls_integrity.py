@@ -117,6 +117,8 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
             # change MTU on the local interface only to get the same MTU for
             # both the client and server connections.
             dev = sysnet.route_dst_ip(remote.client, client.addr[0])
+            prev_mtu_expires = sysnet.get_mtu_expires(remote.client)
+            sysnet.set_mtu_expires(remote.client, 0)
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
         except Error as err:
             self.fail(err)
@@ -133,6 +135,7 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
         finally:
             self.change_tso(dev, self.tso_state)
             sysnet.change_mtu(remote.client, dev, prev_mtu)
+            sysnet.set_mtu_expires(remote.client, prev_mtu_expires)
 
 
 class Proxy(TlsIntegrityTester):
