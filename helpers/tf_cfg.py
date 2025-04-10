@@ -46,7 +46,7 @@ class ConfigError(Exception):
         Exception.__init__(self, "Test configuration error: %s" % msg)
 
 
-class TestFrameworkCfg():
+class TestFrameworkCfg:
 
     logger = LOGGER
 
@@ -68,12 +68,6 @@ class TestFrameworkCfg():
             self.__fill_kvs()
         except:
             self.cfg_err = sys.exc_info()
-
-        self.test_logger: logging.Logger
-        self.tcp_logger: logging.Logger
-        self.http_logger: logging.Logger
-        self.env_logger: logging.Logger
-        self.dap_logger: logging.Logger
 
     def __fill_kvs(self):
         for section in ["General", "Client", "Tempesta", "Server", "TFW_Logger"]:
@@ -322,12 +316,6 @@ class TestFrameworkCfg():
             if name in self.config["Loggers"]:
                 value = self.config["Loggers"][name]
             logging.getLogger(name).setLevel(value)
-
-        self.test_logger = logging.getLogger("test")
-        self.tcp_logger = logging.getLogger("tcp")
-        self.http_logger = logging.getLogger("http")
-        self.env_logger = logging.getLogger("env")
-        self.dap_logger = logging.getLogger("dap")
 
 
 def debug() -> bool:
