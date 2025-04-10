@@ -12,15 +12,15 @@ __license__ = "GPL2"
 
 class NetWorker:
     @staticmethod
-    def _get_ipv6_addr(dev):
+    def get_ipv6_addr(dev):
         ip = pyroute2.IPRoute()
         index = ip.link_lookup(ifname=dev)[0]
 
         return ip.get_addr(family=socket.AF_INET6, index=index)
 
     @staticmethod
-    def _set_ipv6_addr(dev, old_ipv6_addresses):
-        curr_ipv6_addresses = NetWorker()._get_ipv6_addr(dev)
+    def set_ipv6_addr(dev, old_ipv6_addresses):
+        curr_ipv6_addresses = NetWorker().get_ipv6_addr(dev)
         ip = pyroute2.IPRoute()
         index = ip.link_lookup(ifname=dev)[0]
 
@@ -31,7 +31,7 @@ class NetWorker:
                 ip.addr('add', index=index, address=addr, mask=mask)
 
     @staticmethod
-    def _get_dev():
+    def get_dev():
         dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
         return dev
 
@@ -50,13 +50,13 @@ class NetWorker:
         out = remote.client.run_cmd(cmd)
 
     def __protect_ipv6_addr_on_dev(self, func, *args, **kwargs):
-        dev = NetWorker()._get_dev()
-        ipv6_addresses = NetWorker()._get_ipv6_addr(dev)
+        dev = NetWorker().get_dev()
+        ipv6_addresses = NetWorker().get_ipv6_addr(dev)
         try:
             return func(*args, **kwargs)
         finally:
             if ipv6_addresses:
-                NetWorker()._set_ipv6_addr(dev, ipv6_addresses)
+                NetWorker().set_ipv6_addr(dev, ipv6_addresses)
 
     @staticmethod
     def protect_ipv6_addr_on_dev(func):
@@ -123,7 +123,9 @@ class NetWorker:
             # interface, so, regardless where the Tempesta node resides, we can
             # change MTU on the local interface only to get the same MTU for
             # both the client and server connections.
-            dev = NetWorker()._get_dev()
+            dev = NetWorker().get_dev()
+            prev_mtu_expires = sysnet.get_mtu_expires(remote.client)
+            sysnet.set_mtu_expires(remote.client, 0)
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
         except Exception as err:
             self.fail(err)
@@ -147,6 +149,7 @@ class NetWorker:
             self.change_gro(dev, self.gro_state)
             self.change_gso(dev, self.gro_state)
             sysnet.change_mtu(remote.client, dev, prev_mtu)
+            sysnet.set_mtu_expires(remote.client, prev_mtu_expires)
 
     def run_test_tso_gro_gso_disabled(self, client, server, test, mtu):
         self.run_test_tso_gro_gso(client, server, test, mtu, False, False, False)
@@ -158,7 +161,7 @@ class NetWorker:
         self, client, server, test, mtu, option_name=None, option_val=None
     ):
         try:
-            dev = NetWorker()._get_dev()
+            dev = NetWorker().get_dev()
         except Exception as err:
             self.fail(err)
 
