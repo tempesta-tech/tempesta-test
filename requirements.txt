@@ -21,7 +21,7 @@ inquirer
 parameterized
 clickhouse-connect==0.8.11
 psutil~=5.9.8
-pyroute2
+pyroute2==0.9.1
 
 # install mhddos requirements
 -r tools/mhddos/requirements.txt

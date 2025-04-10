@@ -87,6 +87,22 @@ def get_mtu(node, dev):
     except Error as err:
         raise Error("Can not determine MTU for device %s: %s" % (dev, err))
 
+def get_mtu_expires(node):
+    command = "sysctl --values net.ipv4.route.mtu_expires"
+    try:
+        res, _ = node.run_cmd(command)
+        return int(res)
+    except Error as err:
+        raise Error("Can not determine MTU expires timeout %s" % err)
+
+
+def set_mtu_expires(node, expires):
+    command = "sysctl -w net.ipv4.route.mtu_expires=%d" % expires
+    try:
+        node.run_cmd(command)
+    except:
+        raise Error("Can not set MTU expires timeout %s" % err)
+
 
 def change_mtu(node, dev, mtu):
     """Change the device MTU and return previous MTU."""
