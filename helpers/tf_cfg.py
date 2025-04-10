@@ -326,24 +326,25 @@ def v_level():
     return int(cfg.get("General", "Verbose"))
 
 
+_DPRCT_LOGGET = logging.getLogger("dprct")
+_DPRCT_LOG_LEVELS = {
+    0: logging.CRITICAL,
+    1: logging.ERROR,
+    2: logging.WARNING,
+    3: logging.INFO,
+    4: logging.INFO,
+    5: logging.DEBUG,
+    6: logging.DEBUG,
+}
+
+
 def dbg(level: int, msg: str, *args, **kwargs) -> None:
-
-    logger = logging.getLogger("dprct")
-    if level in (0, 1):
-        level = logging.CRITICAL
-    elif level in (5, 6):
-        level = logging.DEBUG
-    else:
-        level = 60 - level * 10
-
     stack = traceback.extract_stack()
     file_name, line, func_name, _ = stack[-2]  # -1 current function
 
-    msg = f"{msg} \n {file_name} - {line}"
-
-    logger.log(
-        level,  # bring_log_level(level),
-        msg,
+    _DPRCT_LOGGET.log(
+        level=_DPRCT_LOG_LEVELS.get(level),
+        msg=f"{msg} \n {file_name} - {line}",
         *args,
         **kwargs,
     )

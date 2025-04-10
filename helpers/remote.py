@@ -485,7 +485,7 @@ class RemoteNode(ANode):
         if stdout:
             self._logger.debug(f"stdout: {stdout}")
         if stderr:
-            self._logger.error(f"stderr: {stderr}")
+            self._logger.warning(f"stderr: {stderr}")
 
         return stdout, stderr
 
