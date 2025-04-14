@@ -181,20 +181,6 @@ def __check_kmemleak() -> None:
             tempesta.stop()
 
 
-t_priority_out = open(os.path.join("tests_priority")).readlines()
-t_priority_out.reverse()
-
-t_retry_out = open(os.path.join("tests_retry")).readlines()
-
-# this file is needed for tests with local config
-disabled_reader = shell.DisabledListLoader(os.path.join("tests_disabled.json"))
-# this file is needed for tests with TCP segmentation
-disabled_reader_tcp_seg = shell.DisabledListLoader(os.path.join("tests_disabled_tcpseg.json"))
-# this file is needed for tests with remote config
-disabled_reader_remote = shell.DisabledListLoader(os.path.join("tests_disabled_remote.json"))
-# this file is needed for tests with the debug kernel
-disabled_reader_dbg_kernel = shell.DisabledListLoader(os.path.join("tests_disabled_dbgkernel.json"))
-
 state_reader = shell.TestState()
 state_reader.load()
 test_resume = shell.TestResume(state_reader)
@@ -322,6 +308,20 @@ for opt, arg in options:
 
 tf_cfg.cfg.check()
 tf_cfg.cfg.configure_logger()
+
+t_priority_out = open(os.path.join("tests_priority")).readlines()
+t_priority_out.reverse()
+
+t_retry_out = open(os.path.join("tests_retry")).readlines()
+
+# this file is needed for tests with local config
+disabled_reader = shell.DisabledListLoader(os.path.join("tests_disabled.json"))
+# this file is needed for tests with TCP segmentation
+disabled_reader_tcp_seg = shell.DisabledListLoader(os.path.join("tests_disabled_tcpseg.json"))
+# this file is needed for tests with remote config
+disabled_reader_remote = shell.DisabledListLoader(os.path.join("tests_disabled_remote.json"))
+# this file is needed for tests with the debug kernel
+disabled_reader_dbg_kernel = shell.DisabledListLoader(os.path.join("tests_disabled_dbgkernel.json"))
 
 # Verbose level for unit tests must be > 1.
 v_level = int(tf_cfg.cfg.get("General", "Verbose")) + 1
