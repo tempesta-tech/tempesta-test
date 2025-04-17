@@ -645,12 +645,14 @@ class DeproxyClientH2(BaseDeproxyClient):
                 increment=flow_controlled_length, stream_id=None
             )
             if (
-                self.h2_connection._get_stream_by_id(stream_id).state_machine.state
+                self.h2_connection.streams.get(stream_id)
+                and self.h2_connection._get_stream_by_id(stream_id).state_machine.state
                 != h2.stream.StreamState.CLOSED
             ):
                 self.h2_connection.increment_flow_control_window(
                     increment=flow_controlled_length, stream_id=stream_id
                 )
+
         self.send_bytes(self.h2_connection.data_to_send())
 
     def handle_read(self):
