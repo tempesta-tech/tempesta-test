@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
+from helpers.networker import NetWorker
 from test_suite import marks, sysnet, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -169,6 +170,10 @@ class CustomMtuMixin:
             self.skipTest("This is an abstract class")
         super().setUp()
         self._prev_mtu = {}
+        self._dev = NetWorker().get_dev()
+        self._ipv6_addresses = NetWorker().get_ipv6_addr(self._dev)
+        self._prev_mtu_expires = sysnet.get_mtu_expires(remote.tempesta)
+        sysnet.set_mtu_expires(remote.tempesta, 0)
         self.set_mtu(
             node=remote.tempesta,
             destination_ip=tf_cfg.cfg.get("Client", "ip"),
@@ -191,6 +196,9 @@ class CustomMtuMixin:
         # Restore previous MTU values
         for args in self._prev_mtu.values():
             sysnet.change_mtu(*args)
+        if self._ipv6_addresses:
+            NetWorker.set_ipv6_addr(self._dev, self._ipv6_addresses)
+        sysnet.set_mtu_expires(remote.tempesta, self._prev_mtu_expires)
 
     def set_mtu(self, node, destination_ip, mtu):
         if mtu:
