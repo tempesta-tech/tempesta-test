@@ -198,10 +198,6 @@
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders",
-            "reason": "Disabled by issue #450"
-        },
-        {
             "name": "http2_general.test_h2_headers.HeadersParsing",
             "reason": "Disabled by issue #450"
         },
