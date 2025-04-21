@@ -13,7 +13,8 @@ __license__ = "GPL2"
 
 import logging
 import traceback
-from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
+import queue
 from typing import TYPE_CHECKING
 
 from rich import pretty
@@ -62,6 +63,7 @@ class TestFrameworkCfg:
         self.config = configparser.ConfigParser()
         self.defaults()
         self.cfg_err = None
+        self.log_listner = None
 
         try:
             self.config.read(self.cfg_file)
@@ -278,19 +280,6 @@ class TestFrameworkCfg:
         log_dir = "logs"
         os.makedirs(log_dir, exist_ok=True)
 
-        log_file = os.path.join(log_dir, "test.log")
-        file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
-        file_handler.doRollover()
-        file_handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s.%(msecs)03d | %(levelname)8s | %(name)5s | %(module)s | %(lineno)03d | %(message)s",
-                datefmt=date_format,
-            )
-        )
-
-        file_handler_level = self.config["Loggers"]["file_handler"]
-        file_handler.setLevel(file_handler_level)
-
         # console handlers
         pretty.install()
         stream_handler = RichHandler(
@@ -304,10 +293,30 @@ class TestFrameworkCfg:
                 datefmt=date_format,
             )
         )
-
         stream_handler.setLevel(_DPRCT_LOG_LEVELS.get(int(self.config["General"]["Verbose"])))
 
-        logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
+        # file handler
+        log_file = os.path.join(log_dir, "test.log")
+        file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
+        file_handler.doRollover()
+        file_handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s.%(msecs)03d | %(levelname)8s | %(name)5s | %(module)s | %(lineno)03d | %(message)s",
+                datefmt=date_format,
+            )
+        )
+
+        file_handler_level = self.config["Loggers"]["file_handler"]
+        file_handler.setLevel(file_handler_level)
+
+        # we use threads and should use queue in logs
+        log_queue = queue.Queue()
+        queue_handler = QueueHandler(log_queue)
+        self.log_listner = QueueListener(log_queue, file_handler)
+
+        logging.basicConfig(level=logging.DEBUG, handlers=[queue_handler, stream_handler])
+
+        self.log_listner.start()
 
         for name, value in LOG_LEVELS.items():
             if name in self.config["Loggers"]:

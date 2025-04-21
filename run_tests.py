@@ -611,6 +611,8 @@ if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.sta
 __check_memory_consumption(python_memory_before, used_memory_before)
 __check_kmemleak()
 
+# stop loggging
+tf_cfg.cfg.log_listner.stop()
 if len(result.failures) > 0 or len(result.unexpectedSuccesses) > 0 or len(result.errors) > 0:
     sys.exit(1)
 
