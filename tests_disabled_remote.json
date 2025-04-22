@@ -106,10 +106,6 @@
             "reason": "Disabled by issue #1103"
         },
         {
-            "name": "http2_general.test_h2_headers.TestIPv6",
-            "reason": "Disabled by test issue #508"
-        },
-        {
             "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_two_ip",
             "reason": "Disabled by test issue #492"
         },
