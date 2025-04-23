@@ -42,7 +42,7 @@
             "reason" : "the tests did not work on the first run"
         },
         {
-            "name" : "ws.test_ws_ping.RestartOnUpgrade",
+            "name" : "t_ws.test_ws_ping.TestRestartOnUpgrade",
             "reason" : "the tests did not work on the first run"
         },
         {

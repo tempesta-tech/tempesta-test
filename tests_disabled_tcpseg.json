@@ -250,31 +250,31 @@
             "reason": "Disabled by test issue #525"
         },
         {
-            "name": "ws.test_ws_ping.WsPing",
+            "name": "t_ws.test_ws_ping.TestWsPing",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "ws.test_ws_ping.WssPing",
+            "name": "t_ws.test_ws_ping.TestWssPing",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "ws.test_ws_ping.WssPingProxy",
+            "name": "t_ws.test_ws_ping.TestWssPingProxy",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "ws.test_ws_ping.CacheTest",
+            "name": "t_ws.test_ws_ping.TestWsCache",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "ws.test_ws_ping.WssStress",
+            "name": "t_ws.test_ws_ping.TestWssStress",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "ws.test_ws_ping.WsScheduler",
+            "name": "t_ws.test_ws_ping.TestWsScheduler",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "ws.test_ws_ping.RestartOnUpgrade",
+            "name": "t_ws.test_ws_ping.TestRestartOnUpgrade",
             "reason": "Disabled by test issue #672."
         },
         {
