@@ -1,13 +1,10 @@
 import asyncio
 import ssl
-import time
-from multiprocessing import Process
-from threading import Thread
 
 import requests
 import websockets
 
-from helpers import dmesg, tf_cfg
+from helpers import dmesg, remote, tf_cfg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -373,6 +370,7 @@ class TestWssStress(BaseWsPing):
                 break
         return fib
 
+    @marks.change_ulimit(ulimit=10000)
     def test(self):
         asyncio.run(self._test(tempesta_port=82, is_ssl=True))
 
