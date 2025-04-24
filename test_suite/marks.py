@@ -5,6 +5,7 @@ __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import functools
+import resource
 import time
 from cProfile import Profile
 from pstats import Stats
@@ -13,6 +14,27 @@ import parameterized as pm
 
 from helpers import error, tf_cfg
 from test_suite import tester
+
+
+def change_ulimit(ulimit: int):
+    """
+    The decorator changes ulimit before a test and return the default value after the test.
+    """
+
+    def decorator(test):
+        def wrapper(self: tester.TempestaTest, *args, **kwargs):
+            soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+            try:
+                resource.setrlimit(resource.RLIMIT_NOFILE, (ulimit, ulimit))
+                test(self, *args, **kwargs)
+            finally:
+                resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+
+        # we need to change name of function to work correctly with parametrize
+        decorator.__name__ = test.__name__
+        return wrapper
+
+    return decorator
 
 
 def retry_if_not_conditions(test):
