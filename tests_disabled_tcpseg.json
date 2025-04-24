@@ -11,7 +11,7 @@
         },
         {
             "name": "multiple_listeners",
-            "reason": "These tests should not be run with TCP segmentation."
+            "reason": "These tests should not be run with TCP segmentation. These tests doesn't use deproxy."
         },
         {
             "name": "t_stress",

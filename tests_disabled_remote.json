@@ -2,16 +2,16 @@
     "disable" : true,
     "disabled" : [
         {
+            "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
+            "reason": "This test should not be run with remote setup. This test uses only loopback interface."
+        },
+        {
             "name": "t_stress.test_nginx",
             "reason": "These tests should not be run with remote setup."
         },
         {
             "name": "t_reconf",
             "reason": "These tests should not be run with remote setup."
-        },
-        {
-            "name": "cache.test_purge",
-            "reason": "Disabled by test issue #508"
         },
         {
             "name": "t_server_options",
@@ -122,24 +122,8 @@
             "reason": "Disabled by test issue #508"
         },
         {
-            "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
-            "reason": "Disabled by test issue #508"
-        },
-        {
             "name": "encoding.test_encoding.TestH1ChunkedWithTrailer",
             "reason": "Disabled by issue #1902"
-        },
-        {
-            "name": "sessions.test_sessions",
-            "reason": "Disabled by test issue #508."
-        },
-        {
-            "name": "t_http_rules.test_h2_backup_servers",
-            "reason": "Disabled by test issue #508."
-        },
-        {
-            "name": "t_http_rules.test_backup_servers",
-            "reason": "Disabled by test issue #508."
         },
         {
             "name": "access_log",
