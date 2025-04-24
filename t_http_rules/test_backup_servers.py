@@ -1,17 +1,38 @@
 """Tests for backup server in vhost."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
 
 from helpers.deproxy import HttpMessage
 from test_suite import checks_for_tests as checks
-from test_suite import tester
+from test_suite import marks, tester
+
+DEPROXY_CLIENT_HTTP = {
+    "id": "deproxy",
+    "type": "deproxy",
+    "addr": "${tempesta_ip}",
+    "port": "80",
+}
+
+DEPROXY_CLIENT_H2 = {
+    "id": "deproxy",
+    "type": "deproxy_h2",
+    "addr": "${tempesta_ip}",
+    "port": "443",
+    "ssl": True,
+}
 
 
-class HttpRulesBackupServers(tester.TempestaTest):
+@marks.parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT_HTTP]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestBackupServers(tester.TempestaTest):
     tempesta = {
         "config": """
 listen 80;        
@@ -61,17 +82,6 @@ http_chain {
         },
     ]
 
-    clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-    ]
-
-    request = "GET / HTTP/1.1\r\nHost: debian\r\n\r\n"
-
     def test_scheduler(self):
         """
         Tempesta must forward requests to backup server if primary server is disabled.
@@ -82,18 +92,20 @@ http_chain {
         primary_server = self.get_server("primary")
         backup_server = self.get_server("backup")
 
-        client.send_request(self.request, "200")
+        request = client.create_request(method="GET", headers=[])
+
+        client.send_request(request, "200")
         got_requests = len(primary_server.requests)
 
         primary_server.stop()
         # Sleep to be shure that server is stopped and connection
         # is closed (Remove after #2111 in Tempesta)
         time.sleep(1)
-        client.send_request(self.request, "200")
+        client.send_request(request, "200")
 
         primary_server.start()
-        primary_server.wait_for_connections(3)
-        client.send_request(self.request, "200")
+        self.assertTrue(primary_server.wait_for_connections(3))
+        client.send_request(request, "200")
         got_requests += len(primary_server.requests)
 
         self.assertEqual(2, got_requests)
