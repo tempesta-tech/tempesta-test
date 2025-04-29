@@ -13,7 +13,7 @@ from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
 from framework import deproxy_client, stateful
-from helpers import util
+from helpers import util, tf_cfg
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
@@ -915,7 +915,15 @@ class TestPostponedFrames(H2Base, NetWorker):
             marks.Param(name="trailers", header="value", token="a" * 30000),
         ]
     )
-    @NetWorker.protect_ipv6_addr_on_dev
+    @NetWorker.set_mtu(
+        nodes=[
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
+                "mtu": 100,
+            }
+        ]
+    )
     def test(self, name, header, token):
         self.start_all_services()
         client = self.get_client("deproxy")
