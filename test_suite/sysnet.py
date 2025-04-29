@@ -87,6 +87,21 @@ def get_mtu(node, dev):
     except Error as err:
         raise Error("Can not determine MTU for device %s: %s" % (dev, err))
 
+def get_ip_no_pmtu_disc(node):
+    command = "sysctl --values net.ipv4.ip_no_pmtu_disc"
+    try:
+        res, _ = node.run_cmd(command)
+        return int(res)
+    except Error as err:
+        raise Error("Can not determine ip no pmtu discovery %s" % err)
+
+def set_ip_no_pmtu_disc(node, ip_no_pmtu_disc):
+    command = "sysctl -w net.ipv4.ip_no_pmtu_disc=%d" % ip_no_pmtu_disc
+    try:
+        node.run_cmd(command)
+    except Error as err:
+        raise Error("Can not set no pmtu discovery %s" % err)
+
 def get_mtu_expires(node):
     command = "sysctl --values net.ipv4.route.mtu_expires"
     try:
@@ -100,7 +115,7 @@ def set_mtu_expires(node, expires):
     command = "sysctl -w net.ipv4.route.mtu_expires=%d" % expires
     try:
         node.run_cmd(command)
-    except:
+    except Error as err:
         raise Error("Can not set MTU expires timeout %s" % err)
 
 
