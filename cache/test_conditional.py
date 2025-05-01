@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import unittest
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers.deproxy import HttpMessage
@@ -416,18 +417,9 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         },
     ]
 
-    @marks.Parameterize.expand(
-        [
-            marks.Param(name="vary", header=("vary", "accept-language")),
-            marks.Param(
-                name="content-location", header=("content-location", "/documents/page.html")
-            ),
-            marks.Param(name="expires", header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT")),
-            marks.Param(name="cache-control", header=("cache-control", "public")),
-            marks.Param(name="etag", header=("etag", '"etag"')),
-        ]
-    )
-    def test_cachable_headers(self, name, header):
+    def __test_cachable_headers(
+        self, header, expected_status_code, date, disable_deproxy_auto_parser
+    ):
         """
         The server generating a 304 response MUST generate any of the following header
         fields that would have been sent in a 200 (OK) response to the same request:
@@ -439,7 +431,9 @@ class TestNotModifiedResponseHeaders(TempestaTest):
 
         srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
-        date = HttpMessage.date_time_string()
+
+        if disable_deproxy_auto_parser:
+            self.disable_deproxy_auto_parser()
 
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -461,10 +455,94 @@ class TestNotModifiedResponseHeaders(TempestaTest):
             request=client.create_request(
                 method="GET", uri="/page.html", headers=[("If-Modified-Since", date)]
             ),
-            expected_status_code="304",
+            expected_status_code=expected_status_code,
         )
         self.assertIn(header, client.last_response.headers.items())
         self.assertIn(("date", date), client.last_response.headers.items())
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="vary",
+                header=("vary", "accept-language"),
+                expected_status_code="304",
+                date=HttpMessage.date_time_string(),
+                disable_deproxy_auto_parser=False,
+            ),
+            marks.Param(
+                name="content-location",
+                header=("content-location", "/documents/page.html"),
+                expected_status_code="304",
+                date=HttpMessage.date_time_string(),
+                disable_deproxy_auto_parser=False,
+            ),
+            marks.Param(
+                name="expires",
+                header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT"),
+                expected_status_code="304",
+                date=HttpMessage.date_time_string(),
+                disable_deproxy_auto_parser=False,
+            ),
+            marks.Param(
+                name="date_invalid",
+                header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT"),
+                expected_status_code="200",
+                date="Thu, 01 Dec 2102 16:00:00 GMT111",
+                disable_deproxy_auto_parser=True,
+            ),
+            marks.Param(
+                name="expires_and_date_invalid",
+                header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT111"),
+                expected_status_code="200",
+                date="Thu, 01 Dec 2102 16:00:00 GMT111",
+                disable_deproxy_auto_parser=True,
+            ),
+            marks.Param(
+                name="cache-control",
+                header=("cache-control", "public"),
+                expected_status_code="304",
+                date=HttpMessage.date_time_string(),
+                disable_deproxy_auto_parser=False,
+            ),
+            marks.Param(
+                name="etag",
+                header=("etag", '"etag"'),
+                expected_status_code="304",
+                date=HttpMessage.date_time_string(),
+                disable_deproxy_auto_parser=False,
+            ),
+        ]
+    )
+    def test_cachable_headers(
+        self, name, header, expected_status_code, date, disable_deproxy_auto_parser
+    ):
+        self.__test_cachable_headers(
+            header, expected_status_code, date, disable_deproxy_auto_parser
+        )
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="expires_invalid",
+                header=("expires", "Thu, 01 Dec 2102 16:00:00 GMT111"),
+                expected_status_code="200",
+                date=HttpMessage.date_time_string(),
+                disable_deproxy_auto_parser=False,
+            ),
+        ]
+    )
+
+    @unittest.expectedFailure
+    def test_cachable_headers(
+        self, name, header, expected_status_code, date, disable_deproxy_auto_parser
+    ):
+        """
+        Tempesta FW doesn't check that there is any invalid
+        bytes after GMT in the date. 
+        """
+        self.__test_cachable_headers(
+            header, expected_status_code, date, disable_deproxy_auto_parser
+        )
 
     def test_non_cachable_header(self):
         self.start_all_services()

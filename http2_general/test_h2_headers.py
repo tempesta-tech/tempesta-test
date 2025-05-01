@@ -5,6 +5,7 @@ analises its return code.
 """
 
 import string
+import unittest
 
 from h2.errors import ErrorCodes
 from hpack import HeaderTuple
@@ -437,6 +438,125 @@ class TestPseudoHeaders(H2Base):
         )
 
         self.assertTrue(client.wait_for_connection_close())
+
+
+class TestIncorrectIfModifiedSince(H2Base):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+server ${server_ip}:8000;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+cache 2;
+cache_fulfill * *;
+cache_methods GET HEAD POST;
+""",
+    }
+
+    def __test(self, if_modified_since, huffman):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Content-Length: 0\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + "\r\n"
+        )
+
+        client.make_request(
+            client.create_request(method="GET", headers=[]),
+            huffman=huffman,
+        )
+        client.wait_for_response()
+        self.assertEqual(client.last_response.status, "200")
+
+        client.make_request(
+            client.create_request(method="GET", headers=[("if-modified-since", if_modified_since)]),
+            huffman=huffman,
+        )
+        client.wait_for_response()
+        self.assertEqual(client.last_response.status, "200")
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="if_modified_since_huffman_1",
+                if_modified_since="Inv Jan 01 00:00:01 1970  Inv Jan 01 00:00:01 2222",
+                huffman=True,
+            ),
+            marks.Param(
+                name="if_modified_since_no_huffman_1",
+                if_modified_since="Inv Jan 01 00:00:01 1970  Inv Jan 01 00:00:01 2222",
+                huffman=False,
+            ),
+        ]
+    )
+    def test(self, name, if_modified_since, huffman):
+        self.__test(if_modified_since, huffman)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="if_modified_since_huffman_2",
+                if_modified_since="Sat, 29 Oct 2222 19:43:31 GMT111",
+                huffman=True,
+            ),
+            marks.Param(
+                name="if_modified_since_no_huffman_2",
+                if_modified_since="Sat, 29 Oct 2222 19:43:31 GMT111",
+                huffman=False,
+            ),
+        ]
+    )
+    @unittest.expectedFailure
+    def test(self, name, if_modified_since, huffman):
+        """
+        Tempesta FW doesn't check that there is any invalid
+        bytes after GMT in the date. 
+        """
+        self.__test(if_modified_since, huffman)
+
+    def test_many_if_modified_since(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                    ("if-none-match", '"asdfqwerty"'),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                ],
+            ),
+            "400",
+        )
+
+    def test_empty_non_match_with_if_non_modify_since(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(client.create_request(method="GET", headers=[]), "200")
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                    ("if-none-match", '"asdfqwerty"'),
+                ],
+            ),
+            "200",
+        )
 
 
 class TestConnectionHeaders(H2Base):
@@ -928,7 +1048,7 @@ class TestTrailers(H2Base):
         HTTP/2 uses DATA frames to carry message content. The chunked
         transfer encoding defined in Section 7.1 of [HTTP/1.1] cannot
         be used in HTTP/2; see Section 8.2.2.
-        """ 
+        """
         self.assertIsNone(client.last_response.headers.get("Transfer-Encoding"))
         self.assertIsNotNone(client.last_response.trailer.get("X-Token"))
 
@@ -1491,7 +1611,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(
-            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 43)], huffman=huffman)
+            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 43)]), huffman=huffman
         )
 
         deproxy_cl.wait_for_response(strict=True)
@@ -1513,7 +1633,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(
-            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 42)], huffman=huffman)
+            deproxy_cl.create_request(method="GET", headers=[("a", "a" * 42)]), huffman=huffman
         )
 
         deproxy_cl.wait_for_response(strict=True)
