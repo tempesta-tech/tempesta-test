@@ -4,7 +4,7 @@ import ssl
 import requests
 import websockets
 
-from helpers import dmesg, remote, tf_cfg
+from helpers import dmesg, tf_cfg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -205,6 +205,10 @@ class BaseWsPing(tester.TempestaTest):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
+    def setUp(self):
+        super().setUp()
+        self.ws_servers = []
+
     # Client
 
     async def ws_ping_test(self, port: int, is_ssl: bool) -> None:
@@ -229,16 +233,25 @@ class BaseWsPing(tester.TempestaTest):
         self.assertEquals(request_body, "request")
         await websocket.send("response")
 
+    @staticmethod
+    def cleanup_ws_servers(test):
+        async def wrapper(self: "BaseWsPing", *args, **kwargs):
+            try:
+                await test(self, *args, **kwargs)
+            finally:
+                for server in self.ws_servers:
+                    server.close()
+
+        return wrapper
+
+    @cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
-        server = None
-        try:
-            server = await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099)
-            self.start_tempesta()
-            for _ in range(4):
-                await self.ws_ping_test(tempesta_port, is_ssl)
-        finally:
-            if server:
-                server.close()
+        self.ws_servers.append(
+            await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099)
+        )
+        self.start_tempesta()
+        for _ in range(4):
+            await self.ws_ping_test(tempesta_port, is_ssl)
 
 
 class TestWsPing(BaseWsPing):
@@ -339,20 +352,17 @@ class TestWsCache(BaseWsPing):
     def test(self):
         asyncio.run(self._test(tempesta_port=81, is_ssl=False))
 
+    @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
-        server = None
-        try:
-            server = await websockets.serve(
-                self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
-            )
-            self.start_tempesta()
-            await self.ws_ping_test(tempesta_port, is_ssl)
-            server.close(close_connections=True)
-            await server.wait_closed()
-            self.call_upgrade(81, [502, 504])
-        finally:
-            if server:
-                server.close()
+        server = await websockets.serve(
+            self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
+        )
+        self.ws_servers.append(server)
+        self.start_tempesta()
+        await self.ws_ping_test(tempesta_port, is_ssl)
+        server.close(close_connections=True)
+        await server.wait_closed()
+        self.call_upgrade(81, [502, 504])
 
 
 class TestWssStress(BaseWsPing):
@@ -374,24 +384,19 @@ class TestWssStress(BaseWsPing):
     def test(self):
         asyncio.run(self._test(tempesta_port=82, is_ssl=True))
 
+    @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
-        servers = []
-        try:
-            for i in range(50):
-                port = 18099 + i
-                servers.append(
-                    await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), port)
-                )
-            self.start_tempesta()
-            count = 0
-            for _ in range(4000):
-                count += 1
-                await self.ws_ping_test(tempesta_port, is_ssl)
-                if (4000 - count) in self.fibo(4000):
-                    self.get_tempesta().restart()
-        finally:
-            for server in servers:
-                server.close()
+        for i in range(50):
+            self.ws_servers.append(
+                await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
+            )
+        self.start_tempesta()
+        count = 0
+        for _ in range(4000):
+            count += 1
+            await self.ws_ping_test(tempesta_port, is_ssl)
+            if (4000 - count) in self.fibo(4000):
+                self.get_tempesta().restart()
 
 
 class TestWssPipelining(BaseWsPing):
@@ -438,27 +443,25 @@ class TestWssPipelining(BaseWsPing):
     def test(self):
         asyncio.run(self._test())
 
+    @BaseWsPing.cleanup_ws_servers
     async def _test(self):
-        server = None
-        try:
-            server = await websockets.serve(
+        self.ws_servers.append(
+            await websockets.serve(
                 self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
             )
-            self.start_all_services()
-            deproxy_cl = self.get_client("deproxy")
-            deproxy_cl.make_requests(self.request)
-            deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
+        )
+        self.start_all_services()
+        deproxy_cl = self.get_client("deproxy")
+        deproxy_cl.make_requests(self.request)
+        deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
 
-            self.assertTrue(
-                self.loggers.dmesg.find(
-                    pattern="Request dropped: Pipelined request received after UPGRADE request",
-                    cond=dmesg.amount_positive,
-                ),
-                "Unexpected number of warnings",
-            )
-        finally:
-            if server:
-                server.close()
+        self.assertTrue(
+            self.loggers.dmesg.find(
+                pattern="Request dropped: Pipelined request received after UPGRADE request",
+                cond=dmesg.amount_positive,
+            ),
+            "Unexpected number of warnings",
+        )
 
 
 class TestWsScheduler(BaseWsPing):
@@ -489,19 +492,15 @@ class TestWsScheduler(BaseWsPing):
     def test(self):
         asyncio.run(self._test(tempesta_port=81, is_ssl=False))
 
+    @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
-        servers = []
-        try:
-            for i in range(4):
-                servers.append(
-                    await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
-                )
-            self.start_tempesta()
-            for _ in range(256):
-                await self.ws_ping_test(tempesta_port, is_ssl)
-        finally:
-            for server in servers:
-                server.close()
+        for i in range(4):
+            self.ws_servers.append(
+                await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
+            )
+        self.start_tempesta()
+        for _ in range(256):
+            await self.ws_ping_test(tempesta_port, is_ssl)
 
 
 class TestRestartOnUpgrade(BaseWsPing):
@@ -524,17 +523,15 @@ class TestRestartOnUpgrade(BaseWsPing):
     def test(self):
         asyncio.run(self._test(tempesta_port=81, is_ssl=False))
 
+    @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
-        server = None
-        try:
-            server = await websockets.serve(
+        self.ws_servers.append(
+            await websockets.serve(
                 self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=10
             )
-            self.start_tempesta()
-            for i in range(1500):
-                await self.ws_ping_test(tempesta_port, is_ssl)
-                if i in self.fibo(1500):
-                    self.get_tempesta().restart()
-        finally:
-            if server:
-                server.close()
+        )
+        self.start_tempesta()
+        for i in range(1500):
+            await self.ws_ping_test(tempesta_port, is_ssl)
+            if i in self.fibo(1500):
+                self.get_tempesta().restart()
