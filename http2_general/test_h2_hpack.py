@@ -597,28 +597,18 @@ class TestHpack(TestHpackBase):
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(server.last_request.method, "GET")
 
-    def test_big_header_in_request_1(self):
-        self.start_all_services()
-        client: DeproxyClientH2 = self.get_client("deproxy")
-
-        request = client.create_request(
-            method="POST",
-            headers=[
-                ("a", "a" * 1000 + "b" * 1000 + "c" * 1000),
-                ("b", "b" * 4000),
-                ("c", "k" * 1000 + "l" * 1000 + "m" * 1000),
-                ("k", "k" * 4000),
-                ("l", "l" * 2000),
-                ("f", "f" * 4000),
-            ],
-        )
-        client.send_request(request, "200")
-
     def __randomword(self, length):
         letters = string.ascii_lowercase
         return "".join(random.choice(letters) for i in range(length))
 
-    def test_big_header_in_request_2(self):
+    def test_big_header_in_request(self):
+        """
+        Tempesta FW allocates several chunks from the pool for
+        each big header during huffman decoding. This test checks
+        situation when new pages are allocated during new chunk
+        alllocation. In this case Tempesta FW copies all chunks
+        to the new place.
+        """
         self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
 
