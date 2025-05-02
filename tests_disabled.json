@@ -58,7 +58,15 @@
             "reason" : "Disabled by issue #114"
         },
         {
-            "name" : "pipelining",
+            "name" : "t_pipelining.test_pipelining.PipeliningTest",
+            "reason" : "Disabled by issue #963"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.PipeliningTestFI",
+            "reason" : "Disabled by issue #963"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.H2MultiplexedTest",
             "reason" : "Disabled by issue #963"
         },
         {
