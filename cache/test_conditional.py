@@ -533,12 +533,13 @@ class TestNotModifiedResponseHeaders(TempestaTest):
     )
 
     @unittest.expectedFailure
-    def test_cachable_headers(
+    def test_cachable_headers_expect_fail(
         self, name, header, expected_status_code, date, disable_deproxy_auto_parser
     ):
         """
         Tempesta FW doesn't check that there is any invalid
-        bytes after GMT in the date. 
+        bytes after GMT in the date. So Tempesta FW doesn't
+        ignore such header.
         """
         self.__test_cachable_headers(
             header, expected_status_code, date, disable_deproxy_auto_parser

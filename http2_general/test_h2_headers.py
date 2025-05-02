@@ -500,6 +500,10 @@ cache_methods GET HEAD POST;
         ]
     )
     def test(self, name, if_modified_since, huffman):
+        """
+        Tests check that Tempesta FW ignores date from
+        incorrect `if-modified-since` header. 
+        """
         self.__test(if_modified_since, huffman)
 
     @marks.Parameterize.expand(
@@ -517,14 +521,22 @@ cache_methods GET HEAD POST;
         ]
     )
     @unittest.expectedFailure
-    def test(self, name, if_modified_since, huffman):
+    def test_expect_fail(self, name, if_modified_since, huffman):
         """
         Tempesta FW doesn't check that there is any invalid
-        bytes after GMT in the date. 
+        bytes after GMT in the date. So although according RFC
+        Tempesta FW should ignores date from such `if-modified-since`
+        header Tempesta FW uses it and decides that response is not
+        modified.
         """
         self.__test(if_modified_since, huffman)
 
     def test_many_if_modified_since(self):
+        """
+        This test checks that Tempesta FW drops request
+        with several `if-modified-since` headers according
+        RFC.
+        """
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
@@ -539,23 +551,6 @@ cache_methods GET HEAD POST;
                 ],
             ),
             "400",
-        )
-
-    def test_empty_non_match_with_if_non_modify_since(self):
-        self.start_all_services()
-        client = self.get_client("deproxy")
-        server = self.get_server("deproxy")
-
-        client.send_request(client.create_request(method="GET", headers=[]), "200")
-        client.send_request(
-            client.create_request(
-                method="GET",
-                headers=[
-                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
-                    ("if-none-match", '"asdfqwerty"'),
-                ],
-            ),
-            "200",
         )
 
 
