@@ -1,3 +1,4 @@
+import re
 import typing
 
 from framework import deproxy_server
@@ -5,50 +6,65 @@ from helpers import control, deproxy, tf_cfg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 REQUESTS_EXECUTION_SEQUENCE = []
 
 
 class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
+    """
+    Return in the body requests url
+    """
+
+    @staticmethod
+    def __remove_keep_alive_header(response: str) -> str:
+        return re.sub(r"Connection: .*$", "", response, flags=re.MULTILINE)
+
     def receive_request(self, request) -> (bytes, bool):
-        id = request.uri
-        r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request)
-        resp = deproxy.Response(r.decode())
-        resp.body = id
-        resp.headers["Content-Length"] = len(resp.body)
-        resp.build_message()
-        return resp.msg.encode(), close
+        _response, close = super().receive_request(request)
+
+        response = deproxy.Response(self.__remove_keep_alive_header(_response.decode()))
+        response.body = request.uri
+        response.headers["Content-Length"] = len(response.body)
+        response.build_message()
+
+        return response.msg.encode(), close
 
 
 class DeproxyKeepaliveServer(DeproxyEchoServer):
-    def __init__(self, *args, **kwargs):
-        self.ka = int(kwargs["keep_alive"])
-        kwargs.pop("keep_alive", None)
-        self.nka = 0
-        tf_cfg.dbg(3, "\tDeproxy keepalive: keepalive requests = %i" % self.ka)
-        DeproxyEchoServer.__init__(self, *args, **kwargs)
+    """
+    Drop connection each 4 requests
+    """
 
-    def run_start(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.nka = 0
-        super().run_start()
 
     def receive_request(self, request) -> (bytes, bool):
         self.nka += 1
-        tf_cfg.dbg(5, "\trequests = %i of %i" % (self.nka, self.ka))
-        r, close = super().receive_request(request)
-        if self.nka < self.ka and not close:
-            return r, False
-        resp = deproxy.Response(r.decode())
-        resp.headers["Connection"] = "close"
-        resp.build_message()
-        tf_cfg.dbg(3, "\tDeproxy: keepalive closing")
+        _response, close = super().receive_request(request)
+
+        if close:
+            return _response, close
+
+        if self.nka % 4:
+            return _response, close
+
         self.nka = 0
-        return resp.msg.encode(), True
+
+        response = deproxy.Response(_response.decode())
+        response.headers["Connection"] = "close"
+        response.build_message()
+
+        return response.msg.encode(), True
 
 
-class DeproxyRegisterRequestsExecutingSequenceServer(DeproxyEchoServer):
+class DeproxyRegisterRequestsExecutingSequenceServer(deproxy_server.StaticDeproxyServer):
+    """
+    Store the execution sequence of the requests
+    """
+
     def __init__(self, *args, **kwargs):
         super(DeproxyRegisterRequestsExecutingSequenceServer, self).__init__(*args, **kwargs)
 
@@ -88,7 +104,7 @@ def build_tempesta_fault(tempesta):
 tester.register_tempesta("tempesta_fi", build_tempesta_fault)
 
 
-class PipeliningTest(tester.TempestaTest):
+class TestPipelineResponsesOrder(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
@@ -100,23 +116,12 @@ Content-Length: 0
 Connection: keep-alive
 
 """,
-        },
-        {
-            "id": "deproxy_ka",
-            "type": "deproxy_ka",
-            "keep_alive": 4,
-            "port": "8000",
-            "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-Connection: keep-alive
-
-""",
-        },
+        }
     ]
 
     tempesta = {
         "config": """
+listen 80;
 cache 0;
 server ${server_ip}:8000;
 
@@ -137,20 +142,17 @@ server ${server_ip}:8000;
             "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.assertEqual(0, len(deproxy_srv.requests))
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
+        self.disable_deproxy_auto_parser()
+        self.start_all_services()
+
         deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
         self.assertEqual(4, len(deproxy_srv.requests))
-        for i in range(len(deproxy_cl.responses)):
-            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
@@ -168,25 +170,53 @@ server ${server_ip}:8000;
             "GET /5 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.assertEqual(0, len(deproxy_srv.requests))
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
+        self.disable_deproxy_auto_parser()
+        self.start_all_services()
+
         deproxy_cl.make_requests(request, pipelined=True)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        deproxy_cl.wait_for_response(timeout=5)
+
         deproxy_cl.make_requests(request2, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(resp, "Response not received")
         self.assertEqual(6, len(deproxy_cl.responses))
         self.assertEqual(6, len(deproxy_srv.requests))
-        for i in range(len(deproxy_cl.responses)):
-            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
+
+
+class TestPipelineResponsesOrderWithClosingConnection(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy_ka",
+            "type": "deproxy_ka",
+            "keep_alive": 4,
+            "port": "8000",
+            "response": "static",
+            "response_content": """HTTP/1.1 200 OK
+    Content-Length: 0
+    Connection: keep-alive
+
+    """,
+        }
+    ]
+
+    tempesta = {
+        "config": """
+    listen 80;
+    cache 0;
+    server ${server_ip}:8000;
+
+    """,
+    }
+
+    clients = [
+        {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
+    ]
 
     def test_failovering(self):
         # Check that responses goes in the same order as requests
@@ -202,26 +232,23 @@ server ${server_ip}:8000;
             "GET /6 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         deproxy_srv = self.get_server("deproxy_ka")
-        deproxy_srv.start()
-        self.assertEqual(0, len(deproxy_srv.requests))
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
+        self.disable_deproxy_auto_parser()
+        self.start_all_services()
+
         deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(resp, "Response not received")
         self.assertEqual(7, len(deproxy_cl.responses))
         self.assertEqual(7, len(deproxy_srv.requests))
-        for i in range(len(deproxy_cl.responses)):
-            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
 
 
-class PipeliningTestFI(tester.TempestaTest):
+class TestPipelineResponsesOrderFI(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
@@ -233,24 +260,13 @@ Content-Length: 0
 Connection: keep-alive
 
 """,
-        },
-        {
-            "id": "deproxy_ka",
-            "type": "deproxy_ka",
-            "keep_alive": 4,
-            "port": "8000",
-            "response": "static",
-            "response_content": """HTTP/1.1 200 OK
-Content-Length: 0
-Connection: keep-alive
-
-""",
-        },
+        }
     ]
 
     tempesta = {
         "type": "tempesta_fi",
         "config": """
+listen 80;
 cache 0;
 nonidempotent GET prefix "/";
 
@@ -271,15 +287,14 @@ server ${server_ip}:8000;
             "GET /2 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             "GET /3 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.assertEqual(0, len(deproxy_srv.requests))
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+        deproxy_srv = self.get_server("deproxy")
+
+        self.disable_deproxy_auto_parser()
+        self.start_all_services()
+
         deproxy_cl.make_requests(request, pipelined=True)
+
         resp = deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
@@ -289,6 +304,23 @@ server ${server_ip}:8000;
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
+
+
+class TestPipelineResponsesOrderFIWithClosingConnection(TestPipelineResponsesOrderFI):
+    backends = [
+        {
+            "id": "deproxy_ka",
+            "type": "deproxy_ka",
+            "keep_alive": 4,
+            "port": "8000",
+            "response": "static",
+            "response_content": """HTTP/1.1 200 OK
+Content-Length: 0
+Connection: keep-alive
+
+""",
+        },
+    ]
 
     def test_failovering(self):
         # Check that responses goes in the same order as requests
@@ -304,20 +336,16 @@ server ${server_ip}:8000;
             "GET /6 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         deproxy_srv = self.get_server("deproxy_ka")
-        deproxy_srv.start()
-        self.assertEqual(0, len(deproxy_srv.requests))
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
+
+        self.start_all_services()
+
         deproxy_cl.make_request(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
+
         self.assertTrue(resp, "Response not received")
         self.assertEqual(7, len(deproxy_cl.responses))
         self.assertEqual(7, len(deproxy_srv.requests))
-        for i in range(len(deproxy_cl.responses)):
-            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
@@ -358,15 +386,8 @@ class H2MultiplexedTest(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
     def test_bodyless(self):
-        self.start_all()
+        self.start_all_services()
 
         REQ_NUM = 10
         head = [
@@ -384,7 +405,7 @@ class H2MultiplexedTest(tester.TempestaTest):
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(request)
 
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(REQ_NUM, len(deproxy_cl.responses))
         self.assertEqual(REQ_NUM, len(deproxy_srv.requests))
 

@@ -58,22 +58,42 @@
             "reason" : "Disabled by issue #114"
         },
         {
-            "name" : "t_pipelining.test_pipelining.PipeliningTest",
-            "reason" : "Disabled by issue #963"
+            "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderFI",
+            "reason" : "Disabled by issue #809 (tempesta-test)"
         },
         {
-            "name" : "t_pipelining.test_pipelining.PipeliningTestFI",
-            "reason" : "Disabled by issue #963"
+            "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderFIWithClosingConnection",
+            "reason" : "Disabled by issue #809 (tempesta-test) and #2422 (tempesta)"
         },
         {
-            "name" : "t_pipelining.test_pipelining.H2MultiplexedTest",
-            "reason" : "Disabled by issue #963"
+            "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderWithClosingConnection",
+            "reason" : "Disabled by issue #2422"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPATCH",
+            "reason" : "Disabled by issue #2420"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPUT",
+            "reason" : "Disabled by issue #2420"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPOST",
+            "reason" : "Disabled by issue #2420"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsGET",
+            "reason" : "Disabled by issue #2420"
+        },
+        {
+            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsH2GET",
+            "reason" : "Disabled by issue #2420"
         },
         {
             "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
         },
-                {
+        {
             "name" : "tls.test_tls_integrity.ProxyH2.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
         },
