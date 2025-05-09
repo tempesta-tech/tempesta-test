@@ -268,7 +268,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                     date=deproxy.HttpMessage.date_time_string(),
                     body="y" * 100000,
                 ),
-                mtu=100,
                 retval=-12,
             ),
             marks.Param(
@@ -283,20 +282,22 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                     date=deproxy.HttpMessage.date_time_string(),
                     body="y" * 100000,
                 ),
-                mtu=100,
                 retval=-12,
             ),
         ]
     )
+    @NetWorker.set_mtu(
+        nodes=[
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
+                "mtu": 100,
+            }
+        ]
+    )
     @dmesg.unlimited_rate_on_tempesta_node
-    @NetWorker.protect_ipv6_addr_on_dev
-    def test_with_mtu(self, name, func_name, id, msg, times, response, mtu, retval):
-        try:
-            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
-            prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-            self._test(name, func_name, id, msg, times, response, retval)
-        finally:
-            sysnet.change_mtu(remote.client, dev, prev_mtu)
+    def test_mtu_100(self, name, func_name, id, msg, times, response, retval):
+        self._test(name, func_name, id, msg, times, response, retval)
 
     def _test(self, name, func_name, id, msg, times, response, retval):
         """
@@ -333,8 +334,16 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
 
 
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
+    @NetWorker.set_mtu(
+        nodes=[
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
+                "mtu": 100,
+            }
+        ]
+    )
     @dmesg.unlimited_rate_on_tempesta_node
-    @NetWorker.protect_ipv6_addr_on_dev
     def test_tfw_h2_prep_resp_for_error_response(self):
         """
         Basic test to check how Tempesta FW works when some internal
@@ -342,14 +351,6 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         in Tempesta FW source code.
         """
 
-        try:
-            dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
-            prev_mtu = sysnet.change_mtu(remote.client, dev, 100)
-            self._test_tfw_h2_prep_resp_for_error_response()
-        finally:
-            sysnet.change_mtu(remote.client, dev, prev_mtu)
-
-    def _test_tfw_h2_prep_resp_for_error_response(self):
         server = self.get_server("deproxy")
         server.conns_n = 1
         self.disable_deproxy_auto_parser()

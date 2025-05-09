@@ -2,8 +2,9 @@
 HTTP Stress tests with WordPress LXC container.
 """
 
+from helpers import tf_cfg
+from helpers.networker import NetWorker
 from run_config import CONCURRENT_CONNECTIONS, REQUESTS_COUNT
-from t_stress.test_stress import CustomMtuMixin
 from test_suite import tester
 from test_suite.marks import parameterize_class
 
@@ -18,7 +19,7 @@ __license__ = "GPL2"
         {"name": "H2", "proto": "h2", "http2": True},
     ]
 )
-class TestWordpressStress(CustomMtuMixin, tester.TempestaTest):
+class TestWordpressStress(tester.TempestaTest):
     proto: str
     http2: bool
     tempesta_tmpl = """
@@ -52,6 +53,25 @@ class TestWordpressStress(CustomMtuMixin, tester.TempestaTest):
         self.clients = [{**client, "http2": self.http2} for client in self.clients]
         super().setUp()
 
+    @NetWorker.set_mtu(
+        nodes=[
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
+                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            },
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
+                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            },
+            {
+                "node": "remote.server",
+                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
+                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            },
+        ]
+    )
     def test_get_large_images(self):
         self.start_all_services(client=False)
         client = self.get_client("get_images")
