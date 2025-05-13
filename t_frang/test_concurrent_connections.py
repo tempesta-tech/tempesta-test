@@ -6,10 +6,106 @@ __license__ = "GPL2"
 
 import time
 
+from helpers import tf_cfg
 from t_frang.frang_test_case import FrangTestCase
-from test_suite import marks
+from test_suite import marks, sysnet
 
 ERROR = "Warning: frang: connections max num. exceeded"
+
+
+class TestConcurrentConnectionsNonTempesta(FrangTestCase):
+    tempesta = {
+        "config": """
+
+listen 127.0.0.1:80;
+
+frang_limits {
+    concurrent_tcp_connections 1;
+    ip_block off;
+}
+
+""",
+    }
+
+    clients = [
+        {
+            "id": f"deproxy-{id_}",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+        for id_ in range(3)
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "80",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n"
+                "x-deproxy-srv-id: 2\r\n"
+                "Connection: keep-alive\r\n\r\n"
+            ),
+        },
+    ]
+
+    @staticmethod
+    def __create_new_address():
+        interface = tf_cfg.cfg.get("Server", "aliases_interface")
+        base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
+        ip = sysnet.create_interfaces(interface, base_ip, 1)
+
+        return ip[0]
+
+    def test(self):
+        """
+        Verify that Tempesta applies frang limits only to its socket.
+
+        Start listen port 80 on two different interfaces, on loopback interface listening Tempesta,
+        on newly created interface (using __create_new_address()) listening deproxy server.
+        Establish 3 connections directly with deproxy server and check whether Tempesta applied
+        frang limits to this connections or not.
+
+        Expected behaviour: Limits must not be applied.
+        Although the test looks artificially, we need to have it, bcause we had such bug.
+        """
+        self.disable_deproxy_auto_parser()
+
+        ip = self.__create_new_address()
+        server = self.get_server("deproxy")
+        server.bind_addr = ip
+
+        self.start_all_servers()
+        self.start_tempesta()
+        self.deproxy_manager.start()
+        for client in self.get_clients():
+            """
+            Set the same address as for standalone deproxy server.
+            Try to connect to this server directly avoid Tempesta.
+            """
+            client.conn_addr = ip
+            client.start()
+            """
+            We need to be sure that previous client is establish or fail
+            to establish connection because of limit exceeded. Otherwise
+            there can be a race and we don't know what client fails because
+            of limit violation.
+            """
+            time.sleep(0.2)
+
+        for client in self.get_clients():
+            client.make_request(client.create_request(method="GET", headers=[]))
+
+        for client in self.get_clients():
+            client.wait_for_response(timeout=2, strict=True)
+
+        for client in self.get_clients():
+            for resp in client.responses:
+                self.assertEqual(resp.headers.get("x-deproxy-srv-id", None), "2")
+
+        self.assertFrangWarning(warning=ERROR, expected=0)
 
 
 class ConcurrentConnections(FrangTestCase):
