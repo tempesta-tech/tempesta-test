@@ -6,7 +6,7 @@ from helpers import control, deproxy, tf_cfg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 REQUESTS_EXECUTION_SEQUENCE = []
