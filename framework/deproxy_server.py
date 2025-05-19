@@ -321,9 +321,11 @@ class StaticDeproxyServer(BaseDeproxy):
         return timeout_not_exceeded
 
 
-def deproxy_srv_factory(server: dict, name, tester):
+def deproxy_srv_initializer(
+    server: str, name: str, tester, default_server_class=StaticDeproxyServer
+):
     is_ipv6 = server.get("is_ipv6", False)
-    srv = StaticDeproxyServer(
+    srv = default_server_class(
         # BaseDeproxy
         deproxy_auto_parser=tester._deproxy_auto_parser,
         port=int(server["port"]),
@@ -342,3 +344,7 @@ def deproxy_srv_factory(server: dict, name, tester):
 
     tester.deproxy_manager.add_server(srv)
     return srv
+
+
+def deproxy_srv_factory(server: dict, name, tester):
+    return deproxy_srv_initializer(server, name, tester)
