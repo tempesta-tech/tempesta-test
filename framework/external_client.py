@@ -1,9 +1,10 @@
+import sys
 from typing import Union
 
 from . import client
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2020 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2020-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -36,6 +37,10 @@ class ExternalTester(client.Client):
         return self.__stderr
 
     def form_command(self):
+        if "python3" == self.bin:
+            # We must set the path to python3 from the virtual environment
+            # to avoid using other versions of python3
+            self.bin = sys.executable
         cmd = " ".join([self.bin] + self.options)
         return cmd
 
