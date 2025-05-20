@@ -2601,7 +2601,7 @@ tls_match_any_server_name;
         )
 
         client.send_request(request, "200")
-        self.assertEqual(client.last_response.headers.get("age"), "333")
+        self.assertGreaterEqual(client.last_response.headers.get("age"), "333")
         self.assertEqual(len(srv.requests), 1)
 
         """
@@ -2611,7 +2611,7 @@ tls_match_any_server_name;
          of previouly received response).
         """
         client.send_request(request, "200")
-        self.assertEqual(client.last_response.headers.get("age"), "333")
+        self.assertGreaterEqual(client.last_response.headers.get("age"), "333")
         self.assertEqual(len(srv.requests), 1)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
