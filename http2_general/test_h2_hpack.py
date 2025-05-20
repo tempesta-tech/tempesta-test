@@ -1531,3 +1531,39 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         # Request which was previously successful is blocked.
         self.__send_add_check_req_with_huffman(client, first_request, huffman, "403")
+
+    def test_if_many_if_modify_since_from_hpack(self):
+        """
+        Check that we drop request with several `if-modify-since` headers
+        during restoring it from hpack table.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT")
+                ]
+            ),
+            "200"
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                    ("if-none-match", '"asdfqwerty"'),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                ]
+            ),
+            "400"
+        )
+
+
+
+
+
