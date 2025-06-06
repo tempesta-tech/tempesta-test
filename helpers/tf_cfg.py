@@ -12,9 +12,9 @@ __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
-import traceback
-from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
 import queue
+import traceback
+from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 from typing import TYPE_CHECKING
 
 from rich import pretty
@@ -141,12 +141,13 @@ class TestFrameworkCfg:
                     "memory_leak_threshold": "65536",
                 },
                 "Loggers": {
+                    "dprct": "INFO",
                     "file_handler": "INFO",  # logs/test.log
-                    "test": "DEBUG",  # test
-                    "tcp": "DEBUG",  # tcp
-                    "http": "DEBUG",  # http, https
-                    "env": "DEBUG",  # env logs (subprocess calls, environment settitngs)
-                    "dap": "DEBUG",  # DeproxyAutoParser
+                    "test": "INFO",  # test
+                    "tcp": "INFO",  # tcp
+                    "http": "INFO",  # http, https
+                    "env": "INFO",  # env logs (subprocess calls, environment settitngs)
+                    "dap": "INFO",  # DeproxyAutoParser
                 },
                 "Client": {
                     "ip": "127.0.0.2",
@@ -361,10 +362,7 @@ def log_dmesg(node: "ANode", msg: str) -> None:
     try:
         node.run_cmd(f"echo '{msg}' > /dev/kmsg")
     except Exception as e:
-        logger = logging.getLogger("dprct")
-        logger.error(f"Can not access node {node.type}: {str(e)}")
-
-        # dbg(2, f"Can not access node {node.type}: {str(e)}")
+        _DPRCT_LOGGET.error(f"Can not access node {node.type}: {str(e)}")
 
 
 cfg = TestFrameworkCfg()
