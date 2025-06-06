@@ -301,8 +301,6 @@ class TestJa5FiltersTestSuite(BaseJa5TestSuite):
 
     def test_ja5_hash_difference(self):
         self.start_all_services(client=False)
-        self.deproxy_manager.start()
-        self.start_tempesta()
 
         client_names = list(map(lambda __client: __client["id"], self.clients))
         clients = list(map(self.get_client, client_names))
