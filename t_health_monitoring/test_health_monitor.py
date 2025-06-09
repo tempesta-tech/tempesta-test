@@ -321,10 +321,20 @@ class TestHealthStatServer(tester.TempestaTest):
         "config": """
             listen 80;
             listen 443 proto=h2;
-            server ${server_ip}:8000;
+            
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
+            
+            srv_group default {
+                server ${server_ip}:8000;
+            }
+            vhost default {
+                proxy_pass default;
+            }
+            http_chain {
+                -> default;
+            }
 
             health_stat_server 400 5*;
             server_failover_http 404 999 999;

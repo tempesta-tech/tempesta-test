@@ -56,6 +56,14 @@ DEPROXY_SERVER = {
     "response_content": "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n",
 }
 
+DEPROXY_SERVER_EXTRA = {
+    "id": "deproxy_extra",
+    "type": "deproxy",
+    "port": "8001",
+    "response": "static",
+    "response_content": "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n",
+}
+
 
 @marks.parameterize_class(
     [
@@ -2475,7 +2483,9 @@ class TestCacheOverriddenHost(tester.TempestaTest):
         listen 80;
         listen 443 proto=h2;
 
-        server ${server_ip}:8000;
+        srv_group default {
+            server ${server_ip}:8000;
+        }
 
         req_hdr_add X-Forwarded-Proto "https";
         resp_hdr_set Strict-Transport-Security "max-age=31536000; includeSubDomains";
@@ -2493,9 +2503,9 @@ class TestCacheOverriddenHost(tester.TempestaTest):
     def test(self):
         """
         Test caching with overriding Host using `req_hdr_set`.
-        When host overridden response must be cached using origin Host.
-        It means for origin host we expect response from the cache, but
-        not for new Host.
+        With vhost-based caching, responses are cached using vhost name.
+        Since both requests go to the same vhost, the second request
+        should be served from cache regardless of Host header differences.
         """
         self.start_all_services()
         server = self.get_server("deproxy")
@@ -2541,8 +2551,8 @@ class TestCacheOverriddenHost(tester.TempestaTest):
         # Make request with the same host as in "req_hdr_set host".
         client.send_request(request, expected_status_code="301")
 
-        # Response not from the cache, we do cache only using origin Host header.
-        self.assertIsNone(client.last_response.headers.get("age", None))
+        # Response from the cache, we now cache using vhost name (both requests use same vhost).
+        self.assertIsNotNone(client.last_response.headers.get("age", None))
 
 
 @marks.parameterize_class(
@@ -2614,6 +2624,121 @@ tls_match_any_server_name;
         client.send_request(request, "200")
         self.assertGreaterEqual(client.last_response.headers.get("age"), "333")
         self.assertEqual(len(srv.requests), 1)
+
+
+@marks.parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestCacheKeyCalculation(tester.TempestaTest):
+    """
+    Tempesta FW should use vhost name not host name
+    for cache key calculation.
+    """
+
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2;
+
+cache 2;
+cache_fulfill * *;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+
+frang_limits {
+    http_strict_host_checking false;
+}
+
+srv_group grp1 {
+    server ${server_ip}:8000;
+}
+
+srv_group grp2 {
+    server ${server_ip}:8001;
+}
+
+vhost app1 {
+    proxy_pass grp1;
+}
+
+vhost app2 {
+    proxy_pass grp2;
+}
+
+http_chain {
+    hdr Referer == "*.com" ->app1;
+    ->app2;
+}
+""",
+    }
+
+    backends = [DEPROXY_SERVER, DEPROXY_SERVER_EXTRA]
+
+    def test(self):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+        server1 = self.get_server("deproxy_extra")
+
+        i = 0
+        for srv_name in ["deproxy", "deproxy_extra"]:
+            srv: StaticDeproxyServer = self.get_server(srv_name)
+            srv.set_response(
+                "HTTP/1.1 200 OK\r\n"
+                + "Connection: keep-alive\r\n"
+                + "Content-Length: %s\r\n" % str(i + 10)
+                + "Content-Type: text/html\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "\r\n"
+                + "%s" % ("a" * (i + 10))
+            )
+            i = i + 1
+
+        client = self.get_client("deproxy")
+        # First request with uri "/" goes to app1 (server deproxy, body "a" * 10)
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[("Referer", "example.com")],
+            ),
+            "200",
+        )
+        self.assertEqual(client.last_response.body, "a" * 10)
+        self.assertNotIn("age", client.last_response.headers)
+
+        # Second request with same uri "/" - should be cached
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[("Referer", "example.com")],
+            ),
+            "200",
+        )
+        self.assertEqual(client.last_response.body, "a" * 10)
+        self.assertIn("age", client.last_response.headers)
+        self.assertEqual(len(server.requests), 1)
+        self.assertEqual(len(server1.requests), 0)
+
+        # Third request with uri "/test" goes to app2 (server deproxy_extra, body "a" * 11)
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[],
+            ),
+            "200",
+        )
+
+        self.assertEqual(client.last_response.body, "a" * 11)
+        self.assertNotIn("age", client.last_response.headers)
+        self.assertEqual(len(server.requests), 1)
+        self.assertEqual(len(server1.requests), 1)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
