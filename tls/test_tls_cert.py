@@ -906,6 +906,7 @@ http {
                 listen 443 proto=https;
 
                 srv_group sg { server server_:8000; }
+                srv_group default { server server_:8000; }
                 frang_limits {http_strict_host_checking false;}
                 vhost localhost {
                     proxy_pass sg;
@@ -939,6 +940,7 @@ http {
                 listen 443 proto=https;
 
                 srv_group sg { server server_:8000; }
+                srv_group default { server server_:8000; }
                 frang_limits {http_strict_host_checking false;}
                 vhost private.example.com {
                     proxy_pass sg;
