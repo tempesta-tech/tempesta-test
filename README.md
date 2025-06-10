@@ -406,11 +406,24 @@ When we start backend, it can appear, that specified port is already used
 by smth. So server startup will fail. We can make all servers to write about
 this, but it simpler to check free ports before start server.
 
-#### Classes for servers and clients
+## Logging
 
-deproxyclient, deproxyserver, nginx, wrk - this classes used for creating
-and handling corresponding types of items.
+We use default **logging** library for that.
 
+Handlers:
+- RichHandler to write logs to cmd;
+- QueueHandler to write logs to file;
+
+Loggers:
+- dprct - the deprecated logger. Please don't add logs for it;
+- test - used for information about the test;
+- tcp - used for TCP level in Deproxy services;
+- http - used for HTTP level in Deproxy services;
+- env - used for common info about all services;
+- dap - used only for DeproxyAutoParser;
+
+The `file_handler` and `verbose` levels from tests config overridden loggers levels.
+So you should use DEBUG lvl for handlers if you want to use DEBUG level for any loggers.
 
 ## Development
 

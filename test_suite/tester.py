@@ -24,7 +24,6 @@ from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
 from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
-from helpers.deproxy import dbg
 from helpers.util import fill_template
 from test_suite import sysnet
 
@@ -477,9 +476,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         try:
             deproxy_manager.finish_all_deproxy()
         except Exception as e:
-            dbg(
-                self.deproxy_manager, 1, f"Unknown exception in stopping deproxy - {e}", prefix="\t"
-            )
+            tf_cfg.dbg(1, f"Unknown exception in stopping deproxy - {e}")
         self.deproxy_manager = None
 
     def cleanup_interfaces(self):
