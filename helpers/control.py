@@ -254,7 +254,7 @@ def client_run_blocking(client):
     """
     tf_cfg.dbg(3, "\tRunning HTTP client on %s" % remote.client.host)
     stdout, stderr = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
-    tf_cfg.dbg(3, stdout, stderr)
+    tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
     error.assertTrue(client.parse_out(stdout, stderr))
 
 
@@ -268,7 +268,7 @@ def __clients_run(client):
 
 def __clients_parse_output(args):
     client, (stdout, stderr) = args
-    tf_cfg.dbg(3, stdout, stderr)
+    tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
     return client.parse_out(stdout, stderr)
 
 
