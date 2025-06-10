@@ -258,9 +258,9 @@ class LocalNode(ANode):
             )
 
         if stdout:
-            self._logger.debug(f"stdout: {stdout}")
+            self._logger.debug(f"stdout: \n {stdout.decode(errors='ignore')}")
         if stderr:
-            self._logger.error(f"stderr: {stderr}")
+            self._logger.error(f"stderr: \n {stderr.decode(errors='ignore')}")
 
         return stdout, stderr
 

@@ -123,10 +123,8 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         tf_cfg.dbg(3, f"\tDocker Server: Start {self.id} (image {self.image})")
         self.port_checker.check_ports_status()
         self._build_image()
-        stdout, stderr = self.node.run_cmd(
-            self._form_run_command(),
-        )
-        tf_cfg.dbg(3, stdout, stderr)
+        stdout, stderr = self.node.run_cmd(self._form_run_command())
+        tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
         if stderr or not stdout:
             error.bug(self._form_error(action="run"))
         self.container_id = stdout.decode().strip()
@@ -171,7 +169,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             self._form_build_command(),
             timeout=self.build_timeout,
         )
-        tf_cfg.dbg(3, stdout, stderr)
+        tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
 
     def _tar_context(self):
         """Archive the the build context directory."""

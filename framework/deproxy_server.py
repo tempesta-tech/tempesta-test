@@ -8,9 +8,6 @@ import run_config
 from framework import stateful
 from framework.deproxy_base import BaseDeproxy
 from helpers import deproxy, error, tempesta, tf_cfg, util
-
-dbg = deproxy.dbg
-
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
@@ -33,7 +30,7 @@ class ServerConnection(asyncore.dispatcher):
         self.__new_response: bool = True
         self.nrreq: int = 0
 
-        dbg(self, 6, "New server connection", prefix="\t")
+        tf_cfg.dbg(6, "New server connection")
 
     def sleep(self) -> None:
         """
@@ -76,16 +73,13 @@ class ServerConnection(asyncore.dispatcher):
         error.bug("\tDeproxy: SrvConnection: %s" % v)
 
     def handle_close(self):
-        dbg(self, 6, "Close connection", prefix="\t")
+        tf_cfg.dbg(6, "Close connection")
         self.close()
         if self._server and self in self._server.connections:
             self._server.remove_connection(connection=self)
 
     def handle_read(self):
         self._request_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
-
-        dbg(self, 4, "Receive data:", prefix="\t")
-        tf_cfg.dbg(5, self._request_buffer)
 
         while self._request_buffer:
             try:
@@ -94,20 +88,16 @@ class ServerConnection(asyncore.dispatcher):
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
-                dbg(
-                    self,
-                    4,
-                    ("Can't parse message\n" "<<<<<\n%s>>>>>" % self._request_buffer),
-                )
+                tf_cfg.dbg(4, f"Can't parse message\n<<<<<\n{self._request_buffer}>>>>>")
                 return None
 
-            dbg(self, 4, "Receive request:", prefix="\t")
+            tf_cfg.dbg(4, "Receive request:")
             tf_cfg.dbg(5, request)
             response, need_close = self._server.receive_request(request)
             if self._server.drop_conn_when_request_received:
                 self.handle_close()
             if response:
-                dbg(self, 4, "Send response:", prefix="\t")
+                tf_cfg.dbg(4, "Send response:")
                 tf_cfg.dbg(5, response)
                 self._cur_responses_list.append(response)
                 self._cur_pipelined += 1
@@ -322,7 +312,7 @@ class StaticDeproxyServer(BaseDeproxy):
 
 
 def deproxy_srv_initializer(
-    server: str, name: str, tester, default_server_class=StaticDeproxyServer
+    server: dict, name: str, tester, default_server_class=StaticDeproxyServer
 ):
     is_ipv6 = server.get("is_ipv6", False)
     srv = default_server_class(

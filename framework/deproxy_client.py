@@ -30,8 +30,6 @@ from framework.deproxy_base import BaseDeproxy
 from helpers import deproxy, error, tf_cfg, util
 from helpers.deproxy import ParseError
 
-dbg = deproxy.dbg
-
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
@@ -147,7 +145,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
         self.error_codes.append(type_error)
-        dbg(self, 2, f"Receive error - {type_error} with message - {v}", prefix="\t")
+        tf_cfg.dbg(2, msg=f"Receive error - {type_error} with message - {v}")
 
         if type_error == ParseError:
             self.handle_close()
@@ -208,8 +206,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def handle_write(self):
         """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
-        dbg(self, 4, "Send request to Tempesta:", prefix="\t")
-        tf_cfg.dbg(5, reqs)
 
         if run_config.TCP_SEGMENTATION and self.segment_size == 0:
             self.segment_size = run_config.TCP_SEGMENTATION
@@ -418,22 +414,16 @@ class DeproxyClient(BaseDeproxyClient):
         self.response_buffer += self.recv(deproxy.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
-        dbg(self, 4, "Receive response:", prefix="\t")
-        tf_cfg.dbg(5, f"<<<<<\n{self.response_buffer.encode()}\n>>>>>")
         while len(self.response_buffer) > 0:
             try:
                 method = self.methods[self.nrresp]
                 response = deproxy.Response(self.response_buffer, method=method)
                 self.response_buffer = self.response_buffer[response.original_length :]
             except deproxy.IncompleteMessage as e:
-                dbg(self, 5, f"Receive IncompleteMessage - {e}", prefix="\t")
+                tf_cfg.dbg(5, f"Receive IncompleteMessage - {e}")
                 return
             except deproxy.ParseError:
-                dbg(
-                    self,
-                    4,
-                    ("Can't parse message\n" "<<<<<\n%s\n>>>>>" % self.response_buffer),
-                )
+                tf_cfg.dbg(4, f"Can't parse message\n<<<<<\n{self.response_buffer}\n>>>>>")
                 raise
             self.receive_response(response)
             self.nrresp += 1
@@ -645,21 +635,20 @@ class DeproxyClientH2(BaseDeproxyClient):
                 increment=flow_controlled_length, stream_id=None
             )
             if (
-                self.h2_connection._get_stream_by_id(stream_id).state_machine.state
+                self.h2_connection.streams.get(stream_id)
+                and self.h2_connection._get_stream_by_id(stream_id).state_machine.state
                 != h2.stream.StreamState.CLOSED
             ):
                 self.h2_connection.increment_flow_control_window(
                     increment=flow_controlled_length, stream_id=stream_id
                 )
+
         self.send_bytes(self.h2_connection.data_to_send())
 
     def handle_read(self):
         self.response_buffer = self.recv(deproxy.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
             return
-
-        dbg(self, 4, "Receive data:", prefix="\t")
-        tf_cfg.dbg(5, f"\t\t{self.response_buffer}")
 
         if self.clear_last_response_buffer:
             self.clear_last_response_buffer = False
@@ -669,7 +658,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         try:
             events = self.h2_connection.receive_data(self.response_buffer)
 
-            dbg(self, 4, "Receive 'h2_connection' events:", prefix="\t")
+            tf_cfg.dbg(4, "Receive 'h2_connection' events:")
             tf_cfg.dbg(5, f"\t\t{events}")
             for event in events:
                 if isinstance(event, ResponseReceived):
@@ -727,18 +716,10 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.handle_read()
 
         except deproxy.IncompleteMessage:
-            dbg(
-                self,
-                4,
-                ("Can't parse incomplete message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
-            )
+            tf_cfg.dbg(4, f"Incomplete message\n<<<<<\n{self.response_buffer}\n>>>>>")
             return
         except deproxy.ParseError:
-            dbg(
-                self,
-                4,
-                ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer),
-            )
+            tf_cfg.dbg(4, f"Can't parse message\n<<<<<\n{self.response_buffer}\n>>>>>")
             raise
 
     def handle_write(self):

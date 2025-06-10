@@ -57,7 +57,6 @@ def x509_check_issuer(cert, issuer):
 
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
-
     """
     Our modified TLSClient with overrided states
     to investingate what happens - run tests with 3x -v
@@ -331,7 +330,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
 
 class TlsHandshake:
-
     """
     TLSHandshake class to manage TLSAutomaton
     Creates ClientHello and run TLSHandshake
@@ -381,7 +379,7 @@ class TlsHandshake:
             _ciphers = []
             for key in suites._tls_cipher_suites_cls:
                 if key in self.ciphers:
-                    tf_cfg.dbg(3, key, "->", suites._tls_cipher_suites_cls[key])
+                    tf_cfg.dbg(3, f"key -> {suites._tls_cipher_suites_cls[key]}")
                     _ciphers += [suites._tls_cipher_suites_cls[key]]
             self.ciphers = _ciphers
         except KeyError:

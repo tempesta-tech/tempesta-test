@@ -62,7 +62,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -R, --repeat <N>                  - Repeat every test for N times
 -a, --resume-after <id>           - Continue execution _after_ the first test
                                     matching this ID prefix
--m, --check-memory-leaks          - Check memory leaks for each test                                    
+-m, --check-memory-leaks          - Check memory leaks for each test
 -n, --no-resume                   - Do not resume from state file
 -l, --log <file>                  - Duplcate tests' stderr to this file
 -L, --list                        - List all discovered tests subject to filters
@@ -79,7 +79,7 @@ key, not password. `ssh-copy-id` can be used for that.
 -S, --save-secrets                - Save TLS secrets for deproxy and curl client to
                                     secrets.txt in main directory.
     --kernel-dbg                  - Run tests for the kernel with sanitizers and checkers.
-                                    You should use this option carefully because the tests 
+                                    You should use this option carefully because the tests
                                     take a very long time.
 -T, --tcp-segmentation <size>     - Run all tests with TCP segmentation. It works for
                                     deproxy client and server.
@@ -181,20 +181,6 @@ def __check_kmemleak() -> None:
             tempesta.stop()
 
 
-t_priority_out = open(os.path.join("tests_priority")).readlines()
-t_priority_out.reverse()
-
-t_retry_out = open(os.path.join("tests_retry")).readlines()
-
-# this file is needed for tests with local config
-disabled_reader = shell.DisabledListLoader(os.path.join("tests_disabled.json"))
-# this file is needed for tests with TCP segmentation
-disabled_reader_tcp_seg = shell.DisabledListLoader(os.path.join("tests_disabled_tcpseg.json"))
-# this file is needed for tests with remote config
-disabled_reader_remote = shell.DisabledListLoader(os.path.join("tests_disabled_remote.json"))
-# this file is needed for tests with the debug kernel
-disabled_reader_dbg_kernel = shell.DisabledListLoader(os.path.join("tests_disabled_dbgkernel.json"))
-
 state_reader = shell.TestState()
 state_reader.load()
 test_resume = shell.TestResume(state_reader)
@@ -247,6 +233,7 @@ except getopt.GetoptError as e:
     print(e)
     usage()
     sys.exit(2)
+
 
 for opt, arg in options:
     if opt in ("-f", "--failfast"):
@@ -320,6 +307,21 @@ for opt, arg in options:
 
 
 tf_cfg.cfg.check()
+tf_cfg.cfg.configure_logger()
+
+t_priority_out = open(os.path.join("tests_priority")).readlines()
+t_priority_out.reverse()
+
+t_retry_out = open(os.path.join("tests_retry")).readlines()
+
+# this file is needed for tests with local config
+disabled_reader = shell.DisabledListLoader(os.path.join("tests_disabled.json"))
+# this file is needed for tests with TCP segmentation
+disabled_reader_tcp_seg = shell.DisabledListLoader(os.path.join("tests_disabled_tcpseg.json"))
+# this file is needed for tests with remote config
+disabled_reader_remote = shell.DisabledListLoader(os.path.join("tests_disabled_remote.json"))
+# this file is needed for tests with the debug kernel
+disabled_reader_dbg_kernel = shell.DisabledListLoader(os.path.join("tests_disabled_dbgkernel.json"))
 
 # Verbose level for unit tests must be > 1.
 v_level = int(tf_cfg.cfg.get("General", "Verbose")) + 1
@@ -609,6 +611,8 @@ if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.sta
 __check_memory_consumption(python_memory_before, used_memory_before)
 __check_kmemleak()
 
+# stop loggging
+tf_cfg.cfg.log_listner.stop()
 if len(result.failures) > 0 or len(result.unexpectedSuccesses) > 0 or len(result.errors) > 0:
     sys.exit(1)
 
