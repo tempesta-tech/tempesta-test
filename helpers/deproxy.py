@@ -33,7 +33,7 @@ from typing import List, Tuple
 import run_config
 from framework import stateful
 
-from . import error, tempesta, tf_cfg, util
+from . import error, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
@@ -461,7 +461,6 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         elif len(self.body) < size and self.headers.get("expect") == "100-continue":
             return
         elif len(self.body) < size:
-            tf_cfg.dbg(5, "Incomplete message received")
             raise IncompleteMessage()
 
     def parse_trailer(self, stream):
@@ -610,9 +609,6 @@ class Request(HttpMessage):
             self.read_sized_body(stream)
             return
         # 3.3.3 6
-
-        if stream.read():
-            tf_cfg.dbg(5, "You have missed the Transfer-Encoding or Content-Length header!")
 
         self.body = ""
 
@@ -958,7 +954,6 @@ class TlsClient(asyncore.dispatcher):
             )
 
         except IOError as tls_e:
-            tf_cfg.dbg(2, "Cannot establish TLS connection")
             raise tls_e
 
     def tls_handshake_readable(self):
@@ -977,10 +972,8 @@ class TlsClient(asyncore.dispatcher):
             elif tls_e.args[0] == ssl.SSL_ERROR_WANT_WRITE:
                 self.want_write = True
             else:
-                tf_cfg.dbg(2, "TLS handshake error,", tls_e)
                 raise
         else:
-            tf_cfg.dbg(4, "Finished TLS handshake")
             # Handshake is done, set processing callbacks
             self.restore_handlers()
 
@@ -1004,7 +997,6 @@ class TlsClient(asyncore.dispatcher):
         Args:
             address (tuple): address to bind
         """
-        tf_cfg.dbg(6, f"Trying to bind {str(address)} for {self.__class__.__name__}")
         try:
             return super().bind(address)
         # When we cannot bind an address, adding more details
@@ -1012,7 +1004,6 @@ class TlsClient(asyncore.dispatcher):
             os_err_msg = (
                 f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
             )
-            tf_cfg.dbg(6, os_err_msg)
             raise OSError(os_err_msg) from os_exc
 
 
@@ -1027,7 +1018,7 @@ class Client(TlsClient, stateful.Stateful):
         proto="http/1.1",
     ):
         TlsClient.__init__(self, ssl, proto)
-        stateful.Stateful.__init__(self)
+        stateful.Stateful.__init__(self, id_="")
         self.request = None
         self.request_buffer = ""
         self.response_buffer = ""
@@ -1041,20 +1032,15 @@ class Client(TlsClient, stateful.Stateful):
         self.error_codes = []
 
     def __stop_client(self):
-        tf_cfg.dbg(4, "Stop")
         self.close()
 
     def run_start(self):
-        tf_cfg.dbg(3, "Start")
-        tf_cfg.dbg(4, "Connect to %s:%d" % (self.conn_addr, self.port))
-
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.bind_addr:
             self.bind(
                 (self.bind_addr, 0),
             )
 
-        tf_cfg.dbg(6, f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
 
     def clear(self):
@@ -1097,15 +1083,12 @@ class Client(TlsClient, stateful.Stateful):
             self.response_buffer += buf
         if not self.response_buffer:
             return
-        tf_cfg.dbg(4, "Receive response from Tempesta:")
-        tf_cfg.dbg(5, self.response_buffer)
         try:
             response = Response(self.response_buffer, method=self.request.method)
             self.response_buffer = self.response_buffer[len(response.msg) :]
         except IncompleteMessage:
             return
         except ParseError:
-            tf_cfg.dbg(4, ("Can't parse message\n" "<<<<<\n%s>>>>>" % self.response_buffer))
             raise
         if len(self.response_buffer) > 0:
             # TODO: take care about pipelined case
@@ -1120,15 +1103,12 @@ class Client(TlsClient, stateful.Stateful):
         return self.tester.is_srvs_ready() and (len(self.request_buffer) > 0)
 
     def handle_write(self):
-        tf_cfg.dbg(4, "Send request to Tempesta:")
-        tf_cfg.dbg(5, self.request_buffer)
         sent = self.send(self.request_buffer.encode())
         self.request_buffer = self.request_buffer[sent:]
 
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
         self.error_codes.append(type_error)
-        tf_cfg.dbg(2, f"Receive error - {type_error} with message - {v}")
 
         if type_error == ParseError:
             self.handle_close()
@@ -1160,7 +1140,6 @@ class ServerConnection(asyncore.dispatcher_with_send):
         self.responses_done = 0
         self.request_buffer = ""
         self.tester.register_srv_connection(self)
-        tf_cfg.dbg(6, "New server connection")
 
     def handle_read(self):
         self.request_buffer += self.recv(MAX_MESSAGE_SIZE).decode()
@@ -1169,12 +1148,10 @@ class ServerConnection(asyncore.dispatcher_with_send):
         except IncompleteMessage:
             return
         except ParseError:
-            tf_cfg.dbg(4, "Can't parse message\n" "<<<<<\n%s>>>>>" % self.request_buffer)
+            ...
         # Handler will be called even if buffer is empty.
         if not self.request_buffer:
             return
-        tf_cfg.dbg(4, "Receive request from Tempesta.")
-        tf_cfg.dbg(5, self.request_buffer)
         if not self.tester:
             return
         response = self.tester.received_forwarded_request(request, self)
@@ -1190,11 +1167,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
 
     def send_response(self, response):
         if response.msg:
-            tf_cfg.dbg(4, "Send response to Tempesta:")
-            tf_cfg.dbg(5, response.msg)
             self.send(response.msg.encode())
-        else:
-            tf_cfg.dbg(4, "Try send invalid response")
         if self.keep_alive:
             self.responses_done += 1
             if self.responses_done == self.keep_alive:
@@ -1205,7 +1178,6 @@ class ServerConnection(asyncore.dispatcher_with_send):
         error.bug("\tDeproxy: SrvConnection: %s" % v)
 
     def handle_close(self):
-        tf_cfg.dbg(6, "Close connection")
         self.close()
         if self.tester:
             self.tester.remove_srv_connection(self)
@@ -1219,7 +1191,7 @@ class ServerConnection(asyncore.dispatcher_with_send):
 class Server(asyncore.dispatcher, stateful.Stateful):
     def __init__(self, port, host=None, conns_n=None, keep_alive=None):
         asyncore.dispatcher.__init__(self)
-        stateful.Stateful.__init__(self)
+        stateful.Stateful.__init__(self, id_="")
         self.tester = None
         self.port = port
         self.connections = []
@@ -1231,7 +1203,6 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         self.stop_procedures = [self.__stop_server]
 
     def run_start(self):
-        tf_cfg.dbg(3, "Start on %s:%d" % (self.ip, self.port))
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(
@@ -1240,7 +1211,6 @@ class Server(asyncore.dispatcher, stateful.Stateful):
         self.listen(socket.SOMAXCONN)
 
     def __stop_server(self):
-        tf_cfg.dbg(3, "Stop")
         self.close()
         connections = [conn for conn in self.connections]
         for conn in connections:
@@ -1323,11 +1293,11 @@ class Deproxy(stateful.Stateful):
             self.register_tester()
         self.stop_procedures = [self.__stop_deproxy]
 
-    def __stop_deproxy(self):
-        tf_cfg.dbg(3, "\tStopping deproxy tester")
+    @abc.abstractmethod
+    def __stop_deproxy(self): ...
 
-    def run_start(self):
-        tf_cfg.dbg(3, "\tStarting deproxy tester")
+    @abc.abstractmethod
+    def run_start(self): ...
 
     def register_tester(self):
         self.client.set_tester(self)

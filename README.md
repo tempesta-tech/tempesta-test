@@ -170,7 +170,7 @@ that matches the specified string.
 
 **WARNING**: there are 2 testing frameworks in directories `testers` and `framework`.
 Please use only `framework.testet.TempestaTest` for the new tests. 
-`testers.functional.FunctionalTest` and `testers.stress.StressTest` are deprecated and 
+`testers.stress.StressTest` are deprecated and 
 must be removed in https://github.com/tempesta-tech/tempesta-test/issues/56 .
 
 ### Requirements to adding new tests:

@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from helpers import error, tf_cfg
+from helpers.tf_cfg import TEST_LOGGER
 
 from . import client
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -65,8 +66,8 @@ class CurlResponse:
     def __post_init__(self):
         try:
             response_line, headers = self.headers_dump.decode().split("\r\n", 1)
-        except ValueError:
-            tf_cfg.dbg(1, f"Unexpected headers dump: {self.headers_dump}")
+        except ValueError as e:
+            TEST_LOGGER.error(f"Unexpected headers dump: {self.headers_dump}", e, exc_info=True)
         else:
             message = email.message_from_file(io.StringIO(headers))
             match = re.match(r"HTTP/([.012]+) (\d+)", response_line)
@@ -85,6 +86,7 @@ class CurlArguments:
     Contains all accepted arguments (fields) supported by `CurlClient`.
     """
 
+    id: str
     addr: str
     uri: str = "/"
     cmd_args: str = ""
@@ -142,6 +144,7 @@ class CurlClient(CurlArguments, client.Client):
         # Initialize the base `Client`
         client.Client.__init__(
             self,
+            id_=self.id,
             binary="curl",
             server_addr=self.addr,
             uri=self.uri,
@@ -310,7 +313,7 @@ class CurlClient(CurlArguments, client.Client):
             options.append(f"--request {self.method}")
 
         cmd = " ".join([self.bin] + options + self.options + [f"'{self.uri}'"])
-        tf_cfg.dbg(2, f"Curl command formatted: {cmd}")
+        self._logger.info(f"Curl command formatted: {cmd}")
         return cmd
 
     def parse_out(self, stdout, stderr):
@@ -339,7 +342,7 @@ class CurlClient(CurlArguments, client.Client):
                             raise Exception(f"Unexpected HTTP version response: {response.proto}")
                         self._statuses[response["response_code"]] += 1
             except json.JSONDecodeError:
-                tf_cfg.dbg(1, "Error: can't decode cURL JSON stats.")
+                self._logger.error("Error: can't decode cURL JSON stats.")
             else:
                 if self.last_stats or (
                     stderr and b"unknown --write-out variable: 'json'" in stderr

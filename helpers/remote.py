@@ -34,13 +34,9 @@ DEBUG_FILES = False
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
 
-logger = tf_cfg.LOGGER
-
 
 class ANode(object, metaclass=abc.ABCMeta):
     """Node abstract class."""
-
-    _logger: logging.Logger = logger
 
     def __init__(self, ntype: str, hostname: str, workdir: str, *args, **kwargs):
         """
@@ -58,6 +54,10 @@ class ANode(object, metaclass=abc.ABCMeta):
         self.type = ntype
         self._numa_nodes_n: int = 0
         self._max_threads_n: int = 0
+
+        self._logger = logging.LoggerAdapter(
+            logging.getLogger("env"), extra={"service": f"{self.__class__.__name__}({self.host})"}
+        )
 
     def _numa_nodes_count(self) -> int:
         """
@@ -218,7 +218,7 @@ class LocalNode(ANode):
 
         self._logger.log(6, f"All environment variables after updating: {env_full}")
         self._logger.info(
-            f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}"
+            f"Run command {cmd} {msg_is_blocking}on host {self.host} with environment {env}"
         )
 
         if is_blocking:
@@ -258,9 +258,9 @@ class LocalNode(ANode):
             )
 
         if stdout:
-            self._logger.debug(f"stdout: \n {stdout.decode(errors='ignore')}")
+            self._logger.debug(f"STDOUT for '{cmd}': \n {stdout.decode(errors='ignore')}")
         if stderr:
-            self._logger.error(f"stderr: \n {stderr.decode(errors='ignore')}")
+            self._logger.debug(f"STDERR for '{cmd}': \n {stderr.decode(errors='ignore')}")
 
         return stdout, stderr
 
@@ -483,9 +483,9 @@ class RemoteNode(ANode):
             )
 
         if stdout:
-            self._logger.debug(f"stdout: {stdout}")
+            self._logger.debug(f"STDOUT for '{cmd}':\n{stdout.decode(errors='ignore')}")
         if stderr:
-            self._logger.error(f"stderr: {stderr}")
+            self._logger.debug(f"STDERR for '{cmd}':\n{stderr.decode(errors='ignore')}")
 
         return stdout, stderr
 

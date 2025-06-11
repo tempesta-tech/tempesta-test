@@ -24,6 +24,7 @@ from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
 from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
+from helpers.tf_cfg import TEST_LOGGER
 from helpers.util import fill_template
 from test_suite import sysnet
 
@@ -39,52 +40,17 @@ last_test_id = ""
 build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
 
 
-def dns_entry_decorator(ip_address, dns_name):
-    def add_dns_entry(ip_address, dns_name):
-        try:
-            with open("/etc/hosts", "a") as hosts_file:
-                entry = f"{ip_address} {dns_name}\n"
-                hosts_file.write(entry)
-            tf_cfg.dbg(3, f"DNS Record added: {entry}")
-        except IOError as e:
-            tf_cfg.dbg(3, f"Error during add DNS record: {str(e)}")
-
-    def remove_dns_entry(ip_address, dns_name):
-        try:
-            with open("/etc/hosts", "r") as hosts_file:
-                lines = hosts_file.readlines()
-            filtered_lines = [line for line in lines if f"{ip_address} {dns_name}" not in line]
-            with open("/etc/hosts", "w") as hosts_file:
-                hosts_file.writelines(filtered_lines)
-            tf_cfg.dbg(3, f"DNS record removed: {ip_address} {dns_name}")
-        except IOError as e:
-            tf_cfg.dbg(3, f"Error during remove DNS record: {str(e)}")
-
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            add_dns_entry(ip_address, dns_name)
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                remove_dns_entry(ip_address, dns_name)
-                return result
-
-        return wrapper
-
-    return decorator
-
-
 def register_backend(type_name, factory):
     global backend_defs
     """ Register backend type """
-    tf_cfg.dbg(3, "Registering backend %s" % type_name)
+    TEST_LOGGER.info(f"Registering backend '{type_name}'")
     backend_defs[type_name] = factory
 
 
 def register_tempesta(type_name, factory):
     """Register tempesta type"""
     global tempesta_defs
-    tf_cfg.dbg(3, "Registering tempesta %s" % type_name)
+    TEST_LOGGER.info(f"Registering tempesta '{type_name}'")
     tempesta_defs[type_name] = factory
 
 
@@ -242,6 +208,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
         return client_factories[client["type"]](
             # BaseDeproxy
+            id_=client.get("id"),
             deproxy_auto_parser=self._deproxy_auto_parser,
             port=int(fill_template(client["port"], client)),
             bind_addr=bind_addr,
@@ -263,7 +230,11 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     def __create_client_external(self, client_descr):
         cmd_args = fill_template(client_descr["cmd_args"], client_descr)
         ext_client = external_client.ExternalTester(
-            binary=client_descr["binary"], cmd_args=cmd_args, server_addr=None, uri=None
+            id_=client_descr["id"],
+            binary=client_descr["binary"],
+            cmd_args=cmd_args,
+            server_addr=None,
+            uri=None,
         )
         return ext_client
 
@@ -313,8 +284,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         try:
             factory = backend_defs[stype]
         except Exception as e:
-            tf_cfg.dbg(1, "Unsupported backend %s" % stype)
-            tf_cfg.dbg(1, "Supported backends: %s" % backend_defs)
+            self._test_logger.error(
+                f"Unsupported backend {stype}. Supported backends - {backend_defs}"
+            )
             raise e
         srv = factory(server, sid, self)
 
@@ -426,7 +398,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         if self._base:
             self.skipTest("This is an abstract class")
 
-        tf_cfg.dbg(3, "\tInit test case...")
+        TEST_LOGGER.info(f"Init test case '{self.id()}'")
         if not remote.wait_available():
             raise Exception("Tempesta node is unavailable")
         self.__exceptions = dict()
@@ -457,7 +429,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.addCleanup(self.cleanup_services)
 
     def cleanup_services(self):
-        tf_cfg.dbg(3, "\tCleanup: services")
+        TEST_LOGGER.info("Cleanup: services")
 
         for service in self.get_all_services():
             service.stop()
@@ -472,35 +444,32 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             raise error.ServiceStoppingException(self.__exceptions)
 
     def cleanup_deproxy(self):
-        tf_cfg.dbg(3, "\tCleanup: deproxy")
+        TEST_LOGGER.info("Cleanup: deproxy")
         try:
             deproxy_manager.finish_all_deproxy()
         except Exception as e:
-            tf_cfg.dbg(1, f"Unknown exception in stopping deproxy - {e}")
+            TEST_LOGGER.error("Unknown exception in stopping deproxy", e, exc_info=True)
         self.deproxy_manager = None
 
     def cleanup_interfaces(self):
-        tf_cfg.dbg(3, "\tCleanup: Removing interfaces")
+        TEST_LOGGER.info("Cleanup: Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
         sysnet.remove_routes(interface, self.__ips)
         sysnet.remove_interfaces(interface, self.__ips)
         self.__ips = []
 
     def cleanup_stop_tcpdump(self):
-        tf_cfg.dbg(3, "\tCleanup: stopping tcpdump")
+        TEST_LOGGER.info("Cleanup: stopping tcpdump")
         self.__stop_tcpdump()
 
     def cleanup_check_dmesg(self):
-        tf_cfg.dbg(3, "\tCleanup: checking dmesg")
+        TEST_LOGGER.info("Cleanup: checking dmesg")
         self.loggers.dmesg.update()
 
-        tf_cfg.dbg(
-            4,
-            (
-                "----------------------dmesg---------------------\n"
-                + self.loggers.dmesg.log.decode(errors="ignore")
-                + "-------------------end dmesg--------------------"
-            ),
+        TEST_LOGGER.info(
+            "\n----------------------dmesg---------------------\n"
+            + self.loggers.dmesg.log.decode(errors="ignore")
+            + "-------------------end dmesg--------------------"
         )
 
         for err in ["Oops", "WARNING", "ERROR", "BUG"]:
@@ -516,17 +485,17 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.loggers = None
 
     def cleanup_deproxy_auto_parser(self):
-        tf_cfg.dbg(3, "\tCleanup: Cleanup the deproxy auto parser.")
+        TEST_LOGGER.info("Cleanup: Cleanup the deproxy auto parser.")
         self._deproxy_auto_parser.cleanup()
         self._deproxy_auto_parser = None
 
     def cleanup_check_exceptions_in_deproxy_auto_parser(self):
-        tf_cfg.dbg(3, "\tCleanup: Check exceptions in the deproxy auto parser.")
+        TEST_LOGGER.info("Cleanup: Check exceptions in the deproxy auto parser.")
         self._deproxy_auto_parser.check_exceptions()
 
     def cleanup_check_memory_leaks(self):
         if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
-            tf_cfg.dbg(3, "\tCleanup: Check memory leaks.")
+            TEST_LOGGER.info("Cleanup: Check memory leaks.")
             used_memory = util.get_used_memory()
             delta_used_memory = used_memory - self.__used_memory
             msg = (
@@ -534,7 +503,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
                 f"Used memory after test: {used_memory};\n"
                 f"Delta for memory consumption: {delta_used_memory}."
             )
-            tf_cfg.dbg(4, f"\tCleanup: memory consumption:\n{msg}")
+            TEST_LOGGER.info("Cleanup: memory consumption:\n{msg}")
             if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
                 raise error.MemoryConsumptionException(
                     msg, delta_used_memory, run_config.MEMORY_LEAK_THRESHOLD
@@ -547,9 +516,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         success = True
         for item in items:
             if item.is_running():
-                tf_cfg.dbg(4, f'\tClient "{item}" wait for finish ')
+                TEST_LOGGER.debug(f'Client "{item}" wait for finish')
                 success = success and item.wait_for_finish(timeout)
-                tf_cfg.dbg(4, f'\tWaiting for client "{item}" is completed')
+                TEST_LOGGER.debug(f'Waiting for client "{item}" is completed')
 
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
@@ -637,4 +606,4 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     def __save_memory_consumption(self) -> None:
         if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
             self.__used_memory = util.get_used_memory()
-            tf_cfg.dbg(4, f"\tCleanup: used memory {self.__used_memory} KB.")
+            TEST_LOGGER.info(f"Cleanup: used memory {self.__used_memory} KB.")

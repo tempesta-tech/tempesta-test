@@ -7,9 +7,10 @@ import os
 import unittest
 
 from helpers import remote, tf_cfg
+from test_suite.tester import TEST_LOGGER
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 STATE_FILE_NAME = "tests_resume.json"
@@ -25,7 +26,7 @@ class DisabledListLoader(object):
 
     def try_load(self):
         """Try to load specified state file"""
-        tf_cfg.dbg(2, "Loading disabled file")
+        TEST_LOGGER.info("Loading disabled file")
         try:
             self.disabled = []
             with open(self.disabled_list_file, "r") as dis_file:
@@ -39,7 +40,7 @@ class DisabledListLoader(object):
             if err.errno != errno.ENOENT:
                 raise Exception("Error loading disabled tests")
             else:
-                tf_cfg.dbg(2, "File %s not found" % self.disabled_list_file)
+                TEST_LOGGER.warning(f"File {self.disabled_list_file} not found")
         return False
 
     @staticmethod
@@ -69,7 +70,7 @@ class TestStateLoader(object):
             if err.errno != errno.ENOENT:
                 raise Exception("Error loading tests state")
             else:
-                tf_cfg.dbg(2, "File %s not found" % STATE_FILE_NAME)
+                TEST_LOGGER.warning(f"File {STATE_FILE_NAME} not found")
         return False
 
     @staticmethod
@@ -191,15 +192,15 @@ class TestResume(object):
 
     def set_from_file(self):
         if not self.state.has_file:
-            tf_cfg.dbg(2, "Not resuming: File %s not found" % STATE_FILE_NAME)
+            TEST_LOGGER.warning("Not resuming: File %s not found" % STATE_FILE_NAME)
             return
 
         if not (
             self.state.saver.inclusions == self.state.loader.state["inclusions"]
             and self.state.saver.exclusions == self.state.loader.state["exclusions"]
         ):
-            tf_cfg.dbg(
-                1, 'Not resuming from "%s": different filters specified' % self.state.state_file
+            TEST_LOGGER.warning(
+                'Not resuming from "%s": different filters specified' % self.state.state_file
             )
             return
         # will raise before changing anything if state object is incomplete

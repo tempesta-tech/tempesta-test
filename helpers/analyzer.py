@@ -9,9 +9,10 @@ import abc
 from scapy.all import *
 
 from helpers import error, remote, tf_cfg, util
+from helpers.tf_cfg import TEST_LOGGER
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -148,8 +149,8 @@ class AnalyzerTCPSegmentation(Sniffer):
                     self.tfw_pkts += [int(plen)]
                 elif p[TCP].sport == self.srv_port:
                     self.srv_pkts += [int(plen)]
-                tf_cfg.dbg(
-                    3, (f"pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id}")
+                TEST_LOGGER.info(
+                    f"pkt:{p.payload.sport} -> {p.dst}:{p.payload.dport} len_{p.len} id_{p.id_}"
                 )
         self.srv_pkts.pop(0)  # Exclude first ack
         tls_offset = self.tfw_pkts.index(self.srv_pkts[0])  # Find payload offset
@@ -164,26 +165,20 @@ class AnalyzerTCPSegmentation(Sniffer):
         # Tempesta cant generate less payload packets cause we overheaded by TLS
         # + Header addition. So we check the number of sent packets is equal
         if tfw_sent != srv_sent:
-            tf_cfg.dbg(
-                2,
-                (
-                    f"Tempesta TLS generates more packets ({tfw_sent}) than"
-                    f" original server ({srv_sent})"
-                ),
+            TEST_LOGGER.warning(
+                f"Tempesta TLS generates more packets ({tfw_sent}) than"
+                f" original server ({srv_sent})"
             )
             res = False
-        tf_cfg.dbg(
-            2,
+        TEST_LOGGER.debug(
             "Tempesta segments len: %s\nServer segments len: %s"
             % (sum(self.tfw_pkts[tls_offset:]), sum(self.srv_pkts)),
         )
-        tf_cfg.dbg(
-            2,
+        TEST_LOGGER.debug(
             "Tempesta\Server len delta: %s"
             % (sum(self.tfw_pkts[tls_offset:]) - sum(self.srv_pkts)),
         )
-        tf_cfg.dbg(
-            2,
+        TEST_LOGGER.debug(
             "Tempesta segments: %s\nServer segments: %s"
             % (str(self.tfw_pkts[tls_offset:]), str(self.srv_pkts)),
         )

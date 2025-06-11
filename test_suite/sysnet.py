@@ -7,6 +7,7 @@ import struct
 
 from helpers import remote, tf_cfg
 from helpers.error import Error
+from helpers.tf_cfg import TEST_LOGGER
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2023 Tempesta Technologies, Inc."
@@ -35,12 +36,12 @@ def create_interface(iface_id, base_iface_name, base_ip):
 
     command = "LANG=C ip address add %s/24 dev %s label %s" % (iface_ip, base_iface_name, iface)
     try:
-        tf_cfg.dbg(3, "Adding ip %s" % iface_ip)
+        TEST_LOGGER.info(f"Adding ip {iface_ip}")
         remote.server.run_cmd(command)
     except:
-        tf_cfg.dbg(3, "Interface alias already added")
+        TEST_LOGGER.warning("Interface alias already added")
 
-    return (iface, iface_ip)
+    return iface, iface_ip
 
 
 def remove_interface(interface_name, iface_ip):
@@ -48,10 +49,10 @@ def remove_interface(interface_name, iface_ip):
     template = "LANG=C ip address del %s/24 dev %s"
     if iface_ip != tf_cfg.cfg.get("Server", "aliases_base_ip"):
         try:
-            tf_cfg.dbg(3, "Removing ip %s" % iface_ip)
+            TEST_LOGGER.info(f"Removing ip {iface_ip}")
             remote.server.run_cmd(template % (iface_ip, interface_name))
         except:
-            tf_cfg.dbg(3, "Interface alias already removed")
+            TEST_LOGGER.warning("Interface alias already removed")
 
 
 def create_interfaces(base_interface_name, base_interface_ip, number_of_ip):
@@ -87,6 +88,7 @@ def get_mtu(node, dev):
     except Error as err:
         raise Error("Can not determine MTU for device %s: %s" % (dev, err))
 
+
 def get_ip_no_pmtu_disc(node):
     command = "sysctl --values net.ipv4.ip_no_pmtu_disc"
     try:
@@ -95,12 +97,14 @@ def get_ip_no_pmtu_disc(node):
     except Error as err:
         raise Error("Can not determine ip no pmtu discovery %s" % err)
 
+
 def set_ip_no_pmtu_disc(node, ip_no_pmtu_disc):
     command = "sysctl -w net.ipv4.ip_no_pmtu_disc=%d" % ip_no_pmtu_disc
     try:
         node.run_cmd(command)
     except Error as err:
         raise Error("Can not set no pmtu discovery %s" % err)
+
 
 def get_mtu_expires(node):
     command = "sysctl --values net.ipv4.route.mtu_expires"
@@ -136,10 +140,10 @@ def create_route(base_iface_name, ip, gateway_ip):
     """Create route"""
     command = "LANG=C ip route add %s via %s dev %s" % (ip, gateway_ip, base_iface_name)
     try:
-        tf_cfg.dbg(3, "Adding route for %s" % ip)
+        TEST_LOGGER.info(f"Adding route for {ip}")
         remote.tempesta.run_cmd(command)
     except:
-        tf_cfg.dbg(3, "Route already added")
+        TEST_LOGGER.warning("Route already added")
 
     return
 
@@ -148,10 +152,10 @@ def remove_route(interface_name, ip):
     """Remove route"""
     template = "LANG=C ip route del %s dev %s"
     try:
-        tf_cfg.dbg(3, "Removing route for %s" % ip)
+        TEST_LOGGER.info(f"Removing route for {ip}")
         remote.tempesta.run_cmd(template % (ip, interface_name))
     except:
-        tf_cfg.dbg(3, "Route already removed")
+        TEST_LOGGER.warning("Route already removed")
 
 
 def remove_routes(base_interface_name, ips):
