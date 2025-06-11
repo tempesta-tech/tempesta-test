@@ -45,7 +45,6 @@ def read_kmemleaks():
     """Get amount of kmemleak records"""
     kmemleakfile = "/sys/kernel/debug/kmemleak"
     if not has_kmemleak():
-        tf_cfg.dbg(1, "kmemleak file does not exists")
         return -1
     cmd = 'cat %s | grep "unreferenced object" | wc -l' % kmemleakfile
     [stdout, stderr] = remote.tempesta.run_cmd(cmd)
@@ -195,7 +194,6 @@ tls_match_any_server_name;
         self.run_routine(nginx, client)
         used2 = slab_memory()
 
-        tf_cfg.dbg(2, "used %i kib of slab memory=%s kib - %s kib" % (used2 - used1, used2, used1))
         self.assertLess(used2 - used1, self.memory_leak_thresold)
 
     def test_used_memory(self):
@@ -211,10 +209,6 @@ tls_match_any_server_name;
         free_and_cached2 = free_and_cached_memory()
 
         used = free_and_cached1 - free_and_cached2
-        tf_cfg.dbg(
-            2,
-            "used %i kib of memory = %s kib - %s kib" % (used, free_and_cached1, free_and_cached2),
-        )
         self.assertLess(used, self.memory_leak_thresold)
 
 

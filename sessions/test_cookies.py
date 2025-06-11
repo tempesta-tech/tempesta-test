@@ -112,10 +112,8 @@ class CookiesNotEnabled(tester.TempestaTest):
             return True
 
         if response.status != "302":
-            tf_cfg.dbg(3, "Unexpected response code %s" % response.status)
             return False
         if not self.client_supports_cookies(client_name):
-            tf_cfg.dbg(3, "Redirect was sent but client don't support cookies")
             return False
         # Tempesta constructs 'Location:' header using host header, current
         # uri and redirect mark. In this test redirect mark is disabled,
@@ -154,12 +152,10 @@ class CookiesNotEnabled(tester.TempestaTest):
         self.start_all()
         vhost = "localhost"
 
-        tf_cfg.dbg(3, "Send request from client without cookie support...")
         self.assertTrue(
             self.client_get("client-no-cookies", vhost), "Client couldn't access resource"
         )
 
-        tf_cfg.dbg(3, "Send request from client with cookie support...")
         self.assertTrue(
             self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
         )
@@ -212,13 +208,11 @@ class CookiesEnforced(CookiesNotEnabled):
         self.start_all()
         vhost = "localhost"
 
-        tf_cfg.dbg(3, "Send request from client without cookie support...")
         self.assertFalse(
             self.client_get("client-no-cookies", vhost),
             "Client accessed resource without cookie challenge",
         )
 
-        tf_cfg.dbg(3, "Send request from client with cookie support...")
         self.assertTrue(
             self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
         )
@@ -340,7 +334,6 @@ class VhostCookies(CookiesNotEnabled):
     def test_cookie(self):
         self.start_all()
 
-        tf_cfg.dbg(3, "Send requests to vhost_1...")
         # Default cookie name is used, client can't pass cookie challenge.
         self.assertFalse(
             self.client_get("client-no-cookies", "vh1.com"),
@@ -378,7 +371,6 @@ class VhostCookies(CookiesNotEnabled):
             "Client accessed resource without cookie challenge",
         )
 
-        tf_cfg.dbg(3, "Send requests to vhost_2...")
         # Default cookie name is used, client can't pass cookie challenge.
         self.assertFalse(
             self.client_get("client-no-cookies", "vh2.com"),
@@ -417,7 +409,6 @@ class VhostCookies(CookiesNotEnabled):
         )
 
         self.disable_deproxy_auto_parser()
-        tf_cfg.dbg(3, "Send requests to vhost_3...")
         # Enforce mode is disabled for vhost_3, cookie challenge is not required
         self.assertTrue(
             self.client_get("client-no-cookies", "vh3.com"), "Client couldn't access resource"
@@ -533,7 +524,6 @@ class CookieLifetime(CookiesNotEnabled):
             response.headers.get("Set-Cookie", None),
             "Set-Cookie header is mistakenly set in the response",
         )
-        tf_cfg.dbg(3, "Sleep until session get expired...")
         time.sleep(5)
         req = (
             "GET / HTTP/1.1\r\n"
