@@ -9,7 +9,7 @@ from test_suite import flacky
 from testers import stress
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -47,11 +47,9 @@ class CloseOnShutdown(stress.StressTest):
             )
 
     def check_before_start(self):
-        tf_cfg.dbg(3, "Check that there is no opened sockets to servers " "before start")
         self.check_estab_conns(expect_estab=False, expext_failed=False)
 
     def start_all(self):
-        tf_cfg.dbg(3, "Start servers and TempestaFW")
         ka_timeout = "keepalive_timeout %s;\n" % self.timeout
         self.tempesta.config.set_defconfig(ka_timeout + self.config)
         self.configure_tempesta()
@@ -60,11 +58,9 @@ class CloseOnShutdown(stress.StressTest):
 
     def check_after_start(self, allow_conns=True):
         time.sleep(1)
-        tf_cfg.dbg(3, "All connections must be established or failed.")
         self.check_estab_conns(expect_estab=allow_conns, expext_failed=(not allow_conns))
 
     def check_after_stop(self):
-        tf_cfg.dbg(3, "All sockets must be closed after Tempesta Shutdown")
         self.tempesta.stop()
         self.check_estab_conns(expect_estab=False, expext_failed=False)
 
@@ -116,11 +112,6 @@ class CloseOnShutdown(stress.StressTest):
         self.check_sockets(allow_conns=False)
 
     def force_reconnects(self):
-        tf_cfg.dbg(
-            3,
-            "Wait until connections would be reestablished, "
-            "send some requests and wait for kernel timers.",
-        )
         node = self.clients[0].node
         curl_cmd = "curl -m %s %s || true" % (self.timeout, self.clients[0].uri)
         node.run_cmd(curl_cmd)

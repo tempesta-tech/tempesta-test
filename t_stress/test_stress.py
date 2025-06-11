@@ -3,16 +3,15 @@ HTTP Stress tests - load Tempesta FW with multiple connections.
 """
 
 import os
-import threading
 import time
 from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
 from helpers.networker import NetWorker
-from test_suite import marks, sysnet, tester
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -268,7 +267,7 @@ class WrkStressMTU80(LargePageNginxBackendMixinMTU80, BaseWrkStress):
                 "mtu": 80,
             },
         ],
-        disable_pmtu=True
+        disable_pmtu=True,
     )
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
@@ -373,7 +372,7 @@ class TlsWrkStressMTU80(LargePageNginxBackendMixinMTU80, TlsWrkStressBase, BaseW
                 "mtu": 80,
             },
         ],
-        disable_pmtu=True
+        disable_pmtu=True,
     )
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
@@ -480,8 +479,6 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
                 int(client.last_response.headers["content-length"]),
                 LARGE_CONTENT_LENGTH,
             )
-
-        tf_cfg.dbg(2, f"Test completed after {time.time() - started} seconds and {i} requests.")
 
     @NetWorker.set_mtu(
         nodes=[
@@ -816,7 +813,7 @@ class H2LoadStressMTU80(LargePageNginxBackendMixinMTU80, H2LoadStressBase):
                 "mtu": 80,
             },
         ],
-        disable_pmtu=True
+        disable_pmtu=True,
     )
     @dmesg.limited_rate_on_tempesta_node
     def test(self, name, cache_mode):

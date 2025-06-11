@@ -1,7 +1,7 @@
 """ Example tests and checking functionality of services """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_server, external_client, nginx_server, wrk_client
@@ -211,7 +211,6 @@ server ${server_ip}:8000;
         self.assertTrue(nginx.wait_for_connections(timeout=1))
         deproxy.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         deproxy.wait_for_response(timeout=5)
-        tf_cfg.dbg(3, "nginx response:\n%s" % str(deproxy.last_response))
 
     def test_deproxy_client_direct(self):
         """Simple test with deproxy client"""
@@ -222,7 +221,6 @@ server ${server_ip}:8000;
         self.deproxy_manager.start()
         deproxy.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         deproxy.wait_for_response(timeout=5)
-        tf_cfg.dbg(3, "nginx response:\n%s" % str(deproxy.last_response))
 
     def test_deproxy_srvclient(self):
         """Simple test with deproxy server"""
@@ -235,7 +233,6 @@ server ${server_ip}:8000;
         self.assertTrue(dsrv.wait_for_connections(timeout=1))
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         cl.wait_for_response(timeout=5)
-        tf_cfg.dbg(3, "deproxy response:\n%s" % str(cl.last_response))
 
     def test_deproxy_srvclient_direct(self):
         """Simple test with deproxy server"""
@@ -247,7 +244,6 @@ server ${server_ip}:8000;
         self.disable_deproxy_auto_parser()
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         cl.wait_for_response(timeout=5)
-        tf_cfg.dbg(3, "deproxy response:\n%s" % str(cl.last_response))
 
     def test_deproxy_srvclient_direct_check(self):
         """Simple test with deproxy server"""
