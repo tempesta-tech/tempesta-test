@@ -3,7 +3,7 @@ Pipeline stress testing.
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.wrk_client import Wrk
@@ -123,20 +123,11 @@ class TestStressPipeline(tester.TempestaTest):
 
         if tf_cfg.v_level() < 2:
             return
-        if tf_cfg.v_level() == 2:
-            # Go to new line, don't mess up output.
-            tf_cfg.dbg(2)
         req_total = err_total = rate_total = 0
         req, err, rate, _ = client.results()
         req_total += req
         err_total += err
         rate_total += rate
-        tf_cfg.dbg(3, ("\tClient: errors: %d, requests: %d, rate: %d" % (err, req, rate)))
-        tf_cfg.dbg(
-            2,
-            "\tClients in total: errors: %d, requests: %d, rate: %d"
-            % (err_total, req_total, rate_total),
-        )
 
     def assert_client(self, req, err, statuses) -> None:
         msg = "HTTP client detected %i/%i errors. Results: %s" % (err, req, str(statuses))
@@ -171,13 +162,6 @@ class TestStressPipeline(tester.TempestaTest):
         self.errors_500 += e_500
         self.errors_502 += e_502
         self.errors_504 += e_504
-        tf_cfg.dbg(2, "errors 500: %i" % e_500)
-        tf_cfg.dbg(2, "errors 502: %i" % e_502)
-        tf_cfg.dbg(2, "errors 504: %i" % e_504)
-        tf_cfg.dbg(2, "errors connect: %i" % e_connect)
-        tf_cfg.dbg(2, "errors read: %i" % e_read)
-        tf_cfg.dbg(2, "errors write: %i" % e_write)
-        tf_cfg.dbg(2, "errors timeout: %i" % e_timeout)
         self.assertGreater(req, 0, msg="No work was done by the client")
         self.assertEqual(err, e_500 + e_502 + e_504 + e_connect, msg=msg)
 
@@ -218,16 +202,6 @@ class TestStressPipeline(tester.TempestaTest):
 
         cl_conn_cnt = 0
         cl_conn_cnt += client.connections
-
-        cl_parsing_err = tempesta.stats.cl_msg_parsing_errors
-        srv_parsing_err = tempesta.stats.srv_msg_parsing_errors
-        cl_other_err = tempesta.stats.cl_msg_other_errors
-        srv_other_err = tempesta.stats.srv_msg_other_errors
-
-        tf_cfg.dbg(2, "CL Msg parsing errors: %i" % cl_parsing_err)
-        tf_cfg.dbg(2, "SRV Msg parsing errors: %i" % srv_parsing_err)
-        tf_cfg.dbg(2, "CL Msg other errors: %i" % cl_other_err)
-        tf_cfg.dbg(2, "SRV Msg other errors: %i" % srv_other_err)
 
     def generic_asserts_test(self) -> None:
         self.show_performance()

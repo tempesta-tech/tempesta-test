@@ -27,11 +27,10 @@ from the ratio static mode.
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.wrk_client import Wrk
-from helpers import tf_cfg
 from helpers.control import servers_get_stats
 from run_config import DURATION
 from test_suite import tester
@@ -241,7 +240,6 @@ class RatioDynamic(tester.TempestaTest):
         tot_weight = len(servers) * 50  # for weight normalisation.
         weights = [(srv.get_name(), 1.0 * srv.requests / cl_reqs * tot_weight) for srv in servers]
         weights.sort()
-        tf_cfg.dbg(3, "Calculated server weights: %s" % weights)
 
         prev_name, prev_weight = weights[0]
         for name, weight in weights:

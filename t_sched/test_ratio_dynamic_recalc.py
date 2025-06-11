@@ -6,10 +6,9 @@ so  it should get higher or lower weight.
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import helpers.tf_cfg as tf_cfg
 from framework.wrk_client import Wrk
 from helpers.control import servers_get_stats
 from run_config import DURATION
@@ -191,12 +190,6 @@ class RatioDynamic(tester.TempestaTest):
         w_const = 1.0 * tot_weight * c_reqs / cl_reqs
         w_dyn = 1.0 * tot_weight * d_reqs / cl_reqs
 
-        tf_cfg.dbg(
-            3,
-            "Total reqs %d; const_srv: reqs %d weight %d; "
-            "dyn_srv reqs %d weight %d " % (cl_reqs, c_reqs, w_const, d_reqs, w_dyn),
-        )
-
         return w_const, w_dyn
 
     def test_load_distribution(self):
@@ -217,11 +210,9 @@ class RatioDynamic(tester.TempestaTest):
             "dyn_server_requests": 0,
         }
 
-        tf_cfg.dbg(3, "Servers has same latency, expect almost equal weights")
         servers = self.run_test(srv_const, srv_dyn)
         self.calc_weight(servers, perfstat)
 
-        tf_cfg.dbg(3, "Slow down one server, expect its weight to decrease")
         _, srv_dyn = servers
         servers = self.run_test(srv_const, srv_dyn, "nginx_dynamic_slow")
         w_const, w_dyn = self.calc_weight(servers, perfstat)
@@ -229,7 +220,6 @@ class RatioDynamic(tester.TempestaTest):
             w_const, w_dyn, msg=("Slower server got higher weight. " "%d vs %d" % (w_const, w_dyn))
         )
 
-        tf_cfg.dbg(3, "Speed up one server, expect its weight to increase")
         _, srv_dyn = servers
         servers = self.run_test(srv_const, srv_dyn, "nginx_dynamic_fast")
         w_const, w_dyn = self.calc_weight(servers, perfstat)

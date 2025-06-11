@@ -1,7 +1,7 @@
 """ Test template """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
@@ -172,9 +172,6 @@ events {
             return
         nw = int(workers)
         if nw > max_workers:
-            tf_cfg.dbg(
-                1, "Too much (%i) workers requested. " "Only %i is possible" % (nw, max_workers)
-            )
             nw = max_workers
         self.worker_processes = str(nw)
         self.build_config()
@@ -255,7 +252,6 @@ class MultipleBackends(stress.StressTest):
         self.addCleanup(self.cleanup_tempesta)
 
     def cleanup_interfaces(self):
-        tf_cfg.dbg(2, "Cleanup: Removing interfaces")
         sysnet.remove_interfaces(self.interface, self.ips)
         self.ips = []
 
