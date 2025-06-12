@@ -25,6 +25,10 @@ from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import marks
 
+def randomword(length):
+    letters = string.ascii_lowercase
+    return "".join(random.choice(letters) for i in range(length))
+
 
 class TestHpackBase(H2Base):
     def change_header_table_size(self, client, new_table_size):
@@ -597,10 +601,6 @@ class TestHpack(TestHpackBase):
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(server.last_request.method, "GET")
 
-    def __randomword(self, length):
-        letters = string.ascii_lowercase
-        return "".join(random.choice(letters) for i in range(length))
-
     def test_big_header_in_request(self):
         """
         Tempesta FW allocates several chunks from the pool for
@@ -622,11 +622,11 @@ class TestHpack(TestHpackBase):
                 ("f", "fa"),
                 ("b", "ba"),
                 ("d", "ra"),
-                (self.__randomword(1000), self.__randomword(43399)),
-                (self.__randomword(444), self.__randomword(55344)),
-                (self.__randomword(333), self.__randomword(55347)),
-                (self.__randomword(333), self.__randomword(23124)),
-                (self.__randomword(333), self.__randomword(33333)),
+                (randomword(1000), randomword(43399)),
+                (randomword(444), randomword(55344)),
+                (randomword(333), randomword(55347)),
+                (randomword(333), randomword(23124)),
+                (randomword(333), randomword(33333)),
             ],
         )
         client.send_request(request, "200")
@@ -1568,7 +1568,84 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             "400"
         )
 
+    def test_big_header_and_header_from_hpack(self):
+        """
+        Tempesta FW allocates extra memory during hpack
+        decoding. This test checks how Tempesta FW uses
+        this memory for decoding headers from hpack
+        dynamic table.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
 
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("b", "aaaaaaaaaa"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("p", "p" * 500),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                ]
+            ),
+            "200"
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    (randomword(10), randomword(3000)),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("p", "p" * 500),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                    (randomword(10), randomword(100)),
+                ]
+            ),
+            "200"
+        )
 
 
 
