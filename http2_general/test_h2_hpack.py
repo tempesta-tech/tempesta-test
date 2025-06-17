@@ -632,15 +632,12 @@ class TestHpack(TestHpackBase):
         client.send_request(request, "200")
 
 
-class TestHpackUnknownMethod(TestHpackBase):
+class TestHpackMethod(TestHpackBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
             srv_group default {
                 server ${server_ip}:8000;
-            }
-            frang_limits {
-                http_methods get head post unknown;
             }
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -651,31 +648,92 @@ class TestHpackUnknownMethod(TestHpackBase):
         """
     }
 
-    def test_unknown_method_dynamic_table(self):
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_unknown_method_dynamic_table(self, name, huffman):
         """
         Verifies correctness of processing unknown method that
         stored in dynamic table.
         """
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
-        method = "UPDATEREDIRECTREF"
+        methods = ["UPDATEREDIRECTREF", "PUTA", "GETA", "OPTIONA"]
+        count = 1
 
         self.start_all_services()
 
-        request = [
-            (":authority", "example.com"),
-            (":path", "/"),
-            (":scheme", "https"),
-            (":method", method),
+        config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = (
+            config + "frang_limits {http_strict_host_checking false; http_methods unknown;}\n"
+        )
+        self.get_tempesta().reload()
+
+        for method in methods:
+            request = client.create_request(method=method, headers=[])
+
+            # send request two times, header :method must be processed from dynamyc table
+            client.make_request(request=request, huffman=huffman)
+            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertEqual(server.last_request.method, method)
+
+            client.make_request(request=request, huffman=huffman)
+            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertEqual(server.last_request.method, method)
+            self.assertEqual(2 * count, len(server.requests))
+            count = count + 1
+
+    @marks.Parameterize.expand(
+        [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
+    )
+    def test_known_method_dynamic_table(self, name, huffman):
+        """
+        Verifies correctness of processing known method that
+        stored in dynamic table.
+        """
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        methods = [
+            "COPY",
+            "DELETE",
+            "GET",
+            "HEAD",
+            "LOCK",
+            "MKCOL",
+            "MOVE",
+            "OPTIONS",
+            "PATCH",
+            "POST",
+            "PROPFIND",
+            "PROPPATCH",
+            "PUT",
+            "TRACE",
+            "UNLOCK",
         ]
+        count = 1
 
-        # send request two times, header :method must be processed from dynamyc table
-        client.send_request(request, "200")
-        self.assertEqual(server.last_request.method, method)
+        self.start_all_services()
+        config = self.get_tempesta().config.defconfig
 
-        client.send_request(request, "200")
-        self.assertEqual(server.last_request.method, method)
-        self.assertEqual(2, len(server.requests))
+        for method in methods:
+            self.get_tempesta().config.defconfig = (
+                config
+                + "frang_limits {http_strict_host_checking false; http_methods %s;}\n"
+                % method.lower()
+            )
+            self.get_tempesta().reload()
+            request = client.create_request(method=method, headers=[])
+
+            # send request two times, header :method must be processed from dynamyc table
+            client.make_request(request=request, huffman=huffman)
+            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertEqual(server.last_request.method, method)
+
+            client.make_request(request=request, huffman=huffman)
+            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertEqual(server.last_request.method, method)
+            self.assertEqual(2 * count, len(server.requests))
+            count = count + 1
 
 
 class TestHpackStickyCookie(TestHpackBase):
