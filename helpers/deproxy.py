@@ -572,6 +572,9 @@ class Request(HttpMessage):
         "UNLOCK",
         "UPDATE",
         "UPDATEREDIRECTREF",
+        "PUTA",
+        "GETA",
+        "OPTIONA",
         "VERSION-CONTROL",
         # Not RFC methods:
         "PURGE",
