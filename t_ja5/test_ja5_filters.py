@@ -274,11 +274,6 @@ class TestJa5FiltersTestSuite(BaseJa5TestSuite):
         self.clients += [
             self.__gen_client("different", value, self.different_client) for value in range(2)
         ]
-        self.update_config_with_ja5_hash_limit(
-            ja5t_hash=self.just_valid_ja5t_hash_string,
-            ja5h_hash=self.just_valid_ja5h_hash_string,
-            restart=False,
-        )
         super().setUp()
 
     def test_ja5_hash_difference(self):
