@@ -372,6 +372,14 @@ class TestJa5HashDoesNotMatchedWithFiltered(BaseJa5TestSuite):
             "name": "Ja5hInvalidTableSize",
             "ja5t_block": "ja5h storage_size=500 {hash 55cbf8cce0170011 5 5;}",
         },
+        {
+            "name": "Ja5hDuplicatedDirective",
+            "ja5t_block": "ja5h {hash 55cbf8cce0170011 5 5;} ja5h {}",
+        },
+        {
+            "name": "Ja5hDuplicatedDirectiveContent",
+            "ja5t_block": "ja5h {hash 55cbf8cce0170011 5 5;} ja5h {hash 55cbf8cce0170011 5 5;}",
+        },
     ]
 )
 class TestConfig(BaseJa5TestSuite):
