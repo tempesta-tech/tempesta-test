@@ -2,13 +2,12 @@
 Tests for JA5 Hash Filtering and Configuration Parsing
 """
 
+import os.path
 import string
 import typing
 
-from helpers import tf_cfg
 from helpers.access_log import AccessLogLine
 from helpers.error import ProcessBadExitStatusException
-from helpers.util import fill_template
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -57,21 +56,20 @@ class BaseJa5TestSuite(tester.TempestaTest):
             ),
         }
     ]
-    tempesta_tmpl = """
+    additional_conf_dir = "/tmp/tempesta-filters/"
+    additional_conf_file = additional_conf_dir + "ja5_filters.conf"
+    tempesta = {
+        "type": "tempesta",
+        "config": """
         listen 443 proto=https,h2;
 
         access_log dmesg;
-        
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        ja5t {
-           hash &ja5t_hash 1 1;
-        }
-        ja5h {
-           hash &ja5h_hash 1 1;
-        }
+        !include %(path)s
+        
         srv_group default {
             server ${server_ip}:8000;
         }
@@ -89,6 +87,8 @@ class BaseJa5TestSuite(tester.TempestaTest):
             -> default;
         }
     """
+        % {"path": additional_conf_dir},
+    }
 
     limited_client: str = ""
     different_client: str = ""
@@ -100,6 +100,14 @@ class BaseJa5TestSuite(tester.TempestaTest):
     just_valid_ja5h_hash_string: str = "55cbf8cce0170011"
 
     hash_type: typing.Literal["ja5t", "ja5h"] = None
+
+    def clean_up(self):
+        if os.path.exists(self.additional_conf_file):
+            os.remove(self.additional_conf_file)
+
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(self.clean_up)
 
     def get_hash(self, fingerprint: AccessLogLine) -> str:
         return getattr(fingerprint, self.hash_type)
@@ -123,20 +131,26 @@ class BaseJa5TestSuite(tester.TempestaTest):
 
         return fingerprints[0]
 
-    def update_config_with_ja5_hash_limit(self, ja5t_hash: str = None, ja5h_hash: str = None):
-        tempesta = self.get_tempesta()
+    def write_ja5_config(self, text: str):
+        os.makedirs(self.additional_conf_dir, exist_ok=True)
 
-        config_properties = dict()
-        tf_cfg.populate_properties(config_properties)
+        with open(self.additional_conf_file, "w") as f:
+            f.write(text)
 
-        tempesta_config = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5t_hash=ja5t_hash or self.just_valid_ja5t_hash_string,
-            ja5h_hash=ja5h_hash or self.just_valid_ja5h_hash_string,
+    def update_config_with_ja5_hash_limit(
+        self, ja5t_hash: str = None, ja5h_hash: str = None, restart: bool = True
+    ):
+        line = "ja5t {{ {} }}\nja5h {{ {} }}\n".format(
+            f"hash {ja5t_hash} 1 1;" if ja5t_hash else "",
+            f"hash {ja5h_hash} 1 1;" if ja5h_hash else "",
         )
-        tempesta_config = fill_template(tempesta_config, config_properties)
+        self.write_ja5_config(line)
 
-        tempesta.config.set_defconfig(tempesta_config)
-        tempesta.restart()
+        if not restart:
+            return
+
+        tempesta = self.get_tempesta()
+        tempesta.reload()
 
     def set_config_ja5_hash(self, hash_value: str):
         key = f"{self.hash_type}_hash"
@@ -240,39 +254,6 @@ class BaseJa5TestSuite(tester.TempestaTest):
     ]
 )
 class TestJa5FiltersTestSuite(BaseJa5TestSuite):
-    tempesta_tmpl = """
-        listen 443 proto=https,h2;
-
-        access_log dmesg;
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-        tls_match_any_server_name;
-
-        ja5t {
-           hash &ja5t_hash 1 1;
-        }
-        ja5h {
-           hash &ja5h_hash 1 1;
-        }
-        srv_group default {
-            server ${server_ip}:8000;
-        }
-        srv_group srv_grp1 {
-            server ${server_ip}:8000;
-        }
-        vhost default {
-            proxy_pass default;
-        }
-        vhost tempesta-tech.com {
-            proxy_pass srv_grp1;
-        }
-        http_chain {
-            host == "tempesta-tech.com" -> tempesta-tech.com;
-            -> default;
-        }
-    """
-    hash_type: str = ""
-
     @staticmethod
     def __gen_client(name: str, value: int, cmd: str):
         return {
@@ -287,22 +268,21 @@ class TestJa5FiltersTestSuite(BaseJa5TestSuite):
         return len(list(filter(lambda item: item.stdout == value, clients)))
 
     def setUp(self):
-        self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5t_hash=self.just_valid_ja5t_hash_string,
-            ja5h_hash=self.just_valid_ja5h_hash_string,
-        )
         self.clients = [
             self.__gen_client("limited", value, self.limited_client) for value in range(2)
         ]
         self.clients += [
             self.__gen_client("different", value, self.different_client) for value in range(2)
         ]
+        self.update_config_with_ja5_hash_limit(
+            ja5t_hash=self.just_valid_ja5t_hash_string,
+            ja5h_hash=self.just_valid_ja5h_hash_string,
+            restart=False,
+        )
         super().setUp()
 
     def test_ja5_hash_difference(self):
         self.start_all_services(client=False)
-        self.deproxy_manager.start()
-        self.start_tempesta()
 
         client_names = list(map(lambda __client: __client["id"], self.clients))
         clients = list(map(self.get_client, client_names))
@@ -347,9 +327,10 @@ class TestJa5HashDoesNotMatchedWithFiltered(BaseJa5TestSuite):
     ]
 
     def setUp(self):
-        self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
+        self.update_config_with_ja5_hash_limit(
             ja5t_hash=self.just_valid_ja5t_hash_string,
             ja5h_hash=self.just_valid_ja5h_hash_string,
+            restart=False,
         )
         super().setUp()
 
@@ -399,34 +380,10 @@ class TestJa5HashDoesNotMatchedWithFiltered(BaseJa5TestSuite):
     ]
 )
 class TestConfig(BaseJa5TestSuite):
-    tempesta_tmpl = """
-        cache 0;
-        listen 443 proto=https;
-
-        access_log dmesg;
-        tls_certificate ${tempesta_workdir}/tempesta.crt;
-        tls_certificate_key ${tempesta_workdir}/tempesta.key;
-        tls_match_any_server_name;
-
-        &ja5_block
-
-        srv_group srv_grp1 {
-            server ${server_ip}:8000;
-        }
-        vhost tempesta-tech.com {
-            proxy_pass srv_grp1;
-        }
-        http_chain {
-            host == "tempesta-tech.com" -> tempesta-tech.com;
-            -> block;
-        }
-    """
     ja5t_block: str = ""
 
     def setUp(self):
-        self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5_block=self.ja5t_block
-        )
+        self.write_ja5_config(self.ja5t_block)
         super().setUp()
 
     def test_config(self):
@@ -457,9 +414,10 @@ class TestRestartAppWithUpdatedHash(BaseJa5TestSuite):
     ]
 
     def setUp(self):
-        self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
+        self.update_config_with_ja5_hash_limit(
             ja5t_hash=self.just_valid_ja5t_hash_string,
             ja5h_hash=self.just_valid_ja5h_hash_string,
+            restart=False,
         )
         super().setUp()
 
@@ -472,21 +430,65 @@ class TestRestartAppWithUpdatedHash(BaseJa5TestSuite):
         self.start_tempesta()
         self.get_tempesta().restart()
 
-    def test_hot_reload(self):
+    def test_reload_ok(self):
+        """
+        Verify successful application reload with
+        ja5 configuration
+        """
+        self.start_all_servers()
+        self.start_tempesta()
+        self.get_tempesta().reload()
+
+
+@marks.parameterize_class(
+    [
+        {
+            "name": "Ja5t",
+            "hash_type": "ja5t",
+        },
+        {
+            "name": "Ja5h",
+            "hash_type": "ja5h",
+        },
+    ]
+)
+class TestClearHashes(BaseJa5TestSuite):
+    clients = [
+        {
+            "id": "curl",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": gen_curl_ja5t_cmd(),
+        },
+    ]
+
+    def setUp(self):
+        self.update_config_with_ja5_hash_limit(
+            ja5t_hash=self.just_valid_ja5t_hash_string,
+            ja5h_hash=self.just_valid_ja5h_hash_string,
+            restart=False,
+        )
+        super().setUp()
+
+    def test_clear_traffic_block(self):
         self.start_all_services(client=False)
 
         client = self.get_client("curl")
         client.start()
         self.wait_while_busy(client)
         client.stop()
-
         self.assertEqual(client.stdout, self.response_ok)
 
         fingerprint = self.get_client_fingerprint("curl")
-        self.set_config_ja5_hash(self.get_hash(fingerprint))
 
+        self.set_config_ja5_hash(self.get_hash(fingerprint))
         client.start()
         self.wait_while_busy(client)
         client.stop()
+        self.assertEqual(client.stdout, self.response_fail)
 
+        self.update_config_with_ja5_hash_limit()
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
         self.assertEqual(client.stdout, self.response_ok)
