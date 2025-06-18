@@ -557,7 +557,7 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
     tempesta = {
         "config": """
             listen 443 proto=h2;
-            keepalive_timeout 120;
+            keepalive_timeout 240;
             max_concurrent_streams 1000;
             srv_group default {
                 server ${server_ip}:8000;
