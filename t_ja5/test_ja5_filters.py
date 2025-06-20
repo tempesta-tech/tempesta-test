@@ -2,7 +2,6 @@
 Tests for JA5 Hash Filtering and Configuration Parsing
 """
 
-import os.path
 import string
 import typing
 
