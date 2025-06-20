@@ -6,6 +6,7 @@ import os.path
 import string
 import typing
 
+from helpers import tf_cfg
 from helpers.access_log import AccessLogLine
 from helpers.error import ProcessBadExitStatusException
 from test_suite import marks, tester
@@ -56,7 +57,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
             ),
         }
     ]
-    additional_conf_dir = "/tmp/tempesta-filters/"
+    additional_conf_dir = tf_cfg.cfg.get("Tempesta", "workdir") + "/tempesta-filters/"
     additional_conf_file = additional_conf_dir + "ja5_filters.conf"
     tempesta = {
         "type": "tempesta",
