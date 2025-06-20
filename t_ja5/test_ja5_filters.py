@@ -138,7 +138,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
             f.write(text)
 
     def update_config_with_ja5_hash_limit(
-        self, ja5t_hash: str = None, ja5h_hash: str = None, restart: bool = True
+        self, ja5t_hash: str = None, ja5h_hash: str = None, reload: bool = True
     ):
         line = "ja5t {{ {} }}\nja5h {{ {} }}\n".format(
             f"hash {ja5t_hash} 1 1;" if ja5t_hash else "",
@@ -146,7 +146,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
         )
         self.write_ja5_config(line)
 
-        if not restart:
+        if not reload:
             return
 
         tempesta = self.get_tempesta()
@@ -325,7 +325,7 @@ class TestJa5HashDoesNotMatchedWithFiltered(BaseJa5TestSuite):
         self.update_config_with_ja5_hash_limit(
             ja5t_hash=self.just_valid_ja5t_hash_string,
             ja5h_hash=self.just_valid_ja5h_hash_string,
-            restart=False,
+            reload=False,
         )
         super().setUp()
 
@@ -420,7 +420,7 @@ class TestRestartAppWithUpdatedHash(BaseJa5TestSuite):
         self.update_config_with_ja5_hash_limit(
             ja5t_hash=self.just_valid_ja5t_hash_string,
             ja5h_hash=self.just_valid_ja5h_hash_string,
-            restart=False,
+            reload=False,
         )
         super().setUp()
 
@@ -469,7 +469,7 @@ class TestClearHashes(BaseJa5TestSuite):
         self.update_config_with_ja5_hash_limit(
             ja5t_hash=self.just_valid_ja5t_hash_string,
             ja5h_hash=self.just_valid_ja5h_hash_string,
-            restart=False,
+            reload=False,
         )
         super().setUp()
 
