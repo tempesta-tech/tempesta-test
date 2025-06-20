@@ -6,7 +6,7 @@ import os.path
 import string
 import typing
 
-from helpers import tf_cfg
+from helpers import remote, tf_cfg
 from helpers.access_log import AccessLogLine
 from helpers.error import ProcessBadExitStatusException
 from test_suite import marks, tester
@@ -103,8 +103,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
     hash_type: typing.Literal["ja5t", "ja5h"] = None
 
     def clean_up(self):
-        if os.path.exists(self.additional_conf_file):
-            os.remove(self.additional_conf_file)
+        remote.tempesta.remove_file(self.additional_conf_file)
 
     def setUp(self):
         super().setUp()
@@ -133,10 +132,8 @@ class BaseJa5TestSuite(tester.TempestaTest):
         return fingerprints[0]
 
     def write_ja5_config(self, text: str):
-        os.makedirs(self.additional_conf_dir, exist_ok=True)
-
-        with open(self.additional_conf_file, "w") as f:
-            f.write(text)
+        remote.tempesta.mkdir(self.additional_conf_dir)
+        remote.tempesta.copy_file(self.additional_conf_file, text)
 
     def update_config_with_ja5_hash_limit(
         self, ja5t_hash: str = None, ja5h_hash: str = None, reload: bool = True
