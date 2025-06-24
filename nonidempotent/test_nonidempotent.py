@@ -109,6 +109,7 @@ def build_deproxy_drop(server, name, tester):
     is_ipv6 = server.get("is_ipv6", False)
     srv = DeproxyDropServer(
         # BaseDeproxy
+        id_=name,
         deproxy_auto_parser=tester._deproxy_auto_parser,
         port=int(server["port"]),
         bind_addr=tf_cfg.cfg.get("Server", "ipv6" if is_ipv6 else "ip"),

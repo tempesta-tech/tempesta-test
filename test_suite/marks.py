@@ -12,8 +12,9 @@ from pstats import Stats
 
 import parameterized as pm
 
-from helpers import error, tf_cfg
+from helpers import error
 from test_suite import tester
+from test_suite.tester import test_logger
 
 
 def change_ulimit(ulimit: int):
@@ -62,7 +63,9 @@ def retry_if_not_conditions(test):
                 test(self, *args, **kwargs)
                 return
             except error.TestConditionsAreNotCompleted:
-                tf_cfg.dbg(1, "Test condition are not completed. Stop services and restart test.")
+                test_logger.warning(
+                    "Test condition are not completed. Stop services and restart test."
+                )
                 # Stop all services on failure
                 for service in self.get_all_services():
                     service.stop()
@@ -91,8 +94,7 @@ def deprecated(alt_impl_name):
     def decorator(cls):
         def deprecated_new(new_func):
             def wrap(cls_arg, *args, **kwargs):
-                tf_cfg.dbg(
-                    6,
+                test_logger.warning(
                     "%s must be used instead of deprecated %s" % (alt_impl_name, cls_arg.__name__),
                 )
                 return new_func(cls_arg)

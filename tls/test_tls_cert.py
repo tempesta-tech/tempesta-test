@@ -491,10 +491,6 @@ class TlsCertSelectBySan(tester.TempestaTest):
         "custom_cert": True,
     }
 
-    @property
-    def verbose(self):
-        return tf_cfg.v_level() >= 3
-
     def start_all(self):
         self.start_all_servers()
         self.start_tempesta()
@@ -725,10 +721,6 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
                 tls_certificate_key ${general_workdir}/private.key;
             }
     """
-
-    @property
-    def verbose(self):
-        return tf_cfg.v_level() >= 3
 
     def start_all(self):
         self.start_all_servers()

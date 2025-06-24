@@ -1,4 +1,5 @@
 import asyncore
+import logging
 import socket
 import sys
 import time
@@ -17,6 +18,13 @@ __license__ = "GPL2"
 
 class ServerConnection(asyncore.dispatcher):
     def __init__(self, *, server: "StaticDeproxyServer", sock: socket.socket):
+        self._id = f"{self.__class__.__name__}({sock.getpeername()[0]}:{sock.getpeername()[1]})"
+        self._tcp_logger = logging.LoggerAdapter(
+            logging.getLogger("tcp"), extra={"service": f"{self._id}"}
+        )
+        self._http_logger = logging.LoggerAdapter(
+            logging.getLogger("http"), extra={"service": f"{self._id}"}
+        )
         super().__init__(sock=sock)
         self._server = server
         self._last_segment_time: int = 0
@@ -30,7 +38,7 @@ class ServerConnection(asyncore.dispatcher):
         self.__new_response: bool = True
         self.nrreq: int = 0
 
-        tf_cfg.dbg(6, "New server connection")
+        self._tcp_logger.debug("New server connection")
 
     def sleep(self) -> None:
         """
@@ -73,7 +81,7 @@ class ServerConnection(asyncore.dispatcher):
         error.bug("\tDeproxy: SrvConnection: %s" % v)
 
     def handle_close(self):
-        tf_cfg.dbg(6, "Close connection")
+        self._tcp_logger.debug("Close connection")
         self.close()
         if self._server and self in self._server.connections:
             self._server.remove_connection(connection=self)
@@ -88,17 +96,19 @@ class ServerConnection(asyncore.dispatcher):
             except deproxy.IncompleteMessage:
                 return None
             except deproxy.ParseError as e:
-                tf_cfg.dbg(4, f"Can't parse message\n<<<<<\n{self._request_buffer}>>>>>")
+                self._http_logger.error(
+                    f"Can't parse message\n<<<<<\n{self._request_buffer}>>>>>", exc_info=True
+                )
                 return None
 
-            tf_cfg.dbg(4, "Receive request:")
-            tf_cfg.dbg(5, request)
+            self._http_logger.info("Receive request")
+            self._http_logger.debug(request)
             response, need_close = self._server.receive_request(request)
             if self._server.drop_conn_when_request_received:
                 self.handle_close()
             if response:
-                tf_cfg.dbg(4, "Send response:")
-                tf_cfg.dbg(5, response)
+                self._http_logger.info("Send response")
+                self._http_logger.debug(response)
                 self._cur_responses_list.append(response)
                 self._cur_pipelined += 1
                 if self._cur_pipelined >= self._server.pipelined:
@@ -146,6 +156,7 @@ class StaticDeproxyServer(BaseDeproxy):
         self,
         # BaseDeproxy
         *,
+        id_: str,
         deproxy_auto_parser,
         port: int,
         bind_addr: Optional[str],
@@ -162,6 +173,7 @@ class StaticDeproxyServer(BaseDeproxy):
     ):
         # Initialize the `BaseDeproxy`
         super().__init__(
+            id_=id_,
             deproxy_auto_parser=deproxy_auto_parser,
             port=port,
             bind_addr=bind_addr,
@@ -317,6 +329,7 @@ def deproxy_srv_initializer(
     is_ipv6 = server.get("is_ipv6", False)
     srv = default_server_class(
         # BaseDeproxy
+        id_=name,
         deproxy_auto_parser=tester._deproxy_auto_parser,
         port=int(server["port"]),
         bind_addr=tf_cfg.cfg.get("Server", "ipv6" if is_ipv6 else "ip"),

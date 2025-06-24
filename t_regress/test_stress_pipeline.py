@@ -118,17 +118,6 @@ class TestStressPipeline(tester.TempestaTest):
         wrk.stop()
         return wrk
 
-    def show_performance(self) -> None:
-        client = self.get_client("wrk")
-
-        if tf_cfg.v_level() < 2:
-            return
-        req_total = err_total = rate_total = 0
-        req, err, rate, _ = client.results()
-        req_total += req
-        err_total += err
-        rate_total += rate
-
     def assert_client(self, req, err, statuses) -> None:
         msg = "HTTP client detected %i/%i errors. Results: %s" % (err, req, str(statuses))
         e_500 = statuses.get(500, 0)
@@ -204,7 +193,6 @@ class TestStressPipeline(tester.TempestaTest):
         cl_conn_cnt += client.connections
 
     def generic_asserts_test(self) -> None:
-        self.show_performance()
         self.assert_clients()
         self.assert_tempesta()
 

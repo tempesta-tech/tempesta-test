@@ -26,6 +26,7 @@ import psutil
 import run_config
 from helpers import control, error, remote, tf_cfg, util
 from test_suite import prepare, shell, tester
+from test_suite.tester import test_logger
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
@@ -46,7 +47,8 @@ Remote nodes controlled via SSH protocol. Make sure that you can be autorised by
 key, not password. `ssh-copy-id` can be used for that.
 
 -h, --help                        - Print this help and exit.
--v, --verbose <level>             - Enable verbose output.
+    --info                        - Set INFO level for stream handler in logging
+    --debug                       - Set DEBUG level for stream handler in logging
 -H, --choice                      - Choose test by file path. You must provide
                                     file path instead of test name in that case.
 -F, --from-failstr                - Convert unittest fail message to test name.
@@ -142,7 +144,7 @@ def __check_memory_consumption(python_memory_before_: int, used_memory_before_: 
             f"After: python memory: {python_memory_after};\n"
             "----------------------------------------------------------------------------"
         )
-        tf_cfg.dbg(1, memleak_msg)
+        test_logger.critical(memleak_msg)
         delta_used_memory = used_memory_after - delta_python - used_memory_before_
         if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
             raise error.MemoryConsumptionException(
@@ -174,7 +176,7 @@ def __check_kmemleak() -> None:
                 if stdout
                 else "/sys/kernel/debug/kmemleak is empty"
             )
-            tf_cfg.dbg(1, kmemleak_msg)
+            test_logger.critical(kmemleak_msg)
             if b"tfw_" in stdout:
                 raise error.KmemLeakException(stdout=stdout.decode())
         finally:
@@ -197,10 +199,11 @@ t_retry = False
 try:
     options, testname_args = getopt.getopt(
         sys.argv[1:],
-        "hv:HFd:t:T:fr:ER:a:nl:LCDZpPIi:sSm",
+        "h:HFd:t:T:fr:ER:a:nl:LCDZpPIi:sSm",
         [
             "help",
-            "verbose=",
+            "info",
+            "debug",
             "from-failstr",
             "choice",
             "defaults",
@@ -234,19 +237,25 @@ except getopt.GetoptError as e:
     usage()
     sys.exit(2)
 
+# unitests verbosity level
+v_level = 2
 
 for opt, arg in options:
     if opt in ("-f", "--failfast"):
         fail_fast = True
-    if opt in ("-v", "--verbose"):
-        tf_cfg.cfg.set_v_level(arg)
-    if opt in ("-H", "--choice"):
+    elif opt == "--info":
+        tf_cfg.cfg.set_option(section="Loggers", opt="stream_handler", value="INFO")
+        v_level = 0
+    elif opt == "--debug":
+        tf_cfg.cfg.set_option(section="Loggers", opt="stream_handler", value="DEBUG")
+        v_level = 0
+    elif opt in ("-H", "--choice"):
         testname_args = list(map(choose_test, testname_args))
-        tf_cfg.dbg(6, f"Tests chosen: {testname_args}")
-    if opt in ("-F", "--from-failstr"):
+        test_logger.debug(f"Tests chosen: {testname_args}")
+    elif opt in ("-F", "--from-failstr"):
         testname_args = list(map(test_from_failstr, testname_args))
-        tf_cfg.dbg(6, f"Tests from fail strings: {testname_args}")
-    if opt in ("-t", "--duration"):
+        test_logger.debug(f"Tests from fail strings: {testname_args}")
+    elif opt in ("-t", "--duration"):
         if not tf_cfg.cfg.set_duration(arg):
             print("Invalid option: ", opt, arg)
             usage()
@@ -323,9 +332,6 @@ disabled_reader_remote = shell.DisabledListLoader(os.path.join("tests_disabled_r
 # this file is needed for tests with the debug kernel
 disabled_reader_dbg_kernel = shell.DisabledListLoader(os.path.join("tests_disabled_dbgkernel.json"))
 
-# Verbose level for unit tests must be > 1.
-v_level = int(tf_cfg.cfg.get("General", "Verbose")) + 1
-
 # Install Ctrl-C handler for graceful stop.
 unittest.installHandler()
 
@@ -389,7 +395,7 @@ if run_config.KERNEL_DBG_TESTS:
         remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
     except error.ProcessBadExitStatusException as es_exs:
         kml_err_msg = "kmemleak is possibly disabled. Please enable kmemleak or not use `--kernel-dbg` option."
-        tf_cfg.dbg(0, kml_err_msg)
+        test_logger.critical(kml_err_msg)
         raise error.KmemLeakException(kml_err_msg) from es_exs
 
 
@@ -404,16 +410,14 @@ if prepare_tcp:
 # if we called with -C, just call tearDown for last test
 if clean_old:
     if state_reader is None or state_reader.loader.last_id is None:
-        tf_cfg.dbg(2, "No test for clearing")
+        test_logger.info("No test for clearing")
         sys.exit(0)
-    tf_cfg.dbg(2, "Clearing last test: %s" % state_reader.loader.last_id)
+    test_logger.info(f"Clearing last test: {state_reader.loader.last_id}")
     for test in tests:
         if test.id() == state_reader.loader.last_id:
             # We don't have more information about test
             # So we can use only this
-            tf_cfg.dbg(2, "setting up")
             test.setUp()
-            tf_cfg.dbg(2, "stopping")
             test.force_stop()
             break
     state_reader.drop()
@@ -455,20 +459,18 @@ if not run_disabled:
 
     if disabled_reader.disable:
         for disabled in disabled_reader.disabled:
-            if v_level == 0:
-                tf_cfg.dbg(0, "D")
             name = disabled["name"]
             reason = disabled["reason"]
-            tf_cfg.dbg(6, 'Disabled test "%s" : %s' % (name, reason))
+            test_logger.debug(f'Disabled test name" : {reason}')
             exclusions.append(name)
 else:
     for disabled in disabled_reader.disabled:
         name = disabled["name"]
         reason = disabled["reason"]
-        tf_cfg.dbg(1, 'Run disabled test "%s" : %s' % (name, reason))
+        test_logger.info(f'Run disabled test "{name}" : {reason}')
         inclusions.append(name)
     if len(inclusions) == 0:
-        tf_cfg.dbg(1, "No disabled tests, exiting")
+        test_logger.warning("No disabled tests, exiting")
         sys.exit()
 
 # load resume state file, if needed
@@ -476,7 +478,7 @@ test_resume.set_filters(inclusions, exclusions)
 if not test_resume:
     test_resume.set_from_file()
 else:
-    tf_cfg.dbg(2, "Not resuming from file: next test specified on command line")
+    test_logger.warning("Not resuming from file: next test specified on command line")
 
 # Now that we initialized the loader, convert arguments to dotted form (if any).
 for lst in (inclusions, exclusions):

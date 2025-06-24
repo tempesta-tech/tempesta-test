@@ -114,16 +114,6 @@ class StressTest(unittest.TestCase):
         if self.servers:
             control.servers_force_stop(self.servers)
 
-    def show_performance(self):
-        if tf_cfg.v_level() < 2:
-            return
-        req_total = err_total = rate_total = 0
-        for c in self.clients:
-            req, err, rate, _ = c.results()
-            req_total += req
-            err_total += err
-            rate_total += rate
-
     def assert_client(self, req, err, statuses):
         msg = "HTTP client detected %i/%i errors. Results: %s" % (err, req, str(statuses))
         e_500 = 0
@@ -248,7 +238,6 @@ class StressTest(unittest.TestCase):
         self.tempesta.start()
 
     def generic_asserts_test(self):
-        self.show_performance()
         # Tempesta statistics is valuable to client assertions.
         self.tempesta.get_stats()
 

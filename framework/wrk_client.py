@@ -2,10 +2,9 @@ import os
 import re
 
 from framework import client
-from helpers import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -16,7 +15,7 @@ class Wrk(client.Client):
     FAIL_ON_SOCK_ERR = False
 
     def __init__(self, threads=-1, timeout=60, **kwargs):
-        client.Client.__init__(self, "wrk", **kwargs)
+        client.Client.__init__(self, "test-wrk", "wrk", **kwargs)
         self.local_scriptdir = "".join([os.path.dirname(os.path.realpath(__file__)), "/../wrk/"])
         self.rs_content = self.read_local_script("results.lua")
         self.timeout = timeout
@@ -83,7 +82,7 @@ class Wrk(client.Client):
         if self.FAIL_ON_SOCK_ERR:
             assert not m, sock_err_msg
         if m:
-            tf_cfg.dbg(1, "WARNING! %s" % sock_err_msg)
+            self._logger.warning(f"WARNING! {sock_err_msg}")
             err_m = re.search(r"\w+ (\d+), \w+ (\d+), \w+ (\d+), \w+ (\d+)", m.group(1))
             self.errors += (
                 int(err_m.group(1))
