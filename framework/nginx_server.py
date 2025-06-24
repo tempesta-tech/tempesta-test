@@ -7,7 +7,7 @@ from helpers import port_checks, remote, tempesta, tf_cfg
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -24,17 +24,17 @@ class Nginx(stateful.Stateful):
             self.config_name = "nginx_%s.cfg" % name
             self.pidfile_name = pidname
 
-    def __init__(self, name, props):
-        super().__init__()
+    def __init__(self, id_, props):
+        super().__init__(id_=id_)
         self.node = remote.server
         self.workdir = tf_cfg.cfg.get("Server", "workdir")
-        self.config = self.Config(name, props)
+        self.config = self.Config(id_, props)
 
         # Configure number of connections used by TempestaFW.
         self.conns_n = tempesta.server_conns_default()
         self.active_conns = 0
         self.requests = 0
-        self.name = name
+        self.name = id_
         self.status_uri = fill_template(props["status_uri"], props)
         self.stop_procedures = [self.stop_nginx, self.remove_config]
         self.weight = int(props["weight"]) if "weight" in props else None
@@ -84,7 +84,6 @@ class Nginx(stateful.Stateful):
         return False
 
     def run_start(self):
-        tf_cfg.dbg(3, "\tStarting Nginx on %s" % self.get_name())
         self.clear_stats()
         self.port_checker.check_ports_status()
         # Copy nginx config to working directory on 'server' host.
@@ -96,7 +95,6 @@ class Nginx(stateful.Stateful):
         self.node.run_cmd(cmd, is_blocking=False)
 
     def stop_nginx(self):
-        tf_cfg.dbg(3, "\tStopping Nginx on %s" % self.get_name())
         pid_file = os.path.join(self.workdir, self.config.pidfile_name)
         cmd = " && ".join(
             [
@@ -109,7 +107,7 @@ class Nginx(stateful.Stateful):
         self.node.run_cmd(cmd, is_blocking=False)
 
     def remove_config(self):
-        tf_cfg.dbg(3, "\tRemoving Nginx config for %s" % self.get_name())
+        self._logger.info(f"Removing config.")
         config_file = os.path.join(self.workdir, self.config.config_name)
         self.node.remove_file(config_file)
 

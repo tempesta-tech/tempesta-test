@@ -10,7 +10,6 @@ import time
 
 from framework import stateful
 from helpers import chains, deproxy, tempesta, tf_cfg
-from helpers.tf_cfg import TEST_LOGGER
 from test_suite import sysnet
 from testers import stress
 
@@ -24,7 +23,7 @@ class DeadtimeClient(stateful.Stateful):
     wait = False
 
     def __init__(self, uri="/", max_deadtime=1, timeout=20):
-        super().__init__()
+        super().__init__(id_="DeadtimeClient")
         self.uri = uri
         self.timeout = timeout
         self.max_deadtime = max_deadtime

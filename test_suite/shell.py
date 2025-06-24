@@ -1,15 +1,13 @@
-#!/usr/bin/env python2
-from __future__ import print_function
-
 import errno
 import json
 import os
 import unittest
 
 from helpers import remote, tf_cfg
+from test_suite.tester import test_logger
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 STATE_FILE_NAME = "tests_resume.json"
@@ -25,21 +23,24 @@ class DisabledListLoader(object):
 
     def try_load(self):
         """Try to load specified state file"""
-        tf_cfg.dbg(2, "Loading disabled file")
+        test_logger.info(f"Read disabled tests from '{self.disabled_list_file}'")
         try:
             self.disabled = []
             with open(self.disabled_list_file, "r") as dis_file:
                 f = self.__parse_file(dis_file)
                 self.disable = f["disable"]
-                if self.disable == False:
-                    return True
-                self.disabled = f["disabled"]
+                if self.disable:
+                    self.disabled = f["disabled"]
+                test_logger.info(
+                    f"The number of disabled tests from '{self.disabled_list_file}' - "
+                    f"{len(self.disabled)}"
+                )
                 return True
         except IOError as err:
             if err.errno != errno.ENOENT:
                 raise Exception("Error loading disabled tests")
             else:
-                tf_cfg.dbg(2, "File %s not found" % self.disabled_list_file)
+                test_logger.warning(f"File '{self.disabled_list_file}' not found")
         return False
 
     @staticmethod
@@ -69,7 +70,7 @@ class TestStateLoader(object):
             if err.errno != errno.ENOENT:
                 raise Exception("Error loading tests state")
             else:
-                tf_cfg.dbg(2, "File %s not found" % STATE_FILE_NAME)
+                test_logger.warning(f"File {STATE_FILE_NAME} not found")
         return False
 
     @staticmethod
@@ -176,6 +177,7 @@ class TestResume(object):
 
         def startTest(self, test):
             self.matcher.advance(test.id())
+            test_logger.info(f"\n\n{'-' * 100}\n" f"Start test '{test.id()}'" f"\n{'-' * 100}")
             tf_cfg.log_dmesg(remote.tempesta, "Start test: %s" % test.id())
             return unittest.TextTestResult.startTest(self, test)
 
@@ -183,6 +185,7 @@ class TestResume(object):
             self.matcher.advance(test.id(), after=True)
             res = unittest.TextTestResult.stopTest(self, test)
             tf_cfg.log_dmesg(remote.tempesta, "End test:   %s" % test.id())
+            test_logger.info(f"\n\n{'-' * 100}\n" f"End test '{test.id()}'" f"\n{'-' * 100}")
             return res
 
     def __init__(self, state_reader):
@@ -191,15 +194,15 @@ class TestResume(object):
 
     def set_from_file(self):
         if not self.state.has_file:
-            tf_cfg.dbg(2, "Not resuming: File %s not found" % STATE_FILE_NAME)
+            test_logger.warning("Not resuming: File %s not found" % STATE_FILE_NAME)
             return
 
         if not (
             self.state.saver.inclusions == self.state.loader.state["inclusions"]
             and self.state.saver.exclusions == self.state.loader.state["exclusions"]
         ):
-            tf_cfg.dbg(
-                1, 'Not resuming from "%s": different filters specified' % self.state.state_file
+            test_logger.warning(
+                'Not resuming from "%s": different filters specified' % self.state.state_file
             )
             return
         # will raise before changing anything if state object is incomplete

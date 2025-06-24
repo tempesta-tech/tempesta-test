@@ -1834,7 +1834,7 @@ http_chain {{
         with self.assertRaises(Exception):
             port_checker.node = remote.tempesta
             port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=80)
-            port_checker.check_ports_status()
+            port_checker.check_ports_status(verbose=False)
 
         self.assertTrue(
             self.loggers.dmesg.find("ERROR: configuration parsing error", amount_positive)

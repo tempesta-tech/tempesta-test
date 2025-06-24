@@ -5,7 +5,7 @@ from framework.curl_client import CurlArguments, CurlClient, CurlResponse
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -41,13 +41,13 @@ class TestCurlArguments(unittest.TestCase):
 
 class TestCurlClientParsing(unittest.TestCase):
     def test_initialized(self):
-        client = CurlClient(addr="127.0.0.1")
+        client = CurlClient(id="test", addr="127.0.0.1")
         self.assertFalse(client.ssl)
         self.assertFalse(client.last_response)
         self.assertEqual(client.uri, "http://127.0.0.1/")
 
     def test_multiple_responses_parsed(self):
-        client = CurlClient(addr="127.0.0.1")
+        client = CurlClient(id="test", addr="127.0.0.1")
         with patch(
             "framework.curl_client.CurlClient._read_headers_dump",
             return_value=MULTIPLE_RESPONSES,
@@ -60,7 +60,7 @@ class TestCurlClientParsing(unittest.TestCase):
             self.assertEqual(client.responses[1].headers["content-length"], "2")
 
     def test_http_1_0_response_parsed(self):
-        client = CurlClient(addr="127.0.0.1")
+        client = CurlClient(id="test", addr="127.0.0.1")
         with patch(
             "framework.curl_client.CurlClient._read_headers_dump",
             return_value=HTTP_1_0_RESPONSE,

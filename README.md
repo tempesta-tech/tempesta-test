@@ -170,7 +170,7 @@ that matches the specified string.
 
 **WARNING**: there are 2 testing frameworks in directories `testers` and `framework`.
 Please use only `framework.testet.TempestaTest` for the new tests. 
-`testers.functional.FunctionalTest` and `testers.stress.StressTest` are deprecated and 
+`testers.stress.StressTest` are deprecated and 
 must be removed in https://github.com/tempesta-tech/tempesta-test/issues/56 .
 
 ### Requirements to adding new tests:
@@ -415,14 +415,14 @@ Handlers:
 - QueueHandler to write logs to file;
 
 Loggers:
-- dprct - the deprecated logger. Please don't add logs for it;
+- service - used for information about the services (clients, backends, TempestaFW etc.;
 - test - used for information about the test;
 - tcp - used for TCP level in Deproxy services;
 - http - used for HTTP level in Deproxy services;
-- env - used for common info about all services;
+- env - used for common info about node services;
 - dap - used only for DeproxyAutoParser;
 
-The `file_handler` and `verbose` levels from tests config overridden loggers levels.
+The `file_handler` and `stream_handler` levels from tests config overridden loggers levels.
 So you should use DEBUG lvl for handlers if you want to use DEBUG level for any loggers.
 
 ## Development

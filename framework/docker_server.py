@@ -1,7 +1,7 @@
 """Docker containers backend server."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import json
@@ -13,7 +13,7 @@ from typing import Dict, List
 
 import helpers.port_checks as port_checks
 from framework import stateful
-from helpers import error, remote, tf_cfg
+from helpers import error, remote
 from helpers.util import fill_template
 
 
@@ -72,7 +72,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         # Initialize using the `DockerServerArguments` interface,
         # with only supported arguments
         super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
-        stateful.Stateful.__init__(self)
+        stateful.Stateful.__init__(self, id_=kwargs["id"])
         self.node: remote.ANode = remote.server
         self.container_id = None
         self.stop_procedures = [self.stop_server, self.cleanup]
@@ -116,15 +116,14 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             error.bug(self._form_error(action="decode_health"))
         status = health and health["Status"] or "unhealthy"
         if status == "unhealthy":
-            tf_cfg.dbg(3, f"\tDocker Server: {self.id} is unhealthy: {stdout}")
+            self._logger.info(f"Status is unhealthy.")
         return status
 
     def run_start(self):
-        tf_cfg.dbg(3, f"\tDocker Server: Start {self.id} (image {self.image})")
+        self._logger.info(f"Start with {self.image} image")
         self.port_checker.check_ports_status()
         self._build_image()
         stdout, stderr = self.node.run_cmd(self._form_run_command())
-        tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
         if stderr or not stdout:
             error.bug(self._form_error(action="run"))
         self.container_id = stdout.decode().strip()
@@ -151,7 +150,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         return False
 
     def stop_server(self):
-        tf_cfg.dbg(3, f"\tDocker server: Stop {self.id} (image {self.image})")
         if self.container_id:
             self.node.run_cmd(
                 self._form_stop_command(),
@@ -163,13 +161,14 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         self.local_tar_path.unlink(missing_ok=True)
 
     def _build_image(self):
+        self._logger.info(f"Creating '{self.image}' image...")
         self._tar_context()
         self.node.copy_file_to_node(str(self.local_tar_path), str(self.remote_tar_path))
         stdout, stderr = self.node.run_cmd(
             self._form_build_command(),
             timeout=self.build_timeout,
         )
-        tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
+        self._logger.info(f"'{self.image}' image created.")
 
     def _tar_context(self):
         """Archive the the build context directory."""
@@ -181,7 +180,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             f"--build-arg {arg}='{value}'" for arg, value in self.build_args.items()
         )
         cmd = f"cat {self.remote_tar_path} | docker build - {build_args} --tag {self.image_name}"
-        tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
 
     def _form_run_command(self):
@@ -193,7 +191,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             f" {ports} {env} {self.options} {entrypoint}"
             f" {self.image_name} {self.cmd_args}"
         )
-        tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
 
     def _form_stop_command(self):
@@ -201,7 +198,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         # Uses a value one second less than the total allowed time for the operation.
         timeout = max(self.stop_timeout - 1, 1)
         cmd = f"docker stop --time {timeout} {self.container_id}"
-        tf_cfg.dbg(3, f"Docker command formatted: {cmd}")
         return cmd
 
     def _form_inspect_health_command(self):

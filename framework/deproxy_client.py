@@ -40,6 +40,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self,
         # BaseDeproxy
         *,
+        id_,
         deproxy_auto_parser,
         port: int,
         bind_addr: Optional[str],
@@ -53,6 +54,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     ):
         # Initialize the `BaseDeproxy`
         super().__init__(
+            id_=id_,
             deproxy_auto_parser=deproxy_auto_parser,
             port=port,
             bind_addr=bind_addr,
@@ -145,7 +147,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
         self.error_codes.append(type_error)
-        tf_cfg.dbg(2, msg=f"Receive error - {type_error} with message - {v}")
+        self._tcp_logger.warning(f"Receive error - {type_error} with message - {v}")
 
         if type_error == ParseError:
             self.handle_close()
@@ -180,7 +182,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
                 (self.bind_addr, 0),
             )
 
-        tf_cfg.dbg(6, f"Trying to connect to {self.conn_addr}:{self.port}.")
+        self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
 
     @abc.abstractmethod
@@ -366,13 +368,13 @@ class DeproxyClient(BaseDeproxyClient):
 
     def __check_request(self, request: str | deproxy.Request) -> None:
         if self.parsing and isinstance(request, str):
-            tf_cfg.dbg(2, "Request parsing is running.")
+            self._http_logger.info("Request parsing is running.")
             req = deproxy.Request(request)
             expected_request = request.encode()
             self.methods.append(req.method)
             if request[req.original_length :]:
                 raise deproxy.ParseError("Request has excess symbols.")
-            tf_cfg.dbg(3, "Request parsing is complete.")
+            self._http_logger.info("Request parsing is complete.")
         elif isinstance(request, deproxy.Request):
             self.methods.append(request.method)
 
@@ -381,7 +383,7 @@ class DeproxyClient(BaseDeproxyClient):
 
             expected_request = request.msg.encode()
         else:
-            tf_cfg.dbg(2, "Request parsing has been disabled.")
+            self._http_logger.info("Request parsing has been disabled.")
             self.methods.append(request.split(" ")[0])
             expected_request = request.encode()
 
@@ -419,11 +421,13 @@ class DeproxyClient(BaseDeproxyClient):
                 method = self.methods[self.nrresp]
                 response = deproxy.Response(self.response_buffer, method=method)
                 self.response_buffer = self.response_buffer[response.original_length :]
-            except deproxy.IncompleteMessage as e:
-                tf_cfg.dbg(5, f"Receive IncompleteMessage - {e}")
+            except deproxy.IncompleteMessage:
+                self._http_logger.debug(f"Receive IncompleteMessage")
                 return
             except deproxy.ParseError:
-                tf_cfg.dbg(4, f"Can't parse message\n<<<<<\n{self.response_buffer}\n>>>>>")
+                self._http_logger.error(
+                    f"Can't parse message\n<<<<\n{self.response_buffer}\n>>>>", exc_info=True
+                )
                 raise
             self.receive_response(response)
             self.nrresp += 1
@@ -658,8 +662,8 @@ class DeproxyClientH2(BaseDeproxyClient):
         try:
             events = self.h2_connection.receive_data(self.response_buffer)
 
-            tf_cfg.dbg(4, "Receive 'h2_connection' events:")
-            tf_cfg.dbg(5, f"\t\t{events}")
+            self._http_logger.info("Receive 'h2_connection' events")
+            self._http_logger.debug(f"{events}")
             for event in events:
                 if isinstance(event, ResponseReceived):
                     # H2Connection returns ResponseReceived event when HEADERS and
@@ -716,10 +720,12 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.handle_read()
 
         except deproxy.IncompleteMessage:
-            tf_cfg.dbg(4, f"Incomplete message\n<<<<<\n{self.response_buffer}\n>>>>>")
+            self._http_logger.debug(f"Receive IncompleteMessage")
             return
-        except deproxy.ParseError:
-            tf_cfg.dbg(4, f"Can't parse message\n<<<<<\n{self.response_buffer}\n>>>>>")
+        except deproxy.ParseError as e:
+            self._http_logger.error(
+                f"Can't parse message\n<<<<\n{self.response_buffer}\n>>>>", exc_info=True
+            )
             raise
 
     def handle_write(self):

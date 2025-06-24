@@ -418,7 +418,7 @@ class TestWssPipelining(BaseWsPing):
         "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
         "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
         "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-        "\r\n"
+        "\r\n",
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Connection: Upgrade\r\n"
@@ -427,7 +427,7 @@ class TestWssPipelining(BaseWsPing):
         "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
         "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
         "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-        "\r\n"
+        "\r\n",
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Connection: Upgrade\r\n"
@@ -436,7 +436,7 @@ class TestWssPipelining(BaseWsPing):
         "Sec-WebSocket-Key: V4wPm2Z/oOIUvp+uaX3CFQ==\r\n"
         "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
         "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-        "\r\n"
+        "\r\n",
     ]
 
     @dmesg.unlimited_rate_on_tempesta_node
@@ -452,7 +452,7 @@ class TestWssPipelining(BaseWsPing):
         )
         self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.make_requests(self.request)
+        deproxy_cl.make_requests(self.request, pipelined=True)
         deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
 
         self.assertTrue(

@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import copy
+import logging
 import re
 import sys
 
@@ -18,7 +19,6 @@ from helpers.deproxy import (
     Response,
 )
 from helpers.tempesta import Config
-from helpers.tf_cfg import dbg
 
 
 class DeproxyAutoParser:
@@ -39,9 +39,11 @@ class DeproxyAutoParser:
         self.__expected_request: Request | None = None
         self.__client_request: Request | H2Request | None = None
         self.__parsing: bool = run_config.AUTO_PARSER
-        self.__dbg_msg = "\tDeproxy: AutoParser: {0}"
         self.__exceptions: list[AssertionError] = list()
         self.__tempesta_config: Config = tempesta_config
+        self.__logger = logging.LoggerAdapter(
+            logging.getLogger("dap"), extra={"service": f"{self.__class__.__name__}()"}
+        )
 
     def cleanup(self) -> None:
         self.__parsing = run_config.AUTO_PARSER
@@ -69,16 +71,18 @@ class DeproxyAutoParser:
 
     def check_expected_request(self, request: Request) -> None:
         if self.__expected_request is not None:
-            dbg(4, self.__dbg_msg.format("Check expected request."))
-            dbg(6, self.__dbg_msg.format(f"Received request:\n{request.msg}"))
-            dbg(6, self.__dbg_msg.format(f"Expected request:\n{self.__expected_request.msg}"))
+            self.__logger.info("Check expected request.")
+            self.__logger.debug(f"Received request:\n{request.msg}")
+            self.__logger.debug(f"Expected request:\n{self.__expected_request.msg}")
             try:
                 assert request == self.__expected_request
             except AssertionError:
                 self.__exceptions.append(sys.exc_info()[1])
-            dbg(4, self.__dbg_msg.format("Received request is valid."))
+            self.__logger.info("Received request is valid.")
         else:
-            dbg(4, self.__dbg_msg.format("Request is not checked."))
+            self.__logger.info(
+                "Received request is not checked because the conditions were not satisfied."
+            )
 
     def check_expected_response(self, response: Response | H2Response, is_http2: bool) -> None:
         """
@@ -94,33 +98,30 @@ class DeproxyAutoParser:
             and self.__client_request is not None
             and self.__client_request.method != "PURGE"
         ):
-            dbg(4, self.__dbg_msg.format("Check expected response"))
+            self.__logger.info("Check expected response")
             expected_response = self.__prepare_expected_response_for_request(response, is_http2)
 
-            dbg(6, self.__dbg_msg.format(f"Received response:\n{response.msg}"))
-            dbg(6, self.__dbg_msg.format(f"Expected response:\n{expected_response.msg}"))
+            self.__logger.debug(f"Received response:\n{response.msg}")
+            self.__logger.debug(f"Expected response:\n{expected_response.msg}")
 
             try:
                 assert response == expected_response
             except AssertionError:
                 self.__exceptions.append(sys.exc_info()[1])
-            dbg(4, self.__dbg_msg.format("Received response is valid."))
+            self.__logger.info("Received response is valid.")
         else:
-            dbg(4, self.__dbg_msg.format("Response is not checked."))
+            self.__logger.info(
+                "Received response is not checked because the expected response was not generated."
+            )
 
     def prepare_expected_request(self, request: bytes, client: BaseDeproxyClient) -> None:
-        dbg(5, self.__dbg_msg.format("Prepare expected request"))
-        dbg(6, self.__dbg_msg.format(f"Request before preparing:\n{request.decode()}"))
+        self.__logger.info("Prepare expected request")
+        self.__logger.debug(f"Request before preparing:\n{request.decode()}")
 
         try:
             request = Request(request.decode(), body_parsing=True)
         except (ParseError, ValueError):
-            dbg(
-                5,
-                self.__dbg_msg.format(
-                    "Request: invalid Content-Length header. Body parsing is disabled"
-                ),
-            )
+            self.__logger.info("Request: invalid Content-Length header. Body parsing is disabled")
             request = Request(request.decode(), body_parsing=False)
 
         self.__client_request = copy.deepcopy(request)
@@ -131,27 +132,19 @@ class DeproxyAutoParser:
             request.headers.delete_all("trailer")
 
         self.__prepare_host_for_http1(request, isinstance(client, DeproxyClient))
-
         self.__prepare_hop_by_hop_headers(request)
-
         self.__prepare_method_for_expected_request(request)
-
         self.__expected_request = request
 
     def prepare_expected_response(self, response: bytes) -> None:
         """Prepare expected response from deproxy server."""
-        dbg(4, self.__dbg_msg.format("Prepare expected response"))
-        dbg(6, self.__dbg_msg.format(f"Response before preparing:\n{response.decode()}"))
+        self.__logger.info("Prepare expected response")
+        self.__logger.debug(f"Response before preparing:\n{response.decode()}")
 
         try:
             response = Response(response.decode(), body_parsing=True)
         except (ValueError, ParseError):
-            dbg(
-                4,
-                self.__dbg_msg.format(
-                    "Response: invalid Content-Length header. Body prasing is disabled"
-                ),
-            )
+            self.__logger.info("Response: invalid Content-Length header. Body prasing is disabled")
             response = Response(response.decode(), body_parsing=False)
         response.set_expected()
         response.add_tempesta_headers()
@@ -199,12 +192,9 @@ class DeproxyAutoParser:
         and changes the host header for HTTP/1.1.
         """
         if is_http1 and request.uri.startswith("http"):
-            dbg(
-                4,
-                self.__dbg_msg.format(
-                    "HTTP/1.1 client has an absolute uri. TempestaFW removes the host from the "
-                    "uri and changes the `Host` header."
-                ),
+            self.__logger.info(
+                "HTTP/1.1 client has an absolute uri. TempestaFW removes the host from the "
+                "uri and changes the `Host` header."
             )
             host, _, url = request.uri.split("://")[1].partition("/")
             request.uri = f"/{url}" if url else "/"
@@ -216,32 +206,21 @@ class DeproxyAutoParser:
         And changes 'HEAD' to 'GET' when cache is enabled.
         """
         if request.method == "PURGE" or (request.method == "HEAD" and self.__cache_on_tempesta):
-            dbg(
-                4,
-                self.__dbg_msg.format(
-                    "Client request method is 'PURGE'. Expected request method is changed to 'GET'."
-                ),
+            self.__logger.info(
+                "Client request method is 'PURGE'. Expected request method is changed to 'GET'."
             )
             request.method = "GET"
 
     def __prepare_body_for_HEAD_request(self, response: Response | H2Response) -> None:
         """Tempesta doesn't return trailers for HEAD requests."""
         if self.__client_request.method == "HEAD":
-            dbg(
-                4,
-                self.__dbg_msg.format(
-                    f"Request method is 'HEAD'. Remove body from expected response"
-                ),
-            )
+            self.__logger.info(f"Request method is 'HEAD'. Remove body from expected response")
             response.body = ""
             for name in response.trailer.keys():
                 response.trailer.delete_all(name)
 
     def __prepare_hop_by_hop_headers(self, message: HttpMessage) -> None:
-        dbg(
-            4,
-            self.__dbg_msg.format("Remove hop-by-hop headers from expected response/request"),
-        )
+        self.__logger.info("Remove hop-by-hop headers from expected response/request")
         # headers specified in the connection header are hop-by-hop headers
         is_chunked_msg = True if message.trailer.keys() else False
         connection = message.headers.get("connection")
@@ -279,23 +258,15 @@ class DeproxyAutoParser:
         """
         method_is_head = self.__client_request.method == "HEAD"
         if "Transfer-Encoding" in expected_response.headers:
-            dbg(
-                4,
-                self.__dbg_msg.format(
-                    "Response: Transfer-Encoding header is present in http2/cache."
-                ),
-            )
+            self.__logger.info("Response: Transfer-Encoding header is present in http2/cache.")
 
             if http2:
                 te = expected_response.headers.get("Transfer-Encoding")
                 ce = ",".join(te.split(", ")[:-1])
                 expected_response.headers.delete_all("Transfer-Encoding")
                 if ce:
-                    dbg(
-                        4,
-                        self.__dbg_msg.format(
-                            "Response: Transfer-Encoding header convert to Content-Encoding"
-                        ),
+                    self.__logger.info(
+                        "Response: Transfer-Encoding header convert to Content-Encoding"
                     )
                     expected_response.headers.add("content-encoding", ce)
             expected_response.convert_chunked_body(http2, method_is_head)
@@ -313,12 +284,12 @@ class DeproxyAutoParser:
             and expected_response.status != "204"
             and expected_response.headers.get("Transfer-Encoding", None) is None
         ):
-            dbg(4, self.__dbg_msg.format("Add Content-Length header to expected response."))
+            self.__logger.info("Add Content-Length header to expected response.")
             expected_response.headers.add("content-length", str(len(expected_response.body)))
 
     def create_request_from_list_or_tuple(self, request: list | tuple) -> bytes:
-        dbg(4, self.__dbg_msg.format("H2Request: convert to http1 request."))
-        dbg(6, self.__dbg_msg.format(f"H2Request: data before preparing:\n{request}"))
+        self.__logger.info("H2Request: convert to http1 request.")
+        self.__logger.debug(f"H2Request: data before preparing:\n{request}")
         expected_request = Request()
 
         if isinstance(request, tuple):
@@ -344,16 +315,16 @@ class DeproxyAutoParser:
 
         hosts = list(expected_request.headers.find_all("host"))
         if len(hosts) > 1:
-            dbg(4, self.__dbg_msg.format("H2Request: :authority and host headers are present."))
+            self.__logger.info("H2Request: :authority and host headers are present.")
             expected_request.headers.delete_all("host")
             expected_request.headers["host"] = hosts[0]
 
         if cookies:
-            dbg(4, self.__dbg_msg.format("H2Request: multiple cookie headers. Converted to one."))
+            self.__logger.info("H2Request: multiple cookie headers. Converted to one.")
             expected_request.headers.add("cookie", "; ".join(cookies))
 
         if expected_request.body:
-            dbg(4, self.__dbg_msg.format("H2Request: has body. Added 'Content-Length' header"))
+            self.__logger.info("H2Request: has body. Added 'Content-Length' header")
             expected_request.headers.delete_all("content-length")
             expected_request.headers.add("content-length", len(expected_request.body))
 
