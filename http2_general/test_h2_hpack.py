@@ -658,18 +658,15 @@ class TestHpackMethod(TestHpackBase):
         """
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
-        methods = ["UPDATEREDIRECTREF", "PUTA", "GETA", "OPTIONA"]
-        count = 1
-
-        self.start_all_services()
+        methods = ["UPDATEREDIRECTREF", "POT", "GFT", "PUTA", "GETA", "OPTIONA"]
 
         config = self.get_tempesta().config.defconfig
         self.get_tempesta().config.defconfig = (
             config + "frang_limits {http_strict_host_checking false; http_methods unknown;}\n"
         )
-        self.get_tempesta().reload()
+        self.start_all_services()
 
-        for method in methods:
+        for count, method in enumerate(methods):
             request = client.create_request(method=method, headers=[])
 
             # send request two times, header :method must be processed from dynamyc table
@@ -680,8 +677,7 @@ class TestHpackMethod(TestHpackBase):
             client.make_request(request=request, huffman=huffman)
             self.assertTrue(client.wait_for_response(timeout=5))
             self.assertEqual(server.last_request.method, method)
-            self.assertEqual(2 * count, len(server.requests))
-            count = count + 1
+            self.assertEqual(2 * (count + 1), len(server.requests))
 
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
@@ -710,18 +706,15 @@ class TestHpackMethod(TestHpackBase):
             "TRACE",
             "UNLOCK",
         ]
-        count = 1
-
-        self.start_all_services()
         config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = (
+            config
+            + "frang_limits {http_strict_host_checking false; http_methods %s;}\n"
+            % " ".join(methods)
+        )
+        self.start_all_services()
 
-        for method in methods:
-            self.get_tempesta().config.defconfig = (
-                config
-                + "frang_limits {http_strict_host_checking false; http_methods %s;}\n"
-                % method.lower()
-            )
-            self.get_tempesta().reload()
+        for count, method in enumerate(methods):
             request = client.create_request(method=method, headers=[])
 
             # send request two times, header :method must be processed from dynamyc table
@@ -732,8 +725,7 @@ class TestHpackMethod(TestHpackBase):
             client.make_request(request=request, huffman=huffman)
             self.assertTrue(client.wait_for_response(timeout=5))
             self.assertEqual(server.last_request.method, method)
-            self.assertEqual(2 * count, len(server.requests))
-            count = count + 1
+            self.assertEqual(2 * (count + 1), len(server.requests))
 
 
 class TestHpackStickyCookie(TestHpackBase):
