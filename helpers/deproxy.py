@@ -563,6 +563,8 @@ class Request(HttpMessage):
         "UNLOCK",
         "UPDATE",
         "UPDATEREDIRECTREF",
+        "POT",
+        "GFT",
         "PUTA",
         "GETA",
         "OPTIONA",
