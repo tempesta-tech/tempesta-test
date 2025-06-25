@@ -80,6 +80,7 @@ class TestFrameworkCfg:
         remote_ipv6 = os.getenv("REMOTE_IPV6", None)
         website_user = os.getenv("WEBSITE_USER", None)
         website_password = os.getenv("WEBSITE_PASSWORD", None)
+        ssh_port = os.getenv("SSH_PORT", 22)
 
         if (
             host_ip is None
@@ -104,6 +105,7 @@ class TestFrameworkCfg:
         self.config["Tempesta"]["ip"] = host_ip
         self.config["Tempesta"]["ipv6"] = host_ipv6
         self.config["Tempesta"]["hostname"] = host_ip
+        self.config["Tempesta"]["port"] = ssh_port
 
         self.config["Server"]["ip"] = remote_ip
         self.config["Server"]["ipv6"] = remote_ipv6
