@@ -2,56 +2,16 @@
     "disable" : true,
     "disabled" : [
         {
-            "name" : "tcp_connection.test_connection_close.CloseClientConnectiononInvalidReq",
-            "reason" : "Invalid request is parsed as two requests. The second response is not supported by current deproxy architecture."
-        },
-        {
             "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
-            "reason" : "Read errors"
+            "reason" : "Disabled by test issue #114"
         },
         {
             "name" : "very_many_backends.test_stress_1M.ManyBackends32InGroup",
-            "reason" : "Read errors"
-        },
-        {
-            "name" : "mixed_requests.test_mixed.MixedRequests.test_trace",
-            "reason" : "Too many 502, sometimes no good answers at all"
+            "reason" : "Disabled by test issue #114"
         },
         {
             "name" : "t_wrong_body_length.test_response_wrong_length.ResponseSmallBodyLength",
             "reason" : "Disabled by issue #1752"
-        },
-        {
-            "name" : "t_sched.test_ratio_dynamic.RatioDynamicMax",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-        {
-            "name" : "t_sched.test_ratio_dynamic.RatioPredictMax",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-        {
-            "name" : "t_sched.test_h2_ratio_dynamic.RatioDynamicMaxH2",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-        {
-            "name" : "t_sched.test_h2_ratio_dynamic.RatioPredictMaxH2",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-        {
-            "name" : "t_sched.test_ratio_dynamic_recalc.RatioDynamicMax",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-        {
-            "name" : "t_sched.test_ratio_dynamic_recalc.RatioPredictMax",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-                {
-            "name" : "t_sched.test_h2_ratio_dynamic_recalc.RatioDynamicMaxH2",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
-        },
-        {
-            "name" : "t_sched.test_h2_ratio_dynamic_recalc.RatioPredictMaxH2",
-            "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
             "name" : "flacky_net",
@@ -102,26 +62,6 @@
             "reason" : "Disabled by issue #1684"
         },
         {
-            "name" : "t_access_log.test_access_log.AccessLogTest.test_bad_user_agent",
-            "reason" : "Disabled by issue #198"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationHttp.test_nonidempotent_get",
-            "reason": "Disabled by issue #1663"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationHttp.test_nonidempotent_head",
-            "reason": "Disabled by issue #1663"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationH2.test_nonidempotent_get",
-            "reason": "Disabled by issue #1663"
-        },
-        {
-            "name" : "cache.test_cache.TestCacheLocationH2.test_nonidempotent_head",
-            "reason": "Disabled by issue #1663"
-        },
-        {
             "name": "cache.test_purge.TestPurgeGet",
             "reason": "Disabled by issue #1692"
         },
@@ -132,18 +72,6 @@
         {
             "name" : "t_wrong_body_length.test_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
-        },
-        {
-            "name" : "t_wrong_body_length.test_request_wrong_length.RequestMissingBodyLength",
-            "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
-        },
-        {
-            "name" : "t_wrong_body_length.test_request_wrong_length.RequestSmallBodyLength",
-            "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
-        },
-        {
-            "name" : "cache.test_purge_resp_hch.HeavyChunkedPurgeRespTest.test_1_purge_resp_hch",
-            "reason": "Need to investigate"
         },
         {
             "name": "t_long_body.test_long_response.LongBodyInResponse",
@@ -172,18 +100,6 @@
         {
             "name": "encoding.test_encoding.TestH1ChunkedIsNotLast",
             "reason": "Disabled by issue #1773"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestConnectionHeaders.test_TE_header_in_response",
-            "reason": "Disabled by PR #1917"
-        },
-        {
-            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_settings_max_header_list_size",
-            "reason": "Disabled by issue #1838"
-        },
-        {
-            "name": "t_frang.test_header_cnt.FrangHttpHeaderCountH2.test_reaching_limit_headers_as_bytes",
-            "reason": "Disabled by issue #1838"
         },
         {
             "name": "t_sched.test_per_group_lb",
@@ -266,7 +182,27 @@
             "reason": "Disabled by issue #1801"
         },
         {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing",
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_enable_0x00_0x0a_0x0d_first",
+            "reason": "Disabled by issue #2069. Problems only with http_qetoken_brange"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_cookie_brange",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_etag_brange",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_qetoken_brange",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_token_brange",
+            "reason": "Disabled by issue #2069"
+        },
+        {
+            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_xff_brange",
             "reason": "Disabled by issue #2069"
         },
         {
@@ -282,28 +218,12 @@
             "reason": "Disabled by test issue #525"
         },
         {
-            "name": "t_http_rules.test_http_rules.HttpRules.test_scheduler",
-            "reason": "The test does not work on the SUT server - crash, issue #2255"
-        },
-        {
-            "name": "t_http_rules.test_http_tables.HttpTablesTest.test_chains",
-            "reason": "The test does not work on the SUT server - crash, issue #2255"
-        },
-        {
-            "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
-            "reason": "The test does not work on the SUT server - crash, issue #2255"
-        },
-        {
             "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteTls",
-            "reason": "Only TLS1.2 is available now"
+            "reason": "Disabled by issue #2052"
         },
         {
             "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteCurves",
-            "reason": "Only curve prime256v1 is available now"
-        },
-        {
-            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteAlpn",
-            "reason": "Disabled by test issue #2329"
+            "reason": "Disabled by issue #2052"
         },
         {
             "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogsBufferConfiguration.test_mmap_buffer",
