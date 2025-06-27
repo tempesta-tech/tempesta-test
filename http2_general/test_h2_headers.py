@@ -502,7 +502,7 @@ cache_methods GET HEAD POST;
     def test(self, name, if_modified_since, huffman):
         """
         Tests check that Tempesta FW ignores date from
-        incorrect `if-modified-since` header. 
+        incorrect `if-modified-since` header.
         """
         self.__test(if_modified_since, huffman)
 
@@ -620,6 +620,7 @@ class TestConnectionHeaders(H2Base):
         self.__test_response(header=("upgrade", "websocket"))
 
     def test_TE_header_in_response(self):
+        self.disable_deproxy_auto_parser()
         self.__test_response(header=("te", "gzip"))
 
 

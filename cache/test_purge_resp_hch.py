@@ -73,9 +73,7 @@ Connection: keep-alive
         self,
         chunksize=0,
         request_0="",
-        expect_status_0=200,
         request="",
-        expect_status=200,
         expect: list = None,
     ):
         # Set expect to expected proxied request,
@@ -83,13 +81,13 @@ Connection: keep-alive
         # to None to check that request is missing
         deproxy_srv = self.get_server("deproxy")
         deproxy_cl = self.get_client("deproxy")
-        deproxy_srv.segment_size = chunksize
+        if chunksize:
+            deproxy_srv.segment_size = chunksize
 
         self.start_all_services()
 
-        deproxy_cl.send_request(request_0, str(expect_status_0))
-
-        deproxy_cl.send_request(request, str(expect_status))
+        deproxy_cl.send_request(request_0, "200", timeout=30)
+        deproxy_cl.send_request(request, "200", timeout=30)
 
         frequest: deproxy.Request = deproxy_srv.last_request
 
@@ -114,9 +112,7 @@ Connection: keep-alive
         #
         self.common_check(
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
-            expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
-            expect_status=200,
             expect=[
                 ("Host", "localhost"),
                 ("X-Tempesta-Cache", "GET"),
@@ -134,9 +130,7 @@ Connection: keep-alive
             self.common_check,
             len(response),
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
-            expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
-            expect_status=200,
             expect=[
                 ("Host", "localhost"),
                 ("X-Tempesta-Cache", "GET"),
