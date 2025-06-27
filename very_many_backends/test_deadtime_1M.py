@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import asyncore
@@ -23,7 +23,7 @@ class DeadtimeClient(stateful.Stateful):
     wait = False
 
     def __init__(self, uri="/", max_deadtime=1, timeout=20):
-        super().__init__()
+        super().__init__(id_="DeadtimeClient")
         self.uri = uri
         self.timeout = timeout
         self.max_deadtime = max_deadtime
@@ -104,22 +104,12 @@ class DeadtimeClient(stateful.Stateful):
                 min_delay = delay
             success_time = curtime
             num_req += 1
-            if num_req % 10000 == 0:
-                tf_cfg.dbg(3, "%i requests done" % num_req)
 
         delay = curtime - success_time
         if delay > self.max_deadtime:
             long_times += 1
         if delay > max_delay:
             max_delay = delay
-        tf_cfg.dbg(3, "number of requests shorter than  1 s: %i" % short_times)
-        tf_cfg.dbg(3, "number of requests longer than 1 s: %i" % long_times)
-        tf_cfg.dbg(3, "max request time: %f" % max_delay)
-        tf_cfg.dbg(3, "min request time: %f" % min_delay)
-        if finish_event.is_set():
-            tf_cfg.dbg(3, "Finish event received")
-        else:
-            tf_cfg.dbg(3, "No finish event received")
         self.client.stop()
         sys.exit(long_times)
 
@@ -140,7 +130,6 @@ class DontModifyBackend(stress.StressTest):
     configurator = None
 
     def setUp(self):
-        tf_cfg.dbg(2, "Creating interfaces")
         self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
         self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
         self.ips = sysnet.create_interfaces(
@@ -156,7 +145,6 @@ class DontModifyBackend(stress.StressTest):
             self.client.stop()
 
     def cleanup_interfaces(self):
-        tf_cfg.dbg(2, "Cleanup: Removing interfaces")
         for ip in self.ips:
             sysnet.remove_interface(self.interface, ip)
         self.ips = []
@@ -260,12 +248,8 @@ class AddingBackendNewSG(DontModifyBackend):
     def test(self):
         self.pre_test()
         for i in range(self.num_attempts):
-            tf_cfg.dbg(2, "Adding server group #%i" % i)
             self.append_server_group(i)
-            t1 = time.time()
             self.tempesta.reload()
-            t2 = time.time()
-            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2 - t1))
             time.sleep(self.max_deadtime)
         self.post_test()
 
@@ -291,12 +275,8 @@ class RemovingBackendSG(DontModifyBackend):
     def test(self):
         self.pre_test()
         for i in range(self.num_attempts):
-            tf_cfg.dbg(2, "Removing server group #%i" % i)
             self.remove_server_group(i)
-            t1 = time.time()
             self.tempesta.reload()
-            t2 = time.time()
-            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2 - t1))
             time.sleep(self.max_deadtime)
         self.post_test()
 
@@ -319,12 +299,8 @@ class ChangingSG(DontModifyBackend):
     def test(self):
         self.pre_test()
         for i in range(self.num_attempts):
-            tf_cfg.dbg(2, "Adding new server to default group")
             server = self.servers[1]
             self.def_sg.add_server(server.ip, server.config.listeners[i].port, server.conns_n)
-            t1 = time.time()
             self.tempesta.reload()
-            t2 = time.time()
-            tf_cfg.dbg(4, "tempesta.reload() %f s" % (t2 - t1))
             time.sleep(self.max_deadtime)
         self.post_test()

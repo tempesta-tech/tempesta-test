@@ -4,9 +4,10 @@ Use it to overrides and see what happens
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2020 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import logging
 import ssl
 
 import scapy.layers.tls.crypto.suites as suites
@@ -15,8 +16,10 @@ from scapy.layers.tls.all import *
 from scapy.layers.tls.record import _TLSEncryptedContent
 
 import run_config
-from helpers import dmesg, tf_cfg
+from helpers import tf_cfg
 from helpers.error import Error
+
+tls_logger = logging.LoggerAdapter(logging.getLogger("tcp"), extra={"service": f"tls"})
 
 
 class SessionSecrets:
@@ -75,17 +78,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         TLSClientAutomaton.__init__(self, *args, **kwargs)
 
     def vprint(self, s=""):
-        """
-        Call output only when verbose level is 3
-
-        Args:
-            s (str, optional):Output string. Defaults to "".
-        """
-        if tf_cfg.v_level() > 2:
-            if conf.interactive:
-                log_interactive.info("> %s", s)
-            else:
-                print("> %s" % s)
+        tls_logger.info("> %s" % s)
 
     def set_data(self, _data):
         self.send_data = _data
@@ -105,7 +98,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def TLSALERT_RECIEVED(self):
-        tf_cfg.dbg(3, "Recieve TLSAlert from the server...")
+        tls_logger.debug("Recieve TLSAlert from the server...")
         self.alert_received = True
         self.hs_state = False
         raise self.CLOSE_NOTIFY()
@@ -154,21 +147,21 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
-        tf_cfg.dbg(3, type(p))
+        tls_logger.debug(type(p))
         if isinstance(p, _TLSEncryptedContent):
-            tf_cfg.dbg(3, "_TLSEncryptedContent DETECTED")
+            tls_logger.debug("_TLSEncryptedContent DETECTED")
             # self.cur_session.show2()
         if isinstance(p, TLSApplicationData):
             if self.is_atmt_socket:
                 # Socket mode
                 self.oi.tls.send(p.data)
             else:
-                tf_cfg.dbg(3, "> Received: %r" % p.data)
+                tls_logger.debug("> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
-            tf_cfg.dbg(3, "> Received: %r" % p)
+            tls_logger.debug("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         else:
-            tf_cfg.dbg(3, "> Received: %r" % p)
+            tls_logger.debug("> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.WAITING_RECORDS()
 
@@ -183,13 +176,13 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
                 # Socket mode
                 self.oi.tls.send(p.data)
             else:
-                tf_cfg.dbg(3, "> Received: %r" % p.data)
+                tls_logger.debug("> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
             self.server_data.append(p)
-            tf_cfg.dbg(3, "> Received: %r" % p)
+            tls_logger.debug("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         else:
-            tf_cfg.dbg(3, "> Received: %r" % p)
+            tls_logger.debug("> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
 
@@ -227,7 +220,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state(initial=True)
     def INITIAL(self):
-        tf_cfg.dbg(3, "Starting TLS client automaton.")
+        tls_logger.debug("Starting TLS client automaton.")
         raise self.INIT_TLS_SESSION()
 
     @ATMT.state()
@@ -248,17 +241,15 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.state()
     def CLOSE_NOTIFY(self):
-        if tf_cfg.v_level() > 1:
-            self.vprint()
-            self.vprint("Trying to send a TLSAlert to the server...")
+        tls_logger.debug("Trying to send a TLSAlert to the server...")
 
     @ATMT.state(final=True)
     def FINAL(self):
         # We might call shutdown, but it may happen that the server
         # did not wait for us to shutdown after answering our data query.
         # self.socket.shutdown(1)
-        tf_cfg.dbg(3, "Closing client socket...")
-        tf_cfg.dbg(3, "Ending TLS client automaton.")
+        tls_logger.debug("Closing client socket...")
+        tls_logger.debug("Ending TLS client automaton.")
         self.socket.close()
 
     @ATMT.state()
@@ -279,7 +270,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             self.chunk = run_config.TCP_SEGMENTATION
 
         if self.chunk is not None:
-            tf_cfg.dbg(3, "Trying to send data by chunk")
+            tls_logger.debug("Trying to send data by chunk")
             _s = b"".join(p.raw_stateful() for p in self.buffer_out)
             n = self.chunk
             for chunk in [_s[i : i + n] for i in range(0, len(_s), n)]:
@@ -298,12 +289,11 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
     def HANDLED_SERVERFINISHED(self):
         self.server_cert = self.cur_session.server_certs
         self.client_cert = self.cur_session.client_certs
-        if tf_cfg.v_level() > 1:
-            self.vprint_sessioninfo()
-            if self.server_cert is not None and len(self.server_cert) > 0:
-                tf_cfg.dbg(3, self.server_cert[0])
+        self.vprint_sessioninfo()
+        if self.server_cert is not None and len(self.server_cert) > 0:
+            tls_logger.debug(self.server_cert[0])
         if not self.cached_secrets:
-            tf_cfg.dbg(3, "TLS handshake completed!")
+            tls_logger.debug("TLS handshake completed!")
         self.hs_state = True
 
     @ATMT.condition(HANDLED_SERVERFINISHED)
@@ -336,10 +326,10 @@ class TlsHandshake:
     Save Status/Packets/Other info about
     """
 
-    def __init__(self, chunk=None, debug=(tf_cfg.v_level() - 1)):
+    def __init__(self, chunk=None):
         self.server = tf_cfg.cfg.get(section="Tempesta", opt="ip")
         self.hs_state = False
-        self.debug = debug
+        self.debug = False
         self.timeout = 20
         self.sni = "tempesta-tech.com"
         self.host = self.sni
@@ -379,13 +369,13 @@ class TlsHandshake:
             _ciphers = []
             for key in suites._tls_cipher_suites_cls:
                 if key in self.ciphers:
-                    tf_cfg.dbg(3, f"key -> {suites._tls_cipher_suites_cls[key]}")
+                    tls_logger.debug(f"key -> {suites._tls_cipher_suites_cls[key]}")
                     _ciphers += [suites._tls_cipher_suites_cls[key]]
             self.ciphers = _ciphers
         except KeyError:
             pass
         except AttributeError as e:
-            tf_cfg.dbg(3, "Use default ciphers")
+            tls_logger.debug("Use default ciphers")
             self.ciphers = [TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]
             self.ciphers += [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
             self.ciphers += [TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
@@ -407,8 +397,7 @@ class TlsHandshake:
             ext.append(ticket)
 
         ch = TLSClientHello(gmt_unix_time=10000, ciphers=self.ciphers, ext=ext, comp=compression)
-        if tf_cfg.v_level() > 1:
-            ch.show()
+
         return ch
 
     def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
@@ -476,9 +465,9 @@ class TlsHandshake:
         self.hs.run(wait=False)
         self.hs.control_thread.join(self.timeout)
         self.hs.stop()
-        tf_cfg.dbg(3, f"Fin_state: {self.hs.state.state}")
-        tf_cfg.dbg(3, f"Server_data: {self.hs.server_data}")
-        tf_cfg.dbg(3, f"Session_ticket: {type(self.hs.session_ticket)}")
+        tls_logger.debug(f"Fin_state: {self.hs.state.state}")
+        tls_logger.debug(f"Server_data: {self.hs.server_data}")
+        tls_logger.debug(f"Session_ticket: {type(self.hs.session_ticket)}")
         return self.hs.hs_state
 
 
@@ -488,17 +477,13 @@ class TlsHandshakeStandard:
     but are good to test TempestaTLS behavior with standard tools and libs.
     """
 
-    def __init__(self, addr=None, port=443, io_to=0.5, verbose=False):
-        if addr:
-            self.addr = addr
-        else:
-            self.addr = tf_cfg.cfg.get("Tempesta", "ip")
+    def __init__(self, addr=tf_cfg.cfg.get("Tempesta", "ip"), port=443, io_to=0.5, verbose=False):
+        self.addr = addr
         self.port = port
         self.io_to = io_to
         self.verbose = verbose
 
     def try_tls_vers(self, version):
-        klog = dmesg.DmesgFinder(disable_ratelimit=True)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.io_to)
         sock.connect((self.addr, self.port))
@@ -510,10 +495,8 @@ class TlsHandshakeStandard:
             # if e.reason == "TLSV1_ALERT_PROTOCOL_VERSION":
             return True
         except IOError as e:
-            if self.verbose:
-                tf_cfg.dbg(3, "TLS handshake failed w/o warning")
-        if self.verbose:
-            tf_cfg.dbg(3, "Connection of unsupported TLS 1.%d established" % version)
+            tls_logger.error("TLS handshake failed w/o warning", exc_info=True)
+        tls_logger.debug("Connection of unsupported TLS 1.%d established" % version)
         return False
 
     def do_old(self):

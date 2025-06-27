@@ -14,7 +14,7 @@ from test_suite import marks
 from . import error, nginx, remote, tempesta, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # -------------------------------------------------------------------------------
@@ -170,7 +170,6 @@ class Wrk(Client):
             self.threads = self.connections
         if self.connections % self.threads != 0:
             nc = (self.connections // self.threads) * self.threads
-            tf_cfg.dbg(2, "Warning: only %i connections will be created" % nc)
         threads = self.threads if self.connections > 1 else 1
         self.options.append("-t %d" % threads)
         self.options.append("-c %d" % self.connections)
@@ -201,7 +200,6 @@ class Wrk(Client):
         if self.FAIL_ON_SOCK_ERR:
             assert not m, sock_err_msg
         if m:
-            tf_cfg.dbg(1, "WARNING! %s" % sock_err_msg)
             err_m = re.search(r"\w+ (\d+), \w+ (\d+), \w+ (\d+), \w+ (\d+)", m.group(1))
             self.errors += (
                 int(err_m.group(1))
@@ -248,16 +246,6 @@ class Ab(Client):
 # -------------------------------------------------------------------------------
 
 
-def client_run_blocking(client):
-    """User must call client.prepare() before calling the function and
-    client.cleanup() after the call if applied.
-    """
-    tf_cfg.dbg(3, "\tRunning HTTP client on %s" % remote.client.host)
-    stdout, stderr = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
-    tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
-    error.assertTrue(client.parse_out(stdout, stderr))
-
-
 def __clients_prepare(client):
     return client.prepare()
 
@@ -268,7 +256,6 @@ def __clients_run(client):
 
 def __clients_parse_output(args):
     client, (stdout, stderr) = args
-    tf_cfg.dbg(3, f"stdout:\n{stdout}\nstderr:\n{stderr}")
     return client.parse_out(stdout, stderr)
 
 
@@ -277,7 +264,6 @@ def __clients_cleanup(client):
 
 
 def clients_run_parallel(clients):
-    tf_cfg.dbg(3, ("\tRunning %d HTTP clients on %s" % (len(clients), remote.client.host)))
     if not clients:
         return
 
@@ -298,7 +284,6 @@ def clients_parallel_load(client, count=None):
     """
     if count is None:
         count = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 1000)
-    tf_cfg.dbg(3, ("\tRunning %d HTTP clients on %s" % (count, remote.client.host)))
     error.assertTrue(client.prepare())
     cmd = "seq %d | xargs -Iz -P1000 %s -q" % (count, client.cmd)
 
@@ -315,7 +300,7 @@ def clients_parallel_load(client, count=None):
 # -------------------------------------------------------------------------------
 class Tempesta(stateful.Stateful):
     def __init__(self, vhost_auto=True):
-        super().__init__()
+        super().__init__(id_=remote.tempesta.host)
         self.node = remote.tempesta
         self.workdir = self.node.workdir
         self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
@@ -336,19 +321,18 @@ class Tempesta(stateful.Stateful):
         self.clickhouse.tfw_logger_wait_until_ready()
 
     def run_start(self):
-        tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
         self.stats.clear()
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
 
     def reload(self):
         """Live reconfiguration"""
-        tf_cfg.dbg(3, "\tReconfiguring TempestaFW on %s" % self.host)
+        self._logger.info("Reconfiguring TempestaFW")
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload")
 
     def _do_run(self, cmd):
         cfg_content = self.config.get_config()
 
-        tf_cfg.dbg(4, f"\tTempesta config content:\n{cfg_content}")
+        self._logger.info(f"Tempesta config content:\n{cfg_content}")
 
         if self.check_config:
             assert cfg_content, "Tempesta config is empty."
@@ -363,7 +347,6 @@ class Tempesta(stateful.Stateful):
         self.__wait_while_logger_start()
 
     def stop_tempesta(self):
-        tf_cfg.dbg(3, "\tStopping TempestaFW on %s" % self.host)
         cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir
         self.node.run_cmd(cmd, timeout=30)
 
@@ -418,7 +401,6 @@ class TempestaFI(Tempesta):
     def inject(self):
         cmd = "stap -g -m %s -F %s/%s" % (self.module_name, self.workdir, self.stap)
 
-        tf_cfg.dbg(3, "\tstap cmd: %s" % cmd)
         self.node.run_cmd(cmd, timeout=30)
 
     def letout(self):
@@ -443,7 +425,7 @@ class TempestaFI(Tempesta):
 
 class Nginx(stateful.Stateful):
     def __init__(self, listen_port, workers=1):
-        super().__init__()
+        super().__init__(id_="")
         self.node = remote.server
         self.workdir = tf_cfg.cfg.get("Server", "workdir")
         self.ip = tf_cfg.cfg.get("Server", "ip")
@@ -459,7 +441,6 @@ class Nginx(stateful.Stateful):
         return ":".join([self.ip, str(self.config.port)])
 
     def run_start(self):
-        tf_cfg.dbg(3, "\tStarting Nginx on %s" % self.get_name())
         self.clear_stats()
         # Copy nginx config to working directory on 'server' host.
         self.config.update_config()
@@ -471,7 +452,6 @@ class Nginx(stateful.Stateful):
         self.node.run_cmd(cmd, is_blocking=False)
 
     def stop_nginx(self):
-        tf_cfg.dbg(3, "\tStopping Nginx on %s" % self.get_name())
         pid_file = os.path.join(self.workdir, self.config.pidfile_name)
         cmd = " && ".join(
             [
@@ -484,7 +464,6 @@ class Nginx(stateful.Stateful):
         self.node.run_cmd(cmd, is_blocking=False)
 
     def remove_config(self):
-        tf_cfg.dbg(3, "\tRemoving Nginx config for %s" % self.get_name())
         config_file = os.path.join(self.workdir, self.config.config_name)
         self.node.remove_file(config_file)
 
@@ -521,36 +500,28 @@ class Nginx(stateful.Stateful):
 
 def servers_start(servers):
     for server in servers:
-        try:
-            server.start()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem starting server: %s" % e)
-            raise e
+        server.start()
 
 
 def servers_force_stop(servers):
     for server in servers:
         try:
             server.force_stop()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
+        except Exception:
+            ...
 
 
 def servers_stop(servers):
     for server in servers:
         try:
             server.stop()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem stopping server: %s" % e)
+        except Exception:
+            ...
 
 
 def servers_get_stats(servers):
     for server in servers:
-        try:
-            server.get_stats()
-        except Exception as e:
-            tf_cfg.dbg(1, "Problem getting stats from server: %s" % e)
-            raise e
+        server.get_stats()
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

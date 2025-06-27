@@ -34,13 +34,9 @@ DEBUG_FILES = False
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEFAULT_TIMEOUT = 10
 
-logger = tf_cfg.LOGGER
-
 
 class ANode(object, metaclass=abc.ABCMeta):
     """Node abstract class."""
-
-    _logger: logging.Logger = logger
 
     def __init__(self, ntype: str, hostname: str, workdir: str, *args, **kwargs):
         """
@@ -58,6 +54,10 @@ class ANode(object, metaclass=abc.ABCMeta):
         self.type = ntype
         self._numa_nodes_n: int = 0
         self._max_threads_n: int = 0
+
+        self._logger = logging.LoggerAdapter(
+            logging.getLogger("env"), extra={"service": f"{self.__class__.__name__}({self.host})"}
+        )
 
     def _numa_nodes_count(self) -> int:
         """
@@ -206,8 +206,9 @@ class LocalNode(ANode):
             error.CommandExecutionException: if something happened during the execution
             error.ProcessKilledException: if a process was killed
         """
-        msg_is_blocking = "" if is_blocking else "***NON-BLOCKING (no wait to finish)*** "
-        self._logger.debug(f"An initial command before changes: '{cmd}'")
+        self._logger.info(f"'{cmd}'")
+        if is_blocking:
+            self._logger.debug("***NON-BLOCKING (no wait to finish)***")
 
         # Popen() expects full environment
         env_full = os.environ.copy()
@@ -216,15 +217,9 @@ class LocalNode(ANode):
         if run_config.SAVE_SECRETS and "curl" in cmd:
             env_full["SSLKEYLOGFILE"] = "./secrets.txt"
 
-        self._logger.log(6, f"All environment variables after updating: {env_full}")
-        self._logger.info(
-            f"Run command '{cmd}' {msg_is_blocking}on host {self.host} with environment {env}"
-        )
+        self._logger.debug(f"All environment variables after updating: {env_full}")
 
-        if is_blocking:
-            std_arg = subprocess.PIPE
-        else:
-            std_arg = None
+        std_arg = subprocess.PIPE if is_blocking else None
 
         with subprocess.Popen(
             cmd, shell=True, stdout=std_arg, stderr=std_arg, env=env_full
@@ -258,9 +253,9 @@ class LocalNode(ANode):
             )
 
         if stdout:
-            self._logger.debug(f"stdout: \n {stdout.decode(errors='ignore')}")
+            self._logger.debug(f"STDOUT for '{cmd}': \n {stdout.decode(errors='ignore')}")
         if stderr:
-            self._logger.error(f"stderr: \n {stderr.decode(errors='ignore')}")
+            self._logger.debug(f"STDERR for '{cmd}': \n {stderr.decode(errors='ignore')}")
 
         return stdout, stderr
 
@@ -445,8 +440,6 @@ class RemoteNode(ANode):
             error.ProcessBadExitStatusException: if an exit code is not 0(zero)
             error.CommandExecutionException: if something happened during the execution
         """
-        self._logger.debug(f"An initial command before changes: '{cmd}'")
-
         # we could simply pass environment to exec_command(), but openssh' default
         # is to reject such environment variables, so pass them via env(1)
         if env:
@@ -457,9 +450,10 @@ class RemoteNode(ANode):
                     cmd,
                 ],
             )
-            self._logger.debug(f"Effective command `{cmd}` after injecting environment")
-
-        self._logger.info(f"Run command '{cmd}' on host {self.host} with environment {env}")
+        self._logger.info(f"'{cmd}'")
+        if is_blocking:
+            self._logger.debug("***NON-BLOCKING (no wait to finish)***")
+        self._logger.debug(f"All environment variables after updating: {env}")
 
         try:
             # TODO #120: the same as for LocalNode - provide an interface to check
@@ -483,9 +477,9 @@ class RemoteNode(ANode):
             )
 
         if stdout:
-            self._logger.debug(f"stdout: {stdout}")
+            self._logger.debug(f"STDOUT for '{cmd}':\n{stdout.decode(errors='ignore')}")
         if stderr:
-            self._logger.error(f"stderr: {stderr}")
+            self._logger.debug(f"STDERR for '{cmd}':\n{stderr.decode(errors='ignore')}")
 
         return stdout, stderr
 

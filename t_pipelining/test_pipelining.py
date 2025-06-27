@@ -2,7 +2,7 @@ import re
 import typing
 
 from framework import deproxy_server
-from helpers import control, deproxy, tf_cfg
+from helpers import control, deproxy
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -299,8 +299,6 @@ server ${server_ip}:8000;
         self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
         self.assertEqual(4, len(deproxy_srv.requests))
-        for i in range(len(deproxy_cl.responses)):
-            tf_cfg.dbg(3, "Resp %i: %s" % (i, deproxy_cl.responses[i].msg))
 
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))

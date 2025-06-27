@@ -21,8 +21,8 @@ class ExternalTester(client.Client):
         in runtime via modifying `options` (list of strings) member.
     """
 
-    def __init__(self, cmd_args, **kwargs):
-        client.Client.__init__(self, **kwargs)
+    def __init__(self, id_: str, cmd_args: str, **kwargs):
+        client.Client.__init__(self, id_=id_, **kwargs)
         self.options = [cmd_args]
         self.response_msg: str = None
         self.__stdout = b""

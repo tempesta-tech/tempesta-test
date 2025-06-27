@@ -4,19 +4,20 @@ __license__ = "GPL2"
 
 import abc
 import asyncore
+import logging
 import threading
 from abc import ABC
 from ipaddress import AddressValueError, IPv4Address, IPv6Address, NetmaskValueError
 from typing import Optional
 
 from framework.stateful import Stateful
-from helpers import tf_cfg
 
 
 class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
     def __init__(
         self,
         *,
+        id_: str,
         deproxy_auto_parser,
         port: int,
         bind_addr: Optional[str],
@@ -26,7 +27,6 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
     ):
         # Initialize the base `dispatcher`
         asyncore.dispatcher.__init__(self)
-        Stateful.__init__(self)
 
         self._deproxy_auto_parser = deproxy_auto_parser
         self.is_ipv6 = is_ipv6
@@ -34,8 +34,21 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         self.bind_addr = bind_addr
         self.segment_size = segment_size
         self.segment_gap = segment_gap
-        self.stop_procedures: list[callable] = [self.__stop]
         self.__polling_lock: Optional[threading.Lock] = None
+
+        Stateful.__init__(self, id_=id_)
+
+        self.stop_procedures: list[callable] = [self.__stop]
+
+        self._tcp_logger = logging.LoggerAdapter(
+            logging.getLogger("tcp"), extra={"service": f"{self._service_id}"}
+        )
+        self._http_logger = logging.LoggerAdapter(
+            logging.getLogger("http"), extra={"service": f"{self._service_id}"}
+        )
+
+    def _generate_service_id(self, id_: str) -> None:
+        self._service_id = f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
 
     def set_lock(self, polling_lock: threading.Lock) -> None:
         self.__polling_lock = polling_lock
@@ -49,7 +62,7 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         Args:
             address (tuple): address to bind
         """
-        tf_cfg.dbg(6, f"Trying to bind {str(address)} for {self.__class__.__name__}")
+        self._tcp_logger.info(f"Trying to bind {str(address)} for {self.__class__.__name__}")
         try:
             super().bind(address)
         # When we cannot bind an address, adding more details
@@ -57,7 +70,7 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
             os_err_msg = (
                 f"Cannot assign an address `{str(address)}` for `{self.__class__.__name__}`"
             )
-            tf_cfg.dbg(6, os_err_msg)
+            self._tcp_logger.error(os_err_msg, exc_info=True)
             raise OSError(os_err_msg) from os_exc
 
     def run_start(self):
@@ -66,31 +79,32 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         try:
             self._run_deproxy()
         except Exception as e:
-            tf_cfg.dbg(2, f"Error while creating socket {self.bind_addr}:{self.port}: {str(e)}")
+            self._tcp_logger.error(
+                f"Error while creating socket {self.bind_addr}:{self.port}: {str(e)}"
+            )
             raise e
         finally:
             self.__release()
 
     def __stop(self) -> None:
-        tf_cfg.dbg(4, "\tTry stop")
         self.__acquire()
         try:
             self._stop_deproxy()
         except Exception as e:
-            tf_cfg.dbg(2, "Exception while stop: %s" % str(e))
+            self._tcp_logger.error("Exception while stop", exc_info=True)
             raise e
         finally:
             self.__release()
 
     def __acquire(self) -> None:
-        tf_cfg.dbg(5, "Try to capture the thread Lock")
+        self._tcp_logger.debug("Try to capture the thread Lock")
         self.__polling_lock.acquire()
-        tf_cfg.dbg(5, "Thread Lock was successfully captured")
+        self._tcp_logger.debug("Thread Lock was successfully captured")
 
     def __release(self) -> None:
-        tf_cfg.dbg(5, "Try to release the thread Lock")
+        self._tcp_logger.debug("Try to release the thread Lock")
         self.__polling_lock.release()
-        tf_cfg.dbg(5, "Thread Lock has been successfully released")
+        self._tcp_logger.debug("Thread Lock has been successfully released")
 
     @abc.abstractmethod
     def _stop_deproxy(self) -> None: ...

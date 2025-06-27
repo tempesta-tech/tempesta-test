@@ -1,7 +1,7 @@
 """TestCase for mixed listening sockets."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import socket
@@ -177,11 +177,6 @@ class TestMixedListeners(tester.TempestaTest):
         client: ExternalTester = self.get_client(curl_client_id)
         client.start()
         self.wait_while_busy(client)
-        client.stop()
-        if client.response_msg:
-            tf_cfg.dbg(4, f"\t{client.options[0]} request received response")
-        else:
-            tf_cfg.dbg(4, f"\t{client.options[0]} request did not receive response")
         client.stop()
         return client.response_msg
 

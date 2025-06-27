@@ -23,8 +23,7 @@ if TYPE_CHECKING:
     from helpers.remote import ANode
 
 
-# Deprecated variable — kept temporarily for compatibility.
-LOGGER = logging.getLogger("dprct")
+test_logger = logging.LoggerAdapter(logging.getLogger("test"), extra={"service": f""})
 
 
 class ConfigError(Exception):
@@ -33,9 +32,6 @@ class ConfigError(Exception):
 
 
 class TestFrameworkCfg:
-
-    logger = LOGGER
-
     kvs = {}
 
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
@@ -50,10 +46,6 @@ class TestFrameworkCfg:
         self.cfg_err = None
         self.log_listner = None
         self._date_format = "%H:%M:%S"
-        self._log_format = (
-            "%(asctime)s.%(msecs)03d | %(levelname)8s | "
-            "%(name)5s | %(module)s | %(lineno)03d | %(message)s"
-        )
 
         try:
             self.config.read(self.cfg_file)
@@ -118,7 +110,6 @@ class TestFrameworkCfg:
                 "General": {
                     "ip": "127.0.0.1",
                     "ipv6": "::1",
-                    "verbose": "0",
                     "workdir": "/tmp/host",
                     "duration": "10",
                     "concurrent_connections": "10",
@@ -131,12 +122,13 @@ class TestFrameworkCfg:
                     "memory_leak_threshold": "65536",
                 },
                 "Loggers": {
-                    "dprct": "INFO",
+                    "stream_handler": "CRITICAL",
                     "file_handler": "INFO",  # logs/test.log
                     "test": "INFO",  # test
                     "tcp": "INFO",  # tcp
                     "http": "INFO",  # http, https
-                    "env": "INFO",  # env logs (subprocess calls, environment settitngs)
+                    "env": "INFO",  # env logs (subprocess calls, environment settings)
+                    "service": "INFO",  # service logs (statefull, etc.)
                     "dap": "INFO",  # DeproxyAutoParser
                 },
                 "Client": {
@@ -194,10 +186,6 @@ class TestFrameworkCfg:
             }
         )
 
-    def set_v_level(self, level):
-        assert isinstance(level, int) or isinstance(level, str) and level.isdigit()
-        self.config["General"]["Verbose"] = str(level)
-
     def set_duration(self, val):
         try:
             int(val)
@@ -211,7 +199,7 @@ class TestFrameworkCfg:
             return self.config[section][opt]
         except KeyError as r_exc:
             err_msg = f"Failed getting section `{section}` opt `{opt}`."
-            self.logger.debug(err_msg)
+            test_logger.debug(err_msg)
             raise KeyError(err_msg) from r_exc
 
     def set_option(self, section: str, opt: str, value: str) -> None:
@@ -263,11 +251,16 @@ class TestFrameworkCfg:
         pretty.install()
         stream_handler = RichHandler(
             console=Console(width=180, color_system="256"),
+            show_level=True,
+            show_path=True,
             rich_tracebacks=True,
             tracebacks_extra_lines=2,
         )
         stream_handler.setFormatter(
-            logging.Formatter(fmt=self._log_format, datefmt=self._date_format)
+            logging.Formatter(
+                fmt=("%(asctime)s.%(msecs)03d | %(name)7s | %(service)39s | %(message)s"),
+                datefmt=self._date_format,
+            )
         )
         return stream_handler
 
@@ -282,13 +275,19 @@ class TestFrameworkCfg:
         log_file = os.path.join(log_dir, "test.log")
         file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
         file_handler.doRollover()
-        file_handler.setFormatter(
-            logging.Formatter(fmt=self._log_format, datefmt=self._date_format)
-        )
 
         # we use threads and should use queue in logs
         log_queue = queue.Queue()
         queue_handler = QueueHandler(log_queue)
+        queue_handler.setFormatter(
+            logging.Formatter(
+                fmt=(
+                    "%(asctime)s.%(msecs)03d | %(levelname)8s | "
+                    "%(name)7s | %(module)19s | %(lineno)03d | %(service)39s | %(message)s"
+                ),
+                datefmt=self._date_format,
+            )
+        )
         self.log_listner = QueueListener(log_queue, file_handler)
 
         return queue_handler
@@ -298,7 +297,7 @@ class TestFrameworkCfg:
         Sets the log level for the file handler based on the configuration.
         Iterates over predefined loggers to set their log levels according to the configuration.
         """
-        stream_handler_lvl = _DPRCT_LOG_LEVELS.get(int(self.config["General"]["Verbose"]))
+        stream_handler_lvl = logging._nameToLevel.get(self.config["Loggers"]["stream_handler"])
         file_handler_lvl = logging._nameToLevel.get(self.config["Loggers"]["file_handler"])
 
         stream_handler.setLevel(stream_handler_lvl)
@@ -323,36 +322,12 @@ class TestFrameworkCfg:
         self.log_listner.start()
 
 
-def debug() -> bool:
-    return int(cfg.get("General", "Verbose")) >= 3
-
-
-def v_level():
-    return int(cfg.get("General", "Verbose"))
-
-
-_DPRCT_LOGGET = logging.getLogger("dprct")
-_DPRCT_LOG_LEVELS = {
-    0: logging.CRITICAL,
-    1: logging.CRITICAL,
-    2: logging.ERROR,
-    3: logging.INFO,
-    4: logging.INFO,
-    5: logging.DEBUG,
-    6: logging.DEBUG,
-}
-
-
-def dbg(level: int, msg: str, *args, **kwargs) -> None:
-    _DPRCT_LOGGET.log(level=_DPRCT_LOG_LEVELS.get(level), msg=f"{msg}", *args, **kwargs)
-
-
 def log_dmesg(node: "ANode", msg: str) -> None:
     """Forward a message to kernel log at given node."""
     try:
-        node.run_cmd(f"echo '{msg}' > /dev/kmsg")
+        node.run_cmd(f'echo "{msg}" > /dev/kmsg')
     except Exception as e:
-        _DPRCT_LOGGET.error(f"Can not access node {node.type}: {str(e)}")
+        test_logger.error(f"Can not access node {node.type}: {str(e)}")
 
 
 cfg = TestFrameworkCfg()

@@ -106,21 +106,12 @@ class LongBodyInRequest(TempestaTest):
     ]
 
     def setUp(self):
-        self.verbose = tf_cfg.cfg.get("General", "verbose")
-        if int(self.verbose) < 2:
-            print(f"\n{self.id()}")
-            tf_cfg.cfg.set_option("General", "verbose", "2")
-
         location = tf_cfg.cfg.get("Client", "workdir")
         self.abs_path = os.path.join(location, "long_body.bin")
         remote.client.copy_file(self.abs_path, "x" * BODY_SIZE)
         super().setUp()
         # Cleanup part
         self.addCleanup(self.cleanup_file)
-        self.addCleanup(self.cleanup_verbose)
-
-    def cleanup_verbose(self):
-        tf_cfg.cfg.set_option("General", "verbose", self.verbose)
 
     def cleanup_file(self):
         if not remote.DEBUG_FILES:
@@ -155,6 +146,7 @@ class LongBodyInRequest(TempestaTest):
         client.wait_for_finish()
         client.stop()
 
+        self.assertIsNotNone(client.last_response)
         self.assertEqual(client.last_response.status, 200)
         tempesta = self.get_tempesta()
         tempesta.get_stats()

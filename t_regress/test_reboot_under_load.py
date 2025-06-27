@@ -134,7 +134,6 @@ class TestRebootUnderLoad(tester.TempestaTest):
         time.sleep(self.warm_timeout)
         for i in range(self.restart_cycles):
             time.sleep(self.restart_timeout)
-            tf_cfg.dbg(3, f"\tReboot {i + 1} of {self.restart_cycles}")
             tempesta.stop()
             # Run random command on remote node to see if it is still alive.
             remote.tempesta.run_cmd("uname")

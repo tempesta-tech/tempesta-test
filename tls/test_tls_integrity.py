@@ -6,7 +6,7 @@ import hashlib
 from contextlib import contextmanager
 
 import run_config
-from helpers import analyzer, remote, tf_cfg
+from helpers import analyzer, remote
 from helpers.error import Error
 from helpers.networker import NetWorker
 from test_suite import sysnet, tester
@@ -93,7 +93,6 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
                 res, "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
             )
             resp = client.responses[-1].body
-            tf_cfg.dbg(4, "\tDeproxy response (len=%d): %s..." % (len(resp), resp[:100]))
             hash2 = hashlib.md5(resp.encode()).digest()
             self.assertTrue(hash1 == hash2, "Bad response checksum")
 
@@ -441,7 +440,6 @@ class CloseConnection(tester.TempestaTest):
             res, "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
         )
         resp = client.responses[-1].body
-        tf_cfg.dbg(4, "\tDeproxy response (len=%d): %s..." % (len(resp), resp[:100]))
         hash2 = hashlib.md5(resp.encode()).digest()
         self.assertTrue(hash1 == hash2, "Bad response checksum")
 

@@ -12,12 +12,11 @@ have a description how the inheriting should work.
 """
 
 from framework.wrk_client import Wrk
-from helpers import tf_cfg
 from helpers.control import servers_get_stats
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -241,7 +240,6 @@ class AllDefaults(tester.TempestaTest):
         delta = 0
 
         for srv in servers:
-            tf_cfg.dbg(3, "Server %s received %d requests" % (srv.get_name(), srv.requests))
             if not exp_reqs:
                 exp_reqs = srv.requests
                 delta = max(exp_reqs * self.precision, self.min_delta)
@@ -256,7 +254,6 @@ class AllDefaults(tester.TempestaTest):
                     % (srv.get_name(), srv.requests, exp_reqs - delta, exp_reqs + delta)
                 ),
             )
-        tf_cfg.dbg(3, "Server group %s uses 'ratio static' scheduler" % (group_name))
 
     def check_dynamic_lb(self, servers, group_name):
         """Group of servers use ratio dynamic load balancer. For details
@@ -281,8 +278,6 @@ class AllDefaults(tester.TempestaTest):
                 break
             prev_weight = weight
             prev_name = name
-
-        tf_cfg.dbg(3, "Server group %s uses 'ratio dynamic' scheduler" % (group_name))
 
     def check_lb(self, group_name, lb_name):
         """

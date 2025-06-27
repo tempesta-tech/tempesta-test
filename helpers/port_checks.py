@@ -1,12 +1,13 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import ipaddress
 from typing import List
 
-from helpers import remote, tf_cfg
+from helpers import remote
 from helpers.remote import ANode
+from helpers.tf_cfg import test_logger
 
 
 class FreePortsChecker(object):
@@ -33,7 +34,7 @@ class FreePortsChecker(object):
     def clean_ports_to_checks(self) -> None:
         self.__port_checks = []
 
-    def check_ports_status(self):
+    def check_ports_status(self, verbose=True):
         cmd = "netstat -tlnp"
         netstat, _ = self.node.run_cmd(cmd)
 
@@ -41,7 +42,7 @@ class FreePortsChecker(object):
 
         for line in netstat.decode().splitlines()[2:]:
             portline = line.split()
-            tf_cfg.dbg(5, "\tListen %s" % str(portline))
+            test_logger.info(f"Listen {portline}")
             listen.append(portline)
 
         for addrport in self.__port_checks:
@@ -51,10 +52,11 @@ class FreePortsChecker(object):
             match_exact = "%s:%s" % (ip, port)
             match_common = "0.0.0.0:%s" % port
 
-            tf_cfg.dbg(5, "\tChecking %s:%s" % (ip, port))
+            test_logger.info(f"Checking {ip}:{port}")
             for portline in listen:
                 if portline[3] == match_common or portline[3] == match_exact:
-                    tf_cfg.dbg(2, "Error: port already used %s" % str(portline))
+                    if verbose:
+                        test_logger.critical(f"Error: port already used {portline}")
                     msg = "Trying to use already used port: %s" % portline
                     raise Exception(msg)
 

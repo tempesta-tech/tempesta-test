@@ -62,14 +62,6 @@ class ForEach:
             yield o
 
 
-def getsockname_safe(s):
-    try:
-        return s.getsockname()
-    except Exception as e:
-        tf_cfg.dbg(6, f"Failed to get socket name: {e}")
-        return None
-
-
 def get_used_memory():
     stdout, _ = remote.tempesta.run_cmd("free")
     used_memory = int(stdout.decode().split("\n")[1].split()[2])

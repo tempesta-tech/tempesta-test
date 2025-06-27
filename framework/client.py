@@ -1,3 +1,7 @@
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import abc
 import multiprocessing
 import os
@@ -6,14 +10,13 @@ from framework import stateful
 from helpers import error, remote, tf_cfg, util
 
 
-def _run_client(client, resq: multiprocessing.Queue):
+def _run_client(client: "Client", resq: multiprocessing.Queue):
     try:
         res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
     except error.BaseCmdException as e:
         res = (e.stdout, e.stderr)
         client.returncode = e.returncode
     resq.put(res)
-    tf_cfg.dbg(3, "\tClient exit")
 
 
 class Client(stateful.Stateful, metaclass=abc.ABCMeta):
@@ -23,14 +26,15 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     Also see comment in `Client.add_option_file()` function.
     """
 
-    def __init__(self, binary, server_addr, uri="/", ssl=False):
+    def __init__(self, id_: str, binary: str, server_addr: str, uri="/", ssl=False):
         """`uri` must be relative to server root.
 
         DO NOT format command line options in constructor! Instead format them
         in `form_command()` function. This would allow to update options until
         client will be started. See `Wrk` class for example
         """
-        super().__init__()
+        self.bin = tf_cfg.cfg.get_binary("Client", binary)
+        super().__init__(id_=id_)
         self.node = remote.client
         self.connections = int(tf_cfg.cfg.get("General", "concurrent_connections"))
         self.duration = int(tf_cfg.cfg.get("General", "Duration"))
@@ -38,7 +42,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.ssl = ssl
         self.server_addr = server_addr
         self.set_uri(uri)
-        self.bin = tf_cfg.cfg.get_binary("Client", binary)
         self.cmd = ""
         self.clear_stats()
         # List of command-line options.
@@ -59,9 +62,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.statuses = {}
         # Stateful
         self.stop_procedures = [self.__on_finish]
-
-    def __str__(self):
-        return self.bin
 
     def set_uri(self, uri):
         """For some clients uri is an optional parameter, e.g. for Siege.
@@ -92,40 +92,29 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         busy = self.resq.empty()
         if verbose:
             if busy:
-                tf_cfg.dbg(4, "\tClient is running")
+                self._logger.debug("Client is running")
             else:
-                tf_cfg.dbg(4, "\tClient is not running")
+                self._logger.debug("Client is not running")
         return busy
 
     def __on_finish(self):
         if not hasattr(self.proc, "terminate"):
             return
-        tf_cfg.dbg(3, "Stopping client")
-
         self.proc_results = self.resq.get(timeout=self.duration)
 
         self.proc.join()
         self.proc = None
 
         if self.proc_results:
-            tf_cfg.dbg(3, f"\tclient stdout:\n{self.proc_results[0]}")
-
-            if len(self.proc_results[1]) > 0:
-                tf_cfg.dbg(2, f"\tclient stderr:\n{self.proc_results[1]}")
-
             self.parse_out(self.proc_results[0], self.proc_results[1])
         else:
-            tf_cfg.dbg(
-                2,
-                f'\tCmd command "{self.cmd}" has not received data from queue. '
-                + "Queue is empty and timeout is over.",
+            self._logger.warning(
+                f'Cmd command "{self.cmd}" has not received data from queue. '
+                + "Queue is empty and timeout is over."
             )
-
-        tf_cfg.dbg(3, "Client is stopped")
 
     def run_start(self):
         """Run client"""
-        tf_cfg.dbg(3, "Running client")
         self.prepare()
         self.proc = multiprocessing.Process(target=_run_client, args=(self, self.resq))
         self.proc.start()

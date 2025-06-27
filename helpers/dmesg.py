@@ -8,7 +8,9 @@ import typing
 from contextlib import contextmanager
 from typing import Callable, List
 
-from . import error, remote, tf_cfg, util
+from test_suite.tester import test_logger
+
+from . import error, remote, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
@@ -160,7 +162,7 @@ class DmesgFinder(BaseTempestaLogger):
         (leads to the bunch of annoying flacky tests). In all another cases
         log_findall() should be enough (in combination with len() or something).
         """
-        tf_cfg.dbg(4, f"\tFinding pattern '{pattern}' in dmesg.")
+        test_logger.info(f"Finding pattern '{pattern}' in dmesg.")
 
         def wait_cond():
             self.update()
@@ -323,7 +325,7 @@ def wait_for_msg(pattern: str, strict=True):
         # The only good way to fix this is to properly setup system logger,
         # otherwise we either spend too much time on timeouts or observe
         # spurious exceptions.
-        tf_cfg.dbg(2, f'No "{pattern}" log record and no ratelimiting')
+        test_logger.warning(f'No "{pattern}" log record and no ratelimiting')
 
 
 def __change_dmesg_limit_on_tempesta_node(func, rate, *args, **kwargs):

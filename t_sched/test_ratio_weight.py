@@ -22,12 +22,11 @@ Backend is configured to never close connections (keepalive_requests),
 since it unpredictably affects load distribution.
 """
 
-from helpers import tf_cfg
 from helpers.control import servers_get_stats
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 NGINX_CONFIG = """
@@ -262,19 +261,6 @@ class Ratio(tester.TempestaTest):
             s_reqs_expected = cl_reqs * exp_weight / tot_weight
             delta = prec * s_reqs_expected
 
-            tf_cfg.dbg(
-                3,
-                "Server %s with weight %d received %d requests; "
-                "calculated weight is %f, [%d, %d] requests was expected"
-                % (
-                    srv.get_name(),
-                    exp_weight,
-                    srv.requests,
-                    calc_weight,
-                    s_reqs_expected - delta,
-                    s_reqs_expected + delta,
-                ),
-            )
             self.assertAlmostEqual(
                 calc_weight,
                 exp_weight,
