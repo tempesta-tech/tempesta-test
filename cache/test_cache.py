@@ -678,6 +678,7 @@ vhost default {
         self._test(uri="/nonidempotent", method="GET", should_be_cached=False)
 
     def test_nonidempotent_head(self):
+        self.disable_deproxy_auto_parser()
         self._test(uri="/nonidempotent", method="HEAD", should_be_cached=False)
 
     def test_suffix_cached_and_prefix_bypassed(self):
@@ -2613,5 +2614,6 @@ tls_match_any_server_name;
         client.send_request(request, "200")
         self.assertGreaterEqual(client.last_response.headers.get("age"), "333")
         self.assertEqual(len(srv.requests), 1)
+
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

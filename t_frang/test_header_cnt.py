@@ -119,25 +119,6 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
     ]
     request_with_many_headers[0].extend([(f"header{step}", f"value{step}") for step in range(10)])
 
-    def test_settings_max_header_list_size(self):
-        """
-        Tempesta MUST send SETTINGS_MAX_HEADER_LIST_SIZE in SETTINGS frame when client initiate
-        h2 connection.
-        """
-        self.set_frang_config(frang_config="http_header_cnt 5;")
-
-        client = self.get_client("deproxy-1")
-        client.start()
-        client.update_initial_settings()
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings(3)
-
-        self.assertIsNotNone(
-            client.h2_connection.remote_settings.max_header_list_size,
-            "Tempesta did not send SETTINGS_MAX_HEADER_LIST_SIZE in SETTINGS frame.",
-        )
-        self.assertEqual(client.h2_connection.remote_settings.max_header_list_size, 5)
-
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )

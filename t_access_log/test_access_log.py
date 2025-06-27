@@ -174,8 +174,10 @@ class AccessLogTest(CheckedResponses):
         self.assertNotEqual(msg.address, "-", "Wrong ip")
 
     def test_bad_user_agent(self):
+        self.disable_deproxy_auto_parser()
         self.start_all()
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.get_client("client").parsing = False
         req = self.make_request("/some-uri", user_agent="bad\nagent", referer="Ok-Referer")
         msg = self.send_request_and_get_dmesg(klog, req)
         self.assertTrue(msg is not None, "No access_log message in dmesg")

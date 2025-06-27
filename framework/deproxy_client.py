@@ -209,11 +209,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
 
-        if run_config.TCP_SEGMENTATION and self.segment_size == 0:
-            self.segment_size = run_config.TCP_SEGMENTATION
-
-        self.segment_size = self.segment_size if self.segment_size else deproxy.MAX_MESSAGE_SIZE
-
         sent = self.send(reqs[: self.segment_size])
         if sent < 0:
             return

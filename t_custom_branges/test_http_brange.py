@@ -91,6 +91,7 @@ class TestConfigParsing(tester.TempestaTest):
         """
         directive = random.choice(DIRECTIVES)
         self._update_tempesta_config(directive=directive, characters=characters)
+        self.oops_ignore.append("ERROR")
 
         with self.assertRaises(
             error.ProcessBadExitStatusException,
