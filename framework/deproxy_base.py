@@ -11,6 +11,7 @@ from ipaddress import AddressValueError, IPv4Address, IPv6Address, NetmaskValueE
 from typing import Optional
 
 from framework.stateful import Stateful
+from helpers import deproxy
 
 
 class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
@@ -32,7 +33,7 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         self.is_ipv6 = is_ipv6
         self.port = port
         self.bind_addr = bind_addr
-        self.segment_size = segment_size
+        self.segment_size = segment_size or run_config.TCP_SEGMENTATION or deproxy.MAX_MESSAGE_SIZE
         self.segment_gap = segment_gap
         self.__polling_lock: Optional[threading.Lock] = None
 
@@ -146,8 +147,8 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
 
     @segment_size.setter
     def segment_size(self, segment_size: int) -> None:
-        if segment_size < 0:
-            raise ValueError("`segment_size` MUST be greater than or equal to 0.")
+        if segment_size <= 0:
+            raise ValueError("`segment_size` MUST be greater than to 0.")
         self._segment_size = segment_size
 
     @property

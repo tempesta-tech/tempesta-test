@@ -335,7 +335,6 @@ frang_limits {
     def test_mixed(self):
         self.routine(lua_mixed)
 
-    # nginx always send 405 for TRACE
     def test_trace(self):
         lua_trace = 'wrk.method = "TRACE"\n' 'wrk.uri = "/"\n'
 
@@ -352,8 +351,8 @@ frang_limits {
         wrk.start()
         self.wait_while_busy(wrk)
         wrk.stop()
-        self.assertFalse(200 in wrk.statuses)
-        self.assertTrue(405 in wrk.statuses)
+        self.assertNotIn(200, wrk.statuses)
+        self.assertIn(405, wrk.statuses)
         self.assertGreater(wrk.statuses[405], 0)
 
     def test_connect(self):
