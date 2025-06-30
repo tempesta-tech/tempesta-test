@@ -2,7 +2,6 @@
 Tests for JA5 Hash Filtering and Configuration Parsing
 """
 
-import string
 import typing
 
 from helpers import remote, tf_cfg
@@ -13,10 +12,6 @@ from test_suite import marks, tester
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
-
-
-class CustomTemplate(string.Template):
-    delimiter = "&"
 
 
 def gen_curl_ja5t_cmd(
