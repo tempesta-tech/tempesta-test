@@ -10,6 +10,7 @@ from abc import ABC
 from ipaddress import AddressValueError, IPv4Address, IPv6Address, NetmaskValueError
 from typing import Optional
 
+import run_config
 from framework.stateful import Stateful
 from helpers import deproxy
 
