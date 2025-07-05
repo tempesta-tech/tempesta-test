@@ -216,6 +216,9 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.request_buffers[self.cur_req_num] = reqs[sent:]
         if len(self.request_buffers[self.cur_req_num]) == 0:
             self.cur_req_num += 1
+            self._http_logger.info(
+                f"A request was send. The current number of a request - {self.cur_req_num}"
+            )
 
     @abc.abstractmethod
     def make_requests(self, requests): ...
@@ -285,6 +288,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def receive_response(self, response: deproxy.Response) -> None:
         self.responses.append(response)
         self.clear_last_response_buffer = True
+        self._http_logger.info(
+            f"A response was receive. The response status={response.status}. "
+            f"The current number of responses - {self.nrresp}."
+        )
 
         if self._deproxy_auto_parser.parsing:
             self._deproxy_auto_parser.check_expected_response(
@@ -424,8 +431,8 @@ class DeproxyClient(BaseDeproxyClient):
                     f"Can't parse message\n<<<<\n{self.response_buffer}\n>>>>", exc_info=True
                 )
                 raise
-            self.receive_response(response)
             self.nrresp += 1
+            self.receive_response(response)
 
     def _add_to_request_buffers(self, data, *_, **__) -> None:
         data = data if isinstance(data, list) else [data]

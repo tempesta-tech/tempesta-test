@@ -289,6 +289,7 @@ class StaticDeproxyServer(BaseDeproxy):
     def receive_request(self, request: deproxy.Request) -> (bytes, bool):
         self._requests.append(request)
         req_num = len(self.requests)
+        self._http_logger.info(f"A request was receive. The current number of requests - {req_num}")
 
         # Don't send response to this request w/o disconnect
         if 0 < self.hang_on_req_num <= req_num:
