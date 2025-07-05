@@ -174,6 +174,7 @@ class TestFrameworkCfg:
                     "lxc_container_name": "tempesta-site-stage",
                     "website_user": os.getenv("WEBSITE_USER", ""),
                     "website_password": os.getenv("WEBSITE_PASSWORD", ""),
+                    "website_port": "7000",
                 },
                 "TFW_Logger": {
                     "clickhouse_host": "127.0.0.1",
