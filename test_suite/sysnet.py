@@ -14,6 +14,13 @@ __copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
+def __check_ssh_ip_addr(ip: str) -> bool:
+    """
+    We must not remove Tempesta and server IPs because it's break the ssh connection
+    """
+    return ip not in [tf_cfg.cfg.get("Tempesta", "ip"), tf_cfg.cfg.get("Server", "ip")]
+
+
 def ip_str_to_number(ip_addr):
     """Convert ip to number"""
     packed = socket.inet_aton(ip_addr)
@@ -47,7 +54,7 @@ def create_interface(iface_id, base_iface_name, base_ip):
 def remove_interface(interface_name, iface_ip):
     """Remove interface"""
     template = "LANG=C ip address del %s/24 dev %s"
-    if iface_ip != tf_cfg.cfg.get("Server", "aliases_base_ip"):
+    if __check_ssh_ip_addr(iface_ip):
         try:
             test_logger.info(f"Removing ip {iface_ip}")
             remote.server.run_cmd(template % (iface_ip, interface_name))
@@ -151,11 +158,13 @@ def create_route(base_iface_name, ip, gateway_ip):
 def remove_route(interface_name, ip):
     """Remove route"""
     template = "LANG=C ip route del %s dev %s"
-    try:
-        test_logger.info(f"Removing route for {ip}")
-        remote.tempesta.run_cmd(template % (ip, interface_name))
-    except:
-        test_logger.warning("Route already removed")
+    # we must not remove Tempesta and server IPs because it's break the ssh connection
+    if __check_ssh_ip_addr(ip):
+        try:
+            test_logger.info(f"Removing route for {ip}")
+            remote.tempesta.run_cmd(template % (ip, interface_name))
+        except:
+            test_logger.warning("Route already removed")
 
 
 def remove_routes(base_interface_name, ips):

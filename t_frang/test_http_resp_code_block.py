@@ -218,10 +218,10 @@ frang_limits {
         deproxy_cl2.start()
 
         deproxy_cl.make_requests(self.requests * 10)
-        deproxy_cl.wait_for_response(timeout=4)
+        self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
 
         deproxy_cl2.make_requests(self.requests2 * 10)
-        deproxy_cl2.wait_for_response(timeout=6)
+        self.assertIsNone(deproxy_cl2.wait_for_response(timeout=6))
 
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(0, len(deproxy_cl2.responses))
@@ -251,8 +251,8 @@ frang_limits {
         deproxy_cl.make_requests((self.requests + self.requests2) * 6)
         deproxy_cl2.make_requests((self.requests + self.requests2) * 10)
 
-        deproxy_cl.wait_for_response(timeout=4)
-        deproxy_cl2.wait_for_response(timeout=6)
+        self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
+        self.assertTrue(deproxy_cl2.wait_for_response(timeout=6))
 
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
