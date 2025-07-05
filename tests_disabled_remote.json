@@ -102,30 +102,6 @@
 	        "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
 	    },
         {
-            "name": "t_modify_http_headers.test_logic.TestManyRequestHeaders.test_many_headers",
-            "reason": "Disabled by issue #1103"
-        },
-        {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_two_ip",
-            "reason": "Disabled by test issue #492"
-        },
-        {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_two_ip",
-            "reason": "Disabled by test issue #492"
-        },
-        {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_different_ip",
-            "reason": "Disabled by test issue #492"
-        },
-        {
-            "name": "encoding.test_encoding.TestH1ChunkedWithTrailer",
-            "reason": "Disabled by issue #1902"
-        },
-        {
-            "name": "access_log",
-            "reason": "Disabled by test issue #525."
-        },
-        {
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip",
             "reason": "Disabled by test issue #529."
         },
@@ -137,15 +113,11 @@
             "name": "very_many_backends.test_deadtime_1M",
             "reason": "Disabled by test issue #56."
         },
-        {
-            "name" : "t_stress.test_stress.TlsWrkStressDocker",
-            "reason" : "Disabled by issue #2266"
-        },
-	{
+	    {
             "name": "t_stress.test_stress.TestRequestsUnderCtrlFrameFlood",
             "reason": "Disabled by test issue #817"
         },
-	{
+	    {
             "name": "t_stress.test_stress.TestContinuationFlood",
             "reason": "Disabled by test issue #817"
         },

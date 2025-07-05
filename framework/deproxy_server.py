@@ -126,15 +126,8 @@ class ServerConnection(asyncore.dispatcher):
             self.__new_response = False
             return self.sleep()
 
-        if run_config.TCP_SEGMENTATION and self._server.segment_size == 0:
-            self._server.segment_size = run_config.TCP_SEGMENTATION
-
-        segment_size = (
-            self._server.segment_size if self._server.segment_size else deproxy.MAX_MESSAGE_SIZE
-        )
-
         resp = self._response_buffer[self._responses_done]
-        sent = self.socket.send(resp[:segment_size])
+        sent = self.socket.send(resp[: self._server.segment_size])
 
         if sent < 0:
             return
@@ -296,6 +289,7 @@ class StaticDeproxyServer(BaseDeproxy):
     def receive_request(self, request: deproxy.Request) -> (bytes, bool):
         self._requests.append(request)
         req_num = len(self.requests)
+        self._http_logger.info(f"A request was receive. The current number of requests - {req_num}")
 
         # Don't send response to this request w/o disconnect
         if 0 < self.hang_on_req_num <= req_num:
