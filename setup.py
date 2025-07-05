@@ -1,9 +1,17 @@
+#!/usr/bin/env python3
+
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import logging
 import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
+
+from helpers.tf_cfg import cfg
 
 RED = "\033[91m"
 GREEN = "\033[92m"
@@ -205,8 +213,11 @@ def main():
 
     # create tempesta-site-stage container
     try:
-        shell("env/bin/python3 tempesta-tech.com/container/lxc/create.py --type=stage")
-        shell("sudo lxc stop tempesta-site-stage")
+        shell(
+            "env/bin/python3 tempesta-tech.com/container/lxc/create.py "
+            "--type=stage "
+            f"--proxy=0.0.0.0:{cfg.get('Server', 'website_port')}"
+        )
     except RuntimeError:
         pass
 
