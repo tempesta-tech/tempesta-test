@@ -1,7 +1,7 @@
 """The basic tests for tempesta-tech.com with TempestaFW."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import json
@@ -14,9 +14,7 @@ from test_suite.mixins import NetfilterMarkMixin
 
 
 class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
-    backends = [
-        {"id": "tempesta_tech_site", "type": "lxc", "external_port": "8000"},
-    ]
+    backends = [{"id": "tempesta_tech_site", "type": "lxc"}]
 
     clients = [
         {
@@ -130,7 +128,7 @@ class TestTempestaTechSite(NetfilterMarkMixin, tester.TempestaTest):
             tls_match_any_server_name;
 
             srv_group default {
-                    server ${server_ip}:8000;
+                    server ${server_ip}:${server_website_port};
 
             }
             vhost default {
