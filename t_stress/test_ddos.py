@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
@@ -93,7 +93,7 @@ tls_certificate ${{tempesta_workdir}}/tempesta.crt;
 tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
 tls_match_any_server_name;
 
-srv_group main {{server ${{server_ip}}:8000 conns_n=128;}}
+srv_group main {{server ${{server_ip}}:${{server_website_port}} conns_n=128;}}
 
 vhost tempesta-tech.com {{proxy_pass main;}}
 
@@ -123,7 +123,7 @@ http_chain {{
 """
     }
 
-    backends = [{"id": "wordpress", "type": "lxc", "external_port": "8000"}]
+    backends = [{"id": "wordpress", "type": "lxc"}]
 
     proxies = []
 

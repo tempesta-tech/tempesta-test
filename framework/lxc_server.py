@@ -8,10 +8,10 @@ from helpers import error, port_checks, remote, tempesta, tf_cfg, util
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-LXC_PREFIX = "tempesta-test"
+website_port = tf_cfg.cfg.get("Server", "website_port")
 
 
 @dataclass
@@ -21,23 +21,16 @@ class LXCServerArguments:
     Contains all accepted arguments (fields) supported by `LXCServer`.
     Args:
       id: backend server ID
-      external_port: external port of the container
-      internal_port: a port inside a container
       container_name: argument to lxc start/stop
       container_ip: IP address of the server (set from config)
       conns_n: number of TCP connection to TempestaFW
-      make_snapshot: when set to true, tests will make a snapshot, run, then restore container
-                     to its previous state
     """
 
     id: str
-    external_port: str
-    internal_port: str = "80"
     container_name: str = tf_cfg.cfg.get("Server", "lxc_container_name")
     container_ip: str = tf_cfg.cfg.get("Server", "ip")
     conns_n: int = tempesta.server_conns_default()
     healthcheck_timeout: int = 10
-    make_snapshot: bool = False
 
     @classmethod
     def get_arg_names(cls) -> list[str]:
@@ -52,8 +45,6 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
         stateful.Stateful.__init__(self, id_=kwargs["id"])
         self.node = remote.server
-        self.stop_procedures = [self._proxy_teardown, self._stop_container]
-        self._proxy_name = f"{LXC_PREFIX}-{self.external_port}-{self.internal_port}"
 
     @staticmethod
     def _construct_cmd(args: list[str]) -> str:
@@ -61,10 +52,11 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         return c
 
     def run_start(self):
-        if self.make_snapshot:
-            self._make_pretest_snapshot()
-        self.node.run_cmd(self._construct_cmd(["start", self.container_name]))
-        self._proxy_setup()
+        """
+        In the framework, lxc server uses only for tempesta-tech website.
+        So container must be started manually before running the tests
+        and shutdown after the tests.
+        """
 
     @property
     def status(self):
@@ -80,49 +72,17 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
             error.bug("unable to parse output of lxc list")
         return status
 
-    def _make_pretest_snapshot(self):
-        self.node.run_cmd(
-            self._construct_cmd(["snapshot", self.container_name, LXC_PREFIX, "--reuse"]),
-            timeout=20,
-        )
-
-    def _restore_pretest_snapshot(self):
-        self.node.run_cmd(self._construct_cmd(["restore", self.container_name, LXC_PREFIX]))
-
-    def _proxy_setup(self):
-        """Create a connection between the internal port and the external port."""
-        self.node.run_cmd(
-            self._construct_cmd(
-                [
-                    "config",
-                    "device",
-                    "add",
-                    self.container_name,
-                    self._proxy_name,
-                    "proxy",
-                    f"listen=tcp:{self.container_ip}:{self.external_port}",
-                    f"connect=tcp:127.0.0.1:{self.internal_port}",
-                ]
-            )
-        )
-
-    def _proxy_teardown(self):
-        self.node.run_cmd(
-            self._construct_cmd(
-                ["config", "device", "remove", self.container_name, self._proxy_name],
-            ),
-        )
-
     def __check_connection(self):
         """Wait for the both checks to be False."""
         try:
-            self.node.run_cmd(f"curl -If {self.container_ip}:{self.external_port}")
+            # apache2 in the lxc container works on 80 and 443 ports, but we use only 80 port
+            self._construct_cmd([f"exec {self.container_name} -- sh -c 'ss -tlnp | grep '80''"])
             first_check = False
         except error.BaseCmdException:
             first_check = True
 
         second_check = (
-            self.number_of_tcp_connections(self.container_ip, self.external_port) < self.conns_n
+            self.number_of_tcp_connections(self.container_ip, website_port) < self.conns_n
         )
         return first_check or second_check
 
@@ -140,11 +100,6 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
             poll_freq=0.1,
             abort_cond=lambda: self.status != "running",
         )
-
-    def _stop_container(self):
-        self.node.run_cmd(self._construct_cmd(["stop", self.container_name]), timeout=30)
-        if self.make_snapshot:
-            self._restore_pretest_snapshot()
 
 
 def lxc_srv_factory(server, name, tester):
