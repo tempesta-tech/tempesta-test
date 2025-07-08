@@ -154,10 +154,6 @@
             "reason": "These tests should not be run with TCP segmentation. We have separate tests for `http_max_header_list_size`."
         },
         {
-            "name": "t_stress.test_ddos",
-            "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
-        },
-        {
             "name": "t_frang.test_config",
             "reason": "These tests should not be run with TCP segmentation."
         },
@@ -244,22 +240,6 @@
         {
             "name": "t_frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run with segmentation."
-        },
-        {
-            "name": "t_stress.test_stress.TestContinuationFlood",
-            "reason": "Disabled by test issue #817"
-        },
-        {
-            "name": "t_stress.test_stress.H2LoadStressMTU80",
-            "reason": "Disabled by test issue #817"
-        },
-        {
-            "name": "t_stress.test_stress.TlsWrkStressMTU80",
-            "reason": "Disabled by test issue #817"
-        },
-        {
-            "name": "t_stress.test_stress.WrkStressMTU80",
-            "reason": "Disabled by test issue #817"
         }
     ]
 }
