@@ -1027,6 +1027,8 @@ class TestContinuationFlood(tester.TempestaTest):
 
         server ${server_ip}:8000;
 
+        client_mem 10000 20000;
+
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
@@ -1069,6 +1071,8 @@ class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
         listen 443 proto=h2;
 
         server ${server_ip}:8000;
+
+        client_mem 10000 20000;
 
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -1147,11 +1151,6 @@ class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
         flood_client = self.get_client("ctrl_frames_flood")
         flood_client.options = [cmd_args % tf_cfg.cfg.get("Tempesta", "ip")]
         flood_client.start()
-
-        # TODO Currently this part is not stable. Wait until #1346 in Tempesta
-        # will be implemented.
-        # for _ in range(1, 20):
-        # client.send_request(request, "200")
 
         self.wait_while_busy(flood_client, timeout=timeout)
         flood_client.stop()
