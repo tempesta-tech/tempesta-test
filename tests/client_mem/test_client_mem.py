@@ -60,7 +60,7 @@ listen 80;
             marks.Param(name="to_many_args", client_mem_config="client_mem 1 3 5;\n"),
             marks.Param(name="no_attrs", client_mem_config="client_mem 1 b=3;\n"),
             marks.Param(name="value_1", client_mem_config="client_mem 11aa;\n"),
-            marks.Param(name="soft_is_greater_then_hard", client_mem_config="client_mem 10 1;")
+            marks.Param(name="soft_is_greater_then_hard", client_mem_config="client_mem 10 1;\n"),
         ]
     )
     def test_invalid(self, name, client_mem_config):
@@ -73,9 +73,9 @@ listen 80;
 
 @marks.parameterize_class(
     [
-        {"name": "Http", "clients": [DEPROXY_CLIENT]},
-        {"name": "Https", "clients": [DEPROXY_CLIENT_SSL]},
-        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+        {"name": "Http", "clients": [DEPROXY_CLIENT], "expect_response": True},
+        {"name": "Https", "clients": [DEPROXY_CLIENT_SSL], "expect_response": True},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2], "expect_response": False},
     ]
 )
 class TestBlockByMemExceeded(tester.TempestaTest):
@@ -97,6 +97,7 @@ tls_match_any_server_name;
     }
 
     backends = [DEPROXY_SERVER]
+    expect_response = None
 
     def test_request(self):
         self.start_all_services()
@@ -106,7 +107,16 @@ tls_match_any_server_name;
             method="POST", uri="/", headers=[("Content-Length", "10000")], body="a" * 10000
         )
 
-        client.send_request(request, "403")
+        client.make_request(request)
+        if self.expect_response:
+            self.assertTrue(client.wait_for_response())
+            self.assertTrue(client.last_response.status, "403")
+        """
+        For http2 connection Tempesta FW adjust memory on
+        frame level, so connection will be closed with
+        TCP RST without any response
+        """
+        self.assertTrue(client.wait_for_connection_close())
 
     def test_response(self):
         self.start_all_services()
