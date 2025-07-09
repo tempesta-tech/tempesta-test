@@ -2,6 +2,7 @@
 Verify tfw_logger logging
 """
 
+import time
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
@@ -308,3 +309,53 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         __time_after = time_after.replace(tzinfo=None, microsecond=0)
         __record_time = record.timestamp.replace(microsecond=0)
         self.assertEqual(__record_time, __time_after)
+
+
+class TestClickhouseLogsStartupTiming(TestClickhouseLogsBaseTest):
+    """
+    Test for verifying that logs appear in ClickHouse immediately after startu
+    """
+
+    def test_logs_appear_immediately_after_startup(self):
+        """
+        Verify that logs appear in ClickHouse immediately after startup
+        """
+        client = self.get_client("deproxy")
+        client.start()
+
+        # Send request immediately after startup
+        self.send_simple_request(client)
+
+        # Check dmesg has the log
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+
+        # Check ClickHouse has the log
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
+
+        # Verify the log data is correct
+        record = self.loggers.clickhouse.access_log_last_message()
+        self.assertEqual(record.status, 201)
+        self.assertEqual(record.method, 3)  # GET
+        self.assertEqual(record.vhost, "default")
+
+    def test_multiple_immediate_requests(self):
+        """
+        Test that multiple requests sent immediately after startup
+        """
+        client = self.get_client("deproxy")
+        client.start()
+
+        # Send multiple requests quickly
+        for i in range(5):
+            self.send_simple_request(client)
+
+        # All requests should appear in both dmesg and ClickHouse
+        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 5)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 5)
+
+        # Verify all records are present
+        records = self.loggers.clickhouse.access_log_records()
+        self.assertEqual(len(records), 5)
+        for record in records:
+            self.assertEqual(record.status, 201)
+            self.assertEqual(record.method, 3)  # GET
