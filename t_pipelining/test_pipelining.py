@@ -2,11 +2,11 @@ import re
 import typing
 
 from framework import deproxy_server
-from helpers import control, deproxy
+from helpers import deproxy
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 REQUESTS_EXECUTION_SEQUENCE = []
@@ -95,13 +95,6 @@ def build_server(
 tester.register_backend("deproxy_echo", build_server(DeproxyEchoServer))
 tester.register_backend("deproxy_ka", build_server(DeproxyKeepaliveServer))
 tester.register_backend("deproxy_ex", build_server(DeproxyRegisterRequestsExecutingSequenceServer))
-
-
-def build_tempesta_fault(tempesta):
-    return control.TempestaFI("resp_alloc_err", True)
-
-
-tester.register_tempesta("tempesta_fi", build_tempesta_fault)
 
 
 class TestPipelineResponsesOrder(tester.TempestaTest):
