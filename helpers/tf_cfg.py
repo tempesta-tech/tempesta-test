@@ -183,6 +183,7 @@ class TestFrameworkCfg:
                     "clickhouse_password": "",
                     "clickhouse_database": "default",
                     "daemon_log": "/tmp/tfw_logger.log",
+                    "logger_config": "/tmp/tfw_logger.json",
                 },
             }
         )

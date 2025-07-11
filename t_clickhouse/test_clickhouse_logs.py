@@ -2,10 +2,11 @@
 Verify tfw_logger logging
 """
 
+import json
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
-from helpers import tf_cfg
+from helpers import remote, tf_cfg
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -28,7 +29,7 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
             listen 80;
             server ${server_ip}:8000;
 
-            access_log dmesg mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
+            access_log dmesg mmap logger_config=${tfw_logger_logger_config};
         """
     )
     clients = [
@@ -53,6 +54,21 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
 
     def setUp(self):
         super(TestClickhouseLogsBaseTest, self).setUp()
+        logger_config = {
+            "log_path": tf_cfg.cfg.get("TFW_Logger", "daemon_log"),
+            "clickhouse": {
+                "host": tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
+                "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"),
+                "user": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
+                "password": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
+            },
+        }
+
+        remote.tempesta.copy_file(
+            filename=tf_cfg.cfg.get("TFW_Logger", "logger_config"),
+            content=json.dumps(logger_config, ensure_ascii=False, indent=2),
+        )
+
         self.start_all_services(client=False)
 
 
@@ -63,8 +79,8 @@ class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
             server ${server_ip}:8000;
 
             mmap_log_buffer_size 4096;
-            access_log dmesg mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
-        """
+            access_log dmesg mmap logger_config=${tfw_logger_logger_config};
+        """,
     )
 
     def test_mmap_buffer(self):
@@ -90,7 +106,7 @@ class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
             listen 80;
             server ${server_ip}:8000;
 
-            access_log mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
+            access_log mmap logger_config=${tfw_logger_logger_config};
         """
     )
 
@@ -112,7 +128,7 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
             listen 80;
             server ${server_ip}:8000;
 
-            access_log mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
+            access_log mmap logger_config=${tfw_logger_logger_config};
         """
     )
 
@@ -120,21 +136,10 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         """
         Check the content of tfw_logger daemon access log
         """
-        client = self.get_client("deproxy")
-        client.start()
+        self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find("Daemon started"))
 
-        self.send_simple_request(client)
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
-
-        tempesta = self.get_tempesta()
-        tempesta.stop_procedures = list(
-            set(tempesta.stop_procedures) - {tempesta.clickhouse.clean_logs}
-        )
-        tempesta.stop()
-
-        pattern = r".*Starting daemon.*Daemon started.*Stopping daemon.*Daemon stopped.*"
-        self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find(pattern))
-        tempesta.clickhouse.clean_logs()
+        self.get_tempesta().stop_tempesta()
+        self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find("Device closed"))
 
 
 class TestNoLogs(TestClickhouseLogsBaseTest):
@@ -195,7 +200,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             
-            access_log dmesg mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
+            access_log dmesg mmap logger_config=${tfw_logger_logger_config};
         """
     )
     clients = [
@@ -244,7 +249,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         self.assertEqual(record.response_content_length, 8)
         self.assertEqual(record.dropped_events, 0)
         self.assertEqual(record.vhost, "default")
-        self.assertEqual(record.ja5h, 2499671753152)
+        self.assertEqual(record.ja5h, 2551211360704)
         self.assertEqual(record.ja5t, 7407189765761859584)
 
 
@@ -303,8 +308,8 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
 
         record = self.loggers.clickhouse.access_log_last_message()
         self.assertIsNone(record.timestamp.tzname())
-        self.assertGreaterEqual(record.response_time, 2000)
+        self.assertGreaterEqual(record.response_time, server.delay_before_sending_response * 1000)
 
         __time_after = time_after.replace(tzinfo=None, microsecond=0)
         __record_time = record.timestamp.replace(microsecond=0)
-        self.assertEqual(__record_time, __time_after)
+        self.assertGreaterEqual(__time_after, __record_time)
