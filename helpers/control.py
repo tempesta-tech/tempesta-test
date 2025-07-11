@@ -317,7 +317,6 @@ class Tempesta(stateful.Stateful):
         if "mmap" not in self.config.get_config():
             return
 
-        self.clickhouse.connect()
         self.clickhouse.tfw_logger_wait_until_ready()
 
     def run_start(self):

@@ -17,6 +17,14 @@ __license__ = "GPL2"
 from helpers.dmesg import amount_one
 from helpers.util import wait_until
 
+_connection: Client = clickhouse_connect.get_client(
+    host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
+    port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
+    username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
+    password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
+    database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
+)
+
 
 class ClickHouseFinder(dmesg.BaseTempestaLogger):
     http_methods = {
@@ -44,19 +52,9 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         self.node = remote.tempesta
         self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
         self.__log_data: str = ""
-        self._clickhouse_client: typing.Optional[Client] = None
-
-    def connect(self) -> None:
-        self._clickhouse_client = clickhouse_connect.get_client(
-            host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
-            port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
-            username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-            password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
-        )
 
     def clean_logs(self) -> None:
-        if self._clickhouse_client:
+        if _connection:
             self.tfw_log_file_remove()
             self.access_log_clear()
 
@@ -101,20 +99,20 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         Delete all log records
         """
         if self.access_log_table_exists():
-            self._clickhouse_client.command("delete from access_log where true")
+            _connection.command("delete from access_log where true")
 
     def access_log_records_count(self) -> int:
         """
         Count all the log records
         """
-        res = self._clickhouse_client.query("select count(1) from access_log")
+        res = _connection.query("select count(1) from access_log")
         return res.result_rows[0][0]
 
     def access_log_records_all(self) -> typing.List[AccessLogLine]:
         """
         Read all the log records
         """
-        results = self._clickhouse_client.query(
+        results = _connection.query(
             """
             select * 
             from access_log
@@ -139,11 +137,12 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
 
         return records[-1]
 
-    def access_log_table_exists(self) -> bool:
+    @staticmethod
+    def access_log_table_exists() -> bool:
         """
         Check if table already created
         """
-        result = self._clickhouse_client.command("exists table access_log")
+        result = _connection.command("exists table access_log")
         return result == 1
 
     def access_log_find(
@@ -168,7 +167,7 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         if not method_id:
             raise ValueError(f"Method '{method}' not found")
 
-        results = self._clickhouse_client.query(
+        results = _connection.query(
             """
             SELECT *
             from access_log

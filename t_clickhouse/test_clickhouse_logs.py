@@ -160,7 +160,6 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         self.send_simple_request(client)
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
-        self.get_tempesta().clickhouse.connect()
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
@@ -185,7 +184,6 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         self.send_simple_request(client)
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
 
-        self.get_tempesta().clickhouse.connect()
         self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
