@@ -2,11 +2,12 @@
 Verify tfw_logger logging
 """
 
+import json
 import re
 import time
 
 import run_config
-from helpers import tf_cfg
+from helpers import remote, tf_cfg
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -22,7 +23,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
             "binary": "h2load",
             "ssl": True,
             "cmd_args": (
-                " https://${tempesta_hostname}"
+                " https://${tempesta_ip}:443/"
                 f" --clients {tf_cfg.cfg.get('General', 'concurrent_connections')}"
                 f" --threads {tf_cfg.cfg.get('General', 'stress_threads')}"
                 f" --max-concurrent-streams {tf_cfg.cfg.get('General', 'stress_requests_count')}"
@@ -39,7 +40,9 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
 
-            access_log dmesg mmap mmap_host=${tfw_logger_clickhouse_host} mmap_log=${tfw_logger_daemon_log};
+            frang_limits { http_strict_host_checking false; }
+
+            access_log dmesg mmap logger_config=${tfw_logger_logger_config};
 
         """
     )
@@ -55,6 +58,21 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
 
     def setUp(self):
         super().setUp()
+        logger_config = {
+            "log_path": tf_cfg.cfg.get("TFW_Logger", "daemon_log"),
+            "clickhouse": {
+                "host": tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
+                "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"),
+                "user": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
+                "password": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
+            },
+        }
+
+        remote.tempesta.copy_file(
+            filename=tf_cfg.cfg.get("TFW_Logger", "logger_config"),
+            content=json.dumps(logger_config, ensure_ascii=False, indent=2),
+        )
+
         self.start_all_services(client=False)
 
     def h2load_total_requests(self, text: str) -> int:
