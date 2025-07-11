@@ -264,7 +264,15 @@ class TestHealthStat(tester.TempestaTest):
         tempesta_config = """
             listen 80;
             listen 443 proto=h2;
-            server ${server_ip}:8000;
+            srv_group srv_grp1 {
+                server ${server_ip}:8000;
+            }
+            vhost default {
+                proxy_pass srv_grp1;
+            }
+            http_chain {
+                -> default;
+            }
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
@@ -321,7 +329,15 @@ class TestHealthStatServer(tester.TempestaTest):
         "config": """
             listen 80;
             listen 443 proto=h2;
-            server ${server_ip}:8000;
+            srv_group srv_grp1 {
+                server ${server_ip}:8000;
+            }
+            vhost default {
+                proxy_pass srv_grp1;
+            }
+            http_chain {
+                -> default;
+            }
             tls_certificate ${tempesta_workdir}/tempesta.crt;
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
@@ -448,6 +464,12 @@ class TestHmMalformedResponse(tester.TempestaTest):
 
                     health hm0;
                 }
+                vhost default {
+                    proxy_pass main;
+                }
+                http_chain {
+                    -> default;
+                }
         """
     }
 
@@ -506,6 +528,12 @@ TEMPESTA_IMPLICIT_AUTO = {
 
             health auto;
             }
+            vhost default {
+                proxy_pass main;
+            }
+            http_chain {
+                -> default;
+            }
     """
 }
 
@@ -530,6 +558,12 @@ TEMPESTA_EXPLICIT_AUTO = {
             server ${server_ip}:8080;
 
             health auto;
+            }
+            vhost default {
+                proxy_pass main;
+            }
+            http_chain {
+                -> default;
             }
     """
 }
@@ -556,6 +590,12 @@ TEMPESTA_PREDEFINED = {
             server ${server_ip}:8080;
 
             health hm0;
+            }
+            vhost default {
+                proxy_pass main;
+            }
+            http_chain {
+                -> default;
             }
     """
 }

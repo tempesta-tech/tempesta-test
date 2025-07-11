@@ -78,7 +78,15 @@ class StressTls(tester.TempestaTest):
             tls_match_any_server_name;
             frang_limits {http_strict_host_checking false;}
 
-            server ${server_ip}:8000;
+            srv_group srv_grp1 {
+                server ${server_ip}:8000;
+            }
+            vhost default {
+                proxy_pass srv_grp1;
+            }
+            http_chain {
+                -> default;
+            }
         """
     }
 
