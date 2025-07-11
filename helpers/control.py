@@ -9,7 +9,6 @@ import re
 
 from framework import stateful
 from helpers.clickhouse import ClickHouseFinder
-from test_suite import marks
 
 from . import error, nginx, remote, tempesta, tf_cfg
 
@@ -118,7 +117,6 @@ class Client(object, metaclass=abc.ABCMeta):
         self.options.append("-H 'User-Agent: %s'" % ua)
 
 
-@marks.deprecated("framework.Wrk")
 class Wrk(Client):
     """wrk - HTTP benchmark utility.
 
