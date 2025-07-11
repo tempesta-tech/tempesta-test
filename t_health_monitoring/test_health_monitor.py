@@ -464,6 +464,12 @@ class TestHmMalformedResponse(tester.TempestaTest):
 
                     health hm0;
                 }
+                vhost default {
+                    proxy_pass main;
+                }
+                http_chain {
+                    -> default;
+                }
         """
     }
 
@@ -522,6 +528,12 @@ TEMPESTA_IMPLICIT_AUTO = {
 
             health auto;
             }
+            vhost default {
+                proxy_pass main;
+            }
+            http_chain {
+                -> default;
+            }
     """
 }
 
@@ -546,6 +558,12 @@ TEMPESTA_EXPLICIT_AUTO = {
             server ${server_ip}:8080;
 
             health auto;
+            }
+            vhost default {
+                proxy_pass main;
+            }
+            http_chain {
+                -> default;
             }
     """
 }
@@ -572,6 +590,12 @@ TEMPESTA_PREDEFINED = {
             server ${server_ip}:8080;
 
             health hm0;
+            }
+            vhost default {
+                proxy_pass main;
+            }
+            http_chain {
+                -> default;
             }
     """
 }

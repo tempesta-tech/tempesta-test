@@ -2632,8 +2632,6 @@ tls_match_any_server_name;
         self.assertEqual(len(srv.requests), 1)
 
 
-<<<<<<< HEAD
-=======
 @marks.parameterize_class(
     [
         {"name": "Http", "clients": [DEPROXY_CLIENT]},
@@ -2645,6 +2643,7 @@ class TestCacheKeyCalculation(tester.TempestaTest):
     Tempesta FW should use vhost name not host name
     for cache key calculation.
     """
+
     tempesta = {
         "config": """
 listen 80;
@@ -2746,4 +2745,6 @@ http_chain {
         self.assertNotIn("age", client.last_response.headers)
         self.assertEqual(len(server.requests), 1)
         self.assertEqual(len(server1.requests), 1)
+
+
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
