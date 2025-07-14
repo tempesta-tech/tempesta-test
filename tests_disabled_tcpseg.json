@@ -273,15 +273,11 @@
             "name": "http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_request_pipeline_3_requests_encoding_chunked",
             "reason": "These tests should not be run with TCP segmentation."
         },
-	{
+        {
             "name": "t_frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run with segmentation."
         },
-	{
-            "name": "t_stress.test_stress.TestRequestsUnderCtrlFrameFlood",
-            "reason": "Disabled by test issue #817"
-        },
-	{
+        {
             "name": "t_stress.test_stress.TestContinuationFlood",
             "reason": "Disabled by test issue #817"
         },
@@ -296,6 +292,6 @@
         {
             "name": "t_stress.test_stress.WrkStressMTU80",
             "reason": "Disabled by test issue #817"
-	}
+        }
     ]
 }
