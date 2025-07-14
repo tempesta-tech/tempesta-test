@@ -552,7 +552,7 @@ class RemoteNode(ANode):
             (bool): True, if ready
         """
         self._logger.debug(f"Waiting for {self.type} node, host {self.host}")
-        timeout = float(tf_cfg.cfg.get(self.type, "unavailable_timeout"))
+        timeout = float(tf_cfg.cfg.get("General", "unavailable_timeout"))
         t0 = time.time()
 
         while True:
@@ -620,6 +620,7 @@ client: Optional[ANode] = None
 tempesta: Optional[ANode] = None
 server: Optional[ANode] = None
 host: Optional[ANode] = None
+clickhouse: Optional[ANode] = None
 
 
 def connect():
@@ -632,11 +633,13 @@ def connect():
     global server
     server = create_node("Server")
 
-    global host
-    host_workdir = tf_cfg.cfg.get("General", "workdir")
-    host = LocalNode("General", "localhost", host_workdir)
+    global clickhouse
+    clickhouse = create_node("TFW_Logger")
 
-    for node in [client, server, tempesta, host]:
+    global host
+    host = LocalNode("General", "localhost", tf_cfg.cfg.get("General", "workdir"))
+
+    for node in [client, server, tempesta, host, clickhouse]:
         node.mkdir(node.workdir)
 
 
@@ -644,8 +647,9 @@ def wait_available():
     global client
     global server
     global tempesta
+    global clickhouse
 
-    for node in [client, server, tempesta]:
+    for node in [client, server, tempesta, clickhouse]:
         if not node.wait_available():
             return False
     return True
