@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import run_config
 from helpers import error
 from test_suite import marks, tester
 
@@ -137,7 +138,11 @@ tls_match_any_server_name;
             headers=[],
         )
 
-        client.send_request(request, "403")
+        client.make_request(request)
+        if not run_config.TCP_SEGMENTATION:
+            self.assertTrue(client.wait_for_response())
+            self.assertTrue(client.last_response.status, "403")
+        self.assertTrue(client.wait_for_connection_close())
 
 
 class TestBlockByMemExceededByPing(tester.TempestaTest):
@@ -147,7 +152,7 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
-client_mem 5000 10000;
+client_mem 500 1000;
 block_action attack reply;
 block_action error reply;
 
