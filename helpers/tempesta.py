@@ -240,30 +240,8 @@ class Config(object):
         error.assertTrue(self.find_sg(new_sg.name) is None)
         self.server_groups.append(new_sg)
 
-    def vhosts_auto_config(self):
-        vhosts = []
-        if self.vhost_auto_mode:
-            for sg in self.server_groups:
-                if len(sg.servers) > 0:
-                    vhosts.append(
-                        "\n".join(
-                            [
-                                "vhost %s {\nfrang_limits {http_strict_host_checking false;}\n"
-                                % sg.name
-                            ]
-                            + ["proxy_pass %s;" % sg.name]
-                            + ["}"]
-                        )
-                    )
-
-        return vhosts
-
     def get_config(self):
-        cfg = "\n".join(
-            [sg.get_config() for sg in self.server_groups]
-            + self.vhosts_auto_config()
-            + [self.defconfig]
-        )
+        cfg = "\n".join([sg.get_config() for sg in self.server_groups] + [self.defconfig])
         return cfg
 
     def __handle_tls(self, custom_cert):

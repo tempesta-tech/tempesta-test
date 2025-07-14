@@ -61,7 +61,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         logger_config = {
             "log_path": tf_cfg.cfg.get("TFW_Logger", "daemon_log"),
             "clickhouse": {
-                "host": tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
+                "host": tf_cfg.cfg.get("TFW_Logger", "ip"),
                 "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"),
                 "user": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
                 "password": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),

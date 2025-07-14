@@ -18,7 +18,7 @@ from helpers.dmesg import amount_one
 from helpers.util import wait_until
 
 _connection: Client = clickhouse_connect.get_client(
-    host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
+    host=tf_cfg.cfg.get("TFW_Logger", "ip"),
     port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
     username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
     password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
@@ -54,9 +54,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         self.__log_data: str = ""
 
     def clean_logs(self) -> None:
-        if _connection:
-            self.tfw_log_file_remove()
-            self.access_log_clear()
+        self.tfw_log_file_remove()
+        self.access_log_clear()
 
     def __build_log_line(self, db_record) -> AccessLogLine:
         return AccessLogLine(
