@@ -9,6 +9,7 @@ from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
 from test_suite import marks, sysnet, tester
+from t_frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
@@ -800,7 +801,7 @@ class TestContinuationFlood(tester.TempestaTest):
         self.assertEqual(0, client.returncode)
 
 
-class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
+class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
     """
     Test ability to handle requests from the client
     under control frames frame flood.
@@ -823,6 +824,10 @@ class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
         listen 443 proto=h2;
 
         server ${server_ip}:8000;
+
+        frang_limits {
+            ctrl_frame_rate 1000;
+        }
 
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -848,50 +853,8 @@ class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
         },
     ]
 
-    stop_flag = False
-
-    def setUp(self):
-        self.enable_memleak_check()
-        super().setUp()
-
-    @marks.Parameterize.expand(
-        [
-            marks.Param(
-                name="PingFlood",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type ping_frame -frame_count 100000",
-                timeout=120,
-            ),
-            marks.Param(
-                name="SettingsFlood",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type settings_frame -frame_count 100000",
-                timeout=120,
-            ),
-            marks.Param(
-                name="WndUpdateFlood",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type window_update -frame_count 100000",
-                timeout=120,
-            ),
-            marks.Param(
-                name="RstFloodByHeaders",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type headers -frame_count 100000",
-                timeout=120,
-            ),
-            marks.Param(
-                name="RstFloodByWndUpdate",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type window_update -frame_count 100000",
-                timeout=120,
-            ),
-            marks.Param(
-                name="RstFloodByPriority",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type priority -frame_count 100000",
-                timeout=240,
-            ),
-        ]
-    )
-    @dmesg.limited_rate_on_tempesta_node
-    def test(self, name, cmd_args, timeout):
+    def _test(self, cmd_args):
         self.start_all_services(client=False)
-        tempesta = self.get_tempesta()
 
         client = self.get_client("deproxy")
         client.start()
@@ -902,22 +865,41 @@ class TestRequestsUnderCtrlFrameFlood(tester.TempestaTest):
         flood_client.options = [cmd_args % tf_cfg.cfg.get("Tempesta", "ip")]
         flood_client.start()
 
-        # TODO Currently this part is not stable. Wait until #1346 in Tempesta
-        # will be implemented.
-        # for _ in range(1, 20):
-        # client.send_request(request, "200")
-
-        self.wait_while_busy(flood_client, timeout=timeout)
+        self.wait_while_busy(flood_client)
         flood_client.stop()
 
-        tempesta.get_stats()
-        """
-        For remote setup we can't be sure that load is enough for overload
-        Tempesta FW wq, so we check that at least all connections were
-        established.
-        """
-        self.assertTrue(
-            tempesta.stats.wq_full > 0 or tempesta.stats.cl_established_connections == 101
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="PingFlood",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type ping_frame -frame_count 100000",
+            ),
+            marks.Param(
+                name="SettingsFlood",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type settings_frame -frame_count 100000",
+            ),
+            marks.Param(
+                name="WndUpdateFlood",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type window_update -frame_count 100000",
+            ),
+            marks.Param(
+                name="RstFloodByWndUpdate",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rst_stream_frame -rst_reason_type window_update -frame_count 100000",
+            ),
+            marks.Param(
+                name="RstFloodByPriority",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rst_stream_frame -rst_reason_type priority -frame_count 100000",
+            ),
+        ]
+    )
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test(self, name, cmd_args):
+        self._test(cmd_args)
+        self.assertFrangWarning("Warning: frang: control frames rate exceeded", 100)
+
+    def test_RstFloodByHeaders(self):
+        self._test(
+            "-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type headers -frame_count 100000"
         )
 
 

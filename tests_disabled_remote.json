@@ -162,10 +162,6 @@
             "reason" : "Disabled by issue #2266"
         },
         {
-            "name": "t_stress.test_stress.TestRequestsUnderCtrlFrameFlood",
-            "reason": "Disabled by test issue #817"
-        },
-        {
             "name": "t_stress.test_stress.TestContinuationFlood",
             "reason": "Disabled by test issue #817"
         },
