@@ -24,7 +24,7 @@ class TestWordpressStress(tester.TempestaTest):
     http2: bool
     tempesta_tmpl = """
         listen 443 proto=%s;
-        server ${server_ip}:8000;
+        server ${server_ip}:${server_website_port};
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
@@ -32,7 +32,7 @@ class TestWordpressStress(tester.TempestaTest):
         cache 0;
     """
 
-    backends = [{"id": "wordpress", "type": "lxc", "external_port": "8000"}]
+    backends = [{"id": "wordpress", "type": "lxc"}]
 
     clients = [
         {
