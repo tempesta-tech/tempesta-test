@@ -66,9 +66,10 @@ class TestClickhouseLogTiming(tester.TempestaTest):
             },
         }
 
-        # Write config file
-        with open("/tmp/tfw_logger_test.json", "w") as f:
-            json.dump(logger_config, f)
+        # Write config file using node object
+        tempesta = self.get_tempesta()
+        config_content = json.dumps(logger_config)
+        tempesta.node.run_cmd(f"cat > /tmp/tfw_logger_test.json << 'EOF'\n{config_content}\nEOF")
 
         # Get ClickHouse client
         self.clickhouse_client = clickhouse_connect.get_client()
@@ -79,15 +80,21 @@ class TestClickhouseLogTiming(tester.TempestaTest):
 
     def tearDown(self):
         super().tearDown()
-        # Clean up test config file
-        if os.path.exists("/tmp/tfw_logger_test.json"):
-            os.remove("/tmp/tfw_logger_test.json")
+        # Clean up test config file using node object
+        tempesta = self.get_tempesta()
+        tempesta.node.run_cmd("rm -f /tmp/tfw_logger_test.json")
+
+    def cleanUp(self):
+        """Clean up test data"""
+        self.clickhouse_client.command("DELETE FROM access_log WHERE 1=1")
 
     def verify_config_exists(self):
         """Verify config file exists"""
-        self.assertTrue(
-            os.path.exists("/tmp/tfw_logger_test.json"), "Logger config file should exist"
+        tempesta = self.get_tempesta()
+        stdout, _ = tempesta.node.run_cmd(
+            "test -f /tmp/tfw_logger_test.json && echo 'exists' || echo 'missing'"
         )
+        self.assertEqual(stdout.strip(), b"exists", "Logger config file should exist")
 
     def verify_logger_running(self):
         """Verify tfw_logger is running"""
