@@ -19,6 +19,16 @@ from helpers.networker import NetWorker
 from test_suite import marks, sysnet, tester
 from test_suite.custom_error_page import CustomErrorPageGenerator
 
+# Number of open connections
+CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
+# Number of threads to use for wrk and h2load tests
+THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
+
+# Number of requests to make
+REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
+# Time to wait for single request completion
+DURATION = int(tf_cfg.cfg.get("General", "duration"))
+
 
 class TestFailFunctionBase(tester.TempestaTest):
     backends = [
@@ -76,7 +86,18 @@ class TestFailFunctionBase(tester.TempestaTest):
         tester.TempestaTest.tearDown(self)
 
     @staticmethod
-    def setup_fail_function_test(func_name, times, retval):
+    def setup_fail_page_alloc(times, probability, interval, space):
+        cmd = f"echo {probability} > /sys/kernel/debug/fail_page_alloc/probability"
+        out = remote.client.run_cmd(cmd)
+        cmd = f"echo {interval} > /sys/kernel/debug/fail_page_alloc/interval"
+        out = remote.client.run_cmd(cmd)
+        cmd = f"echo {space} > /sys/kernel/debug/fail_page_alloc/space"
+        out = remote.client.run_cmd(cmd)
+        cmd = f"printf %#x {times} > /sys/kernel/debug/fail_page_alloc/times"
+        out = remote.client.run_cmd(cmd)
+
+    @staticmethod
+    def setup_fail_function_test(func_name, times, retval, probability, interval, space):
         # Write function name to special debug fs file.
         cmd = f"echo {func_name} > /sys/kernel/debug/fail_function/inject"
         out = remote.client.run_cmd(cmd)
@@ -88,10 +109,13 @@ class TestFailFunctionBase(tester.TempestaTest):
         # Write probability in percent. 100 - function never executed
         # and return previously set return code every time, while error
         # injection works.
-        cmd = "echo 100 > /sys/kernel/debug/fail_function/probability"
+        cmd = f"echo {probability} > /sys/kernel/debug/fail_function/probability"
         out = remote.client.run_cmd(cmd)
         # If probability is equal to 100 should always be equal to zero.
-        cmd = "echo 0 > /sys/kernel/debug/fail_function/interval"
+        cmd = f"echo {interval} > /sys/kernel/debug/fail_function/interval"
+        out = remote.client.run_cmd(cmd)
+        # Fault injection is suppressed until space became equal to zero.
+        cmd = f"echo {space} > /sys/kernel/debug/fail_function/space"
         out = remote.client.run_cmd(cmd)
         # Specifies how many times failures may happen at most.
         # A value of -1 means “no limit”.
@@ -100,11 +124,20 @@ class TestFailFunctionBase(tester.TempestaTest):
 
     @staticmethod
     def teardown_fail_function_test():
-        # Remove function from fault injection list
+        # Remove function from fault injection list.
         cmd = "echo > /sys/kernel/debug/fail_function/inject"
         out = remote.client.run_cmd(cmd)
-        # Restore times
-        cmd = f"printf %#x -1 > /sys/kernel/debug/fail_function/times"
+        # Restore times.
+        cmd = f"printf %#x 1 > /sys/kernel/debug/fail_function/times"
+        out = remote.client.run_cmd(cmd)
+        # Restore probability.
+        cmd = f"echo 0 > /sys/kernel/debug/fail_function/probability"
+        out = remote.client.run_cmd(cmd)
+        # Restore interval.
+        cmd = f"echo 1 > /sys/kernel/debug/fail_function/interval"
+        out = remote.client.run_cmd(cmd)
+        # Restore space.
+        cmd = f"echo 0 > /sys/kernel/debug/fail_function/space"
         out = remote.client.run_cmd(cmd)
 
 
@@ -342,7 +375,9 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
         server.set_response(response)
         self.start_all_services(client=False)
 
-        self.setup_fail_function_test(func_name, times, retval)
+        self.setup_fail_function_test(
+            func_name, times=times, retval=retval, probability=100, interval=0, space=0
+        )
         client = self.get_client(id)
         request = client.create_request(method="GET", headers=[])
         client.start()
@@ -394,7 +429,14 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         )
         self.start_all_services(client=False)
 
-        self.setup_fail_function_test("tfw_h2_append_predefined_body", -1, -12)
+        self.setup_fail_function_test(
+            "tfw_h2_append_predefined_body",
+            times=-1,
+            retval=-12,
+            probability=100,
+            interval=0,
+            space=0,
+        )
         client = self.get_client("deproxy_h2")
         request1 = client.create_request(method="GET", headers=[])
         request2 = client.create_request(method="GET", headers=[("Content-Type", "!!!!")])
@@ -450,7 +492,14 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         ),
 
         self.start_all_services(client=False)
-        self.setup_fail_function_test("tfw_h2_append_predefined_body", 1, -12)
+        self.setup_fail_function_test(
+            "tfw_h2_append_predefined_body",
+            times=1,
+            retval=-12,
+            probability=100,
+            interval=0,
+            space=0,
+        )
         client = self.get_client("deproxy_h2")
         request = client.create_request(method="GET", headers=[("accept", "text/html")])
         client.start()
@@ -510,7 +559,9 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
         srv.pipelined = 3
         srv.conns_n = 1
         self.start_all_services(client=False)
-        self.setup_fail_function_test(func_name, times, retval)
+        self.setup_fail_function_test(
+            func_name, times=times, retval=retval, probability=100, interval=0, space=0
+        )
 
         i = 0
         for id in self.clients_ids:
@@ -641,7 +692,9 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         server.hang_on_req_num = hang_on_req_num
         self.start_all_services()
 
-        self.setup_fail_function_test(func_name, -1, 0)
+        self.setup_fail_function_test(
+            func_name, times=-1, retval=0, probability=100, interval=0, space=0
+        )
 
         server.set_response(
             deproxy.Response.create(
@@ -745,7 +798,9 @@ class TestFailOnReload(TestFailFunctionBase):
         server = self.get_server("deproxy")
         server.conns_n = 1
         self.start_all_services(client=False)
-        self.setup_fail_function_test(func_name, times, retval)
+        self.setup_fail_function_test(
+            func_name, times=times, retval=retval, probability=100, interval=0, space=0
+        )
         with self.assertRaises(
             expected_exception=ProcessBadExitStatusException,
         ):
@@ -758,6 +813,146 @@ class TestFailOnReload(TestFailFunctionBase):
             control_thread.start()
             self.get_tempesta().reload()
 
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="tdb_alloc_blk",
+                func_name="tdb_alloc_blk",
+                new_config=None,
+                msg="Unable to start module",
+                times=-1,
+                retval=0,
+                space=0,
+            )
+        ]
+    )
+    def test(self, name, func_name, new_config, msg, times, retval, space):
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.start_all_services(client=False)
+        self.setup_fail_function_test(
+            func_name, times=times, retval=retval, probability=100, interval=0, space=space
+        )
+        self.get_tempesta().reload()
+
+        client = self.get_client("deproxy")
+        client.start()
+        self.oops_ignore = ["ERROR"]
+        client.make_request(client.create_request(method="GET", headers=[]))
+        self.assertFalse(client.wait_for_response())
+        self.assertTrue(client.wait_for_connection_close())
+
 
 class TestStress(TestFailFunctionBase):
-    pass
+    clients = [
+        {
+            "id": "wrk",
+            "type": "wrk",
+            "ssl": True,
+            "addr": "${tempesta_ip}:443",
+            "cmd_args": (
+                " https://${tempesta_ip}:443",
+                f" --connections {CONCURRENT_CONNECTIONS}" f" --threads {THREADS}",
+                f" --duration {DURATION}" f" ----timeout 0",
+            ),
+        },
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {REQUESTS_COUNT}"
+                f" --duration {DURATION}"
+            ),
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2,https;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            server ${server_ip}:8000 conns_n=32;
+            
+            frang_limits {
+                http_strict_host_checking false;
+            }
+        """
+    }
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="wrk",
+                client_id="wrk",
+            ),
+            marks.Param(
+                name="h2load",
+                client_id="h2load",
+            ),
+        ]
+    )
+    def test_connect(self, name, client_id):
+        server = self.get_server("deproxy")
+        server.conns_n = 32
+        server.set_response(
+            deproxy.Response.create_simple_response(
+                status="200",
+                headers=[("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+        self.get_tempesta().start()
+        server.start()
+
+        self.setup_fail_function_test(
+            "ss_inet_create", times=-1, retval=-105, probability=100, interval=5, space=0
+        )
+        self.setup_fail_function_test(
+            "ss_connect", times=-1, retval=-105, probability=100, interval=3, space=0
+        )
+        self.oops_ignore = ["ERROR"]
+
+        client = self.get_client(client_id)
+        client.start()
+        self.wait_while_busy(client, timeout=20)
+        client.stop()
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="wrk",
+                client_id="wrk",
+            ),
+            marks.Param(
+                name="h2load",
+                client_id="h2load",
+            ),
+        ]
+    )
+    def test_mem(self, name, client_id):
+        server = self.get_server("deproxy")
+        server.conns_n = 32
+        server.set_response(
+            deproxy.Response.create_simple_response(
+                status="200",
+                headers=[("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+        self.start_all_services(client=False)
+        self.setup_fail_page_alloc(times=1, probability=10, interval=100, space=0)
+        self.oops_ignore = ["ERROR"]
+
+        client = self.get_client(client_id)
+        client.start()
+        self.wait_while_busy(client, timeout=20)
+        client.stop()
