@@ -5,6 +5,7 @@ __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
+import threading
 
 from h2.connection import ConnectionInputs
 from hyperframe.frame import HeadersFrame, PingFrame, WindowUpdateFrame
@@ -12,6 +13,7 @@ from hyperframe.frame import HeadersFrame, PingFrame, WindowUpdateFrame
 from framework.deproxy_client import HuffmanEncoder
 from helpers import deproxy, dmesg, remote, tf_cfg
 from helpers.cert_generator_x509 import CertGenerator
+from helpers.error import ProcessBadExitStatusException
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
 from test_suite import marks, sysnet, tester
@@ -68,6 +70,10 @@ class TestFailFunctionBase(tester.TempestaTest):
             }
         """
     }
+
+    def tearDown(self):
+        self.teardown_fail_function_test()
+        tester.TempestaTest.tearDown(self)
 
     @staticmethod
     def setup_fail_function_test(func_name, times, retval):
@@ -248,6 +254,32 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 ),
                 retval=-12,
             ),
+            marks.Param(
+                name="mpi_profile_clone_ssl",
+                func_name="__mpi_profile_clone",
+                id="deproxy_ssl",
+                msg="Can't allocate a crypto memory profile",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="mpi_profile_clone_h2",
+                func_name="__mpi_profile_clone",
+                id="deproxy_h2",
+                msg="Can't allocate a crypto memory profile",
+                times=1,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("content-length", "0")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                ),
+                retval=-12,
+            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
@@ -329,9 +361,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 "Tempesta doesn't report error",
             )
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
 
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
     @NetWorker.set_mtu(
@@ -389,9 +418,6 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         self.assertFalse(client.wait_for_response(3))
         self.assertTrue(client.wait_for_connection_close())
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
     @dmesg.unlimited_rate_on_tempesta_node
     def test_tfw_h2_prep_resp_for_sticky_ccokie(self):
         server = self.get_server("deproxy")
@@ -437,9 +463,6 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         self.assertTrue(client.wait_for_response(3))
         self.assertEqual(client.last_response.status, "500")
         self.assertTrue(client.wait_for_connection_close())
-
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
 
 
 class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
@@ -527,9 +550,6 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client.last_response.status, "200")
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
 
 class TestFailFunctionStaleFwd(TestFailFunctionBase):
     tempesta = {
@@ -552,10 +572,6 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
             cache_use_stale 4* 5*;
     """
     }
-
-    def tearDown(self):
-        self.teardown_fail_function_test()
-        tester.TempestaTest.tearDown(self)
 
     @marks.Parameterize.expand(
         [
@@ -669,3 +685,79 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
 
         # expect not cached response
         self.assertIsNone(client.last_response.headers.get("age", None), None)
+
+
+class TestFailOnReload(TestFailFunctionBase):
+    """
+    We should cleanup call `teardown_fail_function_test` before
+    Tempesta will be unloaded! Otherwise fail function will be
+    cleared incorrectly during Tempesta FW unload. Wait until
+    error message and immediately cleanup.
+    """
+
+    def _do_control(self, msg):
+        while True:
+            if self.loggers.dmesg.find(msg, cond=dmesg.amount_positive):
+                break
+        self.teardown_fail_function_test()
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="tfw_sched_ratio_rtodata_get",
+                func_name="tfw_sched_ratio_rtodata_get",
+                new_config=None,
+                msg="Unable to start module",
+                times=-1,
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_sched_ratio_srvdesc_setup_srv",
+                func_name="tfw_sched_ratio_srvdesc_setup_srv",
+                new_config="""
+                    srv_group new { 
+                        server 127.0.0.1:8001;
+                    }
+                """,
+                msg="Unable to start module",
+                times=-1,
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_srv_conn_alloc",
+                func_name="tfw_srv_conn_alloc",
+                new_config=None,
+                msg="Unable to start module",
+                times=-1,
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_apm_ref_create",
+                func_name="tfw_apm_ref_create",
+                new_config=None,
+                msg="Unable to start module",
+                times=-1,
+                retval=-12,
+            ),
+        ]
+    )
+    def test(self, name, func_name, new_config, msg, times, retval):
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        self.start_all_services(client=False)
+        self.setup_fail_function_test(func_name, times, retval)
+        with self.assertRaises(
+            expected_exception=ProcessBadExitStatusException,
+        ):
+            self.oops_ignore = ["ERROR"]
+            if new_config:
+                old_config = self.get_tempesta().config.defconfig
+                self.get_tempesta().config.defconfig = old_config + new_config
+            control_thread = threading.Thread(target=self._do_control, args=(msg,))
+            control_thread.daemon = True
+            control_thread.start()
+            self.get_tempesta().reload()
+
+
+class TestStress(TestFailFunctionBase):
+    pass
