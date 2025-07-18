@@ -535,6 +535,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             self.deproxy_manager.start()
 
         self.assertTrue(self.wait_all_connections())
+        self.assertTrue(self.__tempesta.wait_while_logger_start())
 
     def __run_tcpdump(self) -> None:
         """

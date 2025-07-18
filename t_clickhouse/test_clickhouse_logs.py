@@ -55,7 +55,7 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
     def setUp(self):
         super(TestClickhouseLogsBaseTest, self).setUp()
         logger_config = {
-            "log_path": tf_cfg.cfg.get("TFW_Logger", "daemon_log"),
+            "log_path": tf_cfg.cfg.get("TFW_Logger", "log_path"),
             "clickhouse": {
                 "host": tf_cfg.cfg.get("TFW_Logger", "ip"),
                 "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"),
@@ -160,7 +160,7 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         self.send_simple_request(client)
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
-        self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
+        self.assertFalse(self.get_tempesta().tfw_log_file_exists())
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
 
@@ -184,7 +184,7 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         self.send_simple_request(client)
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
 
-        self.assertFalse(self.loggers.clickhouse.tfw_log_file_exists())
+        self.assertFalse(self.get_tempesta().tfw_log_file_exists())
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
 
