@@ -295,7 +295,7 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
     ERROR_RESPONSE_BODY = "a" * 1000
 
     def __generate_custom_error_page(self, data):
-        workdir = tf_cfg.cfg.get("General", "workdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         cpage_gen = CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
         path = cpage_gen.get_file_path()
         remote.tempesta.copy_file(path, data)

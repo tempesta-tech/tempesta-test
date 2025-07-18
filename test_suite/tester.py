@@ -214,7 +214,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def __create_client_wrk(self, client, ssl):
         addr = fill_template(client["addr"], client)
-        wrk = wrk_client.Wrk(server_addr=addr, ssl=ssl)
+        wrk = wrk_client.Wrk(id_=client["id"], server_addr=addr, ssl=ssl)
         wrk.set_script(client["id"] + "_script", content="")
         return wrk
 

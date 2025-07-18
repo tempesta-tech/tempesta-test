@@ -9,7 +9,7 @@ from test_suite import asserts, custom_error_page, tester
 
 
 def generate_custom_error_page(data):
-    workdir = tf_cfg.cfg.get("General", "workdir")
+    workdir = tf_cfg.cfg.get("Tempesta", "workdir")
     cpage_gen = custom_error_page.CustomErrorPageGenerator(data=data, f_path=f"{workdir}/4xx.html")
     path = cpage_gen.get_file_path()
     remote.tempesta.copy_file(path, data)

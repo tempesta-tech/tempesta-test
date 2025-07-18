@@ -68,9 +68,7 @@ class StressTest(unittest.TestCase):
         self.oops_ignore = []
         self.tempesta = None
         self.servers = []
-        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=lambda: None)
-        if not remote.wait_available():
-            raise Exception("Tempesta node is unavaliable")
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), _get_tempesta=lambda: None)
         self.create_clients()
         self.create_servers()
         self.create_tempesta()

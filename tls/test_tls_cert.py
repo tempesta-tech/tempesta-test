@@ -28,7 +28,7 @@ def generate_certificate(cn="tempesta-tech.com", san=None, cert_name="tempesta")
     common name and  list of Subject Alternative Names.
     Name generated files as `cert_name`.crt and `cert_name`.key.
     """
-    workdir = tf_cfg.cfg.get("General", "workdir")
+    workdir = tf_cfg.cfg.get("Tempesta", "workdir")
 
     cgen = CertGenerator(
         cert_path=f"{workdir}/{cert_name}.crt", key_path=f"{workdir}/{cert_name}.key"
@@ -400,8 +400,8 @@ class TlsCertSelect(tester.TempestaTest):
 
             srv_group be1 { server ${server_ip}:8000; }
 
-            tls_certificate ${general_workdir}/tempesta_global.crt;
-            tls_certificate_key ${general_workdir}/tempesta_global.key;
+            tls_certificate ${tempesta_workdir}/tempesta_global.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta_global.key;
 
             vhost example.com {
                 proxy_pass be1;
@@ -409,10 +409,10 @@ class TlsCertSelect(tester.TempestaTest):
 
             vhost tempesta-tech.com {
                 proxy_pass be1;
-                tls_certificate ${general_workdir}/tempesta_rsa.crt;
-                tls_certificate_key ${general_workdir}/tempesta_rsa.key;
-                tls_certificate ${general_workdir}/tempesta_ec.crt;
-                tls_certificate_key ${general_workdir}/tempesta_ec.key;
+                tls_certificate ${tempesta_workdir}/tempesta_rsa.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta_rsa.key;
+                tls_certificate ${tempesta_workdir}/tempesta_ec.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta_ec.key;
             }
 
             http_chain {
@@ -431,7 +431,7 @@ class TlsCertSelect(tester.TempestaTest):
 
     @staticmethod
     def gen_cert(host_name, alg=None):
-        workdir = tf_cfg.cfg.get("General", "workdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         cert_path = "%s/%s.crt" % (workdir, host_name)
         key_path = "%s/%s.key" % (workdir, host_name)
         cgen = CertGenerator(cert_path, key_path)
@@ -484,8 +484,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
 
             vhost example.com {
                 proxy_pass sg;
-                tls_certificate ${general_workdir}/tempesta.crt;
-                tls_certificate_key ${general_workdir}/tempesta.key;
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
             }
         """,
         "custom_cert": True,
@@ -683,14 +683,14 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
             vhost example.com {
                 proxy_pass sg;
-                tls_certificate ${general_workdir}/wildcard.crt;
-                tls_certificate_key ${general_workdir}/wildcard.key;
+                tls_certificate ${tempesta_workdir}/wildcard.crt;
+                tls_certificate_key ${tempesta_workdir}/wildcard.key;
             }
 
             vhost private.example.com {
                 proxy_pass sg;
-                tls_certificate ${general_workdir}/private.crt;
-                tls_certificate_key ${general_workdir}/private.key;
+                tls_certificate ${tempesta_workdir}/private.crt;
+                tls_certificate_key ${tempesta_workdir}/private.key;
             }
         """,
         "custom_cert": True,
@@ -704,8 +704,8 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
             vhost example.com {
                 proxy_pass sg;
-                tls_certificate ${general_workdir}/wildcard.crt;
-                tls_certificate_key ${general_workdir}/wildcard.key;
+                tls_certificate ${tempesta_workdir}/wildcard.crt;
+                tls_certificate_key ${tempesta_workdir}/wildcard.key;
             }
     """
 
@@ -717,8 +717,8 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
 
             vhost private.example.com {
                 proxy_pass sg;
-                tls_certificate ${general_workdir}/private.crt;
-                tls_certificate_key ${general_workdir}/private.key;
+                tls_certificate ${tempesta_workdir}/private.crt;
+                tls_certificate_key ${tempesta_workdir}/private.key;
             }
     """
 
@@ -925,7 +925,7 @@ http {
             """.replace(
                 "server_", (tf_cfg.cfg.get("Server", "ip"))
             ).replace(
-                "path", (tf_cfg.cfg.get("General", "workdir"))
+                "path", (tf_cfg.cfg.get("Tempesta", "workdir"))
             ),
             custom_cert=True,
         )
@@ -959,7 +959,7 @@ http {
             """.replace(
                 "server_", (tf_cfg.cfg.get("Server", "ip"))
             ).replace(
-                "path", (tf_cfg.cfg.get("General", "workdir"))
+                "path", (tf_cfg.cfg.get("Tempesta", "workdir"))
             ),
             custom_cert=True,
         )
@@ -1030,14 +1030,14 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
 
             vhost example.com {
                 proxy_pass sg1;
-                tls_certificate ${general_workdir}/example.crt;
-                tls_certificate_key ${general_workdir}/example.key;
+                tls_certificate ${tempesta_workdir}/example.crt;
+                tls_certificate_key ${tempesta_workdir}/example.key;
             }
 
             vhost tempesta-tech.com {
                 proxy_pass sg2;
-                tls_certificate ${general_workdir}/tempesta.crt;
-                tls_certificate_key ${general_workdir}/tempesta.key;
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
             }
 
             vhost localhost-vhost {
@@ -1191,8 +1191,8 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
             vhost example.com {
                 proxy_pass sg1;
-                tls_certificate ${general_workdir}/tempesta.crt;
-                tls_certificate_key ${general_workdir}/tempesta.key;
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
             }
 
             vhost localhost-vhost {
