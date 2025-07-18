@@ -8,7 +8,7 @@ import typing
 from contextlib import contextmanager
 from typing import Callable, List
 
-from test_suite.tester import test_logger
+from helpers.tf_cfg import test_logger
 
 from . import error, remote, util
 

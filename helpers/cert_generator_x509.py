@@ -22,7 +22,7 @@ from cryptography.x509.oid import NameOID
 from helpers import remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -33,9 +33,10 @@ class CertGenerator(object):
         key_path: Optional[str] = None,
         default: bool = False,
     ):
-        workdir = tf_cfg.cfg.get("General", "workdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         self.f_cert = cert_path if cert_path else workdir + "/tempesta.crt"
         self.f_key = key_path if key_path else workdir + "/tempesta.key"
+        self._node = remote.tempesta
         # Create directories if don't exist
         dirs = [
             workdir,
@@ -44,8 +45,8 @@ class CertGenerator(object):
             "/".join(self.f_key.split("/")[:-1]),
         ]
         for dir_ in dirs:
-            # We must create dir on host node because we cannot run this class on another node
-            remote.host.mkdir(dir_)
+            # We must create dir on tempesta node because we cannot run this class on another node
+            self._node.mkdir(dir_)
         # Define the certificate fields data supposed for mutation by a caller.
         self.C = "US"
         self.ST = "Washington"
@@ -70,11 +71,6 @@ class CertGenerator(object):
         if default:
             self.generate()
 
-    @staticmethod
-    def __write(path, data):
-        with open(path, "wt") as fdesc:
-            fdesc.write(data.decode())
-
     def __encoding(self):
         if self.format == "pem":
             return serialization.Encoding.PEM
@@ -98,18 +94,11 @@ class CertGenerator(object):
     def __gen_key_pair(self):
         if self.key["alg"] == "rsa":
             assert self.key["len"], "No RSA key length specified"
-            self.pkey = rsa.generate_private_key(
-                65537,
-                self.key["len"],
-                default_backend(),
-            )
+            self.pkey = rsa.generate_private_key(65537, self.key["len"], default_backend())
 
         elif self.key["alg"] == "ecdsa":
             assert self.key["curve"], "No EC curve specified"
-            self.pkey = ec.generate_private_key(
-                self.key["curve"],
-                default_backend(),
-            )
+            self.pkey = ec.generate_private_key(self.key["curve"], default_backend())
 
         else:
             raise NotImplementedError(
@@ -129,12 +118,10 @@ class CertGenerator(object):
             "Not implemented hash algorithm: {0}".format(self.sign_alg),
         )
 
-    def serialize_cert(self):
-        return self.cert.public_bytes(
-            self.__encoding(),
-        )
+    def serialize_cert(self) -> bytes:
+        return self.cert.public_bytes(self.__encoding())
 
-    def serialize_priv_key(self):
+    def serialize_priv_key(self) -> bytes:
         return self.pkey.private_bytes(
             self.__encoding(),
             serialization.PrivateFormat.PKCS8,
@@ -146,46 +133,22 @@ class CertGenerator(object):
         x509name = self.__build_name()
         builder = (
             x509.CertificateBuilder()
-            .serial_number(
-                x509.random_serial_number(),
-            )
-            .subject_name(
-                x509name,
-            )
-            .issuer_name(
-                x509name,
-            )
-            .not_valid_before(
-                self.not_valid_before,
-            )
-            .not_valid_after(
-                self.not_valid_after,
-            )
-            .public_key(
-                self.pkey.public_key(),
-            )
+            .serial_number(x509.random_serial_number())
+            .subject_name(x509name)
+            .issuer_name(x509name)
+            .not_valid_before(self.not_valid_before)
+            .not_valid_after(self.not_valid_after)
+            .public_key(self.pkey.public_key())
         )
         if self.san:
             builder = builder.add_extension(
-                x509.SubjectAlternativeName(
-                    [x509.DNSName(name) for name in self.san],
-                ),
+                x509.SubjectAlternativeName([x509.DNSName(name) for name in self.san]),
                 critical=False,
             )
-        self.cert = builder.sign(
-            self.pkey,
-            self.__hash(),
-            default_backend(),
-        )
+        self.cert = builder.sign(self.pkey, self.__hash(), default_backend())
         # Write the certificate & private key.
-        self.__write(
-            self.f_cert,
-            self.serialize_cert(),
-        )
-        self.__write(
-            self.f_key,
-            self.serialize_priv_key(),
-        )
+        self._node.copy_file(self.f_cert, self.serialize_cert().decode())
+        self._node.copy_file(self.f_key, self.serialize_priv_key().decode())
 
     def __str__(self):
         assert self.cert, "Stringify null x509 certificate object"

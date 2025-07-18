@@ -368,19 +368,15 @@ class CurlClient(CurlArguments, client.Client):
             return f.read()
 
     def _check_binary_version(self):
-        try:
-            expected = tf_cfg.cfg.get("Client", "curl_version")
-        except KeyError:
-            expected = CURL_BINARY_VERSION
         # Check for badly outdated or too new version, than could not be parsed
         error.assertTrue(
             self.binary_version,
-            f"Can't detect `curl` version. `curl --version` should be {expected}",
+            f"Can't detect `curl` version. `curl --version` should be {CURL_BINARY_VERSION}",
         )
         error.assertTrue(
-            self.binary_version == expected,
+            self.binary_version == CURL_BINARY_VERSION,
             (
-                f"Expected curl binary version: {expected}\n"
+                f"Expected curl binary version: {CURL_BINARY_VERSION}\n"
                 f"Detected curl binary version: {self.binary_version}\n"
                 f"Set 'Client.curl_version' config variable to override expected value."
             ),

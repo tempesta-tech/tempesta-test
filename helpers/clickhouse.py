@@ -1,13 +1,12 @@
 """Simple client for Clickhouse access log storage"""
 
 import re
-import time
 import typing
 
 import clickhouse_connect
 from clickhouse_connect.driver import Client
 
-from helpers import dmesg, remote, tf_cfg
+from helpers import dmesg, error, remote, tf_cfg
 from helpers.access_log import AccessLogLine
 
 __author__ = "Tempesta Technologies, Inc."
@@ -15,7 +14,16 @@ __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.dmesg import amount_one
-from helpers.util import wait_until
+
+try:
+    _connection: Client = clickhouse_connect.get_client(
+        host=tf_cfg.cfg.get("TFW_Logger", "ip"),
+        port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
+        username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
+        password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
+    )
+except clickhouse_connect.driver.exceptions.OperationalError as e:
+    raise error.ClickhouseNotAvailable() from None
 
 
 class ClickHouseFinder(dmesg.BaseTempestaLogger):
@@ -39,28 +47,12 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
     }
 
     def __init__(self):
-        self.raise_error_on_logger_file_missing: bool = True
-        self.daemon_log: str = tf_cfg.cfg.get("TFW_Logger", "daemon_log")
-        self.node = remote.tempesta
-        self.start_time = float(self.node.run_cmd("date +%s.%N")[0])
         self.__log_data: str = ""
-        self._clickhouse_client: typing.Optional[Client] = None
+        self.__table: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_table")
+        self.__log_path: str = tf_cfg.cfg.get("TFW_Logger", "log_path")
 
-    def connect(self) -> None:
-        self._clickhouse_client = clickhouse_connect.get_client(
-            host=tf_cfg.cfg.get("TFW_Logger", "clickhouse_host"),
-            port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
-            username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-            password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
-        )
-
-    def clean_logs(self) -> None:
-        if self._clickhouse_client:
-            self.tfw_log_file_remove()
-            self.access_log_clear()
-
-    def __build_log_line(self, db_record) -> AccessLogLine:
+    @staticmethod
+    def __build_log_line(db_record) -> AccessLogLine:
         return AccessLogLine(
             timestamp=db_record[0],
             address=db_record[1],
@@ -82,7 +74,7 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         """
         Read data of tfw_logger daemon file
         """
-        stdout, _ = self.node.run_cmd(f"cat {self.daemon_log}")
+        stdout, _ = remote.tempesta.run_cmd(f"cat {self.__log_path}")
         self.__log_data = stdout.decode()
 
     def log_findall(self, pattern: str):
@@ -101,23 +93,23 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         Delete all log records
         """
         if self.access_log_table_exists():
-            self._clickhouse_client.command("delete from access_log where true")
+            _connection.command(f"delete from {self.__table} where true")
 
     def access_log_records_count(self) -> int:
         """
         Count all the log records
         """
-        res = self._clickhouse_client.query("select count(1) from access_log")
+        res = _connection.query(f"select count(1) from {self.__table}")
         return res.result_rows[0][0]
 
     def access_log_records_all(self) -> typing.List[AccessLogLine]:
         """
         Read all the log records
         """
-        results = self._clickhouse_client.query(
-            """
+        results = _connection.query(
+            f"""
             select * 
-            from access_log
+            from {self.__table}
             order by timestamp desc
             """,
         )
@@ -143,8 +135,7 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         """
         Check if table already created
         """
-        result = self._clickhouse_client.command("exists table access_log")
-        return result == 1
+        return _connection.command(f"exists table {self.__table}") == 1
 
     def access_log_find(
         self,
@@ -168,10 +159,10 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         if not method_id:
             raise ValueError(f"Method '{method}' not found")
 
-        results = self._clickhouse_client.query(
-            """
+        results = _connection.query(
+            f"""
             SELECT *
-            from access_log
+            from {self.__table}
             WHERE
                     (if(%(address)s is not null, address = %(address)s, 1))
                 and (if(%(vhost)s is not null, vhost = %(vhost)s, 1))
@@ -210,45 +201,4 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
                 lambda x: self.__build_log_line(x),
                 results.result_rows,
             )
-        )
-
-    def tfw_log_file_remove(self) -> None:
-        """
-        Remove tfw logger file
-        """
-        stdout, stderr = self.node.run_cmd(f"rm -f {self.daemon_log}")
-        assert (stdout, stderr) == (b"", b"")
-
-    def tfw_log_file_exists(self) -> bool:
-        """
-        Check if tfw log file exists
-        """
-        stdout, stderr = self.node.run_cmd(f"ls -la {self.daemon_log} | wc -l")
-        return (stdout, stderr) == (b"1\n", b"")
-
-    def tfw_logger_signal(self, signal: typing.Literal["STOP", "CONT"]) -> None:
-        self.node.run_cmd(f"kill -{signal} $(pidof tfw_logger)")
-
-    def tfw_logger_wait_until_ready(self, timeout: int = 5) -> None:
-        """
-        Block thread until tfw_logger starts
-        """
-
-        def wait():
-            if not self.tfw_log_file_exists():
-                return True
-
-            if not self.find(".*Daemon started\n"):
-                return True
-
-            time.sleep(1)
-            return False
-
-        result = wait_until(wait_cond=wait, timeout=timeout, poll_freq=0.1)
-
-        if result or not self.raise_error_on_logger_file_missing:
-            return
-
-        raise FileNotFoundError(
-            f'TFW logger daemon log file (path="{self.daemon_log}") was not found'
         )

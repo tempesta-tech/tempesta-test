@@ -86,6 +86,9 @@ class ANode(object, metaclass=abc.ABCMeta):
         return int(math_obj.group(1))
 
     @abc.abstractmethod
+    def exists(self, path: str) -> bool: ...
+
+    @abc.abstractmethod
     def run_cmd(
         self,
         cmd: str,
@@ -171,7 +174,7 @@ class ANode(object, metaclass=abc.ABCMeta):
         """
         return self._numa_nodes_n
 
-    def _post_init(self):
+    def post_init(self):
         """
         Finilize initialization of the Node.
         """
@@ -326,6 +329,9 @@ class LocalNode(ANode):
         """
         self._logger.debug(f"Copying `{file}` to a node with destination `{dest_dir}`")
         shutil.copy(file, dest_dir)
+
+    def exists(self, path: str) -> bool:
+        return os.path.exists(path)
 
 
 class RemoteNode(ANode):
@@ -552,7 +558,7 @@ class RemoteNode(ANode):
             (bool): True, if ready
         """
         self._logger.debug(f"Waiting for {self.type} node, host {self.host}")
-        timeout = float(tf_cfg.cfg.get(self.type, "unavailable_timeout"))
+        timeout = float(tf_cfg.cfg.get("General", "unavailable_timeout"))
         t0 = time.time()
 
         while True:
@@ -590,6 +596,13 @@ class RemoteNode(ANode):
         except Exception:
             self._logger.exception(f"Error copying file {file} to {self.host}")
 
+    def exists(self, path: str) -> bool:
+        try:
+            self._ssh.open_sftp().stat(path)
+            return True
+        except FileNotFoundError:
+            return False
+
 
 def create_node(host_type: str):
     hostname = tf_cfg.cfg.get(host_type, "hostname")
@@ -605,10 +618,8 @@ def create_node(host_type: str):
             ssh_key=tf_cfg.cfg.get(host_type, "ssh_key"),
         )
 
-        node._post_init()
         return node
     node = LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
-    node._post_init()
     return node
 
 
@@ -616,36 +627,31 @@ def create_node(host_type: str):
 # Global accessible SSH/Local connections
 # -------------------------------------------------------------------------------
 
-client: Optional[ANode] = None
+client: Optional[ANode] = LocalNode("Client", "localhost", tf_cfg.cfg.get("Client", "workdir"))
 tempesta: Optional[ANode] = None
-server: Optional[ANode] = None
-host: Optional[ANode] = None
+server: Optional[ANode] = LocalNode("Server", "localhost", tf_cfg.cfg.get("Server", "workdir"))
+clickhouse: Optional[ANode] = None
 
 
 def connect():
     global client
-    client = create_node("Client")
-
-    global tempesta
-    tempesta = create_node("Tempesta")
-
     global server
-    server = create_node("Server")
+    global tempesta
+    global clickhouse
 
-    global host
-    host_workdir = tf_cfg.cfg.get("General", "workdir")
-    host = LocalNode("General", "localhost", host_workdir)
+    tempesta = create_node("Tempesta")
+    clickhouse = create_node("TFW_Logger")
 
-    for node in [client, server, tempesta, host]:
+    for node in [client, server, tempesta, clickhouse]:
         node.mkdir(node.workdir)
+        node.post_init()
 
 
 def wait_available():
-    global client
-    global server
     global tempesta
+    global clickhouse
 
-    for node in [client, server, tempesta]:
+    for node in [tempesta, clickhouse]:
         if not node.wait_available():
             return False
     return True

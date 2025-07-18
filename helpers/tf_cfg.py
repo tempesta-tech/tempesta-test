@@ -108,9 +108,6 @@ class TestFrameworkCfg:
         self.config.read_dict(
             {
                 "General": {
-                    "ip": "127.0.0.1",
-                    "ipv6": "::1",
-                    "workdir": "/tmp/host",
                     "duration": "10",
                     "concurrent_connections": "10",
                     "log_file": "tests_log.log",
@@ -120,6 +117,7 @@ class TestFrameworkCfg:
                     "stress_mtu": "1500",
                     "long_body_size": "500",
                     "memory_leak_threshold": "65536",
+                    "unavailable_timeout": "300",
                 },
                 "Loggers": {
                     "stream_handler": "CRITICAL",
@@ -140,7 +138,6 @@ class TestFrameworkCfg:
                     "h2load": "h2load",
                     "tls-perf": "tls-perf",
                     "workdir": "/tmp/client",
-                    "unavailable_timeout": "300",
                 },
                 "Tempesta": {
                     "ip": "127.0.0.1",
@@ -153,15 +150,12 @@ class TestFrameworkCfg:
                     "workdir": "/tmp/tempesta",
                     "config": "tempesta.conf",
                     "tmp_config": "tempesta_tmp.conf",
-                    "unavailable_timeout": "300",
                     "interfaces": "",
                 },
                 "Server": {
                     "ip": "127.0.0.3",
                     "ipv6": "::1",
                     "hostname": "localhost",
-                    "user": "root",
-                    "port": "22",
                     "nginx": "nginx",
                     "workdir": "/tmp/nginx",
                     "resources": "/var/www/html/",
@@ -170,19 +164,24 @@ class TestFrameworkCfg:
                     "max_workers": "16",
                     "keepalive_timeout": "60",
                     "keepalive_requests": "100",
-                    "unavailable_timeout": "300",
                     "lxc_container_name": "tempesta-site-stage",
                     "website_user": os.getenv("WEBSITE_USER", ""),
                     "website_password": os.getenv("WEBSITE_PASSWORD", ""),
                     "website_port": "7000",
                 },
                 "TFW_Logger": {
-                    "clickhouse_host": "127.0.0.1",
+                    "ip": os.getenv("CLICKHOUSE_IP", "127.0.0.1"),
+                    "hostname": os.getenv("CLICKHOUSE_IP", "localhost"),
+                    "user": "root",
+                    "port": "22",
+                    "ssh_key": "",
+                    "workdir": "/tmp/tfw_logger",
                     "clickhouse_port": "8123",
                     "clickhouse_username": "default",
                     "clickhouse_password": "",
-                    "clickhouse_database": "default",
-                    "daemon_log": "/tmp/tfw_logger.log",
+                    "clickhouse_table": os.getenv("CLICKHOUSE_TABLE", "access_log"),
+                    "log_path": "/tmp/tfw_logger.log",
+                    "logger_config": "/tmp/tfw_logger.json",
                 },
             }
         )
@@ -197,11 +196,13 @@ class TestFrameworkCfg:
 
     def get(self, section, opt) -> str:
         try:
-            return self.config[section][opt]
-        except KeyError as r_exc:
+            result = self.config[section][opt]
+            test_logger.debug(f"Got config param {opt}={result} for '{section}'")
+            return result
+        except KeyError:
             err_msg = f"Failed getting section `{section}` opt `{opt}`."
-            test_logger.debug(err_msg)
-            raise KeyError(err_msg) from r_exc
+            test_logger.critical(err_msg)
+            raise KeyError(err_msg) from None
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value

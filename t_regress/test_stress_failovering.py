@@ -3,7 +3,7 @@ Stress failovering testing.
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import copy
@@ -15,7 +15,7 @@ from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
 from test_suite import marks, tester
 
 SERVER_IP = cfg.get("Server", "ip")
-GENERAL_WORKDIR = cfg.get("General", "workdir")
+TEMPESTA_WORKDIR = cfg.get("Tempesta", "workdir")
 
 NGINX_CONFIG = """
 pid ${pid};
@@ -57,8 +57,8 @@ http {
 TFW_CONFIF_WITH_DEFAULT_SCHED = f"""
     listen 443 proto=h2;
 
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
     max_concurrent_streams 10000;
     frang_limits {{http_strict_host_checking false;}}
@@ -72,8 +72,8 @@ TFW_CONFIF_WITH_DEFAULT_SCHED = f"""
 TFW_CONFIF_WITH_HASH_SCHED = f"""
     listen 443 proto=h2;
 
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
     max_concurrent_streams 10000;
     frang_limits {{http_strict_host_checking false;}}

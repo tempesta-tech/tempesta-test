@@ -27,7 +27,6 @@ class DockerServerArguments:
     id: str
     image: str
     server_ip: str
-    general_workdir: str
     server_workdir: str
     build_timeout: int = 300
     stop_timeout: int = 6
@@ -55,7 +54,6 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
       id: backend server ID
       image: image to use from the `docker` directory
       server_ip: IP address of the server (set from config)
-      general_workdir: Path to temporary files (set from config)
       server_workdir: Path to temporary files on the server node (set from config)
       build_timeout: container build operation timeout
       stop_timeout: container stop operation timeout
@@ -97,7 +95,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
     @property
     def local_tar_path(self):
         """Path to store the build context archive locally."""
-        return Path(self.general_workdir) / f"{self.image_name}.tar.gz"
+        return Path(self.server_workdir) / f"{self.image_name}.tar.gz"
 
     @property
     def remote_tar_path(self):
@@ -163,8 +161,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
     def _build_image(self):
         self._logger.info(f"Creating '{self.image}' image...")
         self._tar_context()
-        self.node.copy_file_to_node(str(self.local_tar_path), str(self.remote_tar_path))
-        stdout, stderr = self.node.run_cmd(
+        self.node.run_cmd(
             self._form_build_command(),
             timeout=self.build_timeout,
         )

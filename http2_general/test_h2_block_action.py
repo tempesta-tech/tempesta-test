@@ -4,12 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
-from h2.settings import SettingCodes
 from hpack import HeaderTuple
 
-import run_config
 from http2_general.helpers import BlockActionH2Base, H2Base, generate_custom_error_page
 from test_suite import marks
 

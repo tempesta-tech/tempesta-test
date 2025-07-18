@@ -14,7 +14,7 @@ __license__ = "GPL2"
 
 class CustomErrorPageGenerator(object):
     def __init__(self, data, f_path=None, default=False):
-        workdir = tf_cfg.cfg.get("General", "workdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         self.f_path = f_path if f_path else workdir + "/tempesta.html"
         self.data = data
         if default:
@@ -26,7 +26,7 @@ class CustomErrorPageGenerator(object):
             fdesc.write(data)
 
     def generate(self):
-        self.__write(self.f_path, data)
+        self.__write(self.f_path, self.data)
 
     def __str__(self):
         assert self.data, "Stringify null custom error page object"

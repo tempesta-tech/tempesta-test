@@ -24,7 +24,7 @@ from framework.docker_server import DockerServer, docker_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
-from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
+from helpers import clickhouse, control, dmesg, error, remote, tempesta, tf_cfg, util
 from helpers.tf_cfg import test_logger
 from helpers.util import fill_template
 from test_suite import sysnet
@@ -35,7 +35,7 @@ __license__ = "GPL2"
 
 
 backend_defs = {}
-tempesta_defs = {}
+tempesta_defs = {"tempesta": control.Tempesta, "tempesta_fi": control.TempestaFI}
 save_tcpdump = False
 last_test_id = ""
 build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -48,18 +48,6 @@ def register_backend(type_name, factory):
     backend_defs[type_name] = factory
 
 
-def register_tempesta(type_name, factory):
-    """Register tempesta type"""
-    global tempesta_defs
-    test_logger.info(f"Registering tempesta '{type_name}'")
-    tempesta_defs[type_name] = factory
-
-
-def default_tempesta_factory(tempesta):
-    return control.Tempesta()
-
-
-register_tempesta("tempesta", default_tempesta_factory)
 register_backend("deproxy", deproxy_srv_factory)
 register_backend("nginx", nginx_srv_factory)
 register_backend("lxc", lxc_srv_factory)
@@ -69,11 +57,11 @@ register_backend("docker", docker_srv_factory)
 @dataclasses.dataclass
 class TempestaLoggers:
     dmesg: dmesg.DmesgFinder
-    get_tempesta: typing.Callable
+    _get_tempesta: typing.Callable
 
     @property
     def clickhouse(self) -> clickhouse.ClickHouseFinder:
-        return self.get_tempesta().clickhouse
+        return self._get_tempesta().clickhouse
 
 
 class WaitUntilAsserts(unittest.TestCase):
@@ -176,15 +164,11 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     Verbose documentation is placed in README.md
     """
 
-    backends = []
+    backends: list[dict] = []
 
-    clients = []
+    clients: list[dict] = []
 
-    tempesta = {
-        "listen_ip": "default",
-        "listen_port": 80,
-        "backends": [],
-    }
+    tempesta = {"type": "tempesta", "config": "", "tfw_config": tempesta.TfwLogger()}
 
     def __init_subclass__(cls, base=False, check_memleak=False, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -227,7 +211,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def __create_client_wrk(self, client, ssl):
         addr = fill_template(client["addr"], client)
-        wrk = wrk_client.Wrk(server_addr=addr, ssl=ssl)
+        wrk = wrk_client.Wrk(id_=client["id"], server_addr=addr, ssl=ssl)
         wrk.set_script(client["id"] + "_script", content="")
         return wrk
 
@@ -323,8 +307,6 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         return self.__servers.keys()
 
     def __create_clients(self):
-        if not remote.wait_available():
-            raise Exception("Client node is unavailable")
         for client in self.clients:
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
@@ -360,21 +342,17 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         return self.__tempesta
 
     def __create_tempesta(self):
-        desc = self.tempesta.copy()
-        tf_cfg.populate_properties(desc)
-        custom_cert = False
-        if "custom_cert" in desc:
-            custom_cert = self.tempesta["custom_cert"]
-        config = ""
-        if "config" in desc:
-            config = desc["config"]
         test_logger.info(f"Creating Tempesta service...")
-        if "type" in desc:
-            factory = tempesta_defs[desc["type"]]
-            self.__tempesta = factory(desc)
-        else:
-            self.__tempesta = default_tempesta_factory(desc)
-        self.__tempesta.config.set_defconfig(fill_template(config, desc), custom_cert)
+
+        config = self.tempesta.copy()
+        tf_cfg.populate_properties(config)
+
+        self.__tempesta = tempesta_defs.get(config.get("type", "tempesta"))()
+        self.__tempesta.config.set_defconfig(
+            config=fill_template(config.get("config", ""), config),
+            custom_cert=config.get("custom_cert", False),
+            tfw_config=config.get("tfw_config", None),
+        )
 
     def start_all_servers(self):
         for sid in self.__servers:
@@ -418,7 +396,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.__tempesta = None
         self.deproxy_manager = deproxy_manager.DeproxyManager()
         self.__save_memory_consumption()
-        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), get_tempesta=self.get_tempesta)
+        self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), _get_tempesta=self.get_tempesta)
         self.oops_ignore = []
         self.__create_tempesta()
         self._deproxy_auto_parser = DeproxyAutoParser(
@@ -555,6 +533,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             self.deproxy_manager.start()
 
         self.assertTrue(self.wait_all_connections())
+        self.assertTrue(self.__tempesta.wait_while_logger_start())
 
     def __run_tcpdump(self) -> None:
         """

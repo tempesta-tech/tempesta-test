@@ -38,8 +38,8 @@ class TlsBasic(tester.TempestaTest):
         "config": """
             cache 0;
             listen 443 proto=https;
-            tls_certificate ${general_workdir}/tempesta.crt;
-            tls_certificate_key ${general_workdir}/tempesta.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
             server ${server_ip}:8000;
         """
     }
