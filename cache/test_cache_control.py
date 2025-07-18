@@ -1294,3 +1294,31 @@ class StoringResponsesWithSetCookieHeaderDefaultCache(TestCacheControl, SingleTe
     request_headers = {}
     second_request_headers = {}
     cached_headers = {"Set-Cookie": None}
+
+
+class HttpChainVhostCacheKeyStability(TestCacheControl, SingleTest):
+    """
+    Test that cache works correctly when HTTP chains redirect to different vhost.
+    This test verifies that the cache key is based on vhost name when using HTTP chains.
+
+    The test uses two vhosts (vh1 and vh2) that both proxy to the same backend.
+    Requests to '/redirect' are routed to vh2 via HTTP chains, while other requests go to vh1.
+    Both should be cached correctly, demonstrating that the cache key incorporates the vhost name.
+    """
+
+    tempesta_config = """
+        cache_fulfill * *;
+        
+        vhost vh2 {
+            proxy_pass default;
+        }
+        
+        http_chain {
+            uri == "/redirect" -> vh2;
+            -> vh1;
+        }
+        """
+
+    uri = "/redirect"
+    request_headers = {}
+    should_be_cached = True
