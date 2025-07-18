@@ -12,7 +12,7 @@ from helpers.tf_cfg import cfg
 from test_suite import marks, tester
 
 SERVER_IP = cfg.get("Server", "ip")
-GENERAL_WORKDIR = cfg.get("General", "workdir")
+TEMPESTA_WORKDIR = cfg.get("Tempesta", "workdir")
 DMESG_WARNING = "An unexpected number of warnings were received"
 
 
@@ -122,8 +122,8 @@ class TestListenReconf(tester.TempestaTest):
 
     base_tempesta_config = f"""
 server {SERVER_IP}:8000;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 frang_limits {{http_strict_host_checking false;}}
 """
@@ -131,8 +131,8 @@ frang_limits {{http_strict_host_checking false;}}
 
     @classmethod
     def setUpClass(cls):
-        cert_path = f"{GENERAL_WORKDIR}/tempesta.crt"
-        key_path = f"{GENERAL_WORKDIR}/tempesta.key"
+        cert_path = f"{TEMPESTA_WORKDIR}/tempesta.crt"
+        key_path = f"{TEMPESTA_WORKDIR}/tempesta.key"
         cgen = CertGenerator(cert_path, key_path, True)
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
@@ -631,8 +631,8 @@ class TestServerOptionsReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 frang_limits {{
     http_strict_host_checking false;
@@ -654,8 +654,8 @@ location prefix "/" {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 frang_limits {{
     http_strict_host_checking false;
@@ -676,8 +676,8 @@ location prefix "/" {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 server_failover_http 502 5 10;
@@ -700,8 +700,8 @@ srv_group default {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 server_failover_http 502 5 10;
@@ -725,8 +725,8 @@ srv_group default {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -741,8 +741,8 @@ srv_group default {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -757,8 +757,8 @@ srv_group default {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -773,8 +773,8 @@ srv_group default {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -811,8 +811,8 @@ srv_group default {{
         tempesta.config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -827,8 +827,8 @@ srv_group default {{
         tempesta.config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -876,8 +876,8 @@ srv_group default {{
         tempesta.config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -892,8 +892,8 @@ srv_group default {{
         tempesta.config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 
 srv_group default {{
@@ -1105,8 +1105,8 @@ class TestVhostReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
     listen 443 proto=h2;
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;    
     frang_limits {{http_strict_host_checking false;}}    
     
@@ -1129,8 +1129,8 @@ class TestVhostReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
     listen 443 proto=h2;
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
     frang_limits {{http_strict_host_checking false;}}
     
@@ -1202,8 +1202,8 @@ class TestVhostReconf(tester.TempestaTest):
         tempesta.config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;        
 frang_limits {{http_strict_host_checking false;}}
 block_action attack reply;
@@ -1229,8 +1229,8 @@ http_chain {{
         tempesta.config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 frang_limits {{http_strict_host_checking false;}}
 block_action attack reply;
@@ -1288,8 +1288,8 @@ class TestProxyPassReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 frang_limits {{http_strict_host_checking false;}}  
 block_action attack reply;
@@ -1315,8 +1315,8 @@ http_chain {{
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 443 proto=h2;
-tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 tls_match_any_server_name;
 frang_limits {{http_strict_host_checking false;}}  
 block_action attack reply;
@@ -1413,8 +1413,8 @@ class TestLocationReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
     listen 443 proto=h2;
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;        
 
     block_action attack reply;
@@ -1431,8 +1431,8 @@ class TestLocationReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
     listen 443 proto=h2;
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;
 
     block_action attack reply;
@@ -1452,8 +1452,8 @@ class TestLocationReconf(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"""
     listen 443 proto=h2;
-    tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
-    tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+    tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+    tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
     tls_match_any_server_name;        
 
     block_action attack reply;

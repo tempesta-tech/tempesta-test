@@ -108,9 +108,6 @@ class TestFrameworkCfg:
         self.config.read_dict(
             {
                 "General": {
-                    "ip": "127.0.0.1",
-                    "ipv6": "::1",
-                    "workdir": "/tmp/host",
                     "duration": "10",
                     "concurrent_connections": "10",
                     "log_file": "tests_log.log",
@@ -159,8 +156,6 @@ class TestFrameworkCfg:
                     "ip": "127.0.0.3",
                     "ipv6": "::1",
                     "hostname": "localhost",
-                    "user": "root",
-                    "port": "22",
                     "nginx": "nginx",
                     "workdir": "/tmp/nginx",
                     "resources": "/var/www/html/",

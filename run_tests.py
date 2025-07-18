@@ -401,7 +401,7 @@ if run_config.KERNEL_DBG_TESTS:
 
 # allows run tests from docker container
 if prepare_tcp:
-    prepare.configure()
+    prepare.configure_tcp()
 
 #
 # Clear garbage after previous run of test suite
@@ -436,12 +436,7 @@ exclusions = []
 if run_config.TCP_SEGMENTATION and disabled_reader_tcp_seg.disable:
     disabled_reader.disabled.extend(disabled_reader_tcp_seg.disabled)
 
-if (
-    type(remote.host) is remote.RemoteNode
-    or type(remote.client) is remote.RemoteNode
-    or type(remote.tempesta) is remote.RemoteNode
-    or type(remote.server) is remote.RemoteNode
-) and disabled_reader_remote.disable:
+if type(remote.tempesta) is remote.RemoteNode and disabled_reader_remote.disable:
     disabled_reader.disabled.extend(disabled_reader_remote.disabled)
 
 if run_config.KERNEL_DBG_TESTS and disabled_reader_dbg_kernel.disable:

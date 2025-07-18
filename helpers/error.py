@@ -1,14 +1,12 @@
-from __future__ import print_function
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 202-2025 Tempesta Technologies, Inc."
+__license__ = "GPL2"
 
 import sys
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Optional, Union
 
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
-__license__ = "GPL2"
-
-from typing import Optional
+from helpers import tf_cfg
 
 
 class Error(Exception):
@@ -18,6 +16,7 @@ class Error(Exception):
     Separate exception class is needed to indicate that error happen and
     test framework is not working as expected.
     """
+
     pass
 
 
@@ -58,6 +57,18 @@ class ServiceStoppingException(Error):
         )
 
 
+class ClickhouseNotAvailable(Exception):
+    """When clickhouse is not started or access is incorrect."""
+
+    def __str__(self):
+        return (
+            "You must run Clickhouse server on the "
+            + f"{tf_cfg.cfg.get('TFW_Logger', 'ip')}:"
+            + f"{tf_cfg.cfg.get('TFW_Logger', 'clickhouse_port')} "
+            + "node before run the tests."
+        )
+
+
 class KmemleakException(Exception):
     """If error with `kmemleak` processing."""
 
@@ -83,9 +94,10 @@ class BaseCmdException(Exception):
     """Base class to cmd-like exceptions,"""
 
     def __init__(
-        self, message: Any = None,
-        stdout: Union[str, bytes] = '',
-        stderr: Union[str, bytes] = '',
+        self,
+        message: Any = None,
+        stdout: Union[str, bytes] = "",
+        stderr: Union[str, bytes] = "",
         rt: Optional[int] = None,
     ):
         """
