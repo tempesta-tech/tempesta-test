@@ -226,10 +226,6 @@
             "reason": "Disabled by issue #2052"
         },
         {
-            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogsBufferConfiguration.test_mmap_buffer",
-            "reason": "Disabled by issue #2313"
-        },
-        {
             "name": "t_stress.test_clickhouse.TestClickHouseLogsUnderLoad",
             "reason": "Disabled by issue #2314"
         },

@@ -24,7 +24,7 @@ from framework.docker_server import DockerServer, docker_srv_factory
 from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
-from helpers import clickhouse, control, dmesg, error, remote, tf_cfg, util
+from helpers import clickhouse, control, dmesg, error, remote, tempesta, tf_cfg, util
 from helpers.tf_cfg import test_logger
 from helpers.util import fill_template
 from test_suite import sysnet
@@ -168,10 +168,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     clients: list[dict] = []
 
-    tempesta = {
-        "type": "tempesta",
-        "config": "",
-    }
+    tempesta = {"type": "tempesta", "config": "", "tfw_config": tempesta.TfwLogger()}
 
     def __init_subclass__(cls, base=False, check_memleak=False, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -354,6 +351,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.__tempesta.config.set_defconfig(
             config=fill_template(config.get("config", ""), config),
             custom_cert=config.get("custom_cert", False),
+            tfw_config=config.get("tfw_config", None),
         )
 
     def start_all_servers(self):

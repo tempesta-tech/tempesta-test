@@ -324,7 +324,7 @@ class Tempesta(stateful.Stateful):
             if not self.tfw_log_file_exists():
                 return True
 
-            if not self.clickhouse.find(".*Daemon started\n"):
+            if not self.clickhouse.find("worker threads started"):
                 return True
 
             time.sleep(1)
