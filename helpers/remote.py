@@ -171,7 +171,7 @@ class ANode(object, metaclass=abc.ABCMeta):
         """
         return self._numa_nodes_n
 
-    def _post_init(self):
+    def post_init(self):
         """
         Finilize initialization of the Node.
         """
@@ -605,10 +605,8 @@ def create_node(host_type: str):
             ssh_key=tf_cfg.cfg.get(host_type, "ssh_key"),
         )
 
-        node._post_init()
         return node
     node = LocalNode(ntype=host_type, hostname=hostname, workdir=workdir)
-    node._post_init()
     return node
 
 
@@ -616,40 +614,31 @@ def create_node(host_type: str):
 # Global accessible SSH/Local connections
 # -------------------------------------------------------------------------------
 
-client: Optional[ANode] = None
+client: Optional[ANode] = LocalNode("Client", "localhost", tf_cfg.cfg.get("Client", "workdir"))
 tempesta: Optional[ANode] = None
-server: Optional[ANode] = None
-host: Optional[ANode] = None
+server: Optional[ANode] = LocalNode("Server", "localhost", tf_cfg.cfg.get("Server", "workdir"))
 clickhouse: Optional[ANode] = None
 
 
 def connect():
     global client
-    client = create_node("Client")
-
-    global tempesta
-    tempesta = create_node("Tempesta")
-
     global server
-    server = create_node("Server")
-
+    global tempesta
     global clickhouse
+
+    tempesta = create_node("Tempesta")
     clickhouse = create_node("TFW_Logger")
 
-    global host
-    host = LocalNode("General", "localhost", tf_cfg.cfg.get("General", "workdir"))
-
-    for node in [client, server, tempesta, host, clickhouse]:
+    for node in [client, server, tempesta, clickhouse]:
         node.mkdir(node.workdir)
+        node.post_init()
 
 
 def wait_available():
-    global client
-    global server
     global tempesta
     global clickhouse
 
-    for node in [client, server, tempesta, clickhouse]:
+    for node in [tempesta, clickhouse]:
         if not node.wait_available():
             return False
     return True

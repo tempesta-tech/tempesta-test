@@ -7,7 +7,7 @@ import typing
 import clickhouse_connect
 from clickhouse_connect.driver import Client
 
-from helpers import dmesg, remote, tf_cfg
+from helpers import dmesg, error, remote, tf_cfg
 from helpers.access_log import AccessLogLine
 
 __author__ = "Tempesta Technologies, Inc."
@@ -17,13 +17,16 @@ __license__ = "GPL2"
 from helpers.dmesg import amount_one
 from helpers.util import wait_until
 
-_connection: Client = clickhouse_connect.get_client(
-    host=tf_cfg.cfg.get("TFW_Logger", "ip"),
-    port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
-    username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-    password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-    database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
-)
+try:
+    _connection: Client = clickhouse_connect.get_client(
+        host=tf_cfg.cfg.get("TFW_Logger", "ip"),
+        port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
+        username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
+        password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
+        database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
+    )
+except clickhouse_connect.driver.exceptions.OperationalError as e:
+    raise error.ClickhouseNotAvailable() from None
 
 
 class ClickHouseFinder(dmesg.BaseTempestaLogger):
