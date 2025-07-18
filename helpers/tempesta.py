@@ -223,8 +223,7 @@ class ServerGroup(object):
 
 @dataclasses.dataclass
 class TfwLogger(object):
-    logger_config: str
-    buffer_size: int = 4194304
+    logger_config: str = tf_cfg.cfg.get("TFW_Logger", "logger_config")
     host: str = tf_cfg.cfg.get("TFW_Logger", "ip")
     port: int = int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"))
     user: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_username")
@@ -275,7 +274,6 @@ class Config(object):
         if self._logger_config is not None:
             logger_config = {
                 "log_path": self._logger_config.log_path,
-                "buffer_size": self._logger_config.buffer_size,
                 "clickhouse": {
                     "host": self._logger_config.host,
                     "port": self._logger_config.port,
@@ -339,12 +337,17 @@ class Config(object):
         remote.tempesta.copy_file(self._tls_certificate, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(self._tls_certificate_key, cgen.serialize_priv_key().decode())
 
-    def __generate_clickhouse_config(self) -> None:
+    def __generate_clickhouse_config(self, tfw_config: Optional[TfwLogger] = None) -> None:
         if self.mmap is None or "mmap" not in self.mmap:
             return
-        self._logger_config = TfwLogger(
-            logger_config=re.search(r"logger_config=([^\s]+)", self.mmap).group(1)
-        )
+
+        if tfw_config is not None:
+            self._logger_config = tfw_config
+
+        if self._logger_config is None:
+            self._logger_config = TfwLogger(
+                logger_config=re.search(r"logger_config=([^\s]+)", self.mmap).group(1)
+            )
 
     def __process_config(self) -> None:
         _cfg = {}
@@ -367,10 +370,12 @@ class Config(object):
         if "mmap" in _cfg.get("access_log", ""):
             self.mmap = _cfg.get("access_log", "")
 
-    def set_defconfig(self, config: str, custom_cert: bool = False) -> None:
+    def set_defconfig(
+        self, config: str, custom_cert: bool = False, tfw_config: Optional[TfwLogger] = None
+    ) -> None:
         if not config:
             return
         self.__defconfig = config
         self.__process_config()
         self.__generate_tls_certs(custom_cert)
-        self.__generate_clickhouse_config()
+        self.__generate_clickhouse_config(tfw_config)

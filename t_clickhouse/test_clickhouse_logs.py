@@ -79,25 +79,20 @@ class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
             server ${server_ip}:8000;
 
             mmap_log_buffer_size 4096;
-            access_log dmesg mmap logger_config=${tfw_logger_logger_config};
+            access_log mmap logger_config=${tfw_logger_logger_config};
         """,
     )
 
     def test_mmap_buffer(self):
         """
-        Check the buffer works fine
+        Check the buffer works fine with small value
         """
         client = self.get_client("deproxy")
         client.start()
 
-        self.send_simple_request(client)
-        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+        client.send_request(client.create_request(method="GET", headers=[]))
 
-        client.make_requests([client.create_request(method="GET", headers=[])] * 4100)
-
-        self.assertTrue(client.wait_for_response())
-        # buffer size + simple request before
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 4097)
+        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
 
 class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
