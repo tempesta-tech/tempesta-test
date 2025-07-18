@@ -10,7 +10,7 @@ from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -71,8 +71,8 @@ class StressTls(tester.TempestaTest):
     tempesta = {
         "config": """
             listen 443 proto=https;
-            tls_certificate ${general_workdir}/tempesta.crt;
-            tls_certificate_key ${general_workdir}/tempesta.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             # wrk sends IP address in SNI, so we test the option here.
             tls_match_any_server_name;

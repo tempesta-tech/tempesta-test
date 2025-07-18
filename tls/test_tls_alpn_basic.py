@@ -57,7 +57,7 @@ class TestALPN(tester.TempestaTest):
             self.tempesta_template["config"]
             % {
                 "tempesta_proto": proto,
-                "work_dir": tf_cfg.cfg.get("General", "workdir"),
+                "work_dir": tf_cfg.cfg.get("Tempesta", "workdir"),
                 "server_ip": tf_cfg.cfg.get("Server", "ip"),
             }
         )

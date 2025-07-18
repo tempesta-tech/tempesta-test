@@ -11,7 +11,7 @@ from .fuzzer import tls_record_fuzzer
 from .handshake import *
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -33,8 +33,8 @@ class TlsHandshakeTest(tester.TempestaTest):
             cache 0;
             listen 443 proto=https;
 
-            tls_certificate ${general_workdir}/tempesta.crt;
-            tls_certificate_key ${general_workdir}/tempesta.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
@@ -298,8 +298,8 @@ class TlsMissingDefaultKey(tester.TempestaTest):
             }
 
             vhost tempesta-tech.com {
-                tls_certificate ${general_workdir}/tempesta.crt;
-                tls_certificate_key ${general_workdir}/tempesta.key;
+                tls_certificate ${tempesta_workdir}/tempesta.crt;
+                tls_certificate_key ${tempesta_workdir}/tempesta.key;
                 proxy_pass be1;
             }
         """,
@@ -373,8 +373,8 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
             srv_group be2 { server ${server_ip}:8001; }
 
             # Ensure that vhost1 only is using the global certificate.
-            tls_certificate ${general_workdir}/vhost1.crt;
-            tls_certificate_key ${general_workdir}/vhost1.key;
+            tls_certificate ${tempesta_workdir}/vhost1.crt;
+            tls_certificate_key ${tempesta_workdir}/vhost1.key;
 
             vhost vhost1.net {
                 proxy_pass be1;
@@ -382,8 +382,8 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
             vhost vhost2.net {
                 proxy_pass be2;
-                tls_certificate ${general_workdir}/vhost2.crt;
-                tls_certificate_key ${general_workdir}/vhost2.key;
+                tls_certificate ${tempesta_workdir}/vhost2.crt;
+                tls_certificate_key ${tempesta_workdir}/vhost2.key;
             }
 
             http_chain {
@@ -403,7 +403,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
 
     @staticmethod
     def gen_cert(host_name):
-        workdir = tf_cfg.cfg.get("General", "workdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         cert_path = "%s/%s.crt" % (workdir, host_name)
         key_path = "%s/%s.key" % (workdir, host_name)
         cgen = CertGenerator(cert_path, key_path)
@@ -515,8 +515,8 @@ class TlsCertReconfig(tester.TempestaTest):
             cache 0;
             listen 443 proto=https;
 
-            tls_certificate ${general_workdir}/tempesta.crt;
-            tls_certificate_key ${general_workdir}/tempesta.key;
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
             srv_group srv_grp1 {
                 server ${server_ip}:8000;
@@ -533,7 +533,7 @@ class TlsCertReconfig(tester.TempestaTest):
 
     @staticmethod
     def gen_cert():
-        workdir = tf_cfg.cfg.get("General", "workdir")
+        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         cert_path = "%s/tempesta.crt" % workdir
         key_path = "%s/tempesta.key" % workdir
         cgen = CertGenerator(cert_path, key_path)
