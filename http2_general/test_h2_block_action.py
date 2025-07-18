@@ -9,7 +9,6 @@ from h2.errors import ErrorCodes
 from h2.settings import SettingCodes
 from hpack import HeaderTuple
 
-import run_config
 from http2_general.helpers import BlockActionH2Base, H2Base, generate_custom_error_page
 from test_suite import marks
 
