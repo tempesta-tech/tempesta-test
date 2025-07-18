@@ -1,11 +1,15 @@
+import dataclasses
+import json
+import os
 import re
+from typing import Optional
 
 from helpers.cert_generator_x509 import CertGenerator
 
 from . import error, remote, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2019 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -217,13 +221,82 @@ class ServerGroup(object):
         return sg
 
 
+@dataclasses.dataclass
+class TfwLogger(object):
+    logger_config: str
+    buffer_size: int = 4194304
+    host: str = tf_cfg.cfg.get("TFW_Logger", "ip")
+    port: int = int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"))
+    user: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_username")
+    password: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_password")
+    max_events: int = 1000
+    max_wait_ms: int = 100
+
+    # table and log_path must not change in tests. These are global tests variables,
+    # and they must be changed in the main configuration
+
+    @property
+    def table(self) -> str:
+        return tf_cfg.cfg.get("TFW_Logger", "clickhouse_table")
+
+    @property
+    def log_path(self) -> str:
+        return tf_cfg.cfg.get("TFW_Logger", "log_path")
+
+
 class Config(object):
     """Creates Tempesta config file."""
 
     def __init__(self, vhost_auto=True):
         self.server_groups = []
-        self.defconfig = ""
+        self.__defconfig = ""
         self.vhost_auto_mode = vhost_auto
+        self._logger_config: Optional[TfwLogger] = None
+
+        self._workdir = remote.tempesta.workdir
+        self.config_name = os.path.join(self._workdir, tf_cfg.cfg.get("Tempesta", "config"))
+        self.tmp_config_name = os.path.join(self._workdir, tf_cfg.cfg.get("Tempesta", "tmp_config"))
+
+        self._is_tls: bool = False
+        self._tls_certificate: Optional[str] = None
+        self._tls_certificate_key: Optional[str] = None
+        self.mmap: Optional[str] = None
+
+    @property
+    def defconfig(self) -> str:
+        return self.__defconfig
+
+    @defconfig.setter
+    def defconfig(self, config: str) -> None:
+        self.set_defconfig(config, custom_cert=False)
+
+    def create_config_files(self) -> None:
+        remote.tempesta.copy_file(self.config_name, self.get_config())
+        if self._logger_config is not None:
+            logger_config = {
+                "log_path": self._logger_config.log_path,
+                "buffer_size": self._logger_config.buffer_size,
+                "clickhouse": {
+                    "host": self._logger_config.host,
+                    "port": self._logger_config.port,
+                    "user": self._logger_config.user,
+                    "password": self._logger_config.password,
+                    "table_name": self._logger_config.table,
+                    "max_ecents": self._logger_config.max_events,
+                    "max_wait_ms": self._logger_config.max_wait_ms,
+                },
+            }
+
+            remote.tempesta.copy_file(
+                filename=self._logger_config.logger_config,
+                content=json.dumps(logger_config, ensure_ascii=False, indent=2),
+            )
+
+    def remove_config_files(self) -> None:
+        remote.tempesta.remove_file(self.config_name)
+        if self._logger_config is not None:
+            remote.tempesta.remove_file(self._logger_config.logger_config)
+            remote.tempesta.remove_file(self._logger_config.log_path)
 
     def find_sg(self, sg_name):
         for sg in self.server_groups:
@@ -240,11 +313,11 @@ class Config(object):
         error.assertTrue(self.find_sg(new_sg.name) is None)
         self.server_groups.append(new_sg)
 
-    def get_config(self):
+    def get_config(self) -> str:
         cfg = "\n".join([sg.get_config() for sg in self.server_groups] + [self.defconfig])
         return cfg
 
-    def __handle_tls(self, custom_cert):
+    def __generate_tls_certs(self, custom_cert: bool) -> None:
         """
         Parse the config string and generate x509 certificates if there are
         appropriate options in the config. The default cert generator creates
@@ -254,31 +327,50 @@ class Config(object):
         """
         if custom_cert:
             return  # nothing to do for us, a caller takes care about certs
-        cfg = {"listen": ""}
+
+        if not self._is_tls:
+            # don't create TLS cert\key
+            return
+
+        if self._is_tls and (self._tls_certificate is None and self._tls_certificate_key is None):
+            raise
+
+        cgen = CertGenerator(self._tls_certificate, self._tls_certificate_key, True)
+        remote.tempesta.copy_file(self._tls_certificate, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(self._tls_certificate_key, cgen.serialize_priv_key().decode())
+
+    def __generate_clickhouse_config(self) -> None:
+        if self.mmap is None or "mmap" not in self.mmap:
+            return
+        self._logger_config = TfwLogger(
+            logger_config=re.search(r"logger_config=([^\s]+)", self.mmap).group(1)
+        )
+
+    def __process_config(self) -> None:
+        _cfg = {}
         for l in self.defconfig.splitlines():
-            l = l.strip(" \t;")
-            if not l or l.startswith("#"):
+            # Skip the empty lines and comments
+            if l.startswith("#") or l in ["", "{", "}"]:
                 continue
+            l = l.strip(" \t;")
             try:
                 k, v = l.split(" ", 1)
             except ValueError:
-                continue  # just ignore lines like '}' or '"'
-            assert not k.startswith("tls_certificate") or k not in cfg, (
-                "Two or more certificates configured, please use custom_cert"
-                " option in Tempesta configuration"
-            )
+                continue
+            _cfg[k] = v
 
-            cfg.__setitem__(k, cfg[k] + f", {v}") if k == "listen" else cfg.__setitem__(k, v)
-        if not any(proto in cfg["listen"] for proto in ["https", "h2"]):
+        self._is_tls = (
+            True if any(proto in _cfg.get("listen", "") for proto in ["https", "h2"]) else False
+        )
+        self._tls_certificate = _cfg.get("tls_certificate", None)
+        self._tls_certificate_key = _cfg.get("tls_certificate_key", None)
+        if "mmap" in _cfg.get("access_log", ""):
+            self.mmap = _cfg.get("access_log", "")
+
+    def set_defconfig(self, config: str, custom_cert: bool = False) -> None:
+        if not config:
             return
-        cert_path, key_path = cfg["tls_certificate"], cfg["tls_certificate_key"]
-        cgen = CertGenerator(cert_path, key_path, True)
-        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
-        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
-
-    def set_defconfig(self, config, custom_cert=False):
-        self.defconfig = config
-        self.__handle_tls(custom_cert)
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+        self.__defconfig = config
+        self.__process_config()
+        self.__generate_tls_certs(custom_cert)
+        self.__generate_clickhouse_config()

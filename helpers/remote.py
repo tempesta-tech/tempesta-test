@@ -86,6 +86,9 @@ class ANode(object, metaclass=abc.ABCMeta):
         return int(math_obj.group(1))
 
     @abc.abstractmethod
+    def exists(self, path: str) -> bool: ...
+
+    @abc.abstractmethod
     def run_cmd(
         self,
         cmd: str,
@@ -326,6 +329,9 @@ class LocalNode(ANode):
         """
         self._logger.debug(f"Copying `{file}` to a node with destination `{dest_dir}`")
         shutil.copy(file, dest_dir)
+
+    def exists(self, path: str) -> bool:
+        return os.path.exists(path)
 
 
 class RemoteNode(ANode):
@@ -589,6 +595,13 @@ class RemoteNode(ANode):
             sftp.close()
         except Exception:
             self._logger.exception(f"Error copying file {file} to {self.host}")
+
+    def exists(self, path: str) -> bool:
+        try:
+            self._ssh.open_sftp().stat(path)
+            return True
+        except FileNotFoundError:
+            return False
 
 
 def create_node(host_type: str):

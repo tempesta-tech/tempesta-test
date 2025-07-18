@@ -1,11 +1,11 @@
 """ Controls node over SSH if remote, or via OS if local one. """
 
-from __future__ import print_function
-
 import abc
 import multiprocessing.dummy as multiprocessing
 import os
 import re
+import time
+import typing
 
 from framework import stateful
 from helpers.clickhouse import ClickHouseFinder
@@ -15,6 +15,8 @@ from . import error, nginx, remote, tempesta, tf_cfg
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+from .util import wait_until
 
 # -------------------------------------------------------------------------------
 # Clients
@@ -300,22 +302,46 @@ class Tempesta(stateful.Stateful):
     def __init__(self, vhost_auto=True):
         super().__init__(id_=remote.tempesta.host)
         self.node = remote.tempesta
-        self.workdir = self.node.workdir
         self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
-        self.tmp_config_name = os.path.join(self.workdir, tf_cfg.cfg.get("Tempesta", "tmp_config"))
-        self.config_name = os.path.join(self.workdir, tf_cfg.cfg.get("Tempesta", "config"))
         self.config = tempesta.Config(vhost_auto=vhost_auto)
         self.stats = tempesta.Stats()
-        self.host = tf_cfg.cfg.get("Tempesta", "hostname")
         self.check_config = True
         self.clickhouse = ClickHouseFinder()
-        self.stop_procedures = [self.stop_tempesta, self.remove_config, self.clickhouse.clean_logs]
+        self.stop_procedures = [
+            self.stop_tempesta,
+            self.config.remove_config_files,
+            self.clickhouse.access_log_clear,
+        ]
 
-    def __wait_while_logger_start(self):
-        if "mmap" not in self.config.get_config():
-            return
+    def wait_while_logger_start(self, timeout: int = 5) -> bool:
+        """
+        Block thread until tfw_logger starts
+        """
+        if self.config.mmap is None:
+            return True
 
-        self.clickhouse.tfw_logger_wait_until_ready()
+        def wait():
+            if not self.tfw_log_file_exists():
+                return True
+
+            if not self.clickhouse.find(".*Daemon started\n"):
+                return True
+
+            time.sleep(1)
+            return False
+
+        return wait_until(wait_cond=wait, timeout=timeout, poll_freq=0.1)
+
+    @staticmethod
+    def tfw_logger_signal(signal: typing.Literal["STOP", "CONT"]) -> None:
+        remote.tempesta.run_cmd(f"kill -{signal} $(pidof tfw_logger)")
+
+    @staticmethod
+    def tfw_log_file_exists() -> bool:
+        """
+        Check if tfw log file exists
+        """
+        return remote.tempesta.exists(tf_cfg.cfg.get("TFW_Logger", "log_path"))
 
     def run_start(self):
         self.stats.clear()
@@ -334,22 +360,15 @@ class Tempesta(stateful.Stateful):
         if self.check_config:
             assert cfg_content, "Tempesta config is empty."
 
-        self.node.copy_file(self.config_name, cfg_content)
-        env = {"TFW_CFG_PATH": self.config_name, "TFW_CFG_TMPL": self.tmp_config_name}
+        self.config.create_config_files()
+        env = {"TFW_CFG_PATH": self.config.config_name, "TFW_CFG_TMPL": self.config.tmp_config_name}
         if tf_cfg.cfg.get("Tempesta", "interfaces"):
-            env.update(
-                {"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")},
-            )
+            env.update({"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")})
         self.node.run_cmd(cmd, timeout=30, env=env)
-        self.__wait_while_logger_start()
 
     def stop_tempesta(self):
         cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir
         self.node.run_cmd(cmd, timeout=30)
-
-    def remove_config(self):
-        self.node.remove_file(self.config_name)
-        self.node.remove_file(self.tmp_config_name)
 
     def get_stats(self):
         cmd = "cat /proc/tempesta/perfstat"

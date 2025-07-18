@@ -131,8 +131,8 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         half_of_duration = run_config.DURATION / 2
         time.sleep(int(half_of_duration))
 
-        self.loggers.clickhouse.tfw_logger_signal("STOP")
-        self.loggers.clickhouse.tfw_logger_signal("CONT")
+        self.get_tempesta().tfw_logger_signal("STOP")
+        self.get_tempesta().tfw_logger_signal("CONT")
 
         self.wait_while_busy(client)
         client.stop()

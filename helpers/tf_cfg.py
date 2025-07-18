@@ -170,8 +170,8 @@ class TestFrameworkCfg:
                     "website_port": "7000",
                 },
                 "TFW_Logger": {
-                    "ip": "127.0.0.1",
-                    "hostname": "localhost",
+                    "ip": os.getenv("CLICKHOUSE_IP", "127.0.0.1"),
+                    "hostname": os.getenv("CLICKHOUSE_IP", "localhost"),
                     "user": "root",
                     "port": "22",
                     "ssh_key": "",
@@ -179,8 +179,8 @@ class TestFrameworkCfg:
                     "clickhouse_port": "8123",
                     "clickhouse_username": "default",
                     "clickhouse_password": "",
-                    "clickhouse_database": "default",
-                    "daemon_log": "/tmp/tfw_logger.log",
+                    "clickhouse_table": os.getenv("CLICKHOUSE_TABLE", "access_log"),
+                    "log_path": "/tmp/tfw_logger.log",
                     "logger_config": "/tmp/tfw_logger.json",
                 },
             }
@@ -196,11 +196,13 @@ class TestFrameworkCfg:
 
     def get(self, section, opt) -> str:
         try:
-            return self.config[section][opt]
-        except KeyError as r_exc:
+            result = self.config[section][opt]
+            test_logger.debug(f"Got config param {opt}={result} for '{section}'")
+            return result
+        except KeyError:
             err_msg = f"Failed getting section `{section}` opt `{opt}`."
-            test_logger.debug(err_msg)
-            raise KeyError(err_msg) from r_exc
+            test_logger.critical(err_msg)
+            raise KeyError(err_msg) from None
 
     def set_option(self, section: str, opt: str, value: str) -> None:
         self.config[section][opt] = value
