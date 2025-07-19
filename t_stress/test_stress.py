@@ -8,8 +8,8 @@ from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
 from helpers.networker import NetWorker
-from test_suite import marks, tester
 from t_frang.frang_test_case import FrangTestCase
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
@@ -1130,11 +1130,23 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
             ),
             marks.Param(
                 name="RstFloodByWndUpdate",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rst_stream_frame -rst_reason_type window_update -frame_count 100000",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rapid_reset -rapid_reset_type window_update -frame_count 100000",
             ),
             marks.Param(
                 name="RstFloodByPriority",
-                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rst_stream_frame -rst_reason_type priority -frame_count 100000",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rapid_reset -rapid_reset_type priority -frame_count 100000",
+            ),
+            marks.Param(
+                name="RstFloodByRst",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rapid_reset -rapid_reset_type rst -frame_count 100000",
+            ),
+            marks.Param(
+                name="RstFloodByRstBatch",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rapid_reset -rapid_reset_type batch -frame_count 100000",
+            ),
+            marks.Param(
+                name="RstFloodByHeaders",
+                cmd_args=f"-address %s:443 -threads 4 -connections 100 -ctrl_frame_type rapid_reset -rapid_reset_type headers -frame_count 100000",
             ),
         ]
     )
@@ -1142,11 +1154,6 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
     def test(self, name, cmd_args):
         self._test(cmd_args)
         self.assertFrangWarning("Warning: frang: control frames rate exceeded", 100)
-
-    def test_RstFloodByHeaders(self):
-        self._test(
-            "-address %s:443 -threads 4 -connections 100 -debug 1 -ctrl_frame_type rst_stream_frame -rst_reason_type headers -frame_count 100000"
-        )
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
