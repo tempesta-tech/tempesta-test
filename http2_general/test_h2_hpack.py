@@ -386,6 +386,7 @@ class TestHpack(TestHpackBase):
         )
 
     def test_settings_header_table_stress(self):
+        self.increment_ctrl_frame_cnt()
         client, server = self.setup_settings_header_table_tests()
 
         for new_table_size in range(128, 0, -1):
