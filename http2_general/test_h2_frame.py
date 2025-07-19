@@ -566,12 +566,20 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         )
 
     def test_mixed_frames_long_headers_disabled(self):
+        config = self.get_tempesta().config.defconfig
+        config += "ctrl_frame_rate_multiplier 16;\n"
+        self.get_tempesta().config.set_defconfig(config)
+
         client, server = self.setup_tests()
         self.run_test_tso_gro_gso_disabled(
             client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU
         )
 
     def test_mixed_frames_long_headers_enabled(self):
+        config = self.get_tempesta().config.defconfig
+        config += "ctrl_frame_rate_multiplier 16;\n"
+        self.get_tempesta().config.set_defconfig(config)
+
         client, server = self.setup_tests()
         self.run_test_tso_gro_gso_enabled(
             client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU
@@ -916,6 +924,7 @@ class TestPostponedFrames(H2Base, NetWorker):
     )
     @NetWorker.protect_ipv6_addr_on_dev
     def test(self, name, header, token):
+        self.increment_ctrl_frame_cnt()
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
