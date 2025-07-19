@@ -647,6 +647,7 @@ class TestMaxConcurrentStreams(TestPriorityBase, NetWorker):
             tls_certificate_key ${tempesta_workdir}/tempesta.key;
             tls_match_any_server_name;
             http_max_header_list_size 0;
+            ctrl_frame_rate_multiplier 256;
 
             block_action attack reply;
             block_action error reply;
