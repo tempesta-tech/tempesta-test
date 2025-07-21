@@ -4,7 +4,8 @@ import ssl
 import requests
 import websockets
 
-from helpers import dmesg, tf_cfg
+from helpers import dmesg, remote, tf_cfg
+from helpers.cert_generator_x509 import CertGenerator
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -182,8 +183,8 @@ http {
     server {
         listen 8001 ssl;
         ssl_protocols TLSv1.2;
-        ssl_certificate ${tempesta_workdir}/tempesta.crt;
-        ssl_certificate_key ${tempesta_workdir}/tempesta.key;
+        ssl_certificate ${server_workdir}/tempesta.crt;
+        ssl_certificate_key ${server_workdir}/tempesta.key;
         location / {
             proxy_pass http://wss_websockets;
             proxy_http_version 1.1;
@@ -315,6 +316,16 @@ class TestWssPingProxy(BaseWsPing):
     ]
 
     tempesta = {"config": TEMPESTA_NGINX_CONFIG}
+
+    def setUp(self):
+        super().setUp()
+        cert_generator = CertGenerator(
+            cert_path=f"{tf_cfg.cfg.get('Server', 'workdir')}/tempesta.crt",
+            key_path=f"{tf_cfg.cfg.get('Server', 'workdir')}/tempesta.key",
+            default=True,
+        )
+        remote.server.copy_file(cert_generator.f_cert, cert_generator.serialize_cert().decode())
+        remote.server.copy_file(cert_generator.f_key, cert_generator.serialize_priv_key().decode())
 
     def test(self):
         self.start_all_servers()
