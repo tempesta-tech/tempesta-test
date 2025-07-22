@@ -1,18 +1,45 @@
-from test_suite import tester
-
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import os
-
-from helpers import dmesg, remote, tf_cfg
 from helpers.access_log import AccessLogLine
-from helpers.cert_generator_x509 import CertGenerator
+from test_suite import marks, tester
 
 
-def backends(status_code):
-    return [
+# Some tests for access_log over HTTP/2.0
+class TestAccessLogH2(tester.TempestaTest):
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
+    ]
+
+    tempesta = {
+        "config": """
+listen 443 proto=h2;
+access_log dmesg;
+
+frang_limits {
+    ip_block off;
+    http_uri_len 1050;
+    http_strict_host_checking false;
+}
+
+block_action attack reply;
+block_action error reply;
+
+server ${server_ip}:8000;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+"""
+    }
+
+    backends = [
         {
             "id": "nginx",
             "type": "nginx",
@@ -49,191 +76,67 @@ def backends(status_code):
                     server {
                         listen        ${server_ip}:8000;
 
-                        location / {
-                            return %d%s;
-                        }
+                        location /200 { return 200; }
+                        location /204 { return 204; }
+                        location /302 { return 302; }
+                        location /404 { return 404; }
+                        location /500 { return 500; }
+                        location / { return 200; }
                         location /nginx_status {
                             stub_status on;
                         }
                     }
                 }
-                """
-            % (status_code, "" if status_code / 100 != 3 else " http://non-existent-site"),
+                """,
         }
     ]
 
-
-def tempesta(extra=""):
-    return {
-        "config": """
-           listen 443 proto=h2;
-           access_log dmesg;
-           %s
-
-            server ${server_ip}:8000;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-
-           """
-        % extra
-    }
-
-
-def clients(uri="/"):
-    return [
-        {
-            "id": "curl",
-            "type": "external",
-            "binary": "curl",
-            "cmd_args": (
-                "-k "
-                " --resolve tempesta-tech.com:443:${tempesta_ip} https://tempesta-tech.com%s" % uri
-            ),
-        },
-    ]
-
-
-def generate_certificate(cn="tempesta-tech.com", san=None, cert_name="tempesta"):
-    """Generate and upload certificate with given
-    common name and  list of Subject Alternative Names.
-    Name generated files as `cert_name`.crt and `cert_name`.key.
-    """
-    workdir = tf_cfg.cfg.get("Tempesta", "workdir")
-
-    cgen = CertGenerator(
-        cert_path=f"{workdir}/{cert_name}.crt", key_path=f"{workdir}/{cert_name}.key"
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="200", status="200", uri="/200"),
+            marks.Param(name="204", status="204", uri="/204"),
+            marks.Param(name="302", status="302", uri="/302"),
+            marks.Param(name="404", status="404", uri="/404"),
+            marks.Param(name="500", status="500", uri="/500"),
+            marks.Param(name="403_frang", status="403", uri=f"/{'1' * 1100}"),
+        ]
     )
-    cgen.CN = cn
-    cgen.san = san
-    cgen.generate()
+    def test_response(self, name, status: str, uri: str):
+        self.start_all_services()
 
-    cert_path, key_path = cgen.get_file_paths()
-    remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
-    remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+        referer = f"http2-referer-{status}"
+        user_agent = f"http2-user-agent-{status}"
 
-    return cgen
-
-
-def remove_certs(cert_files_):
-    for cert in cert_files_:
-        os.remove(cert)
-
-
-# Some tests for access_log over HTTP/2.0
-class CurlTestBase(tester.TempestaTest):
-    clients = clients()
-
-    def run_curl(self, curl):
-        self.start_all_clients()
-        self.wait_while_busy(curl)
-        self.assertEqual(
-            0,
-            curl.returncode,
-            msg=("Curl return code is not 0. Received - {0}.".format(curl.returncode)),
+        client = self.get_client("deproxy")
+        client.send_request(
+            request=client.create_request(
+                method="GET", uri=uri, headers=[("referer", referer), ("user-agent", user_agent)]
+            ),
+            expected_status_code=status,
         )
-        curl.stop()
 
-    def run_test(self, status_code=200, is_frang=False):
-        klog = dmesg.DmesgFinder(disable_ratelimit=True)
-        curl = self.get_client("curl")
-        referer = "http2-referer-%d" % status_code
-        user_agent = "http2-user-agent-%d" % status_code
-        curl.options.append('-e "%s"' % referer)
-        curl.options.append('-A "%s"' % user_agent)
-        generate_certificate()
-        self.start_all_servers()
-        self.start_tempesta()
-
-        if is_frang:
-            try:
-                self.run_curl(curl)
-            except Exception:
-                pass
-        else:
-            self.run_curl(curl)
-
-        nginx = self.get_server("nginx")
-        nginx.get_stats()
-        self.assertEqual(
-            0 if is_frang else 1,
-            nginx.requests,
-            msg="Unexpected number forwarded requests to backend",
-        )
-        msg = AccessLogLine.from_dmesg(klog)
-        self.assertTrue(msg is not None, "No access_log message in dmesg")
+        msg = AccessLogLine.from_dmesg(self.loggers.dmesg)
+        self.assertIsNotNone(msg, "No access_log message in dmesg")
         self.assertEqual(msg.method, "GET", "Wrong method")
-        self.assertEqual(msg.status, status_code, "Wrong HTTP status")
+        self.assertEqual(msg.status, int(status), "Wrong HTTP status")
         self.assertEqual(msg.user_agent, user_agent)
         self.assertEqual(msg.referer, referer)
-        workdir = tf_cfg.cfg.get("Tempesta", "workdir")
-        remove_certs([f"{workdir}/tempesta.crt", f"{workdir}/tempesta.key"])
-        return msg
 
+    def test_response_truncated_uri(self):
+        self.start_all_services()
 
-class Response200Test(CurlTestBase):
-    backends = backends(200)
-    tempesta = tempesta()
+        referer = f"http2-referer"
+        user_agent = f"http2-user-agent"
 
-    def test_tempesta(self):
-        self.run_test(200)
+        client = self.get_client("deproxy")
+        base_uri = "/truncated_uri"
+        request = client.create_request(
+            method="GET",
+            uri=f"{base_uri}{'_' * 1000}",
+            headers=[("referer", referer), ("user-agent", user_agent)],
+        )
+        client.send_request(request, expected_status_code="200")
 
-
-class Response204Test(CurlTestBase):
-    backends = backends(204)
-    tempesta = tempesta()
-
-    def test_tempesta(self):
-        self.run_test(204)
-
-
-class Response302Test(CurlTestBase):
-    backends = backends(302)
-    tempesta = tempesta()
-
-    def test_tempesta(self):
-        self.run_test(302)
-
-
-class Response404Test(CurlTestBase):
-    backends = backends(404)
-    tempesta = tempesta()
-
-    def test_tempesta(self):
-        self.run_test(404)
-
-
-class Response500Test(CurlTestBase):
-    backends = backends(500)
-    tempesta = tempesta()
-
-    def test_tempesta(self):
-        self.run_test(500)
-
-
-class FrangTest(CurlTestBase):
-    backends = backends(200)
-    tempesta = tempesta(
-        """
-            frang_limits {
-                ip_block off;
-                http_uri_len 10;
-            }
-    """
-    )
-    clients = clients("/some-uri-longer-than-10-symbols")
-
-    def test_tempesta(self):
-        msg = self.run_test(403, True)
-        self.assertEqual(msg.uri, "/some-uri-longer-than-10-symbols")
-
-
-class TruncateUriTest(CurlTestBase):
-    backends = backends(200)
-    tempesta = tempesta()
-    base_uri = "/truncated-uri"
-    clients = clients(base_uri + "_" * 1000)
-
-    def test_tempesta(self):
-        msg = self.run_test(200)
-        self.assertEqual(msg.uri[: len(self.base_uri)], self.base_uri, "Invalid URI")
+        msg = AccessLogLine.from_dmesg(self.loggers.dmesg)
+        self.assertEqual(msg.uri[: len(base_uri)], base_uri, "Invalid URI")
         self.assertEqual(msg.uri[-3:], "...", "URI does not look like truncated")

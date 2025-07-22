@@ -1,11 +1,9 @@
-import subprocess
 import unittest
-from pathlib import Path
 
 from helpers.cert_generator_x509 import CertGenerator
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -13,9 +11,9 @@ class TestX509CertGenerator(unittest.TestCase):
     @property
     def cert_text(self) -> str:
         """openssl text dump of the certificate."""
-        return subprocess.check_output(
-            ["openssl", "x509", "-text", "-noout", "-in", self.cgen.get_file_paths()[0]], text=True
-        )
+        return self.cgen._node.run_cmd(
+            f"openssl x509 -text -noout -in {self.cgen.get_file_paths()[0]}"
+        )[0].decode()
 
     def setUp(self):
         self.cgen = CertGenerator()
@@ -24,7 +22,7 @@ class TestX509CertGenerator(unittest.TestCase):
 
     def remove_certs(self):
         for path in self.cgen.get_file_paths():
-            Path(path).unlink(missing_ok=True)
+            self.cgen._node.remove_file(path)
 
     def test_no_san_extentsion_in_cert_by_default(self):
         self.cgen.generate()
