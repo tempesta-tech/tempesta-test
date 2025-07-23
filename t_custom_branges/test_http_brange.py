@@ -144,13 +144,14 @@ class TestConfigParsing(tester.TempestaTest):
             marks.Param(
                 name="qetoken_brange",
                 directive="http_qetoken_brange",
-                characters="0x61-0x7a 0x2c",
-                msg='Tempesta config parser allowed 0x2c (",") byte.',
+                characters="0x61-0x7a 0x22",
+                msg='Tempesta config parser allowed 0x22 (") byte.',
             ),
         ]
     )
     def test_http(self, name, directive, characters, msg):
         self._update_tempesta_config(directive=directive, characters=characters)
+        self.oops_ignore.append("ERROR")
 
         with self.assertRaises(error.ProcessBadExitStatusException, msg=msg):
             self.start_tempesta()
@@ -474,19 +475,19 @@ tls_match_any_server_name;
         [
             marks.Param(
                 name="positive",
-                characters="0x41-0x7a 0x3d",
+                characters="0x41-0x5b 0x5d-0x7a 0x3d",
                 cache_control="unknown=value",
                 expected_status="200",
             ),
             marks.Param(
                 name="disallow_equal",
-                characters="0x41-0x7a",
+                characters="0x41-0x5b 0x5d-0x7a",
                 cache_control="unknown=value",
                 expected_status="400",
             ),
             marks.Param(
                 name="negative",
-                characters="0x41-0x7a 0x3d",
+                characters="0x41-0x5b 0x5d-0x7a 0x3d",
                 cache_control="unkno%wn=value%",
                 expected_status="400",
             ),
