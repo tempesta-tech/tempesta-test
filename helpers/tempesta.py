@@ -231,8 +231,12 @@ class TfwLogger(object):
     max_events: int = 1000
     max_wait_ms: int = 100
 
-    # table and log_path must not change in tests. These are global tests variables,
+    # database, table and log_path must not change in tests. These are global tests variables,
     # and they must be changed in the main configuration
+
+    @property
+    def database(self) -> str:
+        return tf_cfg.cfg.get("TFW_Logger", "clickhouse_database")
 
     @property
     def table(self) -> str:
@@ -279,8 +283,9 @@ class Config(object):
                     "port": self._logger_config.port,
                     "user": self._logger_config.user,
                     "password": self._logger_config.password,
+                    "db_name": self._logger_config.database,
                     "table_name": self._logger_config.table,
-                    "max_ecents": self._logger_config.max_events,
+                    "max_events": self._logger_config.max_events,
                     "max_wait_ms": self._logger_config.max_wait_ms,
                 },
             }
