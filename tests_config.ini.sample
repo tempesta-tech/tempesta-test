@@ -332,6 +332,12 @@ clickhouse_password =
 #
 clickhouse_database = default
 
+# The table name in the Clickhouse Database
+#
+# ex.: clickhouse_table = my_table (default access_log)
+#
+clickhouse_table = access_log
+
 # The TFW Logger daemon log file path.
 #
 # ex.: daemon_log = /var/log/tfw_logger.log (default /tmp/tfw_logger.log)

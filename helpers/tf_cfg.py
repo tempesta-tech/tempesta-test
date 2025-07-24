@@ -179,6 +179,7 @@ class TestFrameworkCfg:
                     "clickhouse_port": "8123",
                     "clickhouse_username": "default",
                     "clickhouse_password": "",
+                    "clickhouse_database": os.getenv("CLICKHOUSE_DATABASE", "default"),
                     "clickhouse_table": os.getenv("CLICKHOUSE_TABLE", "access_log"),
                     "log_path": "/tmp/tfw_logger.log",
                     "logger_config": "/tmp/tfw_logger.json",
