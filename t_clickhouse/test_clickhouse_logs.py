@@ -306,3 +306,64 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         __time_after = time_after.replace(tzinfo=None, microsecond=0)
         __record_time = record.timestamp.replace(microsecond=0)
         self.assertGreaterEqual(__time_after, __record_time)
+
+
+class TestClickhouseLogTiming(tester.TempestaTest):
+    """
+    Test that first access logs appear immediately in ClickHouse
+    """
+
+    tempesta = {
+        "config": """
+            listen 80;
+            server ${server_ip}:8000;
+            access_log mmap logger_config=/tmp/tfw_logger_test.json;
+        """
+    }
+
+    clients = [
+        {
+            "id": "curl",
+            "type": "curl",
+            "addr": "${tempesta_ip}:80",
+        },
+        {
+            "id": "parallel",
+            "type": "curl",
+            "addr": "${tempesta_ip}:80",
+            "uri": "/[1-5]",
+            "parallel": 5,
+        },
+    ]
+
+    def test_immediate_log_appearance(self):
+        """
+        This test demonstrates the original problem
+        """
+        self.get_tempesta().start()
+
+        client = self.get_client("curl")
+
+        client.start()
+        self.assertTrue(client.wait_for_finish())
+        client.stop()
+
+        self.assertWaitUntilEqual(
+            func=self.loggers.clickhouse.access_log_records_count, second=1, poll_freq=0.01
+        )
+
+    def test_multiple_requests(self):
+        """
+        Test that multiple requests are send
+        """
+        self.get_tempesta().start()
+
+        client = self.get_client("parallel")
+
+        client.start()
+        self.assertTrue(client.wait_for_finish())
+        client.stop()
+
+        self.assertWaitUntilEqual(
+            func=self.loggers.clickhouse.access_log_records_count, second=5, poll_freq=0.01
+        )

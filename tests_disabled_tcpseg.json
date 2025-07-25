@@ -186,6 +186,14 @@
             "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
+            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
+            "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
+        },
+        {
+            "name": "selftests/test_clickhouse",
+            "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

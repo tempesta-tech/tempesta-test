@@ -252,6 +252,10 @@
         {
             "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_blog_post_flow",
             "reason": "Disabled by test issue #835"
+        },
+        {
+            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
+            "reason": "Disabled by issue #2314"
         }
     ]
 }
