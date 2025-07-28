@@ -284,7 +284,7 @@ class LocalNode(ANode):
         filename = os.path.join(self.workdir, filename)
         dirname = os.path.dirname(filename)
 
-        self._logger.debug(f"Copying file `{filename}`.")
+        self._logger.info(f"Copying file `{filename}` with content:\n{content}.")
 
         # assume that workdir exists to avoid unnecessary actions
         if dirname != self.workdir:
@@ -511,7 +511,7 @@ class RemoteNode(ANode):
         filename = os.path.join(self.workdir, filename)
         dirname = os.path.dirname(filename)
 
-        self._logger.debug(f"Copying file by sftp `{filename}`.")
+        self._logger.info(f"Copying file by sftp `{filename}` with content:\n{content}.")
 
         # assume that workdir exists to avoid unnecessary actions
         if dirname != self.workdir:
