@@ -49,7 +49,10 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
 
     def __init__(self):
         self.__log_data: str = ""
-        self.__table: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_table")
+        self.__table: str = (
+            f'{tf_cfg.cfg.get("TFW_Logger", "clickhouse_database")}'
+            + f'.{tf_cfg.cfg.get("TFW_Logger", "clickhouse_table")}'
+        )
         self.__log_path: str = tf_cfg.cfg.get("TFW_Logger", "log_path")
 
     @staticmethod
