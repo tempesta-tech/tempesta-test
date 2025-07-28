@@ -2,20 +2,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-
+from helpers.remote import client
 from test_suite import tester
 
 
 class TestClickhouse(tester.TempestaTest):
-    backends = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "port": "8000",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
-        },
-    ]
     tempesta = {
         "config": """
             listen 80;
@@ -51,3 +42,20 @@ class TestClickhouse(tester.TempestaTest):
 
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
         self.assertEqual(self.loggers.clickhouse.access_log_last_message().status, 502)
+
+    def test_create_table(self):
+        self.start_tempesta()
+        self.deproxy_manager.start()
+
+        client = self.get_client("deproxy")
+        request = client.create_request(uri="/", headers=[])
+
+        def wait():
+            client.restart()
+            try:
+                client.send_request(request)
+                self.get_tempesta().wait_while_logger_start()
+            except clickhouse_connect.driver.exceptions.DatabaseError:
+                ...
+
+        self.assertWaitUntilTrue(wait)
