@@ -225,7 +225,7 @@ class ServerGroup(object):
 class TfwLogger(object):
     logger_config: str = tf_cfg.cfg.get("TFW_Logger", "logger_config")
     host: str = tf_cfg.cfg.get("TFW_Logger", "ip")
-    port: int = int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"))
+    tcp_port: int = int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_tcp_port"))
     user: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_username")
     password: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_password")
     max_events: int = 1000
@@ -280,7 +280,7 @@ class Config(object):
                 "log_path": self._logger_config.log_path,
                 "clickhouse": {
                     "host": self._logger_config.host,
-                    "port": self._logger_config.port,
+                    "port": self._logger_config.tcp_port,
                     "user": self._logger_config.user,
                     "password": self._logger_config.password,
                     "db_name": self._logger_config.database,
