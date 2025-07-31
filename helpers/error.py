@@ -64,7 +64,7 @@ class ClickhouseNotAvailable(Exception):
         return (
             "You must run Clickhouse server on the "
             + f"{tf_cfg.cfg.get('TFW_Logger', 'ip')}:"
-            + f"{tf_cfg.cfg.get('TFW_Logger', 'clickhouse_port')} "
+            + f"{tf_cfg.cfg.get('TFW_Logger', 'clickhouse_http_port')} "
             + "node before run the tests."
         )
 

@@ -18,7 +18,7 @@ from helpers.dmesg import amount_one
 try:
     _connection: Client = clickhouse_connect.get_client(
         host=tf_cfg.cfg.get("TFW_Logger", "ip"),
-        port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port")),
+        port=int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_http_port")),
         database=tf_cfg.cfg.get("TFW_Logger", "clickhouse_database"),
         username=tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
         password=tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
