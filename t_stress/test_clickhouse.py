@@ -58,21 +58,6 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
 
     def setUp(self):
         super().setUp()
-        logger_config = {
-            "log_path": tf_cfg.cfg.get("TFW_Logger", "daemon_log"),
-            "clickhouse": {
-                "host": tf_cfg.cfg.get("TFW_Logger", "ip"),
-                "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_tcp_port"),
-                "user": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-                "password": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            },
-        }
-
-        remote.tempesta.copy_file(
-            filename=tf_cfg.cfg.get("TFW_Logger", "logger_config"),
-            content=json.dumps(logger_config, ensure_ascii=False, indent=2),
-        )
-
         self.start_all_services(client=False)
 
     def h2load_total_requests(self, text: str) -> int:
