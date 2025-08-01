@@ -53,22 +53,7 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
         )
 
     def setUp(self):
-        super(TestClickhouseLogsBaseTest, self).setUp()
-        logger_config = {
-            "log_path": tf_cfg.cfg.get("TFW_Logger", "log_path"),
-            "clickhouse": {
-                "host": tf_cfg.cfg.get("TFW_Logger", "ip"),
-                "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_tcp_port"),
-                "user": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-                "password": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            },
-        }
-
-        remote.tempesta.copy_file(
-            filename=tf_cfg.cfg.get("TFW_Logger", "logger_config"),
-            content=json.dumps(logger_config, ensure_ascii=False, indent=2),
-        )
-
+        super().setUp()
         self.start_all_services(client=False)
 
 
