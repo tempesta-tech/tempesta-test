@@ -225,14 +225,17 @@ class ServerGroup(object):
 class TfwLogger(object):
     logger_config: str = tf_cfg.cfg.get("TFW_Logger", "logger_config")
     host: str = tf_cfg.cfg.get("TFW_Logger", "ip")
-    port: int = int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"))
     user: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_username")
     password: str = tf_cfg.cfg.get("TFW_Logger", "clickhouse_password")
     max_events: int = 1000
     max_wait_ms: int = 100
 
-    # table and log_path must not change in tests. These are global tests variables,
-    # and they must be changed in the main configuration
+    # The properties below must not be changed in the tests. These are global
+    # test variables, and they must be changed in the main configuration.
+
+    @property
+    def database(self) -> str:
+        return tf_cfg.cfg.get("TFW_Logger", "clickhouse_database")
 
     @property
     def table(self) -> str:
@@ -242,6 +245,9 @@ class TfwLogger(object):
     def log_path(self) -> str:
         return tf_cfg.cfg.get("TFW_Logger", "log_path")
 
+    @property
+    def tcp_port(self) -> int:
+        return int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_tcp_port"))
 
 class Config(object):
     """Creates Tempesta config file."""
@@ -276,11 +282,12 @@ class Config(object):
                 "log_path": self._logger_config.log_path,
                 "clickhouse": {
                     "host": self._logger_config.host,
-                    "port": self._logger_config.port,
+                    "port": self._logger_config.tcp_port,
                     "user": self._logger_config.user,
                     "password": self._logger_config.password,
+                    "db_name": self._logger_config.database,
                     "table_name": self._logger_config.table,
-                    "max_ecents": self._logger_config.max_events,
+                    "max_events": self._logger_config.max_events,
                     "max_wait_ms": self._logger_config.max_wait_ms,
                 },
             }
