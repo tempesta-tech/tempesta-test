@@ -18,6 +18,14 @@ LARGE_BODY_CHUNK_SIZE_1 = 1000
 LARGE_BODY_CHUNK_SIZE_2 = 10
 
 
+def generate_header(header_name: str, header_value_n: int) -> str:
+    return (
+        f"{header_name}: "
+        + "".join(random.choice(string.ascii_lowercase) for i in range(header_value_n))
+        + "\r\n"
+    )
+
+
 class CommonUtils:
     def start_all(self):
         srv = self.get_server("backend")
@@ -190,26 +198,26 @@ class TestH2BodyDechunkingWithMovingBody(TestH2BodyDechunking):
             "Content-type: text/html\r\n"
             f"Last-Modified: {DATE}\r\n"
             f"Date: {DATE}\r\n"
-            "a: " + "".join(random.choice(string.ascii_lowercase) for i in range(1000)) + "\r\n"
-            "b: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "c: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "d: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "e: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "r: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "q: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "y: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(8000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(8000)) + "\r\n"
-            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(8000)) + "\r\n"
-            "Server: Deproxy Server\r\n"
+            + generate_header("a", 1000)
+            + generate_header("b", 5000)
+            + generate_header("c", 5000)
+            + generate_header("d", 5000)
+            + generate_header("e", 5000)
+            + generate_header("r", 5000)
+            + generate_header("q", 5000)
+            + generate_header("y", 5000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 3000)
+            + generate_header("z", 8000)
+            + generate_header("z", 8000)
+            + generate_header("z", 8000)
+            + "Server: Deproxy Server\r\n"
             "Transfer-Encoding: chunked\r\n\r\n",
         }
     ]
