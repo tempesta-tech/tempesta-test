@@ -418,9 +418,6 @@ class TestDDoSDefenderBlockByJa5t(TestDDoSL7):
 
         remote.tempesta.run_cmd(f"kill -9 {pid}")
 
-        self.running_process.terminate()
-        self.running_process.join()
-
         remote.tempesta.remove_file("/tmp/ja5t/blocked.conf")
         remote.tempesta.remove_file("/tmp/ja5h/blocked.conf")
         remote.tempesta.remove_file("/tmp/allowed_user_agents.txt")
@@ -464,16 +461,11 @@ class TestDDoSDefenderBlockByJa5t(TestDDoSL7):
 
     @staticmethod
     def run_ddos_mitigation(tempesta_src_dir: str, ddos_executable: str, ddos_config: str):
-        try:
-            remote.tempesta.run_cmd(
-                f"{ddos_executable} {tempesta_src_dir}/scripts/ddos_mitigation/app.py --config={ddos_config}",
-                is_blocking=False,
-                timeout=DURATION * 2,
-            )
-        except helpers.error.ProcessKilledException:
-            """
-            Task finished
-            """
+        remote.tempesta.run_cmd(
+            f"{ddos_executable} {tempesta_src_dir}/scripts/ddos_mitigation/app.py --config={ddos_config}",
+            is_blocking=False,
+            timeout=DURATION * 2,
+        )
 
     def get_total_blocked(self):
         stdout, _ = remote.tempesta.run_cmd("cat /tmp/ja5t/blocked.conf")
