@@ -6,6 +6,7 @@ import os
 import time
 from pathlib import Path
 
+from helpers.deproxy import HttpMessage
 from helpers import dmesg, remote, tf_cfg
 from helpers.networker import NetWorker
 from helpers.deproxy import HttpMessage
@@ -1200,5 +1201,72 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
         self._test(cmd_args)
         check_func(self)
 
+
+class TestConnectionFlood(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + "Content-Length: 0\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": """
+        listen 443 proto=h2,https;
+
+        server ${server_ip}:8000;
+
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        cache 0;
+    """
+    }
+
+    clients = [
+        {
+            "id": "close_connection_flood",
+            "type": "external",
+            "binary": "close_connection_flood",
+            "ssl": True,
+            "cmd_args": "",
+        },
+    ]
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="Http2ZeroWindow",
+                cmd_args=f"-address %s:443 -threads 4 -iterations 100 -connections 100 -debug 1 -close_type FIN -flood_type http2_zero_window",
+            ),
+        ]
+    )
+    def test(self, name, cmd_args):
+        self.start_all_services(client=False)
+        response_body = "x" * 200000
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Server: Debian\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + f"Content-Length: {len(response_body)}\r\n\r\n"
+            + response_body
+        )
+        flood_client = self.get_client("close_connection_flood")
+        flood_client.options = [cmd_args % tf_cfg.cfg.get("Tempesta", "ip")]
+        flood_client.start()
+        self.wait_while_busy(flood_client)
+        flood_client.stop()
+
+        print(flood_client.stdout)
+        print(flood_client.stderr)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

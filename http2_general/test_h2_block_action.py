@@ -4,11 +4,14 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
 from h2.errors import ErrorCodes
 from hpack import HeaderTuple
 
+from helpers import util
 from http2_general.helpers import BlockActionH2Base, H2Base, generate_custom_error_page
 from test_suite import marks
+from helpers.deproxy import HttpMessage
 
 
 @marks.parameterize_class(
@@ -224,3 +227,38 @@ class TestBlockActionH2Drop(BlockActionH2Base):
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
         self.check_rst_no_fin_in_sniffer(sniffer)
+
+
+class TestDroppingConnection(H2Base):
+    def test(self):
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        client.auto_flow_control = False
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        response_body = "x" * 200000
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Server: Debian\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + f"Content-Length: {len(response_body)}\r\n\r\n"
+            + response_body
+        )
+        client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
+
+        client.make_request(self.get_request)
+        self.assertTrue(client.wait_for_headers_frame(stream_id=1))
+        client.increment_flow_control_window(stream_id=1, flow_controlled_length=1000)
+
+        self.assertTrue(
+            util.wait_until(lambda: not (b"x" * 1000) in client.last_response_buffer),
+            "Tempesta did not send first DATA frame after receiving WindowUpdate frame.",
+        )
+        client.stop()
+        print(util.get_used_memory())
+        time.sleep(5)
+        print(util.get_used_memory())
