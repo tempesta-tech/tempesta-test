@@ -327,7 +327,6 @@ class Tempesta(stateful.Stateful):
             if not self.clickhouse.find("worker threads started"):
                 return True
 
-            time.sleep(1)
             return False
 
         return wait_until(wait_cond=wait, timeout=timeout, poll_freq=0.1)
