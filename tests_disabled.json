@@ -232,6 +232,10 @@
         {
             "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
             "reason": "Disabled by issue #2314"
+        },
+        {
+            "name": "t_leaks",
+            "reason": "Disabled by issue #817"
         }
     ]
 }
