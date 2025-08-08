@@ -254,10 +254,6 @@
             "reason": "Disabled by test issue #835"
         },
         {
-            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
-            "reason": "Disabled by issue #2314"
-        },
-        {
             "name": "http2_general.test_h2_frame.TestPostponedFrames",
             "reason": "Disabled by test issue #862"
         }
