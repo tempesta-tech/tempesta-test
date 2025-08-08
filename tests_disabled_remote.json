@@ -105,17 +105,13 @@
             "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip",
             "reason": "Disabled by test issue #529."
         },
-	{
+        {
             "name": "t_frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run on remote setup. Local only."
         },
         {
             "name": "very_many_backends.test_deadtime_1M",
             "reason": "Disabled by test issue #56."
-        },
-	    {
-            "name": "t_stress.test_stress.TestRequestsUnderCtrlFrameFlood",
-            "reason": "Disabled by test issue #817"
         },
 	    {
             "name": "t_stress.test_stress.TestContinuationFlood",
