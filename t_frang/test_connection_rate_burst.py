@@ -11,6 +11,7 @@ import re
 
 from t_frang.frang_test_case import FrangTestCase
 from test_suite import marks
+from helpers.dmesg import unlimited_rate_on_tempesta_node
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
@@ -97,6 +98,7 @@ class TestFrang(FrangTestCase):
             marks.Param(name="burst_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test_connection(self, name, conn_n: int, warns_expected):
         """
         Create several client connections, if number of
@@ -116,6 +118,23 @@ class TestFrang(FrangTestCase):
         self.assertEqual(reset_conn_n, warns_occured)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
+    @unlimited_rate_on_tempesta_node
+    def test_connection_rate_bucket_is_full(self):
+        if self.tls_connection:
+            self.set_frang_config("tls_connection_burst 7;\n\ttls_connection_rate 7;")
+        else:
+            self.set_frang_config("tcp_connection_burst 7;\n\ttcp_connection_rate 7;")
+        client = self.get_client("ratechecker")
+        conn_n = 15
+        interval = 1
+
+        self.run_rate_check(client, conn_n, self.tls_connection, interval)
+        reset_conn_n, total_conn_n = parse_out(client)
+        warns_occured = self.assertFrangWarning(self.burst_warning, 0)
+        self.assertEqual(total_conn_n, conn_n)
+        self.assertEqual(reset_conn_n, 1)
+        self.assertFrangWarning(self.rate_warning, expected=1)
+
     @marks.Parameterize.expand(
         [
             marks.Param(name="rate", conn_n=20, warns_expected=range(1, 15)),
@@ -123,6 +142,7 @@ class TestFrang(FrangTestCase):
             marks.Param(name="rate_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
+    @unlimited_rate_on_tempesta_node
     def test_connection(self, name, conn_n: int, warns_expected):
         """
         Create several client connections, if number of
@@ -172,6 +192,7 @@ class FrangTlsVsBoth(FrangTestCase):
     burst_config = "tls_connection_burst 3;"
     rate_config = "tls_connection_rate 3;"
 
+    @unlimited_rate_on_tempesta_node
     def test_burst(self):
         """
         Set `tls_connection_burst 3` and create 7 tls and 7 non-tls connections.
@@ -195,6 +216,7 @@ class FrangTlsVsBoth(FrangTestCase):
         self.assertEqual(tcp_reset_conn_n, 0)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
+    @unlimited_rate_on_tempesta_node
     def test_rate(self):
         """
         Set `tls_connection_rate 3` and create 7 tls and 7 non-tls connections.
@@ -248,6 +270,7 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
     burst_config = "tcp_connection_burst 3;"
     rate_config = "tcp_connection_rate 3;"
 
+    @unlimited_rate_on_tempesta_node
     def test_burst(self):
         """
         Set `tcp_connection_burst 3` and create 7 tls and 7 non-tls connections.
@@ -270,6 +293,7 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
         self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
         self.assertFrangWarning(self.rate_warning, expected=0)
 
+    @unlimited_rate_on_tempesta_node
     def test_rate(self):
         """
         Set tcp_connection_rate 3` and create 7 tls and 7 non-tls connections.

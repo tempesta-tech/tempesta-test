@@ -14,6 +14,7 @@ import (
 
 var (
 	connections     int
+	interval	int
 	address         string
 	sni       	string
 	conn_type       string
@@ -27,21 +28,41 @@ func init() {
 	flag.StringVar(&sni, "sni", "localhost", "TLS SNI")
 	flag.StringVar(&conn_type, "conn_type", "tcp", "Connection type")
 	flag.IntVar(&connections, "connections", 1, "Number of connections to start")
+	flag.IntVar(&interval, "interval", 0, "Interval to place connections in slot")
 	flag.IntVar(&debug, "debug", 0, "Debug level")
 	flag.Parse()
+}
+
+func my_sleep(delta int64) {
+	var i int64 = 0
+
+	if delta <= 0 {
+		return
+	}
+
+	for i = 0; i < delta; i++ {
+		time.Sleep(1 * time.Millisecond)
+	}
 }
 
 func main() {
 	log.SetOutput(os.Stdout)
 	log.Printf("Starting %d parallel connections", connections)
 
+	var t = time.Now().UnixMilli()
 	var wg sync.WaitGroup
-	for i := 0; i < connections; i++ {
+	for i := 1; i <= connections; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			connection(i)
 		}(i)
+		if (interval != 0) && (i % interval == 0) {
+			wg.Wait()
+			var new_t = time.Now().UnixMilli()
+			my_sleep(125 - (new_t - t))
+			t = new_t
+		}
 	}
 	wg.Wait()
 
@@ -71,9 +92,9 @@ func connection(cid int) {
 	}
 
 	/* Let RST to be received */
-	time.Sleep(time.Duration(1) * time.Second)
+	time.Sleep(time.Duration(125) * time.Millisecond)
 
-	second := time.Second * time.Duration(1)
+	second := time.Millisecond * time.Duration(10)
 	conn.SetReadDeadline(time.Now().Local().Add(second))
 	_, err = ioutil.ReadAll(conn)
 

@@ -26,6 +26,14 @@
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
+            "name": "t_frang.test_connection_rate_burst.TestFrangTCP.test_connection_rate_bucket_is_full",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "t_frang.test_connection_rate_burst.TestFrangTLS.test_connection_rate_bucket_is_full",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
             "name": "t_frang.test_request_rate_burst.TestFrangRequestRateHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },

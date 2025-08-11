@@ -173,11 +173,11 @@ block_action attack reply;
 
         return len(self.klog.log_findall(warning))
 
-    def run_rate_check(self, client, conn_n, is_tls):
+    def run_rate_check(self, client, conn_n, is_tls, interval = 0):
         tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
         ctype = "tls" if is_tls else "tcp"
         client.options = [
-            f" -address {tempesta_ip}:443 -connections {conn_n} -sni tempesta-tech.com -conn_type {ctype}"
+            f" -address {tempesta_ip}:443 -connections {conn_n} -interval {interval} -sni tempesta-tech.com -conn_type {ctype}"
         ]
         client.start()
         self.wait_while_busy(client)
