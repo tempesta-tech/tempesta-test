@@ -40,7 +40,7 @@ vhost alternate{
 tls_match_any_server_name;
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
-max_concurrent_streams 2147483647;
+max_concurrent_streams 10000;
 
 cache 0;
 block_action attack reply;

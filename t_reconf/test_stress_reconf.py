@@ -20,7 +20,7 @@ frang_limits {http_strict_host_checking false;}
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
-max_concurrent_streams 2147483647;
+max_concurrent_streams 10000;
 
 cache 0;
 server ${server_ip}:8000;
