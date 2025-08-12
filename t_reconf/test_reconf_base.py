@@ -1879,7 +1879,7 @@ class TestCtrlFrameMultiplier(tester.TempestaTest):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="invalid_1", config="ctrl_frame_rate_multiplier 2048;\n"),
+            marks.Param(name="invalid_1", config="ctrl_frame_rate_multiplier 131072;\n"),
             marks.Param(name="invalid_2", config="ctrl_frame_rate_multiplier 0;\n"),
         ]
     )

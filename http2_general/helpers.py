@@ -92,11 +92,6 @@ class H2Base(tester.TempestaTest):
             "Tempesta foes not returns SETTINGS frame with ACK flag.",
         )
 
-    def increment_ctrl_frame_cnt(self):
-        config = self.get_tempesta().config.defconfig
-        config += "ctrl_frame_rate_multiplier 256;\n"
-        self.get_tempesta().config.set_defconfig(config)
-
 
 class BlockActionH2Base(H2Base, asserts.Sniffer):
     tempesta_tmpl = """

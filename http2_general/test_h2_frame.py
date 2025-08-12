@@ -924,7 +924,9 @@ class TestPostponedFrames(H2Base, NetWorker):
     )
     @NetWorker.protect_ipv6_addr_on_dev
     def test(self, name, header, token):
-        self.increment_ctrl_frame_cnt()
+        config = self.get_tempesta().config.defconfig
+        config += "ctrl_frame_rate_multiplier 256;\n"
+        self.get_tempesta().config.set_defconfig(config)
         self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")

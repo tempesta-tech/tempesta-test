@@ -118,7 +118,7 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "reconf",
+            "name": "t_reconf",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
