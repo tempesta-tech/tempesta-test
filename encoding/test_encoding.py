@@ -1,5 +1,6 @@
 import copy
 import string
+import random
 
 from helpers import deproxy
 from test_suite import tester
@@ -120,8 +121,6 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         super().setUp()
 
     def run_test(self, method, body_expected):
-        self.start_all()
-
         client = self.get_client("client")
         server = self.get_server("backend")
 
@@ -170,6 +169,60 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             self.assertEqual(len(server.requests), 2)
 
     def test(self):
+        self.start_all()
+        self.run_test("GET", True)
+
+
+class TestH2BodyDechunkingWithMovingBody(TestH2BodyDechunking):
+    """
+    Tempesta FW moves body during making headers if count
+    of skb fragments is exceeded. Later Tempesta FW  removes
+    flaged data from the body, so all pointers should be correct.
+    """
+
+    backends_template = [
+        {
+            "id": "backend",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "Content-type: text/html\r\n"
+            f"Last-Modified: {DATE}\r\n"
+            f"Date: {DATE}\r\n"
+            "a: " + "".join(random.choice(string.ascii_lowercase) for i in range(1000)) + "\r\n"
+            "b: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "c: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "d: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "e: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "r: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "q: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "y: " + "".join(random.choice(string.ascii_lowercase) for i in range(5000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(3000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(8000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(8000)) + "\r\n"
+            "z: " + "".join(random.choice(string.ascii_lowercase) for i in range(8000)) + "\r\n"
+            "Server: Deproxy Server\r\n"
+            "Transfer-Encoding: chunked\r\n\r\n",
+        }
+    ]
+
+    body = BODY_PAYLOAD
+    chunk_size = 2
+
+    def test(self):
+        self.start_all()
+        client = self.get_client("client")
+        client.update_initial_settings(max_header_list_size=65536 * 2)
+        client.send_bytes(client.h2_connection.data_to_send())
+        self.assertTrue(client.wait_for_ack_settings())
         self.run_test("GET", True)
 
 
@@ -190,6 +243,7 @@ class TestH2EmptyResponseBodyDechunkingHead(TestH2BodyDechunking):
 
     def test(self):
         self.disable_deproxy_auto_parser()
+        self.start_all()
         self.run_test("HEAD", False)
 
 
