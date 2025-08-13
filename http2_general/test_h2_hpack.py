@@ -386,6 +386,9 @@ class TestHpack(TestHpackBase):
         )
 
     def test_settings_header_table_stress(self):
+        config = self.get_tempesta().config.defconfig
+        config += "ctrl_frame_rate_multiplier 256;\n"
+        self.get_tempesta().config.set_defconfig(config)
         client, server = self.setup_settings_header_table_tests()
 
         for new_table_size in range(128, 0, -1):

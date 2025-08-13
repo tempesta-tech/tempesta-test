@@ -103,6 +103,8 @@ http {
             http_header_cnt 1000;
         }
 
+        ctrl_frame_rate_multiplier 65536;
+
         vhost tempesta-tech.com {
            tls_certificate ${tempesta_workdir}/tempesta.crt;
            tls_certificate_key ${tempesta_workdir}/tempesta.key;
