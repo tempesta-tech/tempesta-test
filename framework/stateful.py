@@ -22,6 +22,7 @@ class Stateful(abc.ABC):
     def __init__(self, *, id_: str):
         self._state = STATE_STOPPED
         self.stop_procedures = []
+        self.id_ = id_
         self._exceptions = []
         self._generate_service_id(id_)
         self._logger = logging.LoggerAdapter(
@@ -33,6 +34,12 @@ class Stateful(abc.ABC):
 
     def __str__(self):
         return f"{self.__class__.__name__}"
+
+    def get_name(self):
+        return self.id_
+
+    def get_id(self):
+        return self.id_
 
     @property
     def state(self) -> str:

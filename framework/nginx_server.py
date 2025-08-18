@@ -34,16 +34,12 @@ class Nginx(stateful.Stateful):
         self.conns_n = tempesta.server_conns_default()
         self.active_conns = 0
         self.requests = 0
-        self.name = id_
         self.status_uri = fill_template(props["status_uri"], props)
         self.stop_procedures = [self.stop_nginx, self.remove_config]
         self.weight = int(props["weight"]) if "weight" in props else None
         self.port_checker = port_checks.FreePortsChecker()
 
         self.clear_stats()
-
-    def get_name(self):
-        return self.name
 
     def clear_stats(self):
         self.active_conns = 0
