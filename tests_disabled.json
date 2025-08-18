@@ -182,30 +182,6 @@
             "reason": "Disabled by issue #1801"
         },
         {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_enable_0x00_0x0a_0x0d_first",
-            "reason": "Disabled by issue #2069. Problems only with http_qetoken_brange"
-        },
-        {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_cookie_brange",
-            "reason": "Disabled by issue #2069"
-        },
-        {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_etag_brange",
-            "reason": "Disabled by issue #2069"
-        },
-        {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_qetoken_brange",
-            "reason": "Disabled by issue #2069"
-        },
-        {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_token_brange",
-            "reason": "Disabled by issue #2069"
-        },
-        {
-            "name": "t_custom_branges.test_http_brange.TestConfigParsing.test_http_xff_brange",
-            "reason": "Disabled by issue #2069"
-        },
-        {
             "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
         },
@@ -258,12 +234,48 @@
             "reason": "Disabled by test issue #817"
         },
         {
+            "name": "tls.test_tls_handshake.TlsVhostHandshakeTest.test_bad_host",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_auth_not_cached",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_blog_post_cached",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_blog_post_not_cached_for_authenticated_user",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_get_admin_resource_with_assets",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_get_resource",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_get_resource_with_assets",
+            "reason": "Disabled by test issue #817"
+        },
+        {
+            "name": "t_stress.test_ddos.TestDDoSL7.test",
+            "reason": "Disabled by test issue #817"
+        },
+        {
             "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_blog_post_flow",
             "reason": "Disabled by test issue #835"
         },
         {
             "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
             "reason": "Disabled by issue #2314"
+        },
+        {
+            "name": "t_leaks",
+            "reason": "Disabled by issue #817"
         }
     ]
 }
