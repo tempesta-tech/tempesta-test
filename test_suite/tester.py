@@ -188,6 +188,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         """
         self._deproxy_auto_parser.parsing = False
 
+    def get_deproxy_auto_parser(self) -> DeproxyAutoParser:
+        return self._deproxy_auto_parser
+
     def __create_client_deproxy(self, client: dict, ssl: bool, bind_addr: str):
         client_factories = {
             "deproxy_h2": deproxy_client.DeproxyClientH2,
@@ -295,6 +298,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
+    def add_server(self, server: StaticDeproxyServer | Nginx | LXCServer | DockerServer):
+        self.__servers[server.get_name()] = server
+
     def get_server(self, sid) -> StaticDeproxyServer | Nginx | LXCServer | DockerServer | None:
         """Return client with specified id"""
         return self.__servers.get(sid)
@@ -310,6 +316,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         for client in self.clients:
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
+
+    def add_client(self, client: deproxy_client.DeproxyClient | deproxy_client.DeproxyClientH2):
+        self.__clients[client.get_name()] = client
 
     def get_client(self, cid) -> typing.Union[
         deproxy_client.DeproxyClientH2,
