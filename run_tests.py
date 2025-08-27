@@ -6,7 +6,7 @@ import sys
 # we use `asyncore` that was removed from 3.12
 if sys.version_info.major != 3 or sys.version_info.minor > 11:
     sys.stderr.write(
-        "Python version is not supported: required major is `3`, minor is till `11`, i.e. 3.12 is not supported",
+        "Python version is not supported: required major is `3`, minor is till `11`, i.e. 3.12 is not supported\n",
     )
     sys.exit(1)
 

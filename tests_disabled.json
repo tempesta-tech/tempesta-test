@@ -226,10 +226,6 @@
             "reason": "Disabled by issue #2052"
         },
         {
-            "name": "t_stress.test_clickhouse.TestClickHouseLogsUnderLoad",
-            "reason": "Disabled by issue #2314"
-        },
-        {
             "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsDelay",
             "reason": "The response time varies each time, and it is not possible to predict it exactly."
         },
