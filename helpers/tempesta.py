@@ -291,7 +291,7 @@ class Config(object):
         if self._logger_config is not None:
             logger_config = {
                 "log_path": self._logger_config.log_path,
-                "clickhouse": {
+                "access_log": {
                     "host": self._logger_config.host,
                     "port": self._logger_config.tcp_port,
                     "user": self._logger_config.user,
