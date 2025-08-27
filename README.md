@@ -92,6 +92,15 @@ You can also create default tests configuration
 env/bin/python3 run_tests.py -d local
 ```
 
+To not to always specify the Python environment, you can just do once
+```
+source env/bin/activate
+```
+Once you don't need the environment you can deactivate it with
+```
+deactivate
+```
+
 There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
 
 ### Run tests
@@ -99,7 +108,7 @@ The tests work with Ubuntu settings, please use the root user directly.
 
 It's important that all tests are run from the Python 3.10 virtual environment. If the tests are executed from the tempesta-test folder, the easiest way is:
 ```sh
-env/bin/python3 run_test.py
+env/bin/python3 run_tests.py
 ```
 
 To run all the tests simply run:
