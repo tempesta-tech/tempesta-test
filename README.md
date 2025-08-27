@@ -44,7 +44,8 @@ python3 setup.py
 ## Requirements
 
 - Ubuntu 24.04 
-- Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment (also we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
+- Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment.
+  (See issues #573 and #857 for migration from Python 3.10).
 ```sh
 add-apt-repository ppa:deadsnakes/ppa
 apt update
