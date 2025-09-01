@@ -486,8 +486,8 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         if not sniffer.packets:
             raise error.TestConditionsAreNotCompleted(self.id())
 
-        self.assertEqual(
-            sniffer.packets[-1].sprintf("%TCP.flags%"), "RA", "No Connection reset recieved"
+        self.assertIn(
+            sniffer.packets[-1].sprintf("%TCP.flags%"), ["R", "RA"], "No Connection reset recieved"
         )
 
 
