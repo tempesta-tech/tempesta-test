@@ -6,13 +6,13 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import os.path
 import re
 import unittest
 from time import sleep
 
 from helpers import dmesg, remote, tf_cfg
-from test_suite import tester
+from test_suite import tester, marks
+import run_config
 
 # Number of open connections
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
@@ -33,12 +33,12 @@ def drop_caches():
 
 def has_kmemleak():
     """Check presence of kmemleak"""
-    return os.path.exists("/sys/kernel/debug/kmemleak")
+    return remote.tempesta.exists("/sys/kernel/debug/kmemleak")
 
 
 def has_meminfo():
     """Check presence of meminfo"""
-    return os.path.exists("/proc/meminfo")
+    return remote.tempesta.exists("/proc/meminfo")
 
 
 def read_kmemleaks():
@@ -80,10 +80,16 @@ def free_and_cached_memory():
     return freemem + cached
 
 
-class LeakTest(tester.TempestaTest):
+@marks.parameterize_class(
+    [
+        {"name": "Http", "client_name": "wrk"},
+        {"name": "H2", "client_name": "h2load"}
+    ]
+)
+class TestLeak(tester.TempestaTest):
     """Leaks testing"""
 
-    memory_leak_thresold = 32 * 1024  # in kib
+    memory_leak_threshold = run_config.MEMORY_LEAK_THRESHOLD
 
     backends = [
         {
@@ -135,9 +141,22 @@ http {
 
     clients = [
         {
-            "id": "client-1",
+            "id": "wrk",
             "type": "wrk",
             "addr": "${tempesta_ip}:80",
+        },
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {CONCURRENT_CONNECTIONS}"
+                f" --duration {DURATION}"
+            ),
         },
     ]
 
@@ -156,12 +175,12 @@ frang_limits {http_strict_host_checking false;}
 """,
     }
 
+    client_name: str
+
     @dmesg.limited_rate_on_tempesta_node
     def run_routine(self, backend, client):
         tempesta = self.get_tempesta()
-        backend.start()
-        tempesta.start()
-        client.start()
+        self.start_all_services()
         self.wait_while_busy(client)
         client.stop()
         tempesta.stop()
@@ -175,7 +194,7 @@ frang_limits {http_strict_host_checking false;}
             return unittest.TestCase.skipTest(self, "No kmemleak")
 
         nginx = self.get_server("nginx")
-        client = self.get_client("client-1")
+        client = self.get_client(self.client_name)
 
         kml1 = read_kmemleaks()
         self.run_routine(nginx, client)
@@ -189,13 +208,13 @@ frang_limits {http_strict_host_checking false;}
             return unittest.TestCase.skipTest(self, "No meminfo")
 
         nginx = self.get_server("nginx")
-        client = self.get_client("client-1")
+        client = self.get_client(self.client_name)
 
         used1 = slab_memory()
         self.run_routine(nginx, client)
         used2 = slab_memory()
 
-        self.assertLess(used2 - used1, self.memory_leak_thresold)
+        self.assertLess(used2 - used1, self.memory_leak_threshold)
 
     def test_used_memory(self):
         """Detecting leaks with total used memory measure"""
@@ -203,31 +222,11 @@ frang_limits {http_strict_host_checking false;}
             return unittest.TestCase.skipTest(self, "No meminfo")
 
         nginx = self.get_server("nginx")
-        client = self.get_client("client-1")
+        client = self.get_client(self.client_name)
 
         free_and_cached1 = free_and_cached_memory()
         self.run_routine(nginx, client)
         free_and_cached2 = free_and_cached_memory()
 
         used = free_and_cached1 - free_and_cached2
-        self.assertLess(used, self.memory_leak_thresold)
-
-
-class LeakTestH2(LeakTest):
-    """Leaks testing for H2."""
-
-    clients = [
-        {
-            "id": "client-1",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": (
-                " https://${tempesta_ip}:443"
-                f" --clients {CONCURRENT_CONNECTIONS}"
-                f" --threads {THREADS}"
-                f" --max-concurrent-streams {CONCURRENT_CONNECTIONS}"
-                f" --duration {DURATION}"
-            ),
-        },
-    ]
+        self.assertLess(used, self.memory_leak_threshold)
