@@ -11,7 +11,7 @@ from http import HTTPStatus
 from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import deproxy, error, remote
+from helpers import deproxy, error, remote, tempesta
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from test_suite import checks_for_tests as checks
@@ -2280,10 +2280,14 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             tr1="Server",
             tr2="X-Token2",
         )
-        self.assertEqual(client.last_response.headers.get("Server"), "Tempesta FW/0.8.0")
+        self.assertEqual(
+            client.last_response.headers.get("Server"), f"Tempesta FW/{tempesta.tfw_version}"
+        )
 
         self.check_second_request(client=client, method=method2, tr1="Server", tr2="X-Token2")
-        self.assertEqual(client.last_response.headers.get("Server"), "Tempesta FW/0.8.0")
+        self.assertEqual(
+            client.last_response.headers.get("Server"), f"Tempesta FW/{tempesta.tfw_version}"
+        )
 
     @marks.Parameterize.expand(
         [
