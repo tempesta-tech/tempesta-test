@@ -44,7 +44,8 @@ python3 setup.py
 ## Requirements
 
 - Ubuntu 24.04 
-- Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment (also we use [asyncore](https://docs.python.org/3.11/library/asyncore.html) that was removed in 3.12)
+- Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment.
+  (See issues #573 and #857 for migration from Python 3.10).
 ```sh
 add-apt-repository ppa:deadsnakes/ppa
 apt update
@@ -91,6 +92,15 @@ You can also create default tests configuration
 env/bin/python3 run_tests.py -d local
 ```
 
+To not to always specify the Python environment, you can just do once
+```
+source env/bin/activate
+```
+Once you don't need the environment you can deactivate it with
+```
+deactivate
+```
+
 There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
 
 ### Run tests
@@ -98,7 +108,7 @@ The tests work with Ubuntu settings, please use the root user directly.
 
 It's important that all tests are run from the Python 3.10 virtual environment. If the tests are executed from the tempesta-test folder, the easiest way is:
 ```sh
-env/bin/python3 run_test.py
+env/bin/python3 run_tests.py
 ```
 
 To run all the tests simply run:

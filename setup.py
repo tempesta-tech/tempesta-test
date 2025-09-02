@@ -80,7 +80,7 @@ def main():
             """
     sudo apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev \
     apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl \
-    tcpdump lxc util-linux -y
+    tcpdump lxc util-linux software-properties-common -y
     """
         ),
         "Install required packages",
