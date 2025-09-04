@@ -153,6 +153,65 @@ class TestPriorityBase(H2Base, NetWorker):
 
 
 class TestStreamPriorityInHeaders(TestPriorityBase, NetWorker):
+    """
+        Client send headers with priority information, each new
+        created stream depends from stream root stream. All
+        streams have the same weight. They should be processed
+        according there id.
+    """
+    def test_priority_same_weight(self):
+        client, server = self.setup_test_priority()
+        self.run_test_tso_gro_gso_def(
+            client, server, self._test_priority_same_weight, DEFAULT_MTU
+        )
+
+    def _test_priority_same_weight(self, client, server):
+        client.make_request(
+            self.post_request,
+            end_stream=True,
+            priority_weight=16,
+            priority_depends_on=None,
+            priority_exclusive=False,
+        )
+        client.make_request(
+            self.post_request,
+            end_stream=True,
+            priority_weight=16,
+            priority_depends_on=None,
+            priority_exclusive=False,
+        )
+        client.make_request(
+            self.post_request,
+            end_stream=True,
+            priority_weight=16,
+            priority_depends_on=None,
+            priority_exclusive=False,
+        )
+        client.make_request(
+            self.post_request,
+            end_stream=True,
+            priority_weight=16,
+            priority_depends_on=None,
+            priority_exclusive=False,
+        )
+        client.make_request(
+            self.post_request,
+            end_stream=True,
+            priority_weight=16,
+            priority_depends_on=None,
+            priority_exclusive=False,
+        )
+        client.make_request(
+            self.post_request,
+            end_stream=True,
+            priority_weight=16,
+            priority_depends_on=None,
+            priority_exclusive=False,
+        )
+
+        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11])
+        self.check_response_sequence(client, 6, [1, 3, 5, 7, 9, 11])
+
     def test_stream_priority_from_non_existing_stream(self):
         """
         Client send headers with priority information,
@@ -624,7 +683,7 @@ class TestStreamPriorityStress(TestPriorityBase, NetWorker):
             )
             weight = weight + 1
 
-        self.wait_for_responses(client, timeout=240)
+        self.wait_for_responses(client, timeout=120)
         self.check_response_sequence(client, 256 + 256 * 2)
 
 
