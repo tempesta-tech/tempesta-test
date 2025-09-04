@@ -118,6 +118,7 @@ class TestFrameworkCfg:
                     "long_body_size": "500",
                     "memory_leak_threshold": "131072",
                     "unavailable_timeout": "300",
+                    "ddos_executable": "",
                 },
                 "Loggers": {
                     "stream_handler": "CRITICAL",
