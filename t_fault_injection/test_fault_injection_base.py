@@ -70,7 +70,7 @@ class TestFailFunctionBase(tester.TempestaTest):
     }
 
     @staticmethod
-    def setup_fail_function_test(func_name, times, retval):
+    def setup_fail_function_test(func_name, times, space, retval):
         # Write function name to special debug fs file.
         cmd = f"echo {func_name} > /sys/kernel/debug/fail_function/inject"
         out = remote.client.run_cmd(cmd)
@@ -91,6 +91,10 @@ class TestFailFunctionBase(tester.TempestaTest):
         # A value of -1 means “no limit”.
         cmd = f"printf %#x {times} > /sys/kernel/debug/fail_function/times"
         out = remote.client.run_cmd(cmd)
+        # Specifies how many times function is called without failuers.
+        # A value of 0 means "immediately".
+        cmd = f"echo {space} > /sys/kernel/debug/fail_function/space"
+        cmd = remote.client.run_cmd(cmd)
 
     @staticmethod
     def teardown_fail_function_test():
@@ -100,6 +104,9 @@ class TestFailFunctionBase(tester.TempestaTest):
         # Restore times
         cmd = f"printf %#x -1 > /sys/kernel/debug/fail_function/times"
         out = remote.client.run_cmd(cmd)
+        # Restore space
+        cmd = f"echo 0 > /sys/kernel/debug/fail_function/space"
+        cmd = remote.client.run_cmd(cmd)
 
 
 class TestFailFunction(TestFailFunctionBase, NetWorker):
@@ -111,6 +118,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy",
                 msg="can't allocate a new client connection",
                 times=-1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -124,6 +132,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy",
                 msg="can't obtain a client for frang accounting",
                 times=-1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -137,6 +146,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="cannot establish a new h2 connection",
                 times=-1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -150,6 +160,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -163,6 +174,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -176,6 +188,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg=None,
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -189,6 +202,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg=None,
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -202,6 +216,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_ssl",
                 msg=None,
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -215,6 +230,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg=None,
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -228,6 +244,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_ssl",
                 msg="Cannot setup hash ctx",
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -241,6 +258,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="Cannot setup hash ctx",
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
@@ -248,11 +266,101 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 ),
                 retval=-12,
             ),
+            marks.Param(
+                name="ss_skb_realloc_headroom_1",
+                func_name="ss_skb_realloc_headroom",
+                id="deproxy",
+                msg=None,
+                times=1,
+                space=4,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 200000,
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="ss_skb_realloc_headroom_2",
+                func_name="ss_skb_realloc_headroom",
+                id="deproxy",
+                msg=None,
+                times=1,
+                space=7,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 200000,
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="ss_skb_realloc_headroom_ssl_1",
+                func_name="ss_skb_realloc_headroom",
+                id="deproxy_ssl",
+                msg=None,
+                times=1,
+                space=4,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 200000,
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="ss_skb_realloc_headroom_ssl_2",
+                func_name="ss_skb_realloc_headroom",
+                id="deproxy_ssl",
+                msg=None,
+                times=1,
+                space=7,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 200000,
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="ss_skb_realloc_headroom_h2_1",
+                func_name="ss_skb_realloc_headroom",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                space=4,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 200000,
+                ),
+                retval=-12,
+            ),
+            marks.Param(
+                name="ss_skb_realloc_headroom_h2_2",
+                func_name="ss_skb_realloc_headroom",
+                id="deproxy_h2",
+                msg=None,
+                times=1,
+                space=7,
+                response=deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
+                    date=deproxy.HttpMessage.date_time_string(),
+                    body="y" * 200000,
+                ),
+                retval=-12,
+            ),
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, response, retval):
-        self._test(name, func_name, id, msg, times, response, retval)
+    def test(self, name, func_name, id, msg, times, space, response, retval):
+        self._test(name, func_name, id, msg, times, space, response, retval)
 
     @marks.Parameterize.expand(
         [
@@ -262,6 +370,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
@@ -277,6 +386,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 id="deproxy_h2",
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
+                space=0,
                 response=deproxy.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
@@ -290,15 +400,15 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
     )
     @dmesg.unlimited_rate_on_tempesta_node
     @NetWorker.protect_ipv6_addr_on_dev
-    def test_with_mtu(self, name, func_name, id, msg, times, response, mtu, retval):
+    def test_with_mtu(self, name, func_name, id, msg, times, space, response, mtu, retval):
         try:
             dev = sysnet.route_dst_ip(remote.client, tf_cfg.cfg.get("Tempesta", "ip"))
             prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-            self._test(name, func_name, id, msg, times, response, retval)
+            self._test(name, func_name, id, msg, times, space, response, retval)
         finally:
             sysnet.change_mtu(remote.client, dev, prev_mtu)
 
-    def _test(self, name, func_name, id, msg, times, response, retval):
+    def _test(self, name, func_name, id, msg, times, space, response, retval):
         """
         Basic test to check how Tempesta FW works when some internal
         function fails. Function should be marked as ALLOW_ERROR_INJECTION
@@ -309,7 +419,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
         server.set_response(response)
         self.start_all_services(client=False)
 
-        self.setup_fail_function_test(func_name, times, retval)
+        self.setup_fail_function_test(func_name, times, space, retval)
         client = self.get_client(id)
         request = client.create_request(method="GET", headers=[])
         client.start()
@@ -364,7 +474,7 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         )
         self.start_all_services(client=False)
 
-        self.setup_fail_function_test("tfw_h2_append_predefined_body", -1, -12)
+        self.setup_fail_function_test("tfw_h2_append_predefined_body", -1, 0, -12)
         client = self.get_client("deproxy_h2")
         request1 = client.create_request(method="GET", headers=[])
         request2 = client.create_request(method="GET", headers=[("Content-Type", "!!!!")])
@@ -423,7 +533,7 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         ),
 
         self.start_all_services(client=False)
-        self.setup_fail_function_test("tfw_h2_append_predefined_body", 1, -12)
+        self.setup_fail_function_test("tfw_h2_append_predefined_body", 1, 0, -12)
         client = self.get_client("deproxy_h2")
         request = client.create_request(method="GET", headers=[("accept", "text/html")])
         client.start()
@@ -486,7 +596,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
         srv.pipelined = 3
         srv.conns_n = 1
         self.start_all_services(client=False)
-        self.setup_fail_function_test(func_name, times, retval)
+        self.setup_fail_function_test(func_name, times, 0, retval)
 
         i = 0
         for id in self.clients_ids:
@@ -624,7 +734,7 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         server.hang_on_req_num = hang_on_req_num
         self.start_all_services()
 
-        self.setup_fail_function_test(func_name, -1, 0)
+        self.setup_fail_function_test(func_name, -1, 0, 0)
 
         server.set_response(
             deproxy.Response.create(
