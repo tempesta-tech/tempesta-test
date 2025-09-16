@@ -326,25 +326,25 @@ class TlsWrkStressDocker(TlsWrkStressBase, BaseWrk):
         }
     ]
 
-    # @NetWorker.set_mtu(
-    #     nodes=[
-    #         {
-    #             "node": "remote.tempesta",
-    #             "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-    #             "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-    #         },
-    #         {
-    #             "node": "remote.tempesta",
-    #             "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-    #             "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-    #         },
-    #         {
-    #             "node": "remote.server",
-    #             "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-    #             "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-    #         },
-    #     ]
-    # )
+    @NetWorker.set_mtu(
+        nodes=[
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
+                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            },
+            {
+                "node": "remote.tempesta",
+                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
+                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            },
+            {
+                "node": "remote.server",
+                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
+                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            },
+        ]
+    )
     @marks.check_memory_leaks()
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
