@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import re
+import time
 import unittest
 from time import sleep
 
@@ -226,6 +227,7 @@ frang_limits {http_strict_host_checking false;}
 
         free_and_cached1 = free_and_cached_memory()
         self.run_routine(nginx, client)
+        time.sleep(5)
         free_and_cached2 = free_and_cached_memory()
 
         used = free_and_cached1 - free_and_cached2

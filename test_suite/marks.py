@@ -12,7 +12,8 @@ from pstats import Stats
 
 import parameterized as pm
 
-from helpers import error
+import run_config
+from helpers import error, util
 from test_suite import tester
 from test_suite.tester import test_logger
 
@@ -130,6 +131,30 @@ def profiled(func):
         return res
 
     return wrap
+
+
+def check_memory_leaks(memory_leak_threshold: int = run_config.MEMORY_LEAK_THRESHOLD):
+    """
+    arg:
+        memory_leak_threshold - the error limit of memory consumption.
+    """
+    def decorator(test):
+        def wrapper(self: tester.TempestaTest, *args, **kwargs):
+            system_memory_before = util.get_used_memory()
+            python_memory_before = util.get_used_python_memory()
+            try:
+                test(self, *args, **kwargs)
+            finally:
+                msg = util.check_memory_consumption(
+                    system_memory_before=system_memory_before,
+                    python_memory_before=python_memory_before,
+                    memory_leak_threshold=memory_leak_threshold
+                )
+                test_logger.info(f"Check memory leaks for {self.id()}:\n{msg}")
+        # we need to change name of function to work correctly with parametrize
+        decorator.__name__ = test.__name__
+        return wrapper
+    return decorator
 
 
 def _get_func_name(func, param_num, params):

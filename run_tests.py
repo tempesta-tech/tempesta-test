@@ -128,30 +128,16 @@ def test_from_failstr(failstr):
 
 def __check_memory_consumption(python_memory_before_: int, used_memory_before_: int) -> None:
     """Check a memory consumption after all tests."""
-    gc.collect()
-    time.sleep(1)
-    python_memory_after = psutil.Process().memory_info().rss // 1024
-    delta_python = python_memory_after - python_memory_before_
-
-    used_memory_after = util.get_used_memory()
-    delta_used_memory = used_memory_after - delta_python - used_memory_before_
-    memleak_msg = (
-        "----------------------------------------------------------------------------\n"
-        "Check memory leaks for test suite:\n"
-        f"Before: used memory: {used_memory_before_};\n"
-        f"Before: python memory: {python_memory_before_};\n"
-        f"After: used memory: {used_memory_after};\n"
-        f"After: python memory: {python_memory_after};\n"
-        f"Delta: {delta_used_memory} KB\n"
+    msg = util.check_memory_consumption(
+        system_memory_before=used_memory_before_,
+        python_memory_before=python_memory_before_,
+        memory_leak_threshold=None
+    )
+    test_logger.critical(
+        "\n----------------------------------------------------------------------------\n"
+        f"Check memory leaks for test suite:\n{msg}"
         "----------------------------------------------------------------------------"
     )
-    test_logger.critical(memleak_msg)
-    if run_config.CHECK_MEMORY_LEAKS and delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
-        raise error.MemoryConsumptionException(
-            memleak_msg,
-            delta_used_memory=delta_used_memory,
-            memory_leak_threshold=run_config.MEMORY_LEAK_THRESHOLD,
-        )
 
 
 def __check_kmemleak() -> None:
@@ -539,7 +525,7 @@ if test_resume:
 if n_count != 1:
     addn_status = f" for {n_count} times each"
 used_memory_before = util.get_used_memory()
-python_memory_before = psutil.Process().memory_info().rss // 1024
+python_memory_before = util.get_used_python_memory()
 
 if run_config.KERNEL_DBG_TESTS:
     remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")

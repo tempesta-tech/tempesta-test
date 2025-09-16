@@ -170,16 +170,12 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     tempesta = {"type": "tempesta", "config": "", "tfw_config": tempesta.TfwLogger()}
 
-    def __init_subclass__(cls, base=False, check_memleak=False, **kwargs):
+    def __init_subclass__(cls, base=False, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._base = base
-        cls.__check_memleak = check_memleak
 
     def __str__(self):
         return f"{strclass(self.__class__)}.{self._testMethodName}"
-
-    def enable_memleak_check(self):
-        self.__check_memleak = True
 
     def disable_deproxy_auto_parser(self) -> None:
         """
@@ -484,20 +480,10 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self._deproxy_auto_parser.check_exceptions()
 
     def cleanup_check_memory_leaks(self):
-        if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
+        if run_config.CHECK_MEMORY_LEAKS:
             test_logger.info("Cleanup: Check memory leaks.")
-            used_memory = util.get_used_memory()
-            delta_used_memory = used_memory - self.__used_memory
-            msg = (
-                f"Used memory before test: {self.__used_memory};\n"
-                f"Used memory after test: {used_memory};\n"
-                f"Delta for memory consumption: {delta_used_memory}."
-            )
-            test_logger.info("Cleanup: memory consumption:\n{msg}")
-            if delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
-                raise error.MemoryConsumptionException(
-                    msg, delta_used_memory, run_config.MEMORY_LEAK_THRESHOLD
-                )
+            msg = util.check_memory_consumption(system_memory_before=self.__used_memory)
+            test_logger.info(f"Cleanup: memory consumption:\n{msg}")
 
     def wait_while_busy(self, *items, timeout=20):
         if items is None:
@@ -595,6 +581,6 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             return test_id
 
     def __save_memory_consumption(self) -> None:
-        if run_config.CHECK_MEMORY_LEAKS or self.__check_memleak:
+        if run_config.CHECK_MEMORY_LEAKS:
             self.__used_memory = util.get_used_memory()
-            test_logger.info(f"Cleanup: used memory {self.__used_memory} KB.")
+            test_logger.info(f"Used memory before test {self.__used_memory} KB.")
