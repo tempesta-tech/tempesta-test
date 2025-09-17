@@ -227,7 +227,7 @@
         },
         {
             "name": "t_stress.test_clickhouse.TestClickHouseLogsUnderLoad",
-            "reason": "Disabled by issue #2314"
+            "reason": "Disabled by issue #859 (t_stress.test_clickhouse: incorrect records number calculation)"
         },
         {
             "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsDelay",
@@ -252,10 +252,6 @@
         {
             "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_blog_post_flow",
             "reason": "Disabled by test issue #835"
-        },
-        {
-            "name": "t_clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
-            "reason": "Disabled by issue #2314"
         },
         {
             "name": "http2_general.test_h2_frame.TestPostponedFrames",
