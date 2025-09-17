@@ -214,7 +214,7 @@
             "reason": "Disabled by issue #613"
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections",
+            "name": "",
             "reason": "Disabled by test issue #525"
         },
         {
