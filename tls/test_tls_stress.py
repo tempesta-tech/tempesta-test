@@ -6,6 +6,7 @@ import threading
 
 from helpers import dmesg, remote
 from helpers.cert_generator_x509 import CertGenerator
+from cryptography.hazmat.primitives.asymmetric import ec
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 from test_suite import marks, tester
 
@@ -148,6 +149,51 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
                 % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
             ),
         },
+        {
+            "id": "tls-perf-ECDHE-RSA-AES128-GCM-SHA256",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-RSA-AES128-GCM-SHA256 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-ECDHE-ECDSA-AES256-GCM-SHA384",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-ECDSA-AES256-GCM-SHA384 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-ECDHE-RSA-AES256-GCM-SHA384",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-RSA-AES256-GCM-SHA384 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-ECDHE-ECDSA-AES128-GCM-SHA256",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c ECDHE-ECDSA-AES128-GCM-SHA256 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
+        {
+            "id": "tls-perf-ECDHE-ECDSA-AES256-SHA384",
+            "type": "external",
+            "binary": "tls-perf",
+            "cmd_args": (
+                "-c tls-perf-ECDHE-ECDSA-AES256-SHA384 -C prime256v1 -l %s -t %s -T %s ${tempesta_ip} 443"
+                % (CONCURRENT_CONNECTIONS, THREADS, DURATION)
+            ),
+        },
     ]
 
     tempesta_tmpl = """
@@ -174,21 +220,24 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
     def setUp(self):
         self.cgen = CertGenerator()
-        self.cgen.key = {"alg": "rsa", "len": 4096}
-        self.cgen.sign_alg = "sha256"
-        self.cgen.generate()
-
         cert_path, key_path = self.cgen.get_file_paths()
-        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
-        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
-
         self.tempesta = {
             "config": self.tempesta_tmpl % (cert_path, key_path),
             "custom_cert": True,
         }
         tester.TempestaTest.setUp(self)
 
-    def check_alg(self, alg):
+    def gen_cert(self, key, sign_alg):
+        self.cgen = CertGenerator()
+        cert_path, key_path = self.cgen.get_file_paths()
+        self.cgen.key = key
+        self.cgen.sign_alg = sign_alg
+        self.cgen.generate()
+        remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
+
+    def check_alg(self, key, sign_alg, alg):
+        self.gen_cert(key, sign_alg)
         tls_perf = self.get_client(alg)
 
         self.start_all_servers()
@@ -201,14 +250,64 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="DHE-RSA-AES128-GCM-SHA256", alg="tls-perf-DHE-RSA-AES128-GCM-SHA256"),
-            marks.Param(name="DHE-RSA-AES256-GCM-SHA384", alg="tls-perf-DHE-RSA-AES256-GCM-SHA384"),
-            marks.Param(name="DHE-RSA-AES128-CCM", alg="tls-perf-DHE-RSA-AES128-CCM"),
-            marks.Param(name="DHE-RSA-AES256-CCM", alg="tls-perf-DHE-RSA-AES256-CCM"),
+            marks.Param(
+                name="DHE-RSA-AES128-GCM-SHA256",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES128-GCM-SHA256",
+            ),
+            marks.Param(
+                name="DHE-RSA-AES256-GCM-SHA384",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha384",
+                alg="tls-perf-DHE-RSA-AES256-GCM-SHA384",
+            ),
+            marks.Param(
+                name="DHE-RSA-AES128-CCM",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES128-CCM",
+            ),
+            marks.Param(
+                name="DHE-RSA-AES256-CCM",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES256-CCM",
+            ),
+            marks.Param(
+                name="ECDHE-RSA-AES128-GCM-SHA256",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-RSA-AES128-GCM-SHA256",
+            ),
+            marks.Param(
+                name="ECDHE-ECDSA-AES256-GCM-SHA384",
+                key={"alg": "ecdsa", "curve": ec.SECP256R1()},
+                sign_alg="sha384",
+                alg="tls-perf-ECDHE-ECDSA-AES256-GCM-SHA384",
+            ),
+            marks.Param(
+                name="ECDHE-RSA-AES256-GCM-SHA384",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha384",
+                alg="tls-perf-ECDHE-RSA-AES256-GCM-SHA384",
+            ),
+            marks.Param(
+                name="ECDHE-ECDSA-AES128-GCM-SHA256",
+                key={"alg": "ecdsa", "curve": ec.SECP256R1()},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-ECDSA-AES128-GCM-SHA256",
+            ),
+            marks.Param(
+                name="ECDHE-ECDSA-AES256-SHA384",
+                key={"alg": "ecdsa", "curve": ec.SECP256R1()},
+                sign_alg="sha384",
+                alg="tls-perf-ECDHE-ECDSA-AES256-SHA384"
+            )
         ]
     )
-    def test(self, name, alg):
-        self.check_alg(alg)
+    def test(self, name, key, sign_alg, alg):
+        self.check_alg(key, sign_alg, alg)
 
     def __reload_tempesta(self):
         tempesta: Tempesta = self.get_tempesta()
@@ -222,19 +321,70 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="DHE-RSA-AES128-GCM-SHA256", alg="tls-perf-DHE-RSA-AES128-GCM-SHA256"),
-            marks.Param(name="DHE-RSA-AES256-GCM-SHA384", alg="tls-perf-DHE-RSA-AES256-GCM-SHA384"),
-            marks.Param(name="DHE-RSA-AES128-CCM", alg="tls-perf-DHE-RSA-AES128-CCM"),
-            marks.Param(name="DHE-RSA-AES256-CCM", alg="tls-perf-DHE-RSA-AES256-CCM"),
+            marks.Param(
+                name="DHE-RSA-AES128-GCM-SHA256",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES128-GCM-SHA256",
+            ),
+            marks.Param(
+                name="DHE-RSA-AES256-GCM-SHA384",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES256-GCM-SHA384",
+            ),
+            marks.Param(
+                name="DHE-RSA-AES128-CCM",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES128-CCM",
+            ),
+            marks.Param(
+                name="DHE-RSA-AES256-CCM",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-DHE-RSA-AES256-CCM",
+            ),
+            marks.Param(
+                name="ECDHE-RSA-AES128-GCM-SHA256",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-RSA-AES128-GCM-SHA256",
+            ),
+            marks.Param(
+                name="ECDHE-ECDSA-AES256-GCM-SHA384",
+                key={"alg": "ecdsa", "curve": ec.SECP256R1()},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-ECDSA-AES256-GCM-SHA384",
+            ),
+            marks.Param(
+                name="ECDHE-RSA-AES256-GCM-SHA384",
+                key={"alg": "rsa", "len": 4096},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-RSA-AES256-GCM-SHA384",
+            ),
+            marks.Param(
+                name="ECDHE-ECDSA-AES128-GCM-SHA256",
+                key={"alg": "ecdsa", "curve": ec.SECP256R1()},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-ECDSA-AES128-GCM-SHA256",
+            ),
+            marks.Param(
+                name="ECDHE-ECDSA-AES256-SHA384",
+                key={"alg": "ecdsa", "curve": ec.SECP256R1()},
+                sign_alg="sha256",
+                alg="tls-perf-ECDHE-ECDSA-AES256-SHA384"
+            )
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    def test_stress(self, name, alg):
+    def test_stress(self, name, key, sign_alg, alg):
         """
         Check how Tempesta FW update sertificates under load.
         Each time when Tempesta started, all certificates
         updated.
         """
+        self.gen_cert(key, sign_alg)
         tls_perf = self.get_client(alg)
         self.start_all_servers()
         self.start_tempesta()
