@@ -230,10 +230,6 @@
             "reason": "Disabled by test issue #450"
         },
         {
-            "name": "http2_general.test_h2_frame.TestFramesAfterConnectionShutdownedWithResponseBodyGreaterThenWindowSize.test_block_action_error_reply_with_conn_close_garbage",
-            "reason": "Disabled by issue #525"
-        },
-        {
             "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
             "reason": "Disabled by test issue #525"
         },
