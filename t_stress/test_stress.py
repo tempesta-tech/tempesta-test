@@ -1199,6 +1199,3 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
         )
         self._test(cmd_args)
         check_func(self)
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

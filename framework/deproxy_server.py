@@ -5,7 +5,6 @@ import sys
 import time
 from typing import Optional
 
-import run_config
 from framework import stateful
 from framework.deproxy_base import BaseDeproxy
 from helpers import deproxy, error, tempesta, tf_cfg, util
@@ -36,6 +35,7 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_responses_list = []
         self.__time_to_send: float = 0
         self.__new_response: bool = True
+        self.last_request: Optional[deproxy.Request] = None
         self.nrreq: int = 0
 
         self._tcp_logger.debug("New server connection")
@@ -91,7 +91,7 @@ class ServerConnection(asyncore.dispatcher):
 
         while self._request_buffer:
             try:
-                request = deproxy.Request(self._request_buffer)
+                self.last_request = deproxy.Request(self._request_buffer)
                 self.nrreq += 1
             except deproxy.IncompleteMessage:
                 return None
@@ -102,8 +102,8 @@ class ServerConnection(asyncore.dispatcher):
                 return None
 
             self._http_logger.info("Receive request")
-            self._http_logger.debug(request)
-            response, need_close = self._server.receive_request(request)
+            self._http_logger.debug(self.last_request)
+            response, need_close = self._server.receive_request(self.last_request)
             if self._server.drop_conn_when_request_received:
                 self.handle_close()
             if response:
@@ -116,10 +116,13 @@ class ServerConnection(asyncore.dispatcher):
 
             if need_close:
                 self.close()
-            self._request_buffer = self._request_buffer[len(request.msg) :]
+            self._request_buffer = self._request_buffer[len(self.last_request.msg) :]
         # Handler will be called even if buffer is empty.
         else:
             return None
+
+    def send_data(self, request: deproxy.Request, data: bytes) -> int:
+        return self.socket.send(data)
 
     def handle_write(self):
         if self._server.delay_before_sending_response and self.__new_response:
@@ -127,7 +130,7 @@ class ServerConnection(asyncore.dispatcher):
             return self.sleep()
 
         resp = self._response_buffer[self._responses_done]
-        sent = self.socket.send(resp[: self._server.segment_size])
+        sent = self.send_data(self.last_request, resp[: self._server.segment_size])
 
         if sent < 0:
             return
@@ -188,19 +191,27 @@ class StaticDeproxyServer(BaseDeproxy):
         self._connections: list[ServerConnection] = list()
         self._requests: list[deproxy.Request] = list()
 
+    def create_new_connection(self, sock):
+        return ServerConnection(server=self, sock=sock)
+
     def handle_accept(self):
         pair = self.accept()
-        if pair is not None:
-            sock, _ = pair
-            if self.segment_size:
-                sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-            handler = ServerConnection(server=self, sock=sock)
-            self._connections.append(handler)
-            # ATTENTION
-            # Due to the polling cycle, creating new connection can be
-            # performed before removing old connection.
-            # So we can have case with > expected amount of connections
-            # It's not a error case, it's a problem of polling
+
+        if pair is None:
+            return
+
+        sock, _ = pair
+
+        if self.segment_size:
+            sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+
+        handler = self.create_new_connection(sock=sock)
+        self._connections.append(handler)
+        # ATTENTION
+        # Due to the polling cycle, creating new connection can be
+        # performed before removing old connection.
+        # So we can have case with > expected amount of connections
+        # It's not a error case, it's a problem of polling
 
     def handle_error(self):
         type_, v, _ = sys.exc_info()
