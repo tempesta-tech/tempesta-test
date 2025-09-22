@@ -127,7 +127,7 @@ class ServerConnection(asyncore.dispatcher):
             return self.sleep()
 
         resp = self._response_buffer[self._responses_done]
-        sent = self.socket.send(resp[: self._server.segment_size])
+        sent = self.send(resp[:self._server.segment_size] if self._server.segment_size else resp)
 
         if sent < 0:
             return
