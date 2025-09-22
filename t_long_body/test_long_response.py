@@ -23,6 +23,7 @@ listen 4433 proto=h2;
 
 server ${server_ip}:8000;
 
+frang_limits {http_strict_host_checking false;}
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
@@ -101,9 +102,10 @@ cache 0;
         client: curl_client.CurlClient = self.get_client(client_id)
         client.options = [" --raw"]
         client.start()
-        client.wait_for_finish()
+        self.assertTrue(client.wait_for_finish(timeout=30))
         client.stop()
 
+        self.assertIsNotNone(client.last_response)
         if client.http2:
             self.assertEqual(client.last_response.stdout, "x" * BODY_SIZE)
         else:

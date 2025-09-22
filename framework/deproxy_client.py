@@ -210,7 +210,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
 
-        sent = self.send(reqs[: self.segment_size])
+        sent = self.send(reqs[:self.segment_size] if self.segment_size else reqs)
         if sent < 0:
             return
         self.last_segment_time = time.time()
