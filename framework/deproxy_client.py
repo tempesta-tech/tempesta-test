@@ -181,6 +181,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             self.bind(
                 (self.bind_addr, 0),
             )
+            self._src_ip, self._src_port = self.socket.getsockname()
 
         self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
@@ -313,9 +314,19 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.last_segment_time = 0
         self.responses: List[deproxy.Response] = list()
         self._ack_cnt = 0
+        self._src_ip = None
+        self._src_port = None
 
     def connection_is_closed(self):
         return self.conn_is_closed
+
+    @property
+    def src_ip(self) -> str | None:
+        return self._src_ip
+
+    @property
+    def src_port(self) -> int | None:
+        return self._src_port
 
     @property
     def is_http2(self) -> bool:
