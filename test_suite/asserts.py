@@ -4,72 +4,48 @@ It's expected that all repeated asserting code will move here eventually.
 """
 
 from helpers.analyzer import FIN, RST, TCP
+from scapy.packet import Packet
+from framework.deproxy_client import BaseDeproxyClient
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
 class Sniffer:
-    def _get_dport_from_sock(self, s):
-        if hasattr(s, "socket"):
-            s = s.socket
-        if isinstance(s, int):
-            return s
-        return s.getsockname()[1]
-
-    def _get_dports(self, socks: list) -> set:
+    @staticmethod
+    def _get_src_ports_from_deproxy_clients(clients: list[BaseDeproxyClient]) -> set[int]:
         """Call after client started to save sockets for 'assert_unreset_socks'"""
-        return set(filter(None, map(self._get_dport_from_sock, socks)))
+        return {client.src_port for client in clients}
 
-    def save_must_reset_socks(self, socks: list):
-        self.must_rst_dports = self._get_dports(socks)
-
-    def save_must_not_reset_socks(self, socks: list):
-        self.must_not_rst_dports = self._get_dports(socks)
-
-    def save_must_fin_socks(self, socks: list):
-        self.must_fin_dports = self._get_dports(socks)
-
-    def save_must_not_fin_socks(self, socks: list):
-        self.must_not_fin_dports = self._get_dports(socks)
-
-    def assert_reset_socks(self, packets):
-        assert hasattr(self, "must_rst_dports"), "save_must_rst_dports must be called before"
-        rst_packet_dports = {p[TCP].dport for p in packets if p[TCP].flags & RST}
-        self.assertTrue(
-            self.must_rst_dports.issubset(rst_packet_dports),
-            f"Ports must be reset: {self.must_rst_dports}, "
-            f"but the actual state is: {rst_packet_dports}",
+    def assert_reset_socks(self, packets: list[Packet], clients: list[BaseDeproxyClient]) -> None:
+        rst_src_ports = {p[TCP].dport for p in packets if p[TCP].flags & RST}
+        must_rst_src_ports = self._get_src_ports_from_deproxy_clients(clients)
+        assert must_rst_src_ports.issubset(rst_src_ports), (
+            f"Ports must be reset: {must_rst_src_ports}, "
+            f"but the actual state is: {rst_src_ports}",
         )
 
-    def assert_unreset_socks(self, packets):
-        assert hasattr(
-            self, "must_not_rst_dports"
-        ), "save_must_not_rst_dports must be called before"
-        rst_packet_dports = {p[TCP].dport for p in packets if p[TCP].flags & RST}
-        self.assertFalse(
-            rst_packet_dports.intersection(self.must_not_rst_dports),
-            f"Ports mustn't be reset: {self.must_not_rst_dports}, "
-            f"but the actual state is: {rst_packet_dports}",
+    def assert_unreset_socks(self, packets: list[Packet], clients: list[BaseDeproxyClient]) -> None:
+        rst_packet_src_ports = {p[TCP].dport for p in packets if p[TCP].flags & RST}
+        must_not_rst_src_ports = self._get_src_ports_from_deproxy_clients(clients)
+        assert not must_not_rst_src_ports.issubset(rst_packet_src_ports), (
+            f"Ports mustn't be reset: {must_not_rst_src_ports}, "
+            f"but the actual state is: {rst_packet_src_ports}",
         )
 
-    def assert_fin_socks(self, packets):
-        assert hasattr(self, "must_fin_dports"), "save_must_fin_dports must be called before"
-        fin_packet_dports = {p[TCP].dport for p in packets if p[TCP].flags & FIN}
-        self.assertTrue(
-            self.must_fin_dports.issubset(fin_packet_dports),
-            f"Ports must be closed via FIN: {self.must_fin_dports}, "
-            f"but the actual state is: {fin_packet_dports}",
+    def assert_fin_socks(self, packets: list[Packet], clients: list[BaseDeproxyClient]) -> None:
+        fin_packet_src_ports = {p[TCP].dport for p in packets if p[TCP].flags & FIN}
+        must_fin_src_ports  = self._get_src_ports_from_deproxy_clients(clients)
+        assert must_fin_src_ports.issubset(fin_packet_src_ports), (
+            f"Ports must be closed via FIN: {must_fin_src_ports}, "
+            f"but the actual state is: {fin_packet_src_ports}",
         )
 
-    def assert_not_fin_socks(self, packets):
-        assert hasattr(
-            self, "must_not_fin_dports"
-        ), "save_must_not_fin_dports must be called before"
-        fin_packet_dports = {p[TCP].dport for p in packets if p[TCP].flags & FIN}
-        self.assertFalse(
-            fin_packet_dports.intersection(self.must_not_fin_dports),
-            f"Ports mustn't be closed via FIN: {self.must_not_fin_dports}, "
-            f"but the actual state is: {fin_packet_dports}",
+    def assert_not_fin_socks(self, packets: list[Packet], clients: list[BaseDeproxyClient]) -> None:
+        fin_packet_src_ports = {p[TCP].dport for p in packets if p[TCP].flags & FIN}
+        must_not_fin_src_ports = self._get_src_ports_from_deproxy_clients(clients)
+        assert not must_not_fin_src_ports.issubset(fin_packet_src_ports), (
+            f"Ports mustn't be closed via FIN: {must_not_fin_src_ports}, "
+            f"but the actual state is: {fin_packet_src_ports}",
         )

@@ -1,13 +1,14 @@
 """Functional tests for http block action error/attack behavior."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import run_config
 from helpers import analyzer, deproxy, remote, tf_cfg
 from test_suite import asserts, marks, tester
 from test_suite.custom_error_page import CustomErrorPageGenerator
+from framework.deproxy_client import BaseDeproxyClient
 
 
 class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
@@ -83,16 +84,16 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
         sniffer.start()
         return sniffer
 
-    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
         sniffer.stop()
         if not run_config.TCP_SEGMENTATION:
-            self.assert_fin_socks(sniffer.packets)
-            self.assert_unreset_socks(sniffer.packets)
+            self.assert_fin_socks(sniffer.packets, clients)
+            self.assert_unreset_socks(sniffer.packets, clients)
 
-    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer) -> None:
+    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
         sniffer.stop()
-        self.assert_reset_socks(sniffer.packets)
-        self.assert_not_fin_socks(sniffer.packets)
+        self.assert_reset_socks(sniffer.packets, clients)
+        self.assert_not_fin_socks(sniffer.packets, clients)
 
 
 class BlockActionReply(BlockActionBase):
@@ -126,8 +127,6 @@ class BlockActionReply(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_fin_socks([client])
-        self.save_must_not_reset_socks([client])
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
@@ -135,7 +134,7 @@ class BlockActionReply(BlockActionBase):
         self.check_last_error_response(client, expected_status_code="403")
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_no_rst_in_sniffer(sniffer)
+        self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
         [
@@ -148,8 +147,6 @@ class BlockActionReply(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_fin_socks([client])
-        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
@@ -158,7 +155,7 @@ class BlockActionReply(BlockActionBase):
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_no_rst_in_sniffer(sniffer)
+        self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
         [
@@ -171,8 +168,6 @@ class BlockActionReply(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_not_fin_socks([client])
-        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nX-Forwarded-For: 1.1.1.1.1.1\r\n\r\n",
@@ -188,8 +183,8 @@ class BlockActionReply(BlockActionBase):
         )
 
         sniffer.stop()
-        self.assert_not_fin_socks(sniffer.packets)
-        self.assert_unreset_socks(sniffer.packets)
+        self.assert_not_fin_socks(sniffer.packets, [client])
+        self.assert_unreset_socks(sniffer.packets, [client])
 
     @marks.Parameterize.expand(
         [
@@ -202,8 +197,6 @@ class BlockActionReply(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_not_fin_socks([client])
-        self.save_must_not_reset_socks([client])
 
         client.make_requests(
             requests=[
@@ -217,8 +210,8 @@ class BlockActionReply(BlockActionBase):
         self.assertFalse(client.connection_is_closed())
 
         sniffer.stop()
-        self.assert_not_fin_socks(sniffer.packets)
-        self.assert_unreset_socks(sniffer.packets)
+        self.assert_not_fin_socks(sniffer.packets, [client])
+        self.assert_unreset_socks(sniffer.packets, [client])
 
     @marks.Parameterize.expand(
         [
@@ -237,8 +230,6 @@ class BlockActionReply(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_fin_socks([client])
-        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: frang.com\r\n\r\n",
@@ -251,7 +242,7 @@ class BlockActionReply(BlockActionBase):
         self.check_last_error_response(client, expected_status_code="403")
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_no_rst_in_sniffer(sniffer)
+        self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
 
 class BlockActionReplyWithCustomErrorPage(BlockActionBase):
@@ -320,8 +311,6 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_fin_socks([client])
-        self.save_must_not_reset_socks([client])
 
         client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
@@ -330,7 +319,8 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
         self.assertTrue(client.wait_for_connection_close())
-        self.check_fin_no_rst_in_sniffer(sniffer)
+
+        self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
 
 class BlockActionDrop(BlockActionBase):
@@ -351,8 +341,6 @@ class BlockActionDrop(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_reset_socks([client])
-        self.save_must_not_fin_socks([client])
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
@@ -360,7 +348,8 @@ class BlockActionDrop(BlockActionBase):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
-        self.check_rst_no_fin_in_sniffer(sniffer)
+
+        self.check_rst_no_fin_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
         [
@@ -373,8 +362,6 @@ class BlockActionDrop(BlockActionBase):
 
         sniffer = self.setup_sniffer()
         self.start_all_services()
-        self.save_must_reset_socks([client])
-        self.save_must_not_fin_socks([client])
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
@@ -382,4 +369,5 @@ class BlockActionDrop(BlockActionBase):
 
         self.assertTrue(client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
-        self.check_rst_no_fin_in_sniffer(sniffer)
+
+        self.check_rst_no_fin_in_sniffer(sniffer, [client])

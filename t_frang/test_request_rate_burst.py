@@ -2,16 +2,14 @@
 
 import time
 
-from hyperframe.frame import HeadersFrame, RstStreamFrame
-
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, error, remote, dmesg
+from helpers import analyzer, error, remote
 from helpers.deproxy import H2Request, Request
 from t_frang.frang_test_case import DELAY, FrangTestCase
 from test_suite import asserts, marks
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 ERROR_MSG_RATE = "Warning: frang: request rate exceeded"
@@ -159,8 +157,6 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c2 = self.get_client("another-ip")
 
         self.arrange(c1, c2)
-        self.save_must_reset_socks([c2])
-        self.save_must_not_reset_socks([c1])
 
         start_time = time.monotonic()
         self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=8)
@@ -175,8 +171,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         # See the comment in DeproxyClient.statuses for details.
 
         self.sniffer.stop()
-        self.assert_reset_socks(self.sniffer.packets)
-        self.assert_unreset_socks(self.sniffer.packets)
+
+        self.assert_reset_socks(self.sniffer.packets, [c2])
+        self.assert_unreset_socks(self.sniffer.packets, [c1])
         self.assertFrangWarning(
             warning=f"Warning: block client: {c2.bind_addr}", expected=range(1, 3)
         )
@@ -192,7 +189,6 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c2 = self.get_client("same-ip2")
 
         self.arrange(c1, c2)
-        self.save_must_reset_socks([c1, c2])
 
         start_time = time.monotonic()
         self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=4)
@@ -205,7 +201,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         # See the comment in DeproxyClient.statuses for details.
 
         self.sniffer.stop()
-        self.assert_reset_socks(self.sniffer.packets)
+
+        self.assert_reset_socks(self.sniffer.packets, [c1, c2])
         self.assertFrangWarning(warning="Warning: block client:", expected=range(1, 6))
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
 
