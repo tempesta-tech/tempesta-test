@@ -181,7 +181,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             self.bind(
                 (self.bind_addr, 0),
             )
-            self._src_ip, self._src_port = self.socket.getsockname()
+            self._src_ip, self._src_port, *_ = self.socket.getsockname()
 
         self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))

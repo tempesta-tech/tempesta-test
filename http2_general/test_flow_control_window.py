@@ -260,7 +260,6 @@ class TestFlowControl(H2Base, asserts.Sniffer):
                 + ("x" * 100)
             )
         )
-        self.save_must_fin_socks([client])
 
         client.make_request(self.get_request)
         self.assertTrue(client.wait_for_headers_frame(stream_id=1))
@@ -279,7 +278,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             "Tempesta did not forward the GOAWAY frame when a window size is 0.",
         )
         sniffer.stop()
-        self.assert_fin_socks(sniffer.packets)
+        self.assert_fin_socks(sniffer.packets, [client])
 
     def test_request_body_greater_than_initial_window_size(self):
         self.start_all_services()
