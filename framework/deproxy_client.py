@@ -51,6 +51,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         conn_addr: Optional[str],
         is_ssl: bool,
         server_hostname: str,
+        is_http2: bool = None,
     ):
         # Initialize the `BaseDeproxy`
         super().__init__(
@@ -64,7 +65,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         )
 
         self.ssl = is_ssl
-        self._is_http2 = isinstance(self, DeproxyClientH2)
+        self._is_http2 = is_http2
+
+        if self._is_http2 is None:
+            self._is_http2 = isinstance(self, DeproxyClientH2)
+
         self._create_context()
         self.server_hostname = server_hostname
 
@@ -459,6 +464,12 @@ class ReqBodyBuffer:
 
 
 class DeproxyClientH2(BaseDeproxyClient):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.h2_connection: Optional[h2.connection.H2Connection] = None
+        self.encoder = None
+
     @property
     def ping_received(self) -> int:
         return self._ping_received
