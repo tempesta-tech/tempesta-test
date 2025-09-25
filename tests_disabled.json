@@ -190,10 +190,6 @@
             "reason": "Disabled by issue #613"
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections",
-            "reason": "Disabled by test issue #525"
-        },
-        {
             "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteTls",
             "reason": "Disabled by issue #2052"
         },
