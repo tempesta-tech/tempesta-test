@@ -328,5 +328,4 @@ class DeproxyAutoParser:
             expected_request.headers.delete_all("content-length")
             expected_request.headers.add("content-length", len(expected_request.body))
 
-        expected_request.build_message()
         return expected_request.msg.encode()
