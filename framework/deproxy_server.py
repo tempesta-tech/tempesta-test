@@ -5,7 +5,6 @@ import sys
 import time
 from typing import Optional
 
-import run_config
 from framework import stateful
 from framework.deproxy_base import BaseDeproxy
 from helpers import deproxy, error, tempesta, tf_cfg, util
@@ -33,7 +32,7 @@ class ServerConnection(asyncore.dispatcher):
         self._response_buffer: list[bytes] = []
 
         self._cur_pipelined = 0
-        self._cur_responses_list = []
+        self._cur_responses_list: list[deproxy.Response] = []
         self.__time_to_send: float = 0
         self.__new_response: bool = True
         self.nrreq: int = 0
@@ -61,7 +60,7 @@ class ServerConnection(asyncore.dispatcher):
         return self.__time_to_send > time.time()
 
     def flush(self):
-        self._response_buffer.append(b"".join(self._cur_responses_list))
+        self._response_buffer.append(b"".join([response.msg.encode() for response in self._cur_responses_list]))
         self._cur_pipelined = 0
         self._cur_responses_list = []
 
@@ -244,7 +243,7 @@ class StaticDeproxyServer(BaseDeproxy):
             conn.flush()
 
     @property
-    def response(self) -> bytes:
+    def response(self) -> deproxy.Response:
         return self.__response
 
     @response.setter
@@ -253,11 +252,11 @@ class StaticDeproxyServer(BaseDeproxy):
 
     def set_response(self, response: str | bytes | deproxy.Response) -> None:
         if isinstance(response, str):
-            self.__response = response.encode()
+            self.__response = deproxy.Response(response)
         elif isinstance(response, bytes):
-            self.__response = response
+            self.__response = deproxy.Response(response.decode())
         elif isinstance(response, deproxy.Response):
-            self.__response = response.msg.encode()
+            self.__response = response
 
     @property
     def conns_n(self) -> int:
@@ -286,14 +285,14 @@ class StaticDeproxyServer(BaseDeproxy):
     def remove_connection(self, connection: ServerConnection) -> None:
         self._connections.remove(connection)
 
-    def receive_request(self, request: deproxy.Request) -> (bytes, bool):
+    def receive_request(self, request: deproxy.Request) -> tuple[Optional[deproxy.Response], bool]:
         self._requests.append(request)
         req_num = len(self.requests)
         self._http_logger.info(f"A request was receive. The current number of requests - {req_num}")
 
         # Don't send response to this request w/o disconnect
         if 0 < self.hang_on_req_num <= req_num:
-            return "", True
+            return None, True
 
         if self._deproxy_auto_parser.parsing:
             self._deproxy_auto_parser.check_expected_request(self.last_request)
