@@ -55,7 +55,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.proc: typing.Optional[multiprocessing.Process] = None
         self.returncode = 0
         self.resq = multiprocessing.Queue()
-        self.proc_results = None
         # List of files to be removed from remote node after client finish.
         self.cleanup_files = []
         self.requests = 0
@@ -103,18 +102,19 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         if not hasattr(self.proc, "terminate"):
             return
         try:
-            self.proc_results = self.resq.get(timeout=self.duration)
+            proc_results = self.resq.get(timeout=self.duration)
             self.proc.join()
         except queue.Empty:
             # We have to make a forced stop that the client completes successfully.
             # The process may freeze forever.
             self.proc.kill()
+            proc_results = None
             self._logger.warning("The process killed because the queue is empty and timeout is over.")
 
         self.proc = None
 
-        if self.proc_results:
-            self.parse_out(self.proc_results[0], self.proc_results[1])
+        if proc_results:
+            self.parse_out(proc_results[0], proc_results[1])
         else:
             self._logger.warning(
                 f'Cmd command "{self.cmd}" has not received data from queue. '
