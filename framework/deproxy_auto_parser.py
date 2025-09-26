@@ -136,16 +136,12 @@ class DeproxyAutoParser:
         self.__prepare_method_for_expected_request(request)
         self.__expected_request = request
 
-    def prepare_expected_response(self, response: bytes) -> None:
+    def prepare_expected_response(self, response: Response) -> None:
         """Prepare expected response from deproxy server."""
         self.__logger.info("Prepare expected response")
-        self.__logger.debug(f"Response before preparing:\n{response.decode()}")
+        self.__logger.debug(f"Response before preparing:\n{response}")
 
-        try:
-            response = Response(response.decode(), body_parsing=True)
-        except (ValueError, ParseError):
-            self.__logger.info("Response: invalid Content-Length header. Body prasing is disabled")
-            response = Response(response.decode(), body_parsing=False)
+        response = copy.deepcopy(response)
         response.set_expected()
         response.add_tempesta_headers()
         response.headers.expected_time_delta = 20
@@ -328,5 +324,4 @@ class DeproxyAutoParser:
             expected_request.headers.delete_all("content-length")
             expected_request.headers.add("content-length", len(expected_request.body))
 
-        expected_request.build_message()
         return expected_request.msg.encode()

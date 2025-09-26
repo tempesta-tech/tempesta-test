@@ -1,5 +1,7 @@
+from typing import Optional
+
 from framework import deproxy_server
-from helpers import deproxy, tempesta, tf_cfg
+from helpers import deproxy, tf_cfg
 from helpers.util import fill_template
 from test_suite import tester
 
@@ -94,15 +96,14 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
 
     do_drop = True
 
-    def receive_request(self, request):
+    def receive_request(self, request: deproxy.Request) -> tuple[Optional[deproxy.Response], bool]:
         uri = request.uri
         r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request)
         if "/drop/" in uri and self.do_drop:
             self.do_drop = False
-            return "", True
+            return None, True
 
-        resp = deproxy.Response(r.decode())
-        return resp.msg.encode(), close
+        return r, close
 
 
 def build_deproxy_drop(server, name, tester):

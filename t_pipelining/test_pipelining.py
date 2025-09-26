@@ -21,15 +21,14 @@ class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
     def __remove_keep_alive_header(response: str) -> str:
         return re.sub(r"Connection: .*$", "", response, flags=re.MULTILINE)
 
-    def receive_request(self, request) -> (bytes, bool):
+    def receive_request(self, request: deproxy.Request) -> tuple[typing.Optional[deproxy.Response], bool]:
         _response, close = super().receive_request(request)
 
-        response = deproxy.Response(self.__remove_keep_alive_header(_response.decode()))
+        response = deproxy.Response(self.__remove_keep_alive_header(_response.msg))
         response.body = request.uri
         response.headers["Content-Length"] = len(response.body)
-        response.build_message()
 
-        return response.msg.encode(), close
+        return response, close
 
 
 class DeproxyKeepaliveServer(DeproxyEchoServer):
@@ -41,7 +40,7 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
         super().__init__(*args, **kwargs)
         self.nka = 0
 
-    def receive_request(self, request) -> (bytes, bool):
+    def receive_request(self, request: deproxy.Request) -> tuple[typing.Optional[deproxy.Response], bool]:
         self.nka += 1
         _response, close = super().receive_request(request)
 
@@ -53,11 +52,10 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
 
         self.nka = 0
 
-        response = deproxy.Response(_response.decode())
+        response = deproxy.Response(_response.msg)
         response.headers["Connection"] = "close"
-        response.build_message()
 
-        return response.msg.encode(), True
+        return response, True
 
 
 class DeproxyRegisterRequestsExecutingSequenceServer(deproxy_server.StaticDeproxyServer):
@@ -68,17 +66,16 @@ class DeproxyRegisterRequestsExecutingSequenceServer(deproxy_server.StaticDeprox
     def __init__(self, *args, **kwargs):
         super(DeproxyRegisterRequestsExecutingSequenceServer, self).__init__(*args, **kwargs)
 
-    def receive_request(self, request) -> (bytes, bool):
+    def receive_request(self, request: deproxy.Request) -> tuple[typing.Optional[deproxy.Response], bool]:
         req_num = request.uri.split("/")[-1]
         REQUESTS_EXECUTION_SEQUENCE.append(req_num)
 
         r, close = super().receive_request(request)
-        resp = deproxy.Response(r.decode())
+        resp = deproxy.Response(r.msg)
         resp.body = "".join(REQUESTS_EXECUTION_SEQUENCE)
         resp.headers["seq"] = req_num
         resp.headers["Content-Length"] = len(resp.body)
-        resp.build_message()
-        return resp.msg.encode(), close
+        return resp, close
 
 
 def build_server(

@@ -1209,7 +1209,7 @@ return 200;
             msg="Unexpected number forwarded requests to backend",
         )
         setcookie_count = 0
-        lines = curl.proc_results[1].decode("utf-8").split("\n")
+        lines = curl.stderr.decode().split("\n")
         for line in lines:
             if line.startswith("< set-cookie:"):
                 setcookie_count += 1

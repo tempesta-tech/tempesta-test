@@ -53,7 +53,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.proc = None
         self.returncode = 0
         self.resq = multiprocessing.Queue()
-        self.proc_results = None
         # List of files to be removed from remote node after client finish.
         self.cleanup_files = []
         self.requests = 0
@@ -100,13 +99,13 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     def __on_finish(self):
         if not hasattr(self.proc, "terminate"):
             return
-        self.proc_results = self.resq.get(timeout=self.duration)
+        proc_results = self.resq.get(timeout=self.duration)
 
         self.proc.join()
         self.proc = None
 
-        if self.proc_results:
-            self.parse_out(self.proc_results[0], self.proc_results[1])
+        if proc_results:
+            self.parse_out(proc_results[0], proc_results[1])
         else:
             self._logger.warning(
                 f'Cmd command "{self.cmd}" has not received data from queue. '
