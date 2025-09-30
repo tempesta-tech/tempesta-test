@@ -421,6 +421,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
         for service in self.get_all_services():
             service.stop()
+            service.clear_stats()
             if service.exceptions:
                 self.__exceptions.update({str(service): "\n".join(service.exceptions)})
 
