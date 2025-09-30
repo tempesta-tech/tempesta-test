@@ -164,6 +164,9 @@ class StaticDeproxyServer(BaseDeproxy):
         hang_on_req_num: int,
         pipelined: int,
     ):
+        # this variable is needed for tests with common response for all tests in one class.
+        self._default_response = response
+
         # Initialize the `BaseDeproxy`
         super().__init__(
             id_=id_,
@@ -174,9 +177,6 @@ class StaticDeproxyServer(BaseDeproxy):
             segment_gap=segment_gap,
             is_ipv6=is_ipv6,
         )
-
-        self._reinit_variables()
-        self.response = response
         self.conns_n = tempesta.server_conns_default()
         self.keep_alive = keep_alive
         self.drop_conn_when_request_received = drop_conn_when_request_received
@@ -184,9 +184,11 @@ class StaticDeproxyServer(BaseDeproxy):
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
 
-    def _reinit_variables(self):
+    def clear_stats(self):
+        super().clear_stats()
         self._connections: list[ServerConnection] = list()
         self._requests: list[deproxy.Request] = list()
+        self.response = self._default_response
 
     def handle_accept(self):
         pair = self.accept()

@@ -45,23 +45,13 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.server_addr = server_addr
         self.set_uri(uri)
         self.cmd = ""
-        self.clear_stats()
         # List of command-line options.
         self.options = []
         # List tuples (filename, content) to create corresponding files on
         # remote node.
         self.files = []
-        # Process
-        self.proc: typing.Optional[multiprocessing.Process] = None
-        self.returncode = 0
-        self.resq = multiprocessing.Queue()
         # List of files to be removed from remote node after client finish.
         self.cleanup_files = []
-        self.requests = 0
-        self.rate = -1
-        self.errors = 0
-        self.statuses = {}
-        # Stateful
         self.stop_procedures = [self.__on_finish]
 
     def set_uri(self, uri):
@@ -76,6 +66,10 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.uri = "".join([proto, self.server_addr, uri])
 
     def clear_stats(self):
+        super().clear_stats()
+        self.proc: typing.Optional[multiprocessing.Process] = None
+        self.returncode = 0
+        self.resq = multiprocessing.Queue()
         self.requests = 0
         self.rate = -1
         self.errors = 0

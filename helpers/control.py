@@ -4,7 +4,6 @@ import abc
 import multiprocessing.dummy as multiprocessing
 import os
 import re
-import time
 import typing
 
 from framework import stateful
@@ -300,11 +299,11 @@ def clients_parallel_load(client, count=None):
 # -------------------------------------------------------------------------------
 class Tempesta(stateful.Stateful):
     def __init__(self, vhost_auto=True):
+        self.stats = tempesta.Stats()
         super().__init__(id_=remote.tempesta.host)
         self.node = remote.tempesta
         self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
         self.config = tempesta.Config(vhost_auto=vhost_auto)
-        self.stats = tempesta.Stats()
         self.check_config = True
         self.clickhouse = ClickHouseFinder()
         self.stop_procedures = [
@@ -312,6 +311,10 @@ class Tempesta(stateful.Stateful):
             self.config.remove_config_files,
             self.clickhouse.access_log_clear,
         ]
+
+    def clear_stats(self) -> None:
+        super().clear_stats()
+        self.stats.clear()
 
     def wait_while_logger_start(self, timeout: int = 5) -> bool:
         """
@@ -343,7 +346,7 @@ class Tempesta(stateful.Stateful):
         return remote.tempesta.exists(tf_cfg.cfg.get("TFW_Logger", "log_path"))
 
     def run_start(self):
-        self.stats.clear()
+        self.clear_stats()
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
 
     def reload(self):

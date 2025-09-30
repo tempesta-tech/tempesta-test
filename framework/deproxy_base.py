@@ -12,7 +12,6 @@ from typing import Optional
 
 import run_config
 from framework.stateful import Stateful
-from helpers import deproxy
 
 
 class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
@@ -92,6 +91,7 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         self.__acquire()
         try:
             self._stop_deproxy()
+            self.clear_stats()
         except Exception as e:
             self._tcp_logger.error("Exception while stop", exc_info=True)
             raise e
@@ -113,9 +113,6 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
 
     @abc.abstractmethod
     def _run_deproxy(self) -> None: ...
-
-    @abc.abstractmethod
-    def _reinit_variables(self) -> None: ...
 
     @property
     def bind_addr(self) -> str:

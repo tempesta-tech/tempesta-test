@@ -77,7 +77,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
         self.rps = 0
         self.parsing = True
-        self._reinit_variables()
 
         self.simple_get = self.create_request("GET", headers=[])
 
@@ -299,7 +298,8 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
                 self.last_response, is_http2=self._is_http2
             )
 
-    def _reinit_variables(self):
+    def clear_stats(self):
+        super().clear_stats()
         self.nrresp = 0  # number of responses that the client received
         self.nrreq = 0  # number of requests that the client must send
         self._request_buffers: List[bytes] = []
@@ -899,8 +899,8 @@ class DeproxyClientH2(BaseDeproxyClient):
         # TCP/IP use big endian
         return int.from_bytes(self.last_response_buffer[pos : pos + 3], "big")
 
-    def _reinit_variables(self):
-        super()._reinit_variables()
+    def clear_stats(self):
+        super().clear_stats()
         self.h2_connection: Optional[h2.connection.H2Connection] = None
         self.stream_id: int = 1
         self.active_responses = {}
