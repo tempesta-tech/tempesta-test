@@ -6,3 +6,6 @@ def create_many_big_chunks(body_size: int) -> str:
     chunks = 2**3
     chunk = "x" * int(body_size / chunks)
     return "".join("%X\r\n%s\r\n" % (len(chunk), chunk) for _ in range(chunks)) + "0\r\n\r\n"
+
+def create_simpple_body(body_size: int) -> str:
+    return "x" * body_size

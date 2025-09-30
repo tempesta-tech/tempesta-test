@@ -1195,6 +1195,14 @@ return 200;
         )
         curl.stop()
 
+        setcookie_count = 0
+        lines = curl.stderr.decode().split("\n")
+        for line in lines:
+            if line.startswith("< set-cookie:"):
+                setcookie_count += 1
+                self.assertTrue(len(line.split(",")) == 1, "Wrong separator")
+        self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
+
         self.start_all_clients()
         self.wait_while_busy(curl)
         self.assertEqual(
@@ -1208,13 +1216,6 @@ return 200;
             nginx.requests,
             msg="Unexpected number forwarded requests to backend",
         )
-        setcookie_count = 0
-        lines = curl.proc_results[1].decode("utf-8").split("\n")
-        for line in lines:
-            if line.startswith("< set-cookie:"):
-                setcookie_count += 1
-                self.assertTrue(len(line.split(",")) == 1, "Wrong separator")
-        self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
 
 
 class AddBackendShortHeadersCache(CurlTestBase):
