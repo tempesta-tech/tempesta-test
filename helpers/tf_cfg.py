@@ -102,10 +102,10 @@ class TestFrameworkCfg:
             {
                 "General": {
                     "duration": "10",
-                    "concurrent_connections": "10",
+                    "concurrent_connections": "100",
                     "log_file": "tests_log.log",
                     "stress_threads": "2",
-                    "stress_large_content_length": "65536",
+                    "stress_large_content_length": "131072",
                     "stress_requests_count": "100",
                     "stress_mtu": "1500",
                     "long_body_size": "500",
