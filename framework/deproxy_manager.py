@@ -22,13 +22,15 @@ class DeproxyManager(stateful.Stateful):
 
     def __init__(self):
         super().__init__(id_="")
-        self.servers = []
-        self.clients = []
         self._exit_event = threading.Event()
 
         self._lock = threading.Lock()
 
         self.stop_procedures = [self.__stop]
+
+    def clear_stats(self) -> None:
+        self.servers = []
+        self.clients = []
         self._proc = None
 
     def add_server(self, server):

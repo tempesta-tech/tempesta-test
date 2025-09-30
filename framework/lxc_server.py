@@ -46,6 +46,9 @@ class LXCServer(LXCServerArguments, stateful.Stateful, port_checks.FreePortsChec
         stateful.Stateful.__init__(self, id_=kwargs["id"])
         self.node = remote.server
 
+    def clear_stats(self) -> None:
+        super().clear_stats()
+
     @staticmethod
     def _construct_cmd(args: list[str]) -> str:
         c = " ".join(["lxc", *args])
