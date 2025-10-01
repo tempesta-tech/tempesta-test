@@ -1022,16 +1022,19 @@ class Client(TlsClient, stateful.Stateful):
         TlsClient.__init__(self, ssl, proto)
         stateful.Stateful.__init__(self, id_="")
         self.request = None
-        self.request_buffer = ""
-        self.response_buffer = ""
         self.tester = None
         self.conn_addr = addr or tf_cfg.cfg.get(host, "ip")
         self.port = port
         self.stop_procedures = [self.__stop_client]
-        self.conn_is_closed = True
-        self.conn_was_opened = False
         self.bind_addr = bind_addr or tf_cfg.cfg.get("Client", "ip")
         self.error_codes = []
+
+    def clear_stats(self) -> None:
+        super().clear_stats()
+        self.request_buffer = ""
+        self.response_buffer = ""
+        self.conn_is_closed = True
+        self.conn_was_opened = False
 
     def __stop_client(self):
         self.close()
