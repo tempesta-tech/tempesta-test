@@ -2,11 +2,10 @@
 Tests for validate Forwarded header.
 """
 
-from helpers import chains
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -24,13 +23,13 @@ class TestForwardedBase(tester.TempestaTest, base=True):
     tempesta = {
         "config": """
         srv_group grp1 {
-        server ${server_ip}:8000;
+            server ${server_ip}:8000;
         }
         vhost app {
-        proxy_pass grp1;
+            proxy_pass grp1;
         }
         http_chain {
-        -> app;
+            -> app;
         }
         """
     }
@@ -41,37 +40,17 @@ class TestForwardedBase(tester.TempestaTest, base=True):
 
     response_status = "200"
 
-    def setUp(self):
-        tester.TempestaTest.setUp(self)
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
-    def prepare_request(self, req_param):
-        req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Forwarded: %s\r\n\r\n" % req_param
-
-        return req
-
-    def client_send_req(self, client, req):
-        curr_responses = len(client.responses)
-        client.make_request(req)
-        client.wait_for_response(timeout=3)
-        self.assertEqual(curr_responses + 1, len(client.responses))
-
-        return client.last_response
-
     def test_run(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         for param in self.req_params:
-            req = self.prepare_request(param)
-            resp = self.client_send_req(client, req)
-            self.assertEqual(resp.status, self.response_status)
-            client.restart()
+            with self.subTest(msg=f"Forwarded: {param}"):
+                client.send_request(
+                    request=client.create_request(method='GET', headers=[("Forwarded", param)]),
+                    expected_status_code=self.response_status,
+                )
+                client.restart()
+                client.clear_stats()
 
 
 class TestForwardedBaseAllowed(TestForwardedBase):
@@ -159,14 +138,15 @@ class TestForwardedBaseMalicious(TestForwardedBase):
     malicious = ["<xss>", '"><xss>', '" onlick=alert(1)', "' sqlinj"]
 
     def test_malicious(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         for param in self.req_params:
             for evil_str in self.malicious:
-                req = self.prepare_request(param % (evil_str))
-                resp = self.client_send_req(client, req)
-                self.assertEqual(resp.status, self.response_status)
-                client.restart()
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+                evil_param = param % evil_str
+                with self.subTest(msg=f"Forwarded: {evil_param}"):
+                    client.send_request(
+                        request=client.create_request(method='GET', headers=[("Forwarded", evil_param)]),
+                        expected_status_code=self.response_status,
+                    )
+                    client.restart()
+                    client.clear_stats()
