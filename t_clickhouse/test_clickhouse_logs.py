@@ -2,12 +2,11 @@
 Verify tfw_logger logging
 """
 
-import json
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
-from helpers import remote, tf_cfg
-from test_suite import tester
+from helpers import tf_cfg
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
@@ -185,10 +184,53 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "443", "ssl": True}
     ]
 
-    def test_clickhouse_record_data(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="201",
+                response="HTTP/1.1 201 OK\r\n" "Content-Length: 8\r\n\r\n12345678",
+                expected_status="201",
+                content_length=8
+            ),
+            marks.Param(
+                name="500",
+                response="HTTP/1.1 500 Internal Server Error\r\nContent-Length: 8\r\n\r\n12345678",
+                expected_status="500",
+                content_length=8
+            ),
+            marks.Param(
+                name="404",
+                response="HTTP/1.1 404 Not Found\r\n" "Content-Length: 0\r\n\r\n",
+                expected_status="404",
+                content_length=0
+            ),
+            marks.Param(
+                name="400",
+                response="HTTP/1.1 400 Internal Server Error\r\nContent-Length: 11\r\n\r\nBad Request",
+                expected_status="400",
+                content_length=11
+            ),
+            marks.Param(
+                name="307",
+                response="HTTP/1.1 307 Temporary Redirect\r\nLocation: https://example.com/\r\nContent-Length: 0\r\n\r\n",
+                expected_status="307",
+                content_length=0
+            ),
+            marks.Param(
+                name="302",
+                response="HTTP/1.1 302 Found\r\nLocation: https://example.com/\r\nContent-Length: 0\r\n\r\n",
+                expected_status="302",
+                content_length=0
+            ),
+        ]
+    )
+    def test_clickhouse_record_data(self, name, response, expected_status, content_length):
         """
         Verify the clickhouse log record data
         """
+        deproxy_server = self.get_server("deproxy")
+        deproxy_server.set_response(response)
+
         client = self.get_client("deproxy")
         client.start()
 
@@ -205,6 +247,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
                     ("Referer", "https://somesite.com"),
                 ],
             ),
+            expected_status=expected_status
         )
 
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
@@ -221,10 +264,10 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         self.assertEqual(record.uri, "/test")
         self.assertEqual(record.address, IPv4Address(tf_cfg.cfg.get("Client", "ip")))
         self.assertEqual(record.referer, "https://somesite.com")
-        self.assertEqual(record.status, 201)
+        self.assertEqual(record.status, int(expected_status))
         self.assertEqual(record.version, 3)
         self.assertEqual(record.method, 3)
-        self.assertEqual(record.response_content_length, 8)
+        self.assertEqual(record.response_content_length,  content_length)
         self.assertEqual(record.dropped_events, 0)
         self.assertEqual(record.vhost, "default")
         self.assertEqual(record.ja5h, 2551211360704)
