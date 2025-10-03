@@ -5,6 +5,8 @@ __license__ = "GPL2"
 import abc
 import multiprocessing
 import os
+import queue
+import typing
 
 from framework import stateful
 from helpers import error, remote, tf_cfg, util
@@ -50,7 +52,7 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         # remote node.
         self.files = []
         # Process
-        self.proc = None
+        self.proc: typing.Optional[multiprocessing.Process] = None
         self.returncode = 0
         self.resq = multiprocessing.Queue()
         self.proc_results = None
@@ -100,9 +102,15 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     def __on_finish(self):
         if not hasattr(self.proc, "terminate"):
             return
-        self.proc_results = self.resq.get(timeout=self.duration)
+        try:
+            self.proc_results = self.resq.get(timeout=self.duration)
+            self.proc.join()
+        except queue.Empty:
+            # We have to make a forced stop that the client completes successfully.
+            # The process may freeze forever.
+            self.proc.kill()
+            self._logger.warning("The process killed because the queue is empty and timeout is over.")
 
-        self.proc.join()
         self.proc = None
 
         if self.proc_results:
