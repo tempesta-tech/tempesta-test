@@ -176,15 +176,15 @@ server ${server_ip}:8000;
         self.deproxy_manager.start()
         self.assertTrue(deproxy.wait_for_connections(timeout=1))
 
-        wrk1: wrk_client.Wrk = self.get_client("wrk_1")
-        wrk1.start()
-        self.wait_while_busy(wrk1)
-        wrk1.stop()
+        curl = self.get_client("curl")
+        curl.start()
+        self.wait_while_busy(curl)
+        curl.stop()
 
         tempesta: Tempesta = self.get_tempesta()
         tempesta.get_stats()
 
-        self.assertAlmostEqual(
+        self.assertEqual(
             len(deproxy.requests),
             tempesta.stats.srv_msg_received,
             msg="Count of server request does not match tempesta stats.",

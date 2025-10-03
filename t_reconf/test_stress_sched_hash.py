@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.control import Tempesta
+from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SCHED_OPTS_START = "hash"
@@ -76,6 +77,22 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
     backends_count = 10
     deviation = 0.2
     dbg_msg = "Only one server should got most of the load"
+
+    clients = [
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}:443/"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams 10"  # 10 streams to not overflow forwarding queue
+                f" --duration {DURATION}"
+            ),
+        },
+    ]
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
