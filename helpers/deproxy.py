@@ -333,7 +333,6 @@ class HeaderCollection(object):
 
 class HttpMessage(object, metaclass=abc.ABCMeta):
     def __init__(self, message_text=None, body_parsing=True, method="GET", keep_original_data=None):
-        self.msg = ""
         self.original_length = 0
         self.method = method
         self.body_parsing = True
@@ -346,11 +345,14 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         if message_text:
             self.parse_text(message_text, body_parsing)
 
+    @property
+    def msg(self) -> str:
+        return self.__str__()
+
     def parse_text(self, message_text, body_parsing=True):
         self.body_parsing = body_parsing
         stream = StringIO(message_text)
         self.__parse(stream)
-        self.build_message()
         self.original_length = stream.tell()
         if self.keep_original_data:
             self.original_data = message_text[: self.original_length]
@@ -363,9 +365,6 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
             self.parse_body(stream)
         else:
             self.body = stream.read()
-
-    def build_message(self):
-        self.msg = str(self)
 
     @abc.abstractmethod
     def parse_firstline(self, stream):
@@ -657,9 +656,9 @@ class H2Request(Request):
     def __str__(self):
         return "".join([str(self.headers), "\r\n", self.body, str(self.trailer)])
 
-    def build_message(self) -> list or tuple:
-        msg = (self.headers.headers, self.body) if self.body else self.headers.headers
-        self.msg = msg
+    @property
+    def msg(self) -> list | tuple:
+        return (self.headers.headers, self.body) if self.body else self.headers.headers
 
     def parse_firstline(self, stream):
         pass
@@ -700,7 +699,6 @@ class H2Request(Request):
         for header in pseudo_headers + headers:
             request.headers.add(name=header[0], value=header[1])
         request.body = body
-        request.build_message()
 
         return request
 
@@ -874,7 +872,6 @@ class H2Response(Response):
         if tempesta_headers:
             response.add_tempesta_headers()
         response.body = body
-        response.build_message()
 
         return response
 
@@ -1025,16 +1022,19 @@ class Client(TlsClient, stateful.Stateful):
         TlsClient.__init__(self, ssl, proto)
         stateful.Stateful.__init__(self, id_="")
         self.request = None
-        self.request_buffer = ""
-        self.response_buffer = ""
         self.tester = None
         self.conn_addr = addr or tf_cfg.cfg.get(host, "ip")
         self.port = port
         self.stop_procedures = [self.__stop_client]
-        self.conn_is_closed = True
-        self.conn_was_opened = False
         self.bind_addr = bind_addr or tf_cfg.cfg.get("Client", "ip")
         self.error_codes = []
+
+    def clear_stats(self) -> None:
+        super().clear_stats()
+        self.request_buffer = ""
+        self.response_buffer = ""
+        self.conn_is_closed = True
+        self.conn_was_opened = False
 
     def __stop_client(self):
         self.close()

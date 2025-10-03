@@ -76,6 +76,9 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         self.stop_procedures = [self.stop_server, self.cleanup]
         self.port_checker = port_checks.FreePortsChecker()
 
+    def clear_stats(self) -> None:
+        super().clear_stats()
+
     @property
     def image_name(self):
         """

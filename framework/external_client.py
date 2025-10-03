@@ -1,5 +1,5 @@
 import sys
-from typing import Union
+from typing import Union, Optional
 
 from . import client
 
@@ -24,7 +24,10 @@ class ExternalTester(client.Client):
     def __init__(self, id_: str, cmd_args: str, **kwargs):
         client.Client.__init__(self, id_=id_, **kwargs)
         self.options = [cmd_args]
-        self.response_msg: str = None
+
+    def clear_stats(self) -> None:
+        super().clear_stats()
+        self.response_msg: Optional[str] = None
         self.__stdout = b""
         self.__stderr = b""
 

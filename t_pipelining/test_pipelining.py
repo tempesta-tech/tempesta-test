@@ -27,7 +27,6 @@ class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
         response = deproxy.Response(self.__remove_keep_alive_header(_response.decode()))
         response.body = request.uri
         response.headers["Content-Length"] = len(response.body)
-        response.build_message()
 
         return response.msg.encode(), close
 
@@ -55,7 +54,6 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
 
         response = deproxy.Response(_response.decode())
         response.headers["Connection"] = "close"
-        response.build_message()
 
         return response.msg.encode(), True
 
@@ -77,7 +75,6 @@ class DeproxyRegisterRequestsExecutingSequenceServer(deproxy_server.StaticDeprox
         resp.body = "".join(REQUESTS_EXECUTION_SEQUENCE)
         resp.headers["seq"] = req_num
         resp.headers["Content-Length"] = len(resp.body)
-        resp.build_message()
         return resp.msg.encode(), close
 
 

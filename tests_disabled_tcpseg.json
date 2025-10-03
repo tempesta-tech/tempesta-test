@@ -230,32 +230,8 @@
             "reason": "Disabled by test issue #450"
         },
         {
-            "name": "http2_general.test_h2_frame.TestFramesAfterConnectionShutdownedWithResponseBodyGreaterThenWindowSize.test_block_action_error_reply_with_conn_close_garbage",
-            "reason": "Disabled by issue #525"
-        },
-        {
-            "name": "tls.test_tls_cert.WrkTestsMultipleVhosts.test_wrk",
-            "reason": "Disabled by issue #525"
-        },
-        {
-            "name": "http2_general.test_h2_streams.TestH2Stream.test_max_concurrent_stream",
-            "reason": "Disabled by test issue #525"
-        },
-        {
             "name": "t_ws",
             "reason": "Disabled by test issue #672."
-        },
-        {
-            "name": "cache.test_purge.TestPurgeAcl.test_purge_acl_ipv6",
-            "reason": "Disabled by test issue #525"
-        },
-        {
-            "name": "cache.test_purge.TestPurgeAcl.test_purge_acl_ipv6_with_mask",
-            "reason": "Disabled by test issue #525"
-        },
-        {
-            "name": "http2_general.test_h2_headers.TestIPv6.test_request_with_some_data",
-            "reason": "Disabled by test issue #525"
         },
         {
             "name": "t_ja5.test_ja5t.TestJa5tStress",

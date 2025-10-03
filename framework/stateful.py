@@ -27,6 +27,7 @@ class Stateful(abc.ABC):
         self._logger = logging.LoggerAdapter(
             logging.getLogger("service"), extra={"service": f"{self._service_id}"}
         )
+        self.clear_stats()
 
     def _generate_service_id(self, id_: str) -> None:
         self._service_id = f"{self.__class__.__name__}({id_})"
@@ -55,11 +56,9 @@ class Stateful(abc.ABC):
     @abc.abstractmethod
     def run_start(self): ...
 
-    def _reinit_variables(self) -> None:
-        """
-        The optional method. It MUST be called only inside the `start` and `init` methods.
-        All counters or dynamic variables for the service should be reset here.
-        """
+    @abc.abstractmethod
+    def clear_stats(self) -> None:
+        """All counters or dynamic variables for the service should be reset here."""
 
     def restart(self):
         self.stop()
@@ -72,7 +71,6 @@ class Stateful(abc.ABC):
             self._logger.warning(f"Not stopped")
             return
         self.state = STATE_BEGIN_START
-        self._reinit_variables()
         self.run_start()
         self.state = STATE_STARTED
         self._logger.info("Start completed")

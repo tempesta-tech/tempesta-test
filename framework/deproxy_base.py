@@ -12,7 +12,6 @@ from typing import Optional
 
 import run_config
 from framework.stateful import Stateful
-from helpers import deproxy
 
 
 class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
@@ -34,7 +33,7 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         self.is_ipv6 = is_ipv6
         self.port = port
         self.bind_addr = bind_addr
-        self.segment_size = segment_size or run_config.TCP_SEGMENTATION or deproxy.MAX_MESSAGE_SIZE
+        self.segment_size = segment_size or run_config.TCP_SEGMENTATION or 0
         self.segment_gap = segment_gap
         self.__polling_lock: Optional[threading.Lock] = None
 
@@ -92,6 +91,7 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         self.__acquire()
         try:
             self._stop_deproxy()
+            self.clear_stats()
         except Exception as e:
             self._tcp_logger.error("Exception while stop", exc_info=True)
             raise e
@@ -113,9 +113,6 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
 
     @abc.abstractmethod
     def _run_deproxy(self) -> None: ...
-
-    @abc.abstractmethod
-    def _reinit_variables(self) -> None: ...
 
     @property
     def bind_addr(self) -> str:
@@ -148,8 +145,8 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
 
     @segment_size.setter
     def segment_size(self, segment_size: int) -> None:
-        if segment_size <= 0:
-            raise ValueError("`segment_size` MUST be greater than to 0.")
+        if segment_size < 0:
+            raise ValueError("`segment_size` MUST be greater than or equal to 0.")
         self._segment_size = segment_size
 
     @property
