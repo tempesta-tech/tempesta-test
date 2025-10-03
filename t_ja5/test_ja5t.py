@@ -24,6 +24,56 @@ DEPROXY_CLIENT_H2 = {
     "ssl": True,
 }
 
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout ${server_keepalive_timeout};
+    keepalive_requests 1000000000;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # [ debug | info | notice | warn | error | crit | alert | emerg ]
+    # Fully disable log errors.
+    error_log /dev/null emerg;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen        ${server_ip}:${port};
+
+        location / {
+            return 200;
+        }
+
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
+
+NGINX_SERVER = {
+    "id": f"nginx",
+    "type": "nginx",
+    "port": f"8000",
+    "status_uri": "http://${server_ip}:${port}/nginx_status",
+    "config": NGINX_CONFIG,
+}
+
 DEPROXY_SERVER = {
     "id": "deproxy",
     "type": "deproxy",
@@ -135,7 +185,7 @@ class TestJa5tStress(tester.TempestaTest):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
-    backends = [DEPROXY_SERVER]
+    backends = [NGINX_SERVER]
 
     clients = [
         {
