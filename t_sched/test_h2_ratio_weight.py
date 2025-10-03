@@ -3,10 +3,11 @@ H2 tests for ratio static scheduler. Each server has random weight. See test_rat
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.tf_cfg import cfg
+from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 from t_sched import test_ratio_weight
 
 
@@ -19,14 +20,12 @@ class RatioH2(test_ratio_weight.Ratio):
             "ssl": True,
             "cmd_args": (
                 " https://${tempesta_ip}:443/"
-                + " --clients {0}".format(cfg.get("General", "concurrent_connections"))
-                + " --threads {0}".format(cfg.get("General", "stress_threads"))
-                + " --max-concurrent-streams {0}".format(
-                    cfg.get("General", "stress_requests_count")
-                )
-                + " --duration {0}".format(cfg.get("General", "duration"))
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams 10"  # 10 streams to not overflow forwarding queue
+                f" --duration {DURATION}"
             ),
-        },
+        }
     ]
 
     def test_load_distribution(self):

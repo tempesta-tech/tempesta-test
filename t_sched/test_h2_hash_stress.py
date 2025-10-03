@@ -19,7 +19,7 @@ class BindToServerH2(test_hash_stress.BindToServer):
                 " https://${tempesta_ip}"
                 f" --clients {CONCURRENT_CONNECTIONS}"
                 f" --threads {THREADS}"
-                f" --max-concurrent-streams {REQUESTS_COUNT}"
+                f" --max-concurrent-streams 10"  # 10 streams to not overflow forwarding queue
                 f" --duration {DURATION}"
             ),
         },
