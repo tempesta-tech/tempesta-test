@@ -3,8 +3,7 @@ Tests for verifying correctness of matching
 all host headers (URI, Host, Forwarded).
 """
 
-from framework import tester
-from framework.parameterize import param, parameterize, parameterize_class
+from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -48,7 +47,7 @@ class BaseRegexMatcher(tester.TempestaTest, base=True):
     success_response_status = "200"
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "Http",
@@ -91,9 +90,10 @@ class TestMatchLocations(BaseRegexMatcher):
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
-        access_log on;
+        access_log off;
 
         block_action attack reply;
+        frang_limits {http_strict_host_checking false;}
         srv_group grp1 {
         server ${server_ip}:8000;
         }
@@ -138,51 +138,51 @@ class TestMatchLocations(BaseRegexMatcher):
         """
     }
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="host_testwiki_uri_testwiki",
                 uri="/testwiki",  # <--The second must be matched by "location ~ "/wiki/"" of vhost test.
                 host="testwiki.com",  # <--The first must be matched by "host ~* "/test/" -> test".
                 block=False,
                 sid=1,
             ),
-            param(
+            marks.Param(
                 name="host_testapp_uri_testshop",
                 uri="/testshop",  # <--The second must be matched by "location ~ "/shop/"" of vhost test.
                 host="testapp.com",  # <--The first must be matched by "host ~* "/test/" -> test".
                 block=False,
                 sid=0,
             ),
-            param(  # <--The second is not matched with anything.
+            marks.Param(  # <--The second is not matched with anything.
                 name="host_testapp_uri_testapp",
                 uri="/testapp",
                 host="testapp.com",  # <--The first must be matched by "host ~* "/test/" -> test".
                 block=False,
                 sid=4,
             ),
-            param(
+            marks.Param(
                 name="host_WorkShop_uri_testwiki",
                 uri="/testwiki",  # <--The second must be matched by "location ~ "/wiki/"" of vhost work.
                 host="WorkShop.com",  # <--The first must be matched by "host ~* "/work/" -> work".
                 block=False,
                 sid=3,
             ),
-            param(
+            marks.Param(
                 name="host_WorkWiki_uri_testshop",
                 uri="/testshop",  # <--The second must be matched by "location ~ "/shop/"" of vhost work.
                 host="WorkWiki.com",  # <--The first must be matched by "host ~* "/work/" -> work".
                 block=False,
                 sid=2,
             ),
-            param(  # <--The second is not matched with anything.
+            marks.Param(  # <--The second is not matched with anything.
                 name="host_workapp_uri_testapp",
                 uri="/testapp",
                 host="workapp.com",  # <--The first must be matched by "host ~* "/work/" -> work".
                 block=False,
                 sid=4,
             ),
-            param(
+            marks.Param(
                 name="host_ordinary_uri_ignored",
                 uri="/ignored",
                 host="ordinary.com",  # <--Must fail all matches and be blocked.
@@ -212,7 +212,7 @@ class TestMatchLocations(BaseRegexMatcher):
             self.assertEqual(self.blocked_response_status, last_response_status)
 
 
-@parameterize_class(
+@marks.parameterize_class(
     [
         {
             "name": "Http",
@@ -245,9 +245,10 @@ class TestMatchHost(BaseRegexMatcher):
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
-        access_log on;
+        access_log off;
 
         block_action attack reply;
+        frang_limits {http_strict_host_checking false;}
         srv_group grp1 {
         server ${server_ip}:8000;
         }
@@ -285,9 +286,9 @@ class TestMatchHost(BaseRegexMatcher):
         """
     }
 
-    @parameterize.expand(
+    @marks.Parameterize.expand(
         [
-            param(
+            marks.Param(
                 name="host_testshop_uri_none",
                 uri="/",
                 host="testshop.com",  # <--Must be matched by "host ~ "/tsho/"".
@@ -297,7 +298,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=0,
             ),
-            param(
+            marks.Param(
                 name="host_testapp_uri_none",
                 uri="/",
                 host="testapp.com",  # <--Must be matched by "hdr host ~ "/stap/"".
@@ -305,7 +306,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=2,
             ),
-            param(  # <--Must be blocked.
+            marks.Param(  # <--Must be blocked.
                 name="host_bobhost_uri_none",
                 uri="/",
                 host="bobhost.com",
@@ -313,7 +314,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=True,
                 sid=0,
             ),
-            param(
+            marks.Param(
                 name="host_testwiki_uri_foo",
                 uri="/foo",
                 host="testwiki.com",
@@ -323,7 +324,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=1,
             ),
-            param(
+            marks.Param(
                 name="host_TesTaPp_uri_foo_fwd_hhh",
                 uri="/foo",
                 host="TesTaPp.cOm",
@@ -333,7 +334,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=3,
             ),
-            param(
+            marks.Param(
                 name="host_TesTaPp_uri_foo_fwd_host",
                 uri="/foo",
                 host="TesTaPp.cOm",
@@ -343,7 +344,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=2,
             ),
-            param(
+            marks.Param(
                 name="host_TesTaPp_uri_foo_fwd_hhh2",
                 uri="/foo",
                 host="TesTaPp.cOm",  # <--Must be matched by "host ~* "/app|ad12:ca16/"".
@@ -353,7 +354,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=2,
             ),
-            param(
+            marks.Param(
                 name="host_fd80_uri_foo",
                 uri="/foo",
                 host="[fd80::1cb2:ad12:ca16:98ef]:8080",  # <--Must be matched by "host ~* "/app|ad12:ca16/"".
@@ -363,7 +364,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=False,
                 sid=2,
             ),
-            param(  # <--must be blocked
+            marks.Param(  # <--must be blocked
                 name="host_badhost_uri_foo",
                 uri="/foo",
                 host="badhost.com",
@@ -373,7 +374,7 @@ class TestMatchHost(BaseRegexMatcher):
                 block=True,
                 sid=0,
             ),
-            param(  # <--must be blocked
+            marks.Param(  # <--must be blocked
                 name="host_unkhost_uri_foo",
                 uri="/foo",
                 host="unkhost.com",
