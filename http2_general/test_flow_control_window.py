@@ -272,10 +272,9 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             "Tempesta did not close connection when sending "
             "the GOAWAY frame with a window size is 0.",
         )
-        self.assertIn(
-            ErrorCodes.PROTOCOL_ERROR,
-            client.error_codes,
-            "Tempesta did not forward the GOAWAY frame when a window size is 0.",
+        client.assert_error_code(
+            expected_error_code=ErrorCodes.PROTOCOL_ERROR,
+            msg="Tempesta did not forward the GOAWAY frame when a window size is 0."
         )
         sniffer.stop()
         self.assert_fin_socks(sniffer.packets, [client])

@@ -38,7 +38,7 @@ class TestH2Stream(H2Base):
         client.make_request(request=self.post_request, end_stream=True)
         self.assertTrue(client.wait_for_reset_stream(stream_id=client.stream_id - 2))
 
-        self.assertIn(ErrorCodes.REFUSED_STREAM, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_max_concurrent_stream_not_exceeded(self):
         """
@@ -100,7 +100,7 @@ class TestH2Stream(H2Base):
         )
         client.wait_for_response(1)
 
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_headers_frame_with_zero_stream_id(self):
         """
@@ -122,7 +122,7 @@ class TestH2Stream(H2Base):
         )
         client.wait_for_response(1)
 
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_request_with_even_numbered_stream_id(self):
         """
@@ -142,7 +142,7 @@ class TestH2Stream(H2Base):
         )
         client.wait_for_response(1)
 
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_request_with_large_stream_id(self):
         """

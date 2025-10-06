@@ -71,7 +71,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
 
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+        deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_empty_data_frame(self):
         """
@@ -91,7 +91,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize())
 
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+        deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_opening_same_stream_after_invalid(self):
         """
@@ -160,7 +160,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(hf_end.serialize(), expect_response=True)
 
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+        deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     @marks.Parameterize.expand(
         [
@@ -193,7 +193,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(hf_empty.serialize())
 
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+        deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_empty_headers_empty_continuation_multiple(self):
         """
@@ -215,7 +215,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(cf_empty.serialize())
 
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+        deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_empty_continuation_end_headers(self):
         """
@@ -267,7 +267,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(df_end.serialize(), expect_response=False)
 
         self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, deproxy_cl.error_codes)
+        deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_settings_frame(self):
         """
@@ -419,7 +419,7 @@ class TestH2Frame(H2Base):
             client.wait_for_connection_close(),
             "Tempesta did not close connection after receiving RST_STREAM with id 0.",
         )
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_goaway_frame_in_response(self):
         """
@@ -450,7 +450,7 @@ class TestH2Frame(H2Base):
         client.send_bytes(b"\x00\x00\x03\x00\x01\x00\x00\x00\x00asd")
 
         self.assertTrue(client.wait_for_connection_close(), "Tempesta did not send GOAWAY frame.")
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
         self.assertEqual(
             client.last_stream_id,
             stream_id,
@@ -508,7 +508,7 @@ class TestH2Frame(H2Base):
         client.send_bytes(data=hf.serialize(), expect_response=False)
 
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")

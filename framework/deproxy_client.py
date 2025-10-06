@@ -22,6 +22,7 @@ from h2.events import (
 )
 from h2.settings import SettingCodes, Settings
 from h2.stream import StreamInputs
+from h2.errors import ErrorCodes
 from hpack import Encoder
 
 import run_config
@@ -73,7 +74,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.conn_addr = conn_addr
         self.conn_is_closed = True
         self.conn_was_opened = False
-        self.error_codes = []
+        self.__error_codes: list[Exception | ErrorCodes] = []
 
         self.rps = 0
         self.parsing = True
@@ -129,6 +130,20 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     @abc.abstractmethod
     def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
+    def _add_error_code(self, error_code: Exception | ErrorCodes) -> None:
+        self.__error_codes.append(error_code)
+
+    def assert_error_code(self, *, expected_error_code: Exception | ErrorCodes, msg: str = "") -> None:
+        """
+        We should not check error codes for TCP segmentation
+        because we cannot control the sequence of receiving from Tempesta.
+        In some cases, RST TCP will be received earlier.
+        """
+        if not self.segment_size:
+            assert expected_error_code in self.__error_codes, (
+                f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
+            )
+
     def handle_connect(self):
         if self.ssl:
             self.socket = self._context.wrap_socket(
@@ -145,7 +160,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
-        self.error_codes.append(type_error)
+        self._add_error_code(type_error)
         self._tcp_logger.warning(f"Receive error - {type_error} with message - {v}")
 
         if type_error == ParseError:
@@ -707,9 +722,9 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.receive_response(response)
                     self.nrresp += 1
                 elif isinstance(event, StreamReset):
-                    self.error_codes.append(event.error_code)
+                    self._add_error_code(event.error_code)
                 elif isinstance(event, ConnectionTerminated):
-                    self.error_codes.append(event.error_code)
+                    self._add_error_code(event.error_code)
                     self.last_stream_id = event.last_stream_id
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
