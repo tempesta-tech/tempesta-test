@@ -2,8 +2,13 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from helpers import deproxy
 from helpers.access_log import AccessLogLine
 from test_suite import marks, tester
+
+
+def create_one_big_chunk(body_size: int) -> str:
+    return "\r\n".join(["%x" % body_size, "x" * body_size, "0", "", ""])
 
 
 # Some tests for access_log over HTTP/2.0
@@ -32,7 +37,26 @@ frang_limits {
 block_action attack reply;
 block_action error reply;
 
-server ${server_ip}:8000;
+srv_group localhost {
+    server ${server_ip}:8000;
+}
+
+vhost localhost {
+    proxy_pass localhost;
+}
+
+srv_group chunked {
+    server ${server_ip}:8001;
+}
+
+vhost chunked {
+    proxy_pass chunked;
+}
+
+http_chain {
+    uri == "/chunked" -> chunked;
+    -> localhost;
+}
 tls_certificate ${tempesta_workdir}/tempesta.crt;
 tls_certificate_key ${tempesta_workdir}/tempesta.key;
 tls_match_any_server_name;
@@ -88,7 +112,14 @@ tls_match_any_server_name;
                     }
                 }
                 """,
-        }
+        },
+        {
+            "id": "chunked",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "",
+        },
     ]
 
     @marks.Parameterize.expand(
@@ -115,12 +146,22 @@ tls_match_any_server_name;
             expected_status_code=status,
         )
 
-        msg = AccessLogLine.from_dmesg(self.loggers.dmesg)
-        self.assertIsNotNone(msg, "No access_log message in dmesg")
-        self.assertEqual(msg.method, "GET", "Wrong method")
-        self.assertEqual(msg.status, int(status), "Wrong HTTP status")
-        self.assertEqual(msg.user_agent, user_agent)
-        self.assertEqual(msg.referer, referer)
+        self.assertEqual(
+            AccessLogLine.from_dmesg(self.loggers.dmesg),
+            AccessLogLine(
+                address=client.src_ip,
+                vhost="localhost",
+                method='GET',
+                uri=uri,
+                version='2.0',
+                status=int(status),
+                response_content_length=len(client.last_response.body),
+                referer=referer,
+                user_agent=user_agent,
+                ja5t='66cb8f00d4250002',
+                ja5h='b23a008c0340',
+            )
+        )
 
     def test_response_truncated_uri(self):
         self.start_all_services()
@@ -140,3 +181,44 @@ tls_match_any_server_name;
         msg = AccessLogLine.from_dmesg(self.loggers.dmesg)
         self.assertEqual(msg.uri[: len(base_uri)], base_uri, "Invalid URI")
         self.assertEqual(msg.uri[-3:], "...", "URI does not look like truncated")
+
+    def test_chunked_response(self):
+        self.start_all_services()
+
+        body_size = 158036
+        server = self.get_server("chunked")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Content-type: text/html; charset=UTF-8\r\n"
+            + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
+            + "Server: Deproxy Server\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + "\r\n"
+            + create_one_big_chunk(body_size)
+        )
+
+        client = self.get_client('deproxy')
+        client.send_request(
+            request=client.create_request(method='GET', uri='/chunked', headers=[("User-Agent", "deproxy")]),
+            expected_status_code='200',
+        )
+        self.assertEqual(len(client.last_response.body), body_size, )
+
+        self.assertEqual(
+            AccessLogLine.from_dmesg(self.loggers.dmesg),
+            AccessLogLine(
+                address=client.src_ip,
+                vhost="chunked",
+                method='GET',
+                uri='/chunked',
+                version='2.0',
+                status=200,
+                response_content_length=body_size,
+                referer='-',
+                user_agent='deproxy',
+                ja5t='66cb8f00d4250002',
+                ja5h='1031008c0280',
+            )
+        )
