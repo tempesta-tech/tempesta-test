@@ -13,11 +13,11 @@ __license__ = "GPL2"
 
 @dataclasses.dataclass
 class AccessLogLine:
-    address: typing.Union[IPv4Address, IPv6Address]
+    address: typing.Union[IPv4Address, IPv6Address] | str
     vhost: str
     method: typing.Union[str, int]
     uri: str
-    version: int
+    version: str
     status: int
     response_content_length: int
     referer: str
@@ -46,6 +46,7 @@ class AccessLogLine:
 
     def __post_init__(self):
         self.status = int(self.status)
+        self.response_content_length = int(self.response_content_length)
 
     def __repr__(self):
         return ", ".join(
@@ -55,6 +56,16 @@ class AccessLogLine:
                 if not field.name.startswith("re_")
             ]
         )
+
+    def __eq__(self, other: "AccessLogLine"):
+        for name, received_result in self.__dict__.items():
+            expected_result = other.__getattribute__(name)
+            if name == "uri" and len(received_result) > 3 and received_result[-3:] == "...":
+                expected_result = expected_result[:(len(received_result) - 3)] + "..."
+            assert received_result == expected_result,(
+               f"Wrong '{name}' in dmesg line. Expected: {expected_result}, Received: {received_result}"
+            )
+        return True
 
     @classmethod
     def parse_all(cls, text: str) -> typing.List["AccessLogLine"]:
