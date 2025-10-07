@@ -6,16 +6,10 @@ __license__ = "GPL2"
 
 import time
 
-from h2.connection import ConnectionInputs
-from hyperframe.frame import HeadersFrame, PingFrame, WindowUpdateFrame
-
-from framework.deproxy_client import HuffmanEncoder
 from helpers import deproxy, dmesg, remote, tf_cfg
-from helpers.cert_generator_x509 import CertGenerator
-from helpers.deproxy import HttpMessage
+from helpers.deproxy import HttpMessage, MAX_MESSAGE_SIZE
 from helpers.networker import NetWorker
-from test_suite import marks, sysnet, tester
-from test_suite.custom_error_page import CustomErrorPageGenerator
+from test_suite import marks, tester
 
 
 class TestFailFunctionBase(tester.TempestaTest):
@@ -25,6 +19,7 @@ class TestFailFunctionBase(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
+            "segment_size": MAX_MESSAGE_SIZE, # we should use the same segment for stability in these tests
             "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
         }
     ]
