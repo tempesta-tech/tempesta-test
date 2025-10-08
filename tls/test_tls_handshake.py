@@ -468,13 +468,14 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
             "Wrong certificate received for vhost1",
         )
 
-    @marks.retry_if_not_conditions
     def test_bad_host(self):
-        self.start_all_services(client=False)
-        sniffer = analyzer.AnalyzerTCPSegmentation(
-            remote.tempesta, "Tempesta", timeout=5, ports=(443, 8000)
-        )
+        """
+        Tempesta FW must block the client via http tables because it uses the invalid host in TLS handshake.
+        We should except R or RA TCP flags because Tempesta can send one of the two.
+        """
+        sniffer = analyzer.Sniffer(node=remote.tempesta, host="Tempesta", timeout=3, ports=(443, ))
         sniffer.start()
+        self.start_all_services(client=False)
         hs12 = TlsHandshake()
         hs12.sni = ["vhost1.net", "vhost2.net"]
         hs12.host = "bad.host.com"
@@ -482,12 +483,13 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
         self.assertEqual(len(hs12.hs.server_data), 0, "Got unexpected response after Errno 104")
         sniffer.stop()
 
-        # in some cases the sniffer has an empty list of packages
-        if not sniffer.packets:
-            raise error.TestConditionsAreNotCompleted(self.id())
+        tempesta_to_client_packets = [p.sprintf("%TCP.flags%") for p in sniffer.packets if p[TCP].sport == 443]
+        is_rst_present = "R" in tempesta_to_client_packets
+        is_rst_and_ack_present = "RA" in tempesta_to_client_packets
 
-        self.assertIn(
-            sniffer.packets[-1].sprintf("%TCP.flags%"), ["R", "RA"], "No Connection reset recieved"
+        self.assertTrue(
+            is_rst_present or is_rst_and_ack_present,
+            f"No connection reset received. {is_rst_present = } and {is_rst_and_ack_present = }"
         )
 
 
