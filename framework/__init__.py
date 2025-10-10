@@ -7,7 +7,6 @@ __all__ = [
     "deproxy_server",
     "docker_server",
     "external_client",
-    "lxc_server",
     "nginx_server",
     "stateful",
     "wrk_client",

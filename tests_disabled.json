@@ -54,14 +54,6 @@
             "reason" : "Maximum latency delay is unpredictable in heavy concurrent environment"
         },
         {
-            "name" : "t_sites",
-            "reason" : "Our CI uses a different concept for the tests with lxc. They must be enabled for the 0.9 release."
-        },
-        {
-            "name" : "selftests.test_lxc_server",
-            "reason" : "Our CI uses a different concept for the tests with lxc. They must be enabled for the 0.9 release."
-        },
-        {
             "name" : "flacky_net",
             "reason" : "Disabled by issue #114"
         },
@@ -136,10 +128,6 @@
         {
             "name": "t_frang.test_config.TestDefaultConfig.test_http_body_len",
             "reason": "Disable by issue #1714"
-        },
-        {
-            "name" : "t_sites.test_wordpress.TestWordpressSite.test_blog_post_flow",
-            "reason": "Disable by issue #1692"
         },
         {
             "name": "t_frang.test_http_strict_host_checking.FrangHostRequiredTestCase.test_host_header_no_port_in_host",
@@ -356,10 +344,6 @@
         {
             "name": "t_stress.test_stress.WrkStressMTU80",
             "reason": "Disabled by test issue #817"
-        },
-        {
-            "name": "t_sites.test_tempesta_tech.TestTempestaTechSite.test_blog_post_flow",
-            "reason": "Disabled by test issue #835"
         },
         {
             "name": "http2_general.test_h2_frame.TestPostponedFrames",
