@@ -80,7 +80,7 @@ def main():
             """
     sudo apt install python3-pip nginx libnginx-mod-http-echo libtool net-tools libssl-dev \
     apache2-utils nghttp2-client libnghttp2-dev autoconf unzip libtemplate-perl \
-    tcpdump lxc util-linux software-properties-common -y
+    tcpdump util-linux software-properties-common -y
     """
         ),
         "Install required packages",
@@ -116,12 +116,6 @@ def main():
         shell("git config blame.ignoreRevsFile .git-blame-ignore-revs")
     except RuntimeError:
         logger.info("If you are not using this machine for development, you can ignore this error.")
-
-    # update submodules
-    try:
-        shell("git submodule update --init --recursive")
-    except RuntimeError:
-        logger.info("If you have already updated the submodules, you can ignore this error.")
 
     if not os.path.exists(TEMP_DIR):
         os.mkdir(TEMP_DIR)
@@ -203,23 +197,6 @@ def main():
     shell("sudo ldconfig", cwd=build_path)
     if os.path.exists(build_path):
         shutil.rmtree(build_path)
-
-    # install lxc
-    try:
-        shell("sudo snap install lxd")
-        shell("sudo lxd init --auto")
-    except RuntimeError:
-        pass
-
-    # create tempesta-site-stage container
-    try:
-        shell(
-            "env/bin/python3 tempesta-tech.com/container/lxc/create.py "
-            "--type=stage "
-            f"--proxy=0.0.0.0:{cfg.get('Server', 'website_port')}"
-        )
-    except RuntimeError:
-        pass
 
     # docker
     shell("sudo apt install docker.io -y", "Docker install")

@@ -21,7 +21,6 @@ from framework import (
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.docker_server import DockerServer, docker_srv_factory
-from framework.lxc_server import LXCServer, lxc_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
 from helpers import clickhouse, control, dmesg, error, remote, tempesta, tf_cfg, util
@@ -50,7 +49,6 @@ def register_backend(type_name, factory):
 
 register_backend("deproxy", deproxy_srv_factory)
 register_backend("nginx", nginx_srv_factory)
-register_backend("lxc", lxc_srv_factory)
 register_backend("docker", docker_srv_factory)
 
 
@@ -295,7 +293,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid) -> StaticDeproxyServer | Nginx | LXCServer | DockerServer | None:
+    def get_server(self, sid) -> StaticDeproxyServer | Nginx | DockerServer | None:
         """Return client with specified id"""
         return self.__servers.get(sid)
 

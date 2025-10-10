@@ -35,7 +35,7 @@ This configuration is recommended for TempestaFW developers.
 
 ## Setup
 
-To run requirements auto installation run setup.py from `tempesta-test` directopy. Some operations must be performed with root privileges. At the start, the script will ask for the sudo user’s password.
+To run requirements auto installation run setup.py from `tempesta-test` directory. Some operations must be performed with root privileges. At the start, the script will ask for the sudo user’s password.
 
 ```sh
 python3 setup.py
@@ -54,7 +54,7 @@ apt install python3.10-venv
 ```
 - ClickHouse Database 25 (Optional, used for storing logs in the database). See installation [here](https://clickhouse.com/docs/en/install#quick-install)
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
-`curl`, `h2load`, `tls-perf`, `netstat`, `lxc`, `nginx`, `docker.io`, web content 
+`curl`, `h2load`, `tls-perf`, `netstat`, `nginx`, `docker.io`, web content 
 directory accessible by nginx, nginx should not be running before the tests start.
 See Python libraries in `requirements.txt`
 - All hosts except previous one: `sftp-server`
