@@ -972,7 +972,7 @@ class TestFramePayloadLength(H2Base):
 
         # Client will be blocked because Tempesta received extra bytes
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.FRAME_SIZE_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.FRAME_SIZE_ERROR)
 
     def test_large_frame_payload_length(self):
         self.start_all_services()
@@ -994,7 +994,7 @@ class TestFramePayloadLength(H2Base):
         client.send_request(self.get_request, "400")
 
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.COMPRESSION_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
 
     def test_invalid_data(self):
         self.start_all_services()
@@ -1068,7 +1068,7 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         self.assertTrue(client.wait_for_response())
         self.assertEqual(client.last_response.status, expected_status_code)
         if expected_status_code != "200":
-            self.assertIn(ErrorCodes.COMPRESSION_ERROR, client.error_codes)
+            client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
             self.assertTrue(client.wait_for_connection_close())
 
 
@@ -1137,7 +1137,7 @@ class TestHpackBomb(TestHpackBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client.last_response.status, "403")
                 self.assertTrue(client.wait_for_connection_close())
-                self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+                client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
 
 class TestLoadingHeadersFromHpackDynamicTable(H2Base):

@@ -964,7 +964,7 @@ class TestTrailers(H2Base):
             self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
         else:
             self.assertTrue(client.wait_for_connection_close(timeout=5))
-            self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+            client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_trailers_with_pseudo_headers_in_request(self):
         """
