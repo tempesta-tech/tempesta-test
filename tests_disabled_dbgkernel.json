@@ -14,10 +14,6 @@
             "reason" : "the tests did not work on the first run"
         },
         {
-            "name" : "selftests.test_lxc_server.TestLxcServer.test_status",
-            "reason" : "the tests did not work on the first run"
-        },
-        {
             "name" : "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_enabled",
             "reason" : "the tests did not work on the first run"
         },
@@ -31,10 +27,6 @@
         },
         {
             "name" : "t_stress.test_stress.TestContinuationFlood",
-            "reason" : "the tests did not work on the first run"
-        },
-        {
-            "name" : "t_stress.test_wordpress.TestWordpressStressH2.test_get_large_images",
             "reason" : "the tests did not work on the first run"
         },
         {

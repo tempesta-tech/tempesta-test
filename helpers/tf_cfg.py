@@ -92,23 +92,18 @@ class TestFrameworkCfg(object):
     def __update_config_for_remote_setup(self) -> None:
         """
         Update values for CI machines with remote setup.
-        HOST_IP, HOST_IPV6, REMOTE_IP, REMOTE_IPV6 should store as VM variables
-        WEBSITE_USER and WEBSITE_PASSWORD should store as global jenkins variables.
+        HOST_IP, HOST_IPV6, REMOTE_IP, REMOTE_IPV6 should store as VM variables.
         """
         host_ip = os.getenv("HOST_IP", None)
         host_ipv6 = os.getenv("HOST_IPV6", None)
         remote_ip = os.getenv("REMOTE_IP", None)
         remote_ipv6 = os.getenv("REMOTE_IPV6", None)
-        website_user = os.getenv("WEBSITE_USER", None)
-        website_password = os.getenv("WEBSITE_PASSWORD", None)
 
         if (
             host_ip is None
             or host_ipv6 is None
             or remote_ip is None
             or remote_ipv6 is None
-            or website_user is None
-            or website_password is None
         ):
             self.logger.log(
                 FATAL,
@@ -129,8 +124,6 @@ class TestFrameworkCfg(object):
 
         self.config["Server"]["ip"] = remote_ip
         self.config["Server"]["ipv6"] = remote_ipv6
-        self.config["Server"]["website_user"] = website_user
-        self.config["Server"]["website_password"] = website_password
 
         self.config["TFW_Logger"]["clickhouse_host"] = host_ip
 
@@ -193,9 +186,6 @@ class TestFrameworkCfg(object):
                     "keepalive_timeout": "60",
                     "keepalive_requests": "100",
                     "unavailable_timeout": "300",
-                    "lxc_container_name": "tempesta-site-stage",
-                    "website_user": os.getenv("WEBSITE_USER", ""),
-                    "website_password": os.getenv("WEBSITE_PASSWORD", ""),
                 },
                 "TFW_Logger": {
                     "clickhouse_host": "127.0.0.1",

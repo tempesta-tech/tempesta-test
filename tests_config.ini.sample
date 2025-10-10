@@ -290,13 +290,6 @@ aliases_base_ip = 192.168.10.1
 
 max_workers = 16
 
-# names of the container with the tempesta-tech.com website
-# See https://github.com/tempesta-tech/tempesta-tech.com/tree/master/container#container-deployment
-lxc_container_name = tempesta-site-stage
-
-# website_user and website_password - login and pwaaword for tempesta-tech.com tests.
-# It must exist in SQL dump in tempesta-tech repo.
-
 [TFW_Logger]
 # Configuration of the TFW Logger daemon.
 # The daemon is responsible for storing HTTP request logs in the ClickHouse database.
