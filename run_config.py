@@ -22,16 +22,6 @@ REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 # ------------------------------------
-# Server params from tests_config.ini
-# ------------------------------------
-
-# user login for tempesta-tech tests with LXCServer
-WEBSITE_USER = tf_cfg.cfg.get("Server", "website_user")
-
-# user password for tempesta-tech tests with LXCServer
-WEBSITE_PASSWORD = tf_cfg.cfg.get("Server", "website_password")
-
-# ------------------------------------
 # Global params from run_tests.py
 # ------------------------------------
 
