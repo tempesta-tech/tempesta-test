@@ -154,10 +154,6 @@
             "reason": "These tests should not be run with TCP segmentation. We have separate tests for `http_max_header_list_size`."
         },
         {
-            "name": "t_sites",
-            "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
-        },
-        {
             "name": "t_stress.test_ddos",
             "reason": "These tests should not be run with TCP segmentation. These tests does not use deproxy."
         },
