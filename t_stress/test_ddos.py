@@ -1,10 +1,11 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import os
 import time
 import unittest
+from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
 from test_suite import sysnet, tester
@@ -17,6 +18,50 @@ MHDDOS_PATH = f"{MHDDOS_DIR}/start.py"
 THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
 CONNS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
 RPC = int(tf_cfg.cfg.get("General", "stress_requests_count"))
+
+
+# NGINX backend config with 200 response
+NGINX_CONFIG = """
+pid ${pid};
+worker_processes  auto;
+#error_log /dev/stdout info;
+error_log /dev/null emerg;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout 65;
+    keepalive_requests 100;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # Disable access log altogether.
+    access_log off;
+
+    server {
+        listen 8000;
+
+        location / {
+            root ${server_resources};
+            try_files /large.html =404;
+            return 200;
+        }
+
+        location /nginx_status {
+            stub_status on;
+        }
+    }
+}
+"""
 
 
 @unittest.skipIf(
@@ -123,11 +168,21 @@ http_chain {{
 """
     }
 
-    backends = [{"id": "wordpress", "type": "lxc", "external_port": "8000"}]
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_CONFIG,
+        }
+    ]
 
     proxies = []
 
     interface = tf_cfg.cfg.get("Server", "aliases_interface")
+
+    backend_page_size = 114842 # this is an arbitrary number.
 
     def make_response(self, curl, uri: str) -> None:
         curl.headers["Host"] = "tempesta-tech.com"
@@ -153,6 +208,23 @@ http_chain {{
         ips_str = "\n".join(cls.proxies)
         remote.client.mkdir(f"{MHDDOS_DIR}/files/")
         remote.client.run_cmd(f'echo "{ips_str}" > {PROXY_PATH}')
+
+    def setUp(self):
+        super().setUp()
+        self.create_large_page()
+        self.addCleanup(self.remove_large_page)
+
+    @property
+    def large_page_path(self):
+        return Path(tf_cfg.cfg.get("Server", "resources")) / "large.html"
+
+    def create_large_page(self):
+        server = self.get_server("nginx")
+        server.node.run_cmd(f"fallocate -l {self.backend_page_size} {self.large_page_path}")
+
+    def remove_large_page(self):
+        server = self.get_server("nginx")
+        server.node.remove_file(str(self.large_page_path))
 
     @classmethod
     def cleanup_proxies(cls):
@@ -220,8 +292,9 @@ http_chain {{
 
         # save and check a response in cache before attack
         for _ in range(2):
-            self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
+            self.make_response(curl, "/large.html")
             self.assertEqual(curl.last_response.status, 200)
+            time.sleep(0.2) # *_burst directives can be equal to 1
         self.assertIsNotNone(
             curl.last_response.headers.get("age", None),
             "TempestaFW didn't return the response from the cache before the attack started.",
@@ -239,7 +312,7 @@ http_chain {{
 
         time.sleep(DURATION / 2)
         # Get a response from the cache after the attack started.
-        self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
+        self.make_response(curl, "/large.html")
         error_msg = (
             "TempestaFW didn't return the response from the cache after the attack started. "
             "The connection was created during the attack"
