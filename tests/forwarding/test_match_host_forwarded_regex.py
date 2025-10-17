@@ -241,7 +241,7 @@ class TestMatchHost(BaseRegexMatcher):
 
         listen 80;
         listen 443 proto=h2;
-        
+
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
@@ -280,7 +280,8 @@ class TestMatchHost(BaseRegexMatcher):
         hdr User-Agent ~* "/ill/" -> wiki;
         hdr forwarded ~ "/t=se/" -> doc;
         hdr forwarded ~ "/host\./" -> app;
-        host ~* "/app|ad12:ca16/" -> app; 
+        host ~* "/app|ad12:ca16/" -> app;
+        hdr test_raw ~ "/raw_value/" -> app;
         -> block;
         }
         """
@@ -303,6 +304,34 @@ class TestMatchHost(BaseRegexMatcher):
                 uri="/",
                 host="testapp.com",  # <--Must be matched by "hdr host ~ "/stap/"".
                 headers=[],
+                block=False,
+                sid=2,
+            ),
+            marks.Param(
+                name="raw_header_choose_host",
+                uri="/",
+                host="testraw.headers",
+                headers=[
+                    (
+                        "test_raw",
+                        "test_raw_value",
+                    )  # <--Must be matched by "hdr host ~ "/raw_value/"".
+                ],
+                block=False,
+                sid=2,
+            ),
+            marks.Param(
+                name="raw_header_duplicate_choose_host",
+                uri="/",
+                host="testraw.headers",
+                headers=[
+                    ("test_raw", "raw_val"),
+                    ("test_raw", "value1"),
+                    (
+                        "test_raw",
+                        "test_raw_value",
+                    ),  # <--Must be matched by "hdr host ~ "/raw_value/"".
+                ],
                 block=False,
                 sid=2,
             ),
