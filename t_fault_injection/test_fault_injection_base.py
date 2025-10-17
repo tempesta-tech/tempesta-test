@@ -10,7 +10,7 @@ from h2.connection import ConnectionInputs
 from hyperframe.frame import HeadersFrame, PingFrame, WindowUpdateFrame
 
 from framework.deproxy_client import HuffmanEncoder
-from helpers import deproxy, dmesg, remote, tf_cfg
+from helpers import deproxy, dmesg, error, remote, tf_cfg
 from helpers.cert_generator_x509 import CertGenerator
 from helpers.deproxy import HttpMessage
 from helpers.networker import NetWorker
@@ -26,6 +26,9 @@ THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
 REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 # Time to wait for single request completion
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
+
+SERVER_IP = tf_cfg.cfg.get("Server", "ip")
+GENERAL_WORKDIR = tf_cfg.cfg.get("General", "workdir")
 
 
 class TestFailFunctionBase(tester.TempestaTest):
@@ -125,7 +128,68 @@ class TestFailFunctionBase(tester.TempestaTest):
         cmd = remote.client.run_cmd(cmd)
 
 
-class TestDtb(TestFailFunctionBase):
+class TestFailFunctionBaseStress(TestFailFunctionBase):
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2,https;
+
+            cache 2;
+            cache_fulfill * *;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            server ${server_ip}:8000 conns_n=1;
+
+            frang_limits {
+                http_strict_host_checking false;
+            }
+        """
+    }
+
+    clients = [
+        {
+            "id": "wrk_http",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:80",
+            "cmd_args": (
+                " https://${tempesta_ip}"
+                f" --connections {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --duration {DURATION}"
+            ),
+        },
+        {
+            "id": "wrk_https",
+            "type": "wrk",
+            "ssl": True,
+            "addr": "${tempesta_ip}:443",
+            "cmd_args": (
+                " https://${tempesta_ip}"
+                f" --connections {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --duration {DURATION}"
+            ),
+        },
+        {
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "ssl": True,
+            "cmd_args": (
+                " https://${tempesta_ip}"
+                f" --clients {CONCURRENT_CONNECTIONS}"
+                f" --threads {THREADS}"
+                f" --max-concurrent-streams {REQUESTS_COUNT}"
+                f" --duration {DURATION}"
+            ),
+        },
+    ]
+
+
+class TestDtb(TestFailFunctionBaseStress):
     tempesta = {
         "config": """
             listen 80;
@@ -184,6 +248,128 @@ class TestDtb(TestFailFunctionBase):
 
         # This should be called in case if test fails also
         self.teardown_fail_function_test()
+
+
+class TestSchedConfig(TestFailFunctionBase):
+    backends = [
+        {
+            "id": "deproxy_1",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "deproxy_2",
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "deproxy_3",
+            "type": "deproxy",
+            "port": "8002",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+        {
+            "id": "deproxy_4",
+            "type": "deproxy",
+            "port": "8003",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2,https;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        """
+    }
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="tfw_sched_ratio_srvdesc_setup_srv_1",
+                func_name="tfw_sched_ratio_srvdesc_setup_srv",
+                space=1,
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_sched_ratio_srvdesc_setup_srv_2",
+                func_name="tfw_sched_ratio_srvdesc_setup_srv",
+                space=2,
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_sched_ratio_srvdesc_setup_srv_3",
+                func_name="tfw_sched_ratio_srvdesc_setup_srv",
+                space=3,
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_sched_ratio_rtodata_get_1",
+                func_name="tfw_sched_ratio_rtodata_get",
+                space=1,
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_server_create_1",
+                func_name="tfw_server_create",
+                space=1,
+                retval=0
+            ),
+            marks.Param(
+                name="tfw_server_create_2",
+                func_name="tfw_server_create",
+                space=2,
+                retval=0
+            )
+        ]
+    )
+    def test(self, name, func_name, space, retval):
+        self.get_tempesta().start()
+        self.setup_fail_function_test(func_name, 100, -1, space, retval)
+
+        self.oops_ignore = ["ERROR"]
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 80;
+listen 443 proto=h2,https;
+
+tls_certificate {GENERAL_WORKDIR}/tempesta.crt;
+tls_certificate_key {GENERAL_WORKDIR}/tempesta.key;
+
+srv_group grp1 {{
+    server {SERVER_IP}:8000;
+    server {SERVER_IP}:8001;
+    server {SERVER_IP}:8002;
+    server {SERVER_IP}:8003;
+}}
+
+vhost grp1 {{
+    proxy_pass grp1;
+}}
+
+http_chain {{
+    host == "grp1" -> grp1;
+    -> block;
+}}
+"""
+        )
+        with self.assertRaises(error.ProcessBadExitStatusException):
+            self.get_tempesta().reload()
+
+        self.teardown_fail_function_test()
+
+
+class TestSched(TestFailFunctionBaseStress):
+    pass
 
 
 class TestFailFunction(TestFailFunctionBase, NetWorker):
