@@ -1666,24 +1666,12 @@ class TestHttpTablesReconf(tester.TempestaTest):
 
 class TestNegativeReconf(tester.TempestaTest):
     clients = [
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "port": "80",
-        },
-        {
-            "id": "deproxy_h2",
-            "type": "deproxy_h2",
-            "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
-        },
+        {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "4443", "ssl": True}
     ]
 
     backends = [
         {
-            "id": "deproxy-1",
+            "id": "deproxy",
             "type": "deproxy",
             "port": "8000",
             "response": "static",
@@ -1691,19 +1679,25 @@ class TestNegativeReconf(tester.TempestaTest):
         },
     ]
 
+    base_tempesta_config = f"""
+listen 4443 proto=https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+frang_limits {{http_strict_host_checking false;}}
+"""
+
     @marks.Parameterize.expand(
         [
             marks.Param(
                 name="server",
                 valid_config=f"server {SERVER_IP}:8000;\n",
                 invalid_config=f"server {SERVER_IP}:8000:443;\n",
-                deproxy_id="deproxy",
             ),
             marks.Param(
                 name="srv_group",
                 valid_config=f"srv_group default {{\nserver {SERVER_IP}:8000;\n}}\n",
                 invalid_config=f"srv_group default grp2 {{\nserver {SERVER_IP}:8000;\n}}\n",
-                deproxy_id="deproxy",
             ),
             marks.Param(
                 name="srv_group_options",
@@ -1719,7 +1713,6 @@ srv_group default {{
     server_forward_retries 1000 100;
 }}
             """,
-                deproxy_id="deproxy",
             ),
             marks.Param(
                 name="vhost",
@@ -1749,7 +1742,6 @@ http_chain {{
     -> grp1;
 }}
             """,
-                deproxy_id="deproxy",
             ),
             marks.Param(
                 name="proxy_pass",
@@ -1777,7 +1769,6 @@ http_chain {{
     -> grp1;
 }}
             """,
-                deproxy_id="deproxy",
             ),
             marks.Param(
                 name="location",
@@ -1793,7 +1784,6 @@ location {{
     resp_hdr_add x-my-hdr /;
 }}
             """,
-                deproxy_id="deproxy",
             ),
             marks.Param(
                 name="http_chain",
@@ -1830,23 +1820,10 @@ http_chain {{
     -> default;
 }}
             """,
-                deproxy_id="deproxy",
             ),
             marks.Param(
-                name="server_http",
+                name="server_1",
                 valid_config=f"""
-listen 443 proto=h2;
-listen 80;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
 srv_group grp1 {{
     server {SERVER_IP}:8000;
 }}
@@ -1858,18 +1835,6 @@ http_chain {{
 }}
             """,
                 invalid_config=f"""
-listen 443 proto=h2;
-listen 80;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
 srv_group grp1 {{
     server_error {SERVER_IP}:8000;
 }}
@@ -1880,23 +1845,10 @@ http_chain {{
     -> grp1;
 }}
             """,
-                deproxy_id="deproxy",
             ),
             marks.Param(
-                name="server_h2",
+                name="listen",
                 valid_config=f"""
-listen 443 proto=h2;
-listen 80;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
 srv_group grp1 {{
     server {SERVER_IP}:8000;
 }}
@@ -1908,95 +1860,7 @@ http_chain {{
 }}
             """,
                 invalid_config=f"""
-listen 443 proto=h2;
-listen 80;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
-srv_group grp1 {{
-    server_error {SERVER_IP}:8000;
-}}
-vhost grp1 {{
-    proxy_pass grp1;
-}}
-http_chain {{
-    -> grp1;
-}}
-            """,
-                deproxy_id="deproxy_h2",
-            ),
-            marks.Param(
-                name="listen_http",
-                valid_config=f"""
-listen 443 proto=h2;
-listen 80;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
-srv_group grp1 {{
-    server {SERVER_IP}:8000;
-}}
-vhost grp1 {{
-    proxy_pass grp1;
-}}
-http_chain {{
-    -> grp1;
-}}
-            """,
-                invalid_config=f"""
-listen 443 proto=h2;
-listen 80;
 listen aaaaa;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
-srv_group grp1 {{
-    server_error {SERVER_IP}:8000;
-}}
-vhost grp1 {{
-    proxy_pass grp1;
-}}
-http_chain {{
-    -> grp1;
-}}
-            """,
-                deproxy_id="deproxy",
-            ),
-            marks.Param(
-                name="listen_h2",
-                valid_config=f"""
-listen 443 proto=h2;
-listen 80;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
 
 srv_group grp1 {{
     server {SERVER_IP}:8000;
@@ -2008,48 +1872,23 @@ http_chain {{
     -> grp1;
 }}
             """,
-                invalid_config=f"""
-listen 443 proto=h2;
-listen 80;
-listen aaaaa;
-cache 2;
-cache_fulfill * *;
-cache_methods GET;
-access_log off;
-
-tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
-tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
-tls_match_any_server_name;
-frang_limits {{http_strict_host_checking false;}}
-
-srv_group grp1 {{
-    server_error {SERVER_IP}:8000;
-}}
-vhost grp1 {{
-    proxy_pass grp1;
-}}
-http_chain {{
-    -> grp1;
-}}
-            """,
-                deproxy_id="deproxy_h2",
             ),
         ]
     )
-    def test_negative_reconf(self, name, valid_config, invalid_config, deproxy_id):
+    def test_negative_reconf(self, name, valid_config, invalid_config):
         tempesta = self.get_tempesta()
         self.oops_ignore = ["ERROR"]
 
-        tempesta.config.set_defconfig(valid_config)
+        tempesta.config.set_defconfig(self.base_tempesta_config + valid_config)
         tempesta.start()
-        tempesta.config.set_defconfig(invalid_config)
+        tempesta.config.set_defconfig(self.base_tempesta_config + invalid_config)
         with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
 
         port_checker = port_checks.FreePortsChecker()
         with self.assertRaises(Exception):
             port_checker.node = remote.tempesta
-            port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=80)
+            port_checker.add_port_to_checks(ip=cfg.get("Tempesta", "ip"), port=4443)
             port_checker.check_ports_status(verbose=False)
 
         self.assertTrue(
@@ -2057,7 +1896,7 @@ http_chain {{
         )
 
         self.start_all_services()
-        client = self.get_client(deproxy_id)
+        client = self.get_client("deproxy")
         client.send_request(client.create_request(method="GET", headers=[], uri="/"), "200")
 
 
