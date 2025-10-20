@@ -135,6 +135,7 @@ class ServerConnection(asyncore.dispatcher):
 
         resp = self._response_buffer[self._responses_done]
         sent = self.send(resp[:self._server.segment_size] if self._server.segment_size else resp)
+        print(f"{sent = }")
 
         if sent < 0:
             return

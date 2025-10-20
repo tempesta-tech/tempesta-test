@@ -2,6 +2,7 @@ import abc
 import dataclasses
 import socket
 import ssl
+import struct
 import sys
 import time
 from collections import defaultdict
@@ -199,6 +200,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
         self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
+
+    def stop_client_with_rst(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
+        self.stop()
 
     @abc.abstractmethod
     def handle_read(self): ...
