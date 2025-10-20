@@ -118,14 +118,18 @@ class TestFailFunctionBase(tester.TempestaTest):
         cmd = f"echo 1 > /sys/kernel/debug/fail_function/interval"
         out = remote.client.run_cmd(cmd)
         # Restore times
-        cmd = f"printf %#x -1 > /sys/kernel/debug/fail_function/times"
+        cmd = f"printf %#x 1 > /sys/kernel/debug/fail_function/times"
         out = remote.client.run_cmd(cmd)
         # Restore space
         cmd = f"echo 0 > /sys/kernel/debug/fail_function/space"
         cmd = remote.client.run_cmd(cmd)
 
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(self.teardown_fail_function_test)
 
-class TestDtb(TestFailFunctionBase):
+
+class TestTDB(TestFailFunctionBase):
     tempesta = {
         "config": """
             listen 80;
@@ -181,9 +185,6 @@ class TestDtb(TestFailFunctionBase):
         client.start()
         self.wait_while_busy(client)
         client.stop()
-
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
 
 
 class TestFailFunction(TestFailFunctionBase, NetWorker):
@@ -515,9 +516,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
                 "Tempesta doesn't report error",
             )
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
 
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
     @dmesg.unlimited_rate_on_tempesta_node
@@ -575,9 +573,6 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         self.assertFalse(client.wait_for_response(3))
         self.assertTrue(client.wait_for_connection_close())
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
     @dmesg.unlimited_rate_on_tempesta_node
     def test_tfw_h2_prep_resp_for_sticky_ccokie(self):
         server = self.get_server("deproxy")
@@ -623,9 +618,6 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         self.assertTrue(client.wait_for_response(3))
         self.assertEqual(client.last_response.status, "500")
         self.assertTrue(client.wait_for_connection_close())
-
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
 
 
 class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
@@ -713,9 +705,6 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
                 self.assertTrue(client.wait_for_response())
                 self.assertEqual(client.last_response.status, "200")
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
 
 class TestFailFunctionStaleFwd(TestFailFunctionBase):
     tempesta = {
@@ -738,10 +727,6 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
             cache_use_stale 4* 5*;
     """
     }
-
-    def tearDown(self):
-        self.teardown_fail_function_test()
-        tester.TempestaTest.tearDown(self)
 
     @marks.Parameterize.expand(
         [
