@@ -29,7 +29,7 @@ class TestFailFunctionBase(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "segment_size": MAX_MESSAGE_SIZE, # we should use the same segment for stability in these tests
+            "segment_size": MAX_MESSAGE_SIZE,  # we should use the same segment for stability in these tests
             "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
         }
     ]
@@ -113,14 +113,18 @@ class TestFailFunctionBase(tester.TempestaTest):
         cmd = f"echo 1 > /sys/kernel/debug/fail_function/interval"
         out = remote.client.run_cmd(cmd)
         # Restore times
-        cmd = f"echo -1 > /sys/kernel/debug/fail_function/times"
+        cmd = f"echo 1 > /sys/kernel/debug/fail_function/times"
         out = remote.client.run_cmd(cmd)
         # Restore space
         cmd = f"echo 0 > /sys/kernel/debug/fail_function/space"
         cmd = remote.client.run_cmd(cmd)
 
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(self.teardown_fail_function_test)
 
-class TestDtb(TestFailFunctionBase):
+
+class TestTDB(TestFailFunctionBase):
     tempesta = {
         "config": """
             listen 80;
@@ -177,15 +181,8 @@ class TestDtb(TestFailFunctionBase):
         self.wait_while_busy(client)
         client.stop()
 
-        # This should be called in case if test fails also
-        self.teardown_fail_function_test()
-
 
 class TestFailFunction(TestFailFunctionBase, NetWorker):
-    def tearDown(self):
-        self.teardown_fail_function_test()
-        tester.TempestaTest.tearDown(self)
-
     @marks.Parameterize.expand(
         [
             marks.Param(
@@ -517,10 +514,6 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
 
 
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
-    def tearDown(self):
-        self.teardown_fail_function_test()
-        tester.TempestaTest.tearDown(self)
-
     @NetWorker.set_mtu(
         nodes=[
             {
@@ -650,10 +643,6 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
 
     clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
 
-    def tearDown(self):
-        self.teardown_fail_function_test()
-        tester.TempestaTest.tearDown(self)
-
     @marks.Parameterize.expand(
         [
             marks.Param(
@@ -734,10 +723,6 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
             cache_use_stale 4* 5*;
     """
     }
-
-    def tearDown(self):
-        self.teardown_fail_function_test()
-        tester.TempestaTest.tearDown(self)
 
     @marks.Parameterize.expand(
         [
