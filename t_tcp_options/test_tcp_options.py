@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from helpers.deproxy import HttpMessage
-from helpers.networker import NetWorker
+from helpers import networker
 from test_suite import marks, tester
 
 DEPROXY_CLIENT = {
@@ -39,7 +39,7 @@ DEPROXY_CLIENT_H2 = {
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
     ]
 )
-class TestTcpOptions(tester.TempestaTest, NetWorker):
+class TestTcpOptions(tester.TempestaTest):
     tempesta = {
         "config": """
             listen 80;
@@ -69,21 +69,6 @@ class TestTcpOptions(tester.TempestaTest, NetWorker):
         }
     ]
 
-    def __test(self, client, server):
-        self.start_all_services()
-        header = ("qwerty", "x" * 50000)
-        server.set_response(
-            "HTTP/1.1 200 OK\r\n"
-            + f"Date: {HttpMessage.date_time_string()}\r\n"
-            + "Server: debian\r\n"
-            + f"{header[0]}: {header[1]}\r\n"
-            + f"Content-Length: {100000}\r\n\r\n"
-            + ("x" * 100000)
-        )
-
-        client.send_request(client.create_request(method="GET", headers=[]), "200")
-        self.assertFalse(client.connection_is_closed())
-
     @marks.Parameterize.expand(
         [
             # When tcp_mtu_probing is set, kernel tries to coalesce several
@@ -107,4 +92,17 @@ class TestTcpOptions(tester.TempestaTest, NetWorker):
     def test(self, name, option, value, mtu):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
-        self.run_test_tso_gro_gso_def(client, server, self.__test, mtu, option, value)
+        with networker.change_and_restore_tcp_options(mtu=mtu, tcp_options={option: value}):
+            self.start_all_services()
+            header = ("qwerty", "x" * 50000)
+            server.set_response(
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + f"{header[0]}: {header[1]}\r\n"
+                + f"Content-Length: {100000}\r\n\r\n"
+                + ("x" * 100000)
+            )
+
+            client.send_request(client.create_request(method="GET", headers=[]), "200")
+            self.assertFalse(client.connection_is_closed())

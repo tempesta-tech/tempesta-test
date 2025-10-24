@@ -24,9 +24,9 @@ from framework.docker_server import DockerServer, docker_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
 from helpers import clickhouse, control, dmesg, error, remote, tempesta, tf_cfg, util
+from helpers.networker import NetWorker
 from helpers.tf_cfg import test_logger
 from helpers.util import fill_template
-from test_suite import sysnet
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
@@ -249,8 +249,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             if client.get("interface", False):
                 interface = tf_cfg.cfg.get("Server", "aliases_interface")
                 base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-                (_, bind_addr) = sysnet.create_interface(len(self.__ips), interface, base_ip)
-                sysnet.create_route(interface, bind_addr, client_ip)
+                networker = NetWorker(node=remote.client)
+                (_, bind_addr) = networker.create_interface(len(self.__ips), interface, base_ip)
+                networker.create_route(interface, bind_addr, client_ip)
                 self.__ips.append(bind_addr)
             else:
                 bind_addr = client_ip
@@ -443,8 +444,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     def cleanup_interfaces(self):
         test_logger.info("Cleanup: Removing interfaces")
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
-        sysnet.remove_routes(interface, self.__ips)
-        sysnet.remove_interfaces(interface, self.__ips)
+        networker = NetWorker(node=remote.client)
+        networker.remove_routes(interface, self.__ips)
+        networker.remove_interfaces(interface, self.__ips)
         self.__ips = []
 
     def cleanup_stop_tcpdump(self):

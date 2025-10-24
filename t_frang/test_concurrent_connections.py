@@ -6,9 +6,10 @@ __license__ = "GPL2"
 
 import time
 
-from helpers import tf_cfg
+from helpers import tf_cfg, remote
+from helpers.networker import NetWorker
 from t_frang.frang_test_case import FrangTestCase
-from test_suite import marks, sysnet
+from test_suite import marks
 
 ERROR = "Warning: frang: connections max num. exceeded"
 
@@ -55,9 +56,9 @@ frang_limits {
     def __create_new_address():
         interface = tf_cfg.cfg.get("Server", "aliases_interface")
         base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-        ip = sysnet.create_interfaces(interface, base_ip, 1)
+        networker = NetWorker(node=remote.server)
 
-        return ip[0]
+        return networker.create_interfaces(interface, base_ip, 1)[0]
 
     def test(self):
         """

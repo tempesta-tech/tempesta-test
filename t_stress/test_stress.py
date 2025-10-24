@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 
 from helpers import dmesg, remote, tf_cfg
-from helpers.networker import NetWorker
 from helpers.deproxy import HttpMessage
 from t_frang.frang_test_case import FrangTestCase
 from test_suite import marks, tester
@@ -210,25 +209,7 @@ class BaseWrkStress(BaseWrk, base=True):
         },
     ]
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
         self._test_concurrent_connections()
@@ -251,26 +232,7 @@ class WrkStressMTU80(LargePageNginxBackendMixinMTU80, BaseWrkStress):
     Tempesta FW works with MTU80.
     """
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": 80,
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": 80,
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": 80,
-            },
-        ],
-        disable_pmtu=True,
-    )
+    @marks.set_mtu(mtu=80, disable_pmtu=True)
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
         self._test_concurrent_connections()
@@ -326,25 +288,7 @@ class TlsWrkStressDocker(TlsWrkStressBase, BaseWrk, check_memleak=True):
         }
     ]
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
         self._test_concurrent_connections()
@@ -356,26 +300,7 @@ class TlsWrkStressMTU80(LargePageNginxBackendMixinMTU80, TlsWrkStressBase, BaseW
     timeout = 200
     duration = 100
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": 80,
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": 80,
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": 80,
-            },
-        ],
-        disable_pmtu=True,
-    )
+    @marks.set_mtu(mtu=80, disable_pmtu=True)
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
         self._test_concurrent_connections()
@@ -482,93 +407,21 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
                 LARGE_CONTENT_LENGTH,
             )
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     def test_range_requests(self):
         self.range_requests(False)
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     def test_sequential_requests(self):
         """Send requests sequentially, continue on errors."""
         self.make_requests("sequential")
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     def test_pipelined_requests(self):
         """Send requests in a single pipeline."""
         self.make_requests("pipelined")
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     def test_concurrent_requests(self):
         """Send requests in parallel."""
         self.make_requests("concurrent")
@@ -754,25 +607,7 @@ class H2LoadStress(LargePageNginxBackendMixin, H2LoadStressBase):
             marks.Param(name="with_cache", cache_mode="cache 2;\r\ncache_fulfill * *;\r\n"),
         ]
     )
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
     def test(self, name, cache_mode):
         self.start_all(cache_mode)
@@ -797,26 +632,7 @@ class H2LoadStressMTU80(LargePageNginxBackendMixinMTU80, H2LoadStressBase):
             marks.Param(name="with_cache", cache_mode="cache 2;\r\ncache_fulfill * *;\r\n"),
         ]
     )
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": 80,
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": 80,
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": 80,
-            },
-        ],
-        disable_pmtu=True,
-    )
+    @marks.set_mtu(mtu=80, disable_pmtu=True)
     @dmesg.limited_rate_on_tempesta_node
     def test(self, name, cache_mode):
         self.start_all(cache_mode)
@@ -900,25 +716,7 @@ class RequestStress(tester.TempestaTest):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.fullname}")
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
     def _test_wrk(self, client_id: str, method: str):
         """
@@ -947,25 +745,7 @@ class RequestStress(tester.TempestaTest):
 
         self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
     def _test_h2load(self, method: str):
         self.start_all_services(client=False)

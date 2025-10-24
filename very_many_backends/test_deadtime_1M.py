@@ -9,9 +9,9 @@ import sys
 import time
 
 from framework import stateful
-from helpers import chains, deproxy, tempesta, tf_cfg
-from test_suite import sysnet
+from helpers import chains, deproxy, tempesta, tf_cfg, remote
 from testers import stress
+from helpers.networker import NetWorker
 
 from . import multi_backend
 
@@ -132,7 +132,8 @@ class DontModifyBackend(stress.StressTest):
     def setUp(self):
         self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
         self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-        self.ips = sysnet.create_interfaces(
+        self.networker = NetWorker(node=remote.server)
+        self.ips = self.networker.create_interfaces(
             self.interface, self.base_ip, self.num_extra_interfaces + 1
         )
         super().setUp()
@@ -146,7 +147,7 @@ class DontModifyBackend(stress.StressTest):
 
     def cleanup_interfaces(self):
         for ip in self.ips:
-            sysnet.remove_interface(self.interface, ip)
+            self.networker.remove_interface(self.interface, ip)
         self.ips = []
 
     def cleanup_check_client_error(self):

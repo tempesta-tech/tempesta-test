@@ -6,7 +6,6 @@ Set of tests to verify correctness of requests redirection in HTTP table
 
 from framework import deproxy_client
 from helpers import chains, dmesg, remote
-from helpers.networker import NetWorker
 from helpers.remote import LocalNode
 from test_suite import marks, tester
 
@@ -611,7 +610,8 @@ http_chain {
             )
 
 
-class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker):
+@marks.extend_tests_with_tso_gro_gso_enable_disable(100 if isinstance(remote.tempesta, LocalNode) else 1500)
+class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
     backends = [
         {
             "id": 0,
@@ -657,21 +657,7 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
 
-    @marks.Parameterize.expand(
-        [
-            marks.Param(
-                name="enable_tso_gro_gso",
-                mtu=100 if isinstance(remote.tempesta, LocalNode) else 1500,
-                enable=True,
-            ),
-            marks.Param(
-                name="disable_tso_gro_gso",
-                mtu=100 if isinstance(remote.tempesta, LocalNode) else 1500,
-                enable=False,
-            ),
-        ]
-    )
-    def test_reject_by_mark(self, name, mtu, enable):
+    def test_reject_by_mark(self):
         """
         Check how Tempesta set mark to skb according config.
         First of all block all skbs with mark == 1, using iptables,
@@ -683,13 +669,7 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup, NetWorker
         """
         self.start_all_services()
         client = self.get_client(0)
-        server = self.get_server(0)
-        if enable:
-            self.run_test_tso_gro_gso_enabled(client, server, self.__test_reject_by_mark, mtu)
-        else:
-            self.run_test_tso_gro_gso_disabled(client, server, self.__test_reject_by_mark, mtu)
 
-    def __test_reject_by_mark(self, client, server):
         self.set_reject_nf_mark(1)
 
         request = client.create_request(

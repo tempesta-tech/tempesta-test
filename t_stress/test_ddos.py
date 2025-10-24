@@ -7,8 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
-from helpers import dmesg, remote, tf_cfg
-from test_suite import sysnet, tester
+from helpers import dmesg, remote, tf_cfg, networker
+from test_suite import tester
 
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
@@ -200,9 +200,10 @@ http_chain {{
         client_ip = tf_cfg.cfg.get("Client", "ip")
 
         # create 250 IP addresses
+        cls.networker = networker.NetWorker(node=remote.client)
         for n in range(1, 250):
-            (_, ip) = sysnet.create_interface(n, cls.interface, base_ip)
-            sysnet.create_route(cls.interface, ip, client_ip)
+            (_, ip) = cls.networker.create_interface(n, cls.interface, base_ip)
+            cls.networker.create_route(cls.interface, ip, client_ip)
             cls.proxies.append(ip)
 
         ips_str = "\n".join(cls.proxies)
@@ -228,8 +229,8 @@ http_chain {{
 
     @classmethod
     def cleanup_proxies(cls):
-        sysnet.remove_routes(cls.interface, cls.proxies)
-        sysnet.remove_interfaces(cls.interface, cls.proxies)
+        cls.networker.remove_routes(cls.interface, cls.proxies)
+        cls.networker.remove_interfaces(cls.interface, cls.proxies)
 
     @dmesg.limited_rate_on_tempesta_node
     def test(self):
