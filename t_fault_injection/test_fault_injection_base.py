@@ -8,7 +8,6 @@ import time
 
 from helpers import deproxy, dmesg, remote, tf_cfg
 from helpers.deproxy import HttpMessage, MAX_MESSAGE_SIZE
-from helpers.networker import NetWorker
 from test_suite import marks, tester
 
 # Number of open connections
@@ -182,7 +181,7 @@ class TestTDB(TestFailFunctionBase):
         client.stop()
 
 
-class TestFailFunction(TestFailFunctionBase, NetWorker):
+class TestFailFunction(TestFailFunctionBase):
     @marks.Parameterize.expand(
         [
             marks.Param(
@@ -469,15 +468,7 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
             ),
         ]
     )
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": 100,
-            }
-        ]
-    )
+    @marks.set_mtu(mtu=100)
     @dmesg.unlimited_rate_on_tempesta_node
     def test_mtu_100(self, name, func_name, id, msg, times, space, response, retval):
         self._test(name, func_name, id, msg, times, space, response, retval)
@@ -514,15 +505,8 @@ class TestFailFunction(TestFailFunctionBase, NetWorker):
 
 
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": 100,
-            }
-        ]
-    )
+
+    @marks.set_mtu(mtu=100)
     @dmesg.unlimited_rate_on_tempesta_node
     def test_tfw_h2_prep_resp_for_error_response(self):
         """

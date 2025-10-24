@@ -7,9 +7,8 @@ __license__ = "GPL2"
 import os
 
 from helpers import remote, tf_cfg
-from helpers.networker import NetWorker
 from test_suite import checks_for_tests as checks
-from test_suite.tester import TempestaTest
+from test_suite import tester, marks
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 
@@ -58,7 +57,7 @@ http {
 """
 
 
-class LongBodyInRequest(TempestaTest):
+class LongBodyInRequest(tester.TempestaTest):
     tempesta = {
         "config": """
     listen 80;
@@ -117,25 +116,7 @@ class LongBodyInRequest(TempestaTest):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     def _test(self, client_id: str, header: str):
         """Send request with long body and check that Tempesta does not crash."""
         self.start_all_services(client=False)

@@ -7,9 +7,8 @@ from contextlib import contextmanager
 
 import run_config
 from helpers import analyzer, remote
-from helpers.error import Error
-from helpers.networker import NetWorker
-from test_suite import sysnet, tester
+from helpers import networker
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
@@ -30,7 +29,7 @@ class H2Base:
         )
 
 
-class TlsIntegrityTester(tester.TempestaTest, NetWorker):
+class TlsIntegrityTester(tester.TempestaTest):
     clients = [
         {
             "id": "deproxy",
@@ -110,31 +109,11 @@ class TlsIntegrityTester(tester.TempestaTest, NetWorker):
 
         client = self.get_client(self.clients[0]["id"])
 
-        try:
-            # Deproxy client and server run on the same node and network
-            # interface, so, regardless where the Tempesta node resides, we can
-            # change MTU on the local interface only to get the same MTU for
-            # both the client and server connections.
-            dev = sysnet.route_dst_ip(remote.client, client.addr[0])
-            prev_mtu_expires = sysnet.get_mtu_expires(remote.client)
-            sysnet.set_mtu_expires(remote.client, 0)
-            prev_mtu = sysnet.change_mtu(remote.client, dev, mtu)
-        except Error as err:
-            self.fail(err)
-        try:
-            self.get_tso_state(dev)
-            self.change_tso(dev, False)
-            with self.mtu_ctx(remote.client, dev, prev_mtu):
-                client.make_request(self.make_req(1))
-                res = client.wait_for_response(timeout=1)
-                self.assertTrue(res, "Cannot process response (len=%d)" % resp_len)
-                sniffer.stop()
-                self.assertTrue(sniffer.check_results(client.addr[0]), "Not optimal TCP flow")
-            self.change_tso(dev, self.tso_state)
-        finally:
-            self.change_tso(dev, self.tso_state)
-            sysnet.change_mtu(remote.client, dev, prev_mtu)
-            sysnet.set_mtu_expires(remote.client, prev_mtu_expires)
+        with networker.change_and_restore_tso_gro_gso(tso_gro_gso=False, mtu=mtu):
+            client.make_request(self.make_req(1))
+            self.assertTrue(client.wait_for_response(timeout=1))
+            sniffer.stop()
+            self.assertTrue(sniffer.check_results(client.addr[0]), "Not optimal TCP flow")
 
 
 class Proxy(TlsIntegrityTester):

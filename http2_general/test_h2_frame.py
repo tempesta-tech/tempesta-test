@@ -8,14 +8,12 @@ from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from h2.exceptions import StreamClosedError
 from h2.settings import SettingCodes
-from h2.stream import StreamInputs
 from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
 from framework import deproxy_client, stateful
-from helpers import util, tf_cfg
+from helpers import util
 from helpers.deproxy import HttpMessage
-from helpers.networker import NetWorker
 from http2_general.helpers import H2Base
 from test_suite import checks_for_tests as checks
 from test_suite import marks
@@ -547,63 +545,36 @@ class TestH2FrameEnabledDisabledTsoGroGsoBase(H2Base):
 DEFAULT_MTU = 1500
 
 
-class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
+@marks.extend_tests_with_tso_gro_gso_enable_disable(mtu=DEFAULT_MTU)
+class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase):
     def test_headers_frame_with_continuation(self):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_with_continuation, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_with_continuation, DEFAULT_MTU
-        )
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 0)
 
     def test_headers_frame_without_continuation(self):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_without_continuation, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_without_continuation, DEFAULT_MTU
-        )
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 1000, 0)
 
-    def test_mixed_frames_long_headers_disabled(self):
+    def test_mixed_frames_long_headers(self):
+        """
+        Other frames (from any stream) MUST NOT occur between
+        the HEADERS frame and any CONTINUATION frames that might
+        follow.
+        """
         config = self.get_tempesta().config.defconfig
         config += "ctrl_frame_rate_multiplier 16;\n"
         self.get_tempesta().config.set_defconfig(config)
 
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU
-        )
 
-    def test_mixed_frames_long_headers_enabled(self):
-        config = self.get_tempesta().config.defconfig
-        config += "ctrl_frame_rate_multiplier 16;\n"
-        self.get_tempesta().config.set_defconfig(config)
-
-        client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_mixed_frames_long_headers, DEFAULT_MTU
-        )
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 3, 50, 50000, 1000)
 
     def test_data_frame(self):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(client, server, self._test_data_frame, DEFAULT_MTU)
-        self.run_test_tso_gro_gso_enabled(client, server, self._test_data_frame, DEFAULT_MTU)
+        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 100000)
 
     def test_headers_frame_for_local_resp_invalid_req_d(self):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_invalid_req, DEFAULT_MTU
-        )
-
-    def test_headers_frame_for_local_resp_invalid_req_e(self):
-        client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_invalid_req, DEFAULT_MTU
-        )
-
-    def _test_headers_frame_for_local_resp_invalid_req(self, client, server):
         client.send_request(
             request=[
                 HeaderTuple(":authority", "bad.com"),
@@ -675,27 +646,9 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             )
         )
 
-    def _test_mixed_frames_long_headers(self, client, server):
-        """
-        Other frames (from any stream) MUST NOT occur between
-        the HEADERS frame and any CONTINUATION frames that might
-        follow.
-        """
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 3, 50, 50000, 1000)
 
-    def _test_data_frame(self, client, server):
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 100000)
-
-    def _test_headers_frame_with_continuation(self, client, server):
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 0)
-
-    def _test_headers_frame_without_continuation(self, client, server):
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 1000, 0)
-
-
-class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
-    TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker
-):
+@marks.extend_tests_with_tso_gro_gso_enable_disable(mtu=DEFAULT_MTU)
+class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(TestH2FrameEnabledDisabledTsoGroGsoBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
@@ -725,33 +678,14 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
         """
     }
 
-    def test_headers_frame_for_local_resp_sticky_cookie_short(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="short", header_len=1000, body_len=0),
+            marks.Param(name="long", header_len=50000, body_len=50000),
+        ]
+    )
+    def test_headers_frame_for_local_resp_sticky_cookie(self, name, header_len, body_len):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_short, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_short, DEFAULT_MTU
-        )
-
-    def test_headers_frame_for_local_resp_sticky_cookie_long(self):
-        client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_long, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_sticky_cookie_long, DEFAULT_MTU
-        )
-
-    def _test_headers_frame_for_local_resp_sticky_cookie_short(self, client, server):
-        self._test_headers_frame_for_local_resp_sticky_cookie(client, server, 1000, 0)
-
-    def _test_headers_frame_for_local_resp_sticky_cookie_long(self, client, server):
-        self._test_headers_frame_for_local_resp_sticky_cookie(client, server, 50000, 50000)
-
-    def _test_headers_frame_for_local_resp_sticky_cookie(
-        self, client, server, header_len, body_len
-    ):
         header = ("qwerty", "x" * header_len)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -768,7 +702,8 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(
         self.post_request.pop()
 
 
-class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroGsoBase, NetWorker):
+@marks.extend_tests_with_tso_gro_gso_enable_disable(mtu=DEFAULT_MTU)
+class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroGsoBase):
     tempesta = {
         "config": """
             listen 443 proto=h2;
@@ -794,73 +729,25 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
         """
     }
 
-    def test_headers_frame_for_local_resp_cache_304_short(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="304_short", header=1000, body=0, date="Mon, 12 Dec 3034 13:59:39 GMT", status='304'),
+            marks.Param(name="200_short", header=1000, body=0, date="Mon, 12 Dec 2020 13:59:39 GMT", status='200'),
+            marks.Param(name="304_long", header=50000, body=100000, date="Mon, 12 Dec 3034 13:59:39 GMT", status='304'),
+            marks.Param(name="200_long", header=50000, body=100000, date="Mon, 12 Dec 2020 13:59:39 GMT", status='200'),
+        ]
+    )
+    def test_headers_frame_for_local_resp_cache(self, name, header, body, date, status):
         client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_304_short, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_304_short, DEFAULT_MTU
-        )
 
-    def test_headers_frame_for_local_resp_cache_200_short(self):
-        client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_200_short, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_200_short, DEFAULT_MTU
-        )
-
-    def test_headers_frame_for_local_resp_cache_304_long(self):
-        client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_304_long, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_304_long, DEFAULT_MTU
-        )
-
-    def test_headers_frame_for_local_resp_cache_200_long(self):
-        client, server = self.setup_tests()
-        self.run_test_tso_gro_gso_disabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_200_long, DEFAULT_MTU
-        )
-        self.run_test_tso_gro_gso_enabled(
-            client, server, self._test_headers_frame_for_local_resp_cache_200_long, DEFAULT_MTU
-        )
-
-    def _test_headers_frame_for_local_resp_cache_304_short(self, client, server):
-        self._test_headers_frame_for_local_resp_cache(
-            client, server, 1000, 0, "Mon, 12 Dec 3034 13:59:39 GMT", "304"
-        )
-
-    def _test_headers_frame_for_local_resp_cache_200_short(self, client, server):
-        self._test_headers_frame_for_local_resp_cache(
-            client, server, 1000, 0, "Mon, 12 Dec 2020 13:59:39 GMT", "200"
-        )
-
-    def _test_headers_frame_for_local_resp_cache_304_long(self, client, server):
-        self._test_headers_frame_for_local_resp_cache(
-            client, server, 50000, 100000, "Mon, 12 Dec 3034 13:59:39 GMT", "304"
-        )
-
-    def _test_headers_frame_for_local_resp_cache_200_long(self, client, server):
-        self._test_headers_frame_for_local_resp_cache(
-            client, server, 50000, 100000, "Mon, 12 Dec 2020 13:59:39 GMT", "200"
-        )
-
-    def _test_headers_frame_for_local_resp_cache(
-        self, client, server, header_len, body_len, date, status_code
-    ):
-        header = ("qwerty", "x" * header_len)
+        header = ("qwerty", "x" * header)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + f"Date: {HttpMessage.date_time_string()}\r\n"
             + "Server: debian\r\n"
             + f"{header[0]}: {header[1]}\r\n"
-            + f"Content-Length: {body_len}\r\n\r\n"
-            + ("x" * body_len)
+            + f"Content-Length: {body}\r\n\r\n"
+            + ("x" * body)
         )
 
         headers = [
@@ -873,10 +760,10 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
         client.send_request(request=headers, expected_status_code="200")
 
         headers.append(HeaderTuple("if-modified-since", date))
-        client.send_request(request=headers, expected_status_code=status_code)
+        client.send_request(request=headers, expected_status_code=status)
 
 
-class TestPostponedFrames(H2Base, NetWorker):
+class TestPostponedFrames(H2Base):
     """
     According RFC 9113:
     If the END_HEADERS flag is not set, this frame MUST be followed by another CONTINUATION frame.
@@ -890,7 +777,30 @@ class TestPostponedFrames(H2Base, NetWorker):
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
 
-    def _test(self, client, server):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="headers", header="a" * 30000, token="value"),
+            marks.Param(name="trailers", header="value", token="a" * 30000),
+        ]
+    )
+    @marks.change_tso_gro_gso(tso_gro_gso=False, mtu=100)
+    def test(self, name, header, token):
+        config = self.get_tempesta().config.defconfig
+        config += "ctrl_frame_rate_multiplier 256;\n"
+        self.get_tempesta().config.set_defconfig(config)
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\n"
+            + "Transfer-Encoding: chunked\n"
+            + f"header: {header}"
+            + "Trailer: X-Token\r\n\r\n"
+            + "10\r\n"
+            + "abcdefghijklmnop\r\n"
+            + "0\r\n"
+            + f"X-Token: {token}\r\n\r\n"
+        )
         client.update_initial_settings(initial_window_size=0)
         client.send_bytes(client.h2_connection.data_to_send())
         self.assertTrue(client.wait_for_ack_settings())
@@ -916,38 +826,3 @@ class TestPostponedFrames(H2Base, NetWorker):
 
         self.assertTrue(client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")
-
-    @marks.Parameterize.expand(
-        [
-            marks.Param(name="headers", header="a" * 30000, token="value"),
-            marks.Param(name="trailers", header="value", token="a" * 30000),
-        ]
-    )
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": 100,
-            }
-        ]
-    )
-    def test(self, name, header, token):
-        config = self.get_tempesta().config.defconfig
-        config += "ctrl_frame_rate_multiplier 256;\n"
-        self.get_tempesta().config.set_defconfig(config)
-        self.start_all_services()
-        client = self.get_client("deproxy")
-        server = self.get_server("deproxy")
-        server.set_response(
-            "HTTP/1.1 200 OK\n"
-            + "Transfer-Encoding: chunked\n"
-            + f"header: {header}"
-            + "Trailer: X-Token\r\n\r\n"
-            + "10\r\n"
-            + "abcdefghijklmnop\r\n"
-            + "0\r\n"
-            + f"X-Token: {token}\r\n\r\n"
-        )
-
-        self.run_test_tso_gro_gso_disabled(client, server, self._test, 100)

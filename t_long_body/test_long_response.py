@@ -6,16 +6,15 @@ __license__ = "GPL2"
 
 from framework import curl_client, deproxy_server
 from helpers import deproxy, tf_cfg
-from helpers.networker import NetWorker
 from t_long_body import utils
 from test_suite import checks_for_tests as checks
-from test_suite.tester import TempestaTest
+from test_suite import tester, marks
 from typing import Callable
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 
 
-class LongBodyInResponse(TempestaTest):
+class LongBodyInResponse(tester.TempestaTest):
     tempesta = {
         "config": """
 listen 80;
@@ -62,25 +61,7 @@ cache 0;
         }
     ]
 
-    @NetWorker.set_mtu(
-        nodes=[
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Client", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.tempesta",
-                "destination_ip": tf_cfg.cfg.get("Server", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-            {
-                "node": "remote.server",
-                "destination_ip": tf_cfg.cfg.get("Tempesta", "ip"),
-                "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
-            },
-        ]
-    )
+    @marks.set_stress_mtu
     def _test(self, client_id: str, header: str, body_func: Callable):
         """
         Send GET request and receive response with long body. Check that Tempesta does not crash.
