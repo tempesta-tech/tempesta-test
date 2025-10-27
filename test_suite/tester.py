@@ -523,8 +523,6 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         """Start all services."""
         self.start_all_servers()
         self.start_tempesta()
-        if client:
-            self.start_all_clients()
 
         if "deproxy" or "deproxy_h2" in [
             element["type"] for element in (self.clients + self.backends)
@@ -533,6 +531,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
         self.assertTrue(self.wait_all_connections())
         self.assertTrue(self.__tempesta.wait_while_logger_start())
+
+        if client:
+            self.start_all_clients()
 
     def __run_tcpdump(self) -> None:
         """
