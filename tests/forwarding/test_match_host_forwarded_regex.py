@@ -113,26 +113,26 @@ class TestMatchLocations(BaseRegexMatcher):
         vhost test {
             proxy_pass grp5;
             location ~ "/shop/" {
-            proxy_pass grp1;
+                proxy_pass grp1;
             }
             location ~ "/wiki/" {
-            proxy_pass grp2;
+                proxy_pass grp2;
             }
         }
 
         vhost work {
             proxy_pass grp5;
-            location ~* "/shop/" {
-            proxy_pass grp3;
+            location ~ "/shop/i" {
+                proxy_pass grp3;
             }
             location ~ "/wiki/" {
-            proxy_pass grp4;
+                proxy_pass grp4;
             }
         }
 
         http_chain {
-            host ~* "/test/" -> test;
-            host ~* "/work/" -> work;
+            host ~ "/test/i" -> test;
+            host ~ "/work/i" -> work;
             -> block;
         }
         """
@@ -143,42 +143,42 @@ class TestMatchLocations(BaseRegexMatcher):
             marks.Param(
                 name="host_testwiki_uri_testwiki",
                 uri="/testwiki",  # <--The second must be matched by "location ~ "/wiki/"" of vhost test.
-                host="testwiki.com",  # <--The first must be matched by "host ~* "/test/" -> test".
+                host="testwiki.com",  # <--The first must be matched by "host ~ "/test/" -> test".
                 block=False,
                 sid=1,
             ),
             marks.Param(
                 name="host_testapp_uri_testshop",
                 uri="/testshop",  # <--The second must be matched by "location ~ "/shop/"" of vhost test.
-                host="testapp.com",  # <--The first must be matched by "host ~* "/test/" -> test".
+                host="testapp.com",  # <--The first must be matched by "host ~ "/test/" -> test".
                 block=False,
                 sid=0,
             ),
             marks.Param(  # <--The second is not matched with anything.
                 name="host_testapp_uri_testapp",
                 uri="/testapp",
-                host="testapp.com",  # <--The first must be matched by "host ~* "/test/" -> test".
+                host="testapp.com",  # <--The first must be matched by "host ~ "/test/" -> test".
                 block=False,
                 sid=4,
             ),
             marks.Param(
                 name="host_WorkShop_uri_testwiki",
                 uri="/testwiki",  # <--The second must be matched by "location ~ "/wiki/"" of vhost work.
-                host="WorkShop.com",  # <--The first must be matched by "host ~* "/work/" -> work".
+                host="WorkShop.com",  # <--The first must be matched by "host ~ "/work/" -> work".
                 block=False,
                 sid=3,
             ),
             marks.Param(
                 name="host_WorkWiki_uri_testshop",
                 uri="/testshop",  # <--The second must be matched by "location ~ "/shop/"" of vhost work.
-                host="WorkWiki.com",  # <--The first must be matched by "host ~* "/work/" -> work".
+                host="WorkWiki.com",  # <--The first must be matched by "host ~ "/work/" -> work".
                 block=False,
                 sid=2,
             ),
             marks.Param(  # <--The second is not matched with anything.
                 name="host_workapp_uri_testapp",
                 uri="/testapp",
-                host="workapp.com",  # <--The first must be matched by "host ~* "/work/" -> work".
+                host="workapp.com",  # <--The first must be matched by "host ~ "/work/" -> work".
                 block=False,
                 sid=4,
             ),
@@ -275,12 +275,12 @@ class TestMatchHost(BaseRegexMatcher):
         }
         http_chain {
         hdr host ~ "/stap/" -> app;
-        host ~* "/dho/" -> block;
+        host ~ "/dho/" -> block;
         host ~ "/tsho/" -> shop;
-        hdr User-Agent ~* "/ill/" -> wiki;
+        hdr User-Agent ~ "/ill/" -> wiki;
         hdr forwarded ~ "/t=se/" -> doc;
         hdr forwarded ~ "/host\./" -> app;
-        host ~* "/app|ad12:ca16/" -> app;
+        host ~ "/app|ad12:ca16/i" -> app;
         hdr test_raw ~ "/raw_value/" -> app;
         -> block;
         }
@@ -349,9 +349,19 @@ class TestMatchHost(BaseRegexMatcher):
                 host="testwiki.com",
                 headers=[
                     ("User-Agent", "Mozilla")
-                ],  # <--Must be matched by "hdr User-Agent ~* "/ill/".
+                ],  # <--Must be matched by "hdr User-Agent ~ "/ill/".
                 block=False,
                 sid=1,
+            ),
+            marks.Param(
+                name="host_testwiki_uri_foo_upper_case",
+                uri="/foo",
+                host="testwiki.com",
+                headers=[
+                    ("User-Agent", "MoziLla")
+                ],  # <--Must not be matched by "hdr User-Agent ~ "/ill/".
+                block=True,
+                sid=0,
             ),
             marks.Param(
                 name="host_TesTaPp_uri_foo_fwd_hhh",
@@ -376,7 +386,7 @@ class TestMatchHost(BaseRegexMatcher):
             marks.Param(
                 name="host_TesTaPp_uri_foo_fwd_hhh2",
                 uri="/foo",
-                host="TesTaPp.cOm",  # <--Must be matched by "host ~* "/app|ad12:ca16/"".
+                host="TesTaPp.cOm",  # <--Must be matched by "host ~ "/app|ad12:ca16/"".
                 headers=[
                     ("Forwarded", "host=forwarded.hhh.ignored"),
                 ],
@@ -386,7 +396,7 @@ class TestMatchHost(BaseRegexMatcher):
             marks.Param(
                 name="host_fd80_uri_foo",
                 uri="/foo",
-                host="[fd80::1cb2:ad12:ca16:98ef]:8080",  # <--Must be matched by "host ~* "/app|ad12:ca16/"".
+                host="[fd80::1cb2:ad12:ca16:98ef]:8080",  # <--Must be matched by "host ~ "/app|ad12:ca16/"".
                 headers=[
                     ("Forwarded", "host=forwarded.hhh.ignored"),
                 ],
