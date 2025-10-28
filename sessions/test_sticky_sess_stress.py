@@ -2,42 +2,103 @@
 With sticky sessions each client is pinned to only one server in group.
 """
 
-from __future__ import print_function
 
 import sys
 
-from helpers import control, dmesg, tempesta, tf_cfg
-from testers import stress
+from helpers import dmesg, tempesta
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class OneClient(stress.StressTest):
-    config = (
-        "cache 0;\n"
-        "sticky {\n"
-        "   cookie enforce;\n"
-        '   secret "f00)9eR59*_/22";\n'
-        "   sticky_sessions;\n"
-        "}\n"
-        "frang_limits {http_strict_host_checking false;}\n\n"
-    )
+class TestStressStickyCookie(tester.TempestaTest):
+    backends = [
+        {
+            "id": f"{i}",
+            "type": "nginx",
+            "status_uri": f"http://${{server_ip}}:{i}/nginx_status",
+            "config": f"""
+                pid ${{pid}};
+                worker_processes    auto;
+                events {{
+                    worker_connections 1024;
+                    use epoll;
+                }}
+                http {{
+                    keepalive_timeout ${{server_keepalive_timeout}};
+                    keepalive_requests {sys.maxsize};
+                    sendfile        on;
+                    tcp_nopush      on;
+                    tcp_nodelay     on;
+                    open_file_cache max=1000;
+                    open_file_cache_valid 30s;
+                    open_file_cache_min_uses 2;
+                    open_file_cache_errors off;
+                    error_log /dev/null emerg;
+                    access_log off;
+                    server {{
+                        listen       ${{server_ip}}:{i};
+                        location / {{
+                            return 200;
+                        }}
+                        location /nginx_status {{
+                            stub_status on;
+                        }}
+                    }}
+                }}
+            """,
+        } for i in range(8000, 8000 + tempesta.servers_in_group())
+    ]
 
-    def create_clients(self):
-        self.wrk = control.Wrk(threads=1)
-        self.wrk.set_script("cookie-one-client")
-        self.clients = [self.wrk]
+    tempesta = {
+        "config": """
+sched ratio;
+cache 0;
+listen 80;
+listen 443 proto=https;
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 
-    def create_tempesta(self):
-        self.tempesta = control.Tempesta(vhost_auto=False)
+sticky {
+   cookie enforce;
+   secret "f00)9eR59*_/22";
+   sticky_sessions;
+}
 
-    def create_servers(self):
-        self.create_servers_helper(tempesta.servers_in_group())
+frang_limits {http_strict_host_checking false;}
+""" + "".join([f"server ${{server_ip}}:{i};\n" for i in range(8000, 8000 + tempesta.servers_in_group())])
+    }
 
-    def assert_servers(self):
-        self.servers_get_stats()
+    clients = [
+        {
+            "id": "wrk",
+            "type": "wrk",
+            "addr": "${tempesta_ip}:443",
+            "ssl": True,
+        },
+    ]
+
+    @dmesg.limited_rate_on_tempesta_node
+    def test_one_client(self):
+        self.start_all_services(client=False)
+
+        wrk = self.get_client('wrk')
+        wrk.set_script("cookie-one-client")
+        wrk.threads = 1
+
+        wrk.start()
+        self.wait_while_busy(wrk)
+        wrk.stop()
+        self.assertIsNotNone(wrk.statuses.get(200))
+
+        for server in self.get_servers():
+            server.get_stats()
+        servers_with_requests = list(server for server in self.get_servers() if server.requests)
+        self.assertEqual(len(servers_with_requests), 1, "Only one server must pull all the load.")
+
         # Negative allowance: this means some requests are not forwarded to the
         # server. This happens because some (at least one per wrk thread,
         # at most one per connection) requests are sent without a session cookie
@@ -45,50 +106,63 @@ class OneClient(stress.StressTest):
         # considered a "success" by wrk. So, [1; concurrent_connections]
         # requests will not be received by the backend.
         # This allowance is specific to the session stress tests.
-        exp_min = self.wrk.requests - self.wrk.connections
+        exp_min = wrk.statuses.get(200, 0) - wrk.connections
         # Positive allowance: this means some responses are missed by the client.
         # It is believed (nobody actually checked though...) that wrk does not
         # wait for responses to last requests in each connection before closing
         # it and does not account for those requests.
         # So, [0; concurrent_connections] responses will be missed by the client.
-        exp_max = self.wrk.requests + self.wrk.connections - 1
-        # Only one server must pull all the load.
-        loaded = 0
-        for s in self.servers:
-            if s.requests:
-                loaded += 1
-                self.assertTrue(
-                    s.requests >= exp_min and s.requests <= exp_max,
-                    msg=(
-                        "Number of requests forwarded to server (%d) "
-                        "doesn't match expected value: [%d, %d]" % (s.requests, exp_min, exp_max)
-                    ),
-                )
-        self.assertEqual(loaded, 1)
+        exp_max = wrk.statuses.get(200, 0) + wrk.connections - 1
+
+        self.assertTrue(
+            exp_min <= servers_with_requests[0].requests <= exp_max,
+            msg=(
+                f"Number of requests forwarded to server ({servers_with_requests[0].requests}) "
+                f"doesn't match expected value: [{exp_min}, {exp_max}]"
+            ),
+        )
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
-        # Server connections failovering is tested in functional test.
-        # It will cause only non-200 responses.
-        for s in self.servers:
-            s.config.set_ka(sys.maxsize)
-        self.generic_test_routine(self.config)
+    def test_many_clients(self):
+        self.start_all_services(client=False)
 
+        wrk = self.get_client('wrk')
+        wrk.set_script("cookie-many-clients")
+        wrk.threads = wrk.connections
 
-class LotOfClients(OneClient):
-    # Override maximum number of clients
-    clients_num = min(int(tf_cfg.cfg.get("General", "concurrent_connections")), 1000)
+        wrk.start()
+        self.wait_while_busy(wrk)
+        wrk.stop()
+        self.assertIsNotNone(wrk.statuses.get(200))
 
-    def create_clients(self):
-        # Create one thread per client to set unique User-Agent header for
-        # each client.
-        self.wrk = control.Wrk(threads=self.clients_num)
-        self.wrk.connections = self.wrk.threads
-        self.wrk.set_script("cookie-many-clients")
-        self.clients = [self.wrk]
+        for server in self.get_servers():
+            server.get_stats()
 
-    def assert_servers(self):
-        stress.StressTest.assert_servers(self)
+        servers_with_requests = list(server for server in self.get_servers() if server.requests)
+        self.assertEqual(
+            len(servers_with_requests), tempesta.servers_in_group(), "All server must pull all the load."
+        )
 
+        # Negative allowance: this means some requests are not forwarded to the
+        # server. This happens because some (at least one per wrk thread,
+        # at most one per connection) requests are sent without a session cookie
+        # and replied 302 by Tempesta without any forwarding, which is still
+        # considered a "success" by wrk. So, [1; concurrent_connections]
+        # requests will not be received by the backend.
+        # This allowance is specific to the session stress tests.
+        exp_min = wrk.statuses.get(200, 0) - wrk.connections
+        # Positive allowance: this means some responses are missed by the client.
+        # It is believed (nobody actually checked though...) that wrk does not
+        # wait for responses to last requests in each connection before closing
+        # it and does not account for those requests.
+        # So, [0; concurrent_connections] responses will be missed by the client.
+        exp_max = wrk.statuses.get(200, 0) + wrk.connections - 1
+        servers_requests_sum = sum(list(server.requests for server in servers_with_requests))
 
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+        self.assertTrue(
+            exp_min <= servers_requests_sum <= exp_max,
+            msg=(
+                f"Number of requests forwarded to server ({servers_requests_sum}) "
+                f"doesn't match expected value: [{exp_min}, {exp_max}]"
+            ),
+        )
