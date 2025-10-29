@@ -73,8 +73,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
             uri=db_record[8],
             referer=db_record[9],
             user_agent=db_record[10],
-            ja5t=db_record[11],
-            ja5h=db_record[12],
+            tft=db_record[11],
+            tfh=db_record[12],
             dropped_events=db_record[13],
         )
 
@@ -157,8 +157,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         content_length: int = None,
         referer: str = None,
         user_agent: str = None,
-        ja5t: str = None,
-        ja5h: str = None,
+        tft: str = None,
+        tfh: str = None,
         timestamp: int = None,
         dropped_events: int = None,
         response_time: int = None,
@@ -182,8 +182,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
                 and (if(%(content_length)s is not null, response_content_length = %(content_length)s, 1))
                 and (if(%(referer)s is not null, referer = %(referer)s, 1))
                 and (if(%(user_agent)s is not null, user_agent = %(user_agent)s, 1))
-                and (if(%(ja5t)s is not null, ja5t = %(ja5t)s, 1))
-                and (if(%(ja5h)s is not null, ja5h = %(ja5h)s, 1))
+                and (if(%(tft)s is not null, tft = %(tft)s, 1))
+                and (if(%(tfh)s is not null, tfh = %(tfh)s, 1))
                 and (if(%(timestamp)s is not null, timestamp = %(timestamp)s, 1))
                 and (if(%(dropped_events)s is not null, dropped_events = %(dropped_events)s, 1))
                 and (if(%(response_time)s is not null, response_time = %(response_time)s, 1))
@@ -198,8 +198,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
                 "content_length": content_length,
                 "referer": referer,
                 "user_agent": user_agent,
-                "ja5t": ja5t,
-                "ja5h": ja5h,
+                "tft": tft,
+                "tfh": tfh,
                 "timestamp": timestamp,
                 "dropped_events": dropped_events,
                 "response_time": response_time,

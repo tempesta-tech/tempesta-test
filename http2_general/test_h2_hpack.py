@@ -5,9 +5,9 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import itertools
-import time
 import random
 import string
+import time
 
 from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
@@ -1334,9 +1334,9 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))
 
-    def __reload_tempesta_with_ja5h(self, ja5_config):
+    def __reload_tempesta_with_tfh(self, tf_config):
         tempesta: Tempesta = self.get_tempesta()
-        tempesta.config.defconfig += ja5_config
+        tempesta.config.defconfig += tf_config
         tempesta.reload()
 
     def test_referer_from_hpack_table(self):
@@ -1352,10 +1352,10 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         last_response = self.loggers.dmesg.access_log_last_message()
         # Do not allow requests with same hash from the client.
-        self.__reload_tempesta_with_ja5h(
+        self.__reload_tempesta_with_tfh(
             f"""
-            ja5h {{
-                hash {last_response.ja5h} 0 0;
+            tfh {{
+                hash {last_response.tfh} 0 0;
             }}
         """
         )
@@ -1556,7 +1556,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         self.initiate_h2_connection(client)
         self.__send_add_check_req_with_huffman(client, first_request, huffman, "200")
-        ja5h = self.loggers.dmesg.access_log_last_message().ja5h
+        tfh = self.loggers.dmesg.access_log_last_message().tfh
 
         request_to_save_cookie_in_hpack = [
             HeaderTuple(":authority", "localhost"),
@@ -1573,10 +1573,10 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
 
         # Block requests with refer and 'n' cookies
-        self.__reload_tempesta_with_ja5h(
+        self.__reload_tempesta_with_tfh(
             f"""
-            ja5h {{
-                hash {ja5h} 0 0;
+            tfh {{
+                hash {tfh} 0 0;
             }}
             """
         )
