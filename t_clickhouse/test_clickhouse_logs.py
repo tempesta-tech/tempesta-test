@@ -190,37 +190,37 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
                 name="201",
                 response="HTTP/1.1 201 OK\r\n" "Content-Length: 8\r\n\r\n12345678",
                 expected_status="201",
-                content_length=8
+                content_length=8,
             ),
             marks.Param(
                 name="500",
                 response="HTTP/1.1 500 Internal Server Error\r\nContent-Length: 8\r\n\r\n12345678",
                 expected_status="500",
-                content_length=8
+                content_length=8,
             ),
             marks.Param(
                 name="404",
                 response="HTTP/1.1 404 Not Found\r\n" "Content-Length: 0\r\n\r\n",
                 expected_status="404",
-                content_length=0
+                content_length=0,
             ),
             marks.Param(
                 name="400",
                 response="HTTP/1.1 400 Internal Server Error\r\nContent-Length: 11\r\n\r\nBad Request",
                 expected_status="400",
-                content_length=11
+                content_length=11,
             ),
             marks.Param(
                 name="307",
                 response="HTTP/1.1 307 Temporary Redirect\r\nLocation: https://example.com/\r\nContent-Length: 0\r\n\r\n",
                 expected_status="307",
-                content_length=0
+                content_length=0,
             ),
             marks.Param(
                 name="302",
                 response="HTTP/1.1 302 Found\r\nLocation: https://example.com/\r\nContent-Length: 0\r\n\r\n",
                 expected_status="302",
-                content_length=0
+                content_length=0,
             ),
         ]
     )
@@ -247,7 +247,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
                     ("Referer", "https://somesite.com"),
                 ],
             ),
-            expected_status=expected_status
+            expected_status=expected_status,
         )
 
         self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
@@ -267,11 +267,11 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         self.assertEqual(record.status, int(expected_status))
         self.assertEqual(record.version, 3)
         self.assertEqual(record.method, 3)
-        self.assertEqual(record.response_content_length,  content_length)
+        self.assertEqual(record.response_content_length, content_length)
         self.assertEqual(record.dropped_events, 0)
         self.assertEqual(record.vhost, "default")
-        self.assertEqual(record.ja5h, 2551211360704)
-        self.assertEqual(record.ja5t, 7407189765761859584)
+        self.assertEqual(record.tfh, 2551211360704)
+        self.assertEqual(record.tft, 7407189765761859584)
 
 
 class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
