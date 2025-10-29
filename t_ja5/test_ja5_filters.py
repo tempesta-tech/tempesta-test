@@ -1,7 +1,6 @@
 """
 Tests for JA5 Hash Filtering and Configuration Parsing
 """
-
 import typing
 
 from helpers import remote, tf_cfg
@@ -63,7 +62,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        !include %(path)s
+        !include ${tempesta_workdir}/tempesta-filters/
         
         srv_group default {
             server ${server_ip}:8000;
@@ -82,7 +81,6 @@ class BaseJa5TestSuite(tester.TempestaTest):
             -> default;
         }
     """
-        % {"path": additional_conf_dir},
     }
 
     limited_client: str = ""
@@ -126,7 +124,6 @@ class BaseJa5TestSuite(tester.TempestaTest):
         return fingerprints[0]
 
     def write_ja5_config(self, text: str):
-        remote.tempesta.mkdir(self.additional_conf_dir)
         remote.tempesta.copy_file(self.additional_conf_file, text)
 
     def update_config_with_ja5_hash_limit(
@@ -455,6 +452,12 @@ class TestClearHashes(BaseJa5TestSuite):
             "binary": "curl",
             "cmd_args": gen_curl_ja5t_cmd(),
         },
+        {
+            "id": "blocked",
+            "type": "external",
+            "binary": "curl",
+            "cmd_args": gen_curl_ja5t_cmd(url="https://tempesta-tech.com/[1-2]"),
+        },
     ]
 
     def setUp(self):
@@ -468,22 +471,28 @@ class TestClearHashes(BaseJa5TestSuite):
     def test_clear_traffic_block(self):
         self.start_all_services(client=False)
 
+        fingerprint = self.get_client_fingerprint("curl")
+
+        self.set_config_ja5_hash(self.get_hash(fingerprint))
+
+        blocked_client = self.get_client("blocked")
+        blocked_client.start()
+        self.wait_while_busy(blocked_client)
+        blocked_client.stop()
+        self.assertIn(
+            "Connection reset by peer",
+            blocked_client.stderr.decode(),
+            f"Tempesta FW must block the client with {self.hash_type}={fingerprint}."
+        )
+
+        self.update_config_with_ja5_hash_limit()
         client = self.get_client("curl")
         client.start()
         self.wait_while_busy(client)
         client.stop()
-        self.assertEqual(client.stdout, self.response_ok)
-
-        fingerprint = self.get_client_fingerprint("curl")
-
-        self.set_config_ja5_hash(self.get_hash(fingerprint))
-        client.start()
-        self.wait_while_busy(client)
-        client.stop()
-        self.assertEqual(client.stdout, self.response_fail)
-
-        self.update_config_with_ja5_hash_limit()
-        client.start()
-        self.wait_while_busy(client)
-        client.stop()
-        self.assertEqual(client.stdout, self.response_ok)
+        self.assertEqual(
+            client.stdout,
+            self.response_ok,
+            f"Tempesta FW must not block the client with {self.hash_type}={fingerprint} "
+            f"and empty hash config for Tempesta FW."
+        )

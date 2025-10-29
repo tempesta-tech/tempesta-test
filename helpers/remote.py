@@ -210,7 +210,7 @@ class LocalNode(ANode):
             error.ProcessKilledException: if a process was killed
         """
         self._logger.info(f"'{cmd}'")
-        if is_blocking:
+        if not is_blocking:
             self._logger.debug("***NON-BLOCKING (no wait to finish)***")
 
         # Popen() expects full environment
@@ -457,7 +457,7 @@ class RemoteNode(ANode):
                 ],
             )
         self._logger.info(f"'{cmd}'")
-        if is_blocking:
+        if not is_blocking:
             self._logger.debug("***NON-BLOCKING (no wait to finish)***")
         self._logger.debug(f"All environment variables after updating: {env}")
 
