@@ -151,16 +151,16 @@ tls_match_any_server_name;
             AccessLogLine(
                 address=client.src_ip,
                 vhost="localhost",
-                method='GET',
+                method="GET",
                 uri=uri,
-                version='2.0',
+                version="2.0",
                 status=int(status),
                 response_content_length=len(client.last_response.body),
                 referer=referer,
                 user_agent=user_agent,
-                ja5t='66cb8f00d4250002',
-                ja5h='b23a008c0340',
-            )
+                tft="66cb8f00d4250002",
+                tfh="b23a008c0340",
+            ),
         )
 
     def test_response_truncated_uri(self):
@@ -199,26 +199,31 @@ tls_match_any_server_name;
             + create_one_big_chunk(body_size)
         )
 
-        client = self.get_client('deproxy')
+        client = self.get_client("deproxy")
         client.send_request(
-            request=client.create_request(method='GET', uri='/chunked', headers=[("User-Agent", "deproxy")]),
-            expected_status_code='200',
+            request=client.create_request(
+                method="GET", uri="/chunked", headers=[("User-Agent", "deproxy")]
+            ),
+            expected_status_code="200",
         )
-        self.assertEqual(len(client.last_response.body), body_size, )
+        self.assertEqual(
+            len(client.last_response.body),
+            body_size,
+        )
 
         self.assertEqual(
             AccessLogLine.from_dmesg(self.loggers.dmesg),
             AccessLogLine(
                 address=client.src_ip,
                 vhost="chunked",
-                method='GET',
-                uri='/chunked',
-                version='2.0',
+                method="GET",
+                uri="/chunked",
+                version="2.0",
                 status=200,
                 response_content_length=body_size,
-                referer='-',
-                user_agent='deproxy',
-                ja5t='66cb8f00d4250002',
-                ja5h='1031008c0280',
-            )
+                referer="-",
+                user_agent="deproxy",
+                tft="66cb8f00d4250002",
+                tfh="1031008c0280",
+            ),
         )

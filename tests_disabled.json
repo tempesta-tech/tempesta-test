@@ -182,11 +182,11 @@
             "reason": "Disabled by issue #613"
         },
         {
-            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteTls",
+            "name": "t_tf.test_tf_filters.TestTFFiltersTestSuiteTls",
             "reason": "Disabled by issue #2052"
         },
         {
-            "name": "t_ja5.test_ja5_filters.TestJa5FiltersTestSuiteCurves",
+            "name": "t_tf.test_tf_filters.TestTFFiltersTestSuiteCurves",
             "reason": "Disabled by issue #2052"
         },
         {
