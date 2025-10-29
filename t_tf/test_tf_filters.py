@@ -1,5 +1,5 @@
 """
-Tests for JA5 Hash Filtering and Configuration Parsing
+Tests for TF Hash Filtering and Configuration Parsing
 """
 
 import string
@@ -20,7 +20,7 @@ class CustomTemplate(string.Template):
     delimiter = "&"
 
 
-def gen_curl_ja5t_cmd(
+def gen_curl_tft_cmd(
     alpn: typing.Optional[typing.Literal["http2", "http1.1"]] = "http1.1",
     tls: typing.Literal["tlsv1.2", "tlsv1.3"] = "tlsv1.2",
     ciphers: str = "ECDHE-ECDSA-AES128-GCM-SHA256",
@@ -36,7 +36,7 @@ def gen_curl_ja5t_cmd(
     )
 
 
-def gen_curl_ja5h_cmd(
+def gen_curl_tfh_cmd(
     http_version: typing.Literal["http2", "http1.1"] = "http1.1",
     method: str = "GET",
     headers: list[str] = (),
@@ -45,7 +45,7 @@ def gen_curl_ja5h_cmd(
     return f"-k --{http_version} -X{method} {headers} --connect-to tempesta-tech.com:443:${{tempesta_ip}}:443 https://tempesta-tech.com/"
 
 
-class BaseJa5TestSuite(tester.TempestaTest):
+class BaseTFTestSuite(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
@@ -67,10 +67,10 @@ class BaseJa5TestSuite(tester.TempestaTest):
         tls_match_any_server_name;
 
         ja5t {
-           hash &ja5t_hash 1 1;
+           hash &tft_hash 1 1;
         }
         ja5h {
-           hash &ja5h_hash 1 1;
+           hash &tfh_hash 1 1;
         }
         srv_group default {
             server ${server_ip}:8000;
@@ -96,16 +96,16 @@ class BaseJa5TestSuite(tester.TempestaTest):
     response_ok: bytes = b"0123456789"
     response_fail: bytes = b""
 
-    just_valid_ja5t_hash_string: str = "b7007c90000"
-    just_valid_ja5h_hash_string: str = "55cbf8cce0170011"
+    just_valid_tft_hash_string: str = "b7007c90000"
+    just_valid_tfh_hash_string: str = "55cbf8cce0170011"
 
-    hash_type: typing.Literal["ja5t", "ja5h"] = None
+    hash_type: typing.Literal["tft", "tfh"] = None
 
     def get_hash(self, fingerprint: AccessLogLine) -> str:
         return getattr(fingerprint, self.hash_type)
 
     def get_fingerprints(self) -> list[str or None]:
-        return self.loggers.dmesg.log_findall('.*"ja5t=(\w+)" "ja5h=(\w+)"')
+        return self.loggers.dmesg.log_findall('.*"tft=(\w+)" "tfh=(\w+)"')
 
     def get_client_fingerprint(self, name: str) -> AccessLogLine:
         client = self.get_client(name)
@@ -119,92 +119,92 @@ class BaseJa5TestSuite(tester.TempestaTest):
         fingerprints = AccessLogLine.parse_all(self.loggers.dmesg.log.decode())
 
         if not fingerprints:
-            raise ValueError("Can not receive client ja5 fingerprint")
+            raise ValueError("Can not receive client tf fingerprint")
 
         return fingerprints[0]
 
-    def update_config_with_ja5_hash_limit(self, ja5t_hash: str = None, ja5h_hash: str = None):
+    def update_config_with_tf_hash_limit(self, tft_hash: str = None, tfh_hash: str = None):
         tempesta = self.get_tempesta()
 
         config_properties = dict()
         tf_cfg.populate_properties(config_properties)
 
         tempesta_config = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5t_hash=ja5t_hash or self.just_valid_ja5t_hash_string,
-            ja5h_hash=ja5h_hash or self.just_valid_ja5h_hash_string,
+            tft_hash=tft_hash or self.just_valid_tft_hash_string,
+            tfh_hash=tfh_hash or self.just_valid_tfh_hash_string,
         )
         tempesta_config = fill_template(tempesta_config, config_properties)
 
         tempesta.config.set_defconfig(tempesta_config)
         tempesta.restart()
 
-    def set_config_ja5_hash(self, hash_value: str):
+    def set_config_tf_hash(self, hash_value: str):
         key = f"{self.hash_type}_hash"
         kwargs = {key: hash_value}
-        self.update_config_with_ja5_hash_limit(**kwargs)
+        self.update_config_with_tf_hash_limit(**kwargs)
 
 
 @marks.parameterize_class(
     [
         {
             "name": "Tls",
-            "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(tls="tlsv1.2", ciphers="DHE-RSA-AES128-GCM-SHA256"),
-            "different_client": gen_curl_ja5t_cmd(tls="tlsv1.3", ciphers="TLS_AES_128_GCM_SHA256"),
+            "hash_type": "tft",
+            "limited_client": gen_curl_tft_cmd(tls="tlsv1.2", ciphers="DHE-RSA-AES128-GCM-SHA256"),
+            "different_client": gen_curl_tft_cmd(tls="tlsv1.3", ciphers="TLS_AES_128_GCM_SHA256"),
         },
         {
             "name": "Curves",
-            "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(curves="prime256v1"),
-            "different_client": gen_curl_ja5t_cmd(curves="x25519"),
+            "hash_type": "tft",
+            "limited_client": gen_curl_tft_cmd(curves="prime256v1"),
+            "different_client": gen_curl_tft_cmd(curves="x25519"),
         },
         {
             "name": "Ciphers",
-            "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(ciphers="ECDHE-ECDSA-AES128-GCM-SHA256"),
-            "different_client": gen_curl_ja5t_cmd(ciphers="ECDHE-ECDSA-AES256-GCM-SHA384"),
+            "hash_type": "tft",
+            "limited_client": gen_curl_tft_cmd(ciphers="ECDHE-ECDSA-AES128-GCM-SHA256"),
+            "different_client": gen_curl_tft_cmd(ciphers="ECDHE-ECDSA-AES256-GCM-SHA384"),
         },
         {
             "name": "Vhost",
-            "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(
+            "hash_type": "tft",
+            "limited_client": gen_curl_tft_cmd(
                 connect_to="tempesta-tech.com:443:${tempesta_ip}:443",
                 url="https://tempesta-tech.com/",
             ),
-            "different_client": gen_curl_ja5t_cmd(
+            "different_client": gen_curl_tft_cmd(
                 connect_to="tempesta-tech-2.com:443:${tempesta_ip}:443",
                 url="https://tempesta-tech-2.com/",
             ),
         },
         {
             "name": "Alpn",
-            "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(alpn="http1.1"),
-            "different_client": gen_curl_ja5t_cmd(alpn="http2"),
+            "hash_type": "tft",
+            "limited_client": gen_curl_tft_cmd(alpn="http1.1"),
+            "different_client": gen_curl_tft_cmd(alpn="http2"),
         },
         {
             "name": "NoAlpn",
-            "hash_type": "ja5t",
-            "limited_client": gen_curl_ja5t_cmd(alpn="http1.1"),
-            "different_client": gen_curl_ja5t_cmd(alpn=None),
+            "hash_type": "tft",
+            "limited_client": gen_curl_tft_cmd(alpn="http1.1"),
+            "different_client": gen_curl_tft_cmd(alpn=None),
         },
         {
             "name": "Http",
-            "hash_type": "ja5h",
-            "limited_client": gen_curl_ja5h_cmd(http_version="http1.1"),
-            "different_client": gen_curl_ja5h_cmd(http_version="http2"),
+            "hash_type": "tfh",
+            "limited_client": gen_curl_tfh_cmd(http_version="http1.1"),
+            "different_client": gen_curl_tfh_cmd(http_version="http2"),
         },
         {
             "name": "Method",
-            "hash_type": "ja5h",
-            "limited_client": gen_curl_ja5h_cmd(method="GET"),
-            "different_client": gen_curl_ja5h_cmd(method="POST"),
+            "hash_type": "tfh",
+            "limited_client": gen_curl_tfh_cmd(method="GET"),
+            "different_client": gen_curl_tfh_cmd(method="POST"),
         },
         {
             "name": "Headers",
-            "hash_type": "ja5h",
-            "limited_client": gen_curl_ja5h_cmd(headers=["Authorization: Bearer HELLO"]),
-            "different_client": gen_curl_ja5h_cmd(
+            "hash_type": "tfh",
+            "limited_client": gen_curl_tfh_cmd(headers=["Authorization: Bearer HELLO"]),
+            "different_client": gen_curl_tfh_cmd(
                 headers=[
                     "Authorization: Bearer HELLO",
                     "X-APP-ID: application-dev-1",
@@ -213,15 +213,15 @@ class BaseJa5TestSuite(tester.TempestaTest):
         },
         {
             "name": "Referer",
-            "hash_type": "ja5h",
-            "limited_client": gen_curl_ja5h_cmd(headers=["Referer: tempesta-tech.com"]),
-            "different_client": gen_curl_ja5h_cmd(),
+            "hash_type": "tfh",
+            "limited_client": gen_curl_tfh_cmd(headers=["Referer: tempesta-tech.com"]),
+            "different_client": gen_curl_tfh_cmd(),
         },
         {
             "name": "Cookies",
-            "hash_type": "ja5h",
-            "limited_client": gen_curl_ja5h_cmd(headers=["Cookie: session=testing"]),
-            "different_client": gen_curl_ja5h_cmd(
+            "hash_type": "tfh",
+            "limited_client": gen_curl_tfh_cmd(headers=["Cookie: session=testing"]),
+            "different_client": gen_curl_tfh_cmd(
                 headers=[
                     "Cookie: session=testing; session2=testing2",
                 ]
@@ -229,9 +229,9 @@ class BaseJa5TestSuite(tester.TempestaTest):
         },
         {
             "name": "Cookies-2",
-            "hash_type": "ja5h",
-            "limited_client": gen_curl_ja5h_cmd(headers=["Cookie: aaa=b; cccc=d; qq=dd"]),
-            "different_client": gen_curl_ja5h_cmd(
+            "hash_type": "tfh",
+            "limited_client": gen_curl_tfh_cmd(headers=["Cookie: aaa=b; cccc=d; qq=dd"]),
+            "different_client": gen_curl_tfh_cmd(
                 headers=[
                     "Cookie: aaa=b; cccc=d; qq=dd; ww=1",
                 ]
@@ -239,7 +239,7 @@ class BaseJa5TestSuite(tester.TempestaTest):
         },
     ]
 )
-class TestJa5FiltersTestSuite(BaseJa5TestSuite):
+class TestTFFiltersTestSuite(BaseJa5TestSuite):
     tempesta_tmpl = """
         listen 443 proto=https,h2;
 
@@ -299,7 +299,7 @@ class TestJa5FiltersTestSuite(BaseJa5TestSuite):
         ]
         super().setUp()
 
-    def test_ja5_hash_difference(self):
+    def test_tf_hash_difference(self):
         self.start_all_services(client=False)
         self.deproxy_manager.start()
         self.start_tempesta()
@@ -312,7 +312,7 @@ class TestJa5FiltersTestSuite(BaseJa5TestSuite):
         self.assertEqual(self.get_hash(fingerprints[-1]), self.get_hash(fingerprints[-2]))
         self.assertNotEqual(self.get_hash(fingerprints[0]), self.get_hash(fingerprints[-1]))
 
-        self.set_config_ja5_hash(self.get_hash(fingerprints[0]))
+        self.set_config_tf_hash(self.get_hash(fingerprints[0]))
 
         list(map(lambda __client: __client.start(), clients))
         list(map(self.wait_while_busy, clients))
@@ -330,32 +330,32 @@ class TestJa5FiltersTestSuite(BaseJa5TestSuite):
         )
 
 
-class TestJa5HashDoesNotMatchedWithFiltered(BaseJa5TestSuite):
+class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
     clients = [
         {
             "id": "limited-1",
             "type": "external",
             "binary": "curl",
-            "cmd_args": gen_curl_ja5t_cmd(),
+            "cmd_args": gen_curl_tft_cmd(),
         },
         {
             "id": "limited-2",
             "type": "external",
             "binary": "curl",
-            "cmd_args": gen_curl_ja5t_cmd(),
+            "cmd_args": gen_curl_tft_cmd(),
         },
     ]
 
     def setUp(self):
         self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5t_hash=self.just_valid_ja5t_hash_string,
-            ja5h_hash=self.just_valid_ja5h_hash_string,
+            tft_hash=self.just_valid_tft_hash_string,
+            tfh_hash=self.just_valid_tfh_hash_string,
         )
         super().setUp()
 
     def test_default_values(self):
         """
-        Verify the default ja5 filters
+        Verify the default tf filters
         does not affect the application
         """
         self.start_all_servers()
@@ -381,24 +381,24 @@ class TestJa5HashDoesNotMatchedWithFiltered(BaseJa5TestSuite):
 @marks.parameterize_class(
     [
         {
-            "name": "Ja5tInvalidValue",
-            "ja5t_block": "ja5t {hash invalid_hash 5 5;}",
+            "name": "TFtInvalidValue",
+            "tft_block": "tft {hash invalid_hash 5 5;}",
         },
         {
-            "name": "Ja5tInvalidTableSize",
-            "ja5t_block": "ja5t storage_size=500 {hash a7007c90000 5 5;}",
+            "name": "TFtInvalidTableSize",
+            "tft_block": "tft storage_size=500 {hash a7007c90000 5 5;}",
         },
         {
-            "name": "Ja5hInvalidValue",
-            "ja5t_block": "ja5h {hash invalid_hash 5 5;}",
+            "name": "TFhInvalidValue",
+            "tft_block": "tfh {hash invalid_hash 5 5;}",
         },
         {
-            "name": "Ja5hInvalidTableSize",
-            "ja5t_block": "ja5h storage_size=500 {hash 55cbf8cce0170011 5 5;}",
+            "name": "TFhInvalidTableSize",
+            "tft_block": "tfh storage_size=500 {hash 55cbf8cce0170011 5 5;}",
         },
     ]
 )
-class TestConfig(BaseJa5TestSuite):
+class TestConfig(BaseTFTestSuite):
     tempesta_tmpl = """
         cache 0;
         listen 443 proto=https;
@@ -425,7 +425,7 @@ class TestConfig(BaseJa5TestSuite):
 
     def setUp(self):
         self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5_block=self.ja5t_block
+            tf_block=self.tft_block
         )
         super().setUp()
 
@@ -437,36 +437,36 @@ class TestConfig(BaseJa5TestSuite):
 @marks.parameterize_class(
     [
         {
-            "name": "Ja5t",
-            "hash_type": "ja5t",
+            "name": "TFt",
+            "hash_type": "tft",
         },
         {
-            "name": "Ja5h",
-            "hash_type": "ja5h",
+            "name": "TFh",
+            "hash_type": "tfh",
         },
     ]
 )
-class TestRestartAppWithUpdatedHash(BaseJa5TestSuite):
+class TestRestartAppWithUpdatedHash(BaseTFTestSuite):
     clients = [
         {
             "id": "curl",
             "type": "external",
             "binary": "curl",
-            "cmd_args": gen_curl_ja5t_cmd(),
+            "cmd_args": gen_curl_tft_cmd(),
         },
     ]
 
     def setUp(self):
         self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5t_hash=self.just_valid_ja5t_hash_string,
-            ja5h_hash=self.just_valid_ja5h_hash_string,
+            tft_hash=self.just_valid_tft_hash_string,
+            tfh_hash=self.just_valid_tfh_hash_string,
         )
         super().setUp()
 
     def test_restart_ok(self):
         """
         Verify successful application restart with
-        ja5 configuration
+        tf configuration
         """
         self.start_all_servers()
         self.start_tempesta()
@@ -483,7 +483,7 @@ class TestRestartAppWithUpdatedHash(BaseJa5TestSuite):
         self.assertEqual(client.stdout, self.response_ok)
 
         fingerprint = self.get_client_fingerprint("curl")
-        self.set_config_ja5_hash(self.get_hash(fingerprint))
+        self.set_config_tf_hash(self.get_hash(fingerprint))
 
         client.start()
         self.wait_while_busy(client)

@@ -1,5 +1,5 @@
 __all__ = [
-    "test_ja5t",
+    "test_tf",
 ]
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
