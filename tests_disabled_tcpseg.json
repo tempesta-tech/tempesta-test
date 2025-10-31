@@ -186,6 +186,10 @@
             "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
+            "name": "t_server_connections",
+            "reason": "These tests should not be run with TCP segmentation. These tests check a connection level."
+        },
+        {
             "name": "tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

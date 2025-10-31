@@ -88,9 +88,9 @@ key, not password. `ssh-copy-id` can be used for that.
 
 Non-flag arguments may be used to include/exclude specific tests.
 Specify a dotted-style name or prefix to include every matching test:
-`cache.test_cache`, `flacky_net` (but not `sched.test_`).
+`cache.test_cache`, `t_server_connections` (but not `sched.test_`).
 Prefix an argument with `-` to exclude every matching test: `-cache.test_purge`,
-`-flacky_net.test_sockets.CloseOnShutdown`.
+`-t_server_connections.test_sockets.CloseOnShutdown`.
 
 Testsuite execution is automatically resumed if it was interrupted, or it can
 be resumed manually from any given test.
