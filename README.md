@@ -167,7 +167,7 @@ interruption point. The resumption information is stored in the
 `tests_resume.txt` file in the current working directory. It is also possible
 to resume the testsuite from a specific test:
 ```sh
-env/bin/python3 run_tests.py --resume flacky_net
+env/bin/python3 run_tests.py --resume t_server_connections
 env/bin/python3 run_tests.py --resume-after cache.test_purge
 ```
 

@@ -14,10 +14,6 @@
             "reason" : "Disabled by issue #1752"
         },
         {
-            "name" : "flacky_net",
-            "reason" : "Disabled by issue #114"
-        },
-        {
             "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderFI",
             "reason" : "Disabled by issue #809 (tempesta-test)"
         },
