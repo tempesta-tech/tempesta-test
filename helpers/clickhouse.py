@@ -100,8 +100,12 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         """
         Count all the log records
         """
-        res = _connection.query(f"select count(1) from {self.__table}")
-        return res.result_rows[0][0]
+        try:
+            res = _connection.query(f"select count(1) from {self.__table}")
+            return res.result_rows[0][0]
+        except clickhouse_connect.driver.exceptions.DatabaseError as e:
+            assert "Unknown table" in str(e)
+            return 0
 
     def access_log_records_all(self) -> typing.List[AccessLogLine]:
         """
@@ -203,3 +207,11 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
                 results.result_rows,
             )
         )
+
+    def drop_access_log_table(self) -> str:
+        """
+        Drop the access log table if exists to clear the logs and
+        prevent an errors while tests work with the different
+        table schemas
+        """
+        return _connection.command(f"drop table if exists {self.__table}")

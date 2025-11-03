@@ -309,7 +309,7 @@ class Tempesta(stateful.Stateful):
         self.stop_procedures = [
             self.stop_tempesta,
             self.config.remove_config_files,
-            self.clickhouse.access_log_clear,
+            self.clickhouse.drop_access_log_table,
         ]
 
     def clear_stats(self) -> None:
