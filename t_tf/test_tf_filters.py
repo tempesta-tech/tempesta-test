@@ -66,10 +66,10 @@ class BaseTFTestSuite(tester.TempestaTest):
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        ja5t {
+        tft {
            hash &tft_hash 1 1;
         }
-        ja5h {
+        tfh {
            hash &tfh_hash 1 1;
         }
         srv_group default {
@@ -239,7 +239,7 @@ class BaseTFTestSuite(tester.TempestaTest):
         },
     ]
 )
-class TestTFFiltersTestSuite(BaseJa5TestSuite):
+class TestTFFiltersTestSuite(BaseTFTestSuite):
     tempesta_tmpl = """
         listen 443 proto=https,h2;
 
@@ -248,11 +248,11 @@ class TestTFFiltersTestSuite(BaseJa5TestSuite):
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        ja5t {
-           hash &ja5t_hash 1 1;
+        tft {
+           hash &tft_hash 1 1;
         }
-        ja5h {
-           hash &ja5h_hash 1 1;
+        tfh {
+           hash &tfh_hash 1 1;
         }
         srv_group default {
             server ${server_ip}:8000;
@@ -288,8 +288,8 @@ class TestTFFiltersTestSuite(BaseJa5TestSuite):
 
     def setUp(self):
         self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
-            ja5t_hash=self.just_valid_ja5t_hash_string,
-            ja5h_hash=self.just_valid_ja5h_hash_string,
+            tft_hash=self.just_valid_tft_hash_string,
+            tfh_hash=self.just_valid_tfh_hash_string,
         )
         self.clients = [
             self.__gen_client("limited", value, self.limited_client) for value in range(2)
@@ -408,7 +408,7 @@ class TestConfig(BaseTFTestSuite):
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
 
-        &ja5_block
+        &tf_block
 
         srv_group srv_grp1 {
             server ${server_ip}:8000;
@@ -421,7 +421,7 @@ class TestConfig(BaseTFTestSuite):
             -> block;
         }
     """
-    ja5t_block: str = ""
+    tft_block: str = ""
 
     def setUp(self):
         self.tempesta["config"] = CustomTemplate(self.tempesta_tmpl).substitute(
