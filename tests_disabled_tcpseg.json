@@ -283,7 +283,7 @@
         },
         {
             "name": "t_tf.test_tft.TestTFtStress",
-            "reason": "This test should not be run with TCP segmentation. It use h2load and wrk clients and ja5 only works for requests."
+            "reason": "This test should not be run with TCP segmentation. It use h2load and wrk clients and tf only works for requests."
         },
         {
             "name": "http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_send_full_request",

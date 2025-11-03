@@ -326,7 +326,11 @@ class Tempesta(stateful.Stateful):
         self.host = tf_cfg.cfg.get("Tempesta", "hostname")
         self.check_config = True
         self.clickhouse = ClickHouseFinder()
-        self.stop_procedures = [self.stop_tempesta, self.remove_config, self.clickhouse.clean_logs]
+        self.stop_procedures = [
+            self.stop_tempesta,
+            self.remove_config,
+            self.clickhouse.drop_access_log_table,
+        ]
 
     def __wait_while_logger_start(self):
         if "mmap" not in self.config.get_config():

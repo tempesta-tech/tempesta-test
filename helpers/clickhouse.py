@@ -107,8 +107,12 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         """
         Count all the log records
         """
-        res = self._clickhouse_client.query("select count(1) from access_log")
-        return res.result_rows[0][0]
+        try:
+            res = self._clickhouse_client.query(f"select count(1) from access_log")
+            return res.result_rows[0][0]
+        except clickhouse_connect.driver.exceptions.DatabaseError as e:
+            assert "Unknown table" in str(e)
+            return 0
 
     def access_log_records_all(self) -> typing.List[AccessLogLine]:
         """
@@ -252,3 +256,12 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
         raise FileNotFoundError(
             f'TFW logger daemon log file (path="{self.daemon_log}") was not found'
         )
+
+    def drop_access_log_table(self) -> None:
+        """
+        Drop the access log table if exists to clear the logs and
+        prevent an errors while tests work with the different
+        table schemas
+        """
+        if self._clickhouse_client:
+            self._clickhouse_client.command(f"drop table if exists access_log")
