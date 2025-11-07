@@ -22,8 +22,8 @@ class AccessLogLine:
     response_content_length: int
     referer: str
     user_agent: str
-    ja5t: str
-    ja5h: str
+    tft: str
+    tfh: str
     timestamp: typing.Optional[int] = None
     dropped_events: typing.Optional[int] = None
     response_time: typing.Optional[int] = None
@@ -39,8 +39,8 @@ class AccessLogLine:
         r"(?P<response_content_length>\d+) "
         r"\"(?P<referer>.*)\" "
         r"\"(?P<user_agent>.*)\" "
-        r"\"ja5t=(?P<ja5t>\w+)\" "
-        r"\"ja5h=(?P<ja5h>\w+)\"",
+        r"\"tft=(?P<tft>\w+)\" "
+        r"\"tfh=(?P<tfh>\w+)\"",
         flags=re.DOTALL | re.MULTILINE,
     )
 
@@ -61,10 +61,10 @@ class AccessLogLine:
         for name, received_result in self.__dict__.items():
             expected_result = other.__getattribute__(name)
             if name == "uri" and len(received_result) > 3 and received_result[-3:] == "...":
-                expected_result = expected_result[:(len(received_result) - 3)] + "..."
-            assert received_result == expected_result,(
-               f"Wrong '{name}' in dmesg line. Expected: {expected_result}, Received: {received_result}"
-            )
+                expected_result = expected_result[: (len(received_result) - 3)] + "..."
+            assert (
+                received_result == expected_result
+            ), f"Wrong '{name}' in dmesg line. Expected: {expected_result}, Received: {received_result}"
         return True
 
     @classmethod

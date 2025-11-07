@@ -96,8 +96,8 @@ class BaseTempestaLogger:
         content_length: int = None,
         referer: str = None,
         user_agent: str = None,
-        ja5t: str = None,
-        ja5h: str = None,
+        tft: str = None,
+        tfh: str = None,
         timestamp: int = None,
         dropped_events: int = None,
         response_time: int = None,
@@ -202,8 +202,8 @@ class DmesgFinder(BaseTempestaLogger):
         content_length: int = None,
         referer: str = None,
         user_agent: str = None,
-        ja5t: str = None,
-        ja5h: str = None,
+        tft: str = None,
+        tfh: str = None,
         timestamp: int = None,
         dropped_events: int = None,
         response_time: int = None,
@@ -236,10 +236,10 @@ class DmesgFinder(BaseTempestaLogger):
             if user_agent is not None and record.user_agent != user_agent:
                 continue
 
-            if ja5t is not None and record.ja5t != ja5t:
+            if tft is not None and record.tft != tft:
                 continue
 
-            if ja5h is not None and record.ja5h != ja5h:
+            if tfh is not None and record.tfh != tfh:
                 continue
 
             if timestamp is not None and record.timestamp != timestamp:
@@ -264,8 +264,8 @@ class DmesgFinder(BaseTempestaLogger):
         content_length: int = None,
         referer: str = None,
         user_agent: str = None,
-        ja5t: str = None,
-        ja5h: str = None,
+        tft: str = None,
+        tfh: str = None,
         timestamp: int = None,
         dropped_events: int = None,
         response_time: int = None,
@@ -284,8 +284,8 @@ class DmesgFinder(BaseTempestaLogger):
                 content_length=content_length,
                 referer=referer,
                 user_agent=user_agent,
-                ja5t=ja5t,
-                ja5h=ja5h,
+                tft=tft,
+                tfh=tfh,
                 timestamp=timestamp,
                 dropped_events=dropped_events,
                 response_time=response_time,

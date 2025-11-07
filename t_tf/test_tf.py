@@ -1,4 +1,4 @@
-"""Functional tests of ja5 filtration."""
+"""Functional tests of tf filtration."""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
@@ -113,8 +113,8 @@ DURATION = int(tf_cfg.cfg.get("General", "duration"))
         {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
     ]
 )
-class TestJa5t(tester.TempestaTest):
-    """This class contains checks for tempesta ja5 filtration."""
+class TestTFt(tester.TempestaTest):
+    """This class contains checks for tempesta tf filtration."""
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
@@ -122,11 +122,11 @@ class TestJa5t(tester.TempestaTest):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="no_hash", tempesta_ja5_config="", expected_block=False),
+            marks.Param(name="no_hash", tempesta_tf_config="", expected_block=False),
             marks.Param(
                 name="hash_not_for_client",
-                tempesta_ja5_config="""
-					ja5t {
+                tempesta_tf_config="""
+					tft {
 						hash deadbeef 10 1000;
 					}
 				""",
@@ -134,8 +134,8 @@ class TestJa5t(tester.TempestaTest):
             ),
             marks.Param(
                 name="hash_for_client_not_block",
-                tempesta_ja5_config="""
-					ja5t {
+                tempesta_tf_config="""
+					tft {
 						hash 66cb9fd8d4250000 1 100;
 					}
 				""",
@@ -143,8 +143,8 @@ class TestJa5t(tester.TempestaTest):
             ),
             marks.Param(
                 name="hash_for_client_block_by_conn",
-                tempesta_ja5_config="""
-					ja5t {
+                tempesta_tf_config="""
+					tft {
 						hash 66cb9fd8d4250000 0 10;
 						hash 66cb8f00d4250002 0 10;
 					}
@@ -153,8 +153,8 @@ class TestJa5t(tester.TempestaTest):
             ),
             marks.Param(
                 name="hash_for_client_block_by_rate",
-                tempesta_ja5_config="""
-					ja5t {
+                tempesta_tf_config="""
+					tft {
 						hash 66cb9fd8d4250000 1 0;
 						hash 66cb8f00d4250002 1 0;
 					}
@@ -163,10 +163,10 @@ class TestJa5t(tester.TempestaTest):
             ),
         ]
     )
-    def test(self, name, tempesta_ja5_config: str, expected_block: bool):
+    def test(self, name, tempesta_tf_config: str, expected_block: bool):
         """Update tempesta config. Send many identical requests and checks cache operation."""
         tempesta: Tempesta = self.get_tempesta()
-        tempesta.config.defconfig += tempesta_ja5_config
+        tempesta.config.defconfig += tempesta_tf_config
 
         self.start_all_services()
         client = self.get_client("deproxy")
@@ -180,8 +180,8 @@ class TestJa5t(tester.TempestaTest):
             self.assertTrue(client.last_response.status, "200")
 
 
-class TestJa5tStress(tester.TempestaTest):
-    """This class contains checks for tempesta ja5 filtration."""
+class TestTFtStress(tester.TempestaTest):
+    """This class contains checks for tempesta tf filtration."""
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
@@ -214,33 +214,33 @@ class TestJa5tStress(tester.TempestaTest):
             ),
         },
     ]
-    tempesta_ja5_config_1 = """
-        ja5t {
+    tempesta_tf_config_1 = """
+        tft {
             hash deadbeef 10 1000;
             hash 1f5a9a29ef170000 1 10;
             hash 66cbda9cafc40009 0 0;
             hash 1f5a9a29ef170020 3 20;
         }
     """
-    tempesta_ja5_config_2 = """
-        ja5t {
+    tempesta_tf_config_2 = """
+        tft {
             hash deadbeef 10 1000;
             hash 1f5a9a29ef170000 1 100;
         }
     """
-    tempesta_ja5_config_empty = ""
+    tempesta_tf_config_empty = ""
 
     def change_cfg(self):
         tempesta: Tempesta = self.get_tempesta()
         config = tempesta.config.defconfig
-        ja5_configs = [
-            self.tempesta_ja5_config_empty,
-            self.tempesta_ja5_config_1,
-            self.tempesta_ja5_config_2,
+        tf_configs = [
+            self.tempesta_tf_config_empty,
+            self.tempesta_tf_config_1,
+            self.tempesta_tf_config_2,
         ] * 4
 
-        for ja5_config in ja5_configs:
-            tempesta.config.defconfig = config + ja5_config
+        for tf_config in tf_configs:
+            tempesta.config.defconfig = config + tf_config
             self.get_tempesta().reload()
 
     @marks.Parameterize.expand(
