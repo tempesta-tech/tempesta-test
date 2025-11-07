@@ -254,9 +254,10 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         record = self.loggers.clickhouse.access_log_last_message()
-        t1 = record.timestamp.replace(microsecond=0, second=0, tzinfo=timezone.utc)
-        t2 = datetime.now(tz=timezone.utc).replace(microsecond=0, second=0)
-        self.assertEqual(t1, t2)
+        t1 = record.timestamp.replace(tzinfo=timezone.utc)
+        t2 = datetime.now(tz=timezone.utc)
+        delta = (t2 - t1).seconds
+        self.assertLessEqual(delta, 3)
         self.assertEqual(
             record.user_agent,
             "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
