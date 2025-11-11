@@ -130,15 +130,15 @@ class TestRescheduling(TestServerOptionsBase):
         client = self.get_client("deproxy-1")
         for _ in range(0, 3):
             client.make_request(client.create_request(method="GET", headers=[]))
-        self.assertTrue(server.wait_for_requests(3, strict=True))
+        server.wait_for_requests(3, strict=True)
         server.stop()
 
         server.start()
-        self.assertTrue(server.wait_for_requests(1, strict=True))
+        server.wait_for_requests(1, strict=True)
         server.stop()
 
         server.start()
-        self.assertTrue(server.wait_for_requests(1, strict=True))
+        server.wait_for_requests(1, strict=True)
         server.stop()
 
         server.pipelined = 0
@@ -182,11 +182,11 @@ class TestRescheduling(TestServerOptionsBase):
         client_1 = self.get_client("deproxy-1")
         for _ in range(0, 3):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
-        self.assertTrue(server.wait_for_requests(3, strict=True))
+        server.wait_for_requests(3, strict=True)
         server.stop()
         server.pipelined = 2
         server.start()
-        self.assertTrue(server.wait_for_requests(1, strict=True))
+        server.wait_for_requests(1, strict=True)
 
         client_2 = self.get_client("deproxy-2")
         client_2.send_request(client_2.create_request(method="GET", headers=[]), "502")
@@ -218,7 +218,7 @@ class TestRescheduling(TestServerOptionsBase):
         client_1 = self.get_client("deproxy-1")
         for _ in range(0, 4):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
-        self.assertTrue(server.wait_for_requests(3, strict=True))
+        server.wait_for_requests(3, strict=True)
         server.stop()
         server.pipelined = 2
         server.send_after_conn_established = True
