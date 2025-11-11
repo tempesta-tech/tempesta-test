@@ -119,9 +119,10 @@ def build_deproxy_drop(server, name, tester):
         response=fill_template(server.get("response_content", ""), server),
         keep_alive=server.get("keep_alive", 0),
         drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
+        send_after_conn_established=server.get("send_after_conn_established", False),
         delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
         hang_on_req_num=server.get("hang_on_req_num", 0),
-        pipelined=server.get("pipelined", False),
+        pipelined=server.get("pipelined", 0),
     )
     tester.deproxy_manager.add_server(srv)
     return srv

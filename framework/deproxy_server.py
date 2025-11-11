@@ -32,8 +32,17 @@ class ServerConnection(asyncore.dispatcher):
         self.__time_to_send: float = 0
         self.__new_response: bool = True
         self.nrreq: int = 0
+        if self._server.send_after_conn_established:
+            self._add_response_to_sending_buffer(self._server.response)
 
         dbg(self, 6, "New server connection", prefix="\t")
+
+    def _add_response_to_sending_buffer(self, response: bytes) -> None:
+        dbg(self, 4, "Send response:", prefix="\t")
+        tf_cfg.dbg(5, response)
+
+        self._cur_responses_list.append(response)
+        self.flush()
 
     def sleep(self) -> None:
         """
@@ -151,7 +160,6 @@ class ServerConnection(asyncore.dispatcher):
 
 
 class StaticDeproxyServer(BaseDeproxy):
-
     def __init__(
         self,
         # BaseDeproxy
@@ -166,6 +174,7 @@ class StaticDeproxyServer(BaseDeproxy):
         response: str | bytes | deproxy.Response,
         keep_alive: int,
         drop_conn_when_request_received: bool,
+        send_after_conn_established: bool,
         delay_before_sending_response: float,
         hang_on_req_num: int,
         pipelined: int,
@@ -185,6 +194,7 @@ class StaticDeproxyServer(BaseDeproxy):
         self.conns_n = tempesta.server_conns_default()
         self.keep_alive = keep_alive
         self.drop_conn_when_request_received = drop_conn_when_request_received
+        self.send_after_conn_established = send_after_conn_established
         self.delay_before_sending_response = delay_before_sending_response
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
@@ -335,9 +345,10 @@ def deproxy_srv_factory(server: dict, name, tester):
         response=fill_template(server.get("response_content", ""), server),
         keep_alive=server.get("keep_alive", 0),
         drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
+        send_after_conn_established=server.get("send_after_conn_established", False),
         delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
         hang_on_req_num=server.get("hang_on_req_num", 0),
-        pipelined=server.get("pipelined", False),
+        pipelined=server.get("pipelined", 0),
     )
 
     tester.deproxy_manager.add_server(srv)
