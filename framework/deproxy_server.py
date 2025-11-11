@@ -39,6 +39,7 @@ class ServerConnection(asyncore.dispatcher):
         self.nrreq: int = 0
         if self._server.send_after_conn_established:
             self._add_response_to_sending_buffer(self._server.response)
+            self.flush()
 
         self._tcp_logger.debug("New server connection")
 
@@ -47,7 +48,7 @@ class ServerConnection(asyncore.dispatcher):
         self._tcp_logger.debug(response)
 
         self._cur_responses_list.append(response)
-        self.flush()
+        self._cur_pipelined += 1
 
     def sleep(self) -> None:
         """
@@ -116,10 +117,7 @@ class ServerConnection(asyncore.dispatcher):
             if self._server.drop_conn_when_request_received:
                 self.handle_close()
             if response:
-                self._http_logger.info("Send response")
-                self._http_logger.debug(response)
-                self._cur_responses_list.append(response)
-                self._cur_pipelined += 1
+                self._add_response_to_sending_buffer(response)
                 if self._cur_pipelined >= self._server.pipelined:
                     self.flush()
 
