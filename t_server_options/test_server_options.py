@@ -4,13 +4,13 @@ __license__ = "GPL2"
 
 import time
 
-from helpers import analyzer, dmesg, remote, tf_cfg
+from helpers import analyzer, deproxy, dmesg, remote, tf_cfg
 from test_suite import marks, tester
 
 SERVER_IP = tf_cfg.cfg.get("Server", "ip")
 
 
-class TestServerOptions(tester.TempestaTest):
+class TestServerOptionsBase(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
@@ -31,6 +31,12 @@ class TestServerOptions(tester.TempestaTest):
         },
         {
             "id": "deproxy-1",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        },
+        {
+            "id": "deproxy-2",
             "type": "deproxy",
             "addr": "${tempesta_ip}",
             "port": "80",
@@ -56,6 +62,178 @@ http_chain {-> main;}
 """,
     }
 
+
+class TestRescheduling(TestServerOptionsBase):
+    def __check_success_responses(self, client, count):
+        self.assertEqual(len(client.responses), count)
+        for resp in client.responses:
+            self.assertEqual(resp.status, "200")
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_request_success_if_first_response_failed_on_half(self):
+        """
+        Tempesta FW forwards a request to a server, server sends only
+        half of response and drops connection because of reboot.
+        Tempesta FW repeat the request and server returns full response.
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = (
+            tempesta.config.defconfig
+            % f"""
+            srv_group main {{
+                server {SERVER_IP}:8000 conns_n=1;
+            }}
+        """
+        )
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        server.set_response(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxx"
+        )
+
+        self.start_all_services()
+        client = self.get_client("deproxy-1")
+        client.make_request(client.create_request(method="GET", headers=[]))
+        # Sleep until Tempesta FW received response.
+        time.sleep(3)
+        server.stop()
+        server.set_response(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
+        )
+        server.start()
+        self.assertTrue(client.wait_for_response())
+        self.assertEqual(client.last_response.status, "200")
+        self.assertEqual(client.last_response.body, "xxxxxxxxxx")
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_server_send_pipelined_after_reestablish_connection_on_one_request(self):
+        """
+        Tempesta FW sends several requests to the server but server is shutdowned and
+        doesn't send any response. After connection re-established Tempesta FW sends
+        only one request, but receive several pipelined responses from the server.
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = (
+            tempesta.config.defconfig
+            % f"""
+            srv_group main {{
+                server {SERVER_IP}:8000 conns_n=1;
+                server_forward_retries 2;
+            }}
+        """
+        )
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        server.pipelined = 4
+        self.start_all_services()
+
+        client = self.get_client("deproxy-1")
+        for _ in range(0, 3):
+            client.make_request(client.create_request(method="GET", headers=[]))
+        self.assertTrue(server.wait_for_requests(3, strict=True))
+        server.stop()
+
+        server.start()
+        self.assertTrue(server.wait_for_requests(1, strict=True))
+        server.stop()
+
+        server.start()
+        self.assertTrue(server.wait_for_requests(1, strict=True))
+        server.stop()
+
+        server.pipelined = 0
+        server.set_response(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
+            + b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
+        )
+        server.start()
+
+        self.assertTrue(
+            self.loggers.dmesg.find(
+                "Paired request missing, HTTP Response Splitting attack?",
+                cond=dmesg.amount_greater_eq(1),
+            ),
+            "An unexpected number of warnings were received",
+        )
+
+    def test_502_response_for_restricted_connection(self):
+        """
+        Tempesta FW sends several requests to the server but server is shutdowned and
+        doesn't send any response. After connection re-established Tempesta FW resends
+        first request (connection in restricted state). All new requests to this
+        connection are forbidden, so Tempesta FW answer with 502 response to another
+        client.
+        .
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = (
+            tempesta.config.defconfig
+            % f"""
+            srv_group main {{
+                server {SERVER_IP}:8000 conns_n=1;
+            }}
+        """
+        )
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        server.pipelined = 5
+        self.start_all_services()
+
+        client_1 = self.get_client("deproxy-1")
+        for _ in range(0, 3):
+            client_1.make_request(client_1.create_request(method="GET", headers=[]))
+        self.assertTrue(server.wait_for_requests(3, strict=True))
+        server.stop()
+        server.pipelined = 2
+        server.start()
+        self.assertTrue(server.wait_for_requests(1, strict=True))
+
+        client_2 = self.get_client("deproxy-2")
+        client_2.send_request(client_2.create_request(method="GET", headers=[]), "502")
+        server.flush()
+        client_1.wait_for_response()
+        self.__check_success_responses(client_1, 3)
+
+    @dmesg.unlimited_rate_on_tempesta_node
+    def test_server_send_response_after_connection_reestablished(self):
+        """
+        Tempesta FW sends several requests to the server but server is shutdowned and
+        doesn't send any response. After connection re-established server sends response
+        without any request from Tempesta FW.
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = (
+            tempesta.config.defconfig
+            % f"""
+            srv_group main {{
+                server {SERVER_IP}:8000 conns_n=1;
+            }}
+        """
+        )
+        server = self.get_server("deproxy")
+        server.conns_n = 1
+        server.pipelined = 5
+        self.start_all_services()
+
+        client_1 = self.get_client("deproxy-1")
+        for _ in range(0, 4):
+            client_1.make_request(client_1.create_request(method="GET", headers=[]))
+        self.assertTrue(server.wait_for_requests(3, strict=True))
+        server.stop()
+        server.pipelined = 2
+        server.send_after_conn_established = True
+        server.start()
+
+        self.assertTrue(
+            self.loggers.dmesg.find(
+                "Paired request missing, HTTP Response Splitting attack?",
+                cond=dmesg.amount_greater_eq(1),
+            ),
+            "An unexpected number of warnings were received",
+        )
+
+
+class TestServerOptions(TestServerOptionsBase):
     @dmesg.unlimited_rate_on_tempesta_node
     def test_server_forward_timeout_exceeded(self):
         """
