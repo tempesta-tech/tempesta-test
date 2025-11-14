@@ -252,6 +252,12 @@ class StaticDeproxyServer(BaseDeproxy):
             lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
         )
 
+    def wait_for_connections_closed(self, timeout=1):
+        if self.state != stateful.STATE_STARTED:
+            return False
+
+        return util.wait_until(lambda: len(self._connections) != 0, timeout, poll_freq=0.001)
+
     def flush(self):
         for conn in self._connections:
             conn.flush()
