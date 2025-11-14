@@ -30,13 +30,14 @@ DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 SERVER_IP = tf_cfg.cfg.get("Server", "ip")
 TEMPESTA_WORKDIR = tf_cfg.cfg.get("Tempesta", "workdir")
+TFW_LOGGER_CONFIG = tf_cfg.cfg.get("TFW_Logger", "logger_config")
 
 EXTRA_SERVERS = f"""
-    server {SERVER_IP}:8001;
-    server {SERVER_IP}:8002;
-    server {SERVER_IP}:8003;
-    server {SERVER_IP}:8004;
-"""
+server {SERVER_IP}:8001;
+server {SERVER_IP}:8002;
+server {SERVER_IP}:8003;
+server {SERVER_IP}:8004;
+                """
 
 
 class TestFailFunctionBase(tester.TempestaTest):
@@ -322,13 +323,6 @@ server {SERVER_IP}:8000 conns_n=10;
                 retval=-12,
             ),
             marks.Param(
-                name="tfw_sched_ratio_rtodata_get_1",
-                func_name="tfw_sched_ratio_rtodata_get",
-                extra_config=EXTRA_SERVERS,
-                space=1,
-                retval=0,
-            ),
-            marks.Param(
                 name="tfw_server_create_1",
                 func_name="tfw_server_create",
                 extra_config=EXTRA_SERVERS,
@@ -547,6 +541,8 @@ tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 server {SERVER_IP}:8000 conns_n=10;
 """,
                 space=7,
+                module_path=None,
+                module_name_preload=None,
                 retval=-12,
             ),
             marks.Param(
@@ -560,6 +556,8 @@ tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 server {SERVER_IP}:8000 conns_n=10;
 """,
                 space=7,
+                module_path=None,
+                module_name_preload=None,
                 retval=-12,
             ),
             marks.Param(
@@ -575,14 +573,342 @@ cache 2;
 cache_fulfill * *;
 """,
                 space=12,
+                module_path=None,
+                module_name_preload=None,
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_kmalloc",
+                func_name="tfw_kmalloc",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+cache 2;
+cache_fulfill * *;
+
+access_log dmesg mmap logger_config={TFW_LOGGER_CONFIG};
+
+srv_group test {{
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test1 {{
+    server {SERVER_IP}:8002 conns_n=10;
+}}
+
+vhost tests {{
+    location prefix / {{
+        proxy_pass test;
+    }}
+    proxy_pass test1;
+}}
+
+http_chain {{
+    host == "tests.com" -> tests;
+    ->block;
+}}
+
+""",
+                space=225,
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_kmalloc_node",
+                func_name="tfw_kmalloc_node",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+cache 2;
+cache_fulfill * *;
+
+health_stat 3* 4* 5*;
+health_stat_server 3* 4* 5*;
+
+health_check h_monitor1 {{
+    request "GET / HTTP/1.1\r\n\r\n";
+    request_url "/";
+    resp_code   200;
+    resp_crc32  auto;
+    timeout     1;
+}}
+
+srv_group test {{
+    server {SERVER_IP}:8001 conns_n=10;
+
+    health h_monitor1;
+}}
+
+srv_group test1 {{
+    server {SERVER_IP}:8002 conns_n=10;
+}}
+
+vhost tests {{
+    location prefix / {{
+        proxy_pass test;
+    }}
+    proxy_pass test1;
+}}
+
+http_chain {{
+    host == "tests.com" -> tests;
+    ->block;
+}}
+
+""",
+                space=41,
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_kzalloc",
+                func_name="tfw_kzalloc",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+cache 2;
+cache_fulfill * *;
+
+health_stat 3* 4* 5*;
+health_stat_server 3* 4* 5*;
+
+access_log dmesg mmap logger_config={TFW_LOGGER_CONFIG};
+
+health_check h_monitor1 {{
+    request "GET / HTTP/1.1\r\n\r\n";
+    request_url "/";
+    resp_code   200;
+    resp_crc32  auto;
+    timeout     1;
+}}
+
+srv_group test {{
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+
+    health h_monitor1;
+}}
+
+srv_group test1 {{
+    server {SERVER_IP}:8002 conns_n=10;
+}}
+
+vhost tests {{
+    location prefix / {{
+        proxy_pass test;
+    }}
+    proxy_pass test1;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+
+tft {{
+    hash a7007c90000 5 5;
+}}
+
+tfh {{
+    hash a7007c90000 5 5;
+}}
+
+""",
+                space=57,
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_kcalloc",
+                func_name="tfw_kcalloc",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+
+srv_group test {{
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+
+""",
+                space=2,
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_kvmalloc_node",
+                func_name="tfw_kvmalloc_node",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+
+srv_group test {{
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+
+""",
+                space=16,
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw__alloc_percpu",
+                func_name="tfw__alloc_percpu",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+
+srv_group test {{
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+
+""",
+                space=21,
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="proc_mkdir",
+                func_name="proc_mkdir",
+                config=f"""
+listen 80;
+
+srv_group test_1 {{
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test_2 {{
+    server {SERVER_IP}:8002 conns_n=10;
+}}
+
+srv_group test_3 {{
+    server {SERVER_IP}:8003 conns_n=10;
+}}
+
+srv_group test_4 {{
+    server {SERVER_IP}:8004 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test_1;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+""",
+                space=7,
+                module_path=None,
+                module_name_preload=None,
+                retval=0,
+            ),
+            marks.Param(
+                name="proc_create_data",
+                func_name="proc_create_data",
+                config=f"""
+listen 80;
+
+srv_group test_1 {{
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test_2 {{
+    server {SERVER_IP}:8002 conns_n=10;
+}}
+
+srv_group test_3 {{
+    server {SERVER_IP}:8003 conns_n=10;
+}}
+
+srv_group test_4 {{
+    server {SERVER_IP}:8004 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test_1;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+""",
+                space=5,
+                module_path=None,
+                module_name_preload=None,
                 retval=0,
             ),
         ]
     )
-    def test_init_modules(self, name, func_name, config, space, retval):
+    def test_init_modules(
+        self, name, func_name, config, space, module_path, module_name_preload, retval
+    ):
         self.get_tempesta().config.set_defconfig(config)
         self.oops_ignore = ["ERROR"]
         for s in range(space):
+            if module_name_preload:
+                self.assertIsNotNone(module_path)
+                self.get_tempesta().load_module(module_path, module_name_preload)
             TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, s, retval)
             with self.assertRaises(error.ProcessBadExitStatusException):
                 self.get_tempesta().start()
@@ -593,6 +919,171 @@ cache_fulfill * *;
             called from the cleanup procedure also.
             """ 
             TestFailFunctionBaseStress.teardown_fail_function_test()
+
+    def test_abort_srv_connection_on_graceful_shutdown(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+grace_shutdown_time 1;
+
+server {SERVER_IP}:8002 conns_n=10;
+
+srv_group test {{
+    server {SERVER_IP}:8003 conns_n=10;
+}}
+
+srv_group test1 {{
+    server {SERVER_IP}:8004 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test1;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+"""
+        )
+        self.get_tempesta().start()
+        TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, -1, 0, -12)
+        for srv_name in ["deproxy_1", "deproxy_2", "deproxy_3", "deproxy_4", "deproxy_5"]:
+            server = self.get_server(srv_name)
+            server.conns_n = 10
+            server.set_response(
+                deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[],
+                    date=deproxy.HttpMessage.date_time_string(),
+                )
+            )
+
+            server.start()
+
+        self.deproxy_manager.start()
+        for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
+            server = self.get_server(srv_name)
+            self.assertTrue(server.wait_for_connections(timeout=5))
+
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+grace_shutdown_time 1;
+"""
+        )
+        self.get_tempesta().reload()
+        for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
+            server = self.get_server(srv_name)
+            server.wait_for_connections_closed()
+        server = self.get_server("deproxy_1")
+        self.assertTrue(server.wait_for_connections(timeout=5))
+
+    def test_failed_disconnect_srv_connection(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+
+server {SERVER_IP}:8002 conns_n=10;
+
+srv_group test {{
+    server {SERVER_IP}:8003 conns_n=10;
+}}
+
+srv_group test1 {{
+    server {SERVER_IP}:8004 conns_n=10;
+}}
+
+vhost tests {{
+    proxy_pass test1;
+}}
+
+http_chain {{
+    uri == "/" -> 301 = https://static.request_uri;
+    host == "tests.com" -> tests;
+    ->block;
+}}
+"""
+        )
+        self.get_tempesta().start()
+        TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, -1, 0, -12)
+        for srv_name in ["deproxy_1", "deproxy_2", "deproxy_3", "deproxy_4", "deproxy_5"]:
+            server = self.get_server(srv_name)
+            server.conns_n = 10
+            server.set_response(
+                deproxy.Response.create_simple_response(
+                    status="200",
+                    headers=[],
+                    date=deproxy.HttpMessage.date_time_string(),
+                )
+            )
+
+            server.start()
+
+        self.deproxy_manager.start()
+        for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
+            server = self.get_server(srv_name)
+            self.assertTrue(server.wait_for_connections(timeout=5))
+        self.get_tempesta().stop_tempesta()
+        for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
+            server = self.get_server(srv_name)
+            server.wait_for_connections_closed()
+
+    def test_abort_client_connection(self):
+        self.get_tempesta().config.set_defconfig(
+            f"""
+listen 80;
+listen 443 proto=h2,https;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
+
+srv_group test {{
+    server {SERVER_IP}:8000 conns_n=10;
+}}
+
+vhost test {{
+    frang_limits {{
+        http_strict_host_checking false;
+    }}
+    proxy_pass test;
+}}
+
+http_chain {{
+   -> test;
+}}
+"""
+        )
+        self.get_tempesta().start()
+        TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, 50, 7, -12)
+        server = self.get_server("deproxy_1")
+        server.conns_n = 10
+        server.set_response(
+            deproxy.Response.create_simple_response(
+                status="200",
+                headers=[("content-length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+        server.start()
+        self.deproxy_manager.start()
+        self.assertTrue(server.wait_for_connections(timeout=5))
+
+        client = self.get_client("deproxy_h2")
+        client.start()
+        client.send_request(client.create_request(method="GET", headers=[]), "200")
+        self.get_tempesta().stop()
 
     @marks.Parameterize.expand(
         [
