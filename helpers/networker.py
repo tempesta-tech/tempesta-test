@@ -245,3 +245,15 @@ def change_and_restore_tcp_options(*, mtu: int, tcp_options: dict[str, str]) -> 
         finally:
             for networker in networkers:
                 networker.restore_tcp_options()
+
+@contextmanager
+def create_and_cleanup_interfaces(
+    *, node: remote.ANode, base_interface_name: str, base_interface_ip: str, number_of_ip: int
+) -> Generator[list[str], Any, None]:
+    networker = NetWorker(node)
+    ips = []
+    try:
+        ips = networker.create_interfaces(base_interface_name, base_interface_ip, number_of_ip)
+        yield ips
+    finally:
+        networker.remove_interfaces(base_interface_name, ips)
