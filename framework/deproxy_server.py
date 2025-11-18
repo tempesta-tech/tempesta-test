@@ -134,7 +134,7 @@ class ServerConnection(asyncore.dispatcher):
             return self.sleep()
 
         resp = self._response_buffer[self._responses_done]
-        sent = self.send(resp[:self._server.segment_size] if self._server.segment_size else resp)
+        sent = self.send(resp[: self._server.segment_size] if self._server.segment_size else resp)
 
         if sent < 0:
             return
@@ -248,6 +248,12 @@ class StaticDeproxyServer(BaseDeproxy):
         return util.wait_until(
             lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
         )
+
+    def wait_for_connections_closed(self, timeout=1):
+        if self.state != stateful.STATE_STARTED:
+            return False
+
+        return util.wait_until(lambda: len(self._connections) != 0, timeout, poll_freq=0.001)
 
     def flush(self):
         for conn in self._connections:
