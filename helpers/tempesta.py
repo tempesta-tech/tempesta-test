@@ -154,49 +154,45 @@ class Stats(object):
 
 
 class ServerStats(object):
-    def __init__(self, tempesta, sg_name, srv_ip, srv_port):
-        self.tempesta = tempesta
-        self.path = "%s/%s:%s" % (sg_name, srv_ip, srv_port)
-        self.stats = None
+    def __init__(self, tempesta, sg_name: str, srv_ip: str, srv_port: str | int):
+        self._tempesta = tempesta
+        self._path = f"{sg_name}/{srv_ip}:{srv_port}"
+        self._stats = None
 
-    def collect(self):
-        self.stats, _ = self.tempesta.get_server_stats(self.path)
+    def _collect(self) -> None:
+        self._stats, _ = self._tempesta.get_server_stats(self._path)
 
     @property
     def server_health(self):
-        self.collect()
+        self._collect()
         name = "HTTP availability"
-        health = Stats.parse_option(self.stats, name)
-        assert health >= 0, 'Cannot find "%s" in server stats: %s\n' % (name, self.stats)
+        health = Stats.parse_option(self._stats, name)
+        assert health >= 0, f'Cannot find "{name}" in server stats: {self._stats}\n'
         return health
 
     @property
-    def health_statuses(self):
-        pattern = r"HTTP '(\d+)' code\s+: \d+ \((\d+) total\)"
-        matches = self._parse(pattern)
+    def health_statuses(self) -> dict[int, int]:
+        matches = self._parse(r"HTTP '(\d+)' code\s+: \d+ \((\d+) total\)")
         return {int(status): int(total) for status, total in matches}
 
     @property
     def is_enable_health_monitor(self) -> bool:
-        self.collect()
-        record = "HTTP health monitor is enabled"
-        return bool(Stats.parse_option(self.stats, record))
+        self._collect()
+        return bool(Stats.parse_option(self._stats, "HTTP health monitor is enabled"))
 
     @property
     def health_request_timeout(self) -> int:
-        pattern = r"Time until next health check(?:ing)?\t:\s+\d+"
-        result = self._parse(pattern)
+        result = self._parse(r"Time until next health check(?:ing)?\t:\s+\d+")
         return int(result[0].split()[-1])
 
     @property
     def total_pinned_sessions(self) -> int:
-        pattern = r"Total pinned sessions\t\t:\s+\d+"
-        result = self._parse(pattern)
+        result = self._parse(r"Total pinned sessions\t\t:\s+\d+")
         return int(result[0].split()[-1])
 
     def _parse(self, pattern: str):
-        self.collect()
-        return re.findall(pattern.encode("ascii"), self.stats)
+        self._collect()
+        return re.findall(pattern.encode("ascii"), self._stats)
 
 
 # -------------------------------------------------------------------------------
