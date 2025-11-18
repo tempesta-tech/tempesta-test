@@ -21,6 +21,22 @@ class Error(Exception):
 
 
 @dataclass
+class ClientNotFound(Error):
+    name: str
+
+    def __str__(self):
+        return f"The client with '{self.name}' name doesn't exist."
+
+
+@dataclass
+class ServerNotFound(Error):
+    name: str
+
+    def __str__(self):
+        return f"The server with '{self.name}' name doesn't exist."
+
+
+@dataclass
 class MemoryConsumptionException(Error):
     msg: str
 
