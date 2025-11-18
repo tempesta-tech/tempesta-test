@@ -293,7 +293,10 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def get_server(self, sid) -> StaticDeproxyServer | Nginx | DockerServer | None:
         """Return client with specified id"""
-        return self.__servers.get(sid)
+        server = self.__servers.get(sid, None)
+        if server is None:
+            raise error.ServerNotFound(sid) from None
+        return server
 
     def get_servers(self):
         return self.__servers.values()
@@ -316,7 +319,10 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         None,
     ]:
         """Return client with specified id"""
-        return self.__clients.get(cid)
+        client = self.__clients.get(cid, None)
+        if client is None:
+            raise error.ClientNotFound(cid) from None
+        return client
 
     def get_clients(self) -> list:
         return list(self.__clients.values())
