@@ -2,6 +2,7 @@ import abc
 import dataclasses
 import socket
 import ssl
+import struct
 import sys
 import time
 from collections import defaultdict
@@ -200,6 +201,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
         self.connect((self.conn_addr, self.port))
 
+
+    def stop_with_rst(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
+        self.stop()
+
     @abc.abstractmethod
     def handle_read(self): ...
 
@@ -263,6 +269,24 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.nrreq += 1
         if expect_response:
             self.valid_req_num += 1
+
+    def wait_for_client_sends_requests(
+            self, valid_req_num: Optional[int] = None, timeout=5, strict=False
+    ) -> Optional[bool]:
+        """Wait for client sends requests from the buffers."""
+        if valid_req_num is None:
+            valid_req_num = self.valid_req_num
+        timeout_not_exceeded = util.wait_until(
+            lambda: self.cur_req_num != valid_req_num,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection close: {timeout}"
+        return timeout_not_exceeded
 
     def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
         """

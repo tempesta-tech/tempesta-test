@@ -76,7 +76,7 @@ class ServerConnection(asyncore.dispatcher):
         self._cur_responses_list = []
 
     def writable(self):
-        if self.is_sleeping():
+        if self._server.not_send_response or self.is_sleeping():
             return False
 
         if (
@@ -189,6 +189,7 @@ class StaticDeproxyServer(BaseDeproxy):
         self.drop_conn_when_request_received = drop_conn_when_request_received
         self.send_after_conn_established = send_after_conn_established
         self.delay_before_sending_response = delay_before_sending_response
+        self.not_send_response = True
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
 

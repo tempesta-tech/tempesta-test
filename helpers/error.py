@@ -21,6 +21,15 @@ class Error(Exception):
 
 
 @dataclass
+class WaitForConnectionException(Error):
+    sid: str
+    timeout: int
+
+    def __str__(self):
+        return f"Tempesta FW don't create all connections to server with '{self.sid}' name. Timout = {self.timeout}"
+
+
+@dataclass
 class MemoryConsumptionException(Error):
     msg: str
     delta_used_memory: int

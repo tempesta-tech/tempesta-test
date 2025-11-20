@@ -129,27 +129,13 @@ class WaitUntilAsserts(unittest.TestCase):
     def assertWaitUntilTrue(
         self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() is False, timeout=timeout, poll_freq=poll_freq
-        )
+        self.assertTrue(util.wait_until(wait_cond=func, timeout=timeout, poll_freq=poll_freq))
 
-        if success:
-            return None
-
-        self.fail(self._formatMessage(msg, f"Is False event after {timeout} seconds"))
 
     def assertWaitUntilFalse(
         self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() is True, timeout=timeout, poll_freq=poll_freq
-        )
-
-        if success:
-            return None
-
-        self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
-
+        self.assertFalse(util.wait_until(wait_cond=lambda: not func(), timeout=timeout, poll_freq=poll_freq), msg)
 
 class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     """Basic tempesta test class.
@@ -514,10 +500,12 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
-    def wait_all_connections(self, tmt=5):
+    def wait_all_connections(self, tmt=5, strict=True) -> bool:
         for sid in self.__servers:
             srv = self.__servers[sid]
             if not srv.wait_for_connections(timeout=tmt):
+                if strict:
+                    raise error.WaitForConnectionException(sid, timeout=tmt)
                 return False
         return True
 
@@ -531,7 +519,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         ]:
             self.deproxy_manager.start()
 
-        self.assertTrue(self.wait_all_connections())
+        self.wait_all_connections(strict=True)
         self.assertTrue(self.__tempesta.wait_while_logger_start())
 
         if client:
