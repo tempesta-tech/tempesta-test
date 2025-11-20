@@ -623,9 +623,6 @@ class TestServerOptionsReconf(tester.TempestaTest):
     def setUp(self):
         super().setUp()
         self.dmesg = dmesg.DmesgFinder(disable_ratelimit=True)
-        self.sniffer = analyzer.Sniffer(
-            node=remote.tempesta, host="Tempesta", timeout=self.sniffer_timeout, ports=[8000]
-        )
 
     def _set_tempesta_config_with_server_retry_nonidempotent(self):
         self.get_tempesta().config.set_defconfig(
@@ -871,7 +868,9 @@ srv_group default {{
 
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
-        self.get_server("deproxy").drop_conn_when_request_received = True
+        server = self.get_server("deproxy")
+
+        server.drop_conn_when_request_received = True
 
         tempesta.config.set_defconfig(
             f"""
@@ -903,10 +902,8 @@ srv_group default {{
 """
         )
 
-        self.sniffer.start()
         tempesta.reload()
         client.send_request(client.create_request(method="GET", headers=[]), "504")
-        self.sniffer.stop()
 
         self.assertTrue(
             self.dmesg.find(
@@ -915,10 +912,9 @@ srv_group default {{
             DMESG_WARNING,
         )
 
-        forward_tries = len([p for p in self.sniffer.packets if p[TCP].flags & PSH])
         self.assertEqual(
             server_forward_retries + 1,
-            forward_tries,
+            len(server.requests),
             "Tempesta made forward attempts not equal to `server_forward_retries` after reload.",
         )
 
