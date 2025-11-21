@@ -83,7 +83,7 @@ class Stats(object):
         self.cl_rst_frame_exceeded = 0
         self.cl_settings_frame_exceeded = 0
         self.cl_ping_frame_exceeded = 0
-        self.cl_wnd_update_frame_exceeded = 0        
+        self.cl_wnd_update_frame_exceeded = 0
         self.srv_msg_received = 0
         self.srv_msg_forwarded = 0
         self.srv_msg_parsing_errors = 0
@@ -116,12 +116,17 @@ class Stats(object):
         self.cl_established_connections = self.parse_option(stats, "Client established connections")
         self.cl_conns_active = self.parse_option(stats, "Client connections active")
         self.cl_rx_bytes = self.parse_option(stats, "Client RX bytes")
-        self.cl_priority_frame_exceeded = self.parse_option(stats, "Client priority frames number exceeded")
+        self.cl_priority_frame_exceeded = self.parse_option(
+            stats, "Client priority frames number exceeded"
+        )
         self.cl_rst_frame_exceeded = self.parse_option(stats, "Client rst frames number exceeded")
-        self.cl_settings_frame_exceeded = self.parse_option(stats, "Client settings frames number exceeded")
+        self.cl_settings_frame_exceeded = self.parse_option(
+            stats, "Client settings frames number exceeded"
+        )
         self.cl_ping_frame_exceeded = self.parse_option(stats, "Client ping frames number exceeded")
-        self.cl_wnd_update_frame_exceeded = self.parse_option(stats, "Client window update frames number exceeded")
-
+        self.cl_wnd_update_frame_exceeded = self.parse_option(
+            stats, "Client window update frames number exceeded"
+        )
 
         self.srv_msg_received = self.parse_option(stats, "Server messages received")
         self.srv_msg_forwarded = self.parse_option(stats, "Server messages forwarded")
@@ -259,6 +264,7 @@ class TfwLogger(object):
     def tcp_port(self) -> int:
         return int(tf_cfg.cfg.get("TFW_Logger", "clickhouse_tcp_port"))
 
+
 class Config(object):
     """Creates Tempesta config file."""
 
@@ -287,10 +293,13 @@ class Config(object):
 
     def create_config_files(self) -> None:
         remote.tempesta.copy_file(self.config_name, self.get_config())
+        srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        plugin_path = f"{srcdir}/logger/access_log_plugin/access_log.so"
         if self._logger_config is not None:
             logger_config = {
                 "log_path": self._logger_config.log_path,
                 "access_log": {
+                    "plugin_path": plugin_path,
                     "host": self._logger_config.host,
                     "port": self._logger_config.tcp_port,
                     "user": self._logger_config.user,
