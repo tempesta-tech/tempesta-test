@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
+import threading
 
 from helpers import analyzer, dmesg, error, port_checks, remote
 from helpers.analyzer import PSH, TCP
@@ -271,6 +272,62 @@ frang_limits {{http_strict_host_checking false;}}
         client.restart()
         client.make_request(request)
         client.wait_for_response(strict=expected_response_on_444_port, timeout=1)
+
+
+class TestListenStartFail(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        }
+    ]
+
+    stop = False
+
+    @classmethod
+    def setUpClass(cls):
+        cert_path = f"{TEMPESTA_WORKDIR}/tempesta.crt"
+        key_path = f"{TEMPESTA_WORKDIR}/tempesta.key"
+        cgen = CertGenerator(cert_path, key_path, True)
+        remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
+        remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
+        super().setUpClass()
+
+    def __heavy_load(self):
+        while not self.stop:
+            with self.assertRaises(error.ProcessBadExitStatusException):
+                remote.tempesta.run_cmd("curl -i -k 127.0.0.1:443")
+
+    def test_start_failed_under_heavy_load(self):
+        server = self.get_server("deproxy")
+        server.start()
+        self.deproxy_manager.start()
+
+        t = threading.Thread(target=self.__heavy_load)
+        t.start()
+
+        self.get_tempesta().config.set_defconfig(
+            f"""
+            listen 8000 proto=http;
+            listen 82 proto=http;
+            listen 83 proto=http;
+            listen 443 proto=https;
+            listen 4423 proto=https;
+            listen 4433 proto=https;
+            tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+            tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+            tls_match_any_server_name;
+            frang_limits {{http_strict_host_checking false;}}
+        """
+        )
+        self.oops_ignore = ["ERROR"]
+        with self.assertRaises(error.ProcessBadExitStatusException):
+            self.get_tempesta().start()
+        self.stop = True
+        t.join()
 
 
 class TestServerReconf(tester.TempestaTest):
