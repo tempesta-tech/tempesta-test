@@ -115,12 +115,12 @@ class TestFrameworkCfg:
                 "Loggers": {
                     "stream_handler": "CRITICAL",
                     "file_handler": "INFO",  # logs/test.log
-                    "test": "INFO",  # test
-                    "tcp": "INFO",  # tcp
-                    "http": "INFO",  # http, https
-                    "env": "INFO",  # env logs (subprocess calls, environment settings)
-                    "service": "INFO",  # service logs (statefull, etc.)
-                    "dap": "INFO",  # DeproxyAutoParser
+                    "test": "DEBUG",  # test
+                    "tcp": "DEBUG",  # tcp
+                    "http": "DEBUG",  # http, https
+                    "env": "DEBUG",  # env logs (subprocess calls, environment settings)
+                    "service": "DEBUG",  # service logs (statefull, etc.)
+                    "dap": "DEBUG",  # DeproxyAutoParser
                 },
                 "Client": {
                     "ip": "127.0.0.2",
