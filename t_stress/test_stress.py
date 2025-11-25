@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 
-from helpers import dmesg, remote, tf_cfg
+from helpers import dmesg, remote, tf_cfg, networker, tempesta
 from helpers.deproxy import HttpMessage
 from t_frang.frang_test_case import FrangTestCase
 from test_suite import marks, tester
@@ -16,6 +16,8 @@ __copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
+TEMPESTA_WORKDIR = tf_cfg.cfg.get("Tempesta", "workdir")
+SERVER_RESOURCES = tf_cfg.cfg.get("Server", "resources")
 # Number of open connections
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
 # Number of threads to use for wrk and h2load tests
@@ -26,18 +28,39 @@ REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 # Time to wait for single request completion
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
-# MTU values to set for interfaces. 0 - do not change value.
-# There was errors when MTU is set to 80 (see Tempesta issue #1703)
-# Tempesta -> Client interface
-TEMPESTA_TO_CLIENT_MTU = int(tf_cfg.cfg.get("General", "stress_mtu"))
-# Tempesta -> Server interface
-TEMPESTA_TO_SERVER_MTU = int(tf_cfg.cfg.get("General", "stress_mtu"))
-# Server -> Tempesta interface
-SERVER_TO_TEMPESTA_MTU = int(tf_cfg.cfg.get("General", "stress_mtu"))
-
 # Backend response content size in bytes
 LARGE_CONTENT_LENGTH = int(tf_cfg.cfg.get("General", "stress_large_content_length"))
 
+# NGINX backend config with the large response and without server directive
+NGINX_LARGE_PAGE_CONFIG_EMPTY_SERVER = """
+pid ${pid};
+worker_processes  auto;
+#error_log /dev/stdout info;
+error_log /dev/null emerg;
+
+events {
+    worker_connections   1024;
+    use epoll;
+}
+
+http {
+    keepalive_timeout 65;
+    keepalive_requests 100;
+    sendfile         on;
+    tcp_nopush       on;
+    tcp_nodelay      on;
+
+    open_file_cache max=1000;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # Disable access log altogether.
+    access_log off;
+
+    %s
+}
+"""
 # NGINX backend config with the large page response
 NGINX_LARGE_PAGE_CONFIG = """
 pid ${pid};
@@ -150,96 +173,199 @@ class LargePageNginxBackendMixin:
         self.addCleanup(self.remove_large_page)
 
     def create_large_page(self):
-        server = self.get_server("nginx-large-page")
-        server.node.run_cmd(f"fallocate -l {self.nginx_backend_page_size} {self.large_page_path}")
+        remote.server.run_cmd(f"fallocate -l {self.nginx_backend_page_size} {self.large_page_path}")
 
     def remove_large_page(self):
-        server = self.get_server("nginx-large-page")
-        server.node.remove_file(str(self.large_page_path))
+        remote.server.remove_file(str(self.large_page_path))
 
 
-class LargePageNginxBackendMixinMTU80(LargePageNginxBackendMixin):
-    nginx_backend_page_size = int(LARGE_CONTENT_LENGTH / 16)
+@marks.parameterize_class(
+    [
+        {
+            "name": "NoCache",
+            "cache_config": "cache 0;",
+            "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            "backend_content_length": LARGE_CONTENT_LENGTH,
+        },
+        {
+            "name": "NoCacheMTU80",
+            "cache_config": "cache 0;",
+            "mtu": 80,
+            "backend_content_length": LARGE_CONTENT_LENGTH,
+        },
+        {
+            "name": "Cache",
+            "cache_config": "cache 2;\r\ncache_fulfill * *;",
+            "mtu": int(tf_cfg.cfg.get("General", "stress_mtu")),
+            "backend_content_length": LARGE_CONTENT_LENGTH // 16,
+        },
+    ]
+)
+class TestStress(tester.TempestaTest):
+    mtu: int
+    backend_content_length: int
+    server_interfaces_n = 8
+    server_listeners_per_interface_n = 64
+    cache_config: str = ""
+    large_page_path = Path(tf_cfg.cfg.get("Server", "resources")) / "large.html"
 
+    tempesta_config_template =  f"""
+listen 80 proto=http;
+listen 443 proto=h2,https;
 
-class BaseWrk(tester.TempestaTest):
-    """Base class for `wrk` stress tests."""
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+tls_match_any_server_name;
 
-    concurrent_connections = CONCURRENT_CONNECTIONS
-    threads = THREADS
-    timeout = 20
-    duration = DURATION
+frang_limits {{ http_strict_host_checking false; }}
+max_concurrent_streams 10000;
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(1))
-
-    def _test_concurrent_connections(self):
-        self.start_all()
-        wrk = self.get_client("wrk")
-        wrk.set_script("foo", content='wrk.method="GET"')
-        wrk.connections = self.concurrent_connections
-        wrk.duration = int(self.duration)
-        wrk.threads = self.threads
-        wrk.timeout = 0
-
-        wrk.start()
-        self.wait_while_busy(wrk, timeout=self.timeout)
-        wrk.stop()
-
-        self.assertGreater(wrk.statuses.get(200, 0), 0)
-
-
-class BaseWrkStress(BaseWrk, base=True):
-    tempesta = {
-        "config": """
-            listen 80 proto=http;
-            server ${server_ip}:8000;
-            cache 0;
-            frang_limits {http_strict_host_checking false;}
-        """
-    }
+"""
 
     clients = [
         {
-            "id": "wrk",
-            "type": "wrk",
-            "addr": "${tempesta_ip}:80/1",
+            "id": "h2load",
+            "type": "external",
+            "binary": "h2load",
+            "cmd_args": "",
         },
     ]
 
-    @marks.set_stress_mtu
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": NGINX_LARGE_PAGE_CONFIG_EMPTY_SERVER,
+        }
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._create_large_page()
+        # Cleanup part
+        cls.addClassCleanup(cls._remove_large_page)
+
+    @classmethod
+    def _create_large_page(cls):
+        remote.server.run_cmd(f"fallocate -l {cls.backend_content_length} {cls.large_page_path}")
+
+    @classmethod
+    def _remove_large_page(cls):
+        remote.server.remove_file(str(cls.large_page_path))
+
+    def _add_nginx_backends(self, server_listeners: list[str]) -> None:
+        nginx = self.get_server('nginx')
+        servers_config = ""
+        for grp in server_listeners:
+            for listener in grp:
+                servers_config += f"\tlisten  {listener};\r\n"
+        nginx.config.config = nginx.config.config % f"""
+            server {{
+                {servers_config}
+                listen 8000;
+                location / {{
+                    root {SERVER_RESOURCES};
+                    try_files /large.html =404;
+                }}
+                location /nginx_status {{ stub_status on; }}
+            }}
+        """
+
+    def _generate_tempesta_config_with_multiple_srv_group(self, server_listeners: list[str]) -> None:
+        tempesta = self.get_tempesta()
+        srv_groups_config = ""
+        vhost_config = ""
+        http_chains_config = ""
+        for i, grp in enumerate(server_listeners):
+            servers_config = ""
+            for server in grp:
+                servers_config += f"\tserver {server};\r\n"
+            srv_groups_config += f"srv_group grp_{i} {{\r\n{servers_config}}}\r\n"
+            vhost_config += f"vhost vhost_{i} {{ proxy_pass grp_{i}; }}\r\n"
+            http_chains_config += f'\turi == "/{i}/large.html" -> vhost_{i};\r\n'
+
+        tempesta.config.defconfig = (
+            self.cache_config
+            + self.tempesta_config_template
+            + srv_groups_config
+            + vhost_config
+            + f"http_chain {{\r\n{http_chains_config}\t-> vhost_{i};\r\n}}\r\n"
+        )
+
+    def _generate_server_listener_list(self, ips: list[str]) -> list[str]:
+        base_port = 16384
+        server_listeners = []
+        for ip_ in ips:
+            srv_grp = []
+            for _ in range(self.server_interfaces_n):
+                srv_grp.append(f"{ip_}:{base_port}")
+                base_port += 1
+            server_listeners.append(srv_grp)
+        return server_listeners
+
+    def _check_servers_requests(self, server_listeners: list[str]) -> None:
+        tfw = self.get_tempesta()
+        if "cache 0" in self.cache_config:  # The current tests use the same uri
+            for i, grp in enumerate(server_listeners):
+                for listener in grp:
+                    stats = tempesta.ServerStats(
+                        tempesta=tfw, sg_name=f"grp_{i}", srv_ip=listener.split(":")[0], srv_port=listener.split(":")[1]
+                    )
+                    self.assertGreater(
+                        stats.health_statuses.get(200, 0),
+                        0,
+                        f"'{listener}' server in grp_{i} srv_group don't receive requests from Tempesta FW."
+                    )
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="http", proto="http", tfw_port=80, http_option="--h1"),
+            marks.Param(name="https", proto="https", tfw_port=443, http_option="--h1"),
+            marks.Param(name="h2", proto="https", tfw_port=443, http_option=""),
+        ]
+    )
     @dmesg.limited_rate_on_tempesta_node
-    def test_concurrent_connections(self):
-        self._test_concurrent_connections()
+    def test(self, name, proto, tfw_port, http_option):
+        with networker.change_mtu_and_restore_interfaces(mtu=self.mtu, disable_pmtu=False):
+            with networker.create_and_cleanup_interfaces(
+                node=remote.server, number_of_ip=self.server_interfaces_n
+            ) as ips:
+                server_listeners = self._generate_server_listener_list(ips)
+                self._generate_tempesta_config_with_multiple_srv_group(server_listeners)
+                self._add_nginx_backends(server_listeners)
+
+                self.start_all_services(client=False)
+
+                client = self.get_client("h2load")
+                tempesta_ip = tf_cfg.cfg.get('Tempesta', 'ip')
+                urls = " ".join(
+                    [f"{proto}://{tempesta_ip}:{tfw_port}/{i}/large.html" for i in range(self.server_interfaces_n)]
+                )
+                client.options = [
+                    f" {urls} {http_option} "
+                    f"--clients {CONCURRENT_CONNECTIONS} --threads {THREADS} "
+                    f"--max-concurrent-streams {REQUESTS_COUNT} --duration {DURATION}"
+                ]
+
+                client.start()
+                self.wait_while_busy(client, timeout=DURATION * 10) # The MTU80 tests require more time
+                client.stop()
+
+                self.assertEqual(client.returncode, 0)
+                self.assertNotIn(" 0 2xx, ", client.response_msg, client.response_msg)
+                self._check_servers_requests(server_listeners)
 
 
-class WrkStress(LargePageNginxBackendMixin, BaseWrkStress):
-    """HTTP stress test generated by `wrk` with concurrent connections."""
-
-    pass
-
-
-class WrkStressMTU80(LargePageNginxBackendMixinMTU80, BaseWrkStress):
-    concurrent_connections = CONCURRENT_CONNECTIONS
-    threads = THREADS
-    timeout = 200
-    duration = 100
-
+class TlsWrkStressDocker(tester.TempestaTest):
     """
-    Nginx doesn't work with MTU80, so set it to 100 (only
-    Tempesta FW works with MTU80.
+    HTTPS stress test generated by `wrk` with concurrent connections and
+    docker backend. This test was implemented to reproduce memory leak
+    during tls encryption. Docker backend sends response with
+    SKBTX_SHARED_FRAG shared flag, Tempesta FW should copy such skbs,
+    and there was a memory leak during new skb allocation.
     """
-
-    @marks.set_mtu(mtu=80, disable_pmtu=True)
-    @dmesg.limited_rate_on_tempesta_node
-    def test_concurrent_connections(self):
-        self._test_concurrent_connections()
-
-
-class TlsWrkStressBase:
-    """Base class for `wrk` tls stress tests."""
 
     tempesta = {
         "config": """
@@ -262,22 +388,6 @@ class TlsWrkStressBase:
         },
     ]
 
-
-class TlsWrkStress(LargePageNginxBackendMixin, TlsWrkStressBase, BaseWrkStress):
-    """HTTPS stress test generated by `wrk` with concurrent connections."""
-
-    pass
-
-
-class TlsWrkStressDocker(TlsWrkStressBase, BaseWrk):
-    """
-    HTTPS stress test generated by `wrk` with concurrent connections and
-    docker backend. This test was implemented to reproduce memory leak
-    during tls encryption. Docker backend sends response with
-    SKBTX_SHARED_FRAG shared flag, Tempesta FW should copy such skbs,
-    and there was a memory leak during new skb allocation.
-    """
-
     backends = [
         {
             "id": "python_hello",
@@ -292,19 +402,19 @@ class TlsWrkStressDocker(TlsWrkStressBase, BaseWrk):
     @marks.check_memory_consumption
     @dmesg.limited_rate_on_tempesta_node
     def test_concurrent_connections(self):
-        self._test_concurrent_connections()
+        self.start_all_services(client=False)
+        wrk = self.get_client("wrk")
+        wrk.set_script("foo", content='wrk.method="GET"')
+        wrk.connections = CONCURRENT_CONNECTIONS
+        wrk.duration = int(DURATION)
+        wrk.threads = THREADS
+        wrk.timeout = 0
 
+        wrk.start()
+        self.wait_while_busy(wrk, timeout=20)
+        wrk.stop()
 
-class TlsWrkStressMTU80(LargePageNginxBackendMixinMTU80, TlsWrkStressBase, BaseWrkStress):
-    concurrent_connections = CONCURRENT_CONNECTIONS
-    threads = THREADS
-    timeout = 200
-    duration = 100
-
-    @marks.set_mtu(mtu=80, disable_pmtu=True)
-    @dmesg.limited_rate_on_tempesta_node
-    def test_concurrent_connections(self):
-        self._test_concurrent_connections()
+        self.assertGreater(wrk.statuses.get(200, 0), 0)
 
 
 class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True):
@@ -544,106 +654,6 @@ class H2CurlStress(BaseCurlStress):
     def setUp(self):
         self.clients = [{**client, "http2": True} for client in self.clients]
         super().setUp()
-
-
-class H2LoadStressBase(tester.TempestaTest):
-    """
-    HTTP/2 stress test generated by`h2load`,
-    with multiple streams per connection.
-    """
-
-    tempesta = {
-        "config": """
-            listen 443 proto=h2;
-            server ${server_ip}:8000;
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-            max_concurrent_streams 10000;
-            frang_limits {http_strict_host_checking false;}
-        """
-    }
-
-    clients = [
-        {
-            "id": "h2load",
-            "type": "external",
-            "binary": "h2load",
-            "ssl": True,
-            "cmd_args": "",
-        },
-    ]
-
-    def start_all(self, cache_mode):
-        tempesta: Tempesta = self.get_tempesta()
-        tempesta.config.defconfig += cache_mode
-
-        h2load = self.get_client("h2load")
-        h2load.options = [
-            f" https://%s --clients %s --threads %s --max-concurrent-streams %s --duration %s"
-            % (
-                tf_cfg.cfg.get("Tempesta", "ip"),
-                self.concurrent_connections,
-                self.threads,
-                self.request_count,
-                self.duration,
-            )
-        ]
-
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(1))
-
-
-class H2LoadStress(LargePageNginxBackendMixin, H2LoadStressBase):
-    concurrent_connections = CONCURRENT_CONNECTIONS
-    threads = THREADS
-    request_count = REQUESTS_COUNT
-    timeout = 20
-    duration = DURATION
-
-    @marks.Parameterize.expand(
-        [
-            marks.Param(name="no_cache", cache_mode="cache 0;\r\n"),
-            marks.Param(name="with_cache", cache_mode="cache 2;\r\ncache_fulfill * *;\r\n"),
-        ]
-    )
-    @marks.set_stress_mtu
-    @dmesg.limited_rate_on_tempesta_node
-    def test(self, name, cache_mode):
-        self.start_all(cache_mode)
-        client = self.get_client("h2load")
-        client.start()
-        self.wait_while_busy(client, timeout=self.timeout)
-        client.stop()
-        self.assertEqual(client.returncode, 0)
-        self.assertNotIn(" 0 2xx, ", client.response_msg)
-
-
-class H2LoadStressMTU80(LargePageNginxBackendMixinMTU80, H2LoadStressBase):
-    concurrent_connections = int(CONCURRENT_CONNECTIONS / 2)
-    threads = THREADS
-    request_count = REQUESTS_COUNT
-    timeout = 200
-    duration = 100
-
-    @marks.Parameterize.expand(
-        [
-            marks.Param(name="no_cache", cache_mode="cache 0;\r\n"),
-            marks.Param(name="with_cache", cache_mode="cache 2;\r\ncache_fulfill * *;\r\n"),
-        ]
-    )
-    @marks.set_mtu(mtu=80, disable_pmtu=True)
-    @dmesg.limited_rate_on_tempesta_node
-    def test(self, name, cache_mode):
-        self.start_all(cache_mode)
-        client = self.get_client("h2load")
-        client.duration = self.duration
-        client.start()
-        self.wait_while_busy(client, timeout=self.timeout)
-        client.stop()
-        self.assertEqual(client.returncode, 0)
-        self.assertNotIn(" 0 2xx, ", client.response_msg)
 
 
 class RequestStress(tester.TempestaTest):

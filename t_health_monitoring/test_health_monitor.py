@@ -362,7 +362,6 @@ class TestHealthStatServer(tester.TempestaTest):
             s.set_response(f"HTTP/1.1 {status} FOO\r\nContent-Length: 0\r\n\r\n")
             c.send_request(c.simple_get, expected_status_code=str(status))
 
-        stats.collect()
         # 200 is always enabled, even if another status codes are configured explicitly
         self.assertEqual(stats.health_statuses[200], 1)
         self.assertEqual(stats.health_statuses[400], 2)
