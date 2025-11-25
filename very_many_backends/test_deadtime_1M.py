@@ -133,9 +133,7 @@ class DontModifyBackend(stress.StressTest):
         self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
         self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
         self.networker = NetWorker(node=remote.server)
-        self.ips = self.networker.create_interfaces(
-            self.interface, self.base_ip, self.num_extra_interfaces + 1
-        )
+        self.ips = self.networker.create_interfaces(self.num_extra_interfaces + 1)
         super().setUp()
         # Cleanup part
         self.addCleanup(self.cleanup_interfaces)
@@ -146,8 +144,8 @@ class DontModifyBackend(stress.StressTest):
             self.client.stop()
 
     def cleanup_interfaces(self):
-        for ip in self.ips:
-            self.networker.remove_interface(self.interface, ip)
+        for ip_ in self.ips:
+            self.networker.remove_interface(ip_)
         self.ips = []
 
     def cleanup_check_client_error(self):
