@@ -251,14 +251,14 @@ class MultipleBackends(stress.StressTest):
         self.addCleanup(self.cleanup_tempesta)
 
     def cleanup_interfaces(self):
-        self.networker.remove_interfaces(self.interface, self.ips)
+        self.networker.remove_interfaces(self.ips)
         self.ips = []
 
     def create_servers(self):
         self.interface = tf_cfg.cfg.get("Server", "aliases_interface")
         self.base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
         self.networker = networker.NetWorker(node=remote.server)
-        self.ips = self.networker.create_interfaces(self.interface, self.base_ip, self.num_interfaces)
+        self.ips = self.networker.create_interfaces(self.num_interfaces)
         for ip in self.ips:
             server = NginxMP(
                 listen_port=self.base_port, ports_n=self.num_listeners_per_interface, listen_ip=ip

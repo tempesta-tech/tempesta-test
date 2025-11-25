@@ -22,6 +22,11 @@ class NetWorker:
         self._tcp_options = dict()
 
         self._node: remote.ANode = node
+        self._dst_node = self._get_dst_node()
+
+        self._gateway_ip = tf_cfg.cfg.get(self._node.type, "ip")
+        self._interface_name = tf_cfg.cfg.get("Server", "aliases_interface")
+        self._base_interface_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
         self._interface: str = self._route_dst_ip(ip=self._get_dst_ipv4())
         self._prev_ipv6_addresses: list[str] = self._get_ipv6_addresses()
         self._prev_mtu: int = self._get_mtu()
@@ -47,6 +52,10 @@ class NetWorker:
     def ip_number_to_str(ip_addr) -> str:
         """Convert ip in numeric form to string"""
         return socket.inet_ntoa(struct.pack("!L", ip_addr))
+
+    def _get_dst_node(self) -> remote.ANode:
+        node_dict = {remote.LocalNode: remote.tempesta, remote.RemoteNode: remote.server}
+        return node_dict.get(type(self._node))
 
     def _route_dst_ip(self, ip: str) -> str:
         """Determine outgoing interface for the IP."""
@@ -142,67 +151,73 @@ class NetWorker:
         for option_name, option_value in self._tcp_options.items():
             self.set_tcp_option(option_name, option_value)
 
-    def create_interface(self, iface_id: int, base_iface_name: str, base_ip: str) -> tuple[str, str]:
+    def create_interface(self, iface_id: int) -> tuple[str, str]:
         """Create interface alias for listeners on nginx machine"""
-        base_ip_addr = self.ip_str_to_number(base_ip)
+        base_ip_addr = self.ip_str_to_number(self._base_interface_ip)
         iface_ip_addr = base_ip_addr + iface_id
         iface_ip = self.ip_number_to_str(iface_ip_addr)
 
-        iface = f"{base_iface_name}:{iface_id}"
+        iface = f"{self._interface_name}:{iface_id}"
 
         try:
             test_logger.info(f"Adding ip {iface_ip}")
-            self._node.run_cmd(f"LANG=C ip address add {iface_ip}/24 dev {base_iface_name} label {iface}")
+            self._node.run_cmd(f"LANG=C ip address add {iface_ip}/24 dev {self._interface_name} label {iface}")
         except:
             test_logger.warning("Interface alias already added")
 
         return iface, iface_ip
 
-    def remove_interface(self, interface_name: str, iface_ip: str) -> None:
+    def remove_interface(self, ip_: str) -> None:
         """Remove interface"""
-        if self._check_ssh_ip_addr(iface_ip):
+        if self._check_ssh_ip_addr(ip_):
             try:
-                test_logger.info(f"Removing ip {iface_ip}")
-                self._node.run_cmd(f"LANG=C ip address del {iface_ip}/24 dev {interface_name}")
+                test_logger.info(f"Removing ip {ip_}")
+                self._node.run_cmd(f"LANG=C ip address del {ip_}/24 dev {self._interface_name}")
+                test_logger.info("Interface alias already removed")
             except:
-                test_logger.warning("Interface alias already removed")
+                test_logger.warning("Interface alias not removed")
 
-    def create_interfaces(self, base_interface_name: str, base_interface_ip: str, number_of_ip: int) -> list[str]:
+    def create_interfaces(self, number_of_ip: int) -> list[str]:
         """Create specified amount of interface aliases"""
         ips = []
         for i in range(number_of_ip):
-            (_, ip) = self.create_interface(i, base_interface_name, base_interface_ip)
+            (_, ip) = self.create_interface(i)
             ips.append(ip)
         return ips
 
-    def remove_interfaces(self, base_interface_name: str, ips: list[str]) -> None:
+    def remove_interfaces(self, ips: list[str]) -> None:
         """Remove previously created interfaces"""
         for ip in ips:
-            self.remove_interface(base_interface_name, ip)
+            self.remove_interface(ip)
 
-    def create_route(self, base_iface_name: str, ip: str, gateway_ip: str) -> None:
+    def create_route(self, ip_: str) -> None:
         """Create route"""
         try:
-            test_logger.info(f"Adding route for {ip}")
-            remote.tempesta.run_cmd(f"LANG=C ip route add {ip} via {gateway_ip} dev {base_iface_name}")
+            test_logger.info(f"Adding route for {ip_}")
+            self._dst_node.run_cmd(f"LANG=C ip route add {ip_} via {self._gateway_ip} dev {self._interface_name}")
+            test_logger.info("Route already added")
         except:
-            test_logger.warning("Route already added")
-        return
+            test_logger.warning("Route not added")
 
-    def remove_route(self, interface_name: str, ip: str):
+    def create_routes(self, ips: list[str]) -> None:
+        for ip_ in ips:
+            self.create_route(ip_)
+
+    def remove_route(self, ip_: str):
         """Remove route"""
         # we must not remove Tempesta and server IPs because it's break the ssh connection
-        if self._check_ssh_ip_addr(ip):
+        if self._check_ssh_ip_addr(ip_):
             try:
-                test_logger.info(f"Removing route for {ip}")
-                remote.tempesta.run_cmd(f"LANG=C ip route del {ip} dev {interface_name}")
+                test_logger.info(f"Removing route for {ip_}")
+                self._dst_node.run_cmd(f"LANG=C ip route del {ip_} dev {self._interface_name}")
+                test_logger.info("Route already removed")
             except:
-                test_logger.warning("Route already removed")
+                test_logger.warning("Route not removed")
 
-    def remove_routes(self, base_interface_name: str, ips: list[str]) -> None:
+    def remove_routes(self, ips: list[str]) -> None:
         """Remove previously created routes"""
-        for ip in ips:
-            self.remove_route(base_interface_name, ip)
+        for ip_ in ips:
+            self.remove_route(ip_)
 
 
 @contextmanager
@@ -246,14 +261,17 @@ def change_and_restore_tcp_options(*, mtu: int, tcp_options: dict[str, str]) -> 
             for networker in networkers:
                 networker.restore_tcp_options()
 
+
 @contextmanager
 def create_and_cleanup_interfaces(
-    *, node: remote.ANode, base_interface_name: str, base_interface_ip: str, number_of_ip: int
+    *, node: remote.ANode, number_of_ip: int
 ) -> Generator[list[str], Any, None]:
     networker = NetWorker(node)
     ips = []
     try:
-        ips = networker.create_interfaces(base_interface_name, base_interface_ip, number_of_ip)
+        ips = networker.create_interfaces(number_of_ip)
+        networker.create_routes(ips)
         yield ips
     finally:
-        networker.remove_interfaces(base_interface_name, ips)
+        networker.remove_routes(ips)
+        networker.remove_interfaces(ips)
