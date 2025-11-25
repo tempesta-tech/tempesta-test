@@ -66,10 +66,10 @@ srv_group default {{
         return f"{server.bind_addr}:{server.port}"
 
     def check_established_sockets(self, server_ip_and_port: str, expected_n: int, msg: str | None = None) -> None:
-        self.assertEqual(self._get_sock_estab_count(server_ip_and_port), expected_n, msg)
+        self.assertWaitUntilEqual(lambda : self._get_sock_estab_count(server_ip_and_port), expected_n, msg)
 
     def check_total_sockets(self, server_ip_and_port: str, expected_n: int, msg: str | None = None) -> None:
-        self.assertEqual(self._get_sock_count(server_ip_and_port), expected_n, msg)
+        self.assertWaitUntilEqual(lambda : self._get_sock_count(server_ip_and_port), expected_n, msg)
 
     def test_available(self):
         """
