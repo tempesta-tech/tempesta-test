@@ -392,8 +392,8 @@ class Config(object):
         )
         self._tls_certificate = _cfg.get("tls_certificate", None)
         self._tls_certificate_key = _cfg.get("tls_certificate_key", None)
-        if "mmap" in _cfg.get("access_log", ""):
-            self.mmap = _cfg.get("access_log", "")
+        if "mmap" in _cfg.get("events_log", ""):
+            self.mmap = _cfg.get("events_log", "")
 
     def set_defconfig(
         self, config: str, custom_cert: bool = False, tfw_config: Optional[TfwLogger] = None
