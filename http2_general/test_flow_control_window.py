@@ -13,15 +13,6 @@ from http2_general.helpers import H2Base
 from test_suite import asserts, marks
 
 
-def encode_chunked(data, chunk_size=256):
-    result = ""
-    while len(data):
-        chunk, data = data[:chunk_size], data[chunk_size:]
-        result += f"{hex(len(chunk))[2:]}\r\n"
-        result += f"{chunk}\r\n"
-    return result + "0\r\n\r\n"
-
-
 class TestFlowControl(H2Base, asserts.Sniffer):
     def _initiate_client_and_server(self, response: str):
         self.start_all_services()
@@ -66,7 +57,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
                 + "Server: debian\r\n"
                 + "Transfer-Encoding: chunked\r\n"
                 + "Trailer: X-Token\r\n\r\n"
-                + encode_chunked(2000 * "x", 16)[:-2]
+                + util.encode_chunked(2000 * "x", 16)[:-2]
                 + "X-Token: value\r\n\r\n",
             ),
         ]
@@ -274,7 +265,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         )
         client.assert_error_code(
             expected_error_code=ErrorCodes.PROTOCOL_ERROR,
-            msg="Tempesta did not forward the GOAWAY frame when a window size is 0."
+            msg="Tempesta did not forward the GOAWAY frame when a window size is 0.",
         )
         sniffer.stop()
         self.assert_fin_socks(sniffer.packets, [client])

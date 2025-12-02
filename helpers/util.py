@@ -72,3 +72,26 @@ def fill_template(template: str | None, properties: dict) -> str | None:
     if template is None:
         return None
     return Template(template).substitute(properties)
+
+
+def encode_chunked(data: str | None, chunk_size: int) -> str:
+    if data is None:
+        return ""
+    result = ""
+    while len(data):
+        chunk, data = data[:chunk_size], data[chunk_size:]
+        result += f"{hex(len(chunk))[2:]}\r\n"
+        result += f"{chunk}\r\n"
+    return result + "0\r\n\r\n"
+
+
+def decode_chunked(data: str | None) -> str:
+    if data is None:
+        return ""
+    data = data.split("\r\n")
+    data = [(int(length, base=16), chunk) for length, chunk in zip(data[::2], data[1::2])]
+    result = ""
+    for length, chunk in data:
+        if not length:
+            return result
+        result += chunk[:length]

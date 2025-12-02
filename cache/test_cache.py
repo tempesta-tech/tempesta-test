@@ -11,7 +11,7 @@ from http import HTTPStatus
 from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
-from helpers import deproxy, error, remote
+from helpers import deproxy, error, remote, util
 from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from test_suite import checks_for_tests as checks
@@ -2107,14 +2107,6 @@ vhost default {
         }
     ]
 
-    def encode_chunked(self, data, chunk_size=256):
-        result = ""
-        while len(data):
-            chunk, data = data[:chunk_size], data[chunk_size:]
-            result += f"{hex(len(chunk))[2:]}\r\n"
-            result += f"{chunk}\r\n"
-        return result + "0\r\n\r\n"
-
     def start_and_check_first_response(self, client, method, response):
         self.start_all_services()
 
@@ -2169,7 +2161,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: X-Token1 X-Token2\r\n\r\n"
-            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + util.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
         )
@@ -2385,7 +2377,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + f"Trailer: {tr1} {tr2}\r\n\r\n"
-            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + util.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"{tr1}: {tr1_val}\r\n"
             + f"{tr2}: {tr2_val}\r\n\r\n"
         )
@@ -2460,7 +2452,7 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: X-Token1 X-Token2\r\n\r\n"
-            + self.encode_chunked(string.ascii_letters, 16)[:-2]
+            + util.encode_chunked(string.ascii_letters, 16)[:-2]
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
         )
