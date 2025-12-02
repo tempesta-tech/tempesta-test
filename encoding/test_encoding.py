@@ -1,8 +1,8 @@
 import copy
-import string
 import random
+import string
 
-from helpers import deproxy
+from helpers import deproxy, util
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -42,25 +42,6 @@ class CommonUtils:
         client.make_request(request)
         got_response = client.wait_for_response(timeout=5)
         return got_response
-
-    def encode_chunked(self, data, chunk_size=256):
-        if data is None:
-            return ""
-        result = ""
-        while len(data):
-            chunk, data = data[:chunk_size], data[chunk_size:]
-            result += f"{hex(len(chunk))[2:]}\r\n"
-            result += f"{chunk}\r\n"
-        return result + "0\r\n\r\n"
-
-    def decode_chunked(self, data):
-        data = data.split("\r\n")
-        data = [(int(length, base=16), chunk) for length, chunk in zip(data[::2], data[1::2])]
-        result = ""
-        for length, chunk in data:
-            if not length:
-                return result
-            result += chunk[:length]
 
 
 class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
@@ -117,7 +98,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
     def setUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
-        self.backends[0]["response_content"] += self.encode_chunked(self.body, self.chunk_size)
+        self.backends[0]["response_content"] += util.encode_chunked(self.body, self.chunk_size)
         super().setUp()
 
     def run_test(self, method, body_expected):
@@ -412,7 +393,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
     def setUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
-        self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
+        self.backends[0]["response_content"] += util.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
     def test(self):
@@ -527,7 +508,7 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
     def setUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
-        self.backends[0]["response_content"] += self.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
+        self.backends[0]["response_content"] += util.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
     def test(self):
@@ -616,7 +597,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
     def setUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += (
-            self.encode_chunked(self.payload, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
+            util.encode_chunked(self.payload, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
         )
         super().setUp()
 
