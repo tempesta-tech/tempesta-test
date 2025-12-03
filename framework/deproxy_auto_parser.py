@@ -185,7 +185,17 @@ class DeproxyAutoParser:
         Tempesta changes request method from 'PURGE' to 'GET'.
         And changes 'HEAD' to 'GET' when cache is enabled.
         """
-        if request.method == "PURGE" or (request.method == "HEAD" and self.__cache_on_tempesta):
+        has_no_cache = False
+        cachecontrol = request.headers.get("cache-control")
+        if cachecontrol:
+            cachecontrol = cachecontrol.split(",")
+            for name in cachecontrol:
+                if name.strip() == "no-cache":
+                    has_no_cache = True
+                    break
+        if request.method == "PURGE" or (
+            request.method == "HEAD" and self.__cache_on_tempesta and not has_no_cache
+        ):
             dbg(
                 4,
                 self.__dbg_msg.format(
