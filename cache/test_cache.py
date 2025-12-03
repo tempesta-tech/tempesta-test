@@ -2068,6 +2068,81 @@ cache_fulfill * *;
         self.assertTrue(self.loggers.dmesg.find(expected_msg))
 
 
+@marks.parameterize_class(
+    [
+        {"name": "Http", "clients": [DEPROXY_CLIENT]},
+        {"name": "H2", "clients": [DEPROXY_CLIENT_H2]},
+    ]
+)
+class TestCacheHeadToGetNoCache(tester.TempestaTest):
+    """
+    Tests ensures that responses to HEAD requests which contains "cache-control: no-cache"
+    will not be cached. By default Tempesta caches responses for requests with "no-cache",
+    however for HEAD requests Tempesta dosn't do this, because such requests forward to upstream
+    as is without HEAD to GET overriding, thus Tempesta could cache response to HEAD request that
+    forbidden by design.
+    """
+
+    tempesta = {
+        "config": """
+listen 80 proto=http;
+listen 443 proto=h2;
+
+srv_group default {
+    server ${server_ip}:8000;
+}
+tls_match_any_server_name;
+vhost default {
+    proxy_pass default;
+    tls_certificate ${tempesta_workdir}/tempesta.crt;
+    tls_certificate_key ${tempesta_workdir}/tempesta.key;
+}
+
+frang_limits {
+   http_strict_host_checking false;
+   concurrent_tcp_connections 100000;
+   #http_methods GET HEAD PURGE POST PUT unknown;
+}
+
+cache 2;
+cache_fulfill * *;
+cache_methods GET HEAD;
+
+http_chain {
+    -> default;
+    }
+"""
+    }
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": f"HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Length: {len(string.ascii_letters)}\r\n\r\n{string.ascii_letters}",
+        }
+    ]
+
+    def test(self):
+        client = self.get_client("deproxy")
+        self.start_all_services()
+
+        first_request = client.create_request(
+            method="HEAD", headers=[("cache-control", "max-stale=1000, no-cache, max-age=10000")]
+        )
+        client.send_request(first_request, "200")
+        # Expected response to HEAD from upstream
+        self.assertIsNone(client.last_response.headers.get("age"))
+
+        client.restart()
+        second_request = client.create_request(method="GET", headers=[])
+        client.send_request(second_request, "200")
+        # Expected response to GET from upstream
+        self.assertIsNone(client.last_response.headers.get("age"))
+        self.assertEqual(client.last_response.body, string.ascii_letters)
+
+
 class TestCacheResponseWithTrailersBase(tester.TempestaTest):
     tempesta = {
         "config": """
