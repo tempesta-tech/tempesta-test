@@ -1569,6 +1569,13 @@ http_chain {
 
         self.assertEqual(1 if should_be_cached else 2, len(server.requests))
 
+    def test_cache_disable_ensure_not_cached(self):
+        self.base_scenario(
+            request_headers=[("cookie", "wordpress_logged_in=true")],
+            second_request_headers=[],
+            should_be_cached=False,
+        )
+
     def test_cache_disable(self):
         self.base_scenario(
             request_headers=[("cookie", "wordpress_logged_in=true")],
