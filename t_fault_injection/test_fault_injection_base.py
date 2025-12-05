@@ -8,7 +8,7 @@ import re
 import time
 
 from helpers import deproxy, dmesg, error, remote, tf_cfg
-from helpers.deproxy import HttpMessage, MAX_MESSAGE_SIZE
+from helpers.deproxy import MAX_MESSAGE_SIZE, HttpMessage
 from test_suite import marks, tester
 
 # Number of open connections
@@ -2100,3 +2100,80 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
 
         # expect not cached response
         self.assertIsNone(client.last_response.headers.get("age", None), None)
+
+
+class TestFailFunctionMsgAdjust(TestFailFunctionBase):
+    tempesta = {
+        "config": """
+            listen 80;
+            listen 443 proto=h2;
+
+            tls_certificate ${tempesta_workdir}/tempesta.crt;
+            tls_certificate_key ${tempesta_workdir}/tempesta.key;
+            tls_match_any_server_name;
+
+            server ${server_ip}:8000;
+
+            frang_limits {
+                http_strict_host_checking false;
+            }
+
+            access_log dmesg;
+    """
+    }
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="tfw_h1_add_x_forwarded_for",
+                func_name="tfw_h1_add_x_forwarded_for",
+                client="deproxy",
+                expected_code="500",
+            ),
+            marks.Param(
+                name="__h2_write_method",
+                func_name="__h2_write_method",
+                client="deproxy_h2",
+                expected_code="500",
+            ),
+            marks.Param(
+                name="tfw_h1_resp_copy_hdrs",
+                func_name="tfw_h1_resp_copy_hdrs",
+                client="deproxy",
+                expected_code="500",
+            ),
+        ]
+    )
+    def test(
+        self,
+        name,
+        func_name,
+        client,
+        expected_code,
+    ):
+        """
+        Test the response on message adjusting failure. Keep access log on it adds coverage.
+        """
+        server = self.get_server("deproxy")
+        self.start_all_services()
+
+        TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, 0, -4089)
+
+        server.set_response(
+            deproxy.Response.create(
+                status="200",
+                headers=[("Content-Length", "0")],
+                date=deproxy.HttpMessage.date_time_string(),
+            )
+        )
+
+        client = self.get_client(client)
+        client.send_request(
+            client.create_request(
+                method="GET",
+                uri="/",
+                headers=[],
+            ),
+            expected_code,
+            3,
+        )
