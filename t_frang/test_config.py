@@ -4,9 +4,12 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from hyperframe.frame import DataFrame, HeadersFrame
 
 from helpers.dmesg import (
+    amount_equals,
     amount_positive,
     limited_rate_on_tempesta_node,
     unlimited_rate_on_tempesta_node,
@@ -257,6 +260,13 @@ class TestOverridingInheritance(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "80",
         },
+        {
+            "id": "another-ip",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+            "interface": True,
+        },
     ]
 
     tempesta = {
@@ -306,6 +316,106 @@ block_action error reply;
             client.create_request(method="POST", headers=[("x-my-xdr", "a" * 150)]), "403"
         )
         self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="ip_block_before_vh1",
+                config="""
+                    block_action attack drop;
+                    frang_limits {http_hdr_len 100; ip_block 0;}
+                    vhost vh1 { proxy_pass default;}
+                    frang_limits {http_hdr_len 100;}
+                    vhost vh2 { proxy_pass default;}
+
+                    http_chain {
+                        host == "block-me" -> vh1;
+                        -> vh2;
+                    }
+                """,
+            ),
+            marks.Param(
+                name="ip_block_before_vh2",
+                config="""
+                    block_action attack drop;
+                    frang_limits {http_hdr_len 100;}
+                    vhost vh1 { proxy_pass default;}
+                    frang_limits {http_hdr_len 100; ip_block 0;}
+                    vhost vh2 { proxy_pass default;}
+
+                    http_chain {
+                        host == "vh1" -> vh1;
+                        -> vh2;
+                    }
+                """,
+            ),
+        ]
+    )
+    @unlimited_rate_on_tempesta_node
+    def test_ip_block_unset_in_global_config(self, name, config):
+        """
+        Tempesta config has two global `frang_limits` one contains `ip_block` and another one
+        doesn't that means ip block is off. However in this case `ip_block` is always on.
+        """
+        self.__update_tempesta_config(config)
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.make_request(
+            client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a" * 150)])
+        )
+        client.wait_for_connection_close(strict=True)
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("Warning: block client"))
+
+        another_client = self.get_client("another-ip")
+        another_client.make_request(
+            another_client.create_request(
+                authority="another", method="GET", headers=[("x-my-xdr", "a" * 150)]
+            )
+        )
+        another_client.wait_for_connection_close(strict=True)
+        self.assertTrue(
+            self.loggers.dmesg.find("frang: HTTP header length exceeded for", cond=amount_equals(2))
+        )
+        self.assertTrue(self.loggers.dmesg.find("Warning: block client", cond=amount_equals(2)))
+
+    @unlimited_rate_on_tempesta_node
+    def test_ip_block_override_in_global_config(self):
+        """
+        Tempesta config has two `ip_block` the first sets permanent block duration the second sets
+        only 1 second duration. The second `ip_block` globally overrides the first. To verify that
+        send two requests from the same client. The first one must be blocked, but the second
+        request will be sent with 2 seconds delay and therefore must not be blocked.
+        """
+        self.__update_tempesta_config(
+            """
+                    block_action attack drop;
+                    frang_limits {http_hdr_len 100; http_strict_host_checking false; ip_block 0;}
+                    vhost vh1 { proxy_pass default;}
+                    frang_limits {http_hdr_len 100; ip_block 1;}
+                    vhost vh2 { proxy_pass default;}
+
+                    http_chain {
+                        host == "vh1" -> vh1;
+                        -> vh2;
+                    }
+                """
+        )
+        self.start_all_services()
+        client = self.get_client("deproxy")
+
+        client.make_request(
+            client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a" * 150)])
+        )
+        client.wait_for_connection_close(strict=True)
+        self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
+        self.assertTrue(self.loggers.dmesg.find("Warning: block client"))
+        time.sleep(2)
+        client.restart()
+        client.send_request(
+            client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a")]), "200"
+        )
 
     @marks.Parameterize.expand(
         [
