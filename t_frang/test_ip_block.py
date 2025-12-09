@@ -79,7 +79,7 @@ block_action attack drop;
 
     def test_on(self):
         self.disable_deproxy_auto_parser()
-        self.set_frang_config(frang_config="http_strict_host_checking true;\nip_block on;")
+        self.set_frang_config(frang_config="http_strict_host_checking true;\nip_block 0;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
         c3 = self.get_client("same-ip3")
@@ -112,9 +112,52 @@ block_action attack drop;
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
         self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
 
+    def test_blocktime_expired(self):
+        self.disable_deproxy_auto_parser()
+        self.set_frang_config(frang_config="http_strict_host_checking true;\nip_block 11;")
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("same-ip2")
+        c3 = self.get_client("another-ip")
+        three = util.ForEach(c1, c2, c3)
+
+        self.sniffer.start()
+        self.start_all_services(client=False)
+        three.start()
+
+        # Good request: all is good
+        three.send_request(self.GOOD_REQ, "200")
+        self.assertEqual(set(three.conn_is_active), {True})
+
+        # Bad request:
+        # reset all current clients with the same IPs
+        c1.send_request(self.BAD_REQ)
+        # Last client wasn't blocked due to different IP
+        self.assertTrue(c3.conn_is_active)
+        c3.send_request(self.GOOD_REQ, "200", timeout=5)
+        # c2 disconnected during ip blocking
+        self.assertTrue(c2.wait_for_connection_close(timeout=2))
+        # New clients with blocked IP won't be accepted
+        # wait 3 seconds timeout - client is blocked
+        c2.restart()
+        self.assertFalse(c2.wait_for_connection_open(timeout=3, adjust_timeout=False))
+        self.assertFalse(c2.conn_is_active)
+        # Wait 12 seconds to have in most fastest case atleast 12 seconds wait that greater
+        # than block duration
+        time.sleep(12)
+
+        c2.restart()
+        # block duration is 2 seconds, thus expect successful connection
+        c2.send_request(self.GOOD_REQ, "200")
+
+        self.sniffer.stop()
+        self.assert_reset_socks(self.sniffer.packets, [c1])
+        self.assert_unreset_socks(self.sniffer.packets, [c2, c3])
+        self.assertFrangWarning(warning="Warning: block client:", expected=1)
+        self.assertFrangWarning(warning="frang: Host header field contains IP address", expected=1)
+
     def test_off(self):
         self.disable_deproxy_auto_parser()
-        self.set_frang_config(frang_config="http_strict_host_checking true;\nip_block off;")
+        self.set_frang_config(frang_config="http_strict_host_checking true;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
 
@@ -152,66 +195,121 @@ block_action attack drop;
 """,
     }
 
+    warning_msg = "frang: connections max num. exceeded for"
+
     REQ = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
 
     def test_on(self):
         self.disable_deproxy_auto_parser()
-        self.set_frang_config(frang_config="tcp_connection_rate 2;\nip_block on;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\nip_block 0;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("same-ip2")
         c3 = self.get_client("another-ip")
         c4 = self.get_client("same-ip3")
         c5 = self.get_client("same-ip4")
-        four = util.ForEach(c1, c2, c3, c4)
 
         self.sniffer.start()
         self.start_all_services(client=False)
-        four.start()
+        for cl in [c1, c2, c3]:
+            cl.start()
+            self.assertTrue(cl.wait_for_connection_open())
 
-        # Last request triggers rate limit (3 same IPs > 2)
-        four.send_request(self.REQ)
+        c2.send_request(self.REQ)
+        self.assertEqual(c2.last_response.status, "200")
+        # On connection to c4 client - block expected
+        c4.start()
+        self.assertFalse(c4.wait_for_connection_open(timeout=2))
+        self.assertFalse(c4.conn_is_active)
 
         # Reset all current clients with the same IPs
         # Client with different IP wasn't blocked
+        c3.send_request(self.REQ)
         self.assertEqual(c3.last_response.status, "200")
         self.assertTrue(c3.conn_is_active)
+
         # New clients with blocked IP won't be accepted
         c5.start()
-        c5.send_request(self.REQ, timeout=1)
+        self.assertFalse(c5.wait_for_connection_open(timeout=2))
         self.assertFalse(c5.conn_is_active)
 
         self.sniffer.stop()
 
         self.assert_reset_socks(self.sniffer.packets, [c1, c2, c4])
-        self.assert_unreset_socks(self.sniffer.packets, [c3])
+        self.assert_unreset_socks(self.sniffer.packets, [c3, c5])
         self.assertFrangWarning(warning="Warning: block client:", expected=1)
-        self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)
+        self.assertFrangWarning(warning=self.warning_msg, expected=1)
+
+    def test_blocktime_expired(self):
+        self.disable_deproxy_auto_parser()
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\nip_block 10;")
+        c1 = self.get_client("same-ip1")
+        c2 = self.get_client("same-ip2")
+        c3 = self.get_client("another-ip")
+        c4 = self.get_client("same-ip3")
+        c5 = self.get_client("same-ip4")
+
+        self.sniffer.start()
+        self.start_all_services(client=False)
+        for cl in [c1, c2, c3]:
+            cl.start()
+            cl.wait_for_connection_open(strict=True)
+
+        # Reset all current clients with the same IPs
+        # Client with different IP wasn't blocked
+        c3.send_request(self.REQ, "200")
+        self.assertEqual(c3.last_response.status, "200")
+        self.assertTrue(c3.conn_is_active)
+        # New clients with blocked IP won't be accepted
+        c4.start()
+        # block expected wait 3 seconds timeout
+        self.assertFalse(c4.wait_for_connection_open(timeout=3))
+        self.assertTrue(c4.wait_for_connection_close(timeout=3))
+        self.assertFalse(c4.conn_is_active)
+
+        c5.start()
+        self.assertFalse(c5.wait_for_connection_open(timeout=3, adjust_timeout=False))
+        self.assertFalse(c5.conn_is_active)
+        # Wait 11 seconds to have in most fastest case atleast 11 seconds wait that greater
+        # than block duration
+        time.sleep(11)
+
+        c4.restart()
+        c4.send_request(self.REQ, "200")
+
+        self.sniffer.stop()
+
+        self.assert_reset_socks(self.sniffer.packets, [c1, c2])
+        self.assert_unreset_socks(self.sniffer.packets, [c3, c4])
+        self.assertFrangWarning(warning="Warning: block client:", expected=1)
+        self.assertFrangWarning(warning=self.warning_msg, expected=1)
 
     def test_off(self):
         self.disable_deproxy_auto_parser()
-        self.set_frang_config(frang_config="ip_block off;\ntcp_connection_rate 1;")
+        self.set_frang_config(frang_config="\nconcurrent_tcp_connections 1;")
         c1 = self.get_client("same-ip1")
         c2 = self.get_client("another-ip")
         c3 = self.get_client("same-ip2")
-        clients = util.ForEach(c1, c2, c3)
 
         self.sniffer.start()
         time.sleep(self.timeout)
         self.start_all_services(client=False)
-        clients.start()
+        for cl in [c1, c2, c3]:
+            cl.start()
+            # The last connection triggers block by concurrent_tcp_connections.
+            cl.wait_for_connection_open()
 
         # Blocking is off: clients with the same IPs
         # handled separately
         c1.send_request(self.REQ, "200")
         # Client with different IP isn't accounted
         c2.send_request(self.REQ, "200")
-        c3.send_request(self.REQ)
         self.assertTrue(c1.conn_is_active)
         self.assertTrue(c2.conn_is_active)
+        self.assertFalse(c3.conn_is_active)
 
         self.sniffer.stop()
 
         self.assert_reset_socks(self.sniffer.packets, [c3])
         self.assert_unreset_socks(self.sniffer.packets, [c1, c2])
         self.assertFrangWarning(warning="Warning: block client:", expected=0)
-        self.assertFrangWarning(warning="frang: new connections rate exceeded for", expected=1)
+        self.assertFrangWarning(warning=self.warning_msg, expected=1)
