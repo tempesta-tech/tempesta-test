@@ -285,6 +285,23 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if expect_response:
             self.valid_req_num += 1
 
+    def wait_for_connection_open(self, timeout=5, strict=False, adjust_timeout=True):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
+        timeout_not_exceeded = util.wait_until(
+            lambda: not self.conn_is_active,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            adjust_timeout=adjust_timeout,
+        )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection open: {timeout}"
+        return timeout_not_exceeded
+
     def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
