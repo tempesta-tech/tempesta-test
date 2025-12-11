@@ -29,7 +29,6 @@ listen 443 proto=h2;
 access_log dmesg;
 
 frang_limits {
-    ip_block off;
     http_uri_len 1050;
     http_strict_host_checking false;
 }

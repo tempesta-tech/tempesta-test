@@ -108,7 +108,7 @@ class TestFrangRequest(FrangTestCase, asserts.Sniffer):
         "config": """
 frang_limits {
     %(frang_config)s;
-    ip_block on;
+    ip_block 0;
 }
 listen 80;
 listen 443 proto=h2;
