@@ -212,6 +212,14 @@
         {
             "name": "http2_general.test_h2_frame.TestPostponedFrames",
             "reason": "Disabled by test issue #862"
+        },
+        {
+            "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
+            "reason": "Disabled by test issue #905"
+        },
+        {
+            "name": "sessions.test_sticky_sess_stress.TestStressStickyCookie.test_one_client",
+            "reason": "Disabled by test issue #921"
         }
     ]
 }
