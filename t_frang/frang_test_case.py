@@ -44,7 +44,6 @@ listen 81;
 listen 443 proto=h2;
 frang_limits {
     %(frang_config)s
-    ip_block off;
 }
 server ${server_ip}:8000;
 

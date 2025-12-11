@@ -197,7 +197,6 @@ class AccessLogFrang(CheckedResponses):
             access_log dmesg;
 
             frang_limits {
-                ip_block off;
                 http_uri_len 10;
             }
 

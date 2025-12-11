@@ -207,7 +207,6 @@ class FrangHostRequiredH2TestCase(FrangTestCase):
         "config": """
 frang_limits {
     %(frang_config)s
-    ip_block off;
 }
 
 listen 443 proto=h2;
