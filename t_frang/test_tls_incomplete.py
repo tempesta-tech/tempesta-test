@@ -33,7 +33,6 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
         "config": """
             frang_limits {
                 tls_incomplete_connection_rate 4;
-                ip_block off;
             }
 
             listen 443 proto=https;
