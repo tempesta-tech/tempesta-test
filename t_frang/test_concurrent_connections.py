@@ -226,6 +226,11 @@ frang_limits {
 
         self.assertFrangWarning(warning=ERROR, expected=1)
 
+    def _get_num_active_conns(self):
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+        return tempesta.stats.cl_conns_active
+
     @marks.Parameterize.expand(
         [
             marks.Param(name="equal", clients_n=2, warning_n=0),
@@ -239,14 +244,19 @@ frang_limits {
         new connections are established.
         """
         self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n")
+        tempesta = self.get_tempesta()
 
         non_blocked_clients = [self.get_client(f"deproxy-{n}") for n in range(2)]
         blocked_clients = [self.get_client(f"deproxy-{n}") for n in range(2, clients_n)]
 
         for n in [warning_n, warning_n * 2]:
-            for client in non_blocked_clients + blocked_clients:  # establish 2 or more connections
+            for client in non_blocked_clients:
                 client.start()
-                client.make_request(client.create_request(method="GET", headers=[]))
+                client.wait_for_connection_open(strict=True)
+
+            for client in blocked_clients:  # establish 2 or more connections
+                client.start()
+                client.wait_for_connection_open()
 
             for client in blocked_clients:
                 self.assertTrue(
@@ -262,3 +272,5 @@ frang_limits {
 
             for client in non_blocked_clients + blocked_clients:
                 client.stop()
+
+            self.assertWaitUntilEqual(self._get_num_active_conns, 0, timeout=3)
