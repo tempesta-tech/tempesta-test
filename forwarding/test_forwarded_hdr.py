@@ -46,11 +46,10 @@ class TestForwardedBase(tester.TempestaTest, base=True):
         for param in self.req_params:
             with self.subTest(msg=f"Forwarded: {param}"):
                 client.send_request(
-                    request=client.create_request(method='GET', headers=[("Forwarded", param)]),
+                    request=client.create_request(method="GET", headers=[("Forwarded", param)]),
                     expected_status_code=self.response_status,
                 )
                 client.restart()
-                client.clear_stats()
 
 
 class TestForwardedBaseAllowed(TestForwardedBase):
@@ -145,8 +144,9 @@ class TestForwardedBaseMalicious(TestForwardedBase):
                 evil_param = param % evil_str
                 with self.subTest(msg=f"Forwarded: {evil_param}"):
                     client.send_request(
-                        request=client.create_request(method='GET', headers=[("Forwarded", evil_param)]),
+                        request=client.create_request(
+                            method="GET", headers=[("Forwarded", evil_param)]
+                        ),
                         expected_status_code=self.response_status,
                     )
                     client.restart()
-                    client.clear_stats()

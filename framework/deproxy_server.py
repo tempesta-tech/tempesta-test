@@ -219,7 +219,6 @@ class StaticDeproxyServer(BaseDeproxy):
 
     def handle_close(self):
         self.close()
-        self.state = stateful.STATE_STOPPED
 
     def reset_new_connections(self) -> None:
         """
@@ -323,7 +322,7 @@ class StaticDeproxyServer(BaseDeproxy):
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.requests) < n,
             timeout=timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: not self.accepting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
