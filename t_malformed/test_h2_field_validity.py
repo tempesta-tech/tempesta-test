@@ -69,6 +69,7 @@ block_action error reply;
         self.assertEqual("400", client.last_response.status)
 
         self.assertTrue(client.wait_for_connection_close())
+        client.stop()
 
     def test_ascii_uppercase_in_header_name(self):
         """
