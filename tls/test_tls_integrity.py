@@ -1,4 +1,4 @@
-"""test_tls_integrity
+"""test_tls_integrit
 Tests for data integrity transferred via Tempesta TLS.
 """
 
@@ -6,8 +6,7 @@ import hashlib
 from contextlib import contextmanager
 
 import run_config
-from helpers import analyzer, remote
-from helpers import networker
+from helpers import analyzer, networker, remote
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -37,6 +36,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
@@ -85,7 +85,6 @@ class TlsIntegrityTester(tester.TempestaTest):
 
         for clnt in self.clients:
             client = self.get_client(clnt["id"])
-            client.server_hostname = "tempesta-tech.com"
             client.make_request(self.make_req(req_len))
             res = client.wait_for_response(timeout=5)
             self.assertTrue(
@@ -168,6 +167,7 @@ class ProxyH2(H2Base, Proxy):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
@@ -190,6 +190,7 @@ class Cache(TlsIntegrityTester):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
         {
             "id": "clnt2",
@@ -197,6 +198,7 @@ class Cache(TlsIntegrityTester):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
         {
             "id": "clnt3",
@@ -204,6 +206,7 @@ class Cache(TlsIntegrityTester):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
         {
             "id": "clnt4",
@@ -211,6 +214,7 @@ class Cache(TlsIntegrityTester):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
@@ -251,6 +255,7 @@ class CacheH2(H2Base, Cache):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         }
         for step in range(4)
     ]
@@ -278,6 +283,7 @@ class ManyClients(Cache):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         }
         for step in range(clients_n)
     ]
@@ -324,6 +330,7 @@ class ManyClientsH2(H2Base, ManyClients):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         }
         for step in range(ManyClients.clients_n)
     ]
@@ -352,6 +359,7 @@ class CloseConnection(tester.TempestaTest):
             "addr": "${tempesta_ip}",
             "port": "443",
             "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
         },
     ]
 
@@ -412,7 +420,6 @@ class CloseConnection(tester.TempestaTest):
         self.get_server("deproxy").set_response(self.make_resp(resp_body))
 
         client = self.get_client(self.clients[0]["id"])
-        client.server_hostname = "tempesta-tech.com"
         client.make_request(self.make_req(req_len))
         res = client.wait_for_response(timeout=5)
         self.assertTrue(
