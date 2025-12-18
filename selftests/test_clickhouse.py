@@ -38,7 +38,6 @@ class TestClickhouse(tester.TempestaTest):
         Test that documents issue #2314 - logs missing during first second of startup.
         This test verifies that logs are not lost in clickhouse immediately after startup.
         """
-        self.start_all_clients()
         self.deproxy_manager.start()
 
         self.start_tempesta()
