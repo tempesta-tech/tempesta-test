@@ -204,7 +204,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     def handle_close(self):
         self._do_close()
-        self.state = stateful.STATE_STOPPED
 
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
@@ -293,7 +292,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = util.wait_until(
             lambda: not self.conn_is_active,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: not self.connecting and not self.connected,
             adjust_timeout=adjust_timeout,
         )
         if strict:
@@ -329,7 +328,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
@@ -664,7 +663,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return util.wait_until(
             lambda: not self.ack_settings,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     def wait_for_reset_stream(self, stream_id: int, timeout=5):
@@ -672,7 +671,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return util.wait_until(
             lambda: not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id),
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     def wait_for_headers_frame(self, stream_id: int, timeout=5):
@@ -681,14 +680,14 @@ class DeproxyClientH2(BaseDeproxyClient):
         return util.wait_until(
             lambda: not stream.state_machine.headers_received,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return util.wait_until(
             lambda: self._ping_received < ping_count,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     @property
