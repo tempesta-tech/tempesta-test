@@ -103,7 +103,11 @@ block_action attack drop;
         c4.send_request(self.GOOD_REQ, "200")
         # New clients with blocked IP won't be accepted
         c5.start()
-        c5.send_request(self.GOOD_REQ, timeout=1)
+        # don't adjust timeout. At this moment Tempesta doesn't accepts SYN from blocked client
+        # and network not heavy loaded, thus doesn't make sense to wait 60 seconds on tcp
+        # segmentation, 5 sec must be enough
+        c5.make_request(self.GOOD_REQ)
+        c5.wait_for_response(timeout=5, adjust_timeout=False)
         self.assertFalse(c5.conn_is_active)
 
         self.sniffer.stop()
@@ -229,7 +233,10 @@ block_action attack drop;
 
         # New clients with blocked IP won't be accepted
         c5.start()
-        self.assertFalse(c5.wait_for_connection_open(timeout=2))
+        # don't adjust timeout. At this moment Tempesta doesn't accepts SYN from blocked client
+        # and network not heavy loaded, thus doesn't make sense to wait 60 seconds on tcp
+        # segmentation, 5 sec must be enough
+        self.assertFalse(c5.wait_for_connection_open(timeout=5, adjust_timeout=False))
         self.assertFalse(c5.conn_is_active)
 
         self.sniffer.stop()
