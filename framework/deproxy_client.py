@@ -76,7 +76,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.response_buffer = ""
         self.conn_addr = conn_addr
         self.conn_is_closed = True
-        self.conn_was_opened = False
         self.__error_codes: list[Exception | ErrorCodes] = []
 
         self.rps = 0
@@ -198,7 +197,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             self.socket = self._context.wrap_socket(
                 self.socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
             )
-        self.conn_was_opened = True
         self.conn_is_closed = False
         self.start_time = time.time()
 
@@ -292,7 +290,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = util.wait_until(
             lambda: not self.conn_is_active,
             timeout,
-            abort_cond=lambda: not self.connecting and not self.connected,
+            abort_cond=lambda: not self.connecting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
@@ -386,7 +384,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     @property
     def conn_is_active(self):
-        return self.conn_was_opened and not self.conn_is_closed
+        return self.connected
 
     @property
     def conn_addr(self) -> str:
