@@ -256,7 +256,7 @@ frang_limits {
 
             for client in blocked_clients:  # establish 2 or more connections
                 client.start()
-                client.wait_for_connection_open()
+                self.assertFalse(client.wait_for_connection_open())
 
             for client in blocked_clients:
                 self.assertTrue(
