@@ -186,12 +186,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if self.writable():
             self.handle_write()
 
-    def _do_close(self):
-        self.close()
-        self.writable = self._in_connecting_state
-        self.handle_write = self.__setup_write
-        self.conn_is_closed = True
-
     def handle_connect(self):
         if self.ssl:
             self.socket = self._context.wrap_socket(
@@ -201,7 +195,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.start_time = time.time()
 
     def handle_close(self):
-        self._do_close()
+        self.close()
+        self.writable = self._in_connecting_state
+        self.handle_write = self.__setup_write
+        self.conn_is_closed = True
 
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
@@ -232,7 +229,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.rps = rps
 
     def _stop_deproxy(self):
-        self._do_close()
+        self.handle_close()
 
     def _run_deproxy(self):
         self.create_socket(socket.AF_INET6 if self.is_ipv6 else socket.AF_INET, socket.SOCK_STREAM)
