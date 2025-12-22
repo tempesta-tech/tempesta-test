@@ -218,8 +218,7 @@ block_action attack drop;
             cl.start()
             self.assertTrue(cl.wait_for_connection_open())
 
-        c2.send_request(self.REQ)
-        self.assertEqual(c2.last_response.status, "200")
+        c2.send_request(self.REQ, "200")
         # On connection to c4 client - block expected
         c4.start()
         self.assertFalse(c4.wait_for_connection_open(timeout=2))
