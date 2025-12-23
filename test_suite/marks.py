@@ -22,10 +22,10 @@ def set_mtu(mtu: int, disable_pmtu: bool = False):
     The decorator changes MTU before a test and return the default interface settings after the test.
     """
     def decorator(test):
+        @functools.wraps(test)
         def wrapper(self, *args, **kwargs):
             with networker.change_mtu_and_restore_interfaces(mtu=mtu, disable_pmtu=disable_pmtu):
                 test(self, *args, **kwargs)
-        wrapper.__name__ = test.__name__
         return wrapper
     return decorator
 
@@ -35,10 +35,10 @@ def set_stress_mtu(test):
     The decorator changes MTU before a test and return the default interface settings after the test.
     Used MTU value from stress_mtu option in General section.
     """
+    @functools.wraps(test)
     def wrapper(self, *args, **kwargs):
         with networker.change_mtu_and_restore_interfaces(mtu=int(tf_cfg.cfg.get("General", "stress_mtu")), disable_pmtu=False):
             test(self, *args, **kwargs)
-    wrapper.__name__ = test.__name__
     return wrapper
 
 
@@ -82,20 +82,20 @@ def change_tso_gro_gso(*, tso_gro_gso: bool, mtu: int):
     and return the default interface settings and tso_gro_gso after the test.
     """
     def decorator(test):
+        @functools.wraps(test)
         def wrapper(self, *args, **kwargs):
             with networker.change_and_restore_tso_gro_gso(tso_gro_gso=tso_gro_gso, mtu=mtu):
                 test(self, *args, **kwargs)
-        wrapper.__name__ = test.__name__
         return wrapper
     return decorator
 
 
 def change_tcp_options(mtu: int, tcp_options: dict[str, str]):
     def decorator(test):
+        @functools.wraps(test)
         def wrapper(self, *args, **kwargs):
             with networker.change_and_restore_tcp_options(mtu=mtu, tcp_options=tcp_options):
                 test(self, *args, **kwargs)
-        wrapper.__name__ = test.__name__
         return wrapper
     return decorator
 
@@ -106,6 +106,7 @@ def change_ulimit(ulimit: int):
     """
 
     def decorator(test):
+        @functools.wraps(test)
         def wrapper(self: tester.TempestaTest, *args, **kwargs):
             soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
             try:
@@ -113,9 +114,6 @@ def change_ulimit(ulimit: int):
                 test(self, *args, **kwargs)
             finally:
                 resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
-
-        # we need to change name of function to work correctly with parametrize
-        decorator.__name__ = test.__name__
         return wrapper
 
     return decorator
@@ -140,6 +138,7 @@ def retry_if_not_conditions(test):
         self.assertFrangWarning(warning=warning, expected=range(1, 15))
     """
 
+    @functools.wraps(test)
     def wrapper(self: tester.TempestaTest, *args, **kwargs):
         for attempt in range(1, 4):
             try:
@@ -158,8 +157,6 @@ def retry_if_not_conditions(test):
         # If the test fails after 3 attempts, raise an exception
         raise error.TestConditionsAreNotCompleted(self.id(), attempt)
 
-    # we need to change name of function to work correctly with parametrize
-    wrapper.__name__ = test.__name__
     return wrapper
 
 

@@ -2,6 +2,10 @@
     "disable" : true,
     "disabled" : [
         {
+            "name" : "t_stress.test_nginx",
+            "reason" : "These tests don't check Tempesta FW. These are comparison tests."
+        },
+        {
             "name" : "very_many_backends.test_stress_1M.ManyBackends1InGroup",
             "reason" : "Disabled by test issue #114"
         },
