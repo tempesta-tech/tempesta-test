@@ -3,16 +3,16 @@ Testing for memory leaks
 """
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import re
 import unittest
 from time import sleep
 
-from helpers import dmesg, remote, tf_cfg
-from test_suite import tester, marks
 import run_config
+from helpers import dmesg, remote, tf_cfg
+from test_suite import marks, tester
 
 # Number of open connections
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
@@ -81,10 +81,7 @@ def free_and_cached_memory():
 
 
 @marks.parameterize_class(
-    [
-        {"name": "Http", "client_name": "wrk"},
-        {"name": "H2", "client_name": "h2load"}
-    ]
+    [{"name": "Http", "client_name": "wrk"}, {"name": "H2", "client_name": "h2load"}]
 )
 class TestLeak(tester.TempestaTest):
     """Leaks testing"""
@@ -216,17 +213,9 @@ frang_limits {http_strict_host_checking false;}
 
         self.assertLess(used2 - used1, self.memory_leak_threshold)
 
+    @marks.check_memory_consumption
     def test_used_memory(self):
         """Detecting leaks with total used memory measure"""
-        if not has_meminfo():
-            return unittest.TestCase.skipTest(self, "No meminfo")
-
         nginx = self.get_server("nginx")
         client = self.get_client(self.client_name)
-
-        free_and_cached1 = free_and_cached_memory()
         self.run_routine(nginx, client)
-        free_and_cached2 = free_and_cached_memory()
-
-        used = free_and_cached1 - free_and_cached2
-        self.assertLess(used, self.memory_leak_threshold)

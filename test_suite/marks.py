@@ -12,7 +12,7 @@ from pstats import Stats
 
 import parameterized as pm
 
-from helpers import error, tf_cfg, networker
+from helpers import error, memworker, networker, tf_cfg
 from test_suite import tester
 from test_suite.tester import test_logger
 
@@ -21,12 +21,15 @@ def set_mtu(mtu: int, disable_pmtu: bool = False):
     """
     The decorator changes MTU before a test and return the default interface settings after the test.
     """
+
     def decorator(test):
         @functools.wraps(test)
         def wrapper(self, *args, **kwargs):
             with networker.change_mtu_and_restore_interfaces(mtu=mtu, disable_pmtu=disable_pmtu):
                 test(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -35,10 +38,14 @@ def set_stress_mtu(test):
     The decorator changes MTU before a test and return the default interface settings after the test.
     Used MTU value from stress_mtu option in General section.
     """
+
     @functools.wraps(test)
     def wrapper(self, *args, **kwargs):
-        with networker.change_mtu_and_restore_interfaces(mtu=int(tf_cfg.cfg.get("General", "stress_mtu")), disable_pmtu=False):
+        with networker.change_mtu_and_restore_interfaces(
+            mtu=int(tf_cfg.cfg.get("General", "stress_mtu")), disable_pmtu=False
+        ):
             test(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -47,10 +54,11 @@ def extend_tests_with_tso_gro_gso_enable_disable(mtu: int):
     The class decorator. It removes all base tests and
     adds new with suffixes `_tso_gro_gso_enabled` and `_tso_gro_gso_disabled`.
     """
+
     def class_wrapper(cls):
         tests = {}
         for name, method in list(cls.__dict__.items()):
-            if name.startswith('test_'):
+            if name.startswith("test_"):
                 tests[name] = method
                 delattr(cls, name)
 
@@ -58,21 +66,28 @@ def extend_tests_with_tso_gro_gso_enable_disable(mtu: int):
             def wrapper(self, *args, **kwargs):
                 with networker.change_and_restore_tso_gro_gso(tso_gro_gso=True, mtu=mtu):
                     test(self, *args, **kwargs)
+
             return wrapper
 
         def test_tso_gro_gso_disabled(test):
             def wrapper(self, *args, **kwargs):
                 with networker.change_and_restore_tso_gro_gso(tso_gro_gso=False, mtu=mtu):
                     test(self, *args, **kwargs)
+
             return wrapper
 
         for test_name, test_method in tests.items():
             # The base methods from marks.Parametrize haven't test_method. So we should skip them
             if test_method is not None:
-                setattr(cls, f"{test_name}_tso_gro_gso_enabled", test_tso_gro_gso_enabled(test_method))
-                setattr(cls, f"{test_name}_tso_gro_gso_disabled", test_tso_gro_gso_disabled(test_method))
+                setattr(
+                    cls, f"{test_name}_tso_gro_gso_enabled", test_tso_gro_gso_enabled(test_method)
+                )
+                setattr(
+                    cls, f"{test_name}_tso_gro_gso_disabled", test_tso_gro_gso_disabled(test_method)
+                )
 
         return cls
+
     return class_wrapper
 
 
@@ -81,12 +96,15 @@ def change_tso_gro_gso(*, tso_gro_gso: bool, mtu: int):
     The decorator changes MTU and tso_gro_gso before a test
     and return the default interface settings and tso_gro_gso after the test.
     """
+
     def decorator(test):
         @functools.wraps(test)
         def wrapper(self, *args, **kwargs):
             with networker.change_and_restore_tso_gro_gso(tso_gro_gso=tso_gro_gso, mtu=mtu):
                 test(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -96,7 +114,9 @@ def change_tcp_options(mtu: int, tcp_options: dict[str, str]):
         def wrapper(self, *args, **kwargs):
             with networker.change_and_restore_tcp_options(mtu=mtu, tcp_options=tcp_options):
                 test(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -114,6 +134,7 @@ def change_ulimit(ulimit: int):
                 test(self, *args, **kwargs)
             finally:
                 resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+
         return wrapper
 
     return decorator
@@ -210,6 +231,21 @@ def profiled(func):
         return res
 
     return wrap
+
+
+def check_memory_consumption(test):
+    """
+    The decorator to check a memory consumption on Tempesta FW node.
+    It adds test to fail list in MemoryChecker when memory consumption
+    is greater than memory leak threshold.
+    """
+
+    @functools.wraps(test)
+    def wrapper(self: tester.TempestaTest, *args, **kwargs):
+        with memworker.check_memory_consumptions(self):
+            test(self, *args, **kwargs)
+
+    return wrapper
 
 
 def _get_func_name(func, param_num, params):

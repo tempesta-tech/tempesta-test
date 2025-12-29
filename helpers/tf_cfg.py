@@ -1,5 +1,4 @@
-""" Test framework configuration options.
-"""
+"""Test framework configuration options."""
 
 from __future__ import print_function, unicode_literals
 
@@ -70,12 +69,7 @@ class TestFrameworkCfg:
         remote_ip = os.getenv("REMOTE_IP", None)
         remote_ipv6 = os.getenv("REMOTE_IPV6", None)
 
-        if (
-            host_ip is None
-            or host_ipv6 is None
-            or remote_ip is None
-            or remote_ipv6 is None
-        ):
+        if host_ip is None or host_ipv6 is None or remote_ip is None or remote_ipv6 is None:
             logging.critical(
                 "IP and IPv6 addresses, login and password for tempesta-tech.com "
                 "must be declared in the environment variables",
@@ -109,7 +103,7 @@ class TestFrameworkCfg:
                     "stress_requests_count": "100",
                     "stress_mtu": "1500",
                     "long_body_size": "500",
-                    "memory_leak_threshold": "131072",
+                    "memory_leak_threshold": "65536",
                     "unavailable_timeout": "300",
                 },
                 "Loggers": {

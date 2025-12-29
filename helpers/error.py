@@ -23,15 +23,9 @@ class Error(Exception):
 @dataclass
 class MemoryConsumptionException(Error):
     msg: str
-    delta_used_memory: int
-    memory_leak_threshold: int
 
     def __str__(self):
-        return (
-            f"\n{self.msg}"
-            f"\nUsed memory >= memory_leak_threshold "
-            f"({self.delta_used_memory} KB >= {self.memory_leak_threshold} KB)"
-        )
+        return self.msg
 
 
 @dataclass

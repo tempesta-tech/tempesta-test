@@ -628,23 +628,13 @@ def create_node(host_type: str):
 # -------------------------------------------------------------------------------
 
 client: Optional[ANode] = LocalNode("Client", "localhost", tf_cfg.cfg.get("Client", "workdir"))
-tempesta: Optional[ANode] = None
+tempesta: Optional[ANode] = create_node("Tempesta")
 server: Optional[ANode] = LocalNode("Server", "localhost", tf_cfg.cfg.get("Server", "workdir"))
-clickhouse: Optional[ANode] = None
+clickhouse: Optional[ANode] = create_node("TFW_Logger")
 
-
-def connect():
-    global client
-    global server
-    global tempesta
-    global clickhouse
-
-    tempesta = create_node("Tempesta")
-    clickhouse = create_node("TFW_Logger")
-
-    for node in [client, server, tempesta, clickhouse]:
-        node.mkdir(node.workdir)
-        node.post_init()
+for node in [client, server, tempesta, clickhouse]:
+    node.mkdir(node.workdir)
+    node.post_init()
 
 
 def wait_available():
