@@ -346,7 +346,7 @@ class Tempesta(stateful.Stateful):
         return remote.tempesta.exists(tf_cfg.cfg.get("TFW_Logger", "log_path"))
 
     def load_module(self, path, module_name):
-        self._do_run(f"insmod {self.srcdir}/{path}/{module_name}.ko")
+        remote.tempesta.run_cmd(f"insmod {self.srcdir}/{path}/{module_name}.ko")
 
     def run_start(self):
         self.clear_stats()
