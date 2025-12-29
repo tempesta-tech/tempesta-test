@@ -12,7 +12,7 @@ def configure_tcp():
     Release them quicker to reuse the ports in the next test case.
     """
 
-    # Allow more ephimeral ports, required for a client mmaking many
+    # Allow more ephimeral ports, required for a client making many
     # short-living connections.
     remote.server.run_cmd("sysctl -w net.ipv4.tcp_tw_reuse=1")
     remote.server.run_cmd("sysctl -w net.ipv4.tcp_fin_timeout=10")
