@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import print_function
 
 import sys
 
@@ -10,21 +9,18 @@ if sys.version_info.major != 3 or sys.version_info.minor > 11:
     )
     sys.exit(1)
 
-import gc
 import getopt
 import inspect
 import os
 import re
 import resource
-import time
 import unittest
 from importlib.machinery import SourceFileLoader
 
 import inquirer
-import psutil
 
 import run_config
-from helpers import control, error, remote, tf_cfg, util
+from helpers import control, error, memworker, remote, tf_cfg
 from test_suite import prepare, shell, tester
 from test_suite.tester import test_logger
 
@@ -124,34 +120,6 @@ def choose_test(file_path):
 def test_from_failstr(failstr):
     m = re.match("^[A-Z]+: ([a-z0-9_]+) \((.+)\)", failstr)
     return f"{m.group(2)}.{m.group(1)}"
-
-
-def __check_memory_consumption(python_memory_before_: int, used_memory_before_: int) -> None:
-    """Check a memory consumption after all tests."""
-    gc.collect()
-    time.sleep(1)
-    python_memory_after = psutil.Process().memory_info().rss // 1024
-    delta_python = python_memory_after - python_memory_before_
-
-    used_memory_after = util.get_used_memory()
-    delta_used_memory = used_memory_after - delta_python - used_memory_before_
-    memleak_msg = (
-        "----------------------------------------------------------------------------\n"
-        "Check memory leaks for test suite:\n"
-        f"Before: used memory: {used_memory_before_};\n"
-        f"Before: python memory: {python_memory_before_};\n"
-        f"After: used memory: {used_memory_after};\n"
-        f"After: python memory: {python_memory_after};\n"
-        f"Delta: {delta_used_memory} KB\n"
-        "----------------------------------------------------------------------------"
-    )
-    test_logger.critical(memleak_msg)
-    if run_config.CHECK_MEMORY_LEAKS and delta_used_memory >= run_config.MEMORY_LEAK_THRESHOLD:
-        raise error.MemoryConsumptionException(
-            memleak_msg,
-            delta_used_memory=delta_used_memory,
-            memory_leak_threshold=run_config.MEMORY_LEAK_THRESHOLD,
-        )
 
 
 def __check_kmemleak() -> None:
@@ -387,9 +355,6 @@ if root_required:
     nofile = 1048576
     resource.setrlimit(resource.RLIMIT_NOFILE, (nofile, nofile))
 
-
-remote.connect()
-
 if run_config.KERNEL_DBG_TESTS:
     try:
         remote.tempesta.run_cmd("cat /sys/kernel/debug/kmemleak")
@@ -436,7 +401,7 @@ exclusions = []
 if run_config.TCP_SEGMENTATION and disabled_reader_tcp_seg.disable:
     disabled_reader.disabled.extend(disabled_reader_tcp_seg.disabled)
 
-if type(remote.tempesta) is remote.RemoteNode and disabled_reader_remote.disable:
+if isinstance(remote.tempesta, remote.RemoteNode) and disabled_reader_remote.disable:
     disabled_reader.disabled.extend(disabled_reader_remote.disabled)
 
 if run_config.KERNEL_DBG_TESTS and disabled_reader_dbg_kernel.disable:
@@ -538,8 +503,6 @@ if test_resume:
         addn_status = " (resuming from %s)" % test_resume.state.last_id
 if n_count != 1:
     addn_status = f" for {n_count} times each"
-used_memory_before = util.get_used_memory()
-python_memory_before = psutil.Process().memory_info().rss // 1024
 
 if run_config.KERNEL_DBG_TESTS:
     remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")
@@ -558,54 +521,58 @@ Running functional tests%s...
 #
 # Run the discovered tests
 #
+with memworker.check_memory_leaks():
+    testsuite = unittest.TestSuite(tests)
+    testRunner = unittest.runner.TextTestRunner(
+        verbosity=v_level,
+        failfast=fail_fast,
+        descriptions=False,
+        resultclass=test_resume.resultclass(),
+    )
+    result = testRunner.run(testsuite)
 
-testsuite = unittest.TestSuite(tests)
-testRunner = unittest.runner.TextTestRunner(
-    verbosity=v_level, failfast=fail_fast, descriptions=False, resultclass=test_resume.resultclass()
-)
-result = testRunner.run(testsuite)
-
-if t_retry:
-    rerun_tests = []
-    for err in result.errors:
-        if err[0] in retry_tests:
-            retry_tests.pop(retry_tests.index(err[0]))
-            rerun_tests.append(err[0])
-    for err in result.failures:
-        if err[0] in retry_tests:
-            retry_tests.pop(retry_tests.index(err[0]))
-            rerun_tests.append(err[0])
-    if len(rerun_tests) > 0:
-        print(
-            """
+    if t_retry:
+        rerun_tests = []
+        for err in result.errors:
+            if err[0] in retry_tests:
+                retry_tests.pop(retry_tests.index(err[0]))
+                rerun_tests.append(err[0])
+        for err in result.failures:
+            if err[0] in retry_tests:
+                retry_tests.pop(retry_tests.index(err[0]))
+                rerun_tests.append(err[0])
+        if len(rerun_tests) > 0:
+            print(
+                """
 ----------------------------------------------------------------------
 Run failed tests again ...
 ----------------------------------------------------------------------
 """
-        )
-        re_testsuite = unittest.TestSuite(rerun_tests)
-        re_testRunner = unittest.runner.TextTestRunner(
-            verbosity=v_level,
-            failfast=fail_fast,
-            descriptions=False,
-            resultclass=test_resume.resultclass(),
-        )
-        re_result = re_testRunner.run(re_testsuite)
+            )
+            re_testsuite = unittest.TestSuite(rerun_tests)
+            re_testRunner = unittest.runner.TextTestRunner(
+                verbosity=v_level,
+                failfast=fail_fast,
+                descriptions=False,
+                resultclass=test_resume.resultclass(),
+            )
+            re_result = re_testRunner.run(re_testsuite)
 
-        for err in result.errors:
-            if err not in re_result.errors:
-                index = result.errors.index(err)
-                out = result.errors.pop(index)
-        for fail in result.failures:
-            if fail not in re_result.failures:
-                index = result.failures.index(fail)
-                out = result.failures.pop(index)
+            for err in result.errors:
+                if err not in re_result.errors:
+                    index = result.errors.index(err)
+                    out = result.errors.pop(index)
+            for fail in result.failures:
+                if fail not in re_result.failures:
+                    index = result.failures.index(fail)
+                    out = result.failures.pop(index)
 
-# check if we finished running the tests
-if not tests or (test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed):
-    state_reader.drop()
+    # check if we finished running the tests
+    if not tests or (
+        test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed
+    ):
+        state_reader.drop()
 
-__check_memory_consumption(python_memory_before, used_memory_before)
 __check_kmemleak()
 
 # stop loggging

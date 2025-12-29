@@ -8,8 +8,6 @@ from string import Template
 
 import run_config
 
-from . import remote, tf_cfg
-
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
@@ -60,12 +58,6 @@ class ForEach:
     def __iter__(self):
         for o in self.objects:
             yield o
-
-
-def get_used_memory():
-    stdout, _ = remote.tempesta.run_cmd("free")
-    used_memory = int(stdout.decode().split("\n")[1].split()[2])
-    return used_memory
 
 
 def fill_template(template: str | None, properties: dict) -> str | None:
