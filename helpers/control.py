@@ -340,7 +340,7 @@ class Tempesta(stateful.Stateful):
         self.clickhouse.tfw_logger_wait_until_ready()
 
     def load_module(self, path, module_name):
-        self._do_run(f"insmod {self.srcdir}/{path}/{module_name}.ko")
+        remote.tempesta.run_cmd(f"insmod {self.srcdir}/{path}/{module_name}.ko")
 
     def run_start(self):
         tf_cfg.dbg(3, "\tStarting TempestaFW on %s" % self.host)
