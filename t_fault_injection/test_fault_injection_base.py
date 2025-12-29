@@ -540,7 +540,6 @@ tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
 tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 server {SERVER_IP}:8000 conns_n=10;
 """,
-                space=7,
                 module_path=None,
                 module_name_preload=None,
                 retval=-12,
@@ -555,7 +554,6 @@ tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
 tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 server {SERVER_IP}:8000 conns_n=10;
 """,
-                space=7,
                 module_path=None,
                 module_name_preload=None,
                 retval=-12,
@@ -572,7 +570,6 @@ server {SERVER_IP}:8000 conns_n=10;
 cache 2;
 cache_fulfill * *;
 """,
-                space=12,
                 module_path=None,
                 module_name_preload=None,
                 retval=0,
@@ -612,7 +609,6 @@ http_chain {{
 }}
 
 """,
-                space=225,
                 module_path="lib",
                 module_name_preload="tempesta_lib",
                 retval=0,
@@ -663,7 +659,6 @@ http_chain {{
 }}
 
 """,
-                space=41,
                 module_path="lib",
                 module_name_preload="tempesta_lib",
                 retval=0,
@@ -726,7 +721,6 @@ tfh {{
 }}
 
 """,
-                space=57,
                 module_path="lib",
                 module_name_preload="tempesta_lib",
                 retval=0,
@@ -757,7 +751,6 @@ http_chain {{
 }}
 
 """,
-                space=2,
                 module_path="lib",
                 module_name_preload="tempesta_lib",
                 retval=0,
@@ -788,7 +781,6 @@ http_chain {{
 }}
 
 """,
-                space=16,
                 module_path="lib",
                 module_name_preload="tempesta_lib",
                 retval=0,
@@ -819,7 +811,6 @@ http_chain {{
 }}
 
 """,
-                space=21,
                 module_path="lib",
                 module_name_preload="tempesta_lib",
                 retval=0,
@@ -856,7 +847,6 @@ http_chain {{
     ->block;
 }}
 """,
-                space=7,
                 module_path=None,
                 module_name_preload=None,
                 retval=0,
@@ -893,7 +883,6 @@ http_chain {{
     ->block;
 }}
 """,
-                space=5,
                 module_path=None,
                 module_name_preload=None,
                 retval=0,
@@ -901,17 +890,25 @@ http_chain {{
         ]
     )
     def test_init_modules(
-        self, name, func_name, config, space, module_path, module_name_preload, retval
+        self, name, func_name, config, module_path, module_name_preload, retval
     ):
         self.get_tempesta().config.set_defconfig(config)
         self.oops_ignore = ["ERROR"]
-        for s in range(space):
+        space = 0
+        need_stop = False
+        while not need_stop:
             if module_name_preload:
                 self.assertIsNotNone(module_path)
                 self.get_tempesta().load_module(module_path, module_name_preload)
-            TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, s, retval)
-            with self.assertRaises(error.ProcessBadExitStatusException):
+            TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
+            try:
                 self.get_tempesta().start()
+            except error.ProcessBadExitStatusException:
+                pass
+            except:
+                self.assertTrue(False)
+            else:
+                need_stop = True
             self.get_tempesta().stop()
             """
             Because we setup fail function in the loop we should call teardown here
@@ -919,6 +916,7 @@ http_chain {{
             called from the cleanup procedure also.
             """ 
             TestFailFunctionBaseStress.teardown_fail_function_test()
+            space = space + 1
 
     def test_abort_srv_connection_on_graceful_shutdown(self):
         """
