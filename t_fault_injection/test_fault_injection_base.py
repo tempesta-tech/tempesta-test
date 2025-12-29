@@ -921,6 +921,14 @@ http_chain {{
             TestFailFunctionBaseStress.teardown_fail_function_test()
 
     def test_abort_srv_connection_on_graceful_shutdown(self):
+        """
+        Tempesta FW try to stop server connections gracefully if
+        grace_shutdown_time is not 0. If graceful shutdown fails
+        Tempesta FW abort all servers connections. Internally
+        Tempesta FW uses `__tfw_wq_push` function for these
+        purposes. This test checks that all server connections
+        will be aborted if `__tfw_wq_push` fails.
+        """
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 80;
@@ -952,8 +960,7 @@ http_chain {{
         )
         self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, -1, 0, -12)
-        for srv_name in ["deproxy_1", "deproxy_2", "deproxy_3", "deproxy_4", "deproxy_5"]:
-            server = self.get_server(srv_name)
+        for server in self.get_servers():
             server.conns_n = 10
             server.set_response(
                 deproxy.Response.create_simple_response(
@@ -983,11 +990,18 @@ grace_shutdown_time 1;
         self.get_tempesta().reload()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
-            server.wait_for_connections_closed()
+            self.assertTrue(server.wait_for_connections_closed(timeout=5))
         server = self.get_server("deproxy_1")
         self.assertTrue(server.wait_for_connections(timeout=5))
 
     def test_failed_disconnect_srv_connection(self):
+        """
+        Tempesta FW try to stop and disconnect all server connections
+        on Tempesta shutdown. If disconnec fails Tempesta FW abort all
+        servers connections. Internally Tempesta FW uses `__tfw_wq_push`
+        function for these purposes. This test checks that all server
+        connections will be aborted if `__tfw_wq_push` fails.
+        """
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 80;
@@ -1018,8 +1032,7 @@ http_chain {{
         )
         self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, -1, 0, -12)
-        for srv_name in ["deproxy_1", "deproxy_2", "deproxy_3", "deproxy_4", "deproxy_5"]:
-            server = self.get_server(srv_name)
+        for server in self.get_servers():
             server.conns_n = 10
             server.set_response(
                 deproxy.Response.create_simple_response(
@@ -1038,9 +1051,13 @@ http_chain {{
         self.get_tempesta().stop_tempesta()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
-            server.wait_for_connections_closed()
+            self.assertTrue(server.wait_for_connections_closed())
 
     def test_abort_client_connection(self):
+        """
+        This test checks that Tempesta FW correctly close
+        client connections if `__tfw_wq_push` fails.
+        """
         self.get_tempesta().config.set_defconfig(
             f"""
 listen 80;
