@@ -30,7 +30,6 @@ DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 SERVER_IP = tf_cfg.cfg.get("Server", "ip")
 TEMPESTA_WORKDIR = tf_cfg.cfg.get("Tempesta", "workdir")
-TFW_LOGGER_CONFIG = tf_cfg.cfg.get("TFW_Logger", "logger_config")
 
 EXTRA_SERVERS = f"""
 server {SERVER_IP}:8001;
@@ -586,8 +585,6 @@ server {SERVER_IP}:8000 conns_n=10;
 cache 2;
 cache_fulfill * *;
 
-access_log dmesg mmap logger_config={TFW_LOGGER_CONFIG};
-
 srv_group test {{
     server {SERVER_IP}:8001 conns_n=10;
 }}
@@ -677,8 +674,6 @@ cache_fulfill * *;
 
 health_stat 3* 4* 5*;
 health_stat_server 3* 4* 5*;
-
-access_log dmesg mmap logger_config={TFW_LOGGER_CONFIG};
 
 health_check h_monitor1 {{
     request "GET / HTTP/1.1\r\n\r\n";
@@ -897,6 +892,7 @@ http_chain {{
         space = 0
         need_stop = False
         while not need_stop:
+            success = None
             if module_name_preload:
                 self.assertIsNotNone(module_path)
                 self.get_tempesta().load_module(module_path, module_name_preload)
@@ -904,11 +900,14 @@ http_chain {{
             try:
                 self.get_tempesta().start()
             except error.ProcessBadExitStatusException:
-                pass
+                success = True
             except:
-                self.assertTrue(False)
+                success = False
             else:
+                success = True
                 need_stop = True
+
+            self.assertTrue(success)
             self.get_tempesta().stop()
             """
             Because we setup fail function in the loop we should call teardown here
