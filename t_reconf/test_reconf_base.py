@@ -2,8 +2,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
 import threading
+import time
 
 from helpers import analyzer, dmesg, error, port_checks, remote
 from helpers.analyzer import PSH, TCP
@@ -311,7 +311,7 @@ class TestListenStartFail(tester.TempestaTest):
 
     def setUp(self):
         super().setUp()
-        self.addCleanup(TestListenStartFail.__finish_heavy_load)
+        self.addCleanup(self.__finish_heavy_load)
 
     def test_start_failed_under_heavy_load(self):
         """
