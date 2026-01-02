@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import time
+import threading
 
 from helpers import analyzer, dmesg, error, port_checks, remote
 from helpers.analyzer import PSH, TCP
@@ -271,6 +272,77 @@ frang_limits {{http_strict_host_checking false;}}
         client.restart()
         client.make_request(request)
         client.wait_for_response(strict=expected_response_on_444_port, timeout=1)
+
+
+class TestListenStartFail(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        }
+    ]
+
+    clients = [
+        {
+            "id": "curl",
+            "type": "external",
+            "binary": "curl",
+            "ssl": True,
+            "cmd_args": "-Ikf ${tempesta_ip}:443",
+        },
+    ]
+
+    stop = False
+
+    def __heavy_load(self):
+        curl = self.get_client("curl")
+        while not self.stop:
+            curl.start()
+            self.wait_while_busy(curl)
+            curl.stop()
+
+    def test_start_failed_under_heavy_load(self):
+        """
+        Tempesta FW start listen several ports, one of it is busy
+        (deproxy server already listen on port 8000). Because of it
+        Tempesta FW failed to start, stop and unload all modules.
+        In separate thread client connect and send requests to one of
+        the ports already listen by Tempesta FW. This test checks that
+        Tempesta FW correctly stop listen all ports under load, during
+        unsuccessful start.
+        """
+        server = self.get_server("deproxy")
+        server.start()
+        self.deproxy_manager.start()
+
+        t = threading.Thread(target=self.__heavy_load)
+        t.start()
+
+        self.get_tempesta().config.set_defconfig(
+            f"""
+            listen 82 proto=http;
+            listen 83 proto=http;
+            listen 8000 proto=http;
+            listen 443 proto=https;
+            listen 4423 proto=https;
+            listen 4433 proto=https;
+            tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+            tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+            tls_match_any_server_name;
+            frang_limits {{http_strict_host_checking false;}}
+        """
+        )
+        self.oops_ignore = ["ERROR"]
+        with self.assertRaises(
+            error.ProcessBadExitStatusException,
+            msg="Tempesta FW successfully start, although one of the port is already listened by deproxy server",
+        ):
+            self.get_tempesta().start()
+        self.stop = True
+        t.join()
 
 
 class TestServerReconf(tester.TempestaTest):
