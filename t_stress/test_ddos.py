@@ -196,14 +196,11 @@ http_chain {{
         super().setUpClass()
         cls.addClassCleanup(cls.cleanup_proxies)
 
-        base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
-        client_ip = tf_cfg.cfg.get("Client", "ip")
-
         # create 250 IP addresses
         cls.networker = networker.NetWorker(node=remote.client)
         for n in range(1, 250):
-            (_, ip) = cls.networker.create_interface(n, cls.interface, base_ip)
-            cls.networker.create_route(cls.interface, ip, client_ip)
+            (_, ip) = cls.networker.create_interface(n)
+            cls.networker.create_route(ip)
             cls.proxies.append(ip)
 
         ips_str = "\n".join(cls.proxies)
@@ -229,8 +226,8 @@ http_chain {{
 
     @classmethod
     def cleanup_proxies(cls):
-        cls.networker.remove_routes(cls.interface, cls.proxies)
-        cls.networker.remove_interfaces(cls.interface, cls.proxies)
+        cls.networker.remove_routes(cls.proxies)
+        cls.networker.remove_interfaces(cls.proxies)
 
     @dmesg.limited_rate_on_tempesta_node
     def test(self):

@@ -244,11 +244,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         client_ip = tf_cfg.cfg.get("Client", "ipv6" if is_ipv6 else "ip")
         if ctype in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
-                interface = tf_cfg.cfg.get("Server", "aliases_interface")
-                base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
                 networker = NetWorker(node=remote.client)
-                (_, bind_addr) = networker.create_interface(len(self.__ips), interface, base_ip)
-                networker.create_route(interface, bind_addr, client_ip)
+                (_, bind_addr) = networker.create_interface(len(self.__ips))
+                networker.create_route(bind_addr)
                 self.__ips.append(bind_addr)
             else:
                 bind_addr = client_ip
@@ -293,7 +291,10 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def get_server(self, sid) -> StaticDeproxyServer | Nginx | DockerServer | None:
         """Return client with specified id"""
-        return self.__servers.get(sid)
+        server = self.__servers.get(sid, None)
+        if server is None:
+            raise error.ServerNotFound(sid) from None
+        return server
 
     def get_servers(self):
         return self.__servers.values()
@@ -316,7 +317,10 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         None,
     ]:
         """Return client with specified id"""
-        return self.__clients.get(cid)
+        client = self.__clients.get(cid, None)
+        if client is None:
+            raise error.ClientNotFound(cid) from None
+        return client
 
     def get_clients(self) -> list:
         return list(self.__clients.values())
@@ -440,10 +444,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def cleanup_interfaces(self):
         test_logger.info("Cleanup: Removing interfaces")
-        interface = tf_cfg.cfg.get("Server", "aliases_interface")
         networker = NetWorker(node=remote.client)
-        networker.remove_routes(interface, self.__ips)
-        networker.remove_interfaces(interface, self.__ips)
+        networker.remove_routes(self.__ips)
+        networker.remove_interfaces(self.__ips)
         self.__ips = []
 
     def cleanup_stop_tcpdump(self):

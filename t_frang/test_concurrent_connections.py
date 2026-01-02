@@ -54,11 +54,9 @@ frang_limits {
 
     @staticmethod
     def __create_new_address():
-        interface = tf_cfg.cfg.get("Server", "aliases_interface")
-        base_ip = tf_cfg.cfg.get("Server", "aliases_base_ip")
         networker = NetWorker(node=remote.server)
 
-        return networker.create_interfaces(interface, base_ip, 1)[0]
+        return networker.create_interfaces(1)[0]
 
     def test(self):
         """
