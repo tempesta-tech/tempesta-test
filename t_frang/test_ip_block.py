@@ -272,9 +272,16 @@ block_action attack drop;
         self.assertTrue(c4.wait_for_connection_close(timeout=3))
         self.assertFalse(c4.conn_is_active)
 
+        # "c4" connected when a connection still can be established and after connection of "c4" its
+        # ip will be blocked. But we can't be sure that it being blocked or it just disconnected, to
+        # be sure that ip is blocked we do this connection attempt. At this moment connection will
+        # not be established and SYN from client "c5" will be dropped
         c5.start()
-        self.assertFalse(c5.wait_for_connection_open(timeout=3, adjust_timeout=False))
-        self.assertFalse(c5.conn_is_active)
+        self.assertFalse(
+            c5.wait_for_connection_open(timeout=3, adjust_timeout=False),
+            "Client has not been blocked",
+        )
+        self.assertFalse(c5.conn_is_active, "Client has not been blocked")
         # Wait 11 seconds to have in most fastest case atleast 11 seconds wait that greater
         # than block duration
         time.sleep(11)
