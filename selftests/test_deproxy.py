@@ -1,6 +1,7 @@
 from h2.exceptions import ProtocolError
 
 from framework import deproxy, deproxy_client
+from helpers import dmesg, remote
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -273,6 +274,81 @@ server ${server_ip}:8000;
         self.deproxy_manager.start()
         self.start_all_clients()
         self.assertTrue(self.wait_all_connections())
+
+    def restore_defaults(self):
+        remote.client.run_cmd(f"sysctl -w net.ipv4.tcp_syn_retries={self.saved_retries}")
+        remote.client.run_cmd(f"sysctl -w net.ipv4.tcp_syn_linear_timeouts={self.saved_timeouts}")
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="wait", need_wait=True, block_duration=3, timeout=6),
+            marks.Param(name="timeout", need_wait=True, block_duration=10, timeout=2),
+            marks.Param(name="not_wait", need_wait=False, block_duration=3, timeout=0),
+        ]
+    )
+    def test_open_connection(self, name, need_wait, block_duration, timeout):
+        """
+        Test for wait_for_connection_open().
+
+        Description for wait version: Open the new connection and send bad request. Tempesta blocks
+        the client, then while client still blocked try to establish one more connection and wait
+        using wait_for_connection_open(). SYN will be retransmitted few times during block and
+        when block will be finished connection will be established. Using `ip_block` in this test
+        we simulate unstable connection that loses few SYN segments and verify in this condition
+        wait_for_connection_open() really waits until connection establishing. Alternative solution
+        could be implemnted using nftables instead of Tempesta + ip_block.
+
+        Description for not_wait version: The same as wait version of this test, but expected
+        result is not established connection due to not calling wait_for_connection_open() and
+        trying to connect while client still blocked.
+
+        Description for timeout version: The same as wait version of this test, but expected
+        timeout during waiting for connection establishing.
+
+        To make test predictable and stable adjust tcp_syn_retries and tcp_syn_linear_timeouts, but
+        restore previous values when test finished.
+
+        Set high timeout value for wait version to be sure we cover linear timeouts(4s by default)
+        plus a little bit more. With default tcp_syn_retries 6 and tcp_syn_linear_timeouts 4
+        expected SYN RTO is 1, 1, 1, 1, 1, 2, 4, ...
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(
+            tempesta.config.defconfig
+            + f"frang_limits {{ip_block {block_duration}; http_uri_len 4;}}\n"
+        )
+        klog = dmesg.DmesgFinder(disable_ratelimit=True)
+        self.start_all_services(False)
+
+        # Save system values
+        self.saved_retries = int(
+            remote.client.run_cmd("sysctl --values net.ipv4.tcp_syn_retries")[0]
+        )
+        self.saved_timeouts = int(
+            remote.client.run_cmd("sysctl --values net.ipv4.tcp_syn_linear_timeouts")[0]
+        )
+        self.addCleanup(self.restore_defaults)
+
+        # Set test values. They are equal to Linux default.
+        remote.client.run_cmd("sysctl -w net.ipv4.tcp_syn_retries=6")
+        remote.client.run_cmd("sysctl -w net.ipv4.tcp_syn_linear_timeouts=4")
+
+        client: deproxy_client.DeproxyClient = self.get_client("deproxy-interface")
+        client.start()
+        client.wait_for_connection_open(timeout=2)
+        client.make_request("GET /qwerty HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        client.wait_for_connection_close(timeout=2)
+        # Connect one more time during block duration.
+        client.restart()
+        if timeout > 0:
+            client.wait_for_connection_open(timeout=timeout)
+        # If wait less than block_duration time thus expected not established connection.
+        expected_connected = True if timeout > block_duration else False
+        self.assertEqual(client.connected, expected_connected)
+        self.assertTrue(
+            klog.find("Warning: block client:", cond=dmesg.amount_equals(1)),
+            "Client has not been blocked.",
+        )
 
     def test_make_request(self):
         self.start_all()
