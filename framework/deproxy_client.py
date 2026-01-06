@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Union
 
 import h2.connection
 from h2.connection import AllowedStreamIDs, ConnectionState
+from h2.errors import ErrorCodes
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
@@ -22,7 +23,6 @@ from h2.events import (
 )
 from h2.settings import SettingCodes, Settings
 from h2.stream import StreamInputs
-from h2.errors import ErrorCodes
 from hpack import Encoder
 
 import run_config
@@ -64,6 +64,9 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             is_ipv6=is_ipv6,
         )
 
+        self.writable = self._in_connecting_state
+        self.handle_write = self.__setup_write
+
         self.ssl = is_ssl
         self._is_http2 = isinstance(self, DeproxyClientH2)
         self._create_context()
@@ -73,7 +76,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.response_buffer = ""
         self.conn_addr = conn_addr
         self.conn_is_closed = True
-        self.conn_was_opened = False
         self.__error_codes: list[Exception | ErrorCodes] = []
 
         self.rps = 0
@@ -133,30 +135,70 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def _add_error_code(self, error_code: Exception | ErrorCodes) -> None:
         self.__error_codes.append(error_code)
 
-    def assert_error_code(self, *, expected_error_code: Exception | ErrorCodes, msg: str = "") -> None:
+    def assert_error_code(
+        self, *, expected_error_code: Exception | ErrorCodes, msg: str = ""
+    ) -> None:
         """
         We should not check error codes for TCP segmentation
         because we cannot control the sequence of receiving from Tempesta.
         In some cases, RST TCP will be received earlier.
         """
         if not self.segment_size:
-            assert expected_error_code in self.__error_codes, (
-                f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
+            assert (
+                expected_error_code in self.__error_codes
+            ), f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
+
+    def _in_connecting_state(self):
+        return self.connecting
+
+    def _has_pending_data(self):
+        if self.cur_req_num >= self.nrreq:
+            return False
+        if time.time() < self.next_request_time():
+            return False
+        if (
+            self.segment_gap != 0
+            and time.time() - self.last_segment_time < self.segment_gap / 1000.0
+        ):
+            return False
+        return True
+
+    def _send_data(self):
+        """Send data from `self.request_buffers` and cut them."""
+        reqs = self.request_buffers[self.cur_req_num]
+
+        sent = self.send(reqs[: self.segment_size] if self.segment_size else reqs)
+        if sent < 0:
+            return
+        self.last_segment_time = time.time()
+        self.request_buffers[self.cur_req_num] = reqs[sent:]
+        if len(self.request_buffers[self.cur_req_num]) == 0:
+            self.cur_req_num += 1
+            self._http_logger.info(
+                f"A request was send. The current number of a request - {self.cur_req_num}"
             )
+
+    def __setup_write(self):
+        self.writable = self._has_pending_data
+        self.handle_write = self._send_data
+
+        # Connection established and client has pending data to send
+        if self.writable():
+            self.handle_write()
 
     def handle_connect(self):
         if self.ssl:
             self.socket = self._context.wrap_socket(
                 self.socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
             )
-        self.conn_was_opened = True
         self.conn_is_closed = False
         self.start_time = time.time()
 
     def handle_close(self):
         self.close()
+        self.writable = self._in_connecting_state
+        self.handle_write = self.__setup_write
         self.conn_is_closed = True
-        self.state = stateful.STATE_STOPPED
 
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
@@ -187,7 +229,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.rps = rps
 
     def _stop_deproxy(self):
-        self.close()
+        self.handle_close()
 
     def _run_deproxy(self):
         self.create_socket(socket.AF_INET6 if self.is_ipv6 else socket.AF_INET, socket.SOCK_STREAM)
@@ -203,37 +245,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     @abc.abstractmethod
     def handle_read(self): ...
 
-    def writable(self):
-        if self.cur_req_num >= self.nrreq:
-            return False
-        if time.time() < self.next_request_time():
-            return False
-        if (
-            self.segment_gap != 0
-            and time.time() - self.last_segment_time < self.segment_gap / 1000.0
-        ):
-            return False
-        return True
-
     def next_request_time(self):
         if self.rps == 0:
             return self.start_time
         return self.start_time + float(self.cur_req_num) / self.rps
-
-    def handle_write(self):
-        """Send data from `self.request_buffers` and cut them."""
-        reqs = self.request_buffers[self.cur_req_num]
-
-        sent = self.send(reqs[:self.segment_size] if self.segment_size else reqs)
-        if sent < 0:
-            return
-        self.last_segment_time = time.time()
-        self.request_buffers[self.cur_req_num] = reqs[sent:]
-        if len(self.request_buffers[self.cur_req_num]) == 0:
-            self.cur_req_num += 1
-            self._http_logger.info(
-                f"A request was send. The current number of a request - {self.cur_req_num}"
-            )
 
     @abc.abstractmethod
     def make_requests(self, requests): ...
@@ -264,6 +279,23 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if expect_response:
             self.valid_req_num += 1
 
+    def wait_for_connection_open(self, timeout=5, strict=False, adjust_timeout=True):
+        """
+        Try to use strict mode whenever it's possible
+        to prevent tests from hard to detect errors.
+        """
+        timeout_not_exceeded = util.wait_until(
+            lambda: not self.conn_is_active,
+            timeout,
+            abort_cond=lambda: not self.connecting,
+            adjust_timeout=adjust_timeout,
+        )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection open: {timeout}"
+        return timeout_not_exceeded
+
     def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
@@ -291,7 +323,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
@@ -349,7 +381,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     @property
     def conn_is_active(self):
-        return self.conn_was_opened and not self.conn_is_closed
+        return self.connected
 
     @property
     def conn_addr(self) -> str:
@@ -626,7 +658,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return util.wait_until(
             lambda: not self.ack_settings,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     def wait_for_reset_stream(self, stream_id: int, timeout=5):
@@ -634,7 +666,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return util.wait_until(
             lambda: not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id),
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     def wait_for_headers_frame(self, stream_id: int, timeout=5):
@@ -643,14 +675,14 @@ class DeproxyClientH2(BaseDeproxyClient):
         return util.wait_until(
             lambda: not stream.state_machine.headers_received,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return util.wait_until(
             lambda: self._ping_received < ping_count,
             timeout,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
     @property
@@ -756,7 +788,7 @@ class DeproxyClientH2(BaseDeproxyClient):
             )
             raise
 
-    def handle_write(self):
+    def _send_data(self):
         """
         Send data from `self.request_buffers` and cut them.
         Move data from `self.req_body_buffers` to `self.request_buffers`
@@ -767,7 +799,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         cur_req_num = self.cur_req_num
 
         if self.request_buffers[cur_req_num]:
-            super().handle_write()
+            super()._send_data()
 
         body = self.req_body_buffers[cur_req_num].body
         if self.request_buffers[cur_req_num] == b"" and body is not None:
