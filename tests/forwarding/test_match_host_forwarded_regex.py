@@ -112,6 +112,9 @@ class TestMatchLocations(BaseRegexMatcher):
 
         vhost test {
             proxy_pass grp5;
+            location ~ "/^/article/id/[0-9]+/" {
+                proxy_pass grp2;
+            }
             location ~ "/shop/" {
                 proxy_pass grp1;
             }
@@ -146,6 +149,20 @@ class TestMatchLocations(BaseRegexMatcher):
                 host="testwiki.com",  # <--The first must be matched by "host ~ "/test/" -> test".
                 block=False,
                 sid=1,
+            ),
+            marks.Param(
+                name="host_testapp_uri_article_id_num",
+                uri="/article/id/1234",  # <--The second must be matched by "location ~ "^/article/id/[0-9]+"" of vhost test.
+                host="testapp.com",  # <--The first must be matched by "host ~ "/test/" -> test".
+                block=False,
+                sid=1,
+            ),
+            marks.Param(
+                name="host_testapp_uri_article_id_alph",
+                uri="/article/id/abc",  # <-- Not matched by location, therefore route to vhost test instead location.
+                host="testapp.com",  # <--The first must be matched by "host ~ "/test/" -> test".
+                block=False,
+                sid=4,
             ),
             marks.Param(
                 name="host_testapp_uri_testshop",
