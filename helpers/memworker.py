@@ -1,9 +1,11 @@
 """Helpers to memory consumptions in tests."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2025-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import gc
+import time
 import typing
 import unittest
 from contextlib import contextmanager
@@ -13,6 +15,9 @@ import psutil
 
 from helpers import error, remote, tf_cfg
 from helpers.tf_cfg import test_logger
+
+_STEPS_TO_CHECK_MEMORY = 5
+_SLEEP_TO_CHECK_MEMORY = 1
 
 
 class _MemoryStats:
@@ -81,35 +86,59 @@ class MemoryChecker:
         stdout, _ = self._node.run_cmd("free")
         return int(stdout.decode().split("\n")[1].split()[2])
 
-    @staticmethod
-    def _get_used_python_memory() -> int:
+    def _get_used_python_memory(self) -> int | None:
         """Get used python memory in KB for host (clients\severs)."""
-        return psutil.Process().memory_info().rss // 1024
+        return psutil.Process().memory_info().rss // 1024 if self._is_local_setup else None
 
     def set_second_memory_stats(self, mem_stats: _MemoryStats) -> None:
+        """
+        Set second memory stats.
+        It checks memory consumption in cycle because memory statistics can be unstable
+        and we neet to make sure that the memory is not being released.
+        """
         mem_stats.set_second_memory_stats(
             system_memory_second=self._get_used_memory(),
-            python_memory_second=self._get_used_python_memory() if self._is_local_setup else None,
+            python_memory_second=self._get_used_python_memory(),
         )
+
+        for _ in range(_STEPS_TO_CHECK_MEMORY):
+            if self._is_local_setup:
+                gc.collect()
+            if mem_stats.is_memory_leak():
+                time.sleep(_SLEEP_TO_CHECK_MEMORY)
+            else:
+                break
+            mem_stats.set_second_memory_stats(
+                system_memory_second=self._get_used_memory(),
+                python_memory_second=self._get_used_python_memory(),
+            )
 
     def get_first_memory_stats(self) -> _MemoryStats:
         return _MemoryStats(
             system_memory_first=self._get_used_memory(),
-            python_memory_first=self._get_used_python_memory() if self._is_local_setup else None,
+            python_memory_first=self._get_used_python_memory(),
         )
 
     def check_memory_consumption_of_test(
         self, mem_stats: _MemoryStats, test: unittest.TestCase
     ) -> None:
+        """
+        Add the test to the failed list when memory consumption is detected.
+        Don't call exceptions.
+        """
         self.set_second_memory_stats(mem_stats)
         test_logger.info(f"Check memory leaks for {test.id()}:\n{mem_stats}")
         if mem_stats.is_memory_leak():
             self._fail_tests.append(_FailTest(test, mem_stats))
 
     def check_memory_consumption_of_test_suite(self, mem_stats: _MemoryStats) -> None:
+        """
+        Check memory leaks for test suite and call MemoryConsumptionException when memory consumption is detected.
+        """
         self.set_second_memory_stats(mem_stats)
-        if mem_stats.is_memory_leak():
+        if self._fail_tests and mem_stats.is_memory_leak():
             raise error.MemoryConsumptionException(
+                f"The memory leaks for test suite:\n{mem_stats}\n"
                 "The tests with unexpected memory consumption:\n"
                 + f"\n".join(
                     [
