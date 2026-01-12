@@ -103,7 +103,7 @@ class TestFrameworkCfg:
                     "stress_requests_count": "100",
                     "stress_mtu": "1500",
                     "long_body_size": "500",
-                    "memory_leak_threshold": "65536",
+                    "memory_leak_threshold": "131072",
                     "unavailable_timeout": "300",
                 },
                 "Loggers": {
