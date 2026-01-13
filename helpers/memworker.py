@@ -94,7 +94,7 @@ class MemoryChecker:
         """
         Set second memory stats.
         It checks memory consumption in cycle because memory statistics can be unstable
-        and we neet to make sure that the memory is not being released.
+        and we need to make sure that the memory is not being released.
         """
         mem_stats.set_second_memory_stats(
             system_memory_second=self._get_used_memory(),
@@ -124,7 +124,7 @@ class MemoryChecker:
     ) -> None:
         """
         Add the test to the failed list when memory consumption is detected.
-        Don't call exceptions.
+        Don't raise exceptions.
         """
         self.set_second_memory_stats(mem_stats)
         test_logger.info(f"Check memory leaks for {test.id()}:\n{mem_stats}")
@@ -133,7 +133,7 @@ class MemoryChecker:
 
     def check_memory_consumption_of_test_suite(self, mem_stats: _MemoryStats) -> None:
         """
-        Check memory leaks for test suite and call MemoryConsumptionException when memory consumption is detected.
+        Check memory leaks for test suite and raise MemoryConsumptionException when memory consumption is detected.
         """
         self.set_second_memory_stats(mem_stats)
         if self._fail_tests and mem_stats.is_memory_leak():
