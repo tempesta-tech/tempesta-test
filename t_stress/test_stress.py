@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 
-from helpers import dmesg, remote, tf_cfg, networker, tempesta
+from helpers import dmesg, networker, remote, tempesta, tf_cfg
 from helpers.deproxy import HttpMessage
 from t_frang.frang_test_case import FrangTestCase
 from test_suite import marks, tester
@@ -205,11 +205,11 @@ class TestStress(tester.TempestaTest):
     mtu: int
     backend_content_length: int
     server_interfaces_n = 8
-    server_listeners_per_interface_n = 64
+    server_listeners_per_interface_n = 8
     cache_config: str = ""
     large_page_path = Path(tf_cfg.cfg.get("Server", "resources")) / "large.html"
 
-    tempesta_config_template =  f"""
+    tempesta_config_template = f"""
 listen 80 proto=http;
 listen 443 proto=h2,https;
 
@@ -256,12 +256,14 @@ max_concurrent_streams 10000;
         remote.server.remove_file(str(cls.large_page_path))
 
     def _add_nginx_backends(self, server_listeners: list[str]) -> None:
-        nginx = self.get_server('nginx')
+        nginx = self.get_server("nginx")
         servers_config = ""
         for grp in server_listeners:
             for listener in grp:
                 servers_config += f"\tlisten  {listener};\r\n"
-        nginx.config.config = nginx.config.config % f"""
+        nginx.config.config = (
+            nginx.config.config
+            % f"""
             server {{
                 {servers_config}
                 listen 8000;
@@ -272,8 +274,11 @@ max_concurrent_streams 10000;
                 location /nginx_status {{ stub_status on; }}
             }}
         """
+        )
 
-    def _generate_tempesta_config_with_multiple_srv_group(self, server_listeners: list[str]) -> None:
+    def _generate_tempesta_config_with_multiple_srv_group(
+        self, server_listeners: list[str]
+    ) -> None:
         tempesta = self.get_tempesta()
         srv_groups_config = ""
         vhost_config = ""
@@ -299,7 +304,7 @@ max_concurrent_streams 10000;
         server_listeners = []
         for ip_ in ips:
             srv_grp = []
-            for _ in range(self.server_interfaces_n):
+            for _ in range(self.server_listeners_per_interface_n):
                 srv_grp.append(f"{ip_}:{base_port}")
                 base_port += 1
             server_listeners.append(srv_grp)
@@ -311,12 +316,15 @@ max_concurrent_streams 10000;
             for i, grp in enumerate(server_listeners):
                 for listener in grp:
                     stats = tempesta.ServerStats(
-                        tempesta=tfw, sg_name=f"grp_{i}", srv_ip=listener.split(":")[0], srv_port=listener.split(":")[1]
+                        tempesta=tfw,
+                        sg_name=f"grp_{i}",
+                        srv_ip=listener.split(":")[0],
+                        srv_port=listener.split(":")[1],
                     )
                     self.assertGreater(
                         stats.health_statuses.get(200, 0),
                         0,
-                        f"'{listener}' server in grp_{i} srv_group don't receive requests from Tempesta FW."
+                        f"'{listener}' server in grp_{i} srv_group don't receive requests from Tempesta FW.",
                     )
 
     @marks.Parameterize.expand(
@@ -339,9 +347,12 @@ max_concurrent_streams 10000;
                 self.start_all_services(client=False)
 
                 client = self.get_client("h2load")
-                tempesta_ip = tf_cfg.cfg.get('Tempesta', 'ip')
+                tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
                 urls = " ".join(
-                    [f"{proto}://{tempesta_ip}:{tfw_port}/{i}/large.html" for i in range(self.server_interfaces_n)]
+                    [
+                        f"{proto}://{tempesta_ip}:{tfw_port}/{i}/large.html"
+                        for i in range(self.server_interfaces_n)
+                    ]
                 )
                 client.options = [
                     f" {urls} {http_option} "
@@ -350,7 +361,9 @@ max_concurrent_streams 10000;
                 ]
 
                 client.start()
-                self.wait_while_busy(client, timeout=DURATION * 10) # The MTU80 tests require more time
+                self.wait_while_busy(
+                    client, timeout=DURATION * 10
+                )  # The MTU80 tests require more time
                 client.stop()
 
                 self.assertEqual(client.returncode, 0)
