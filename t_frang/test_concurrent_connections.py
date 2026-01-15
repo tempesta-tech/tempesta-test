@@ -6,7 +6,7 @@ __license__ = "GPL2"
 
 import time
 
-from helpers import tf_cfg, remote
+from helpers import remote, tf_cfg
 from helpers.networker import NetWorker
 from t_frang.frang_test_case import FrangTestCase
 from test_suite import marks
@@ -22,7 +22,6 @@ listen 127.0.0.1:80;
 
 frang_limits {
     concurrent_tcp_connections 1;
-    ip_block off;
 }
 
 """,
@@ -177,10 +176,10 @@ frang_limits {
 
     def test_three_clients_same_ip(self):
         """
-        For three clients with same IP and concurrent_tcp_connections 2, ip_block off:
+        For three clients with same IP and concurrent_tcp_connections 2, ip_block is off:
             - Tempesta serves only two clients.
         """
-        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n")
 
         self._base_scenario(
             clients=[
@@ -198,7 +197,7 @@ frang_limits {
         For three clients with different IP and concurrent_tcp_connections 2:
             - Tempesta serves three clients.
         """
-        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n")
         self._base_scenario(
             clients=[
                 self.get_client("deproxy-interface-0"),
@@ -212,10 +211,10 @@ frang_limits {
 
     def test_three_clients_same_ip_with_block_ip(self):
         """
-        For three clients with same IP and concurrent_tcp_connections 2, ip_block on:
+        For three clients with same IP and concurrent_tcp_connections 2, ip_block 0:
             - Tempesta does not serve clients.
         """
-        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block on;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block 0;")
         self._base_scenario(
             clients=[
                 self.get_client("deproxy-0"),
@@ -226,6 +225,11 @@ frang_limits {
         )
 
         self.assertFrangWarning(warning=ERROR, expected=1)
+
+    def _get_num_active_conns(self):
+        tempesta = self.get_tempesta()
+        tempesta.get_stats()
+        return tempesta.stats.cl_conns_active
 
     @marks.Parameterize.expand(
         [
@@ -239,15 +243,20 @@ frang_limits {
         Check that Tempesta cleared client connection stats and
         new connections are established.
         """
-        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n\tip_block off;")
+        self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n")
+        tempesta = self.get_tempesta()
 
         non_blocked_clients = [self.get_client(f"deproxy-{n}") for n in range(2)]
         blocked_clients = [self.get_client(f"deproxy-{n}") for n in range(2, clients_n)]
 
         for n in [warning_n, warning_n * 2]:
-            for client in non_blocked_clients + blocked_clients:  # establish 2 or more connections
+            for client in non_blocked_clients:
                 client.start()
-                client.make_request(client.create_request(method="GET", headers=[]))
+                client.wait_for_connection_open(strict=True)
+
+            for client in blocked_clients:  # establish 2 or more connections
+                client.start()
+                self.assertFalse(client.wait_for_connection_open())
 
             for client in blocked_clients:
                 self.assertTrue(
@@ -263,3 +272,5 @@ frang_limits {
 
             for client in non_blocked_clients + blocked_clients:
                 client.stop()
+
+            self.assertWaitUntilEqual(self._get_num_active_conns, 0, timeout=3)

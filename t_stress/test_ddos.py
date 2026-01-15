@@ -7,7 +7,7 @@ import time
 import unittest
 from pathlib import Path
 
-from helpers import dmesg, remote, tf_cfg, networker
+from helpers import dmesg, networker, remote, tf_cfg
 from test_suite import tester
 
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
@@ -111,7 +111,6 @@ frang_limits {{
     http_methods head post put get;
     http_strict_host_checking true;
 
-    ip_block off;
 }}
 
 # Allow only following characters in URI: %+,/a-zA-Z0-9&?:-.[]_=
@@ -182,7 +181,7 @@ http_chain {{
 
     interface = tf_cfg.cfg.get("Server", "aliases_interface")
 
-    backend_page_size = 114842 # this is an arbitrary number.
+    backend_page_size = 114842  # this is an arbitrary number.
 
     def make_response(self, curl, uri: str) -> None:
         curl.headers["Host"] = "tempesta-tech.com"
@@ -292,7 +291,7 @@ http_chain {{
         for _ in range(2):
             self.make_response(curl, "/large.html")
             self.assertEqual(curl.last_response.status, 200)
-            time.sleep(0.2) # *_burst directives can be equal to 1
+            time.sleep(0.2)  # *_burst directives can be equal to 1
         self.assertIsNotNone(
             curl.last_response.headers.get("age", None),
             "TempestaFW didn't return the response from the cache before the attack started.",
