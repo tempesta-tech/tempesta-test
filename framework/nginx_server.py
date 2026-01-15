@@ -3,11 +3,11 @@ import re
 import time
 
 from framework import stateful
-from helpers import port_checks, remote, tempesta, tf_cfg
+from helpers import port_checks, remote, tempesta, tf_cfg, util
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -43,28 +43,25 @@ class Nginx(stateful.Stateful):
 
     def clear_stats(self):
         super().clear_stats()
-        self.active_conns = 0
-        self.requests = 0
-        self.stats_ask_times = 0
+        self._active_conns = 0
+        self._requests = 0
+        self._stats_ask_times = 0
 
     def get_stats(self):
         """Nginx doesn't have counters for every virtual host. Spawn separate
         instances instead
         """
-        self.stats_ask_times += 1
-        # In default tests configuration Nginx status available on
-        # `nginx_status` page.
-        cmd = "curl %s" % self.status_uri
-        out, _ = remote.client.run_cmd(cmd)
+        self._stats_ask_times += 1
+        out, _ = remote.client.run_cmd(f"curl {self.status_uri}")
         m = re.search(
             r"Active connections: (\d+) \n" r"server accepts handled requests\n \d+ \d+ (\d+)",
             out.decode(),
         )
         if m:
             # Current request increments active connections for nginx.
-            self.active_conns = int(m.group(1)) - 1
+            self._active_conns = int(m.group(1)) - 1
             # Get rid of stats requests influence to statistics.
-            self.requests = int(m.group(2)) - self.stats_ask_times
+            self._requests = int(m.group(2)) - self._stats_ask_times
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
@@ -107,6 +104,30 @@ class Nginx(stateful.Stateful):
         self._logger.info(f"Removing config.")
         config_file = os.path.join(self.workdir, self.config.config_name)
         self.node.remove_file(config_file)
+
+    @property
+    def active_conns(self) -> int:
+        self.get_stats()
+        return self._active_conns
+
+    @property
+    def requests(self) -> int:
+        self.get_stats()
+        return self._requests
+
+    def wait_for_requests(self, n: int, timeout=1, strict=False, adjust_timeout=False) -> bool:
+        """wait for the `n` number of responses to be received"""
+        timeout_not_exceeded = util.wait_until(
+            lambda: self.requests < n,
+            timeout=timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+            adjust_timeout=adjust_timeout,
+        )
+        if strict:
+            assert (
+                timeout_not_exceeded != False
+            ), f"Timeout exceeded while waiting connection close: {timeout}"
+        return timeout_not_exceeded
 
 
 def nginx_srv_factory(server, name, tester):
