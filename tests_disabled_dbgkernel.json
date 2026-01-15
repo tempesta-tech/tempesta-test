@@ -10,10 +10,6 @@
             "reason" : "the tests did not work on the first run"
         },
         {
-            "name" : "very_many_backends",
-            "reason" : "the tests did not work on the first run"
-        },
-        {
             "name" : "t_reconf.test_reconf_base.TestServerOptionsReconf.test_reconf_server_queue_size_enabled",
             "reason" : "the tests did not work on the first run"
         },

@@ -46,7 +46,7 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "very_many_backends",
+            "name": "t_deadtime",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
