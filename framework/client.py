@@ -103,7 +103,9 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             # The process may freeze forever.
             self.proc.kill()
             proc_results = None
-            self._logger.warning("The process killed because the queue is empty and timeout is over.")
+            self._logger.warning(
+                "The process killed because the queue is empty and timeout is over."
+            )
 
         self.proc = None
 
@@ -156,5 +158,5 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     def set_user_agent(self, ua):
         self.options.append("-H 'User-Agent: %s'" % ua)
 
-    def wait_for_finish(self, timeout=5):
+    def wait_for_finish(self, timeout=5) -> bool:
         return util.wait_until(lambda: self.is_busy(verbose=False), timeout)
