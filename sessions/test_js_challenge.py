@@ -5,8 +5,8 @@ Tests for JavaScript challenge.
 import re
 import time
 
+from framework.deproxy import HttpMessage
 from helpers import dmesg, remote, tf_cfg
-from helpers.deproxy import HttpMessage
 from helpers.util import fill_template
 from test_suite import marks, tester
 

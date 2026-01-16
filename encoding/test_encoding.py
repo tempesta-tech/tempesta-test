@@ -2,7 +2,8 @@ import copy
 import random
 import string
 
-from helpers import deproxy, util
+from framework import deproxy
+from helpers import util
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."

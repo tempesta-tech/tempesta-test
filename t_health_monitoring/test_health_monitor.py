@@ -7,8 +7,9 @@ from __future__ import print_function
 import time
 from collections import defaultdict
 
-from helpers import dmesg, tempesta, tf_cfg
-from helpers.deproxy import HttpMessage
+from framework import tempesta
+from framework.deproxy import HttpMessage
+from helpers import dmesg, tf_cfg
 from http2_general.test_h2_responses import H2ResponsesPipelinedBase
 from test_suite import marks, tester
 

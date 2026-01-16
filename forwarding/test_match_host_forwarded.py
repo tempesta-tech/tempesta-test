@@ -2,11 +2,11 @@
 Tests for verifying correctness of matching
 all host headers (URI, Host, Forwarded).
 """
-from helpers import chains
+
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 

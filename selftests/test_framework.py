@@ -1,12 +1,12 @@
-""" Example tests and checking functionality of services """
+"""Example tests and checking functionality of services"""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import deproxy_server, external_client, nginx_server, wrk_client
-from helpers import deproxy, dmesg, tf_cfg
-from helpers.control import Tempesta
+from framework import deproxy, deproxy_server, external_client, nginx_server, wrk_client
+from framework.tempesta import Tempesta
+from helpers import dmesg
 from test_suite import tester
 
 # Number of bytes to test external client output

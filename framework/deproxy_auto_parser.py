@@ -8,9 +8,7 @@ import re
 import sys
 
 import run_config
-from framework.deproxy_client import BaseDeproxyClient, DeproxyClient, DeproxyClientH2
-from framework.deproxy_manager import DeproxyManager
-from helpers.deproxy import (
+from framework.deproxy import (
     H2Request,
     H2Response,
     HttpMessage,
@@ -18,7 +16,9 @@ from helpers.deproxy import (
     Request,
     Response,
 )
-from helpers.tempesta import Config
+from framework.deproxy_client import BaseDeproxyClient, DeproxyClient, DeproxyClientH2
+from framework.deproxy_manager import DeproxyManager
+from framework.tempesta import Config
 
 
 class DeproxyAutoParser:

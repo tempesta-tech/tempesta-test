@@ -15,8 +15,8 @@ from hyperframe.frame import (
     WindowUpdateFrame,
 )
 
+from framework.deproxy import HttpMessage
 from helpers import dmesg
-from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite.marks import parameterize_class
 

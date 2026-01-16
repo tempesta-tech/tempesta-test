@@ -2,9 +2,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework.deproxy import HttpMessage
 from framework.deproxy_client import BaseDeproxyClient, DeproxyClientH2
 from helpers import analyzer, remote, tf_cfg
-from helpers.deproxy import HttpMessage
 from test_suite import asserts, custom_error_page, tester
 
 
@@ -131,22 +131,30 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         sniffer.start()
         return sniffer
 
-    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
+    def check_fin_no_rst_in_sniffer(
+        self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]
+    ) -> None:
         sniffer.stop()
         self.assert_fin_socks(sniffer.packets, clients)
         self.assert_unreset_socks(sniffer.packets, clients)
 
-    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
+    def check_rst_no_fin_in_sniffer(
+        self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]
+    ) -> None:
         sniffer.stop()
         self.assert_not_fin_socks(sniffer.packets, clients)
         self.assert_reset_socks(sniffer.packets, clients)
 
-    def check_fin_and_rst_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
+    def check_fin_and_rst_in_sniffer(
+        self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]
+    ) -> None:
         sniffer.stop()
         self.assert_reset_socks(sniffer.packets, clients)
         self.assert_fin_socks(sniffer.packets, clients)
 
-    def check_no_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
+    def check_no_fin_no_rst_in_sniffer(
+        self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]
+    ) -> None:
         sniffer.stop()
         self.assert_not_fin_socks(sniffer.packets, clients)
         self.assert_unreset_socks(sniffer.packets, clients)

@@ -6,8 +6,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from framework.tempesta import ServerStats
 from helpers.dmesg import limited_rate_on_tempesta_node
-from helpers.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 

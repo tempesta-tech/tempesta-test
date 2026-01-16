@@ -20,7 +20,8 @@ from importlib.machinery import SourceFileLoader
 import inquirer
 
 import run_config
-from helpers import control, error, memworker, remote, tf_cfg
+from framework import tempesta
+from helpers import error, memworker, remote, tf_cfg
 from test_suite import prepare, shell, tester
 from test_suite.tester import test_logger
 
@@ -126,10 +127,10 @@ def __check_kmemleak() -> None:
     """Check kmemleak result if `--kernel-dbg` option is present."""
     if run_config.KERNEL_DBG_TESTS:
         # we should run TempestaFW again to display the output correctly
-        tempesta = control.Tempesta(vhost_auto=False)
-        tempesta.config.set_defconfig("")
-        tempesta.check_config = False
-        tempesta.start()
+        tfw = tempesta.Tempesta(vhost_auto=False)
+        tfw.config.set_defconfig("")
+        tfw.check_config = False
+        tfw.start()
 
         try:
             remote.tempesta.run_cmd("echo scan > /sys/kernel/debug/kmemleak", timeout=60)
@@ -148,7 +149,7 @@ def __check_kmemleak() -> None:
             if b"tfw_" in stdout:
                 raise error.KmemLeakException(stdout=stdout.decode())
         finally:
-            tempesta.stop()
+            tfw.stop()
 
 
 state_reader = shell.TestState()

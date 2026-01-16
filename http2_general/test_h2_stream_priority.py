@@ -8,7 +8,7 @@ from h2.errors import ErrorCodes
 from hyperframe.frame import PriorityFrame
 
 import run_config
-from helpers.deproxy import HttpMessage
+from framework.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import marks
 
@@ -161,7 +161,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
         client, server = self.setup_test_priority()
         for _ in range(6):
             client.make_request(
-            self.post_request,
+                self.post_request,
                 end_stream=True,
                 priority_weight=16,
                 priority_depends_on=None,

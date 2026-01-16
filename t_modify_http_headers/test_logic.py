@@ -4,9 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import helpers
+from framework import tempesta
+from framework.deproxy import H2Response, HttpMessage, Request, Response
 from helpers import tf_cfg
-from helpers.deproxy import H2Response, HttpMessage, Request, Response
 from test_suite import tester
 
 MAX_HEADER_NAME = 1024  # See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN
@@ -26,7 +26,7 @@ def generate_response(optional_headers=[]) -> str:
     return (
         "HTTP/1.1 200 OK\r\n"
         + f"Date: {HttpMessage.date_time_string()}\r\n"
-        + f"Server: Tempesta FW/{helpers.tempesta.version()}\r\n"
+        + f"Server: Tempesta FW/{tempesta.version()}\r\n"
         + "".join(f"{header[0]}: {header[1]}\r\n" for header in optional_headers)
         + "Content-Length: 0\r\n\r\n"
     )
@@ -46,11 +46,11 @@ def get_expected_response(
 ) -> Response or H2Response:
     if client.is_http2:
         tempesta_headers = [
-            ("via", f"2.0 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
+            ("via", f"2.0 tempesta_fw (Tempesta FW {tempesta.version()})"),
         ]
     else:
         tempesta_headers = [
-            ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
+            ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
             ("Connection", "keep-alive"),
         ]
 
@@ -75,7 +75,7 @@ def get_expected_request(
 ) -> Request:
     tempesta_headers = [
         ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
-        ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
+        ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
     ]
     if directive == "req":
         expected_request = generate_http1_request(
@@ -527,7 +527,7 @@ class TestReqHdrSetHost(tester.TempestaTest):
     def get_expected_request_no_host(self, expected_headers: list) -> Request:
         tempesta_headers = [
             ("X-Forwarded-For", tf_cfg.cfg.get("Client", "ip")),
-            ("via", f"1.1 tempesta_fw (Tempesta FW {helpers.tempesta.version()})"),
+            ("via", f"1.1 tempesta_fw (Tempesta FW {tempesta.version()})"),
         ]
 
         request = (

@@ -3,7 +3,7 @@ __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework import deproxy_client, deproxy_server
-from helpers.deproxy import HttpMessage
+from framework.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 
 

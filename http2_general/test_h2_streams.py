@@ -9,8 +9,8 @@ from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 
 from framework import deproxy_client
+from framework.deproxy import HttpMessage
 from helpers import tf_cfg
-from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import tester
 

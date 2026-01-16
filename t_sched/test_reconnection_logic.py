@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers.deproxy import HttpMessage
+from framework.deproxy import HttpMessage
 from test_suite import tester
 
 

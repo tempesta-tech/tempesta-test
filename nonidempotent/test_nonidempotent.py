@@ -1,5 +1,5 @@
-from framework import deproxy_server
-from helpers import deproxy, tempesta, tf_cfg
+from framework import deproxy, deproxy_server
+from helpers import tf_cfg
 from helpers.util import fill_template
 from test_suite import tester
 
@@ -7,7 +7,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers.deproxy import HttpMessage
+from framework.deproxy import HttpMessage
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;

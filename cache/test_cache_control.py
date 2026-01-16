@@ -4,12 +4,10 @@ import abc
 import copy
 import time
 
-from framework import deproxy_server
+from framework import deproxy
 from framework.deproxy_client import DeproxyClient
-from helpers import deproxy, tf_cfg
-from helpers.deproxy import HttpMessage
-from helpers.util import fill_template
-from test_suite import marks, tester
+from helpers import tf_cfg
+from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

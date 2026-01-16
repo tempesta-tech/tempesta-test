@@ -5,10 +5,9 @@ import sys
 import time
 from typing import Optional
 
-import run_config
-from framework import stateful
+from framework import deproxy, stateful, tempesta
 from framework.deproxy_base import BaseDeproxy
-from helpers import deproxy, error, tempesta, tf_cfg, util
+from helpers import error, tf_cfg, util
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."

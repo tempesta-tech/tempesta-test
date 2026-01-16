@@ -4,12 +4,13 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import curl_client, deproxy_server
-from helpers import deproxy, tf_cfg
+from typing import Callable
+
+from framework import curl_client, deproxy, deproxy_server
+from helpers import tf_cfg
 from t_long_body import utils
 from test_suite import checks_for_tests as checks
-from test_suite import tester, marks
-from typing import Callable
+from test_suite import marks, tester
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 
@@ -103,16 +104,24 @@ cache 0;
 
     def test_http(self):
         self._test(
-            client_id="curl-http", header=f"Content-Length: {BODY_SIZE}", body_func=utils.create_simpple_body
+            client_id="curl-http",
+            header=f"Content-Length: {BODY_SIZE}",
+            body_func=utils.create_simpple_body,
         )
 
     def test_https(self):
         self._test(
-            client_id="curl-https", header=f"Content-Length: {BODY_SIZE}", body_func=utils.create_simpple_body
+            client_id="curl-https",
+            header=f"Content-Length: {BODY_SIZE}",
+            body_func=utils.create_simpple_body,
         )
 
     def test_h2(self):
-        self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}", body_func=utils.create_simpple_body)
+        self._test(
+            client_id="curl-h2",
+            header=f"Content-Length: {BODY_SIZE}",
+            body_func=utils.create_simpple_body,
+        )
 
     def test_http_one_big_chunk(self):
         self._test(
