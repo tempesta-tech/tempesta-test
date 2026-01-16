@@ -10,7 +10,8 @@ from itertools import cycle, islice
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from helpers import dmesg, remote, tempesta, tf_cfg
+from framework import tempesta
+from helpers import dmesg, remote, tf_cfg
 from helpers.cert_generator_x509 import CertGenerator
 from helpers.deproxy import HttpMessage
 from helpers.util import fill_template

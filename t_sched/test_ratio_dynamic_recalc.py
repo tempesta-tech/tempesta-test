@@ -10,7 +10,6 @@ __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.wrk_client import Wrk
-from helpers.control import servers_get_stats
 from run_config import DURATION
 from test_suite import tester
 
@@ -171,7 +170,8 @@ class RatioDynamic(tester.TempestaTest):
         tempesta = self.get_tempesta()
 
         tempesta.get_stats()
-        servers_get_stats([srv_const, srv_dyn])
+        srv_const.get_stats()
+        srv_dyn.get_stats()
 
         cl_reqs = perfstat["client_requests"] = (
             tempesta.stats.cl_msg_forwarded - perfstat["tot_client_requests"]

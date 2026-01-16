@@ -19,8 +19,8 @@ from hyperframe.frame import HeadersFrame
 
 import helpers
 from framework.deproxy_client import DeproxyClientH2, HuffmanEncoder
+from framework.tempesta import Tempesta
 from helpers import tf_cfg
-from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import marks

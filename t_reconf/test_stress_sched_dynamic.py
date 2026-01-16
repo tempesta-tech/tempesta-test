@@ -6,7 +6,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers.control import servers_get_stats
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SCHED_OPTS_START = "ratio dynamic"
@@ -135,7 +134,8 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
         tempesta = self.get_tempesta()
         servers = self.get_servers()
         tempesta.get_stats()
-        servers_get_stats(servers)
+        for srv in servers:
+            srv.get_stats()
 
         total_weight = len(servers) * 50
         weights = [

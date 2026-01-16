@@ -1,5 +1,5 @@
 from framework import deproxy_server
-from helpers import deproxy, tempesta, tf_cfg
+from helpers import deproxy, tf_cfg
 from helpers.util import fill_template
 from test_suite import tester
 

@@ -8,9 +8,9 @@ __license__ = "GPL2"
 
 import random
 
+from framework import tempesta as tfw
 from framework.deproxy_server import ServerConnection
-from helpers import tempesta as tfw
-from helpers.control import Tempesta
+from framework.tempesta import Tempesta
 from test_suite import tester
 
 

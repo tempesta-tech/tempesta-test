@@ -22,7 +22,6 @@ Backend is configured to never close connections (keepalive_requests),
 since it unpredictably affects load distribution.
 """
 
-from helpers.control import servers_get_stats
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -240,7 +239,8 @@ class Ratio(tester.TempestaTest):
         servers = self.get_servers()
 
         tempesta.get_stats()
-        servers_get_stats(servers)
+        for srv in servers:
+            srv.get_stats()
 
         cl_reqs = tempesta.stats.cl_msg_forwarded
         tot_weight = 0

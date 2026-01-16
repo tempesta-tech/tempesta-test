@@ -6,7 +6,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers.control import servers_get_stats
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 
 SRV_WEIGHT_START = ":8001;"
@@ -167,7 +166,8 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
     def get_n_expected_reqs(self, servers) -> float:
         tempesta = self.get_tempesta()
         tempesta.get_stats()
-        servers_get_stats(servers)
+        for srv in servers:
+            srv.get_stats()
         return tempesta.stats.cl_msg_forwarded / len(servers)
 
 

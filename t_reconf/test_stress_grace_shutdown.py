@@ -8,7 +8,7 @@ __license__ = "GPL2"
 
 import http
 
-from helpers.tempesta import ServerStats
+from framework.tempesta import ServerStats
 from helpers.tf_cfg import cfg
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 

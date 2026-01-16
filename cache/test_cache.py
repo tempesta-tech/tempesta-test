@@ -11,8 +11,8 @@ from http import HTTPStatus
 from framework.curl_client import CurlResponse
 from framework.deproxy_client import DeproxyClientH2
 from framework.deproxy_server import StaticDeproxyServer
+from framework.tempesta import Tempesta
 from helpers import deproxy, error, remote, util
-from helpers.control import Tempesta
 from helpers.deproxy import HttpMessage
 from test_suite import checks_for_tests as checks
 from test_suite import marks, tester

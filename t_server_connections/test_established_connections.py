@@ -1,6 +1,7 @@
 """All sockets must be closed after Tempesta shutdown"""
 
-from helpers import tempesta, remote, netfilter
+from framework import tempesta
+from helpers import netfilter, remote
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -55,7 +56,9 @@ srv_group default {{
         """Get count of sockets connected to given peer"""
         ss_filter = f"state {state}" if state else ""
         # Count only if  destination peer matches
-        return int(remote.tempesta.run_cmd(f'ss -H -t {ss_filter} "dst {server_ip_and_port}" | wc -l')[0])
+        return int(
+            remote.tempesta.run_cmd(f'ss -H -t {ss_filter} "dst {server_ip_and_port}" | wc -l')[0]
+        )
 
     def _get_sock_estab_count(self, server_ip_and_port: str) -> int:
         """Get count of sockets in state TCP_ESTAB connected to given peer"""
@@ -65,24 +68,34 @@ srv_group default {{
     def get_server_ip_and_port(server) -> str:
         return f"{server.bind_addr}:{server.port}"
 
-    def check_established_sockets(self, server_ip_and_port: str, expected_n: int, msg: str | None = None) -> None:
-        self.assertWaitUntilEqual(lambda : self._get_sock_estab_count(server_ip_and_port), expected_n, msg)
+    def check_established_sockets(
+        self, server_ip_and_port: str, expected_n: int, msg: str | None = None
+    ) -> None:
+        self.assertWaitUntilEqual(
+            lambda: self._get_sock_estab_count(server_ip_and_port), expected_n, msg
+        )
 
-    def check_total_sockets(self, server_ip_and_port: str, expected_n: int, msg: str | None = None) -> None:
-        self.assertWaitUntilEqual(lambda : self._get_sock_count(server_ip_and_port), expected_n, msg)
+    def check_total_sockets(
+        self, server_ip_and_port: str, expected_n: int, msg: str | None = None
+    ) -> None:
+        self.assertWaitUntilEqual(lambda: self._get_sock_count(server_ip_and_port), expected_n, msg)
 
     def test_available(self):
         """
         Test check that Tempesta FW creates the correct number of connections and closes them successfully.
         """
-        server = self.get_server('deproxy')
+        server = self.get_server("deproxy")
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
 
         msg = "Tempesta FW must not open connections before start."
         self.assertEqual(len(server.connections), 0, msg)
-        self.check_total_sockets(server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg)
-        self.check_established_sockets(server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg)
+        self.check_total_sockets(
+            server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg
+        )
+        self.check_established_sockets(
+            server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg
+        )
 
         self.start_all_services(client=False)
         tfw.get_stats()
@@ -102,31 +115,40 @@ srv_group default {{
         tfw.stop()
         msg = "Tempesta FW must close all connections after stop."
         self.assertEqual(len(server.connections), 0, msg)
-        self.check_total_sockets(server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg)
-        self.check_established_sockets(server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg)
+        self.check_total_sockets(
+            server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg
+        )
+        self.check_established_sockets(
+            server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg
+        )
 
     def test_server_port_is_blocked(self):
         """
         All servers are behind firewall. All connection attempts will be silently dropped.
         """
-        server = self.get_server('deproxy')
+        server = self.get_server("deproxy")
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
 
-        with netfilter.block_ports_on_node(blocked_ports=[8000, ], node=remote.server):
+        with netfilter.block_ports_on_node(
+            blocked_ports=[
+                8000,
+            ],
+            node=remote.server,
+        ):
             server.start()
             tfw.start()
             tfw.get_stats()
             self.check_total_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
                 expected_n=self.conns_n,
-                msg=f"Tempesta FW must create {self.conns_n} sockets to server."
+                msg=f"Tempesta FW must create {self.conns_n} sockets to server.",
             )
             self.check_established_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
                 expected_n=0,
                 msg=f"Tempesta FW must create {self.conns_n} sockets to server, "
-                    f"but they must be blocked by iptables. So the expected established sockets is equal 0."
+                f"but they must be blocked by iptables. So the expected established sockets is equal 0.",
             )
 
         msg = "Tempesta must not open connections to server."
@@ -140,7 +162,7 @@ srv_group default {{
         See issue 114.
         Tempesta FW must not schedule requests to closed sockets with servers.
         """
-        server = self.get_server('deproxy')
+        server = self.get_server("deproxy")
         tfw = self.get_tempesta()
         client = self.get_client("deproxy-1")
 
@@ -151,11 +173,15 @@ srv_group default {{
 
         client.send_request(client.create_request(method="GET", headers=[]), "504")
 
-        self.assertTrue(self.wait_all_connections(), "Tempesta FW must recreate all connections to server.")
+        self.assertTrue(
+            self.wait_all_connections(), "Tempesta FW must recreate all connections to server."
+        )
         tfw.get_stats()
 
         self.assertGreater(tfw.stats.cl_msg_received, 0, "Client don't work.")
-        self.assertGreater(tfw.stats.cl_msg_forwarded, 0, "Tempesta FW don't forward requests to servers.")
+        self.assertGreater(
+            tfw.stats.cl_msg_forwarded, 0, "Tempesta FW don't forward requests to servers."
+        )
 
         msg = f"Tempesta FW must open {self.conns_n} connections to server."
         self.assertEqual(len(server.connections), self.conns_n, msg)
@@ -173,7 +199,7 @@ srv_group default {{
 
     def test_not_started_server(self):
         """HTTP Server is not started on available server."""
-        server = self.get_server('deproxy')
+        server = self.get_server("deproxy")
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
         tfw.start()
@@ -188,30 +214,35 @@ srv_group default {{
         self.check_total_sockets(
             server_ip_and_port=self.get_server_ip_and_port(server),
             expected_n=0,
-            msg='"Tempesta FW must not create sockets to non-exists server"'
+            msg='"Tempesta FW must not create sockets to non-exists server"',
         )
 
     def test_sometimes_available(self):
         """Test check that Tempesta FW recreate connection to server after unblock."""
-        server = self.get_server('deproxy')
+        server = self.get_server("deproxy")
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
         server.start()
         self.deproxy_manager.start()
 
-        with netfilter.block_ports_on_node(blocked_ports=[8000, ], node=remote.server):
+        with netfilter.block_ports_on_node(
+            blocked_ports=[
+                8000,
+            ],
+            node=remote.server,
+        ):
             tfw.start()
             tfw.get_stats()
             self.check_total_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
                 expected_n=self.conns_n,
-                msg=f"Tempesta FW must create {self.conns_n} sockets to server."
+                msg=f"Tempesta FW must create {self.conns_n} sockets to server.",
             )
             self.check_established_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
                 expected_n=0,
                 msg=f"Tempesta FW must create {self.conns_n} sockets to server, "
-                    f"but they must be blocked by iptables. So the expected established sockets is equal 0."
+                f"but they must be blocked by iptables. So the expected established sockets is equal 0.",
             )
 
         msg = "Tempesta must not open connections to server."

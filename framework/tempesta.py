@@ -1,16 +1,19 @@
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import dataclasses
 import json
 import os
 import re
+import typing
 from typing import Optional
 
+from framework import stateful
+from helpers import error, remote, tf_cfg
 from helpers.cert_generator_x509 import CertGenerator
-
-from . import error, remote, tf_cfg
-
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
-__license__ = "GPL2"
+from helpers.clickhouse import ClickHouseFinder
+from helpers.util import wait_until
 
 
 # Tempesta capabilities:
@@ -401,3 +404,145 @@ class Config(object):
         self.__process_config()
         self.__generate_tls_certs(custom_cert)
         self.__generate_clickhouse_config(tfw_config)
+
+
+class Tempesta(stateful.Stateful):
+    def __init__(self, vhost_auto=True):
+        self.stats = Stats()
+        super().__init__(id_=remote.tempesta.host)
+        self.node = remote.tempesta
+        self.srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
+        self.config = Config(vhost_auto=vhost_auto)
+        self.check_config = True
+        self.clickhouse = ClickHouseFinder()
+        self.stop_procedures = [
+            self.stop_tempesta,
+            self.config.remove_config_files,
+            self.clickhouse.drop_access_log_table,
+        ]
+
+    def clear_stats(self) -> None:
+        super().clear_stats()
+        self.stats.clear()
+
+    def wait_while_logger_start(self, timeout: int = 5) -> bool:
+        """
+        Block thread until tfw_logger starts
+        """
+        if self.config.mmap is None:
+            return True
+
+        def wait():
+            if not self.tfw_log_file_exists():
+                return True
+
+            if not self.clickhouse.find("worker threads started"):
+                return True
+
+            return False
+
+        return wait_until(wait_cond=wait, timeout=timeout, poll_freq=0.1)
+
+    @staticmethod
+    def tfw_logger_signal(signal: typing.Literal["STOP", "CONT"]) -> None:
+        remote.tempesta.run_cmd(f"kill -{signal} $(pidof tfw_logger)")
+
+    @staticmethod
+    def tfw_log_file_exists() -> bool:
+        """
+        Check if tfw log file exists
+        """
+        return remote.tempesta.exists(tf_cfg.cfg.get("TFW_Logger", "log_path"))
+
+    def load_module(self, path, module_name):
+        remote.tempesta.run_cmd(f"insmod {self.srcdir}/{path}/{module_name}.ko")
+
+    def run_start(self):
+        self.clear_stats()
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
+
+    def reload(self):
+        """Live reconfiguration"""
+        self._logger.info("Reconfiguring TempestaFW")
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload")
+
+    def _do_run(self, cmd):
+        cfg_content = self.config.get_config()
+
+        self._logger.info(f"Tempesta config content:\n{cfg_content}")
+
+        if self.check_config:
+            assert cfg_content, "Tempesta config is empty."
+
+        self.config.create_config_files()
+        env = {"TFW_CFG_PATH": self.config.config_name, "TFW_CFG_TMPL": self.config.tmp_config_name}
+        if tf_cfg.cfg.get("Tempesta", "interfaces"):
+            env.update({"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")})
+        self.node.run_cmd(cmd, timeout=30, env=env)
+
+    def stop_tempesta(self):
+        cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir
+        self.node.run_cmd(cmd, timeout=30)
+
+    def get_stats(self):
+        cmd = "cat /proc/tempesta/perfstat"
+        stdout, _ = self.node.run_cmd(cmd)
+        self.stats.parse(stdout)
+
+    def get_server_stats(self, path):
+        cmd = "cat /proc/tempesta/servers/%s" % (path)
+        return self.node.run_cmd(cmd)
+
+
+class TempestaFI(Tempesta):
+    """Tempesta class for testing with fault injection."""
+
+    def __init__(self, stap_script, mod=False, mod_name="stap_tempesta", vhost_auto=True):
+        Tempesta.__init__(self, vhost_auto=vhost_auto)
+        self.stap = "".join([stap_script, ".stp"])
+
+        self.stap_local = os.path.dirname(__file__) + "/../systemtap/" + self.stap
+        self.stap_local = os.path.normpath(self.stap_local)
+
+        self.module_stap = mod
+        self.module_name = mod_name
+        if self.module_stap:
+            self.stap_msg = "Cannot %s stap %s Tempesta."
+            self.modules_dir = "/lib/modules/$(uname -r)/custom/"
+        else:
+            self.stap_msg = "Cannot %s stap %s kernel."
+        self.stop_procedures = [
+            self.letout,
+            self.letout_finish,
+            self.stop_tempesta,
+            self.remove_config,
+        ]
+
+    def inject_prepare(self):
+        if self.module_stap:
+            self.node.run_cmd("mkdir %s" % self.modules_dir)
+            cmd = 'find %s/ -name "*.ko" | xargs cp -t %s'
+            self.node.run_cmd(cmd % (self.srcdir, self.modules_dir))
+            local = open(self.stap_local, "r")
+            content = local.read()
+            local.close()
+            self.node.copy_file(self.stap, content)
+
+    def inject(self):
+        cmd = "stap -g -m %s -F %s/%s" % (self.module_name, self.workdir, self.stap)
+
+        self.node.run_cmd(cmd, timeout=30)
+
+    def letout(self):
+        cmd = "rmmod %s" % self.module_name
+        self.node.run_cmd(cmd, timeout=30)
+        self.node.remove_file("".join([self.module_name, ".ko"]))
+
+    def letout_finish(self):
+        if self.module_stap:
+            self.node.run_cmd("rm -r %s" % self.modules_dir)
+
+    def run_start(self):
+        Tempesta.run_start(self)
+        self.inject_prepare()
+        self.inject()

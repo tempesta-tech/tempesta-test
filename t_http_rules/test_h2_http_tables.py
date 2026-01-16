@@ -1,7 +1,7 @@
 """H2 tests for http tables. See test_http_tables.py."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import copy
@@ -23,27 +23,6 @@ class TestHttpTablesH2(test_http_tables.HttpTablesTest):
             client["type"] = "deproxy_h2"
             client["ssl"] = True
         super(TestHttpTablesH2, self).setUp()
-
-    def process(self, client, server, chain, step):
-        option = self.requests_opt[step]
-        client.send_request(
-            request=(
-                self.request
-                + [
-                    (":authority", option[2] if option[1] == "host" else "localhost"),
-                    (":path", option[0]),
-                    (option[1], option[2]),
-                ]
-            ),
-            expected_status_code="403" if option[3] and self.match_rules_test else "200",
-        )
-
-        if client.last_response.status == "200":
-            self.assertIsNotNone(server.last_request)
-            self.assertIn((option[1], option[2]), server.last_request.headers.items())
-        else:
-            self.assertIsNone(server.last_request)
-            self.assertTrue(client.wait_for_connection_close())
 
 
 class HttpTablesTestMarkRulesH2(TestHttpTablesH2, test_http_tables.HttpTablesTestMarkRules):
