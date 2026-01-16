@@ -1,7 +1,6 @@
 from h2.exceptions import ProtocolError
 
-from framework import deproxy_client
-from helpers import deproxy
+from framework import deproxy, deproxy_client
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."

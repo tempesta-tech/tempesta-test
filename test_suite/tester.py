@@ -11,19 +11,15 @@ import unittest
 from unittest.util import strclass
 
 import run_config
-from framework import (
-    curl_client,
-    deproxy_client,
-    deproxy_manager,
-    external_client,
-    wrk_client,
-)
+from framework import curl_client, deproxy_client, deproxy_manager, external_client
+from framework import tempesta as tfw
+from framework import wrk_client
 from framework.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.docker_server import DockerServer, docker_srv_factory
 from framework.nginx_server import Nginx, nginx_srv_factory
 from framework.stateful import Stateful
-from helpers import clickhouse, control, dmesg, error, remote, tempesta, tf_cfg, util
+from helpers import clickhouse, dmesg, error, remote, tf_cfg, util
 from helpers.memworker import MemoryChecker
 from helpers.networker import NetWorker
 from helpers.tf_cfg import test_logger
@@ -35,7 +31,7 @@ __license__ = "GPL2"
 
 
 backend_defs = {}
-tempesta_defs = {"tempesta": control.Tempesta, "tempesta_fi": control.TempestaFI}
+tempesta_defs = {"tempesta": tfw.Tempesta, "tempesta_fi": tfw.TempestaFI}
 save_tcpdump = False
 last_test_id = ""
 build_path = f"/var/tcpdump/{datetime.date.today()}/{datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -167,7 +163,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     clients: list[dict] = []
 
-    tempesta = {"type": "tempesta", "config": "", "tfw_config": tempesta.TfwLogger()}
+    tempesta = {"type": "tempesta", "config": "", "tfw_config": tfw.TfwLogger()}
 
     def __init_subclass__(cls, base=False, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -337,7 +333,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         """Return list of registered clients id"""
         return self.__clients.keys()
 
-    def get_tempesta(self) -> control.Tempesta:
+    def get_tempesta(self) -> tfw.Tempesta:
         """Return Tempesta instance"""
         return self.__tempesta
 

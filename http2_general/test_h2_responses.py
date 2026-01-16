@@ -2,7 +2,7 @@
 
 import http
 
-from helpers.deproxy import HttpMessage
+from framework.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import marks, tester
 

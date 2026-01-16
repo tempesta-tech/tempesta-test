@@ -5,9 +5,10 @@ __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import unittest
+
+from framework.deproxy import HttpMessage
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
-from helpers.deproxy import HttpMessage
 from test_suite import marks
 from test_suite.tester import TempestaTest
 
@@ -531,7 +532,6 @@ class TestNotModifiedResponseHeaders(TempestaTest):
             ),
         ]
     )
-
     @unittest.expectedFailure
     def test_cachable_headers_expect_fail(
         self, name, header, expected_status_code, date, disable_deproxy_auto_parser

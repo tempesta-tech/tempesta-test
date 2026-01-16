@@ -1,8 +1,7 @@
 import re
 import typing
 
-from framework import deproxy_server
-from helpers import deproxy
+from framework import deproxy, deproxy_server
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."

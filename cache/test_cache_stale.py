@@ -4,8 +4,8 @@ __license__ = "GPL2"
 
 import time
 
-from helpers import deproxy
-from helpers.deproxy import HttpMessage
+from framework import deproxy
+from framework.deproxy import HttpMessage
 from test_suite import marks, tester
 
 

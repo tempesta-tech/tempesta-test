@@ -1,6 +1,6 @@
 """Typical checks for functional tests."""
 
-from helpers.control import Tempesta
+from framework.tempesta import Tempesta
 
 
 def check_tempesta_error_stats(

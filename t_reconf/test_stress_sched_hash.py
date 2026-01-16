@@ -6,7 +6,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers.control import Tempesta
+from framework.tempesta import Tempesta
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 from t_reconf.reconf_stress import LiveReconfStressTestBase
 

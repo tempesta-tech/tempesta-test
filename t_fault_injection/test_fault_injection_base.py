@@ -7,8 +7,9 @@ __license__ = "GPL2"
 import re
 import time
 
-from helpers import deproxy, dmesg, error, remote, tf_cfg
-from helpers.deproxy import MAX_MESSAGE_SIZE, HttpMessage
+from framework import deproxy
+from framework.deproxy import MAX_MESSAGE_SIZE, HttpMessage
+from helpers import dmesg, error, remote, tf_cfg
 from test_suite import marks, tester
 
 # Number of open connections
@@ -884,9 +885,7 @@ http_chain {{
             ),
         ]
     )
-    def test_init_modules(
-        self, name, func_name, config, module_path, module_name_preload, retval
-    ):
+    def test_init_modules(self, name, func_name, config, module_path, module_name_preload, retval):
         self.get_tempesta().config.set_defconfig(config)
         self.oops_ignore = ["ERROR"]
         space = 0

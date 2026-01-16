@@ -12,7 +12,6 @@ have a description how the inheriting should work.
 """
 
 from framework.wrk_client import Wrk
-from helpers.control import servers_get_stats
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -321,7 +320,8 @@ class AllDefaults(tester.TempestaTest):
         self.wait_while_busy(client_1, client_2)
 
         servers = self.get_servers()
-        servers_get_stats(servers)
+        for srv in servers:
+            srv.get_stats()
 
         for group, lb_type in self.group_scheds:
             self.check_lb(group, lb_type)

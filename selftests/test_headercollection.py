@@ -3,7 +3,7 @@ from __future__ import print_function
 import unittest
 from io import StringIO
 
-from helpers import deproxy
+from framework import deproxy
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

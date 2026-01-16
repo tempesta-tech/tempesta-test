@@ -6,8 +6,9 @@ import os
 import time
 from pathlib import Path
 
-from helpers import dmesg, networker, remote, tempesta, tf_cfg
-from helpers.deproxy import HttpMessage
+from framework import tempesta
+from framework.deproxy import HttpMessage
+from helpers import dmesg, networker, remote, tf_cfg
 from t_frang.frang_test_case import FrangTestCase
 from test_suite import marks, tester
 

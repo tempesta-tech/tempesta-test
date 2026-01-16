@@ -2,9 +2,9 @@
 
 import time
 
+from framework.deproxy import H2Request, Request
 from framework.deproxy_client import DeproxyClient, DeproxyClientH2
 from helpers import analyzer, error, remote
-from helpers.deproxy import H2Request, Request
 from t_frang.frang_test_case import DELAY, FrangTestCase
 from test_suite import asserts, marks
 

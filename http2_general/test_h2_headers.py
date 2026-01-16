@@ -8,10 +8,9 @@ import string
 import unittest
 
 from h2.errors import ErrorCodes
-from hpack import HeaderTuple
 from hyperframe import frame
 
-from helpers.deproxy import HttpMessage
+from framework.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import marks, tester
 

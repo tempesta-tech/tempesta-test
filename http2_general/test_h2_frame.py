@@ -12,8 +12,8 @@ from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
 from framework import deproxy_client, stateful
+from framework.deproxy import HttpMessage
 from helpers import util
-from helpers.deproxy import HttpMessage
 from http2_general.helpers import H2Base
 from test_suite import checks_for_tests as checks
 from test_suite import marks
@@ -731,10 +731,34 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="304_short", header=1000, body=0, date="Mon, 12 Dec 3034 13:59:39 GMT", status='304'),
-            marks.Param(name="200_short", header=1000, body=0, date="Mon, 12 Dec 2020 13:59:39 GMT", status='200'),
-            marks.Param(name="304_long", header=50000, body=100000, date="Mon, 12 Dec 3034 13:59:39 GMT", status='304'),
-            marks.Param(name="200_long", header=50000, body=100000, date="Mon, 12 Dec 2020 13:59:39 GMT", status='200'),
+            marks.Param(
+                name="304_short",
+                header=1000,
+                body=0,
+                date="Mon, 12 Dec 3034 13:59:39 GMT",
+                status="304",
+            ),
+            marks.Param(
+                name="200_short",
+                header=1000,
+                body=0,
+                date="Mon, 12 Dec 2020 13:59:39 GMT",
+                status="200",
+            ),
+            marks.Param(
+                name="304_long",
+                header=50000,
+                body=100000,
+                date="Mon, 12 Dec 3034 13:59:39 GMT",
+                status="304",
+            ),
+            marks.Param(
+                name="200_long",
+                header=50000,
+                body=100000,
+                date="Mon, 12 Dec 2020 13:59:39 GMT",
+                status="200",
+            ),
         ]
     )
     def test_headers_frame_for_local_resp_cache(self, name, header, body, date, status):

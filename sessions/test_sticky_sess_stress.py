@@ -2,10 +2,10 @@
 With sticky sessions each client is pinned to only one server in group.
 """
 
-
 import sys
 
-from helpers import dmesg, tempesta
+from framework import tempesta
+from helpers import dmesg
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -49,7 +49,8 @@ class TestStressStickyCookie(tester.TempestaTest):
                     }}
                 }}
             """,
-        } for i in range(8000, 8000 + tempesta.servers_in_group())
+        }
+        for i in range(8000, 8000 + tempesta.servers_in_group())
     ]
 
     tempesta = {
@@ -69,7 +70,13 @@ sticky {
 }
 
 frang_limits {http_strict_host_checking false;}
-""" + "".join([f"server ${{server_ip}}:{i};\n" for i in range(8000, 8000 + tempesta.servers_in_group())])
+"""
+        + "".join(
+            [
+                f"server ${{server_ip}}:{i};\n"
+                for i in range(8000, 8000 + tempesta.servers_in_group())
+            ]
+        )
     }
 
     clients = [
@@ -85,7 +92,7 @@ frang_limits {http_strict_host_checking false;}
     def test_one_client(self):
         self.start_all_services(client=False)
 
-        wrk = self.get_client('wrk')
+        wrk = self.get_client("wrk")
         wrk.set_script("cookie-one-client")
         wrk.threads = 1
 
@@ -126,7 +133,7 @@ frang_limits {http_strict_host_checking false;}
     def test_many_clients(self):
         self.start_all_services(client=False)
 
-        wrk = self.get_client('wrk')
+        wrk = self.get_client("wrk")
         wrk.set_script("cookie-many-clients")
         wrk.threads = wrk.connections
 
@@ -140,7 +147,9 @@ frang_limits {http_strict_host_checking false;}
 
         servers_with_requests = list(server for server in self.get_servers() if server.requests)
         self.assertEqual(
-            len(servers_with_requests), tempesta.servers_in_group(), "All server must pull all the load."
+            len(servers_with_requests),
+            tempesta.servers_in_group(),
+            "All server must pull all the load.",
         )
 
         # Negative allowance: this means some requests are not forwarded to the

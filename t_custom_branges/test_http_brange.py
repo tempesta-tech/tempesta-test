@@ -6,7 +6,8 @@ __license__ = "GPL2"
 
 import random
 
-from helpers import deproxy, dmesg, error
+from framework import deproxy
+from helpers import dmesg, error
 from test_suite import marks, tester
 
 DEPROXY_CLIENT = {

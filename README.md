@@ -178,11 +178,6 @@ that matches the specified string.
 
 ## Adding new tests
 
-**WARNING**: there are 2 testing frameworks in directories `testers` and `framework`.
-Please use only `framework.testet.TempestaTest` for the new tests. 
-`testers.stress.StressTest` are deprecated and 
-must be removed in https://github.com/tempesta-tech/tempesta-test/issues/56 .
-
 ### Requirements to adding new tests:
 1. Name of the test directory must be started with `t_` prefix;
 2. Name of the file must be started with `test_` prefix;

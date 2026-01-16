@@ -5,10 +5,11 @@ __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import run_config
-from helpers import analyzer, deproxy, remote, tf_cfg
+from framework import deproxy
+from framework.deproxy_client import BaseDeproxyClient
+from helpers import analyzer, remote, tf_cfg
 from test_suite import asserts, marks, tester
 from test_suite.custom_error_page import CustomErrorPageGenerator
-from framework.deproxy_client import BaseDeproxyClient
 
 
 class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
@@ -84,13 +85,17 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
         sniffer.start()
         return sniffer
 
-    def check_fin_no_rst_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
+    def check_fin_no_rst_in_sniffer(
+        self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]
+    ) -> None:
         sniffer.stop()
         if not run_config.TCP_SEGMENTATION:
             self.assert_fin_socks(sniffer.packets, clients)
             self.assert_unreset_socks(sniffer.packets, clients)
 
-    def check_rst_no_fin_in_sniffer(self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]) -> None:
+    def check_rst_no_fin_in_sniffer(
+        self, sniffer: analyzer.Sniffer, clients: list[BaseDeproxyClient]
+    ) -> None:
         sniffer.stop()
         self.assert_reset_socks(sniffer.packets, clients)
         self.assert_not_fin_socks(sniffer.packets, clients)

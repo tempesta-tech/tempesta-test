@@ -1,6 +1,7 @@
 import copy
 
-from helpers import deproxy, tempesta, tf_cfg
+from framework import deproxy, tempesta
+from helpers import tf_cfg
 from test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."

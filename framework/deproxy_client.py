@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Union
 
 import h2.connection
 from h2.connection import AllowedStreamIDs, ConnectionState
+from h2.errors import ErrorCodes
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
@@ -22,14 +23,13 @@ from h2.events import (
 )
 from h2.settings import SettingCodes, Settings
 from h2.stream import StreamInputs
-from h2.errors import ErrorCodes
 from hpack import Encoder
 
 import run_config
-from framework import stateful
+from framework import deproxy, stateful
+from framework.deproxy import ParseError
 from framework.deproxy_base import BaseDeproxy
-from helpers import deproxy, error, tf_cfg, util
-from helpers.deproxy import ParseError
+from helpers import error, tf_cfg, util
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
@@ -133,16 +133,18 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def _add_error_code(self, error_code: Exception | ErrorCodes) -> None:
         self.__error_codes.append(error_code)
 
-    def assert_error_code(self, *, expected_error_code: Exception | ErrorCodes, msg: str = "") -> None:
+    def assert_error_code(
+        self, *, expected_error_code: Exception | ErrorCodes, msg: str = ""
+    ) -> None:
         """
         We should not check error codes for TCP segmentation
         because we cannot control the sequence of receiving from Tempesta.
         In some cases, RST TCP will be received earlier.
         """
         if not self.segment_size:
-            assert expected_error_code in self.__error_codes, (
-                f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
-            )
+            assert (
+                expected_error_code in self.__error_codes
+            ), f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
 
     def handle_connect(self):
         if self.ssl:
@@ -224,7 +226,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
 
-        sent = self.send(reqs[:self.segment_size] if self.segment_size else reqs)
+        sent = self.send(reqs[: self.segment_size] if self.segment_size else reqs)
         if sent < 0:
             return
         self.last_segment_time = time.time()

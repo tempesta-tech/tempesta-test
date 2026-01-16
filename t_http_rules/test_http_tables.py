@@ -5,12 +5,12 @@ Set of tests to verify correctness of requests redirection in HTTP table
 """
 
 from framework import deproxy_client
-from helpers import chains, dmesg, remote
+from helpers import dmesg, error, remote
 from helpers.remote import LocalNode
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -190,57 +190,42 @@ class HttpTablesTest(tester.TempestaTest):
         (("/baz/index.html"), ("cookie"), ("tempesta=test"), False),
     ]
 
-    chains = []
     match_rules_test = True
 
-    def init_chain(self, params):
-        uri, header, value, block = params
-        ch = chains.base(uri=uri)
-        if block and self.match_rules_test:
-            ch.request.headers.delete_all(header)
-            ch.request.headers.add(header, value)
-            ch.request.update()
-            ch.fwd_request = None
-        else:
-            for request in [ch.request, ch.fwd_request]:
-                request.headers.delete_all(header)
-                request.headers.add(header, value)
-                request.update()
-        self.chains.append(ch)
+    def process(self, client, server, options, step):
+        uri, header, value, block = options
+        request = client.create_request(
+            method="GET",
+            uri=uri,
+            headers=[(header, value), ("Connection", "keep-alive"), ("Accept", "*/*")],
+        )
+        if header.lower() in ["host"]:
+            request.headers.delete_all(header)
+            request.headers.delete_all(":authority")
+            request.headers.add(header, value)
 
-    def setUp(self):
-        del self.chains[:]
-        count = len(self.requests_opt)
-        for i in range(count):
-            self.init_chain(self.requests_opt[i])
-        tester.TempestaTest.setUp(self)
+        client.send_request(
+            request, expected_status_code="403" if block and self.match_rules_test else "200"
+        )
 
-    def process(self, client, server, chain, step):
-        client.make_request(chain.request.msg)
-        client.wait_for_response()
-        if chain.fwd_request:
-            chain.fwd_request.set_expected()
-        self.assertEqual(server.last_request, chain.fwd_request)
-        # Check if the connection alive (general case) or
-        # not (case of 'block' rule matching) after the main
-        # message processing. Response 404 is enough here.
-        if chain.fwd_request:
-            post_chain = chains.base()
-            client.make_request(post_chain.request.msg)
-            self.assertTrue(client.wait_for_response())
+        if client.last_response.status == "200":
+            self.assertIsNotNone(server.last_request)
+            self.assertEqual(server.last_request.headers.get(header), value)
         else:
+            self.assertIsNone(server.last_request)
             self.assertTrue(client.wait_for_connection_close())
 
     def test_chains(self):
-        """Test for matching rules in HTTP chains: according to
+        """
+        Test for matching rules in HTTP chains: according to
         test configuration of HTTP tables, requests must be
         forwarded to the right vhosts according to it's
         headers content.
         """
         self.start_all_services()
-        count = len(self.chains)
-        for i in range(count):
-            self.process(self.get_client(i), self.get_server(i), self.chains[i], step=i)
+        options = len(self.requests_opt)
+        for i in range(options):
+            self.process(self.get_client(i), self.get_server(i), self.requests_opt[i], step=i)
 
 
 class HttpTablesMarkSetup:
@@ -283,18 +268,21 @@ class HttpTablesTestMarkRules(HttpTablesTest, HttpTablesMarkSetup):
         self.addCleanup(self.cleanup_marked)
 
     def test_chains(self):
-        """Test for mark rules in HTTP chains: requests must
+        """T
+        est for mark rules in HTTP chains: requests must
         arrive to backends in reverse order, since mark rules are
         always processed before match rule (see HTTP tables
         configuration for current test - in @tempesta
         class variable).
         """
         self.start_all_services()
-        count = len(self.chains)
-        for i in range(count):
+        options = len(self.requests_opt)
+        for i in range(options):
             mark = i + 1
             self.set_nf_mark(mark)
-            self.process(self.get_client(i), self.get_server(count - mark), self.chains[i], step=i)
+            self.process(
+                self.get_client(i), self.get_server(options - mark), self.requests_opt[i], step=i
+            )
             self.del_nf_mark(mark)
 
 
@@ -597,20 +585,17 @@ http_chain {
 
     def test(self):
         self.oops_ignore = ["ERROR"]
-        try:
+        with self.assertRaises(error.ProcessBadExitStatusException):
             self.start_tempesta()
-            started = True
-        except Exception:
-            started = False
-        finally:
-            self.assertFalse(started)
-            self.loggers.dmesg.find(
-                "ERROR: http_tbl: too many vars (more 8) in redirection url:",
-                cond=dmesg.amount_positive,
-            )
+        self.loggers.dmesg.find(
+            "ERROR: http_tbl: too many vars (more 8) in redirection url:",
+            cond=dmesg.amount_positive,
+        )
 
 
-@marks.extend_tests_with_tso_gro_gso_enable_disable(100 if isinstance(remote.tempesta, LocalNode) else 1500)
+@marks.extend_tests_with_tso_gro_gso_enable_disable(
+    100 if isinstance(remote.tempesta, LocalNode) else 1500
+)
 class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
     backends = [
         {
