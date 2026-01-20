@@ -136,6 +136,7 @@ class TestMatchLocations(BaseRegexMatcher):
         http_chain {
             host ~ "/test/i" -> test;
             host ~ "/work/i" -> work;
+            host ~ "/(a+)+$$/" -> work;
             -> block;
         }
         """
@@ -203,6 +204,13 @@ class TestMatchLocations(BaseRegexMatcher):
                 name="host_ordinary_uri_ignored",
                 uri="/ignored",
                 host="ordinary.com",  # <--Must fail all matches and be blocked.
+                block=True,
+                sid=0,
+            ),
+            marks.Param(
+                name="host_ReDOS",
+                uri="/ignored",
+                host="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX",  # <--Must fail all matches and be blocked.
                 block=True,
                 sid=0,
             ),
