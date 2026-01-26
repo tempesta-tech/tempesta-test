@@ -2,123 +2,123 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "multiple_listeners.test_multiple_listening.TestMultipleListening",
+            "name": "tests.multiple_listeners.test_multiple_listening.TestMultipleListening",
             "reason": "This test should not be run with remote setup. This test uses only loopback interface."
         },
         {
-            "name": "t_stress.test_nginx",
+            "name": "tests.stress.test_nginx",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "t_reconf",
+            "name": "tests.reconf",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "t_server_options",
+            "name": "tests.server_options",
             "reason": "These tests should not be run with remote setup. Remote setup has no effect on these tests."
         },
         {
-            "name": "t_fault_injection",
+            "name": "tests.fault_injection",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "t_frang.test_ip_block",
+            "name": "tests.frang.test_ip_block",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.TestFrangRequestRateHttp",
+            "name": "tests.frang.test_request_rate_burst.TestFrangRequestRateHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.TestFrangRequestBurstHttp",
+            "name": "tests.frang.test_request_rate_burst.TestFrangRequestBurstHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.TestFrangRequestRateH2",
+            "name": "tests.frang.test_request_rate_burst.TestFrangRequestRateH2",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_request_rate_burst.TestFrangRequestBurstH2",
+            "name": "tests.frang.test_request_rate_burst.TestFrangRequestBurstH2",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
+            "name": "tests.frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip_with_block_ip",
+            "name": "tests.frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip_with_block_ip",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_one_ip",
+            "name": "tests.frang.test_http_resp_code_block.HttpRespCodeBlockH2.test_two_clients_one_ip",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "t_frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_one_ip",
+            "name": "tests.frang.test_http_resp_code_block.HttpRespCodeBlock.test_two_clients_one_ip",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "sessions.test_cookies.StickyCookieConfigGlobal",
+            "name": "tests.sessions.test_cookies.StickyCookieConfigGlobal",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "sessions.test_cookies.StickyCookieConfigVhost",
+            "name": "tests.sessions.test_cookies.StickyCookieConfigVhost",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_path",
+            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_path",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_max_age",
+            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_max_age",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "sessions.test_cookies.StickyCookieOptions.test_dublicate_expires",
+            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_expires",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "t_frang.test_config",
+            "name": "tests.frang.test_config",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "cache.test_purge.TestPurgeInvalidConfig",
+            "name": "tests.cache.test_purge.TestPurgeInvalidConfig",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
-            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
-            "name": "t_tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
-            "name": "http2_general.test_h2_frame.TestPostponedFrames",
+            "name": "tests.http2_general.test_h2_frame.TestPostponedFrames",
 	        "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
 	    },
         {
-            "name": "t_frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
+            "name": "tests.frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run on remote setup. Local only."
         },
 	    {
-            "name": "t_stress.test_stress.TestContinuationFlood",
+            "name": "tests.stress.test_stress.TestContinuationFlood",
             "reason": "Disabled by test issue #817"
         },
         {
-            "name": "t_stress.test_stress.H2LoadStressMTU80",
+            "name": "tests.stress.test_stress.H2LoadStressMTU80",
             "reason": "Disabled by test issue #817"
         },
         {
-            "name": "t_stress.test_stress.TlsWrkStressMTU80",
+            "name": "tests.stress.test_stress.TlsWrkStressMTU80",
             "reason": "Disabled by test issue #817"
         },
         {
-            "name": "t_stress.test_stress.WrkStressMTU80",
+            "name": "tests.stress.test_stress.WrkStressMTU80",
             "reason": "Disabled by test issue #817"
         }
     ]

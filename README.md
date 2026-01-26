@@ -121,19 +121,19 @@ in dot-separated format (as if you were importing them as python modules,
 although it is also possible to run specific testcases or even methods inside a
 testcase):
 ```sh
-env/bin/python3 run_tests.py cache.test_cache
-env/bin/python3 run_tests.py cache.test_cache.TestCacheDisabled.test_cache_fullfill_all
+env/bin/python3 run_tests.py tests/cache/test_cache
+env/bin/python3 run_tests.py tests/cache/test_cache.TestCacheDisabled.test_cache_fullfill_all
 ```
 
 Or you can run all tests from a file:
 ```sh
-env/bin/python3 run_tests.py selftests/test_deproxy.py 
+env/bin/python3 run_tests.py tests/selftests/test_deproxy.py 
 ```
 
 Or you can run individual tests (or test class) using `-H` options:
 
 ```sh
-env/bin/python3 run_tests.py -H selftests/test_deproxy.py 
+env/bin/python3 run_tests.py -H tests/selftests/test_deproxy.py 
 [?] Select test class: DeproxyTestH2
    DeproxyChunkedTest
    DeproxyClientTest
@@ -158,8 +158,8 @@ env/bin/python3 run_tests.py -H selftests/test_deproxy.py
 To ignore specific tests, specify them in the arguments prefixed with `-`
 (you may need to use `--` to avoid treating that as a flag):
 ```sh
-env/bin/python3 run_tests.py cache -cache.test_purge # run cache.*, except cache.test_purge.*
-env/bin/python3 run_tests.py -- -cache # run everything, except cache.*
+env/bin/python3 run_tests.py tests/cache -tests/cache.test_purge # run cache.*, except cache.test_purge.*
+env/bin/python3 run_tests.py -- -tests/cache # run everything, except cache.*
 ```
 
 If the testsuite was interrupted or aborted, next run will continue from the
@@ -167,25 +167,24 @@ interruption point. The resumption information is stored in the
 `tests_resume.txt` file in the current working directory. It is also possible
 to resume the testsuite from a specific test:
 ```sh
-env/bin/python3 run_tests.py --resume t_server_connections
-env/bin/python3 run_tests.py --resume-after cache.test_purge
+env/bin/python3 run_tests.py --resume tests/server_connections
+env/bin/python3 run_tests.py --resume-after tests/cache.test_purge
 ```
 
-In all cases, prefix specifications are allowed, i. e. `cache.test_cache` will
-match all tests in `cache/test_cache.py`, but `test_cache` will not match
+In all cases, prefix specifications are allowed, i. e. `tests/cache.test_cache` will
+match all tests in `tests/cache/test_cache.py`, but `tests/test_cache` will not match
 anything. When resuming, execution will continue from (after) the first test
 that matches the specified string.
 
 ## Adding new tests
 
 ### Requirements to adding new tests:
-1. Name of the test directory must be started with `t_` prefix;
+1. New directory must be created into `tests` directory;
 2. Name of the file must be started with `test_` prefix;
 
 ```sh
-mkdir t_new_directory
-touch t_new_directory/test_some_feature.py
-echo "__all__ = [ 'test_some_feature' ]" >> my_test/__init.py__
+mkdir new_directory
+touch new_directory/test_some_feature.py
 ```
 
 3. Name of the test class must be started with `Test` prefix;
@@ -275,7 +274,7 @@ class TestExample(tester.TempestaTest):
 # TestExampleH2.test_request_2
 ```
 
-Example tests can be found in `selftests/test_framework.py`
+Example tests can be found in `tests/selftests/test_framework.py`
 
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).
@@ -290,7 +289,7 @@ This division is controlled by `segment_size` parameter of the client or the bac
 or backend configuration. You can run any test with TCP segmentation using `-T` option:
 
 ```shell
-env/bin/python3 run_tests.py -T 10 selftests/test_deproxy.py 
+env/bin/python3 run_tests.py -T 10 tests/selftests/test_deproxy.py 
 ```
 
 ## Internal structure and motivation of user configured tests
