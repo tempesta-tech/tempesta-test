@@ -1,17 +1,14 @@
 """Test framework configuration options."""
 
-from __future__ import print_function, unicode_literals
-
-import configparser
-import os
-import sys
-
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import configparser
 import logging
-import queue
+import multiprocessing
+import os
+import sys
 from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 from typing import TYPE_CHECKING
 
@@ -43,8 +40,11 @@ class TestFrameworkCfg:
         self.config = configparser.ConfigParser()
         self.defaults()
         self.cfg_err = None
-        self.log_listner = None
+        self.log_listener: QueueListener = None
         self._date_format = "%H:%M:%S"
+        self._log_queue = multiprocessing.Queue()
+        self._file_handler: RotatingFileHandler = None
+        self._stream_handler: RichHandler = None
 
         try:
             self.config.read(self.cfg_file)
@@ -230,43 +230,36 @@ class TestFrameworkCfg:
             msg = 'running clients on a remote host "%s" is not supported' % client_hostname
             raise ConfigError(msg)
 
-    def _create_stream_handler(self) -> logging.Handler:
+    def _init_stream_handler(self) -> None:
         """
         Integrates RichHandler for enhanced console logging.
         """
         # console handlers
         pretty.install()
-        stream_handler = RichHandler(
+        self._stream_handler = RichHandler(
             console=Console(width=180, color_system="256"),
             show_level=True,
             show_path=True,
             rich_tracebacks=True,
             tracebacks_extra_lines=2,
         )
-        stream_handler.setFormatter(
+        self._stream_handler.setFormatter(
             logging.Formatter(
-                fmt=("%(asctime)s.%(msecs)03d | %(name)7s | %(service)39s | %(message)s"),
+                fmt="%(asctime)s.%(msecs)03d | %(name)7s | %(service)39s | %(message)s",
                 datefmt=self._date_format,
             )
         )
-        return stream_handler
 
-    def _create_queue_handler(self) -> logging.Handler:
+    def _init_file_handler(self) -> None:
         """
         Sets up a rotating file handler for log files with a maximum of 10 backups.
         """
         log_dir = "logs"
         os.makedirs(log_dir, exist_ok=True)
 
-        # file handler
         log_file = os.path.join(log_dir, "test.log")
-        file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
-        file_handler.doRollover()
-
-        # we use threads and should use queue in logs
-        log_queue = queue.Queue()
-        queue_handler = QueueHandler(log_queue)
-        queue_handler.setFormatter(
+        self._file_handler = RotatingFileHandler(log_file, maxBytes=0, backupCount=10)
+        self._file_handler.setFormatter(
             logging.Formatter(
                 fmt=(
                     "%(asctime)s.%(msecs)03d | %(levelname)8s | "
@@ -275,38 +268,62 @@ class TestFrameworkCfg:
                 datefmt=self._date_format,
             )
         )
-        self.log_listner = QueueListener(log_queue, file_handler)
+        self._file_handler.doRollover()
 
-        return queue_handler
-
-    def _set_log_levels(self, stream_handler: logging.Handler, queue_handler: logging.Handler):
+    def _init_loggers(self):
         """
-        Sets the log level for the file handler based on the configuration.
+        Sets the log level for the handlers based on the configuration.
         Iterates over predefined loggers to set their log levels according to the configuration.
+        Sets handlers for loggers.
         """
         stream_handler_lvl = logging._nameToLevel.get(self.config["Loggers"]["stream_handler"])
         file_handler_lvl = logging._nameToLevel.get(self.config["Loggers"]["file_handler"])
 
-        stream_handler.setLevel(stream_handler_lvl)
-        queue_handler.setLevel(file_handler_lvl)
+        self._stream_handler.setLevel(stream_handler_lvl)
+        self._file_handler.setLevel(file_handler_lvl)
 
-        logging.basicConfig(level=logging.CRITICAL, handlers=[queue_handler, stream_handler])
-
+        queue_handler = self._get_queue_handler()
         for name, value in self.config["Loggers"].items():
+            if name in ["stream_handler", "file_handler"]:
+                continue
             value = logging._nameToLevel.get(value)
             # We SHOULD NOT set a low level for loggers if handlers have a high level
             # because it has a high effect on performance.
             if value < min([file_handler_lvl, stream_handler_lvl]):
                 value = min([file_handler_lvl, stream_handler_lvl])
-            logging.getLogger(name).setLevel(value)
+            logger = logging.getLogger(name)
+            logger.setLevel(value)
+            logger.addHandler(self._stream_handler)
+            logger.addHandler(queue_handler)
+            logger.propagate = False
+
+    def _get_queue_handler(self) -> QueueHandler:
+        queue_handler = QueueHandler(self._log_queue)
+        queue_handler.setLevel(logging._nameToLevel.get(self.config["Loggers"]["file_handler"]))
+        return queue_handler
+
+    def get_new_env_loger(self, name: str) -> logging.Logger:
+        """
+        Create a new logger using `env` like base logger.
+        It should use for multiprocessing.Process
+        """
+        if name == "env":
+            return logging.getLogger("env")
+        logger = logging.getLogger(name)
+        queue_handler = self._get_queue_handler()
+        logger.setLevel(logging._nameToLevel.get(self.config["Loggers"]["env"]))
+        logger.addHandler(queue_handler)
+        logger.addHandler(self._stream_handler)
+        logger.propagate = False
+        return logger
 
     def configure_logger(self):
         """Configures the logging setup for the test framework."""
-        self._set_log_levels(
-            self._create_stream_handler(),
-            self._create_queue_handler(),
-        )
-        self.log_listner.start()
+        self._init_stream_handler()
+        self._init_file_handler()
+        self._init_loggers()
+        self.log_listener = QueueListener(self._log_queue, self._file_handler)
+        self.log_listener.start()
 
 
 def log_dmesg(node: "ANode", msg: str) -> None:

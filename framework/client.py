@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import abc
@@ -14,7 +14,7 @@ from helpers import error, remote, tf_cfg, util
 
 def _run_client(client: "Client", resq: multiprocessing.Queue):
     try:
-        res = remote.client.run_cmd(client.cmd, timeout=(client.duration + 5))
+        res = remote.client.run_cmd_safe(client.cmd, timeout=(client.duration + 5))
     except error.BaseCmdException as e:
         res = (e.stdout, e.stderr)
         client.returncode = e.returncode
