@@ -8,6 +8,7 @@ on the same node (developer test case), or on separate machines (CI case).
 import abc
 import errno
 import logging
+import multiprocessing
 import os
 import re
 import shutil
@@ -54,9 +55,16 @@ class ANode(object, metaclass=abc.ABCMeta):
         self.type = ntype
         self._numa_nodes_n: int = 0
         self._max_threads_n: int = 0
+        self._init_loger("env")
 
+    def _init_loger(self, name: str) -> None:
+        """
+        The method should call to init a new logger for the node for a new process.
+        The new logger must contain QueueHandler.
+        """
         self._logger = logging.LoggerAdapter(
-            logging.getLogger("env"), extra={"service": f"{self.__class__.__name__}({self.host})"}
+            tf_cfg.cfg.get_new_env_loger(name),
+            extra={"service": f"{self.__class__.__name__}({self.host})"},
         )
 
     def _numa_nodes_count(self) -> int:
@@ -180,6 +188,19 @@ class ANode(object, metaclass=abc.ABCMeta):
         """
         self._numa_nodes_n = self._numa_nodes_count()
         self._max_threads_n = self._threads_count()
+
+    def run_cmd_safe(
+        self,
+        cmd: str,
+        timeout: Union[int, float, None] = DEFAULT_TIMEOUT,
+        env: Optional[dict] = None,
+        is_blocking: bool = True,
+    ) -> tuple[bytes, bytes]:
+        """
+        Like for `run_cmd` but it must use for multiprocessing.Process.
+        """
+        self._init_loger(multiprocessing.current_process().name)
+        return self.run_cmd(cmd, timeout, env, is_blocking)
 
 
 class LocalNode(ANode):

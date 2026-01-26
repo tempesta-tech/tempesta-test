@@ -577,7 +577,7 @@ Run failed tests again ...
 __check_kmemleak()
 
 # stop loggging
-tf_cfg.cfg.log_listner.stop()
+tf_cfg.cfg.log_listener.stop()
 if len(result.failures) > 0 or len(result.unexpectedSuccesses) > 0 or len(result.errors) > 0:
     sys.exit(1)
 

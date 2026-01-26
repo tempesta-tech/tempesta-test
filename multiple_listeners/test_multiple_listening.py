@@ -1461,4 +1461,3 @@ class TestMultipleListening(tester.TempestaTest):
                     STATUS_OK,
                     curl.response_msg,
                 )
-                curl.stop()
