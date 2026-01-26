@@ -2,211 +2,211 @@
     "disable" : true,
     "disabled" : [
         {
-            "name" : "t_stress.test_nginx",
+            "name": "tests.stress.test_nginx",
             "reason" : "These tests don't check Tempesta FW. These are comparison tests."
         },
         {
-            "name" : "t_wrong_body_length.test_response_wrong_length.ResponseSmallBodyLength",
+            "name": "tests.wrong_body_length.test_response_wrong_length.ResponseSmallBodyLength",
             "reason" : "Disabled by issue #1752"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderFI",
+            "name": "tests.pipelining.test_pipelining.TestPipelineResponsesOrderFI",
             "reason" : "Disabled by issue #809 (tempesta-test)"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderFIWithClosingConnection",
+            "name": "tests.pipelining.test_pipelining.TestPipelineResponsesOrderFIWithClosingConnection",
             "reason" : "Disabled by issue #809 (tempesta-test) and #2422 (tempesta)"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelineResponsesOrderWithClosingConnection",
+            "name": "tests.pipelining.test_pipelining.TestPipelineResponsesOrderWithClosingConnection",
             "reason" : "Disabled by issue #2422"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPATCH",
+            "name": "tests.pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPATCH",
             "reason" : "Disabled by issue #2420"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPUT",
+            "name": "tests.pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPUT",
             "reason" : "Disabled by issue #2420"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPOST",
+            "name": "tests.pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsPOST",
             "reason" : "Disabled by issue #2420"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsGET",
+            "name": "tests.pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsGET",
             "reason" : "Disabled by issue #2420"
         },
         {
-            "name" : "t_pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsH2GET",
+            "name": "tests.pipelining.test_pipelining.TestPipelinedNonIdempotentRequestsH2GET",
             "reason" : "Disabled by issue #2420"
         },
         {
-            "name" : "tls.test_tls_integrity.Proxy.test_tcp_segs",
+            "name": "tests.tls.test_tls_integrity.Proxy.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
         },
         {
-            "name" : "tls.test_tls_integrity.ProxyH2.test_tcp_segs",
+            "name": "tests.tls.test_tls_integrity.ProxyH2.test_tcp_segs",
             "reason" : "Disabled by issue #1836"
         },
         {
-            "name" : "health_monitoring.test_health_monitor.TestHealthMonitor",
+            "name": "tests.health_monitoring.test_health_monitor.TestHealthMonitor",
             "reason" : "Disabled by issue #1684"
         },
         {
-            "name": "cache.test_purge.TestPurgeGet",
+            "name": "tests.cache.test_purge.TestPurgeGet",
             "reason": "Disabled by issue #1692"
         },
         {
-            "name" : "t_wrong_body_length.test_request_wrong_length.RequestMissingBodyLength",
+            "name": "tests.wrong_body_length.test_request_wrong_length.RequestMissingBodyLength",
             "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
         },
         {
-            "name" : "t_wrong_body_length.test_request_wrong_length.RequestSmallBodyLength",
+            "name": "tests.wrong_body_length.test_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1676 (development) and #287 (testing). Besides the requested functionality changes, Tempesta FW currently resets the client connection on invalid request parsing"
         },
         {
-            "name": "t_long_body.test_long_request.LongBodyInRequest.test_h2",
+            "name": "tests.long_body.test_long_request.LongBodyInRequest.test_h2",
             "reason": "Disable by issue #1714"
         },
         {
-            "name": "t_frang.test_config.TestDefaultConfig.test_http_body_len",
+            "name": "tests.frang.test_config.TestDefaultConfig.test_http_body_len",
             "reason": "Disable by issue #1714"
         },
         {
-            "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
+            "name": "tests.wrong_body_length.test_h2_request_wrong_length.RequestSmallBodyLength",
             "reason": "Disabled by issue #1771"
         },
         {
-            "name": "t_wrong_body_length.test_h2_request_wrong_length.RequestLongBodyLength",
+            "name": "tests.wrong_body_length.test_h2_request_wrong_length.RequestLongBodyLength",
             "reason": "Disabled by issue #1771"
         },
         {
-            "name": "encoding.test_encoding.TestH1ChunkedIsNotLast",
+            "name": "tests.encoding.test_encoding.TestH1ChunkedIsNotLast",
             "reason": "Disabled by issue #1773"
         },
         {
-            "name": "t_sched.test_per_group_lb",
+            "name": "tests.sched.test_per_group_lb",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_h2_per_group_lb",
+            "name": "tests.sched.test_h2_per_group_lb",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_ratio_dynamic",
+            "name": "tests.sched.test_ratio_dynamic",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_h2_ratio_dynamic",
+            "name": "tests.sched.test_h2_ratio_dynamic",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_ratio_dynamic_recalc",
+            "name": "tests.sched.test_ratio_dynamic_recalc",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_h2_ratio_dynamic_recalc",
+            "name": "tests.sched.test_h2_ratio_dynamic_recalc",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_hash_stress.BindToServerFailovering",
+            "name": "tests.sched.test_hash_stress.BindToServerFailovering",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_sched.test_h2_hash_stress.BindToServerFailoveringH2",
+            "name": "tests.sched.test_h2_hash_stress.BindToServerFailoveringH2",
             "reason": "Disabled by issue #702"
         },
         {
-            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_0x20_and_0x09_in_header_value",
+            "name": "tests.malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_0x20_and_0x09_in_header_value",
             "reason": "Disabled by issue #1882"
         },
         {
-            "name": "t_malformed.test_h2_field_validity.TestH2HeaderFieldResponse.test_ascii_0x20_and_0x09_in_header_value",
+            "name": "tests.malformed.test_h2_field_validity.TestH2HeaderFieldResponse.test_ascii_0x20_and_0x09_in_header_value",
             "reason": "Disabled by issue #1882"
         },
         {
-            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_scheme_header",
+            "name": "tests.http2_general.test_h2_headers.TestPseudoHeaders.test_without_scheme_header",
             "reason": "Disabled by issue #1883"
         },
         {
-            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_path_header",
+            "name": "tests.http2_general.test_h2_headers.TestPseudoHeaders.test_without_path_header",
             "reason": "Disabled by issue #1883"
         },
         {
-            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_without_method_header",
+            "name": "tests.http2_general.test_h2_headers.TestPseudoHeaders.test_without_method_header",
             "reason": "Disabled by issue #1883"
         },
         {
-            "name": "http2_general.test_h2_headers.TestPseudoHeaders.test_connect_method_with_path_and_scheme",
+            "name": "tests.http2_general.test_h2_headers.TestPseudoHeaders.test_connect_method_with_path_and_scheme",
             "reason": "Disabled by issue #1883"
         },
         {
-            "name": "selftests.test_deproxy.DeproxyTestH2.test_no_parsing_make_request",
+            "name": "tests.selftests.test_deproxy.DeproxyTestH2.test_no_parsing_make_request",
             "reason": "Disabled by issue #1883"
         },
         {
-            "name": "cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
+            "name": "tests.cache.test_conditional.TestConditionalH2.test_none_match_empty_etag",
             "reason": "Disabled by issue #1961"
         },
         {
-            "name": "cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag",
+            "name": "tests.cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag",
             "reason": "Disabled by issue #1961"
         },
         {
-            "name": "cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag_with_extra_spaces",
+            "name": "tests.cache.test_conditional.TestConditionalH2.test_none_match_no_quotes_empty_etag_with_extra_spaces",
             "reason": "Disabled by issue #1961"
         },
         {
-            "name": "http2_general.test_h2_hpack.TestHpackCache.test_cache_response_from_dynamic_table_for_different_client",
+            "name": "tests.http2_general.test_h2_hpack.TestHpackCache.test_cache_response_from_dynamic_table_for_different_client",
             "reason": "Disabled by issue #1801"
         },
                 {
-            "name": "http2_general.test_h2_hpack.TestHpackCache.test_cache_response_from_dynamic_table",
+            "name": "tests.http2_general.test_h2_hpack.TestHpackCache.test_cache_response_from_dynamic_table",
             "reason": "Disabled by issue #1801"
         },
         {
-            "name": "sessions.test_js_challenge.JSChallengeHttp.test_method_override_HEAD_GET",
+            "name": "tests.sessions.test_js_challenge.JSChallengeHttp.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
         },
         {
-            "name": "sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
+            "name": "tests.sessions.test_js_challenge.JSChallengeH2.test_method_override_HEAD_GET",
             "reason": "Disabled by issue #613"
         },
         {
-            "name": "t_tf.test_tf_filters.TestTFFiltersTestSuiteTls",
+            "name": "tests.tf.test_tf_filters.TestTFFiltersTestSuiteTls",
             "reason": "Disabled by issue #2052"
         },
         {
-            "name": "t_tf.test_tf_filters.TestTFFiltersTestSuiteCurves",
+            "name": "tests.tf.test_tf_filters.TestTFFiltersTestSuiteCurves",
             "reason": "Disabled by issue #2052"
         },
         {
-            "name": "t_stress.test_clickhouse.TestClickHouseLogsUnderLoad",
+            "name": "tests.stress.test_clickhouse.TestClickHouseLogsUnderLoad",
             "reason": "Disabled by issue #859 (t_stress.test_clickhouse: incorrect records number calculation)"
         },
         {
-            "name": "t_clickhouse.test_clickhouse_logs.TestClickHouseLogsDelay",
+            "name": "tests.clickhouse.test_clickhouse_logs.TestClickHouseLogsDelay",
             "reason": "The response time varies each time, and it is not possible to predict it exactly."
         },
         {
-            "name": "t_stress.test_stress.TestContinuationFlood",
+            "name": "tests.stress.test_stress.TestContinuationFlood",
             "reason": "Disabled by test issue #817"
         },
         {
-            "name": "t_stress.test_stress.TestStressNoCacheMTU80",
+            "name": "tests.stress.test_stress.TestStressNoCacheMTU80",
             "reason": "Disabled by test issue #817"
         },
         {
-            "name": "http2_general.test_h2_frame.TestPostponedFrames",
+            "name": "tests.http2_general.test_h2_frame.TestPostponedFrames",
             "reason": "Disabled by test issue #862"
         },
         {
-            "name": "t_regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
+            "name": "tests.regress.test_stress_failovering.TestStressFailovering.test_failovering_sched_hash",
             "reason": "Disabled by test issue #905"
         },
         {
-            "name": "sessions.test_sticky_sess_stress.TestStressStickyCookie.test_one_client",
+            "name": "tests.sessions.test_sticky_sess_stress.TestStressStickyCookie.test_one_client",
             "reason": "Disabled by test issue #921"
         }
     ]
