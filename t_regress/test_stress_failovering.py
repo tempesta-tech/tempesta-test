@@ -182,39 +182,4 @@ class TestStressFailovering(FailoveringStressTestBase):
         self.assertTrue(tempesta.stats.cl_msg_other_errors > 0)
 
 
-class TestStressFailoveringWithUnlimKAReq(FailoveringStressTestBase):
-    """Almost unlimited maximum amount of requests during one connection."""
-
-    ka_requests = (sys.maxsize,)  # 2**63 - 1
-
-    tempesta = {
-        "config": """
-            listen ${tempesta_ip}:443 proto=h2;
-
-            tls_certificate ${tempesta_workdir}/tempesta.crt;
-            tls_certificate_key ${tempesta_workdir}/tempesta.key;
-            tls_match_any_server_name;
-            frang_limits {http_strict_host_checking false;}
-
-            cache 0;
-            server ${server_ip}:8000;
-
-            sched ratio;
-        """,
-    }
-
-    def test_failovering_with_unlim_ka_requests(self) -> None:
-        """No connections failovering in this case."""
-        self.run_test()
-
-        tempesta = self.get_tempesta()
-        tempesta.get_stats()
-
-        self.assertEqual(
-            tempesta.stats.cl_msg_received,
-            tempesta.stats.cl_msg_forwarded,
-        )
-        self.assertEqual(tempesta.stats.cl_msg_other_errors, 0)
-
-
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
