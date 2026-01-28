@@ -105,6 +105,13 @@ class DeproxyAutoParser:
             self.__logger.debug(f"Expected response:\n{expected_response.msg}")
 
             try:
+                if response != expected_response:
+                    self.__logger.info("response")
+                    self.__logger.info(response)
+                    self.__logger.info("exptected response")
+                    self.__logger.info(expected_response)
+                else:
+                    self.__logger.info("response is OK")
                 assert response == expected_response
             except AssertionError:
                 self.__exceptions.append(sys.exc_info()[1])
