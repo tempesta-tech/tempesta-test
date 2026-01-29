@@ -11,8 +11,6 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from helpers.tf_cfg import cfg
-
 RED = "\033[91m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
@@ -183,7 +181,7 @@ def main():
         shutil.rmtree(build_path)
 
     # gutils - Common golang utils
-    shell("sudo go build -o /usr/bin/ratecheck ./gutils/cmd/ratecheck/main.go")
+    shell("sudo go build -o /usr/bin/ratecheck ./tools/gutils/cmd/ratecheck/main.go")
 
     # curl
     build_path = os.path.join(TEMP_DIR, "curl")
