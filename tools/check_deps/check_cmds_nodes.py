@@ -7,7 +7,7 @@ __license__ = "GPL2"
 import re
 import sys
 
-sys.path.append("../")
+sys.path.append("../../")
 
 from helpers import remote, tf_cfg
 

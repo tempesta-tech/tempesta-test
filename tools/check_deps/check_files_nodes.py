@@ -8,7 +8,7 @@ import os
 import re
 import sys
 
-sys.path.append("../")
+sys.path.append("../../")
 
 from helpers import remote, tf_cfg
 

@@ -16,7 +16,9 @@ class Wrk(client.Client):
 
     def __init__(self, id_: str, threads=-1, timeout=60, **kwargs):
         client.Client.__init__(self, id_, "wrk", **kwargs)
-        self.local_scriptdir = "".join([os.path.dirname(os.path.realpath(__file__)), "/../wrk/"])
+        self.local_scriptdir = "".join(
+            [os.path.dirname(os.path.realpath(__file__)), "/../tools/wrk/"]
+        )
         self.rs_content = self.read_local_script("results.lua")
         self.timeout = timeout
         self.threads = threads
