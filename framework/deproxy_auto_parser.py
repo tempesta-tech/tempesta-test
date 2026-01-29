@@ -77,6 +77,11 @@ class DeproxyAutoParser:
             try:
                 assert request == self.__expected_request
             except AssertionError:
+                self.__logger.info(
+                    f"For client request:\n{self.__client_request}\n"
+                    f"Received request:\n{request}\n"
+                    f"Expected request:\n{self.__expected_request}"
+                )
                 self.__exceptions.append(sys.exc_info()[1])
             self.__logger.info("Received request is valid.")
         else:
@@ -107,6 +112,11 @@ class DeproxyAutoParser:
             try:
                 assert response == expected_response
             except AssertionError:
+                self.__logger.info(
+                    f"For client request:\n{self.__client_request}\n"
+                    f"Received response:\n{response}\n"
+                    f"Expected response:\n{expected_response}"
+                )
                 self.__exceptions.append(sys.exc_info()[1])
             self.__logger.info("Received response is valid.")
         else:
