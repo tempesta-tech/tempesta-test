@@ -501,7 +501,7 @@ class TempestaFI(Tempesta):
         Tempesta.__init__(self, vhost_auto=vhost_auto)
         self.stap = "".join([stap_script, ".stp"])
 
-        self.stap_local = os.path.dirname(__file__) + "/../systemtap/" + self.stap
+        self.stap_local = os.path.dirname(__file__) + "/../tools/systemtap/" + self.stap
         self.stap_local = os.path.normpath(self.stap_local)
 
         self.module_stap = mod
