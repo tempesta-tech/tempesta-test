@@ -76,8 +76,8 @@ Testing framework manages other hosts via SSH protocol, so the host running
 testing framework must be able to be authenticated on other hosts by the key.
 That can be done using `ssh-copy-id`. Root access is required on all hosts.
 
-Requirements can be checked with `check_deps/check_dependencies.sh`. It should
-be ran from `check_deps` directory.
+Requirements can be checked with `tools/check_deps/check_dependencies.sh`. It should
+be run from `check_deps` directory.
 
 ## Run tests
 
