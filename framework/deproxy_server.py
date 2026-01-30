@@ -11,7 +11,7 @@ from helpers import error, tf_cfg, util
 from helpers.util import fill_template
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -112,7 +112,7 @@ class ServerConnection(asyncore.dispatcher):
 
             self._http_logger.info("Receive request")
             self._http_logger.debug(request)
-            response, need_close = self._server.receive_request(request)
+            response, need_close = self._server.receive_request(request, self)
             if self._server.drop_conn_when_request_received:
                 self.handle_close()
             if response:
@@ -121,7 +121,7 @@ class ServerConnection(asyncore.dispatcher):
                     self.flush()
 
             if need_close:
-                self.close()
+                self.handle_close()
             self._request_buffer = self._request_buffer[len(request.msg) :]
         # Handler will be called even if buffer is empty.
         else:
@@ -300,7 +300,9 @@ class StaticDeproxyServer(BaseDeproxy):
     def remove_connection(self, connection: ServerConnection) -> None:
         self._connections.remove(connection)
 
-    def receive_request(self, request: deproxy.Request) -> (bytes, bool):
+    def receive_request(
+        self, request: deproxy.Request, connection: ServerConnection
+    ) -> tuple[bytes, bool]:
         self._requests.append(request)
         req_num = len(self.requests)
         self._http_logger.info(f"A request was receive. The current number of requests - {req_num}")
