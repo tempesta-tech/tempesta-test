@@ -2,6 +2,7 @@ import re
 import typing
 
 from framework import deproxy, deproxy_server
+from framework.deproxy_server import ServerConnection
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
@@ -20,8 +21,10 @@ class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
     def __remove_keep_alive_header(response: str) -> str:
         return re.sub(r"Connection: .*$", "", response, flags=re.MULTILINE)
 
-    def receive_request(self, request) -> (bytes, bool):
-        _response, close = super().receive_request(request)
+    def receive_request(
+        self, request: deproxy.Request, connection: ServerConnection
+    ) -> tuple[bytes, bool]:
+        _response, close = super().receive_request(request, connection)
 
         response = deproxy.Response(self.__remove_keep_alive_header(_response.decode()))
         response.body = request.uri

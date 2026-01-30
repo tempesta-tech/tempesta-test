@@ -1,13 +1,12 @@
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 from framework import deproxy, deproxy_server
+from framework.deproxy import HttpMessage
 from helpers import tf_cfg
 from helpers.util import fill_template
 from test_suite import tester
-
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
-__license__ = "GPL2"
-
-from framework.deproxy import HttpMessage
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -89,20 +88,32 @@ http {
 
 class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
     """
-    Simply drops one request which contains '/drop/' part in URI.
+    Simply drops one request which contains '/drop/' part in URI or
+    add a connection to drop list when request contains '/conn_to_drop/' part in URI.
     """
 
-    do_drop = True
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.do_drop = True
+        self.conn_to_drop = []
 
-    def receive_request(self, request):
+    def receive_request(
+        self, request: deproxy.Request, connection: deproxy_server.ServerConnection
+    ) -> tuple[bytes, bool]:
         uri = request.uri
-        r, close = deproxy_server.StaticDeproxyServer.receive_request(self, request)
+
+        for conn in self.conn_to_drop:
+            conn.handle_close()
+            self.conn_to_drop.remove(conn)
+
         if "/drop/" in uri and self.do_drop:
             self.do_drop = False
             return "", True
-
-        resp = deproxy.Response(r.decode())
-        return resp.msg.encode(), close
+        elif "/conn_to_drop/" in uri and self.do_drop:
+            self.do_drop = False
+            self.conn_to_drop.append(connection)
+            return "", False
+        return super().receive_request(request, connection)
 
 
 def build_deproxy_drop(server, name, tester):
@@ -445,7 +456,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
 
 class RetryNonIdempotentPostH1Test(RetryNonIdempotentH1Test):
     requests = [
-        "POST /nonidem/drop/ HTTP/1.1\r\ncontent-length: 0\r\nHost: localhost\r\n\r\n",
+        "POST /nonidem/conn_to_drop/ HTTP/1.1\r\ncontent-length: 0\r\nHost: localhost\r\n\r\n",
         "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
