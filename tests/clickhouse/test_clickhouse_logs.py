@@ -5,11 +5,11 @@ Verify tfw_logger logging
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
-from helpers import tf_cfg
+from helpers import error, tf_cfg
 from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -56,24 +56,77 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
         self.start_all_services(client=False)
 
 
-class TestClickhouseLogsBufferConfiguration(TestClickhouseLogsBaseTest):
+class TestClickhouseLogsBufferConfiguration(tester.TempestaTest):
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 201 OK\r\nContent-Length: 8\r\n\r\n12345678",
+        },
+    ]
+
+    clients = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+    ]
+
     tempesta = dict(
         config="""
             listen 80;
             server ${server_ip}:8000;
-
-            mmap_log_buffer_size 4096;
             access_log mmap logger_config=${tfw_logger_logger_config};
         """,
     )
 
-    def test_mmap_buffer(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="0", mmap_size="0", fail_pattern="the value 0 is out of range"),
+            marks.Param(
+                name="4095",
+                mmap_size="4095",
+                fail_pattern="the value of 4095 is not a multiple of 4K",
+            ),
+            marks.Param(
+                name="129M", mmap_size="129M", fail_pattern="the value 129M is out of range"
+            ),
+        ]
+    )
+    def test_invalid_mmap_buffer(self, name, mmap_size: str, fail_pattern: str):
         """
-        Check the buffer works fine with small value
+        Check the Tempesta FW doesn't start with invalid a mmap size value
         """
-        client = self.get_client("deproxy")
-        client.start()
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig += f"mmap_log_buffer_size {mmap_size};\n"
+        self.oops_ignore.append("ERROR")
 
+        with self.assertRaises(
+            expected_exception=error.ProcessBadExitStatusException,
+            msg="Tempesta FW started with mmap_log_buffer_size > 128 MB or < 4 KB.",
+        ):
+            self.get_tempesta().start()
+        self.assertTrue(self.loggers.dmesg.find(fail_pattern), "Not found ERROR msg in dmesg.")
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="4K", mmap_size="4096"),
+            marks.Param(name="128M", mmap_size="128M"),
+        ]
+    )
+    def test_mmap_buffer(self, name, mmap_size: str):
+        """
+        Check the buffer works fine with a valid mmap value
+        """
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig += f"mmap_log_buffer_size {mmap_size};"
+        self.start_all_services()
+
+        client = self.get_client("deproxy")
         client.send_request(client.create_request(method="GET", headers=[]))
 
         self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
