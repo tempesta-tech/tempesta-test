@@ -393,7 +393,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
 
 class DeproxyClient(BaseDeproxyClient):
-
     def make_requests(self, requests: list[deproxy.Request | str], pipelined=False) -> None:
         """
         if pipelined is True:

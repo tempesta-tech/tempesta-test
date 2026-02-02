@@ -9,7 +9,6 @@ __license__ = "GPL2"
 
 
 class TlsBasic(tester.TempestaTest):
-
     clients = [
         {
             "id": "deproxy",

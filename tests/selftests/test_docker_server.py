@@ -8,7 +8,6 @@ from test_suite import tester
 
 
 class TestDockerServer(tester.TempestaTest):
-
     response_body = "a" * 100
 
     backends = [
@@ -103,7 +102,6 @@ class TestDockerServer(tester.TempestaTest):
 
 
 class TestHealthCheck(tester.TempestaTest):
-
     backends = [
         {
             "id": "default",

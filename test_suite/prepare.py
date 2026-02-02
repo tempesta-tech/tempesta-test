@@ -21,7 +21,7 @@ def configure_tcp():
     if remote.server.host != remote.tempesta.host:
         remote.server.run_cmd("sysctl -w net.core.somaxconn=131072")
         remote.server.run_cmd("sysctl -w net.ipv4.tcp_max_orphans=1000000")
-        
+
     # The test suite creates a lot of short living TCP connections and we have
     # specific testing logic for DDoS mitigation, so let the suite create many
     # connections.

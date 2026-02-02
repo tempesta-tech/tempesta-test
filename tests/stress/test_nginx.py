@@ -89,7 +89,6 @@ class NginxProxyMixin:
 
 
 class NginxStressBase(NginxProxyMixin, tester.TempestaTest, base=True):
-
     @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
     def test(self):

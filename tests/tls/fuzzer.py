@@ -9,7 +9,6 @@ __license__ = "GPL2"
 
 
 class TlsRecordGenerator:
-
     # Format: {'value name': [current_id, (list of available values)]}
     # Repeated values make are more frequently tested (see next()).
     values = {

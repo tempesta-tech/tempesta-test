@@ -41,7 +41,6 @@ def amount_greater_eq(expected: int) -> Callable[[List[str]], bool]:
 
 
 class BaseTempestaLogger:
-
     @abc.abstractmethod
     def update(self):
         """
