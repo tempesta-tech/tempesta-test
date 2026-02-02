@@ -33,7 +33,6 @@ class TestFrameworkCfg:
     cfg_file = os.path.relpath(os.path.join(os.path.dirname(__file__), "..", "tests_config.ini"))
 
     def __init__(self, filename=None):
-
         if filename:
             self.cfg_file = filename
 

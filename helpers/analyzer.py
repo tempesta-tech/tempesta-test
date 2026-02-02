@@ -27,7 +27,6 @@ CWR = 0x80
 
 
 class Sniffer(object, metaclass=abc.ABCMeta):
-
     def __init__(self, node: remote.ANode, host, count=0, timeout=30, ports=(80,), node_close=True):
         self.node = node
         self.ports = ports

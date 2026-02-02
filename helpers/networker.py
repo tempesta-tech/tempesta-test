@@ -1,14 +1,13 @@
-""" Helpers to control different network adapter settings. """
+"""Helpers to control different network adapter settings."""
+
 import re
 import socket
 import struct
-
 from contextlib import contextmanager
-from typing import Generator, Any
+from typing import Any, Generator
 
 from helpers import remote, tf_cfg
 from helpers.tf_cfg import test_logger
-
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
@@ -16,7 +15,6 @@ __license__ = "GPL2"
 
 
 class NetWorker:
-
     def __init__(self, node: remote.ANode):
         self._state_dict = {True: "on", False: "off", "on": True, "off": False}
         self._tcp_options = dict()
@@ -59,10 +57,18 @@ class NetWorker:
 
     def _route_dst_ip(self, ip: str) -> str:
         """Determine outgoing interface for the IP."""
-        return self._node.run_cmd(f"LANG=C ip route get to {ip} | grep -o 'dev [a-zA-Z0-9_-]*'")[0].split()[1].decode()
+        return (
+            self._node.run_cmd(f"LANG=C ip route get to {ip} | grep -o 'dev [a-zA-Z0-9_-]*'")[0]
+            .split()[1]
+            .decode()
+        )
 
     def _get_mtu(self) -> int:
-        return int(self._node.run_cmd(f"LANG=C ip addr show {self._interface} |grep -o 'mtu [0-9]*'")[0].split()[1])
+        return int(
+            self._node.run_cmd(f"LANG=C ip addr show {self._interface} |grep -o 'mtu [0-9]*'")[
+                0
+            ].split()[1]
+        )
 
     def _change_mtu(self, mtu: int) -> int:
         """Change the device MTU and return previous MTU."""
@@ -83,7 +89,7 @@ class NetWorker:
         self._node.run_cmd(f"sysctl -w net.ipv4.route.mtu_expires={expires}")
 
     def _get_ipv6_addresses(self) -> list[str]:
-        pattern = re.compile(r'inet6\s+([a-fA-F0-9:]+/\d+)')
+        pattern = re.compile(r"inet6\s+([a-fA-F0-9:]+/\d+)")
         stdout, _ = self._node.run_cmd(f"ip -6 addr show dev {self._interface}")
 
         ipv6_addresses = []
@@ -161,7 +167,9 @@ class NetWorker:
 
         try:
             test_logger.info(f"Adding ip {iface_ip}")
-            self._node.run_cmd(f"LANG=C ip address add {iface_ip}/24 dev {self._interface_name} label {iface}")
+            self._node.run_cmd(
+                f"LANG=C ip address add {iface_ip}/24 dev {self._interface_name} label {iface}"
+            )
         except:
             test_logger.warning("Interface alias already added")
 
@@ -194,7 +202,9 @@ class NetWorker:
         """Create route"""
         try:
             test_logger.info(f"Adding route for {ip_}")
-            self._dst_node.run_cmd(f"LANG=C ip route add {ip_} via {self._gateway_ip} dev {self._interface_name}")
+            self._dst_node.run_cmd(
+                f"LANG=C ip route add {ip_} via {self._gateway_ip} dev {self._interface_name}"
+            )
             test_logger.info("Route already added")
         except:
             test_logger.warning("Route not added")
@@ -221,7 +231,9 @@ class NetWorker:
 
 
 @contextmanager
-def change_mtu_and_restore_interfaces(*, mtu: int, disable_pmtu: bool) -> Generator[list[NetWorker], Any, None]:
+def change_mtu_and_restore_interfaces(
+    *, mtu: int, disable_pmtu: bool
+) -> Generator[list[NetWorker], Any, None]:
     if type(remote.tempesta) == type(remote.client):
         networkers: list[NetWorker] = [NetWorker(remote.tempesta)]
     else:
@@ -237,7 +249,9 @@ def change_mtu_and_restore_interfaces(*, mtu: int, disable_pmtu: bool) -> Genera
 
 
 @contextmanager
-def change_and_restore_tso_gro_gso(*, tso_gro_gso: bool, mtu: int) -> Generator[list[NetWorker], Any, None]:
+def change_and_restore_tso_gro_gso(
+    *, tso_gro_gso: bool, mtu: int
+) -> Generator[list[NetWorker], Any, None]:
     with change_mtu_and_restore_interfaces(mtu=mtu, disable_pmtu=False) as networkers:
         try:
             for networker in networkers:
@@ -249,7 +263,9 @@ def change_and_restore_tso_gro_gso(*, tso_gro_gso: bool, mtu: int) -> Generator[
 
 
 @contextmanager
-def change_and_restore_tcp_options(*, mtu: int, tcp_options: dict[str, str]) -> Generator[list[NetWorker], Any, None]:
+def change_and_restore_tcp_options(
+    *, mtu: int, tcp_options: dict[str, str]
+) -> Generator[list[NetWorker], Any, None]:
     with change_mtu_and_restore_interfaces(mtu=mtu, disable_pmtu=False) as networkers:
         try:
             for networker in networkers:

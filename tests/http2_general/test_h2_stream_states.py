@@ -55,7 +55,6 @@ class TestClosedStreamState(H2Base):
 
 
 class TestLocHalfClosedStreamState(H2Base):
-
     PARSER_WARN = "HTTP/2 request dropped"
 
     def test_headers(self):

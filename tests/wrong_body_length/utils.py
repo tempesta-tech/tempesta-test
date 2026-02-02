@@ -132,7 +132,6 @@ class TestContentLengthBase(TempestaTest, base=True):
 
 
 class H2Config:
-
     clients = [
         {
             "id": "deproxy",

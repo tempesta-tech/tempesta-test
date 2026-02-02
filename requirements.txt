@@ -16,7 +16,7 @@ pycodestyle==2.8.0
 requests~=2.32.3
 pre-commit==2.20.0
 isort==5.12.0
-black==23.1.0
+black==25.12.0
 inquirer~=3.4.0
 parameterized~=0.9.0
 clickhouse-connect==0.8.11

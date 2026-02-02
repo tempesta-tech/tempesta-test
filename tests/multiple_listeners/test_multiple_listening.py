@@ -19,7 +19,6 @@ H2SPEC_EXTRA_SETTINGS = "generic/4"
 
 
 class TestMultipleListening(tester.TempestaTest):
-
     backends = [
         {
             "id": "nginx",
@@ -1424,7 +1423,6 @@ class TestMultipleListening(tester.TempestaTest):
 
     @dmesg.limited_rate_on_tempesta_node
     def test_multiple_listeners_success(self):
-
         # h2spec
         for cli in self.clients:
             if cli[ID].startswith("h2spec"):
@@ -1436,7 +1434,6 @@ class TestMultipleListening(tester.TempestaTest):
         self.start_all()
 
         for cli in self.clients:
-
             # h2spec
             if cli[ID].startswith("h2spec"):
                 h2spec = self.get_client(

@@ -64,7 +64,6 @@ server ${server_ip}:8000;
 
 
 class MalformedRequestsTest(MalformedRequestsBase):
-
     def test_expect_invalid(self):
         """
         https://tools.ietf.org/html/rfc7231#section-5.1.1

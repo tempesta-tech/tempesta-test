@@ -196,7 +196,6 @@ end
 
 
 class MixedRequests(tester.TempestaTest):
-
     backends = [
         {
             "id": "nginx",

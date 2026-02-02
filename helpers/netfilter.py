@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from contextlib import contextmanager
-from typing import Generator, Any, Optional
+from typing import Any, Generator, Optional
 
 from helpers import remote
 
@@ -43,7 +43,9 @@ class _Filter(object):
 
 
 @contextmanager
-def block_ports_on_node(*, blocked_ports: list[int], node: remote.ANode)  -> Generator[_Filter, Any, None]:
+def block_ports_on_node(
+    *, blocked_ports: list[int], node: remote.ANode
+) -> Generator[_Filter, Any, None]:
     netfilter = _Filter(node)
 
     try:

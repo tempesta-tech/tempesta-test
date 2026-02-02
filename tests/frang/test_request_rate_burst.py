@@ -103,7 +103,6 @@ HTTP2_CLIENTS = [
     ]
 )
 class TestFrangRequest(FrangTestCase, asserts.Sniffer):
-
     tempesta = {
         "config": """
 frang_limits {
