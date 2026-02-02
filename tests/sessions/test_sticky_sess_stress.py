@@ -106,20 +106,12 @@ frang_limits {http_strict_host_checking false;}
         servers_with_requests = list(server for server in self.get_servers() if server.requests)
         self.assertEqual(len(servers_with_requests), 1, "Only one server must pull all the load.")
 
-        # Negative allowance: this means some requests are not forwarded to the
-        # server. This happens because some (at least one per wrk thread,
-        # at most one per connection) requests are sent without a session cookie
-        # and replied 302 by Tempesta without any forwarding, which is still
-        # considered a "success" by wrk. So, [1; concurrent_connections]
-        # requests will not be received by the backend.
-        # This allowance is specific to the session stress tests.
-        exp_min = wrk.statuses.get(200, 0) - wrk.connections
         # Positive allowance: this means some responses are missed by the client.
-        # It is believed (nobody actually checked though...) that wrk does not
-        # wait for responses to last requests in each connection before closing
-        # it and does not account for those requests.
+        # wrk does not wait for responses to last requests in each connection
+        # before closing it and does not account for those requests.
         # So, [0; concurrent_connections] responses will be missed by the client.
-        exp_max = wrk.statuses.get(200, 0) + wrk.connections - 1
+        exp_max = wrk.statuses.get(200, 0) + wrk.connections
+        exp_min = wrk.statuses.get(200, 0)
 
         self.assertTrue(
             exp_min <= servers_with_requests[0].requests <= exp_max,
@@ -152,20 +144,12 @@ frang_limits {http_strict_host_checking false;}
             "All server must pull all the load.",
         )
 
-        # Negative allowance: this means some requests are not forwarded to the
-        # server. This happens because some (at least one per wrk thread,
-        # at most one per connection) requests are sent without a session cookie
-        # and replied 302 by Tempesta without any forwarding, which is still
-        # considered a "success" by wrk. So, [1; concurrent_connections]
-        # requests will not be received by the backend.
-        # This allowance is specific to the session stress tests.
-        exp_min = wrk.statuses.get(200, 0) - wrk.connections
         # Positive allowance: this means some responses are missed by the client.
-        # It is believed (nobody actually checked though...) that wrk does not
-        # wait for responses to last requests in each connection before closing
-        # it and does not account for those requests.
+        # wrk does not wait for responses to last requests in each connection
+        # before closing it and does not account for those requests.
         # So, [0; concurrent_connections] responses will be missed by the client.
-        exp_max = wrk.statuses.get(200, 0) + wrk.connections - 1
+        exp_max = wrk.statuses.get(200, 0) + wrk.connections
+        exp_min = wrk.statuses.get(200, 0)
         servers_requests_sum = sum(list(server.requests for server in servers_with_requests))
 
         self.assertTrue(
