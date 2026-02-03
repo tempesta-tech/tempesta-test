@@ -2,8 +2,7 @@
 
 import time
 
-from helpers import analyzer, remote, util
-from test_suite import asserts
+from framework.helpers import analyzer, asserts, remote, util
 from tests.frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."

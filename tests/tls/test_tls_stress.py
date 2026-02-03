@@ -4,10 +4,10 @@ TLS Stress tests - load Tempesta FW with multiple TLS connections.
 
 import threading
 
-from helpers import dmesg, remote
-from helpers.cert_generator_x509 import CertGenerator
+from framework.helpers import dmesg, remote
+from framework.helpers.cert_generator_x509 import CertGenerator
+from framework.test_suite import marks, tester
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
-from test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."

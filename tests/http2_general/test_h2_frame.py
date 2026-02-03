@@ -11,11 +11,12 @@ from h2.settings import SettingCodes
 from hpack import HeaderTuple
 from hyperframe.frame import ContinuationFrame, DataFrame, HeadersFrame, SettingsFrame
 
-from framework import deproxy_client, stateful
-from framework.deproxy import HttpMessage
-from helpers import util
-from test_suite import checks_for_tests as checks
-from test_suite import marks
+from framework.deproxy import deproxy_client
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import checks_for_tests as checks
+from framework.helpers import util
+from framework.services import stateful
+from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 

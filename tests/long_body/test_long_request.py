@@ -6,9 +6,9 @@ __license__ = "GPL2"
 
 import os
 
-from helpers import remote, tf_cfg
-from test_suite import checks_for_tests as checks
-from test_suite import marks, tester
+from framework.helpers import checks_for_tests as checks
+from framework.helpers import remote, tf_cfg
+from framework.test_suite import marks, tester
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
 

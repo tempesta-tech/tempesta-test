@@ -8,8 +8,8 @@ import time
 
 import h2
 
-from helpers import tf_cfg
-from test_suite import tester
+from framework.helpers import tf_cfg
+from framework.test_suite import tester
 
 
 class TestH2Ping(tester.TempestaTest):

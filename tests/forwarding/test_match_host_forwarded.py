@@ -3,7 +3,7 @@ Tests for verifying correctness of matching
 all host headers (URI, Host, Forwarded).
 """
 
-from test_suite import marks, tester
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."

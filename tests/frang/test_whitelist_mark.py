@@ -1,9 +1,10 @@
 """Tests for Frang directive `whitelist_mark`."""
 
-from framework import curl_client, deproxy_client
-from helpers import remote, tf_cfg
-from test_suite import tester
-from test_suite.mixins import NetfilterMarkMixin
+from framework.deproxy import deproxy_client
+from framework.helpers import remote, tf_cfg
+from framework.helpers.mixins import NetfilterMarkMixin
+from framework.services import curl_client
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."

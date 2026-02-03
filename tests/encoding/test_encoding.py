@@ -2,16 +2,16 @@ import copy
 import random
 import string
 
-from framework import deproxy
-from helpers import util
-from test_suite import tester
+from framework.deproxy import deproxy_message
+from framework.helpers import util
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-DATE = deproxy.HttpMessage.date_time_string()
+DATE = deproxy_message.HttpMessage.date_time_string()
 CHUNK_SIZE = 16
 BODY_PAYLOAD = string.ascii_letters
 LARGE_BODY_PAYLOAD = 10000 * "qwertyuiop"

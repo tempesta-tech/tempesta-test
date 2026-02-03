@@ -1,8 +1,6 @@
-from __future__ import print_function
-
 import unittest
 
-from framework import deproxy
+from framework.deproxy import deproxy_message
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -11,9 +9,9 @@ __license__ = "GPL2"
 
 class ParseRequest(unittest.TestCase):
     def setUp(self):
-        self.plain = deproxy.Request(PLAIN)
-        self.reordered = deproxy.Request(REORDERED)
-        self.duplicated = deproxy.Request(DUPLICATED)
+        self.plain = deproxy_message.Request(PLAIN)
+        self.reordered = deproxy_message.Request(REORDERED)
+        self.duplicated = deproxy_message.Request(DUPLICATED)
 
     def test_equal(self):
         # Reordering of headers is allowed.

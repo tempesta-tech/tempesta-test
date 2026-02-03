@@ -5,8 +5,8 @@ Basic tests for Tempesta cookies.
 import re
 import time
 
-from helpers import dmesg, error, remote, tf_cfg
-from test_suite import marks, tester
+from framework.helpers import dmesg, error, remote, tf_cfg
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."

@@ -6,10 +6,10 @@ import os
 import time
 from pathlib import Path
 
-from framework import tempesta
-from framework.deproxy import HttpMessage
-from helpers import dmesg, networker, remote, tf_cfg
-from test_suite import marks, tester
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import dmesg, networker, remote, tf_cfg
+from framework.services import tempesta
+from framework.test_suite import marks, tester
 from tests.frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."

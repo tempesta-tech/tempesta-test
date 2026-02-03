@@ -4,10 +4,9 @@ import abc
 import copy
 import time
 
-from framework import deproxy
-from framework.deproxy_client import DeproxyClient
-from helpers import tf_cfg
-from test_suite import tester
+from framework.deproxy import deproxy_message
+from framework.helpers import tf_cfg
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
@@ -133,8 +132,8 @@ class TestCacheControl(tester.TempestaTest, base=True):
 
     def _test(self):
         self.start_all()
-        client: DeproxyClient = self.get_client("deproxy")
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+        srv = self.get_server("deproxy")
 
         response_template = (
             "HTTP/1.1 200 OK\r\n"
@@ -147,7 +146,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
         )
 
         srv.set_response(
-            response_template + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n\r\n"
+            response_template + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n\r\n"
         )
 
         response = self.client_send_req(client, self.request_headers)
@@ -163,7 +162,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
             time.sleep(self.sleep_interval)
 
         srv.set_response(
-            response_template + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n\r\n"
+            response_template + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n\r\n"
         )
 
         cached_response = self.client_send_req(client, self.second_request_headers)

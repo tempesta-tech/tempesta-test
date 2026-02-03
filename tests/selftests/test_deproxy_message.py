@@ -1,19 +1,17 @@
-from __future__ import print_function
-
 import unittest
 
-from framework import deproxy
-from helpers import error
+from framework.deproxy import deproxy_message
+from framework.helpers import error
 
 
 class TestDeproxyMessage(unittest.TestCase):
     def setUp(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = True
+        deproxy_message.HeaderCollection._disable_report_wrong_is_expected = True
         # Cleanup part
         self.addCleanup(self.cleanup_deproxy)
 
     def cleanup_deproxy(self):
-        deproxy.HeaderCollection._disable_report_wrong_is_expected = False
+        deproxy_message.HeaderCollection._disable_report_wrong_is_expected = False
 
     def test_incomplite(self):
         message_1 = "HTTP/1.1 20"
@@ -84,8 +82,8 @@ class TestDeproxyMessage(unittest.TestCase):
             msg = "Message parsed, but it has incomplete %s. Message:\n%s" % (reason, message)
             parsed = True
             try:
-                deproxy.Response(message)
-            except deproxy.ParseError:
+                deproxy_message.Response(message)
+            except deproxy_message.ParseError:
                 parsed = False
             self.assertFalse(parsed, msg)
 
@@ -178,12 +176,12 @@ class TestDeproxyMessage(unittest.TestCase):
         valid_messages = [message_1, message_2, message_3, message_4, message_5, message_6]
         for message in valid_messages:
             try:
-                deproxy.Response(message)
-            except deproxy.ParseError:
+                deproxy_message.Response(message)
+            except deproxy_message.ParseError:
                 error.bug("Error processing message\n%s" % message)
 
     def test_request_plain(self):
-        request = deproxy.Request(
+        request = deproxy_message.Request(
             "GET / HTTP/1.1\r\n"
             "Host: 10.0.10.2\r\n"
             "User-Agent: curl/7.53.1\r\n"
@@ -191,11 +189,11 @@ class TestDeproxyMessage(unittest.TestCase):
             "\r\n"
         )
         headers = ["Host: 10.0.10.2", "User-Agent: curl/7.53.1", "Accept: */*"]
-        created = deproxy.Request.create("GET", headers, authority="")
+        created = deproxy_message.Request.create("GET", headers, authority="")
         self.assertEqual(request, created)
 
     def test_request_body(self):
-        request = deproxy.Request(
+        request = deproxy_message.Request(
             "GET / HTTP/1.1\r\n"
             "Host: 10.0.10.2\r\n"
             "User-Agent: curl/7.53.1\r\n"
@@ -207,11 +205,11 @@ class TestDeproxyMessage(unittest.TestCase):
         )
         headers = ["Host: 10.0.10.2", "User-Agent: curl/7.53.1", "Accept: */*", "Content-Length: 6"]
         body = "<html>\r\n"
-        created = deproxy.Request.create("GET", headers, body=body, authority="")
+        created = deproxy_message.Request.create("GET", headers, body=body, authority="")
         self.assertEqual(request, created)
 
     def test_response_plain(self):
-        response = deproxy.Response(
+        response = deproxy_message.Response(
             "HTTP/1.1 200 OK\r\n"
             "Server: SimpleHTTP/0.6 Python/3.6.0\r\n"
             "Content-type: text/html\r\n"
@@ -243,7 +241,7 @@ class TestDeproxyMessage(unittest.TestCase):
             "</body>\r\n"
             "</html>\r\n"
         )
-        created = deproxy.Response.create(200, headers, body=body)
+        created = deproxy_message.Response.create(200, headers, body=body)
         self.assertEqual(response, created)
 
 

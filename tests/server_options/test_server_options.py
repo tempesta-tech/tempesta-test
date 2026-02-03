@@ -4,8 +4,8 @@ __license__ = "GPL2"
 
 import time
 
-from helpers import analyzer, dmesg, remote, tf_cfg
-from test_suite import marks, tester
+from framework.helpers import analyzer, dmesg, remote, tf_cfg
+from framework.test_suite import marks, tester
 
 SERVER_IP = tf_cfg.cfg.get("Server", "ip")
 

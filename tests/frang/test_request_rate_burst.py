@@ -2,10 +2,10 @@
 
 import time
 
-from framework.deproxy import H2Request, Request
-from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import analyzer, error, remote
-from test_suite import asserts, marks
+from framework.deproxy.deproxy_client import DeproxyClient, DeproxyClientH2
+from framework.deproxy.deproxy_message import H2Request, Request
+from framework.helpers import analyzer, asserts, error, remote
+from framework.test_suite import marks
 from tests.frang.frang_test_case import DELAY, FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."

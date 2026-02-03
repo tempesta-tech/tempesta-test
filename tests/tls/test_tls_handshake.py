@@ -3,9 +3,9 @@ Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
 
-from helpers import analyzer, dmesg, error, remote
-from helpers.cert_generator_x509 import CertGenerator
-from test_suite import marks, tester
+from framework.helpers import analyzer, dmesg, remote
+from framework.helpers.cert_generator_x509 import CertGenerator
+from framework.test_suite import marks, tester
 
 from .fuzzer import tls_record_fuzzer
 from .handshake import *

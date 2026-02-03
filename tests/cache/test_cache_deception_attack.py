@@ -16,8 +16,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers import tf_cfg
-from test_suite import tester
+from framework.test_suite import tester
 
 RESPONSE_CC_NO_STORE = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nCache-Control: no-store\r\n\r\n"
 

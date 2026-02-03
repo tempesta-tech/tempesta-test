@@ -4,12 +4,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import re
 import sys
 
 sys.path.append("../../")
 
-from helpers import remote, tf_cfg
+from framework.helpers import remote, tf_cfg
 
 remote.connect()
 

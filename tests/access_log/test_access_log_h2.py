@@ -2,9 +2,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import deproxy
-from helpers.access_log import AccessLogLine
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message
+from framework.helpers.access_log import AccessLogLine
+from framework.test_suite import marks, tester
 
 
 def create_one_big_chunk(body_size: int) -> str:
@@ -193,7 +193,7 @@ tls_match_any_server_name;
             + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "\r\n"
             + create_one_big_chunk(body_size)
         )

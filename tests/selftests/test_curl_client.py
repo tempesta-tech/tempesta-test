@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import ANY, patch
 
-from framework.curl_client import CurlArguments, CurlClient, CurlResponse
-from test_suite import tester
+from framework.services.curl_client import CurlArguments, CurlClient, CurlResponse
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
@@ -49,7 +49,7 @@ class TestCurlClientParsing(unittest.TestCase):
     def test_multiple_responses_parsed(self):
         client = CurlClient(id="test", addr="127.0.0.1")
         with patch(
-            "framework.curl_client.CurlClient._read_headers_dump",
+            "framework.services.curl_client.CurlClient._read_headers_dump",
             return_value=MULTIPLE_RESPONSES,
         ):
             client.dump_headers = True
@@ -62,7 +62,7 @@ class TestCurlClientParsing(unittest.TestCase):
     def test_http_1_0_response_parsed(self):
         client = CurlClient(id="test", addr="127.0.0.1")
         with patch(
-            "framework.curl_client.CurlClient._read_headers_dump",
+            "framework.services.curl_client.CurlClient._read_headers_dump",
             return_value=HTTP_1_0_RESPONSE,
         ):
             client.dump_headers = True

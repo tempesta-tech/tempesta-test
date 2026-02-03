@@ -1,6 +1,6 @@
 """Test module for http2 and Sticky Cookie."""
 
-from test_suite import tester
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023 Tempesta Technologies, Inc."

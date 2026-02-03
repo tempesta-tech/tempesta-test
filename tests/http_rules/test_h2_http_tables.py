@@ -6,7 +6,7 @@ __license__ = "GPL2"
 
 import copy
 
-from test_suite import tester
+from framework.test_suite import tester
 from tests.http_rules import test_http_tables
 
 

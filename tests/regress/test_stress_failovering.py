@@ -7,12 +7,11 @@ __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import copy
-import sys
 
-from helpers import dmesg
-from helpers.tf_cfg import cfg
+from framework.helpers import dmesg
+from framework.helpers.tf_cfg import cfg
+from framework.test_suite import marks, tester
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
-from test_suite import marks, tester
 
 SERVER_IP = cfg.get("Server", "ip")
 TEMPESTA_WORKDIR = cfg.get("Tempesta", "workdir")

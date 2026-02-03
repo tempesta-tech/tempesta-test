@@ -1,8 +1,8 @@
 from h2.exceptions import ProtocolError
 
-from framework import deproxy, deproxy_client
-from helpers import dmesg, remote
-from test_suite import marks, tester
+from framework.deproxy import deproxy_client, deproxy_message
+from framework.helpers import dmesg, remote
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -367,7 +367,9 @@ server ${server_ip}:8000;
         client.parsing = True
 
         self.assertRaises(
-            deproxy.ParseError, client.make_request, "GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+            deproxy_message.ParseError,
+            client.make_request,
+            "GETS / HTTP/1.1\r\nHost: localhost\r\n\r\n",
         )
         self.assertIsNone(client.last_response)
 
@@ -439,7 +441,7 @@ server ${server_ip}:8000;
         client.parsing = True
 
         self.assertRaises(
-            deproxy.ParseError,
+            deproxy_message.ParseError,
             client.make_requests,
             [
                 "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",

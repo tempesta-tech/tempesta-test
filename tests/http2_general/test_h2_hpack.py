@@ -17,12 +17,12 @@ from hpack.hpack import encode_integer
 from hyperframe import frame
 from hyperframe.frame import HeadersFrame
 
-from framework import tempesta
-from framework.deproxy import HttpMessage
-from framework.deproxy_client import DeproxyClientH2, HuffmanEncoder
-from framework.tempesta import Tempesta
-from helpers import tf_cfg
-from test_suite import marks
+from framework.deproxy.deproxy_client import DeproxyClientH2, HuffmanEncoder
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import tf_cfg
+from framework.services import tempesta
+from framework.services.tempesta import Tempesta
+from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 

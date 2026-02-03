@@ -10,7 +10,7 @@ from ssl import SSLWantWriteError
 from hpack import HeaderTuple
 from hyperframe.frame import HeadersFrame
 
-from test_suite import marks
+from framework.test_suite import marks
 from tests.frang.frang_test_case import FrangTestCase, H2Config
 
 ERROR = "Warning: frang: HTTP headers count exceeded for"

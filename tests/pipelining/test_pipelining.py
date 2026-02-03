@@ -1,9 +1,9 @@
 import re
 import typing
 
-from framework import deproxy, deproxy_server
-from framework.deproxy_server import ServerConnection
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message, deproxy_server
+from framework.deproxy.deproxy_server import ServerConnection
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
@@ -22,11 +22,11 @@ class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
         return re.sub(r"Connection: .*$", "", response, flags=re.MULTILINE)
 
     def receive_request(
-        self, request: deproxy.Request, connection: ServerConnection
+        self, request: deproxy_message.Request, connection: ServerConnection
     ) -> tuple[bytes, bool]:
         _response, close = super().receive_request(request, connection)
 
-        response = deproxy.Response(self.__remove_keep_alive_header(_response.decode()))
+        response = deproxy_message.Response(self.__remove_keep_alive_header(_response.decode()))
         response.body = request.uri
         response.headers["Content-Length"] = len(response.body)
 
@@ -54,7 +54,7 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
 
         self.nka = 0
 
-        response = deproxy.Response(_response.decode())
+        response = deproxy_message.Response(_response.decode())
         response.headers["Connection"] = "close"
 
         return response.msg.encode(), True
@@ -73,7 +73,7 @@ class DeproxyRegisterRequestsExecutingSequenceServer(deproxy_server.StaticDeprox
         REQUESTS_EXECUTION_SEQUENCE.append(req_num)
 
         r, close = super().receive_request(request)
-        resp = deproxy.Response(r.decode())
+        resp = deproxy_message.Response(r.decode())
         resp.body = "".join(REQUESTS_EXECUTION_SEQUENCE)
         resp.headers["seq"] = req_num
         resp.headers["Content-Length"] = len(resp.body)

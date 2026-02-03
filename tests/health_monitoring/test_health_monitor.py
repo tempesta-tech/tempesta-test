@@ -7,10 +7,10 @@ from __future__ import print_function
 import time
 from collections import defaultdict
 
-from framework import tempesta
-from framework.deproxy import HttpMessage
-from helpers import dmesg, tf_cfg
-from test_suite import marks, tester
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import dmesg, tf_cfg
+from framework.services import tempesta
+from framework.test_suite import marks, tester
 from tests.http2_general.test_h2_responses import H2ResponsesPipelinedBase
 
 __author__ = "Tempesta Technologies, Inc."

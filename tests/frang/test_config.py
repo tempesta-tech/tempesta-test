@@ -8,14 +8,14 @@ import time
 
 from hyperframe.frame import DataFrame, HeadersFrame
 
-from helpers.dmesg import (
+from framework.helpers.dmesg import (
     amount_equals,
     amount_positive,
     limited_rate_on_tempesta_node,
     unlimited_rate_on_tempesta_node,
 )
-from helpers.error import ProcessBadExitStatusException
-from test_suite import marks, tester
+from framework.helpers.error import ProcessBadExitStatusException
+from framework.test_suite import marks, tester
 
 
 class TestDefaultConfig(tester.TempestaTest):

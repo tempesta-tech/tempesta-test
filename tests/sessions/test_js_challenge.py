@@ -5,10 +5,10 @@ Tests for JavaScript challenge.
 import re
 import time
 
-from framework.deproxy import HttpMessage
-from helpers import dmesg, remote, tf_cfg
-from helpers.util import fill_template
-from test_suite import marks, tester
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import dmesg, remote, tf_cfg
+from framework.helpers.util import fill_template
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020-2024 Tempesta Technologies, Inc."

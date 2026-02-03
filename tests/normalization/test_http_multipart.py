@@ -5,7 +5,7 @@ Checks whenever Content-Type header field value is being sanitized as expected.
 import itertools
 import textwrap
 
-from test_suite import tester
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019-2024 Tempesta Technologies, Inc."

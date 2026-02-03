@@ -6,9 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.curl_client import CurlResponse
+from framework.services.curl_client import CurlResponse
+from framework.test_suite import tester
 from run_config import CONCURRENT_CONNECTIONS, DURATION, REQUESTS_COUNT, THREADS
-from test_suite import tester
 
 
 class LiveReconfStressTestBase(tester.TempestaTest, base=True):

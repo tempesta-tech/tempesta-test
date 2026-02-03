@@ -4,8 +4,8 @@ __license__ = "GPL2"
 
 import time
 
-from framework import deproxy
-from test_suite import tester
+from framework.deproxy import deproxy_message
+from framework.test_suite import tester
 
 
 class TestH2CacheBase(tester.TempestaTest):
@@ -60,10 +60,10 @@ class TestH2CacheType(TestH2CacheBase):
 
         server = self.get_server("deproxy")
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -108,10 +108,10 @@ class TestH2CacheControl(TestH2CacheBase):
 
         server = self.get_server("deproxy")
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -128,10 +128,10 @@ class TestH2CacheControl(TestH2CacheBase):
         time.sleep(sleep_interval)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
         client.send_request(
@@ -815,10 +815,10 @@ class TestH2CacheControl(TestH2CacheBase):
 
         server = self.get_server("deproxy")
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("set-cookie", "session=1")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -895,10 +895,10 @@ cache 2;
 
         server = self.get_server("deproxy")
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -915,10 +915,10 @@ cache 2;
         time.sleep(sleep_interval)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=response_headers + [("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
         client.send_request(

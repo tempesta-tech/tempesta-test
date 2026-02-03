@@ -4,9 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.deproxy import HttpMessage
-from helpers import networker
-from test_suite import marks, tester
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import networker
+from framework.test_suite import marks, tester
 
 DEPROXY_CLIENT = {
     "id": "deproxy",

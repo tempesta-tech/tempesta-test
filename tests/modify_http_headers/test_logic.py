@@ -4,10 +4,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import tempesta
-from framework.deproxy import H2Response, HttpMessage, Request, Response
-from helpers import tf_cfg
-from test_suite import tester
+from framework.deproxy.deproxy_message import H2Response, HttpMessage, Request, Response
+from framework.helpers import tf_cfg
+from framework.services import tempesta
+from framework.test_suite import tester
 
 MAX_HEADER_NAME = 1024  # See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN
 

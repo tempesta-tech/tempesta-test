@@ -4,9 +4,9 @@ import ssl
 import requests
 import websockets
 
-from helpers import dmesg, remote, tf_cfg
-from helpers.cert_generator_x509 import CertGenerator
-from test_suite import marks, tester
+from framework.helpers import dmesg, remote, tf_cfg
+from framework.helpers.cert_generator_x509 import CertGenerator
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."

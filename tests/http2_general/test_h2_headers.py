@@ -10,8 +10,8 @@ import unittest
 from h2.errors import ErrorCodes
 from hyperframe import frame
 
-from framework.deproxy import HttpMessage
-from test_suite import marks, tester
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.test_suite import marks, tester
 from tests.http2_general.helpers import H2Base
 
 __author__ = "Tempesta Technologies, Inc."

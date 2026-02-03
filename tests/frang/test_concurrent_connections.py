@@ -6,9 +6,9 @@ __license__ = "GPL2"
 
 import time
 
-from helpers import remote
-from helpers.networker import NetWorker
-from test_suite import marks
+from framework.helpers import remote
+from framework.helpers.networker import NetWorker
+from framework.test_suite import marks
 from tests.frang.frang_test_case import FrangTestCase
 
 ERROR = "Warning: frang: connections max num. exceeded"

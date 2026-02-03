@@ -6,9 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.tempesta import ServerStats
-from helpers.dmesg import limited_rate_on_tempesta_node
-from helpers.tf_cfg import cfg
+from framework.helpers.dmesg import limited_rate_on_tempesta_node
+from framework.helpers.tf_cfg import cfg
+from framework.services.tempesta import ServerStats
 from tests.reconf.reconf_stress import LiveReconfStressTestBase
 
 HEALTH_MONITOR_START = "health h_monitor1;"

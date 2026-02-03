@@ -6,9 +6,9 @@ __license__ = "GPL2"
 
 import time
 
-from framework.deproxy import HttpMessage
-from test_suite import checks_for_tests as checks
-from test_suite import marks, tester
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import checks_for_tests as checks
+from framework.test_suite import marks, tester
 
 DEPROXY_CLIENT_HTTP = {
     "id": "deproxy",

@@ -2,13 +2,12 @@
 Verify tfw_logger logging
 """
 
-import json
 import re
 import time
 
 import run_config
-from helpers import remote, tf_cfg
-from test_suite import tester
+from framework.helpers import tf_cfg
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."

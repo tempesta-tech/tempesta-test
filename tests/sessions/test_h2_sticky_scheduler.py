@@ -6,8 +6,8 @@ __license__ = "GPL2"
 
 import http
 
-from helpers import dmesg
-from test_suite import tester
+from framework.helpers import dmesg
+from framework.test_suite import tester
 
 
 class H2StickySchedulerTestCase(tester.TempestaTest):

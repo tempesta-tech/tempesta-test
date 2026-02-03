@@ -4,7 +4,7 @@ __license__ = "GPL2"
 
 import unittest
 
-from test_suite import tester
+from framework.test_suite import tester
 
 
 class MalformedRequestsBase(tester.TempestaTest):

@@ -8,10 +8,10 @@ from h2.connection import AllowedStreamIDs
 from h2.errors import ErrorCodes
 from h2.stream import StreamInputs
 
-from framework import deproxy_client
-from framework.deproxy import HttpMessage
-from helpers import tf_cfg
-from test_suite import tester
+from framework.deproxy import deproxy_client
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import tf_cfg
+from framework.test_suite import tester
 from tests.http2_general.helpers import H2Base
 
 

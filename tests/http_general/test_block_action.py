@@ -5,11 +5,11 @@ __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import run_config
-from framework import deproxy
-from framework.deproxy_client import BaseDeproxyClient
-from helpers import analyzer, remote, tf_cfg
-from test_suite import asserts, marks, tester
-from test_suite.custom_error_page import CustomErrorPageGenerator
+from framework.deproxy import deproxy_message
+from framework.deproxy.deproxy_client import BaseDeproxyClient
+from framework.helpers import analyzer, asserts, remote, tf_cfg
+from framework.helpers.custom_error_page import CustomErrorPageGenerator
+from framework.test_suite import marks, tester
 
 
 class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
@@ -21,7 +21,7 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
