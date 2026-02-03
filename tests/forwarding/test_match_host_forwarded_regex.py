@@ -299,6 +299,7 @@ class TestMatchHost(BaseRegexMatcher):
         proxy_pass grp4;
         }
         http_chain {
+        hdr cookie ~ "/bad_cookie/i" -> block;
         hdr host ~ "/stap/" -> app;
         host ~ "/dho/" -> block;
         host ~ "/tsho/" -> shop;
@@ -444,6 +445,22 @@ class TestMatchHost(BaseRegexMatcher):
                 host="unkhost.com",
                 headers=[],
                 block=True,
+                sid=0,
+            ),
+            marks.Param(
+                name="host_testshop_bad_cookie",
+                uri="/",
+                host="testshop.com",
+                headers=[("cookie", "bad_cookie=val; another=cookie")],  # <--must be blocked
+                block=True,
+                sid=0,
+            ),
+            marks.Param(
+                name="host_testshop_good_cookie",
+                uri="/",
+                host="testshop.com",  # <--Must be matched by "host ~ "/tsho/"".
+                headers=[("cookie", "good_cookie=val; another=cookie")],
+                block=False,
                 sid=0,
             ),
         ]
