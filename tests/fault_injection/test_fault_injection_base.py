@@ -7,10 +7,10 @@ __license__ = "GPL2"
 import re
 import time
 
-from framework import deproxy
-from framework.deproxy import MAX_MESSAGE_SIZE, HttpMessage
-from helpers import dmesg, error, remote, tf_cfg
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message
+from framework.deproxy.deproxy_message import MAX_MESSAGE_SIZE, HttpMessage
+from framework.helpers import dmesg, error, remote, tf_cfg
+from framework.test_suite import marks, tester
 
 # Number of open connections
 CONCURRENT_CONNECTIONS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
@@ -230,10 +230,10 @@ class TestStress(TestFailFunctionBaseStress):
         server = self.get_server("deproxy")
         server.conns_n = 1
         server.set_response(
-            deproxy.Response.create_simple_response(
+            deproxy_message.Response.create_simple_response(
                 status="200",
                 headers=[("content-length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
         self.start_all_services(client=False)
@@ -955,10 +955,10 @@ http_chain {{
         for server in self.get_servers():
             server.conns_n = 10
             server.set_response(
-                deproxy.Response.create_simple_response(
+                deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 )
             )
 
@@ -1027,10 +1027,10 @@ http_chain {{
         for server in self.get_servers():
             server.conns_n = 10
             server.set_response(
-                deproxy.Response.create_simple_response(
+                deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 )
             )
 
@@ -1079,10 +1079,10 @@ http_chain {{
         server = self.get_server("deproxy_1")
         server.conns_n = 10
         server.set_response(
-            deproxy.Response.create_simple_response(
+            deproxy_message.Response.create_simple_response(
                 status="200",
                 headers=[("content-length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
         server.start()
@@ -1198,13 +1198,13 @@ grace_shutdown_time 5;
         server = self.get_server("deproxy_1")
         server.conns_n = 10
         server.set_response(
-            deproxy.Response.create_simple_response(
+            deproxy_message.Response.create_simple_response(
                 status="200",
                 headers=[
                     ("content-length", "0"),
                     ("set-cookie", "client-id=jdsfhrkfj53542njfnjdmdnvjs45343n4nn4b54m"),
                 ],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -1284,10 +1284,10 @@ class TestSched(TestFailFunctionBaseStress):
         server = self.get_server("deproxy")
         server.conns_n = 10
         server.set_response(
-            deproxy.Response.create_simple_response(
+            deproxy_message.Response.create_simple_response(
                 status="200",
                 headers=[("content-length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
         self.start_all_services(client=False)
@@ -1313,10 +1313,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-4089,
             ),
@@ -1327,10 +1327,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=2,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-4089,
             ),
@@ -1341,10 +1341,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="can't allocate a new client connection",
                 times=-1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=0,
             ),
@@ -1355,10 +1355,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=3,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1369,10 +1369,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=4,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1383,10 +1383,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1397,10 +1397,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1411,10 +1411,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=2,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1425,10 +1425,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=1,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1439,10 +1439,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=1,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1453,10 +1453,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=1,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1467,10 +1467,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=-1,
                 space=1,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1481,10 +1481,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="can't obtain a client for frang accounting",
                 times=-1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=0,
             ),
@@ -1495,10 +1495,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="cannot establish a new h2 connection",
                 times=-1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1509,10 +1509,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1523,10 +1523,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1537,10 +1537,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1551,10 +1551,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1565,10 +1565,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1579,10 +1579,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1593,10 +1593,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="Cannot setup hash ctx",
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1607,10 +1607,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="Cannot setup hash ctx",
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("content-length", "0")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 ),
                 retval=-12,
             ),
@@ -1621,10 +1621,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=4,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 200000,
                 ),
                 retval=-12,
@@ -1636,10 +1636,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=7,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 200000,
                 ),
                 retval=-12,
@@ -1651,10 +1651,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=4,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 200000,
                 ),
                 retval=-12,
@@ -1666,10 +1666,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=7,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 200000,
                 ),
                 retval=-12,
@@ -1681,10 +1681,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=4,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 200000,
                 ),
                 retval=-12,
@@ -1696,10 +1696,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg=None,
                 times=1,
                 space=7,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "200000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 200000,
                 ),
                 retval=-12,
@@ -1719,10 +1719,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 100000,
                 ),
                 retval=-12,
@@ -1734,10 +1734,10 @@ class TestFailFunction(TestFailFunctionBase):
                 msg="tfw_tls_encrypt: cannot encrypt data",
                 times=1,
                 space=0,
-                response=deproxy.Response.create_simple_response(
+                response=deproxy_message.Response.create_simple_response(
                     status="200",
                     headers=[("qwerty", "x" * 50000), ("content-length", "100000")],
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                     body="y" * 100000,
                 ),
                 retval=-12,
@@ -1854,10 +1854,10 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         )
 
         server.set_response(
-            deproxy.Response.create_simple_response(
+            deproxy_message.Response.create_simple_response(
                 status="200",
                 headers=[("content-length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         ),
 
@@ -2058,10 +2058,10 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, 0, 0)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -2080,10 +2080,10 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         time.sleep(3)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="502",
                 headers=[("Content-Length", "0")] + resp2_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -2159,10 +2159,10 @@ class TestFailFunctionMsgAdjust(TestFailFunctionBase):
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, 0, -4089)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 

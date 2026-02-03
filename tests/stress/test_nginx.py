@@ -2,10 +2,10 @@
 HTTP Stress tests with NGINX in place of Tempesta FW - to compare results.
 """
 
-from helpers import dmesg
-from helpers.cert_generator_x509 import CertGenerator
-from helpers.tf_cfg import cfg
-from test_suite import marks, tester
+from framework.helpers import dmesg
+from framework.helpers.cert_generator_x509 import CertGenerator
+from framework.helpers.tf_cfg import cfg
+from framework.test_suite import marks, tester
 from tests.stress.test_stress import BaseCurlStress, LargePageNginxBackendMixin
 
 __author__ = "Tempesta Technologies, Inc."

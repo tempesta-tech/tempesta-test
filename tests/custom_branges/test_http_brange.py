@@ -6,9 +6,9 @@ __license__ = "GPL2"
 
 import random
 
-from framework import deproxy
-from helpers import dmesg, error
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message
+from framework.helpers import dmesg, error
+from framework.test_suite import marks, tester
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
@@ -32,7 +32,7 @@ DEPROXY_SERVER = {
     "response": "static",
     "response_content": (
         "HTTP/1.1 200 OK\r\n"
-        + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+        + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
         + "Server: deproxy\r\n"
         + "Content-Length: 0\r\n\r\n"
     ),
@@ -568,7 +568,7 @@ tls_match_any_server_name;
         for header in ["date", "expires", "last-modified"]:
             with self.subTest(msg=f"subTest with '{header}' header."):
                 server.set_response(
-                    deproxy.Response.create(
+                    deproxy_message.Response.create(
                         status="200",
                         headers=[(header, date), ("content-length", "0")],
                     )

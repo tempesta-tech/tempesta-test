@@ -15,7 +15,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from test_suite.marks import parameterize_class
+from framework.test_suite.marks import parameterize_class
 from tests.frang.frang_test_case import FrangTestCase, H2Config
 
 NGINX_CONFIG = {

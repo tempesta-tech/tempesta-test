@@ -9,7 +9,7 @@ but not more than 2 times."
 
 import re
 
-from test_suite import marks
+from framework.test_suite import marks
 from tests.frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."

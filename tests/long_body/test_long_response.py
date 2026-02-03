@@ -6,10 +6,11 @@ __license__ = "GPL2"
 
 from typing import Callable
 
-from framework import curl_client, deproxy, deproxy_server
-from helpers import tf_cfg
-from test_suite import checks_for_tests as checks
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message, deproxy_server
+from framework.helpers import checks_for_tests as checks
+from framework.helpers import tf_cfg
+from framework.services import curl_client
+from framework.test_suite import marks, tester
 from tests.long_body import utils
 
 BODY_SIZE = 1024**2 * int(tf_cfg.cfg.get("General", "long_body_size"))
@@ -78,7 +79,7 @@ cache 0;
             + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
             + "Server: Deproxy Server\r\n"
             + f"{header}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "\r\n"
             + body_func(BODY_SIZE)
         )

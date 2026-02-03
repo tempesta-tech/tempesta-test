@@ -4,10 +4,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.deproxy_client import DeproxyClient
-from helpers import tf_cfg
-from test_suite import checks_for_tests as checks
-from test_suite.tester import TempestaTest
+from framework.deproxy.deproxy_client import DeproxyClient
+from framework.helpers import checks_for_tests as checks
+from framework.helpers import tf_cfg
+from framework.test_suite.tester import TempestaTest
 from tests.wrong_body_length.utils import TestContentLengthBase
 
 

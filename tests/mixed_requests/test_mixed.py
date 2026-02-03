@@ -1,5 +1,5 @@
-from helpers import dmesg
-from test_suite import tester
+from framework.helpers import dmesg
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."

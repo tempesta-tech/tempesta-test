@@ -1,9 +1,7 @@
-from __future__ import print_function
-
 import unittest
 from io import StringIO
 
-from framework import deproxy
+from framework.deproxy import deproxy_message
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -12,7 +10,7 @@ __license__ = "GPL2"
 
 class TestHeaderCollection(unittest.TestCase):
     def setUp(self):
-        self.headers = deproxy.HeaderCollection()
+        self.headers = deproxy_message.HeaderCollection()
         self.headers.set_expected()
 
     def test_length(self):
@@ -79,7 +77,7 @@ class TestHeaderCollection(unittest.TestCase):
         text = "\r\n".join(["%s: %s" % header for header in test_headers] + ["\r\n"])
 
         stream = StringIO(text)
-        parsed_headers = deproxy.HeaderCollection.from_stream(stream)
+        parsed_headers = deproxy_message.HeaderCollection.from_stream(stream)
         self.assertEqual(len(parsed_headers), len(test_headers))
 
         for header, value in test_headers:
@@ -105,7 +103,7 @@ class TestHeaderCollection(unittest.TestCase):
         self.headers.add("A", "uiop")
         self.headers.add("A", "jkl;")
 
-        reorderd = deproxy.HeaderCollection()
+        reorderd = deproxy_message.HeaderCollection()
         reorderd.add("C", "zxcv")
         reorderd.add("A", "qwerty")
         reorderd.add("A", "uiop")
@@ -114,7 +112,7 @@ class TestHeaderCollection(unittest.TestCase):
         self.assertTrue(self.headers == reorderd)
         self.assertFalse(self.headers != reorderd)
 
-        same_keys_reorderd = deproxy.HeaderCollection()
+        same_keys_reorderd = deproxy_message.HeaderCollection()
         same_keys_reorderd.add("C", "zxcv")
         same_keys_reorderd.add("A", "uiop")
         same_keys_reorderd.add("A", "jkl;")
@@ -123,21 +121,21 @@ class TestHeaderCollection(unittest.TestCase):
         with self.assertRaises(AssertionError, msg=error_msg):
             self.assertEqual(self.headers, same_keys_reorderd)
 
-        other = deproxy.HeaderCollection()
+        other = deproxy_message.HeaderCollection()
         other.add("C", "zxcv")
         other.add("A", "uiop")
         other.add("A", "jkl;")
         with self.assertRaises(AssertionError, msg=error_msg):
             self.assertEqual(self.headers, other)
 
-        same_keys = deproxy.HeaderCollection()
+        same_keys = deproxy_message.HeaderCollection()
         same_keys.add("C", "zxcv")
         same_keys.add("B", "uiop")
         same_keys.add("A", "jkl;")
         with self.assertRaises(AssertionError, msg=error_msg):
             self.assertEqual(self.headers, same_keys)
 
-        twice = deproxy.HeaderCollection()
+        twice = deproxy_message.HeaderCollection()
         twice.add("A", "qwerty")
         twice.add("B", "asdf")
         twice.add("C", "zxcv")
@@ -147,7 +145,7 @@ class TestHeaderCollection(unittest.TestCase):
         with self.assertRaises(AssertionError, msg=error_msg):
             self.assertEqual(self.headers, twice)
 
-        lowed = deproxy.HeaderCollection()
+        lowed = deproxy_message.HeaderCollection()
         lowed.add("c", "zxcv")
         lowed.add("a", "qwerty")
         lowed.add("a", "uiop")

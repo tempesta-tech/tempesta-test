@@ -8,8 +8,8 @@ __license__ = "GPL2"
 
 import http
 
-from framework.tempesta import ServerStats
-from helpers.tf_cfg import cfg
+from framework.helpers.tf_cfg import cfg
+from framework.services.tempesta import ServerStats
 from tests.reconf.reconf_stress import LiveReconfStressTestBase
 
 SERVER_IP = cfg.get("Server", "ip")

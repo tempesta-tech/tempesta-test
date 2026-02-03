@@ -4,9 +4,9 @@ __license__ = "GPL2"
 
 import time
 
-from framework import deproxy
-from framework.deproxy import HttpMessage
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.test_suite import marks, tester
 
 
 class TestCacheUseStaleBase(tester.TempestaTest, base=True):
@@ -63,10 +63,10 @@ cache_fulfill * *;
         self.disable_deproxy_auto_parser()
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp1_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -86,10 +86,10 @@ cache_fulfill * *;
         time.sleep(3)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status=resp_status,
                 headers=[("Content-Length", "0")] + resp2_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -294,10 +294,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         self.start_all_services(False)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -317,10 +317,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         time.sleep(3)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="400",
                 headers=[("Content-Length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -386,10 +386,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         self.disable_deproxy_auto_parser()
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -424,10 +424,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         for status in resp_codes:
             server.set_response(
-                deproxy.Response.create(
+                deproxy_message.Response.create(
                     status=status,
                     headers=[("Content-Length", "0")] + resp_headers,
-                    date=deproxy.HttpMessage.date_time_string(),
+                    date=deproxy_message.HttpMessage.date_time_string(),
                 )
             )
 
@@ -474,10 +474,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         self.disable_deproxy_auto_parser()
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -497,10 +497,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         time.sleep(2)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="500",
                 headers=[("Content-Length", "0")] + resp_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -559,10 +559,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         self.start_all_services(False)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0")] + resp_headers,
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 

@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from test_suite import checks_for_tests as checks
+from framework.helpers import checks_for_tests as checks
 from tests.wrong_body_length.utils import H2Config, TestContentLengthBase
 
 

@@ -1,7 +1,4 @@
-import hashlib
-
-from helpers import tf_cfg
-from test_suite import tester
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."

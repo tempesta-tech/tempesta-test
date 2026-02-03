@@ -2,8 +2,8 @@
 Tests for correct handling of HTTP/1.1 headers.
 """
 
-from framework import deproxy
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
@@ -210,7 +210,7 @@ class TestHostBase(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
@@ -338,7 +338,7 @@ class TestHeadersParsing(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
@@ -387,7 +387,7 @@ class TestHeadersParsing(tester.TempestaTest):
                 server = self.get_server("deproxy")
                 server.set_response(
                     "HTTP/1.1 200 OK\r\n"
-                    + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                    + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
                     + "Server: debian\r\n"
                     + f"{'a' * length}: text\r\n"
                     + "Content-Length: 0\r\n\r\n"
@@ -589,8 +589,8 @@ class TestHeadersParsing(tester.TempestaTest):
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
             + "Connection: HbpHeader1 HbpHeader2\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + f"Trailer: {tr1} {tr2}\r\n\r\n"
@@ -638,8 +638,8 @@ class TestHeadersParsing(tester.TempestaTest):
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
             + "Connection: HbpHeader1 HbpHeader2\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + f"Trailer: {tr1} {tr2}\r\n\r\n"
@@ -781,7 +781,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),
@@ -1179,7 +1179,7 @@ class TestMethods(tester.TempestaTest):
             "response": "static",
             "response_content": (
                 "HTTP/1.1 200 OK\r\n"
-                + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+                + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
                 + "Server: debian\r\n"
                 + "Content-Length: 0\r\n\r\n"
             ),

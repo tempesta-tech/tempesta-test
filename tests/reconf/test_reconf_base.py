@@ -5,12 +5,12 @@ __license__ = "GPL2"
 import threading
 import time
 
-from helpers import analyzer, dmesg, error, port_checks, remote
-from helpers.analyzer import PSH, TCP
-from helpers.cert_generator_x509 import CertGenerator
-from helpers.dmesg import amount_positive
-from helpers.tf_cfg import cfg
-from test_suite import marks, tester
+from framework.helpers import analyzer, dmesg, error, port_checks, remote
+from framework.helpers.analyzer import PSH, TCP
+from framework.helpers.cert_generator_x509 import CertGenerator
+from framework.helpers.dmesg import amount_positive
+from framework.helpers.tf_cfg import cfg
+from framework.test_suite import marks, tester
 
 SERVER_IP = cfg.get("Server", "ip")
 TEMPESTA_WORKDIR = cfg.get("Tempesta", "workdir")

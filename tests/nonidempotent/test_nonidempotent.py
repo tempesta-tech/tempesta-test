@@ -2,11 +2,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import deproxy, deproxy_server
-from framework.deproxy import HttpMessage
-from helpers import tf_cfg
-from helpers.util import fill_template
-from test_suite import tester
+from framework.deproxy import deproxy_message, deproxy_server
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import tf_cfg
+from framework.helpers.util import fill_template
+from framework.test_suite import tester
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;
@@ -98,7 +98,7 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
         self.conn_to_drop = []
 
     def receive_request(
-        self, request: deproxy.Request, connection: deproxy_server.ServerConnection
+        self, request: deproxy_message.Request, connection: deproxy_server.ServerConnection
     ) -> tuple[bytes, bool]:
         uri = request.uri
 
@@ -240,7 +240,7 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
             "response_content": "HTTP/1.1 200 OK\r\n"
             "Content-Length: 0\r\n"
             "Content-Type: text/html\r\n"
-            f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             "Server: deproxy\r\n\r\n",
         }
     ]

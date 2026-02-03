@@ -2,8 +2,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import deproxy_client, deproxy_server
-from framework.deproxy import HttpMessage
+from framework.deproxy import deproxy_client, deproxy_server
+from framework.deproxy.deproxy_message import HttpMessage
 from tests.http2_general.helpers import H2Base
 
 

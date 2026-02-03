@@ -7,9 +7,9 @@ __license__ = "GPL2"
 from h2.errors import ErrorCodes
 from hyperframe.frame import DataFrame
 
-from framework.deproxy import HttpMessage
-from helpers import analyzer, remote, util
-from test_suite import asserts, marks
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import analyzer, asserts, remote, util
+from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 

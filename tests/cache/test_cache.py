@@ -8,15 +8,15 @@ import string
 import time
 from http import HTTPStatus
 
-from framework import deproxy
-from framework.curl_client import CurlResponse
-from framework.deproxy import HttpMessage
-from framework.deproxy_client import DeproxyClientH2
-from framework.deproxy_server import StaticDeproxyServer
-from framework.tempesta import Tempesta
-from helpers import error, remote, util
-from test_suite import checks_for_tests as checks
-from test_suite import marks, tester
+from framework.deproxy import deproxy_message
+from framework.deproxy.deproxy_client import DeproxyClientH2
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.deproxy.deproxy_server import StaticDeproxyServer
+from framework.helpers import checks_for_tests as checks
+from framework.helpers import error, remote, util
+from framework.services.curl_client import CurlResponse
+from framework.services.tempesta import Tempesta
+from framework.test_suite import marks, tester
 
 MIXED_CONFIG = (
     "cache {0};\r\n"
@@ -1092,12 +1092,12 @@ cache 2;
 
         self.start_all_services()
 
-        response = deproxy.Response.create(
+        response = deproxy_message.Response.create(
             status="200",
             headers=response_headers + [("content-length", "0")],
-            date=deproxy.HttpMessage.date_time_string(),
+            date=deproxy_message.HttpMessage.date_time_string(),
         )
-        expected_response = deproxy.H2Response.create(
+        expected_response = deproxy_message.H2Response.create(
             status=response.status,
             headers=response.headers.headers,
             date=response.headers.get("date"),
@@ -1118,7 +1118,7 @@ cache 2;
             optional_headers = [("content-length", "0"), ("age", "0")]
         else:
             optional_headers = [("content-length", "0")]
-        expected_cached_response = deproxy.H2Response.create(
+        expected_cached_response = deproxy_message.H2Response.create(
             status=response.status,
             headers=expected_cached_headers + optional_headers,
             date=response.headers.get("date"),
@@ -1383,10 +1383,10 @@ http_chain {
 
         server = self.get_server("deproxy")
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=response_headers + [("content-length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -1399,10 +1399,10 @@ http_chain {
         time.sleep(sleep_interval)
 
         server.set_response(
-            deproxy.Response.create(
+            deproxy_message.Response.create(
                 status="200",
                 headers=response_headers + [("content-length", "0")],
-                date=deproxy.HttpMessage.date_time_string(),
+                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
         client.send_request(
@@ -2239,8 +2239,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             method=method1,
             response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: X-Token1 X-Token2\r\n\r\n"
@@ -2258,8 +2258,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             method="HEAD",
             response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: X-Token1 X-Token2\r\n\r\n"
@@ -2277,8 +2277,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             method="HEAD",
             response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "hdr_and_trailer: header\r\n"
@@ -2303,8 +2303,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "hdr_and_trailer: header1\r\n"
@@ -2350,8 +2350,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "hdr_and_trailer_1: header1\r\n"
@@ -2390,8 +2390,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             method="HEAD",
             response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: trailer_and_trailer trailer_and_trailer\r\n\r\n"
@@ -2455,8 +2455,8 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + f"Trailer: {tr1} {tr2}\r\n\r\n"
@@ -2530,8 +2530,8 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             method="GET",
             response="HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
-            + f"Last-Modified: {deproxy.HttpMessage.date_time_string()}\r\n"
-            + f"Date: {deproxy.HttpMessage.date_time_string()}\r\n"
+            + f"Last-Modified: {deproxy_message.HttpMessage.date_time_string()}\r\n"
+            + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "Server: Deproxy Server\r\n"
             + "Transfer-Encoding: chunked\r\n"
             + "Trailer: X-Token1 X-Token2\r\n\r\n"

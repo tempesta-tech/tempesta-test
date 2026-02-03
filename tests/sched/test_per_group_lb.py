@@ -11,8 +11,8 @@ defaults). This also called _inheritting of scheduler settings_. Each test case
 have a description how the inheriting should work.
 """
 
-from framework.wrk_client import Wrk
-from test_suite import tester
+from framework.services.wrk_client import Wrk
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."

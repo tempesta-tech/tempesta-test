@@ -22,7 +22,7 @@ Backend is configured to never close connections (keepalive_requests),
 since it unpredictably affects load distribution.
 """
 
-from test_suite import tester
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."

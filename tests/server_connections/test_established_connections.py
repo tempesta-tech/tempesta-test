@@ -1,8 +1,8 @@
 """All sockets must be closed after Tempesta shutdown"""
 
-from framework import tempesta
-from helpers import netfilter, remote
-from test_suite import tester
+from framework.helpers import netfilter, remote
+from framework.services import tempesta
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."

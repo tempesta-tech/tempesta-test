@@ -5,8 +5,8 @@ __license__ = "GPL2"
 import socket
 import ssl
 
-from helpers import dmesg, tf_cfg
-from test_suite import marks, tester
+from framework.helpers import dmesg, tf_cfg
+from framework.test_suite import marks, tester
 
 
 class TestALPN(tester.TempestaTest):

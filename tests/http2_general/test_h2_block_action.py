@@ -7,8 +7,8 @@ __license__ = "GPL2"
 from h2.errors import ErrorCodes
 from hpack import HeaderTuple
 
-from framework.deproxy_client import BaseDeproxyClient
-from test_suite import marks
+from framework.deproxy.deproxy_client import BaseDeproxyClient
+from framework.test_suite import marks
 from tests.http2_general.helpers import (
     BlockActionH2Base,
     H2Base,

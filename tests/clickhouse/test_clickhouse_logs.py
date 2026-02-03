@@ -5,8 +5,8 @@ Verify tfw_logger logging
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 
-from helpers import error, tf_cfg
-from test_suite import marks, tester
+from framework.helpers import error, tf_cfg
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."

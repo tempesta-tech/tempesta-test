@@ -4,10 +4,10 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (in separate tests).
 """
 
-from framework import deproxy_client
-from helpers import dmesg, error, remote
-from helpers.remote import LocalNode
-from test_suite import marks, tester
+from framework.deproxy import deproxy_client
+from framework.helpers import dmesg, error, remote
+from framework.helpers.remote import LocalNode
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."

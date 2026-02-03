@@ -1,6 +1,6 @@
 import unittest
 
-from helpers.cert_generator_x509 import CertGenerator
+from framework.helpers.cert_generator_x509 import CertGenerator
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."

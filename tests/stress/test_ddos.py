@@ -7,8 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
-from helpers import dmesg, networker, remote, tf_cfg
-from test_suite import tester
+from framework.helpers import dmesg, networker, remote, tf_cfg
+from framework.test_suite import tester
 
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
 DURATION = int(tf_cfg.cfg.get("General", "duration"))

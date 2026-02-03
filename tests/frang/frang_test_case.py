@@ -6,12 +6,11 @@ __license__ = "GPL2"
 
 
 from typing import Union  # TODO: use | instead when we move to python3.10
-from typing import Any, Dict, List
 
 import run_config
-from framework.deproxy_client import DeproxyClient, DeproxyClientH2
-from helpers import dmesg, tf_cfg
-from test_suite import tester
+from framework.deproxy.deproxy_client import DeproxyClient, DeproxyClientH2
+from framework.helpers import dmesg, tf_cfg
+from framework.test_suite import tester
 
 # used to prevent burst
 DELAY = 0.125

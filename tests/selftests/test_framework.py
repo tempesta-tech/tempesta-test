@@ -4,10 +4,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework import deproxy, deproxy_server, external_client, nginx_server, wrk_client
-from framework.tempesta import Tempesta
-from helpers import dmesg
-from test_suite import tester
+from framework.deproxy import deproxy_message, deproxy_server
+from framework.helpers import dmesg
+from framework.services import external_client, nginx_server, wrk_client
+from framework.services.tempesta import Tempesta
+from framework.test_suite import tester
 
 # Number of bytes to test external client output
 LARGE_OUTPUT_LEN = 1024**2
@@ -256,7 +257,7 @@ server ${server_ip}:8000;
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         cl.wait_for_response(timeout=5)
         # expected response
-        send = deproxy.Response(dsrv.response.decode())
+        send = deproxy_message.Response(dsrv.response.decode())
         send.set_expected()
         self.assertEqual(cl.last_response, send)
 

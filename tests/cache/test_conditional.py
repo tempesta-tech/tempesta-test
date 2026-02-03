@@ -6,11 +6,11 @@ __license__ = "GPL2"
 
 import unittest
 
-from framework.deproxy import HttpMessage
-from framework.deproxy_client import DeproxyClient
-from framework.deproxy_server import StaticDeproxyServer
-from test_suite import marks
-from test_suite.tester import TempestaTest
+from framework.deproxy.deproxy_client import DeproxyClient
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.deproxy.deproxy_server import StaticDeproxyServer
+from framework.test_suite import marks
+from framework.test_suite.tester import TempestaTest
 
 DEPROXY_CLIENT = {
     "id": "deproxy",

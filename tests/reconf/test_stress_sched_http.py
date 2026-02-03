@@ -6,9 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.external_client import ExternalTester
-from helpers import dmesg
-from helpers.tf_cfg import cfg
+from framework.helpers import dmesg
+from framework.helpers.tf_cfg import cfg
+from framework.services.external_client import ExternalTester
 from tests.reconf.reconf_stress import LiveReconfStressTestBase
 
 HTTP_RULES_START = 'uri == "/alternate" -> block;'

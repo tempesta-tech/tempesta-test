@@ -2,7 +2,7 @@ import json
 import unittest
 from tempfile import NamedTemporaryFile
 
-from test_suite.shell import TestStateLoader
+from framework.test_suite.shell import TestStateLoader
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."

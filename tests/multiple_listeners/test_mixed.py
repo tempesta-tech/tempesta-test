@@ -7,9 +7,9 @@ __license__ = "GPL2"
 import socket
 import ssl
 
-from framework.external_client import ExternalTester
-from helpers import tf_cfg
-from test_suite import tester
+from framework.helpers import tf_cfg
+from framework.services.external_client import ExternalTester
+from framework.test_suite import tester
 
 STATUS_OK = "200"
 

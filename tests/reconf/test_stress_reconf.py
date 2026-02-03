@@ -6,8 +6,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers.dmesg import limited_rate_on_tempesta_node
-from helpers.tf_cfg import cfg
+from framework.helpers.dmesg import limited_rate_on_tempesta_node
+from framework.helpers.tf_cfg import cfg
 from tests.reconf.reconf_stress import LiveReconfStressTestBase
 
 SOCKET_START = f"{cfg.get('Tempesta', 'ip')}:443"

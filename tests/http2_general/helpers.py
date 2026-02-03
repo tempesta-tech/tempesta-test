@@ -2,10 +2,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.deproxy import HttpMessage
-from framework.deproxy_client import BaseDeproxyClient, DeproxyClientH2
-from helpers import analyzer, remote, tf_cfg
-from test_suite import asserts, custom_error_page, tester
+from framework.deproxy.deproxy_client import BaseDeproxyClient, DeproxyClientH2
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.helpers import analyzer, asserts, custom_error_page, remote, tf_cfg
+from framework.test_suite import tester
 
 
 def generate_custom_error_page(data):

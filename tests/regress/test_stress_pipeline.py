@@ -6,9 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.wrk_client import Wrk
-from helpers import dmesg, tf_cfg
-from test_suite import tester
+from framework.helpers import dmesg
+from framework.services.wrk_client import Wrk
+from framework.test_suite import tester
 
 PIPELINE_LUA = r"""-- example script demonstrating HTTP pipelining
 

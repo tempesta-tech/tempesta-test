@@ -190,7 +190,9 @@ touch new_directory/test_some_feature.py
 3. Name of the test class must be started with `Test` prefix;
 
 ```python3
-from test_suite import tester
+
+from framework.test_suite import tester
+
 
 class TestCases(tester.TempestaTest):
     ...
@@ -247,25 +249,25 @@ tempesta = {
 5. We use decorators to parameterize the tests (please don't use inheritance):
 
 ```python3
-from test_suite import tester
-from test_suite import marks
+
+from framework.test_suite import tester, marks
 
 
 @marks.parameterize_class(
-  [
-    {"name": "Http", "clients": ["http_config"]},
-    {"name": "H2", "clients": ["h2_config"]},
-  ]
+    [
+        {"name": "Http", "clients": ["http_config"]},
+        {"name": "H2", "clients": ["h2_config"]},
+    ]
 )
 class TestExample(tester.TempestaTest):
-  @marks.Parameterize.expand(
-    [
-      marks.Param(name='1', key_1="value_1"),
-      marks.Param(name='2', key_1="value_2"),
-    ]
-  )
-  def test_request(self, name, key_1):
-    ...
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name='1', key_1="value_1"),
+            marks.Param(name='2', key_1="value_2"),
+        ]
+    )
+    def test_request(self, name, key_1):
+        ...
 
 # we will get 4 tests:
 # TestExampleHttp.test_request_1

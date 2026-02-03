@@ -9,9 +9,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.wrk_client import Wrk
+from framework.services.wrk_client import Wrk
+from framework.test_suite import tester
 from run_config import DURATION
-from test_suite import tester
 
 NGINX_CONFIG = """
 load_module /usr/lib/nginx/modules/ngx_http_echo_module.so;

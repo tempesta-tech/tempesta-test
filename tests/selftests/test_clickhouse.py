@@ -2,8 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-
-from test_suite import tester
+from framework.test_suite import tester
 
 
 class TestClickhouse(tester.TempestaTest):

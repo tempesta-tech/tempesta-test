@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from test_suite import marks
+from framework.test_suite import marks
 from tests.frang.frang_test_case import FrangTestCase, H2Config
 
 

@@ -20,10 +20,10 @@ from importlib.machinery import SourceFileLoader
 import inquirer
 
 import run_config
-from framework import tempesta
-from helpers import error, memworker, remote, tf_cfg
-from test_suite import prepare, shell, tester
-from test_suite.tester import test_logger
+from framework.helpers import error, memworker, remote, tf_cfg
+from framework.services import tempesta
+from framework.test_suite import prepare, shell, tester
+from framework.test_suite.tester import test_logger
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."

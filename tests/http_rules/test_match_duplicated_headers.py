@@ -7,7 +7,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from test_suite import marks, tester
+from framework.test_suite import marks, tester
 
 
 @marks.parameterize_class(

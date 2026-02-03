@@ -4,13 +4,13 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.deproxy import HttpMessage
-from framework.deproxy_client import DeproxyClient
-from framework.deproxy_server import StaticDeproxyServer
-from helpers import dmesg, error, tf_cfg
-from test_suite import checks_for_tests as checks
-from test_suite import marks
-from test_suite.tester import TempestaTest
+from framework.deproxy.deproxy_client import DeproxyClient
+from framework.deproxy.deproxy_message import HttpMessage
+from framework.deproxy.deproxy_server import StaticDeproxyServer
+from framework.helpers import checks_for_tests as checks
+from framework.helpers import dmesg, error, tf_cfg
+from framework.test_suite import marks
+from framework.test_suite.tester import TempestaTest
 
 
 class TestPurgeAcl(TempestaTest):

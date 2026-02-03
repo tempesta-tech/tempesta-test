@@ -4,9 +4,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from framework.tempesta import Tempesta
-from helpers import dmesg, tf_cfg
-from test_suite import marks, tester
+from framework.helpers import dmesg, tf_cfg
+from framework.services.tempesta import Tempesta
+from framework.test_suite import marks, tester
 
 DEPROXY_CLIENT_SSL = {
     "id": "deproxy",

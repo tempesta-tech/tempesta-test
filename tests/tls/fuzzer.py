@@ -1,7 +1,7 @@
 import random
 from struct import pack
 
-from helpers import tf_cfg
+from framework.helpers import tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2019 Tempesta Technologies, Inc."

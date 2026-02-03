@@ -4,9 +4,9 @@ With sticky sessions each client is pinned to only one server in group.
 
 import sys
 
-from framework import tempesta
-from helpers import dmesg
-from test_suite import tester
+from framework.helpers import dmesg
+from framework.services import tempesta
+from framework.test_suite import tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."

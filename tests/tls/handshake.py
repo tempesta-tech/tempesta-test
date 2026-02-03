@@ -7,7 +7,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import logging
 import ssl
 
 import scapy.layers.tls.crypto.suites as suites
@@ -16,8 +15,8 @@ from scapy.layers.tls.all import *
 from scapy.layers.tls.record import _TLSEncryptedContent
 
 import run_config
-from helpers import tf_cfg
-from helpers.error import Error
+from framework.helpers import tf_cfg
+from framework.helpers.error import Error
 
 tls_logger = logging.LoggerAdapter(logging.getLogger("tcp"), extra={"service": f"tls"})
 

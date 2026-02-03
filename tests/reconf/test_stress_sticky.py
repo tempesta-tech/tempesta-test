@@ -8,9 +8,9 @@ __license__ = "GPL2"
 
 import http
 
-from framework.tempesta import ServerStats
-from helpers.dmesg import limited_rate_on_tempesta_node
-from helpers.tf_cfg import cfg
+from framework.helpers.dmesg import limited_rate_on_tempesta_node
+from framework.helpers.tf_cfg import cfg
+from framework.services.tempesta import ServerStats
 from tests.reconf.reconf_stress import LiveReconfStressTestBase
 
 SRV_START = "# Sticky Cookie Settings"

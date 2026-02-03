@@ -1,8 +1,6 @@
-from __future__ import print_function
-
 import unittest
 
-from framework import deproxy
+from framework.deproxy import deproxy_message
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
@@ -11,14 +9,14 @@ __license__ = "GPL2"
 
 class ParseResponse(unittest.TestCase):
     def setUp(self):
-        self.plain = deproxy.Response(PLAIN)
-        self.reordered = deproxy.Response(REORDERED)
-        self.o_body = deproxy.Response(OTHER_BODY)
-        self.duplicated = deproxy.Response(DUPLICATED)
-        self.o_status = deproxy.Response(OTHER_STATUS)
+        self.plain = deproxy_message.Response(PLAIN)
+        self.reordered = deproxy_message.Response(REORDERED)
+        self.o_body = deproxy_message.Response(OTHER_BODY)
+        self.duplicated = deproxy_message.Response(DUPLICATED)
+        self.o_status = deproxy_message.Response(OTHER_STATUS)
 
-        self.trailer = deproxy.Response(TRAILER)
-        self.o_trailer = deproxy.Response(OTHER_TRAILER)
+        self.trailer = deproxy_message.Response(TRAILER)
+        self.o_trailer = deproxy_message.Response(OTHER_TRAILER)
 
     def test_equal(self):
         # Reordering of headers is allowed.
@@ -252,7 +250,7 @@ class ParseBody(unittest.TestCase):
         return "4\n" "1234\n" "0\n"
 
     def try_body(self, response_text, body_text, trailer_headers=None):
-        response = deproxy.Response(response_text)
+        response = deproxy_message.Response(response_text)
         self.assertEqual(response.body, body_text)
         if not trailer_headers:
             self.assertEqual(len(response.trailer), 0)
@@ -277,7 +275,7 @@ class ParseBody(unittest.TestCase):
         self.try_body(PARSE_CONTENT_LENGTH, self.default_body())
 
     def test_contentlength_too_short(self):
-        with self.assertRaises(deproxy.ParseError):
+        with self.assertRaises(deproxy_message.ParseError):
             self.try_body(PARSE_CONTENT_LENGTH_TOO_SHORT, "")
 
 

@@ -4,10 +4,10 @@ Tests for TF Hash Filtering and Configuration Parsing
 
 import typing
 
-from helpers import remote, tf_cfg
-from helpers.access_log import AccessLogLine
-from helpers.error import ProcessBadExitStatusException
-from test_suite import marks, tester
+from framework.helpers import remote, tf_cfg
+from framework.helpers.access_log import AccessLogLine
+from framework.helpers.error import ProcessBadExitStatusException
+from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."

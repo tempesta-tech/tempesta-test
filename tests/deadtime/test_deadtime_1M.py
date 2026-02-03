@@ -2,8 +2,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from helpers import tf_cfg
-from test_suite import tester
+from framework.helpers import tf_cfg
+from framework.test_suite import tester
 
 NGINX_LARGE_PAGE_CONFIG_EMPTY_SERVER = """
 pid ${pid};
