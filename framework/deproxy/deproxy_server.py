@@ -1,22 +1,21 @@
-import asyncore
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
 import logging
 import socket
 import sys
 import time
 from typing import Optional
 
-from framework.deproxy import deproxy_message
+from framework.deproxy import asyncore, deproxy_message
 from framework.deproxy.deproxy_base import BaseDeproxy
 from framework.helpers import error, tf_cfg, util
 from framework.helpers.util import fill_template
 from framework.services import stateful, tempesta
 
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
-__license__ = "GPL2"
 
-
-class ServerConnection(asyncore.dispatcher):
+class ServerConnection(asyncore.DeproxyAsyncore):
     def __init__(self, *, server: "StaticDeproxyServer", sock: socket.socket):
         self._id = f"{self.__class__.__name__}({sock.getpeername()[0]}:{sock.getpeername()[1]})"
         self._tcp_logger = logging.LoggerAdapter(
@@ -25,7 +24,10 @@ class ServerConnection(asyncore.dispatcher):
         self._http_logger = logging.LoggerAdapter(
             logging.getLogger("http"), extra={"service": f"{self._id}"}
         )
-        super().__init__(sock=sock)
+        super().__init__(is_ipv6=server.is_ipv6)
+        self._set_socket(sock)
+        self.connected = True
+        self.addr = sock.getpeername()
         self._server = server
         self._last_segment_time: int = 0
         self._responses_done: int = 0
@@ -86,18 +88,18 @@ class ServerConnection(asyncore.dispatcher):
             return False
         return (not self.connected) or len(self._response_buffer) > self._responses_done
 
-    def handle_error(self):
+    def _handle_error(self):
         _, v, _ = sys.exc_info()
         error.bug("\tDeproxy: SrvConnection: %s" % v)
 
-    def handle_close(self):
+    def _handle_close(self):
         self._tcp_logger.debug("Close connection")
-        self.close()
+        super()._handle_close()
         if self._server and self in self._server.connections:
             self._server.remove_connection(connection=self)
 
-    def handle_read(self):
-        self._request_buffer += self.recv(deproxy_message.MAX_MESSAGE_SIZE).decode()
+    def _handle_read(self):
+        self._request_buffer += self._recv(deproxy_message.MAX_MESSAGE_SIZE).decode()
 
         while self._request_buffer:
             try:
@@ -115,26 +117,26 @@ class ServerConnection(asyncore.dispatcher):
             self._http_logger.debug(request)
             response, need_close = self._server.receive_request(request, self)
             if self._server.drop_conn_when_request_received:
-                self.handle_close()
+                self._handle_close()
             if response:
                 self._add_response_to_sending_buffer(response)
                 if self._cur_pipelined >= self._server.pipelined:
                     self.flush()
 
             if need_close:
-                self.handle_close()
+                self._handle_close()
             self._request_buffer = self._request_buffer[len(request.msg) :]
         # Handler will be called even if buffer is empty.
         else:
             return None
 
-    def handle_write(self):
+    def _handle_write(self):
         if self._server.delay_before_sending_response and self.__new_response:
             self.__new_response = False
             return self.sleep()
 
         resp = self._response_buffer[self._responses_done]
-        sent = self.send(resp[: self._server.segment_size] if self._server.segment_size else resp)
+        sent = self._send(resp[: self._server.segment_size] if self._server.segment_size else resp)
 
         if sent < 0:
             return
@@ -154,7 +156,7 @@ class ServerConnection(asyncore.dispatcher):
             )
 
         if self._responses_done == self._server.keep_alive and self._server.keep_alive:
-            self.handle_close()
+            self._handle_close()
 
 
 class StaticDeproxyServer(BaseDeproxy):
@@ -205,8 +207,8 @@ class StaticDeproxyServer(BaseDeproxy):
         self._requests: list[deproxy_message.Request] = list()
         self.response = self._default_response
 
-    def handle_accept(self):
-        pair = self.accept()
+    def _handle_accept(self):
+        pair = self._accept()
         if pair is not None:
             sock, _ = pair
             if self.segment_size:
@@ -219,13 +221,10 @@ class StaticDeproxyServer(BaseDeproxy):
             # So we can have case with > expected amount of connections
             # It's not a error case, it's a problem of polling
 
-    def handle_error(self):
+    def _handle_error(self):
         type_, v, _ = sys.exc_info()
-        self.handle_close()
+        self._handle_close()
         raise v
-
-    def handle_close(self):
-        self.close()
 
     def reset_new_connections(self) -> None:
         """
@@ -233,19 +232,19 @@ class StaticDeproxyServer(BaseDeproxy):
         This method should not be used to stop the server
         because the existing connections will be work.
         """
-        self.close()
+        self._handle_close()
 
     def _run_deproxy(self):
-        self.create_socket(socket.AF_INET6 if self.is_ipv6 else socket.AF_INET, socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind((self.bind_addr, self.port))
-        self.listen(socket.SOMAXCONN)
+        self._create_socket()
+        self._set_reuse_addr()
+        self._bind((self.bind_addr, self.port))
+        self._listen()
 
     def _stop_deproxy(self):
-        self.close()
+        self._handle_close()
         connections = [conn for conn in self._connections]
         for conn in connections:
-            conn.handle_close()
+            conn._handle_close()
 
     def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:

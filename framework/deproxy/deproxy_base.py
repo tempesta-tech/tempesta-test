@@ -1,9 +1,8 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2025-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import abc
-import asyncore
 import logging
 import threading
 from abc import ABC
@@ -11,10 +10,11 @@ from ipaddress import AddressValueError, IPv4Address, IPv6Address, NetmaskValueE
 from typing import Optional
 
 import run_config
+from framework.deproxy import asyncore
 from framework.services.stateful import Stateful
 
 
-class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
+class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
     def __init__(
         self,
         *,
@@ -26,11 +26,9 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
         segment_gap: int,
         is_ipv6: bool,
     ):
-        # Initialize the base `dispatcher`
-        asyncore.dispatcher.__init__(self)
+        asyncore.DeproxyAsyncore.__init__(self, is_ipv6)
 
         self._deproxy_auto_parser = deproxy_auto_parser
-        self.is_ipv6 = is_ipv6
         self.port = port
         self.bind_addr = bind_addr
         self.segment_size = segment_size or run_config.TCP_SEGMENTATION or 0
@@ -54,18 +52,17 @@ class BaseDeproxy(asyncore.dispatcher, Stateful, ABC):
     def set_lock(self, polling_lock: threading.Lock) -> None:
         self.__polling_lock = polling_lock
 
-    def bind(self, address: tuple) -> None:
+    def _bind(self, address: tuple) -> None:
         """
         Wrapper for `bind` method to add some log details.
-
-        `bind` is originally `asyncore.dispatcher` method and declared in there.
 
         Args:
             address (tuple): address to bind
         """
         self._tcp_logger.info(f"Trying to bind {str(address)} for {self.__class__.__name__}")
         try:
-            super().bind(address)
+            self.addr = address
+            self._socket.bind(address)
         # When we cannot bind an address, adding more details
         except OSError as os_exc:
             os_err_msg = (

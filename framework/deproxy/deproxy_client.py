@@ -1,6 +1,10 @@
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+
 import abc
 import dataclasses
-import socket
 import ssl
 import sys
 import time
@@ -32,10 +36,6 @@ from framework.deproxy.deproxy_message import ParseError
 from framework.helpers import error, tf_cfg, util
 from framework.services import stateful
 
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
-__license__ = "GPL2"
-
 
 class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def __init__(
@@ -66,7 +66,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         )
 
         self.writable = self._in_connecting_state
-        self.handle_write = self.__setup_write
+        self._handle_write = self.__setup_write
 
         self.ssl = is_ssl
         self._is_http2 = isinstance(self, DeproxyClientH2)
@@ -168,7 +168,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         """Send data from `self.request_buffers` and cut them."""
         reqs = self.request_buffers[self.cur_req_num]
 
-        sent = self.send(reqs[: self.segment_size] if self.segment_size else reqs)
+        sent = self._send(reqs[: self.segment_size] if self.segment_size else reqs)
         if sent < 0:
             return
         self.last_segment_time = time.time()
@@ -185,33 +185,33 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     def __setup_write(self):
         self.writable = self._has_pending_data
-        self.handle_write = self._send_data
+        self._handle_write = self._send_data
 
         # Connection established and client has pending data to send
         if self.writable():
-            self.handle_write()
+            self._handle_write()
 
-    def handle_connect(self):
+    def _handle_connect(self):
         if self.ssl:
-            self.socket = self._context.wrap_socket(
-                self.socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
+            self._socket = self._context.wrap_socket(
+                self._socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
             )
         self.conn_is_closed = False
         self.start_time = time.time()
 
-    def handle_close(self):
-        self.close()
+    def _handle_close(self):
+        super()._handle_close()
         self.writable = self._in_connecting_state
-        self.handle_write = self.__setup_write
+        self._handle_write = self.__setup_write
         self.conn_is_closed = True
 
-    def handle_error(self):
+    def _handle_error(self):
         type_error, v, _ = sys.exc_info()
         self._add_error_code(type_error)
         self._tcp_logger.warning(f"Receive error - {type_error} with message - {v}")
 
         if type_error == ParseError:
-            self.handle_close()
+            self._handle_close()
             raise v
         elif type_error in (
             ssl.SSLWantReadError,
@@ -225,30 +225,30 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             pass
         elif type_error == ssl.SSLEOFError:
             # This may happen if a TCP socket is closed without sending TLS close alert. See #1778
-            self.handle_close()
+            self._handle_close()
         else:
-            self.handle_close()
+            self._handle_close()
             error.bug("\tDeproxy: Client: %s" % v)
 
     def set_rps(self, rps):
         self.rps = rps
 
     def _stop_deproxy(self):
-        self.handle_close()
+        self._handle_close()
 
     def _run_deproxy(self):
-        self.create_socket(socket.AF_INET6 if self.is_ipv6 else socket.AF_INET, socket.SOCK_STREAM)
+        self._create_socket()
         if self.bind_addr:
-            self.bind(
+            self._bind(
                 (self.bind_addr, 0),
             )
-            self._src_ip, self._src_port, *_ = self.socket.getsockname()
+            self._src_ip, self._src_port, *_ = self._socket.getsockname()
 
         self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
-        self.connect((self.conn_addr, self.port))
+        self._connect((self.conn_addr, self.port))
 
     @abc.abstractmethod
-    def handle_read(self): ...
+    def _handle_read(self): ...
 
     def next_request_time(self):
         if self.rps == 0:
@@ -476,8 +476,8 @@ class DeproxyClient(BaseDeproxyClient):
             body=body,
         )
 
-    def handle_read(self):
-        self.response_buffer += self.recv(deproxy_message.MAX_MESSAGE_SIZE).decode()
+    def _handle_read(self):
+        self.response_buffer += self._recv(deproxy_message.MAX_MESSAGE_SIZE).decode()
         if not self.response_buffer:
             return
         while len(self.response_buffer) > 0:
@@ -713,8 +713,8 @@ class DeproxyClientH2(BaseDeproxyClient):
 
         self.send_bytes(self.h2_connection.data_to_send())
 
-    def handle_read(self):
-        self.response_buffer = self.recv(deproxy_message.MAX_MESSAGE_SIZE)
+    def _handle_read(self):
+        self.response_buffer = self._recv(deproxy_message.MAX_MESSAGE_SIZE)
         if not self.response_buffer:
             return
 
@@ -769,21 +769,21 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self._ack_cnt += 1
                     if event == events[-1]:
                         # TODO should be changed by issue #358
-                        self.handle_read()
+                        self._handle_read()
                 elif isinstance(event, WindowUpdated):
                     if event == events[-1]:
                         # TODO should be changed by issue #358
-                        self.handle_read()
+                        self._handle_read()
                     else:
                         continue
                 elif isinstance(event, PingAckReceived):
                     self._ping_received += 1
                     if event == events[-1]:
                         # TODO should be changed by issue #358
-                        self.handle_read()
+                        self._handle_read()
                 # TODO should be changed by issue #358
                 else:
-                    self.handle_read()
+                    self._handle_read()
 
         except deproxy_message.IncompleteMessage:
             self._http_logger.debug(f"Receive IncompleteMessage")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2025-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import logging
@@ -89,16 +89,7 @@ def main():
     shell("sudo systemctl disable nginx", "disable nginx", capture_output=True)
 
     # python
-    shell(
-        "sudo add-apt-repository ppa:deadsnakes/ppa -y",
-        "Append python3.10 repository",
-        capture_output=True,
-    )
-    shell("sudo apt update -y", "python3.10 repository update", capture_output=True)
-    shell("sudo apt install python3.10 -y", "install python3.10", capture_output=True)
-    shell("sudo apt install python3.10-venv -y", "install python3.10 venv", capture_output=True)
-
-    shell("python3.10 -m venv env", "install virtual env")
+    shell("python3 -m venv env", "install virtual env")
     shell(". env/bin/activate", "Start virtual env")
     shell("env/bin/python3 -m pip install -r requirements.txt", "install python requirements.tx")
 

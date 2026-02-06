@@ -1,18 +1,15 @@
-import asyncore
+__author__ = "Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
+__license__ = "GPL2"
+
+import errno
 import select
 import threading
 import time
 import traceback
 
+from framework.deproxy import asyncore
 from framework.services import stateful
-
-__author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
-__license__ = "GPL2"
-
-
-def finish_all_deproxy():
-    asyncore.close_all()
 
 
 class DeproxyManager(stateful.Stateful):
@@ -69,17 +66,48 @@ class DeproxyManager(stateful.Stateful):
         self._exit_event.set()
         self._proc.join()
 
+    @staticmethod
+    def _poll() -> None:
+        pollster = select.poll()
+
+        if asyncore.socket_map:
+            for fd, obj in list(asyncore.socket_map.items()):
+                flags = 0
+                if obj.readable():
+                    flags |= select.POLLIN | select.POLLPRI
+                # accepting sockets should not be writable
+                if obj.writable() and not obj.accepting:
+                    flags |= select.POLLOUT
+                if flags:
+                    pollster.register(fd, flags)
+
+            r = pollster.poll(0.0)
+            for fd, flags in r:
+                obj = asyncore.socket_map.get(fd)
+                if obj is None:
+                    continue
+                obj._readwrite(flags)
+
+    @staticmethod
+    def finish_all_deproxy():
+        for sock in list(asyncore.socket_map.values()):
+            try:
+                sock.close()
+            except OSError as e:
+                if e.errno == errno.EBADF:
+                    pass
+        asyncore.socket_map.clear()
+
     def __run_deproxy_manager(
         self,
         exit_event: threading.Event,
         polling_lock: threading.Lock,
     ):
         try:
-            poll_fun = asyncore.poll2 if hasattr(select, "poll") else asyncore.poll
             while not exit_event.is_set():
                 polling_lock.acquire()
                 t1 = time.monotonic()
-                poll_fun()
+                self._poll()
                 d_t = time.monotonic() - t1
                 if d_t > 1:
                     self._logger.warning(f"freeze while polling - {d_t}")
