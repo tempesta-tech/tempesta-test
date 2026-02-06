@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
 
-import sys
-
-# we use `asyncore` that was removed from 3.12
-if sys.version_info.major != 3 or sys.version_info.minor > 11:
-    sys.stderr.write(
-        "Python version is not supported: required major is `3`, minor is till `11`, i.e. 3.12 is not supported\n",
-    )
-    sys.exit(1)
-
 import getopt
 import inspect
 import os
 import re
 import resource
+import sys
 import unittest
 from importlib.machinery import SourceFileLoader
 
@@ -26,7 +18,7 @@ from framework.test_suite import prepare, shell, tester
 from framework.test_suite.tester import test_logger
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -96,7 +88,7 @@ be resumed manually from any given test.
 
 
 def choose_test(file_path):
-    module_name = re.sub("\.py$", "", file_path).replace(os.sep, ".")
+    module_name = re.sub(".py$", "", file_path).replace(os.sep, ".")
     module = SourceFileLoader(module_name, file_path).load_module()
     classes = dict(inspect.getmembers(module, predicate=inspect.isclass))
 
@@ -119,7 +111,7 @@ def choose_test(file_path):
 
 
 def test_from_failstr(failstr):
-    m = re.match("^[A-Z]+: ([a-z0-9_]+) \((.+)\)", failstr)
+    m = re.match("^[A-Z]+: ([a-z0-9_]+) (.+)", failstr)
     return f"{m.group(2)}.{m.group(1)}"
 
 
@@ -413,7 +405,7 @@ if run_config.KERNEL_DBG_TESTS and disabled_reader_dbg_kernel.disable:
     disabled_reader.disabled.extend(disabled_reader_dbg_kernel.disabled)
 
 if not run_disabled:
-    use_tests = [re.sub("\.py$", "", arg).replace(os.sep, ".") for arg in testname_args]
+    use_tests = [re.sub(".py$", "", arg).replace(os.sep, ".") for arg in testname_args]
     for name in use_tests:
         # determine if this is an inclusion or exclusion
         if name.startswith("-"):

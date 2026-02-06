@@ -44,14 +44,7 @@ python3 setup.py
 ## Requirements
 
 - Ubuntu 24.04 
-- Python version 3.10. Ubuntu 24.04 uses Python 3.12. Please install Python 3.10 and use a virtual environment.
-  (See issues #573 and #857 for migration from Python 3.10).
-```sh
-add-apt-repository ppa:deadsnakes/ppa
-apt update
-apt install python3.10
-apt install python3.10-venv
-```
+- Python version 3.12+ (default for Ubuntu 24+)
 - ClickHouse Database 25 (Optional, used for storing logs in the database). See installation [here](https://clickhouse.com/docs/en/install#quick-install)
 - Host for testing framework: `python3`, `wrk`, `ab`, `nghttp2`, `h2spec`, 
 `curl`, `h2load`, `tls-perf`, `netstat`, `nginx`, `docker.io`, web content 
@@ -81,6 +74,17 @@ be run from `check_deps` directory.
 
 ## Run tests
 
+You should use virtual environment.
+To not to always specify the Python environment, you can just do once
+```shell
+python3 -m venv env
+source env/bin/activate
+```
+Once you don't need the environment you can deactivate it with
+```
+deactivate
+```
+
 ### Configuration
 
 Testing framework is configured via `tests_config.ini` file. Example
@@ -89,51 +93,25 @@ You can also create default tests configuration
 (see `TestFrameworkCfg.defaults` method from `helpers/tf_cfg.py`) by calling:
 
 ```sh
-env/bin/python3 run_tests.py -d local
+./run_tests.py -d local
 ```
-
-To not to always specify the Python environment, you can just do once
-```
-source env/bin/activate
-```
-Once you don't need the environment you can deactivate it with
-```
-deactivate
-```
-
-There is 5 sections in configuration: `General`, `Client`, `Tempesta`, `Server`, `TFW_Logger`.
 
 ### Run tests
 The tests work with Ubuntu settings, please use the root user directly.
 
-It's important that all tests are run from the Python 3.10 virtual environment. If the tests are executed from the tempesta-test folder, the easiest way is:
+To run the tests:
 ```sh
-env/bin/python3 run_tests.py
-```
-
-To run all the tests simply run:
-```sh
-env/bin/python3 run_tests.py
-```
-
-To run individual tests, name them in the arguments to the `run_tests.py` script
-in dot-separated format (as if you were importing them as python modules,
-although it is also possible to run specific testcases or even methods inside a
-testcase):
-```sh
-env/bin/python3 run_tests.py tests/cache/test_cache
-env/bin/python3 run_tests.py tests/cache/test_cache.TestCacheDisabled.test_cache_fullfill_all
-```
-
-Or you can run all tests from a file:
-```sh
-env/bin/python3 run_tests.py tests/selftests/test_deproxy.py 
+./run_tests.py # all tests
+./run_tests.py tests/cache/test_cache.py # from file
+./run_tests.py tests/cache/test_cache.TestCacheDisabled.test_cache_fullfill_all
+./run_tests.py tests/cache -tests/cache.test_purge # run cache.*, and not run cache.test_purge.*
+./run_tests.py -- -tests/cache # run everything, except cache.*
 ```
 
 Or you can run individual tests (or test class) using `-H` options:
 
 ```sh
-env/bin/python3 run_tests.py -H tests/selftests/test_deproxy.py 
+./run_tests.py -H tests/selftests/test_deproxy.py 
 [?] Select test class: DeproxyTestH2
    DeproxyChunkedTest
    DeproxyClientTest
@@ -155,20 +133,13 @@ env/bin/python3 run_tests.py -H tests/selftests/test_deproxy.py
    test_with_body
 ```
 
-To ignore specific tests, specify them in the arguments prefixed with `-`
-(you may need to use `--` to avoid treating that as a flag):
-```sh
-env/bin/python3 run_tests.py tests/cache -tests/cache.test_purge # run cache.*, except cache.test_purge.*
-env/bin/python3 run_tests.py -- -tests/cache # run everything, except cache.*
-```
-
 If the testsuite was interrupted or aborted, next run will continue from the
 interruption point. The resumption information is stored in the
 `tests_resume.txt` file in the current working directory. It is also possible
 to resume the testsuite from a specific test:
 ```sh
-env/bin/python3 run_tests.py --resume tests/server_connections
-env/bin/python3 run_tests.py --resume-after tests/cache.test_purge
+./run_tests.py --resume tests/server_connections
+./run_tests.py --resume-after tests/cache.test_purge
 ```
 
 In all cases, prefix specifications are allowed, i. e. `tests/cache.test_cache` will
@@ -291,7 +262,7 @@ This division is controlled by `segment_size` parameter of the client or the bac
 or backend configuration. You can run any test with TCP segmentation using `-T` option:
 
 ```shell
-env/bin/python3 run_tests.py -T 10 tests/selftests/test_deproxy.py 
+./run_tests.py -T 10 tests/selftests/test_deproxy.py 
 ```
 
 ## Internal structure and motivation of user configured tests

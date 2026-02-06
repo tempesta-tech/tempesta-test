@@ -103,7 +103,7 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
         uri = request.uri
 
         for conn in self.conn_to_drop:
-            conn.handle_close()
+            conn._handle_close()
             self.conn_to_drop.remove(conn)
 
         if "/drop/" in uri and self.do_drop:

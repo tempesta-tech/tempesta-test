@@ -224,7 +224,7 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
             attack_frame.flags.add("END_HEADERS")
 
             try:
-                client.send(attack_frame.serialize())
+                client._send(attack_frame.serialize())
             except SSLWantWriteError:
                 continue
             except:

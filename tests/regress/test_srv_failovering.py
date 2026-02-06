@@ -84,7 +84,7 @@ class TestFailovering(tester.TempestaTest):
         for _ in range(expected_conns_n // 4):
             conn: ServerConnection = random.choice(self.server_connection_pool())
             if conn:
-                conn.handle_close()
+                conn._handle_close()
 
     def is_srvs_ready(self) -> bool:
         expected_conns_n: int = sum(srv.conns_n for srv in self.get_servers())

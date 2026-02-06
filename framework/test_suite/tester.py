@@ -433,7 +433,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     def cleanup_deproxy(self):
         test_logger.info("Cleanup: finish all deproxy sockets...")
         try:
-            deproxy_manager.finish_all_deproxy()
+            self.deproxy_manager.finish_all_deproxy()
         except Exception as e:
             test_logger.critical("Unknown exception in stopping deproxy", exc_info=True)
         self.deproxy_manager = None
