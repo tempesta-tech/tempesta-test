@@ -99,3 +99,14 @@ server ${server_ip}:8000;
             self.assertTrue(
                 client.is_rst_received, "Client don't receive TCP RST when Tempesta FW closes."
             )
+
+    async def test_client_memory(self):
+        config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = config + "client_mem 500000 1000000;\n"
+        await self.start_all_services(client=False)
+        request = self.get_client("deproxy-0").create_request(method="GET", headers=[])
+
+        for client in self.get_clients():
+            client.start()
+            await client.send_request(request, "200")
+            client.stop()
