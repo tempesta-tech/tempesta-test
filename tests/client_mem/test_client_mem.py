@@ -5,8 +5,8 @@ __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import run_config
-from helpers import error
-from test_suite import marks, tester
+from framework.helpers import error
+from framework.test_suite import marks, tester
 
 DEPROXY_CLIENT = {
     "id": "deproxy",
@@ -40,7 +40,13 @@ DEPROXY_SERVER = {
 }
 
 
-class TestConfig(tester.TempestaTest):
+class TestClientMemBase(tester.TempestaTest):
+    def update_tempesta_config(self, client_mem_config: str):
+        new_config = self.get_tempesta().config.defconfig
+        self.get_tempesta().config.defconfig = new_config + client_mem_config
+
+
+class TestClientMemConfig(TestClientMemBase):
     """
     This class contains tests for 'client_mem' directives.
     """
@@ -50,10 +56,6 @@ class TestConfig(tester.TempestaTest):
 listen 80;
 """
     }
-
-    def __update_tempesta_config(self, client_mem_config: str):
-        new_config = self.get_tempesta().config.defconfig
-        self.get_tempesta().config.defconfig = new_config + client_mem_config
 
     @marks.Parameterize.expand(
         [
@@ -66,7 +68,7 @@ listen 80;
     )
     def test_invalid(self, name, client_mem_config):
         tempesta = self.get_tempesta()
-        self.__update_tempesta_config(client_mem_config)
+        self.update_tempesta_config(client_mem_config)
         self.oops_ignore = ["ERROR"]
         with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.start()
@@ -74,12 +76,27 @@ listen 80;
 
 @marks.parameterize_class(
     [
-        {"name": "Http", "clients": [DEPROXY_CLIENT], "expect_response": True},
-        {"name": "Https", "clients": [DEPROXY_CLIENT_SSL], "expect_response": True},
-        {"name": "H2", "clients": [DEPROXY_CLIENT_H2], "expect_response": False},
+        {
+            "name": "Http",
+            "clients": [DEPROXY_CLIENT],
+            "expect_response": True,
+            "client_mem": "client_mem 10000 20000;\n",
+        },
+        {
+            "name": "Https",
+            "clients": [DEPROXY_CLIENT_SSL],
+            "expect_response": True,
+            "client_mem": "client_mem 10000 20000;\n",
+        },
+        {
+            "name": "H2",
+            "clients": [DEPROXY_CLIENT_H2],
+            "expect_response": False,
+            "client_mem": "client_mem 20000 40000;\n",
+        },
     ]
 )
-class TestBlockByMemExceeded(tester.TempestaTest):
+class TestBlockByMemExceeded(TestClientMemBase):
     tempesta = {
         "config": """
 listen 80;
@@ -87,7 +104,6 @@ listen 443 proto=h2,https;
 
 server ${server_ip}:8000;
 
-client_mem 5000 10000;
 block_action attack reply;
 block_action error reply;
 
@@ -101,6 +117,7 @@ tls_match_any_server_name;
     expect_response = None
 
     def test_request(self):
+        self.update_tempesta_config(self.client_mem)
         self.start_all_services()
 
         client = self.get_client("deproxy")
@@ -120,6 +137,7 @@ tls_match_any_server_name;
         self.assertTrue(client.wait_for_connection_close())
 
     def test_response(self):
+        self.update_tempesta_config(self.client_mem)
         self.start_all_services()
 
         srv: StaticDeproxyServer = self.get_server("deproxy")
@@ -181,3 +199,53 @@ tls_match_any_server_name;
             self._ping(client)
 
         self.assertTrue(client.wait_for_connection_close())
+
+
+class TestSeveralClientsWithSmallLrusize(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 443 proto=h2,https;
+
+server ${server_ip}:8000;
+
+client_lru_size 1;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+""",
+    }
+
+    clients = [
+        {
+            "id": f"deproxy-interface-{id_}",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "interface": True,
+            "ssl": True,
+        }
+        for id_ in range(3)
+    ]
+
+    backends = [DEPROXY_SERVER]
+
+    @staticmethod
+    def make_resp(body):
+        return "HTTP/1.1 200 OK\r\n" "Content-Length: " + str(len(body)) + "\r\n\r\n" + body
+
+    def test_all_clients_active(self):
+        self.start_all_services()
+        server = self.get_server("deproxy")
+
+        server.set_response(self.make_resp("x" * 10000))
+
+        for id_ in range(3):
+            client = self.get_client(f"deproxy-interface-{id_}")
+            client.start()
+
+        for id_ in range(3):
+            client = self.get_client(f"deproxy-interface-{id_}")
+            for i in range(10):
+                client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                server.wait_for_requests(id_ * 10 + i)
