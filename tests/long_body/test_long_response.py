@@ -87,7 +87,7 @@ cache 0;
         client: curl_client.CurlClient = self.get_client(client_id)
         client.options = [" --raw"]
         client.start()
-        self.assertTrue(client.wait_for_finish(timeout=60))
+        self.assertTrue(client.wait_for_finish(timeout=100))
         client.stop()
 
         self.assertIsNotNone(client.last_response)

@@ -178,6 +178,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             self._http_logger.info(
                 f"A request was send. The current number of a request - {self.cur_req_num}"
             )
+        elif not self.segment_size:
+            self._tcp_logger.info(
+                f"{sent} bytes sent. {len(self.request_buffers[self.cur_req_num])} bytes left."
+            )
 
     def __setup_write(self):
         self.writable = self._has_pending_data
