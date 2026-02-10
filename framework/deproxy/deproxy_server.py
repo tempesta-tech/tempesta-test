@@ -145,6 +145,13 @@ class ServerConnection(asyncore.dispatcher):
         if self._response_buffer[self._responses_done] == b"":
             self._responses_done += 1
             self.__new_response = True
+            self._http_logger.info(
+                f"A response was send. The current number of a response - {self._responses_done}"
+            )
+        elif not self._server.segment_size:
+            self._tcp_logger.info(
+                f"{sent} bytes sent. {len(self._response_buffer[self._responses_done])} bytes left."
+            )
 
         if self._responses_done == self._server.keep_alive and self._server.keep_alive:
             self.handle_close()
