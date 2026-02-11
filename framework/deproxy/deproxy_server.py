@@ -1,3 +1,4 @@
+import asyncio
 import asyncore
 import logging
 import socket
@@ -5,8 +6,10 @@ import sys
 import time
 from typing import Optional
 
+import run_config
 from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_base import BaseDeproxy
+from framework.deproxy.deproxy_message import IncompleteMessage, Request
 from framework.helpers import error, tf_cfg, util
 from framework.helpers.util import fill_template
 from framework.services import stateful, tempesta
@@ -14,6 +17,174 @@ from framework.services import stateful, tempesta
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+
+class AsyncServerConnection:
+    def __init__(
+        self, server: "AsyncServer", reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
+        self._server = server
+        self._reader = reader
+        self._writer = writer
+        self._response_buffer = b""
+        self._write_func = None
+        self.segment_size = 0
+        self.update_segment_size(self._server.segment_size)
+
+    async def _write_with_tcp_segmentation(self) -> None:
+        data_to_send = self._response_buffer[: self.segment_size]
+        self._writer.write(data_to_send)
+        await self._writer.drain()
+        self._response_buffer = self._response_buffer[self.segment_size :]
+
+    async def _simple_write(self) -> None:
+        self._writer.write(self._response_buffer)
+        await self._writer.drain()
+        self._response_buffer = b""
+
+    def update_segment_size(self, segment_size: int) -> None:
+        self.segment_size = segment_size
+        if self.segment_size:
+            self._write_func = self._write_with_tcp_segmentation
+        else:
+            self._write_func = self._simple_write
+
+    async def _read_loop(self):
+        request = b""
+        async for msg in self._reader:
+            try:
+                request += msg
+                self._server._requests.append(Request(request.decode()))
+                self._response_buffer += self._server.response
+                request = b""
+            except IncompleteMessage:
+                continue
+            await asyncio.sleep(0.0)
+
+    async def _write_loop(self):
+        while True:
+            if self._response_buffer:
+                await self._write_func()
+            await asyncio.sleep(0.0)
+
+
+class AsyncServer(stateful.AsyncStateful):
+    def __init__(
+        self,
+        # BaseDeproxy
+        *,
+        id_: str,
+        deproxy_auto_parser,
+        port: int,
+        bind_addr: Optional[str],
+        segment_size: int,
+        segment_gap: int,
+        is_ipv6: bool,
+        # StaticDeproxyServer
+        response: str | bytes | deproxy_message.Response,
+        keep_alive: int,
+        drop_conn_when_request_received: bool,
+        send_after_conn_established: bool,
+        delay_before_sending_response: float,
+        hang_on_req_num: int,
+        pipelined: int,
+    ):
+        # this variable is needed for tests with common response for all tests in one class.
+        self._default_response = response
+
+        super().__init__(id_=id_)
+        self.stop_procedures = [self._close]
+
+        self._deproxy_auto_parser = deproxy_auto_parser
+        self.is_ipv6 = is_ipv6
+        self.port = port
+        self.bind_addr = bind_addr
+        self.segment_size = segment_size or run_config.TCP_SEGMENTATION or 0
+        self.segment_gap = segment_gap
+
+        self._tcp_logger = logging.LoggerAdapter(
+            logging.getLogger("tcp"), extra={"service": f"{self._service_id}"}
+        )
+        self._http_logger = logging.LoggerAdapter(
+            logging.getLogger("http"), extra={"service": f"{self._service_id}"}
+        )
+        self.conns_n = tempesta.server_conns_default()
+        self.keep_alive = keep_alive
+        self.drop_conn_when_request_received = drop_conn_when_request_received
+        self.send_after_conn_established = send_after_conn_established
+        self.delay_before_sending_response = delay_before_sending_response
+        self.hang_on_req_num = hang_on_req_num
+        self.pipelined = pipelined
+
+    async def _close(self):
+        self._server.close()
+        await self._server.wait_closed()
+        self._server_task.cancel()
+
+    async def _accept_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        conn = AsyncServerConnection(self, reader, writer)
+        self._connections.append(conn)
+        await asyncio.gather(conn._read_loop(), conn._write_loop())
+
+    async def _run_start(self):
+        self._server = await asyncio.start_server(
+            client_connected_cb=self._accept_connection,
+            host=self.bind_addr,
+            port=self.port,
+        )
+        self._server_task = asyncio.create_task(self._server.serve_forever())
+
+    def clear_stats(self) -> None:
+        self._connections: list[AsyncServerConnection] = list()
+        self._requests: list[deproxy_message.Request] = list()
+        self.response = self._default_response
+
+    @property
+    def response(self) -> bytes:
+        return self.__response
+
+    @response.setter
+    def response(self, response: str | bytes | deproxy_message.Response) -> None:
+        self.set_response(response)
+
+    def set_response(self, response: str | bytes | deproxy_message.Response) -> None:
+        if isinstance(response, str):
+            self.__response = response.encode()
+        elif isinstance(response, bytes):
+            self.__response = response
+        elif isinstance(response, deproxy_message.Response):
+            self.__response = response.msg.encode()
+
+    @property
+    def conns_n(self) -> int:
+        return self._conns_n
+
+    @conns_n.setter
+    def conns_n(self, conns_n: int) -> None:
+        if conns_n < 0:
+            raise ValueError("`conns_n` MUST be greater than or equal to 0.")
+        self._conns_n = conns_n
+
+    @property
+    def last_request(self) -> Optional[deproxy_message.Request]:
+        if not self.requests:
+            return None
+        return self.requests[-1]
+
+    @property
+    def requests(self) -> list[deproxy_message.Request]:
+        return self._requests
+
+    @property
+    def connections(self) -> list:
+        return self._connections
+
+    async def wait_for_connections(self, timeout=1):
+        if self.state != stateful.STATE_STARTED:
+            return False
+        return await util.await_until(
+            lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
+        )
 
 
 class ServerConnection(asyncore.dispatcher):
@@ -339,6 +510,29 @@ class StaticDeproxyServer(BaseDeproxy):
                 timeout_not_exceeded != False
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
+
+
+def async_srv_initializer(server: dict, name: str, tester, default_server_class=AsyncServer):
+    is_ipv6 = server.get("is_ipv6", False)
+    srv = default_server_class(
+        # BaseDeproxy
+        id_=name,
+        deproxy_auto_parser=tester._deproxy_auto_parser,
+        port=int(server["port"]),
+        bind_addr=tf_cfg.cfg.get("Server", "ipv6" if is_ipv6 else "ip"),
+        segment_size=server.get("segment_size", 0),
+        segment_gap=server.get("segment_gap", 0),
+        is_ipv6=is_ipv6,
+        # StaticDeproxyServer
+        response=fill_template(server.get("response_content", ""), server),
+        keep_alive=server.get("keep_alive", 0),
+        drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
+        send_after_conn_established=server.get("send_after_conn_established", False),
+        delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
+        hang_on_req_num=server.get("hang_on_req_num", 0),
+        pipelined=server.get("pipelined", 0),
+    )
+    return srv
 
 
 def deproxy_srv_initializer(

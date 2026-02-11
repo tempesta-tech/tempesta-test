@@ -2,6 +2,7 @@
 Utils for the testing framework.
 """
 
+import asyncio
 import time
 import typing
 from string import Template
@@ -17,6 +18,29 @@ def __adjust_timeout_for_tcp_segmentation(timeout: int) -> int:
     if run_config.TCP_SEGMENTATION and timeout < 30:
         timeout = 60
     return timeout
+
+
+async def await_until(
+    wait_cond: typing.Callable,
+    timeout=5,
+    poll_freq=0.01,
+    abort_cond: typing.Callable = lambda: False,
+    adjust_timeout: bool = False,
+) -> typing.Optional[bool]:
+    t0 = time.time()
+
+    if adjust_timeout:
+        timeout = __adjust_timeout_for_tcp_segmentation(timeout)
+
+    while wait_cond():
+        t = time.time()
+        if t - t0 > timeout:
+            return not wait_cond()  # check wait_cond for the last time
+        if abort_cond():
+            return None
+        await asyncio.sleep(poll_freq)
+
+    return True
 
 
 def wait_until(

@@ -318,14 +318,14 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
-    def wait_for_response(
+    async def wait_for_response(
         self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
     ):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.await_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
             abort_cond=lambda: self.connection_is_closed() and not self.connecting,

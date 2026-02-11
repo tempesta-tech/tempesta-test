@@ -13,7 +13,11 @@ from unittest.util import strclass
 import run_config
 from framework.deproxy import deproxy_client, deproxy_manager
 from framework.deproxy.deproxy_auto_parser import DeproxyAutoParser
-from framework.deproxy.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
+from framework.deproxy.deproxy_server import (
+    StaticDeproxyServer,
+    async_srv_initializer,
+    deproxy_srv_factory,
+)
 from framework.helpers import clickhouse, dmesg, error, remote, tf_cfg, util
 from framework.helpers.memworker import MemoryChecker
 from framework.helpers.networker import NetWorker
@@ -46,6 +50,7 @@ def register_backend(type_name, factory):
 
 
 register_backend("deproxy", deproxy_srv_factory)
+register_backend("async", async_srv_initializer)
 register_backend("nginx", nginx_srv_factory)
 register_backend("docker", docker_srv_factory)
 
@@ -149,7 +154,7 @@ class WaitUntilAsserts(unittest.TestCase):
         self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
 
 
-class TempestaTest(WaitUntilAsserts, unittest.TestCase):
+class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     """Basic tempesta test class.
     Tempesta tests should have:
     1) backends: [...]
@@ -351,10 +356,14 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             tfw_config=config.get("tfw_config", None),
         )
 
-    def start_all_servers(self):
+    async def start_all_servers(self):
         for sid in self.__servers:
             srv = self.__servers[sid]
-            srv.start()
+            if isinstance(srv, Stateful):
+                srv.start()
+            else:
+                await srv.start()
+
             if not srv.is_running():
                 raise Exception("Can not start server %s" % sid)
 
@@ -410,14 +419,17 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.addCleanup(self.cleanup_stop_tcpdump)
         self.addCleanup(self.cleanup_interfaces)
         self.addCleanup(self.cleanup_deproxy)
-        self.addCleanup(self.cleanup_services)
+        self.addAsyncCleanup(self.cleanup_services)
         test_logger.info(f"setUp completed '{self.id()}'")
 
-    def cleanup_services(self):
+    async def cleanup_services(self):
         test_logger.info("Cleanup: stopping all services...")
 
         for service in self.get_all_services():
-            service.stop()
+            if isinstance(service, Stateful):
+                service.stop()
+            else:
+                await service.stop()
             service.clear_stats()
             if service.exceptions:
                 self.__exceptions.update({str(service): "\n".join(service.exceptions)})
@@ -500,16 +512,20 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
-    def wait_all_connections(self, tmt=5):
+    async def wait_all_connections(self, tmt=5):
         for sid in self.__servers:
             srv = self.__servers[sid]
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
+            if isinstance(srv, Stateful):
+                if not srv.wait_for_connections(timeout=tmt):
+                    return False
+            else:
+                if not await srv.wait_for_connections(timeout=tmt):
+                    return False
         return True
 
-    def start_all_services(self, client: bool = True) -> None:
+    async def start_all_services(self, client: bool = True) -> None:
         """Start all services."""
-        self.start_all_servers()
+        await self.start_all_servers()
         self.start_tempesta()
 
         if "deproxy" or "deproxy_h2" in [
@@ -517,7 +533,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         ]:
             self.deproxy_manager.start()
 
-        self.assertTrue(self.wait_all_connections())
+        self.assertTrue(await self.wait_all_connections())
         self.assertTrue(self.__tempesta.wait_while_logger_start())
 
         if client:

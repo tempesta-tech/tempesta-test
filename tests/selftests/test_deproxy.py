@@ -239,7 +239,7 @@ class DeproxyClientTest(tester.TempestaTest):
     backends = [
         {
             "id": "deproxy",
-            "type": "deproxy",
+            "type": "async",
             "port": "8000",
             "response": "static",
             "response_content": "HTTP/1.1 200 OK\r\n"
@@ -267,13 +267,6 @@ listen 80;
 server ${server_ip}:8000;
 """
     }
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
 
     def restore_defaults(self):
         remote.client.run_cmd(f"sysctl -w net.ipv4.tcp_syn_retries={self.saved_retries}")
@@ -350,15 +343,16 @@ server ${server_ip}:8000;
             "Client has not been blocked.",
         )
 
-    def test_make_request(self):
-        self.start_all()
+    async def test_make_request(self):
+        await self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
-        client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        client.wait_for_response(timeout=0.5)
+        client.make_requests(["GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"] * 3)
+        await client.wait_for_response(timeout=0.5)
 
         self.assertIsNotNone(client.last_response)
+        self.assertEqual(len(client.responses), 3)
         self.assertEqual(client.last_response.status, "200")
 
     def test_parsing_make_request(self):
