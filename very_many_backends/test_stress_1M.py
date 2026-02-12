@@ -42,7 +42,7 @@ class ManyBackends32InGroup(multi_backend.MultipleBackends):
                 group_servers.append((server, listener))
                 if len(group_servers) == 32:
                     server_group = tempesta.ServerGroup("default-%i" % sgid)
-                    for (srv, lstn) in group_servers:
+                    for srv, lstn in group_servers:
                         server_group.add_server(srv.ip, lstn.port, srv.conns_n)
                     self.tempesta.config.add_sg(server_group)
                     sgid = sgid + 1

@@ -1,4 +1,4 @@
-""" Example tests and checking functionality of services """
+"""Example tests and checking functionality of services"""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."

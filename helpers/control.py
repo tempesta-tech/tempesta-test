@@ -1,4 +1,4 @@
-""" Controls node over SSH if remote, or via OS if local one. """
+"""Controls node over SSH if remote, or via OS if local one."""
 
 from __future__ import print_function
 

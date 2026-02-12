@@ -1,4 +1,4 @@
-""" Wrk script generator """
+"""Wrk script generator"""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2018 Tempesta Technologies, Inc."

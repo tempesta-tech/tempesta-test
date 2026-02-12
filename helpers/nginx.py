@@ -1,4 +1,4 @@
-""" Nginx helpers. """
+"""Nginx helpers."""
 
 from __future__ import print_function
 
