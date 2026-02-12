@@ -18,6 +18,7 @@ class Error(Exception):
     Separate exception class is needed to indicate that error happen and
     test framework is not working as expected.
     """
+
     pass
 
 
@@ -83,9 +84,10 @@ class BaseCmdException(Exception):
     """Base class to cmd-like exceptions,"""
 
     def __init__(
-        self, message: Any = None,
-        stdout: Union[str, bytes] = '',
-        stderr: Union[str, bytes] = '',
+        self,
+        message: Any = None,
+        stdout: Union[str, bytes] = "",
+        stderr: Union[str, bytes] = "",
         rt: Optional[int] = None,
     ):
         """

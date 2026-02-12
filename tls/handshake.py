@@ -57,7 +57,6 @@ def x509_check_issuer(cert, issuer):
 
 
 class ModifiedTLSClientAutomaton(TLSClientAutomaton):
-
     """
     Our modified TLSClient with overrided states
     to investingate what happens - run tests with 3x -v
@@ -331,7 +330,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
 
 class TlsHandshake:
-
     """
     TLSHandshake class to manage TLSAutomaton
     Creates ClientHello and run TLSHandshake

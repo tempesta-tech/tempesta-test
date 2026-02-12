@@ -1,4 +1,5 @@
 """Tests for Frang directive `http_ct_required`."""
+
 from t_frang.frang_test_case import FrangTestCase, H2Config
 
 __author__ = "Tempesta Technologies, Inc."

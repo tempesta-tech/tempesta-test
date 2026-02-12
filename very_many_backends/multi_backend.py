@@ -1,4 +1,4 @@
-""" Test template """
+"""Test template"""
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."

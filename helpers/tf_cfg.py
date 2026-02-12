@@ -1,5 +1,4 @@
-""" Test framework configuration options.
-"""
+"""Test framework configuration options."""
 
 from __future__ import print_function, unicode_literals
 
@@ -99,12 +98,7 @@ class TestFrameworkCfg(object):
         remote_ip = os.getenv("REMOTE_IP", None)
         remote_ipv6 = os.getenv("REMOTE_IPV6", None)
 
-        if (
-            host_ip is None
-            or host_ipv6 is None
-            or remote_ip is None
-            or remote_ipv6 is None
-        ):
+        if host_ip is None or host_ipv6 is None or remote_ip is None or remote_ipv6 is None:
             self.logger.log(
                 FATAL,
                 "IP and IPv6 addresses, login and password for tempesta-tech.com "

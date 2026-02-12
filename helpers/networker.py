@@ -1,4 +1,4 @@
-""" Helpers to control different network adapter settings. """
+"""Helpers to control different network adapter settings."""
 
 from helpers import remote, tf_cfg
 from test_suite import sysnet

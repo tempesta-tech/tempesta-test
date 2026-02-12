@@ -1,4 +1,4 @@
-"""Helpers for flacky network testing. """
+"""Helpers for flacky network testing."""
 
 from __future__ import print_function
 

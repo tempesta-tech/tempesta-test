@@ -884,9 +884,7 @@ http_chain {{
             ),
         ]
     )
-    def test_init_modules(
-        self, name, func_name, config, module_path, module_name_preload, retval
-    ):
+    def test_init_modules(self, name, func_name, config, module_path, module_name_preload, retval):
         self.get_tempesta().config.set_defconfig(config)
         self.oops_ignore = ["ERROR"]
         space = 0
@@ -913,7 +911,7 @@ http_chain {{
             Because we setup fail function in the loop we should call teardown here
             at the end of the each loop iteration. If test fails teardown will be
             called from the cleanup procedure also.
-            """ 
+            """
             TestFailFunctionBaseStress.teardown_fail_function_test()
             space = space + 1
 
