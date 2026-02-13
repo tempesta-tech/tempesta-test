@@ -2,6 +2,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from framework.deproxy import deproxy_message
 from framework.test_suite import tester
 
@@ -54,14 +56,7 @@ server ${server_ip}:8000;
         for n in range(clients_n)
     ]
 
-    def test(self):
-        """
-        Run several clients from different ips. Since `client_lru_size` is equal to 1
-        Tempesta FW client free list has only one element and will be exceeded when
-        second client will be connected. First client should not be removed from client
-        database, otherwise if client connection hung we can't destroy it during Tempesta
-        FW stopping.
-        """
+    def __test_common(self):
         self.start_all_services()
         request = self.get_client("deproxy-0").create_request(
             method="GET", headers=[("Content-Type", "invalid")]
@@ -73,4 +68,35 @@ server ${server_ip}:8000;
         for client in self.get_clients():
             client.send_request(request)
 
+    def test(self):
+        """
+        Run several clients from different ips. Since `client_lru_size` is equal to 1
+        Tempesta FW client free list has only one element and will be exceeded when
+        second client will be connected. First client should not be removed from client
+        database, otherwise if client connection hung we can't destroy it during Tempesta
+        FW stopping.
+        """
+        self.__test_common()
         self.get_tempesta().stop()
+
+    def test_tcp_fin_timeout(self):
+        """
+        The same test as previous but we check that hung connections will be dropped
+        after tcp_fin_timeout (set during start Tempesta FW to 10 seconds) will be
+        expired.
+        """
+        tcp_fin_timeout = 10
+        self.__test_common()
+        time.sleep(tcp_fin_timeout + 1)
+
+        """
+        TODO:
+        When we can handle TCP RST in deproxy client in a special way,
+        just check that all client connections were closed here after
+        receiving TCP RST from Tempesta FW. Now we check that there
+        is no hung connections and Tempesta FW stopped and unloaded
+        fastly.
+        """
+        t = time.time()
+        self.get_tempesta().stop()
+        self.assertLess(time.time() - t, 5)
