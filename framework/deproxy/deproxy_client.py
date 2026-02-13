@@ -81,6 +81,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
         self.rps = 0
         self.parsing = True
+        self.not_close_connection_for_fin = False
 
         self.simple_get = self.create_request("GET", headers=[])
 
@@ -200,6 +201,8 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.start_time = time.time()
 
     def _handle_close(self):
+        if self.not_close_connection_for_fin:
+            return None
         super()._handle_close()
         self.writable = self._in_connecting_state
         self._handle_write = self.__setup_write
@@ -234,6 +237,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.rps = rps
 
     def _stop_deproxy(self):
+        self.not_close_connection_for_fin = False
         self._handle_close()
 
     def _run_deproxy(self):
