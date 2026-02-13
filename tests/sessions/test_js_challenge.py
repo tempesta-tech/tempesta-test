@@ -71,8 +71,9 @@ class BaseJSChallenge(tester.TempestaTest):
         )
 
     @staticmethod
-    def _java_script_sleep_time(cookie: str):
-        return (DELAY_MIN + int(cookie[:16], 16) % DELAY_RANGE) / 1000
+    def _java_script_sleep_time(cookie: str) -> float:
+        """Calculate the time according to the logic of Tempesta FW + 10% (for stability)."""
+        return (DELAY_MIN + int(cookie[:16], 16) % DELAY_RANGE) / 1000 * 1.1
 
     @staticmethod
     def _java_script_sleep(cookie: str) -> None:
