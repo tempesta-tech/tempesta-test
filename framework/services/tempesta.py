@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import dataclasses
@@ -461,12 +461,12 @@ class Tempesta(stateful.Stateful):
         self.clear_stats()
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
 
-    def reload(self):
+    def reload(self, timeout: float = None) -> None:
         """Live reconfiguration"""
         self._logger.info("Reconfiguring TempestaFW")
-        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload")
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload", timeout)
 
-    def _do_run(self, cmd):
+    def _do_run(self, cmd: str, timeout: float = None) -> None:
         cfg_content = self.config.get_config()
 
         self._logger.info(f"Tempesta config content:\n{cfg_content}")
@@ -478,7 +478,7 @@ class Tempesta(stateful.Stateful):
         env = {"TFW_CFG_PATH": self.config.config_name, "TFW_CFG_TMPL": self.config.tmp_config_name}
         if tf_cfg.cfg.get("Tempesta", "interfaces"):
             env.update({"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")})
-        self.node.run_cmd(cmd, timeout=30, env=env)
+        self.node.run_cmd(cmd, timeout=timeout or 30, env=env)
 
     def stop_tempesta(self):
         cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir

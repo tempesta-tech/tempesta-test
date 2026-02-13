@@ -22,7 +22,7 @@ import run_config
 from framework.helpers import error, tf_cfg
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # Don't remove files from remote node. Helpful for tests development.
@@ -270,7 +270,7 @@ class LocalNode(ANode):
 
         if current_proc.returncode != 0:
             raise error.ProcessBadExitStatusException(
-                f"\nprocess: {current_proc};\nstderr: {stderr}",
+                f"The '{cmd}' command via subprocess failed.",
                 stdout=stdout,
                 stderr=stderr,
                 rt=current_proc.returncode,
@@ -497,7 +497,7 @@ class RemoteNode(ANode):
 
         if out_f.channel.recv_exit_status() != 0:
             raise error.ProcessBadExitStatusException(
-                f"\nCurrent exit status is `{out_f.channel.recv_exit_status()}`\nstderr: {stderr}",
+                f"The '{cmd}' command via SSH failed.",
                 stdout=stdout,
                 stderr=stderr,
                 rt=out_f.channel.recv_exit_status(),

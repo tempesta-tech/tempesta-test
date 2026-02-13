@@ -244,7 +244,7 @@ class TestFrameworkCfg:
         )
         self._stream_handler.setFormatter(
             logging.Formatter(
-                fmt="%(asctime)s.%(msecs)03d | %(name)7s | %(service)39s | %(message)s",
+                fmt="%(asctime)s.%(msecs)03d | %(name)10s | %(service)39s | %(message)s",
                 datefmt=self._date_format,
             )
         )
@@ -262,7 +262,7 @@ class TestFrameworkCfg:
             logging.Formatter(
                 fmt=(
                     "%(asctime)s.%(msecs)03d | %(levelname)8s | "
-                    "%(name)7s | %(module)19s | %(lineno)03d | %(service)39s | %(message)s"
+                    "%(name)10s | %(module)19s | %(lineno)03d | %(service)39s | %(message)s"
                 ),
                 datefmt=self._date_format,
             )
