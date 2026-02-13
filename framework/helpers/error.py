@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 202-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import sys
@@ -120,9 +120,13 @@ class BaseCmdException(Exception):
             rt (Optional[int]): return code of a process when an exception is raised
         """
         super().__init__(str(message))
+        self.message = message
         self.stdout = stdout
         self.stderr = stderr
         self.returncode = rt
+
+    def __str__(self) -> str:
+        return f"Process ended with {self.returncode} returncode.\n{self.stdout = }\n{self.stderr = }\n{self.message}"
 
 
 class ProcessBadExitStatusException(BaseCmdException):

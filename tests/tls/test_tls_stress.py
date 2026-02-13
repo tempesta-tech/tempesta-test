@@ -10,7 +10,7 @@ from framework.test_suite import marks, tester
 from run_config import CONCURRENT_CONNECTIONS, DURATION, THREADS
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -211,13 +211,13 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         self.check_alg(alg)
 
     def __reload_tempesta(self):
-        tempesta: Tempesta = self.get_tempesta()
+        tempesta = self.get_tempesta()
         while not self.stop_flag:
             """
             BUG in Tempesta is reproduced on live reconfiguration of Tempesta FW
             under heavy load.
             """
-            tempesta.reload()
+            tempesta.reload(timeout=60)
         self.stop_flag = False
 
     @marks.Parameterize.expand(
@@ -251,6 +251,3 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             tls_perf.stop()
         self.stop_flag = True
         t.join()
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
