@@ -70,23 +70,25 @@ class DeproxyManager(stateful.Stateful):
     def _poll() -> None:
         pollster = select.poll()
 
-        if asyncore.socket_map:
-            for fd, obj in list(asyncore.socket_map.items()):
-                flags = 0
-                if obj.readable():
-                    flags |= select.POLLIN | select.POLLPRI
-                # accepting sockets should not be writable
-                if obj.writable() and not obj.accepting:
-                    flags |= select.POLLOUT
-                if flags:
-                    pollster.register(fd, flags)
+        if not asyncore.socket_map:
+            return None
 
-            r = pollster.poll(0.0)
-            for fd, flags in r:
-                obj = asyncore.socket_map.get(fd)
-                if obj is None:
-                    continue
-                obj._readwrite(flags)
+        for fd, obj in list(asyncore.socket_map.items()):
+            flags = 0
+            if obj.readable():
+                flags |= select.POLLIN | select.POLLPRI
+            # accepting sockets should not be writable
+            if obj.writable() and not obj.accepting:
+                flags |= select.POLLOUT
+            if flags:
+                pollster.register(fd, flags)
+
+        r = pollster.poll(0.0)
+        for fd, flags in r:
+            obj = asyncore.socket_map.get(fd)
+            if obj is None:
+                continue
+            obj._readwrite(flags)
 
     @staticmethod
     def finish_all_deproxy():
@@ -94,8 +96,8 @@ class DeproxyManager(stateful.Stateful):
             try:
                 sock.close()
             except OSError as e:
-                if e.errno == errno.EBADF:
-                    pass
+                if e.errno != errno.EBADF:
+                    raise
         asyncore.socket_map.clear()
 
     def __run_deproxy_manager(
