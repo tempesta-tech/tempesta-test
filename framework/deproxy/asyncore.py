@@ -32,7 +32,6 @@ class DeproxyAsyncore(abc.ABC):
         self.connected: bool = False
         self.connecting: bool = False
         self.accepting: bool = False
-        self.closing: bool = False
 
         self.addr: tuple[str, int] = None
         self._fileno: int = None
