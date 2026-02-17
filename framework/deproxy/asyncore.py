@@ -143,7 +143,7 @@ class DeproxyAsyncore(abc.ABC):
     def _handle_connect_event(self):
         err = self._socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
         if err != 0:
-            raise OSError(err)
+            raise OSError(err, errno.errorcode[err])
         self._handle_connect()
         self.connected = True
         self.connecting = False
