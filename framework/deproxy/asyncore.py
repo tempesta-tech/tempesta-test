@@ -9,8 +9,9 @@ import abc
 import errno
 import select
 import socket
+import ssl
 
-socket_map = {}
+socket_map: dict[str, "DeproxyAsyncore"] = dict()
 
 
 disconnected = frozenset(
@@ -35,7 +36,7 @@ class DeproxyAsyncore(abc.ABC):
 
         self.addr: tuple[str, int] = None
         self._fileno: int = None
-        self._socket: socket.socket = None
+        self._socket: socket.socket | ssl.SSLSocket = None
 
     def _create_socket(self):
         sock = socket.socket(

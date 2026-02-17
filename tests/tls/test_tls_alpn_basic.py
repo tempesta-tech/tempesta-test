@@ -177,4 +177,4 @@ class TestALPN(tester.TempestaTest):
         client = self.get_client("deproxy")
         client.send_request(client.create_request("GET", [], authority="tempesta-tech.com"), "200")
         # Verify ALPN didn't use.
-        self.assertTrue(client.socket.selected_alpn_protocol() == None)
+        self.assertIsNone(client.selected_alpn_protocol())

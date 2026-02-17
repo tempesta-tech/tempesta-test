@@ -94,7 +94,7 @@ class DeproxyManager(stateful.Stateful):
     def finish_all_deproxy():
         for sock in list(asyncore.socket_map.values()):
             try:
-                sock.close()
+                sock._handle_close()
             except OSError as e:
                 if e.errno != errno.EBADF:
                     raise
