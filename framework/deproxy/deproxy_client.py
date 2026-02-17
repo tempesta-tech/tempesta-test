@@ -372,6 +372,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def connection_is_closed(self):
         return self.conn_is_closed
 
+    def selected_alpn_protocol(self):
+        if isinstance(self._socket, ssl.SSLSocket):
+            return self._socket.selected_alpn_protocol()
+        return None
+
     @property
     def src_ip(self) -> str | None:
         return self._src_ip
