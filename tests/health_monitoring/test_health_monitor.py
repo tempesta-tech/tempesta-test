@@ -492,7 +492,7 @@ class TestHmMalformedResponse(tester.TempestaTest):
         await server.wait_for_requests(1)
 
         warning = "Health Monitor response malformed"
-        self.assertTrue(await self.klog.afind(warning, dmesg.amount_positive))
+        self.assertTrue(await self.klog.find(warning, dmesg.amount_positive))
 
 
 # CRC tests
