@@ -64,7 +64,7 @@ cache_methods GET HEAD POST;
         },
     ]
 
-    def _test(
+    async def _test(
         self,
         etag: str,
         expected_status_code: str,
@@ -78,7 +78,7 @@ cache_methods GET HEAD POST;
         Send GET or HEAD request and receive 'Etag' header. Repeat request with correct/incorrect
         'if-none-match' and 'if-modified-since' headers.
         """
-        self.start_all_services()
+        await self.start_all_services()
         srv: StaticDeproxyServer = self.get_server("deproxy")
         client: DeproxyClient = self.get_client("deproxy")
 
@@ -100,7 +100,7 @@ cache_methods GET HEAD POST;
         if not expected_etag_304:
             expected_etag_304 = etag
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/page.html", headers=[]),
             expected_status_code="200",
         )
@@ -118,7 +118,7 @@ cache_methods GET HEAD POST;
         else:
             option_header = []
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method=method, uri="/page.html", headers=option_header),
             expected_status_code=expected_status_code,
         )
@@ -143,9 +143,9 @@ cache_methods GET HEAD POST;
     methods.
     """
 
-    def test_none_match(self):
+    async def test_none_match(self):
         """Client has cached resource, send 304."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match='"asdfqwerty"',
@@ -153,9 +153,9 @@ cache_methods GET HEAD POST;
             method="GET",
         )
 
-    def test_none_match_HEAD(self):
+    async def test_none_match_HEAD(self):
         """Client has cached resource, send 304."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match='"asdfqwerty"',
@@ -163,18 +163,18 @@ cache_methods GET HEAD POST;
             method="HEAD",
         )
 
-    def test_none_match_no_quotes_etag(self):
+    async def test_none_match_no_quotes_etag(self):
         """Same as test_none_match(), but etag isn't enclosed in double quotes."""
-        self._test(
+        await self._test(
             etag="asdfqwerty",
             expected_status_code="304",
             if_none_match='"asdfqwerty"',
             if_modified_since=None,
         )
 
-    def test_none_match_no_quotes_etag_with_extra_spaces(self):
+    async def test_none_match_no_quotes_etag_with_extra_spaces(self):
         """Same as test_none_match(), but etag isn't enclosed in double quotes."""
-        self._test(
+        await self._test(
             etag="asdfqwerty   ",
             expected_etag_200="asdfqwerty",
             expected_etag_304='"asdfqwerty"',
@@ -183,18 +183,18 @@ cache_methods GET HEAD POST;
             if_modified_since=None,
         )
 
-    def test_none_match_empty_etag(self):
+    async def test_none_match_empty_etag(self):
         """Same as test_none_match(), but etag isn't enclosed in double quotes and empty."""
-        self._test(
+        await self._test(
             etag='""',
             expected_status_code="304",
             if_none_match='""',
             if_modified_since=None,
         )
 
-    def test_none_match_no_quotes_empty_etag(self):
+    async def test_none_match_no_quotes_empty_etag(self):
         """Same as test_none_match(), but etag isn't enclosed in double quotes and empty."""
-        self._test(
+        await self._test(
             etag="",
             expected_etag_200="",
             expected_etag_304='""',
@@ -203,8 +203,8 @@ cache_methods GET HEAD POST;
             if_modified_since=None,
         )
 
-    def test_none_match_no_quotes_empty_etag_with_extra_spaces(self):
-        self._test(
+    async def test_none_match_no_quotes_empty_etag_with_extra_spaces(self):
+        await self._test(
             etag="  ",
             expected_status_code="304",
             expected_etag_200=" ",
@@ -213,54 +213,54 @@ cache_methods GET HEAD POST;
             if_modified_since=None,
         )
 
-    def test_none_match_weak_srv(self):
+    async def test_none_match_weak_srv(self):
         """Same as test_none_match() but server sends weak etag."""
-        self._test(
+        await self._test(
             etag='W/"asdfqwerty"',
             expected_status_code="304",
             if_none_match='"asdfqwerty"',
             if_modified_since=None,
         )
 
-    def test_none_match_weak_clnt(self):
+    async def test_none_match_weak_clnt(self):
         """Same as test_none_match() but client sends weak etag."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match='W/"asdfqwerty"',
             if_modified_since=None,
         )
 
-    def test_none_match_weak_all(self):
+    async def test_none_match_weak_all(self):
         """Same as test_none_match() but both server and client send weak etag."""
-        self._test(
+        await self._test(
             etag='W/"asdfqwerty"',
             expected_status_code="304",
             if_none_match='W/"asdfqwerty"',
             if_modified_since=None,
         )
 
-    def test_none_match_list(self):
+    async def test_none_match_list(self):
         """Same as test_none_match() but client has saved copies of several resources."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match='"fsdfds", "asdfqwerty", "sdfrgg"',
             if_modified_since=None,
         )
 
-    def test_none_match_any(self):
+    async def test_none_match_any(self):
         """Same as test_none_match() but client has cached entire world cached."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match="*",
             if_modified_since=None,
         )
 
-    def test_none_match_nc_GET(self):
+    async def test_none_match_nc_GET(self):
         """Client has not cached resource, send full response."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="200",
             if_none_match='"jfgfdgnjdn"',
@@ -268,9 +268,9 @@ cache_methods GET HEAD POST;
             method="GET",
         )
 
-    def test_none_match_nc_HEAD(self):
+    async def test_none_match_nc_HEAD(self):
         """Client has not cached resource, send full response."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="200",
             if_none_match='"jfgfdgnjdn"',
@@ -278,27 +278,27 @@ cache_methods GET HEAD POST;
             method="HEAD",
         )
 
-    def test_mod_since(self):
+    async def test_mod_since(self):
         """Client has cached resource, send 304."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match=None,
             if_modified_since="Mon, 12 Dec 2016 13:59:39 GMT",
         )
 
-    def test_mod_since_nc(self):
+    async def test_mod_since_nc(self):
         """Client has not cached resource, send full response."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="200",
             if_none_match=None,
             if_modified_since="Mon, 5 Dec 2016 13:59:39 GMT",
         )
 
-    def test_mod_since_nc_with_invalid_date(self):
+    async def test_mod_since_nc_with_invalid_date(self):
         """Client has not cached resource, send full response."""
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="200",
             if_none_match=None,
@@ -333,8 +333,10 @@ cache_methods GET HEAD POST;
             ),
         ]
     )
-    def test_response_without(self, name, response_headers, if_modified_since, expected_status):
-        self.start_all_services()
+    async def test_response_without(
+        self, name, response_headers, if_modified_since, expected_status
+    ):
+        await self.start_all_services()
         srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
@@ -346,11 +348,11 @@ cache_methods GET HEAD POST;
             + "\r\n"
         )
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/page.html", headers=[]),
             expected_status_code="200",
         )
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", uri="/page.html", headers=[("If-Modified-Since", if_modified_since())]
             ),
@@ -359,24 +361,24 @@ cache_methods GET HEAD POST;
 
         self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
 
-    def test_correct_none_match_and_modified_since(self):
+    async def test_correct_none_match_and_modified_since(self):
         """
         Client has cached resource, send 304. 'if_modified_since' ignored.
         RFC 9110 13.1.3
         """
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="304",
             if_none_match='"asdfqwerty"',
             if_modified_since="Mon, 12 Dec 2016 13:59:39 GMT",
         )
 
-    def test_incorrect_none_match_and_correct_modified_since(self):
+    async def test_incorrect_none_match_and_correct_modified_since(self):
         """
         Client has no cached resource, send full response. 'if_modified_since' ignored.
         RFC 9110 13.1.3
         """
-        self._test(
+        await self._test(
             etag='"asdfqwerty"',
             expected_status_code="200",
             if_none_match='"jfgfdgnjdn"',
@@ -418,7 +420,7 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         },
     ]
 
-    def __test_cachable_headers(
+    async def __test_cachable_headers(
         self, header, expected_status_code, date, disable_deproxy_auto_parser
     ):
         """
@@ -428,7 +430,7 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         - Cache-Control and Expires;
         RFC 9110 15.4.5
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
@@ -445,14 +447,14 @@ class TestNotModifiedResponseHeaders(TempestaTest):
             + "\r\n"
         )
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/page.html", headers=[]),
             expected_status_code="200",
         )
         self.assertIn(header, client.last_response.headers.items())
         self.assertIn(("date", date), client.last_response.headers.items())
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", uri="/page.html", headers=[("If-Modified-Since", date)]
             ),
@@ -514,10 +516,10 @@ class TestNotModifiedResponseHeaders(TempestaTest):
             ),
         ]
     )
-    def test_cachable_headers(
+    async def test_cachable_headers(
         self, name, header, expected_status_code, date, disable_deproxy_auto_parser
     ):
-        self.__test_cachable_headers(
+        await self.__test_cachable_headers(
             header, expected_status_code, date, disable_deproxy_auto_parser
         )
 
@@ -533,7 +535,7 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         ]
     )
     @unittest.expectedFailure
-    def test_cachable_headers_expect_fail(
+    async def test_cachable_headers_expect_fail(
         self, name, header, expected_status_code, date, disable_deproxy_auto_parser
     ):
         """
@@ -541,12 +543,12 @@ class TestNotModifiedResponseHeaders(TempestaTest):
         bytes after GMT in the date. So Tempesta FW doesn't
         ignore such header.
         """
-        self.__test_cachable_headers(
+        await self.__test_cachable_headers(
             header, expected_status_code, date, disable_deproxy_auto_parser
         )
 
-    def test_non_cachable_header(self):
-        self.start_all_services()
+    async def test_non_cachable_header(self):
+        await self.start_all_services()
 
         srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
@@ -561,13 +563,13 @@ class TestNotModifiedResponseHeaders(TempestaTest):
             + "\r\n"
         )
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/page.html", headers=[]),
             expected_status_code="200",
         )
         self.assertIn(("x-my-hdr", "123"), client.last_response.headers.items())
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", uri="/page.html", headers=[("If-Modified-Since", date)]
             ),

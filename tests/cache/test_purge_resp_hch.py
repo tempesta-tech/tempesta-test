@@ -1,6 +1,5 @@
 import copy
 
-from framework.deproxy import deproxy_message
 from framework.helpers import tf_cfg
 from framework.services import tempesta
 from framework.test_suite import tester
@@ -71,7 +70,7 @@ Connection: keep-alive
             body,
         )
 
-    def common_check(
+    async def common_check(
         self,
         chunksize=0,
         request_0="",
@@ -86,12 +85,12 @@ Connection: keep-alive
         if chunksize:
             deproxy_srv.segment_size = chunksize
 
-        self.start_all_services()
+        await self.start_all_services()
 
-        deproxy_cl.send_request(request_0, "200", timeout=30)
-        deproxy_cl.send_request(request, "200", timeout=30)
+        await deproxy_cl.send_request(request_0, "200", timeout=30)
+        await deproxy_cl.send_request(request, "200", timeout=30)
 
-        frequest: deproxy.Request = deproxy_srv.last_request
+        frequest = deproxy_srv.last_request
 
         frequest.headers.headers.sort()
         expect.sort()
@@ -109,10 +108,10 @@ Connection: keep-alive
             "Response body not expected but present " "with chunksize = %d" % chunksize,
         )
 
-    def test_0_purge_resp_non_hch(self):
+    async def test_0_purge_resp_non_hch(self):
         # Normal (non heavy-chunked) test
         #
-        self.common_check(
+        await self.common_check(
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect=[
@@ -124,11 +123,11 @@ Connection: keep-alive
             ],
         )
 
-    def test_1_purge_resp_hch(self):
+    async def test_1_purge_resp_hch(self):
         # Heavy-chunked test, iterative
         #
         response = self.get_server("deproxy").response
-        self.iterate_test(
+        await self.iterate_test(
             self.common_check,
             len(response),
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -142,9 +141,9 @@ Connection: keep-alive
             ],
         )
 
-    def iterate_test(self, test_func, msg_size, *args, **kwargs):
+    async def iterate_test(self, test_func, msg_size, *args, **kwargs):
         CHUNK_SIZES = [1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216, 1024 * 1024]
         for i in range(len(CHUNK_SIZES)):
-            test_func(CHUNK_SIZES[i], *args, **kwargs)
+            await test_func(CHUNK_SIZES[i], *args, **kwargs)
             if CHUNK_SIZES[i] > msg_size:
                 break

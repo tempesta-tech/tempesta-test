@@ -4,14 +4,13 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import string
-import time
 from http import HTTPStatus
 
 from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_client import DeproxyClientH2
 from framework.deproxy.deproxy_message import HttpMessage
-from framework.deproxy.deproxy_server import StaticDeproxyServer
 from framework.helpers import checks_for_tests as checks
 from framework.helpers import error, remote, util
 from framework.services.curl_client import CurlResponse
@@ -92,14 +91,14 @@ tls_match_any_server_name;
 
     messages = 10
 
-    def _test(self, uri: str, cache_mode: int, should_be_cached: bool, tempesta_config: str):
+    async def _test(self, uri: str, cache_mode: int, should_be_cached: bool, tempesta_config: str):
         """Update tempesta config. Send many identical requests and checks cache operation."""
         tempesta: Tempesta = self.get_tempesta()
         tempesta.config.defconfig += tempesta_config.format(cache_mode)
 
-        self.start_all_services()
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
@@ -120,7 +119,7 @@ tls_match_any_server_name;
         )
 
         for _ in range(self.messages):
-            client.send_request(request, expected_status_code="200")
+            await client.send_request(request, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         msg = "Server has received unexpected number of requests."
@@ -147,207 +146,207 @@ tls_match_any_server_name;
             else:
                 self.assertNotIn("age", response.headers, msg)
 
-    def test_disabled_cache_fulfill_all(self):
+    async def test_disabled_cache_fulfill_all(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config="cache {0};\r\ncache_fulfill * *;\r\n",
         )
 
-    def test_sharding_cache_fulfill_all(self):
+    async def test_sharding_cache_fulfill_all(self):
         """If cache_mode = 1 and cache_fulfill * *,  all requests are cached."""
-        self._test(
+        await self._test(
             uri="/",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config="cache {0};\r\ncache_fulfill * *;\r\n",
         )
 
-    def test_replicated_cache_fulfill_all(self):
+    async def test_replicated_cache_fulfill_all(self):
         """If cache_mode = 2 and cache_fulfill * *,  all requests are cached."""
-        self._test(
+        await self._test(
             uri="/",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config="cache {0};\r\ncache_fulfill * *;\r\n",
         )
 
-    def test_disabled_cache_bypass_all(self):
+    async def test_disabled_cache_bypass_all(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config="cache {0};\r\ncache_bypass * *;\r\n",
         )
 
-    def test_sharding_cache_bypass_all(self):
+    async def test_sharding_cache_bypass_all(self):
         """If cache_mode = 1 and cache_bypass * *,  all requests are not cached."""
-        self._test(
+        await self._test(
             uri="/",
             cache_mode=1,
             should_be_cached=False,
             tempesta_config="cache {0};\r\ncache_bypass * *;\r\n",
         )
 
-    def test_replicated_cache_bypass_all(self):
+    async def test_replicated_cache_bypass_all(self):
         """If cache_mode = 2 and cache_bypass * *, all requests are not cached."""
-        self._test(
+        await self._test(
             uri="/",
             cache_mode=2,
             should_be_cached=False,
             tempesta_config="cache {0};\r\ncache_bypass * *;\r\n",
         )
 
-    def test_disabled_cache_fulfill_suffix(self):
+    async def test_disabled_cache_fulfill_suffix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/picts/bear.jpg",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_sharding_cache_fulfill_suffix(self):
+    async def test_sharding_cache_fulfill_suffix(self):
         """If cache_mode = 1 and cache_fulfill suffix ".jpg", all requests are cached."""
-        self._test(
+        await self._test(
             uri="/picts/bear.jpg",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_replicated_cache_fulfill_suffix(self):
+    async def test_replicated_cache_fulfill_suffix(self):
         """If cache_mode = 2 and cache_fulfill suffix ".jpg", all requests are cached."""
-        self._test(
+        await self._test(
             uri="/picts/bear.jpg",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_disabled_cache_fulfill_suffix2(self):
+    async def test_disabled_cache_fulfill_suffix2(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/jsnfsjk/jnd.png",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_sharding_cache_fulfill_suffix2(self):
+    async def test_sharding_cache_fulfill_suffix2(self):
         """If cache_mode = 1 and cache_fulfill suffix ".png", all requests are cached."""
-        self._test(
+        await self._test(
             uri="/jsnfsjk/jnd.png",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_replicated_cache_fulfill_suffix2(self):
+    async def test_replicated_cache_fulfill_suffix2(self):
         """If cache_mode = 2 and cache_fulfill suffix ".png", all requests are cached."""
-        self._test(
+        await self._test(
             uri="/jsnfsjk/jnd.png",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_disabled_cache_bypass_suffix(self):
+    async def test_disabled_cache_bypass_suffix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/howto/film.avi",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_sharding_cache_bypass_suffix(self):
+    async def test_sharding_cache_bypass_suffix(self):
         """If cache_mode = 1 and cache_bypass suffix ".avi", all requests are not cached."""
-        self._test(
+        await self._test(
             uri="/howto/film.avi",
             cache_mode=1,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_replicated_cache_bypass_suffix(self):
+    async def test_replicated_cache_bypass_suffix(self):
         """If cache_mode = 2 and cache_bypass suffix ".avi", all requests are not cached."""
-        self._test(
+        await self._test(
             uri="/howto/film.avi",
             cache_mode=2,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_disabled_cache_bypass_prefix(self):
+    async def test_disabled_cache_bypass_prefix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/static/dynamic_zone/content.html",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_sharding_cache_bypass_prefix(self):
+    async def test_sharding_cache_bypass_prefix(self):
         """
         If cache_mode = 1 and cache_bypass prefix "/static/dynamic_zone/", all requests are not
         cached.
         """
-        self._test(
+        await self._test(
             uri="/static/dynamic_zone/content.html",
             cache_mode=1,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_replicated_cache_bypass_prefix(self):
+    async def test_replicated_cache_bypass_prefix(self):
         """
         If cache_mode = 2 and cache_bypass prefix "/static/dynamic_zone/", all requests are not
         cached.
         """
-        self._test(
+        await self._test(
             uri="/static/dynamic_zone/content.html",
             cache_mode=2,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_disabled_cache_fulfill_prefix(self):
+    async def test_disabled_cache_fulfill_prefix(self):
         """If cache_mode = 0, responses has not received from cache. Other configs are ignored."""
-        self._test(
+        await self._test(
             uri="/static/content.html",
             cache_mode=0,
             should_be_cached=False,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_sharding_cache_fulfill_prefix(self):
+    async def test_sharding_cache_fulfill_prefix(self):
         """If cache_mode = 1 and cache_fulfill prefix "/static/", all requests are cached."""
-        self._test(
+        await self._test(
             uri="/static/content.html",
             cache_mode=1,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_replicated_cache_fulfill_prefix(self):
+    async def test_replicated_cache_fulfill_prefix(self):
         """If cache_mode = 2 and cache_fulfill prefix "/static/", all requests are cached."""
-        self._test(
+        await self._test(
             uri="/static/content.html",
             cache_mode=2,
             should_be_cached=True,
             tempesta_config=MIXED_CONFIG,
         )
 
-    def test_cache_date(self):
+    async def test_cache_date(self):
         """
         If server response doesn't have date header, it is added to cache response and server
         response.
         """
-        self._test(
+        await self._test(
             uri="/static/content.html",
             cache_mode=2,
             should_be_cached=True,
@@ -393,11 +392,11 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test(self, name, header_name, val1, val2):
+    async def test(self, name, header_name, val1, val2):
         tempesta: Tempesta = self.get_tempesta()
-        self.start_all_services()
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
@@ -420,7 +419,7 @@ tls_match_any_server_name;
         )
 
         for _ in range(0, 2):
-            client.send_request(request, expected_status_code="200")
+            await client.send_request(request, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         self.assertIn("age", client.responses[1].headers)
@@ -496,14 +495,14 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_query_param(self, name, uri_1, uri_2, should_be_cached):
-        self.start_all_services()
+    async def test_query_param(self, name, uri_1, uri_2, should_be_cached):
+        await self.start_all_services()
 
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
         for uri in [uri_1, uri_2]:
-            client.send_request(
+            await client.send_request(
                 client.create_request(method="GET", uri=uri, headers=[]),
                 expected_status_code="200",
             )
@@ -573,7 +572,7 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_redirect(self, name, response, should_be_cached):
+    async def test_redirect(self, name, response, should_be_cached):
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
@@ -585,10 +584,10 @@ tls_match_any_server_name;
             + "\r\n"
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         for _ in range(2):
-            client.send_request(
+            await client.send_request(
                 client.create_request(method="GET", uri="/index.html", headers=[]),
                 expected_status_code=str(response.value),
             )
@@ -657,15 +656,15 @@ vhost default {
 
     backends = [DEPROXY_SERVER]
 
-    def _test(self, uri: str, method: str, should_be_cached: bool):
-        self.start_all_services()
+    async def _test(self, uri: str, method: str, should_be_cached: bool):
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
         request = client.create_request(uri=uri, method=method, headers=[])
 
         for _ in range(2):
-            client.send_request(request, expected_status_code="200")
+            await client.send_request(request, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         msg = "Server has received unexpected number of requests."
@@ -677,20 +676,20 @@ vhost default {
         else:
             self.assertNotIn("age", client.last_response.headers, msg)
 
-    def test_suffix_cached(self):
-        self._test(uri="/image.jpg", method="GET", should_be_cached=True)
+    async def test_suffix_cached(self):
+        await self._test(uri="/image.jpg", method="GET", should_be_cached=True)
 
-    def test_prefix_bypassed(self):
-        self._test(uri="/bypassed", method="GET", should_be_cached=False)
+    async def test_prefix_bypassed(self):
+        await self._test(uri="/bypassed", method="GET", should_be_cached=False)
 
-    def test_nonidempotent_get(self):
-        self._test(uri="/nonidempotent", method="GET", should_be_cached=False)
+    async def test_nonidempotent_get(self):
+        await self._test(uri="/nonidempotent", method="GET", should_be_cached=False)
 
-    def test_nonidempotent_head(self):
+    async def test_nonidempotent_head(self):
         self.disable_deproxy_auto_parser()
-        self._test(uri="/nonidempotent", method="HEAD", should_be_cached=False)
+        await self._test(uri="/nonidempotent", method="HEAD", should_be_cached=False)
 
-    def test_suffix_cached_and_prefix_bypassed(self):
+    async def test_suffix_cached_and_prefix_bypassed(self):
         """
         Wiki:
             Multiple virtual hosts and locations may be defined and are processed
@@ -698,7 +697,7 @@ vhost default {
         https://github.com/tempesta-tech/tempesta/wiki/Virtual-hosts-and-locations
         Response must be cached because location with suffix `.jpg` is first.
         """
-        self._test(uri="/bypassed/image.jpg", method="GET", should_be_cached=True)
+        await self._test(uri="/bypassed/image.jpg", method="GET", should_be_cached=True)
 
 
 @marks.parameterize_class(
@@ -749,7 +748,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             ),
         ]
     )
-    def test(self, name, first_method, second_method, should_be_cached):
+    async def test(self, name, first_method, second_method, should_be_cached):
         """
         The response to a GET request is cacheable; a cache MAY use it to
         satisfy subsequent GET and HEAD requests.
@@ -770,11 +769,11 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "12345"
         )
 
-        self.start_all_services()
-        client.send_request(
+        await self.start_all_services()
+        await client.send_request(
             client.create_request(method=first_method, uri="/index.html", headers=[]), "200"
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method=second_method, uri="/index.html", headers=[]), "200"
         )
 
@@ -791,7 +790,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             marks.Param(name="DELETE_request", method="DELETE"),
         ]
     )
-    def test_update_cache_via(self, name, method):
+    async def test_update_cache_via(self, name, method):
         """
         Responses to the PUT/DELETE method are not cacheable.
         If a successful PUT request passes through a cache that has one or more stored
@@ -806,7 +805,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -815,7 +814,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
             + "First body."
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", uri="/index.html", headers=[]), "200"
         )
 
@@ -826,10 +825,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
             + "Second body."
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method=method, uri="/index.html", headers=[]), "200"
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", uri="/index.html", headers=[]), "200"
         )
 
@@ -846,7 +845,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             marks.Param(name="POST", second_method="POST", should_be_cached=False),
         ]
     )
-    def test_cache_POST_request_with_location(self, name, second_method, should_be_cached):
+    async def test_cache_POST_request_with_location(self, name, second_method, should_be_cached):
         """
         Responses to POST requests are only cacheable when they include explicit
         freshness information and a Content-Location header field that has the same
@@ -858,7 +857,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -870,10 +869,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "First body."
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(method="POST", uri="/index.html", headers=[]), "200"
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method=second_method, uri="/index.html", headers=[]), "200"
         )
 
@@ -894,7 +893,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             marks.Param(name="no_cache_control", extra_header="Content-Location: /index.html\r\n"),
         ]
     )
-    def test_cache_POST_request_not_cached(self, name, extra_header):
+    async def test_cache_POST_request_not_cached(self, name, extra_header):
         """
         Responses to POST requests are only cacheable when they include explicit freshness
         information and a Content-Location header field that has the same value as the POST's
@@ -903,7 +902,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -913,10 +912,10 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             + "\r\n"
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(method="POST", uri="/index.html", headers=[]), "200"
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", uri="/index.html", headers=[]), "200"
         )
         self.assertNotIn("age", client.last_response.headers.keys())
@@ -968,7 +967,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
             ),
         ]
     )
-    def test_several_entries(
+    async def test_several_entries(
         self, name, first_method, second_method, second_headers, sleep_interval
     ):
         """
@@ -978,7 +977,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -992,7 +991,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
 
         # Send first request. Tempesta FW forward request to backend server and
         # save response in cache.
-        client.send_request(
+        await client.send_request(
             client.create_request(method=first_method, uri="/index.html", headers=[]),
             expected_status_code="200",
         )
@@ -1002,7 +1001,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
 
         # Sleep to be shure that second request will be sent to
         # backend server, because of cache-control header.
-        time.sleep(sleep_interval)
+        await asyncio.sleep(sleep_interval)
 
         second_response = (
             "HTTP/1.1 200 OK\r\n"
@@ -1021,7 +1020,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         # Send second request. Tempesta FW forwards request to backend server and saves response in
         # cache overriding already stored record with new fresh record. (for some requests we use
         # cache-control directive to be shure that request will be forwarded to backend server).
-        client.send_request(
+        await client.send_request(
             client.create_request(method=second_method, uri="/index.html", headers=second_headers),
             expected_status_code="200",
         )
@@ -1042,7 +1041,7 @@ class TestCacheMultipleMethods(tester.TempestaTest):
         )
 
         # Send third GET request, which can be satisfied from cache.
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", uri="/index.html", headers=[]),
             expected_status_code="200",
         )
@@ -1079,7 +1078,7 @@ cache 2;
 """
     }
 
-    def base_scenario(
+    async def base_scenario(
         self,
         tempesta_config: str,
         response_headers: list,
@@ -1090,7 +1089,7 @@ cache 2;
         tempesta.config.defconfig += tempesta_config
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services()
+        await self.start_all_services()
 
         response = deproxy_message.Response.create(
             status="200",
@@ -1110,10 +1109,10 @@ cache 2;
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[], uri="/")
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertEqual(client.last_response, expected_response)
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         if should_be_cached:
             optional_headers = [("content-length", "0"), ("age", "0")]
         else:
@@ -1130,42 +1129,42 @@ cache 2;
         self.assertEqual(len(server.requests), 1 if should_be_cached else 2)
 
     # cache_resp_hdr_del --------------------------------------------------------------------------
-    def test_cache_bypass_and_hdr_del(self):
-        self.base_scenario(
+    async def test_cache_bypass_and_hdr_del(self):
+        await self.base_scenario(
             tempesta_config="cache_bypass * *;\ncache_resp_hdr_del content-encoding remove-me-2;\n",
             response_headers=[("content-encoding", "gzip"), ("remove-me-2", "")],
             expected_cached_headers=[("content-encoding", "gzip"), ("remove-me-2", "")],
             should_be_cached=False,
         )
 
-    def test_cache_fulfill_and_hdr_del(self):
-        self.base_scenario(
+    async def test_cache_fulfill_and_hdr_del(self):
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\ncache_resp_hdr_del content-encoding remove-me-2;\n",
             response_headers=[("content-encoding", "gzip"), ("remove-me-2", "")],
             expected_cached_headers=[],
             should_be_cached=True,
         )
 
-    def test_cache_bypass(self):
+    async def test_cache_bypass(self):
         """
         This test does a regular caching without additional processing,
         however, the regular caching might not work correctly for
         empty 'Remove-me' header value due to a bug in message fixups. See #530.
         """
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_bypass * *;\n",
             response_headers=[("remove-me", ""), ("remove-me-2", "")],
             expected_cached_headers=[("remove-me", ""), ("remove-me-2", "")],
             should_be_cached=False,
         )
 
-    def test_cache_fulfill(self):
+    async def test_cache_fulfill(self):
         """
         This test does a regular caching without additional processing,
         however, the regular caching might not work correctly for
         empty 'Remove-me' header value due to a bug in message fixups. See #530.
         """
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[("remove-me", ""), ("remove-me-2", "")],
             expected_cached_headers=[("remove-me", ""), ("remove-me-2", "")],
@@ -1173,9 +1172,9 @@ cache 2;
         )
 
     # NO-CACHE ------------------------------------------------------------------------------------
-    def test_cache_bypass_no_cache_with_arg(self):
+    async def test_cache_bypass_no_cache_with_arg(self):
         """Tempesta must not change response if cache_bypass is present."""
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_bypass * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1190,12 +1189,12 @@ cache 2;
             should_be_cached=False,
         )
 
-    def test_cache_fulfilll_no_cache_with_arg(self):
+    async def test_cache_fulfilll_no_cache_with_arg(self):
         """
         Tempesta must not save remove-me header in cache
         if cache-control no-cache="remove-me".
         """
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", ""),
@@ -1209,12 +1208,12 @@ cache 2;
             should_be_cached=True,
         )
 
-    def test_cache_fulfilll_no_cache_with_arg_2(self):
+    async def test_cache_fulfilll_no_cache_with_arg_2(self):
         """
         Tempesta must not save remove-me header in cache
         if cache-control no-cache="remove-me".
         """
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1228,9 +1227,9 @@ cache 2;
             should_be_cached=True,
         )
 
-    def test_cache_fulfilll_no_cache_with_args(self):
+    async def test_cache_fulfilll_no_cache_with_args(self):
         """Tempesta must not save all headers from no-cache."""
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1241,9 +1240,9 @@ cache 2;
             should_be_cached=True,
         )
 
-    def test_cache_fulfilll_multi_cache_control(self):
+    async def test_cache_fulfilll_multi_cache_control(self):
         """Tempesta must not save all headers from no-cache."""
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1258,9 +1257,9 @@ cache 2;
         )
 
     # PRIVATE -------------------------------------------------------------------------------------
-    def test_cache_bypass_private_with_arg(self):
+    async def test_cache_bypass_private_with_arg(self):
         """Tempesta must not change response if cache_bypass is present."""
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_bypass * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1275,12 +1274,12 @@ cache 2;
             should_be_cached=False,
         )
 
-    def test_cache_fulfilll_private_with_arg(self):
+    async def test_cache_fulfilll_private_with_arg(self):
         """
         Tempesta must not save remove-me header in cache
         if cache-control private="remove-me".
         """
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", ""),
@@ -1291,12 +1290,12 @@ cache 2;
             should_be_cached=True,
         )
 
-    def test_cache_fulfilll_private_with_arg_2(self):
+    async def test_cache_fulfilll_private_with_arg_2(self):
         """
         Tempesta must not save remove-me header in cache
         if cache-control private="remove-me".
         """
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1310,9 +1309,9 @@ cache 2;
             should_be_cached=True,
         )
 
-    def test_cache_fulfilll_private_with_args(self):
+    async def test_cache_fulfilll_private_with_args(self):
         """Tempesta must not save all headers from no-cache."""
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1323,9 +1322,9 @@ cache 2;
             should_be_cached=True,
         )
 
-    def test_cache_fulfilll_multi_cache_control_2(self):
+    async def test_cache_fulfilll_multi_cache_control_2(self):
         """Tempesta must not save all headers from no-cache."""
-        self.base_scenario(
+        await self.base_scenario(
             tempesta_config="cache_fulfill * *;\n",
             response_headers=[
                 ("remove-me", "a"),
@@ -1371,7 +1370,7 @@ http_chain {
 
     backends = [DEPROXY_SERVER]
 
-    def base_scenario(
+    async def base_scenario(
         self,
         response_headers: list,
         request_headers: list,
@@ -1379,7 +1378,7 @@ http_chain {
         sleep_interval: float,
         should_be_cached: bool,
     ):
-        self.start_all_services()
+        await self.start_all_services()
 
         server = self.get_server("deproxy")
         server.set_response(
@@ -1391,12 +1390,12 @@ http_chain {
         )
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", headers=request_headers, uri="/"),
             "200",
         )
 
-        time.sleep(sleep_interval)
+        await asyncio.sleep(sleep_interval)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -1405,16 +1404,16 @@ http_chain {
                 date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", headers=second_request_headers, uri="/"),
             "200",
         )
 
         self.assertEqual(1 if should_be_cached else 2, len(server.requests))
 
-    def test_global_cache_ttl_3_sleep_0(self):
+    async def test_global_cache_ttl_3_sleep_0(self):
         """Response must be from cache if sleep < cache_ttl."""
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[],
             request_headers=[],
             second_request_headers=[],
@@ -1422,9 +1421,9 @@ http_chain {
             should_be_cached=True,
         )
 
-    def test_global_cache_ttl_3_sleep_4(self):
+    async def test_global_cache_ttl_3_sleep_4(self):
         """Response must not be from cache if sleep > cache_ttl."""
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[],
             request_headers=[],
             second_request_headers=[],
@@ -1432,14 +1431,14 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_global_cache_ttl_3_sleep_4_max_age_10(self):
+    async def test_global_cache_ttl_3_sleep_4_max_age_10(self):
         """
         Response must be from cache if:
             - max-age is present in response;
             - sleep < max-age;
         cache_ttl is ignored.
         """
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[("cache-control", "max-age=10")],
             request_headers=[],
             second_request_headers=[],
@@ -1447,14 +1446,14 @@ http_chain {
             should_be_cached=True,
         )
 
-    def test_global_cache_ttl_3_sleep_2_max_age_1(self):
+    async def test_global_cache_ttl_3_sleep_2_max_age_1(self):
         """
         Response must not be from cache if:
             - max-age is present in response;
             - sleep > max-age;
         cache_ttl is ignored.
         """
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[("cache-control", "max-age=1")],
             request_headers=[],
             second_request_headers=[],
@@ -1462,14 +1461,14 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_global_cache_ttl_3_sleep_2_s_maxage_1(self):
+    async def test_global_cache_ttl_3_sleep_2_s_maxage_1(self):
         """
         Response must not be from cache if:
             - max-age is present in response;
             - sleep > s-maxage;
         cache_ttl is ignored.
         """
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[("cache-control", "s-maxage=1")],
             request_headers=[],
             second_request_headers=[],
@@ -1477,8 +1476,8 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_vhost_cache_ttl_1_sleep_2(self):
-        self.base_scenario(
+    async def test_vhost_cache_ttl_1_sleep_2(self):
+        await self.base_scenario(
             response_headers=[],
             request_headers=[("cookie", "comment_author_name=john")],
             second_request_headers=[("cookie", "comment_author_name=john")],
@@ -1486,8 +1485,8 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_vhost_cache_ttl_1_sleep_4(self):
-        self.base_scenario(
+    async def test_vhost_cache_ttl_1_sleep_4(self):
+        await self.base_scenario(
             response_headers=[],
             request_headers=[("cookie", "comment_author_name=john")],
             second_request_headers=[("cookie", "comment_author_name=john")],
@@ -1495,9 +1494,9 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_priority_for_cache_control_header_no_cache(self):
+    async def test_priority_for_cache_control_header_no_cache(self):
         """Cache-Control header has priority over cache_ttl."""
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[("cache-control", "no-cache")],
             request_headers=[("cookie", "comment_author_name=john")],
             second_request_headers=[("cookie", "comment_author_name=john")],
@@ -1505,9 +1504,9 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_priority_for_cache_control_header_no_store(self):
+    async def test_priority_for_cache_control_header_no_store(self):
         """Cache-Control header has priority over cache_ttl."""
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[("cache-control", "no-store")],
             request_headers=[("cookie", "comment_author_name=john")],
             second_request_headers=[("cookie", "comment_author_name=john")],
@@ -1515,9 +1514,9 @@ http_chain {
             should_be_cached=False,
         )
 
-    def test_priority_for_cache_control_header_private(self):
+    async def test_priority_for_cache_control_header_private(self):
         """Cache-Control header has priority over cache_ttl."""
-        self.base_scenario(
+        await self.base_scenario(
             response_headers=[("cache-control", "private")],
             request_headers=[("cookie", "comment_author_name=john")],
             second_request_headers=[("cookie", "comment_author_name=john")],
@@ -1557,58 +1556,58 @@ http_chain {
 
     backends = [DEPROXY_SERVER]
 
-    def base_scenario(
+    async def base_scenario(
         self,
         request_headers: list,
         second_request_headers: list,
         should_be_cached: bool,
     ):
-        self.start_all_services()
+        await self.start_all_services()
 
         server = self.get_server("deproxy")
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", headers=request_headers, uri="/"),
             "200",
         )
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", headers=second_request_headers, uri="/"),
             "200",
         )
 
         self.assertEqual(1 if should_be_cached else 2, len(server.requests))
 
-    def test_cache_disable_ensure_not_cached(self):
-        self.base_scenario(
+    async def test_cache_disable_ensure_not_cached(self):
+        await self.base_scenario(
             request_headers=[("cookie", "wordpress_logged_in=true")],
             second_request_headers=[],
             should_be_cached=False,
         )
 
-    def test_cache_disable(self):
-        self.base_scenario(
+    async def test_cache_disable(self):
+        await self.base_scenario(
             request_headers=[("cookie", "wordpress_logged_in=true")],
             second_request_headers=[("cookie", "wordpress_logged_in=true")],
             should_be_cached=False,
         )
 
-    def test_cache_disable_0(self):
-        self.base_scenario(
+    async def test_cache_disable_0(self):
+        await self.base_scenario(
             request_headers=[("cookie", "comment_author_name=john")],
             second_request_headers=[("cookie", "comment_author_name=john")],
             should_be_cached=True,
         )
 
-    def test_cache_disable_1(self):
-        self.base_scenario(
+    async def test_cache_disable_1(self):
+        await self.base_scenario(
             request_headers=[("cookie", "foo_items_in_cart=")],
             second_request_headers=[("cookie", "foo_items_in_cart=")],
             should_be_cached=False,
         )
 
-    def test_cache_disable_with_override_http_chain(self):
-        self.base_scenario(
+    async def test_cache_disable_with_override_http_chain(self):
+        await self.base_scenario(
             request_headers=[("cookie", "foo_items_in_cart=; comment_author_name=john")],
             second_request_headers=[("cookie", "foo_items_in_cart=; comment_author_name=john")],
             should_be_cached=True,
@@ -1677,35 +1676,35 @@ class TestChunkedResponse(tester.TempestaTest):
         },
     ]
 
-    def get_response(self, client) -> CurlResponse:
+    async def get_response(self, client) -> CurlResponse:
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         return client.last_response
 
-    def test_h2_cached_data_equal_to_original(self):
-        self.get_simple_and_cache_response(
+    async def test_h2_cached_data_equal_to_original(self):
+        await self.get_simple_and_cache_response(
             client=self.get_client("http2"), resp_body_for_first_request="test-data"
         )
 
-    def test_cached_data_equal_to_original(self):
-        self.get_simple_and_cache_response(
+    async def test_cached_data_equal_to_original(self):
+        await self.get_simple_and_cache_response(
             client=self.get_client("http1"),
             resp_body_for_first_request="9\r\ntest-data\r\n0\r\n\r\n",
         )
 
-    def get_simple_and_cache_response(self, client, resp_body_for_first_request):
-        self.start_all_services(client=False)
+    async def get_simple_and_cache_response(self, client, resp_body_for_first_request):
+        await self.start_all_services(client=False)
         srv = self.get_server("chunked")
 
         with self.subTest("Get non-cached response"):
-            response = self.get_response(client)
+            response = await self.get_response(client)
             self.assertEqual(response.status, 200, response)
             self.assertNotIn("age", response.headers)
             self.assertEqual(response.stdout, resp_body_for_first_request)
 
         with self.subTest("Get cached response"):
-            response = self.get_response(client)
+            response = await self.get_response(client)
             self.assertEqual(response.status, 200, response)
             cached_data = response.stdout
             # check that response is from the cache
@@ -1800,9 +1799,9 @@ class TestCacheVhost(tester.TempestaTest):
         """
     }
 
-    def get_response(self, client) -> CurlResponse:
+    async def get_response(self, client) -> CurlResponse:
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         return client.response_msg
 
@@ -1812,7 +1811,7 @@ class TestCacheVhost(tester.TempestaTest):
             marks.Param(name="https", proto="https"),
         ]
     )
-    def test(self, name, proto):
+    async def test(self, name, proto):
         """
         Tempesta should not override cached response.
         It may happens during transfer the first cached response.
@@ -1824,25 +1823,25 @@ class TestCacheVhost(tester.TempestaTest):
         self.get_tempesta().config.set_defconfig(
             f"listen 443 proto={proto};\r\n" + self.get_tempesta().config.defconfig
         )
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # Fetch response from the backend
         srv = self.get_server("srv_front")
         client = self.get_client("front-1")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_front")
         self.assertEqual(response, "bar")
 
         srv = self.get_server("srv_front")
         client = self.get_client("front-1")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(len(srv.requests), 1, "Request should be taken from cache")
         self.assertEqual(response, "bar")
 
         # Make sure it was cached
         srv = self.get_server("srv_front")
         client = self.get_client("front-2")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(len(srv.requests), 1, "Request should be taken from cache")
         self.assertEqual(response, "bar")
 
@@ -1850,7 +1849,7 @@ class TestCacheVhost(tester.TempestaTest):
         # we're not geting cached response for the first vhost
         srv = self.get_server("srv_main")
         client = self.get_client("debian-1")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(len(srv.requests), 1, "Request should be taken from srv_main")
         self.assertEqual(response, "foo")
 
@@ -1909,9 +1908,9 @@ frang_limits {
 """,
     }
 
-    def test(self):
+    async def test(self):
         tempesta: Tempesta = self.get_tempesta()
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         if isinstance(client, DeproxyClientH2):
@@ -1924,13 +1923,13 @@ frang_limits {
             client.send_bytes(client.h2_connection.data_to_send())
             client.h2_connection.clear_outbound_data_buffer()
             self.assertTrue(
-                client.wait_for_ack_settings(),
+                await client.wait_for_ack_settings(),
                 "Tempesta foes not returns SETTINGS frame with ACK flag.",
             )
         request = client.create_request(method="GET", uri="/", headers=[])
 
         for _ in range(3):
-            client.send_request(request, expected_status_code="200")
+            await client.send_request(request, expected_status_code="200")
 
         self.assertNotIn("age", client.responses[0].headers)
         checks.check_tempesta_cache_stats(
@@ -1981,7 +1980,7 @@ class TestCacheClean(tester.TempestaTest):
         """
     }
 
-    def test(self):
+    async def test(self):
         """
         Only for cache REPLICA mode, SHARD mode is not expected.
 
@@ -1990,7 +1989,7 @@ class TestCacheClean(tester.TempestaTest):
         is presented in the cache. Send third request with different uri to verify we don't clean
         up records with different uri.
         """
-        self.start_all_services()
+        await self.start_all_services()
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
@@ -2009,9 +2008,9 @@ class TestCacheClean(tester.TempestaTest):
         )
 
         # Send two requests with interval greater than max-age to let record become stale
-        client.send_request(request, expected_status_code="200")
-        time.sleep(3)
-        client.send_request(request, expected_status_code="200")
+        await client.send_request(request, expected_status_code="200")
+        await asyncio.sleep(3)
+        await client.send_request(request, expected_status_code="200")
 
         # We testing cache REPLICA mode, thus we expect response will be copied to each numa node
         expected_objects_num = nodes_num
@@ -2021,7 +2020,7 @@ class TestCacheClean(tester.TempestaTest):
         request = client.create_request(
             uri="/2", authority="tempesta-tech.com", method="GET", headers=[]
         )
-        client.send_request(request, expected_status_code="200")
+        await client.send_request(request, expected_status_code="200")
 
         expected_objects_num = nodes_num * 2
         tempesta.get_stats()
@@ -2070,7 +2069,7 @@ cache_fulfill * *;
             ),
         ]
     )
-    def test_cache_use_stale_config(self, name, cfg, expected_msg):
+    async def test_cache_use_stale_config(self, name, cfg, expected_msg):
         """
         Test misconfiguration of `cache_use_stale` directive.
         """
@@ -2079,7 +2078,7 @@ cache_fulfill * *;
         self.oops_ignore.append("ERROR")
 
         with self.assertRaises(error.ProcessBadExitStatusException):
-            self.start_tempesta()
+            await self.start_tempesta()
 
         self.assertTrue(self.loggers.dmesg.find(expected_msg))
 
@@ -2140,20 +2139,20 @@ http_chain {
         }
     ]
 
-    def test(self):
+    async def test(self):
         client = self.get_client("deproxy")
-        self.start_all_services()
+        await self.start_all_services()
 
         first_request = client.create_request(
             method="HEAD", headers=[("cache-control", "max-stale=1000, no-cache, max-age=10000")]
         )
-        client.send_request(first_request, "200")
+        await client.send_request(first_request, "200")
         # Expected response to HEAD from upstream
         self.assertIsNone(client.last_response.headers.get("age"))
 
         client.restart()
         second_request = client.create_request(method="GET", headers=[])
-        client.send_request(second_request, "200")
+        await client.send_request(second_request, "200")
         # Expected response to GET from upstream
         self.assertIsNone(client.last_response.headers.get("age"))
         self.assertEqual(client.last_response.body, string.ascii_letters)
@@ -2190,20 +2189,20 @@ vhost default {
         }
     ]
 
-    def start_and_check_first_response(self, client, method, response):
-        self.start_all_services()
+    async def start_and_check_first_response(self, client, method, response):
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(response)
 
         request = client.create_request(method=method, headers=[])
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.assertIsNone(client.last_response.headers.get("Trailer"))
 
-    def check_second_request(self, *, client, method, tr1, tr2):
+    async def check_second_request(self, *, client, method, tr1, tr2):
         request = client.create_request(method=method, headers=[])
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.assertIn("age", client.last_response.headers)
         self.assertIsNone(client.last_response.headers.get("Trailer"))
@@ -2231,10 +2230,10 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             marks.Param(name="HEAD_HEAD", method1="HEAD", method2="HEAD"),
         ]
     )
-    def test(self, name, method1, method2):
+    async def test(self, name, method1, method2):
         client = self.get_client("deproxy")
 
-        self.start_and_check_first_response(
+        await self.start_and_check_first_response(
             client=client,
             method=method1,
             response="HTTP/1.1 200 OK\r\n"
@@ -2248,12 +2247,14 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
         )
-        self.check_second_request(client=client, method=method2, tr1="X-Token1", tr2="X-Token2")
+        await self.check_second_request(
+            client=client, method=method2, tr1="X-Token1", tr2="X-Token2"
+        )
 
-    def test_empty_body_head_to_get(self):
+    async def test_empty_body_head_to_get(self):
         client = self.get_client("deproxy")
 
-        self.start_and_check_first_response(
+        await self.start_and_check_first_response(
             client=client,
             method="HEAD",
             response="HTTP/1.1 200 OK\r\n"
@@ -2267,12 +2268,12 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
         )
-        self.check_second_request(client=client, method="GET", tr1="X-Token1", tr2="X-Token2")
+        await self.check_second_request(client=client, method="GET", tr1="X-Token1", tr2="X-Token2")
 
-    def test_same_hdr_and_trailer_head_to_get(self):
+    async def test_same_hdr_and_trailer_head_to_get(self):
         client = self.get_client("deproxy")
 
-        self.start_and_check_first_response(
+        await self.start_and_check_first_response(
             client=client,
             method="HEAD",
             response="HTTP/1.1 200 OK\r\n"
@@ -2290,16 +2291,16 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         self.assertEqual(client.last_response.headers.get("hdr_and_trailer"), "header")
         self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer"))
 
-        self.check_second_request(
+        await self.check_second_request(
             client=client, method="GET", tr1="hdr_and_trailer", tr2="X-Token2"
         )
         self.assertEqual(client.last_response.headers.get("hdr_and_trailer"), "header")
         self.assertEqual(client.last_response.trailer.get("hdr_and_trailer"), "trailer")
 
-    def test_same_hdr_and_trailer_head_to_get_multiple_1(self):
-        self.start_all_services()
+    async def test_same_hdr_and_trailer_head_to_get_multiple_1(self):
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
@@ -2319,7 +2320,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         client = self.get_client("deproxy")
 
         request = client.create_request(method="HEAD", headers=[])
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.assertEqual(
             tuple(client.last_response.headers.find_all("hdr_and_trailer")),
@@ -2328,7 +2329,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         )
         self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer"))
 
-        self.check_second_request(
+        await self.check_second_request(
             client=client, method="GET", tr1="hdr_and_trailer", tr2="X-Token2"
         )
 
@@ -2343,10 +2344,10 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             "The response from cache MUST contain trailers.",
         )
 
-    def test_same_hdr_and_trailer_head_to_get_multiple_2(self):
-        self.start_all_services()
+    async def test_same_hdr_and_trailer_head_to_get_multiple_2(self):
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
@@ -2366,14 +2367,14 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         client = self.get_client("deproxy")
 
         request = client.create_request(method="HEAD", headers=[])
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.assertEqual(client.last_response.headers.get("hdr_and_trailer_1"), "header1")
         self.assertEqual(client.last_response.headers.get("hdr_and_trailer_2"), "header2")
         self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer_1"))
         self.assertIsNone(client.last_response.trailer.get("hdr_and_trailer_2"))
 
-        self.check_second_request(
+        await self.check_second_request(
             client=client, method="GET", tr1="hdr_and_trailer_1", tr2="X-Token2"
         )
 
@@ -2382,10 +2383,10 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         self.assertEqual(client.last_response.trailer.get("hdr_and_trailer_1"), "trailer1")
         self.assertEqual(client.last_response.trailer.get("hdr_and_trailer_2"), "trailer2")
 
-    def test_same_trailer_head_to_get(self):
+    async def test_same_trailer_head_to_get(self):
         client = self.get_client("deproxy")
 
-        self.start_and_check_first_response(
+        await self.start_and_check_first_response(
             client=client,
             method="HEAD",
             response="HTTP/1.1 200 OK\r\n"
@@ -2402,7 +2403,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
 
         self.assertIsNone(client.last_response.headers.get("trailer_and_trailer"))
 
-        self.check_second_request(
+        await self.check_second_request(
             client=client, method="GET", tr1="trailer_and_trailer", tr2="trailer_and_trailer"
         )
 
@@ -2448,10 +2449,10 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
             ),
         ]
     )
-    def test_hbh_headers(self, name, method, tr1, tr1_val, tr2, tr2_val):
-        self.start_all_services()
+    async def test_hbh_headers(self, name, method, tr1, tr1_val, tr2, tr2_val):
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Content-type: text/html\r\n"
@@ -2467,7 +2468,7 @@ class TestCacheResponseWithTrailers(TestCacheResponseWithTrailersBase):
         client = self.get_client("deproxy")
 
         request = client.create_request(method=method, headers=[])
-        client.send_request(request, "502")
+        await client.send_request(request, "502")
 
 
 class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBase):
@@ -2521,11 +2522,11 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             ),
         ]
     )
-    def test(self, name, client_id1, client_id2, method):
+    async def test(self, name, client_id1, client_id2, method):
         client1 = self.get_client(client_id1)
         client2 = self.get_client(client_id2)
 
-        self.start_and_check_first_response(
+        await self.start_and_check_first_response(
             client=client1,
             method="GET",
             response="HTTP/1.1 200 OK\r\n"
@@ -2539,7 +2540,9 @@ class TestCacheResponseWithCacheDifferentClients(TestCacheResponseWithTrailersBa
             + f"X-Token1: value1\r\n"
             + f"X-Token2: value2\r\n\r\n",
         )
-        self.check_second_request(client=client2, method=method, tr1="X-Token1", tr2="X-Token2")
+        await self.check_second_request(
+            client=client2, method=method, tr1="X-Token1", tr2="X-Token2"
+        )
 
 
 @marks.parameterize_class(
@@ -2575,14 +2578,14 @@ class TestCacheOverriddenHost(tester.TempestaTest):
         """
     }
 
-    def test(self):
+    async def test(self):
         """
         Test caching with overriding Host using `req_hdr_set`.
         With vhost-based caching, responses are cached using vhost name.
         Since both requests go to the same vhost, the second request
         should be served from cache regardless of Host header differences.
         """
-        self.start_all_services()
+        await self.start_all_services()
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
         tempesta = self.get_tempesta()
@@ -2608,9 +2611,9 @@ class TestCacheOverriddenHost(tester.TempestaTest):
             headers=[("Accept", "*/*"), ("User-Agent", "curl/7.81.0")],
         )
 
-        client.send_request(request, expected_status_code="301")
+        await client.send_request(request, expected_status_code="301")
 
-        client.send_request(request, expected_status_code="301")
+        await client.send_request(request, expected_status_code="301")
 
         # Cached response is expected.
         # Host overridden, but cached record was created before host overriding.
@@ -2624,7 +2627,7 @@ class TestCacheOverriddenHost(tester.TempestaTest):
         )
 
         # Make request with the same host as in "req_hdr_set host".
-        client.send_request(request, expected_status_code="301")
+        await client.send_request(request, expected_status_code="301")
 
         # Response from the cache, we now cache using vhost name (both requests use same vhost).
         self.assertIsNotNone(client.last_response.headers.get("age", None))
@@ -2663,10 +2666,10 @@ tls_match_any_server_name;
 
     backends = [DEPROXY_SERVER]
 
-    def test(self):
-        self.start_all_services()
+    async def test(self):
+        await self.start_all_services()
 
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
@@ -2686,7 +2689,7 @@ tls_match_any_server_name;
             headers=[],
         )
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertGreaterEqual(client.last_response.headers.get("age"), "333")
         self.assertEqual(len(srv.requests), 1)
 
@@ -2696,7 +2699,7 @@ tls_match_any_server_name;
         (Tempesta FW should take into account 'age' header
          of previouly received response).
         """
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertGreaterEqual(client.last_response.headers.get("age"), "333")
         self.assertEqual(len(srv.requests), 1)
 
@@ -2754,14 +2757,14 @@ http_chain {
 
     backends = [DEPROXY_SERVER, DEPROXY_SERVER_EXTRA]
 
-    def test(self):
-        self.start_all_services()
+    async def test(self):
+        await self.start_all_services()
         server = self.get_server("deproxy")
         server1 = self.get_server("deproxy_extra")
 
         i = 0
         for srv_name in ["deproxy", "deproxy_extra"]:
-            srv: StaticDeproxyServer = self.get_server(srv_name)
+            srv = self.get_server(srv_name)
             srv.set_response(
                 "HTTP/1.1 200 OK\r\n"
                 + "Connection: keep-alive\r\n"
@@ -2775,7 +2778,7 @@ http_chain {
 
         client = self.get_client("deproxy")
         # First request with uri "/" goes to app1 (server deproxy, body "a" * 10)
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -2787,7 +2790,7 @@ http_chain {
         self.assertNotIn("age", client.last_response.headers)
 
         # Second request with same uri "/" - should be cached
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -2801,7 +2804,7 @@ http_chain {
         self.assertEqual(len(server1.requests), 0)
 
         # Third request with uri "/test" goes to app2 (server deproxy_extra, body "a" * 11)
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",

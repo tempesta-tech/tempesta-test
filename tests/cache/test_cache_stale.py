@@ -2,7 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
+import asyncio
 
 from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_message import HttpMessage
@@ -53,13 +53,13 @@ cache_fulfill * *;
             self.clients = [{**client, "type": "deproxy_h2"} for client in self.clients]
         tester.TempestaTest.setUp(self)
 
-    def use_stale_base(
+    async def use_stale_base(
         self, resp_status, use_stale, resp1_headers, resp2_headers, expect_status, expect_stale
     ):
         tempesta = self.get_tempesta()
         tempesta.config.set_defconfig(tempesta.config.defconfig + f"cache_use_stale {use_stale};\n")
         server = self.get_server("deproxy")
-        self.start_all_services(False)
+        await self.start_all_services(False)
         self.disable_deproxy_auto_parser()
 
         server.set_response(
@@ -72,7 +72,7 @@ cache_fulfill * *;
 
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -83,7 +83,7 @@ cache_fulfill * *;
         )
 
         # Wait while response become stale
-        time.sleep(3)
+        await asyncio.sleep(3)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -93,7 +93,7 @@ cache_fulfill * *;
             )
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -131,7 +131,7 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
         }
     ]
 
-    def test_use_stale_timeout(self):
+    async def test_use_stale_timeout(self):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
@@ -145,7 +145,7 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
         """
         server = self.get_server("deproxy")
         server.hang_on_req_num = 2
-        self.use_stale_base(
+        await self.use_stale_base(
             resp_status=302,
             use_stale="504",
             resp1_headers=[],
@@ -154,7 +154,7 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
             expect_stale=True,
         )
 
-    def test_timeout_no_stale(self):
+    async def test_timeout_no_stale(self):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
@@ -165,7 +165,7 @@ class TestCacheUseStaleTimeout(TestCacheUseStaleBase):
         """
         server = self.get_server("deproxy")
         server.hang_on_req_num = 2
-        self.use_stale_base(
+        await self.use_stale_base(
             resp_status=302,
             use_stale="500",
             resp1_headers=[],
@@ -206,7 +206,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             ),
         ]
     )
-    def test_use_stale(self, name, status, use_stale, r2_hdrs):
+    async def test_use_stale(self, name, status, use_stale, r2_hdrs):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
@@ -219,7 +219,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         This test always expect stale response.
         """
-        self.use_stale_base(
+        await self.use_stale_base(
             resp_status=status,
             use_stale=use_stale,
             resp1_headers=[],
@@ -234,7 +234,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             marks.Param(name="403", status="403", use_stale="5*"),
         ]
     )
-    def test_use_fresh(self, name, status, use_stale):
+    async def test_use_fresh(self, name, status, use_stale):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
@@ -243,7 +243,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         This test expect non stale response, because received status code not
         specified in "cache_use_stale".
         """
-        self.use_stale_base(
+        await self.use_stale_base(
             resp_status=status,
             use_stale=use_stale,
             resp1_headers=[],
@@ -265,14 +265,14 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             ),
         ]
     )
-    def test_use_fresh_on_error(self, name, status, r1_hdrs):
+    async def test_use_fresh_on_error(self, name, status, r1_hdrs):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
         request and receive non stale response, because one of following cache-control
         parameters is present in message: s-maxage, must-revalidate, proxy-revalidate.
         """
-        self.use_stale_base(
+        await self.use_stale_base(
             resp_status="400",
             use_stale="4* 5*",
             resp1_headers=r1_hdrs,
@@ -281,7 +281,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             expect_stale=False,
         )
 
-    def test_max_stale(self):
+    async def test_max_stale(self):
         """
         Send first request, this request forwarded to upstream and processed with status
         code 200, Tempesta cache it. Wait while response become stale. Send second
@@ -291,7 +291,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         tempesta = self.get_tempesta()
         tempesta.config.set_defconfig(tempesta.config.defconfig + f"cache_use_stale 4* 5*;\n")
         server = self.get_server("deproxy")
-        self.start_all_services(False)
+        await self.start_all_services(False)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -303,7 +303,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -314,7 +314,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         # Wait while response become stale
-        time.sleep(3)
+        await asyncio.sleep(3)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -324,7 +324,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             )
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -340,9 +340,9 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         self.assertEqual(client.last_response.headers.get("warning"), "110 - Response is stale")
 
         # Wait while age become greater than max-stale
-        time.sleep(8)
+        await asyncio.sleep(8)
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -367,7 +367,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             ),
         ]
     )
-    def test_use_stale_if_error_param(self, name, req_headers, resp_headers):
+    async def test_use_stale_if_error_param(self, name, req_headers, resp_headers):
         """
         In this tests we don't use "cache_use_stale" configuration directive.
         Here we test "stale-if-error" cache-control parameter. See RFC 5861.
@@ -382,7 +382,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         """
         resp_codes = ["500", "502", "503", "504"]
         server = self.get_server("deproxy")
-        self.start_all_services(False)
+        await self.start_all_services(False)
         self.disable_deproxy_auto_parser()
 
         server.set_response(
@@ -395,7 +395,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -406,10 +406,10 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         # Wait while response become stale
-        time.sleep(3)
+        await asyncio.sleep(3)
 
         # Stale-if-error must be ignored, no error occured
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -431,7 +431,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
                 )
             )
 
-            client.send_request(
+            await client.send_request(
                 client.create_request(
                     method="GET",
                     uri="/",
@@ -455,7 +455,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             ),
         ]
     )
-    def test_use_stale_then_fresh(self, name, req_headers, resp_headers):
+    async def test_use_stale_then_fresh(self, name, req_headers, resp_headers):
         """
         In this tests we don't use "cache_use_stale" configuration directive.
         Here we test "stale-if-error" cache-control parameter. See RFC 5861.
@@ -470,7 +470,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         status code.
         """
         server = self.get_server("deproxy")
-        self.start_all_services(False)
+        await self.start_all_services(False)
         self.disable_deproxy_auto_parser()
 
         server.set_response(
@@ -483,7 +483,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -494,7 +494,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         # Wait while response become stale
-        time.sleep(2)
+        await asyncio.sleep(2)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -504,7 +504,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             )
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -518,9 +518,9 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         self.assertGreaterEqual(int(client.last_response.headers.get("age", -1)), 0)
         self.assertEqual(client.last_response.headers.get("warning"), "110 - Response is stale")
 
-        time.sleep(4)
+        await asyncio.sleep(4)
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -549,14 +549,16 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             ),
         ]
     )
-    def test_use_stale_if_error_duplicated(self, name, req_headers, resp_headers, expected_code):
+    async def test_use_stale_if_error_duplicated(
+        self, name, req_headers, resp_headers, expected_code
+    ):
         """
         Test duplicated values for stale-if-error parameter of cache-control.
         For now Tempesta blocks duplicated stale-if-error only for responses.
         """
         self.disable_deproxy_auto_parser()
         server = self.get_server("deproxy")
-        self.start_all_services(False)
+        await self.start_all_services(False)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -568,7 +570,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
 
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -578,11 +580,11 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             3,
         )
 
-    def test_stale_if_error_not_use_304(self):
+    async def test_stale_if_error_not_use_304(self):
         """
         Test ensures Tempesta doesn't return stale response with 304.
         """
-        self.start_all_services()
+        await self.start_all_services()
         srv = self.get_server("deproxy")
         client = self.get_client("deproxy")
 
@@ -594,13 +596,13 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             + "\r\n"
         )
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/page.html", headers=[]),
             expected_status_code="200",
         )
 
-        time.sleep(2)
-        client.send_request(
+        await asyncio.sleep(2)
+        await client.send_request(
             request=client.create_request(
                 method="GET",
                 uri="/page.html",
@@ -615,7 +617,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         # Response is stale, 304 not expected
         self.assertEqual(len(srv.requests), 2, "Server has received unexpected number of requests.")
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET",
                 uri="/page.html",

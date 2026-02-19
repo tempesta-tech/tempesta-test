@@ -1,8 +1,8 @@
 """Functional tests for custom processing of cached responses."""
 
 import abc
+import asyncio
 import copy
-import time
 
 from framework.deproxy import deproxy_message
 from framework.helpers import tf_cfg
@@ -65,13 +65,6 @@ class TestCacheControl(tester.TempestaTest, base=True):
     # Empty if cached/second response is same as first one.
     cached_status = "200"
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
     def setUp(self):
         self.tempesta = copy.deepcopy(self.tempesta_template)
         self.tempesta["config"] = self.tempesta["config"] % {
@@ -85,7 +78,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
 
         super().setUp()
 
-    def client_send_req(self, client, headers: dict):
+    async def client_send_req(self, client, headers: dict):
         req_headers = "".join(
             "{0}: {1}\r\n".format(header, header_value if header_value else "")
             for header, header_value in headers.items()
@@ -97,7 +90,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
         )
         curr_responses = len(client.responses)
         client.make_request(req)
-        client.wait_for_response(timeout=1)
+        await client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses), "response lost")
 
         return client.last_response
@@ -130,8 +123,8 @@ class TestCacheControl(tester.TempestaTest, base=True):
                     "{0} header is missing in the cached response".format(name),
                 )
 
-    def _test(self):
-        self.start_all()
+    async def _test(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         srv = self.get_server("deproxy")
 
@@ -149,7 +142,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
             response_template + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n\r\n"
         )
 
-        response = self.client_send_req(client, self.request_headers)
+        response = await self.client_send_req(client, self.request_headers)
         self.assertEqual(
             response.status,
             self.response_status,
@@ -159,13 +152,13 @@ class TestCacheControl(tester.TempestaTest, base=True):
         self.check_response_headers(response)
 
         if self.sleep_interval:
-            time.sleep(self.sleep_interval)
+            await asyncio.sleep(self.sleep_interval)
 
         srv.set_response(
             response_template + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n\r\n"
         )
 
-        cached_response = self.client_send_req(client, self.second_request_headers)
+        cached_response = await self.client_send_req(client, self.second_request_headers)
         self.assertEqual(
             cached_response.status,
             self.cached_status,
@@ -185,11 +178,11 @@ class TestCacheControl(tester.TempestaTest, base=True):
 class SingleTest(abc.ABC):
     """This abstract class for run one test"""
 
-    def test(self):
-        self._test()
+    async def test(self):
+        await self._test()
 
     @abc.abstractmethod
-    def _test(self):
+    async def _test(self):
         pass
 
 
@@ -228,9 +221,9 @@ class CacheHdrDelCached(TestCacheControl, SingleTest):
     cached_headers = {"content-encoding": None, "Remove-me-2": None}
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 class CacheHdrDelCached2(TestCacheControl, SingleTest):
@@ -242,9 +235,9 @@ class CacheHdrDelCached2(TestCacheControl, SingleTest):
     cached_headers = {"content-encoding": None, "Remove-me-2": None}
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 # This test does a regular caching without additional processing,
@@ -786,9 +779,9 @@ class CCArgNoCacheCached(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 class CCArgNoCacheCached2(TestCacheControl, SingleTest):
@@ -807,9 +800,9 @@ class CCArgNoCacheCached2(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 class CCArgNoCacheCached3(TestCacheControl, SingleTest):
@@ -826,9 +819,9 @@ class CCArgNoCacheCached3(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 #############
@@ -861,9 +854,9 @@ class CCArgPrivateCached(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 class CCArgPrivateCached2(TestCacheControl, SingleTest):
@@ -882,9 +875,9 @@ class CCArgPrivateCached2(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 # erase two headers
@@ -904,9 +897,9 @@ class CCArgBothNoCacheCached(TestCacheControl, SingleTest):
     }
     should_be_cached = True
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        super().test()
+        await super().test()
 
 
 #########################################################

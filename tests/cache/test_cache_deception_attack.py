@@ -64,7 +64,7 @@ cache_fulfill suffix ".jpg";
         },
     ]
 
-    def base_scenario(self, cache_lvl: int, response: str, request: list):
+    async def base_scenario(self, cache_lvl: int, response: str, request: list):
         """
         Send each request twice and assert that backend server also receives
         exactly two requests
@@ -75,16 +75,16 @@ cache_fulfill suffix ".jpg";
         server = self.get_server("deproxy")
         server.set_response(response)
 
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.send_request(request, "200")
-        deproxy_cl.send_request(request, "200")
+        await deproxy_cl.send_request(request, "200")
+        await deproxy_cl.send_request(request, "200")
 
         self.assertEqual(2, len(server.requests))
 
-    def test_cc_no_store_in_response_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_cc_no_store_in_response_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_CC_NO_STORE,
             request=self.get_client("deproxy").create_request(
@@ -92,8 +92,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_store_in_response_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_cc_no_store_in_response_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_CC_NO_STORE,
             request=self.get_client("deproxy").create_request(
@@ -101,8 +101,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_cache_in_response_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_cc_no_cache_in_response_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_CC_NO_CACHE,
             request=self.get_client("deproxy").create_request(
@@ -110,8 +110,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_cache_in_response_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_cc_no_cache_in_response_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_CC_NO_CACHE,
             request=self.get_client("deproxy").create_request(
@@ -119,8 +119,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_private_in_response_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_cc_private_in_response_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_CC_PRIVATE,
             request=self.get_client("deproxy").create_request(
@@ -128,8 +128,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_private_in_response_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_cc_private_in_response_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_CC_PRIVATE,
             request=self.get_client("deproxy").create_request(
@@ -137,8 +137,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_store_in_request_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_cc_no_store_in_request_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_WITHOUT_CC,
             request=self.get_client("deproxy").create_request(
@@ -148,8 +148,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_store_in_request_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_cc_no_store_in_request_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_WITHOUT_CC,
             request=self.get_client("deproxy").create_request(
@@ -159,8 +159,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_cache_in_request_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_cc_no_cache_in_request_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_WITHOUT_CC,
             request=self.get_client("deproxy").create_request(
@@ -170,8 +170,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_cc_no_cache_in_request_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_cc_no_cache_in_request_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_WITHOUT_CC,
             request=self.get_client("deproxy").create_request(
@@ -181,8 +181,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_pragma_no_cache_in_request_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_pragma_no_cache_in_request_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_WITHOUT_CC,
             request=self.get_client("deproxy").create_request(
@@ -190,8 +190,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_pragma_no_cache_in_request_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_pragma_no_cache_in_request_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_WITHOUT_CC,
             request=self.get_client("deproxy").create_request(
@@ -199,8 +199,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_pragma_no_cache_in_response_and_cache_lvl_1(self):
-        self.base_scenario(
+    async def test_pragma_no_cache_in_response_and_cache_lvl_1(self):
+        await self.base_scenario(
             cache_lvl=1,
             response=RESPONSE_PRAGMA_NO_CACHE,
             request=self.get_client("deproxy").create_request(
@@ -208,8 +208,8 @@ cache_fulfill suffix ".jpg";
             ),
         )
 
-    def test_pragma_no_cache_in_response_and_cache_lvl_2(self):
-        self.base_scenario(
+    async def test_pragma_no_cache_in_response_and_cache_lvl_2(self):
+        await self.base_scenario(
             cache_lvl=2,
             response=RESPONSE_PRAGMA_NO_CACHE,
             request=self.get_client("deproxy").create_request(
