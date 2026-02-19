@@ -2,6 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import time
 
 from framework.helpers import analyzer, dmesg, remote, tf_cfg
@@ -70,7 +71,7 @@ class TestRescheduling(TestServerOptionsBase):
             self.assertEqual(resp.status, "200")
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_request_success_if_first_response_failed_on_half(self):
+    async def test_request_success_if_first_response_failed_on_half(self):
         """
         Tempesta FW forwards a request to a server, server sends only
         half of response and drops connection because of reboot.
@@ -91,22 +92,22 @@ class TestRescheduling(TestServerOptionsBase):
             b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxx"
         )
 
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy-1")
         client.make_request(client.create_request(method="GET", headers=[]))
         # Sleep until Tempesta FW received response.
-        time.sleep(3)
+        await asyncio.sleep(3)
         server.stop()
         server.set_response(
             b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
         )
         server.start()
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(client.last_response.body, "xxxxxxxxxx")
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_send_pipelined_after_reestablish_connection_on_one_request(self):
+    async def test_server_send_pipelined_after_reestablish_connection_on_one_request(self):
         """
         Tempesta FW sends several requests to the server but server is shutdowned and
         doesn't send any response. After connection re-established Tempesta FW sends
@@ -125,20 +126,20 @@ class TestRescheduling(TestServerOptionsBase):
         server = self.get_server("deproxy")
         server.conns_n = 1
         server.pipelined = 4
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy-1")
         for _ in range(0, 3):
             client.make_request(client.create_request(method="GET", headers=[]))
-        server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3, strict=True)
         server.stop()
 
         server.start()
-        server.wait_for_requests(1, strict=True)
+        await server.wait_for_requests(1, strict=True)
         server.stop()
 
         server.start()
-        server.wait_for_requests(1, strict=True)
+        await server.wait_for_requests(1, strict=True)
         server.stop()
 
         server.pipelined = 0
@@ -156,7 +157,7 @@ class TestRescheduling(TestServerOptionsBase):
             "An unexpected number of warnings were received",
         )
 
-    def test_502_response_for_restricted_connection(self):
+    async def test_502_response_for_restricted_connection(self):
         """
         Tempesta FW sends several requests to the server but server is shutdowned and
         doesn't send any response. After connection re-established Tempesta FW resends
@@ -177,25 +178,25 @@ class TestRescheduling(TestServerOptionsBase):
         server = self.get_server("deproxy")
         server.conns_n = 1
         server.pipelined = 5
-        self.start_all_services()
+        await self.start_all_services()
 
         client_1 = self.get_client("deproxy-1")
         for _ in range(0, 3):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
-        server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3, strict=True)
         server.stop()
         server.pipelined = 2
         server.start()
-        server.wait_for_requests(1, strict=True)
+        await server.wait_for_requests(1, strict=True)
 
         client_2 = self.get_client("deproxy-2")
-        client_2.send_request(client_2.create_request(method="GET", headers=[]), "502")
+        await client_2.send_request(client_2.create_request(method="GET", headers=[]), "502")
         server.flush()
-        client_1.wait_for_response()
+        await client_1.wait_for_response()
         self.__check_success_responses(client_1, 3)
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_send_response_after_connection_reestablished(self):
+    async def test_server_send_response_after_connection_reestablished(self):
         """
         Tempesta FW sends several requests to the server but server is shutdowned and
         doesn't send any response. After connection re-established server sends response
@@ -213,12 +214,12 @@ class TestRescheduling(TestServerOptionsBase):
         server = self.get_server("deproxy")
         server.conns_n = 1
         server.pipelined = 5
-        self.start_all_services()
+        await self.start_all_services()
 
         client_1 = self.get_client("deproxy-1")
         for _ in range(0, 4):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
-        server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3, strict=True)
         server.stop()
         server.pipelined = 2
         server.send_after_conn_established = True
@@ -235,7 +236,7 @@ class TestRescheduling(TestServerOptionsBase):
 
 class TestServerOptions(TestServerOptionsBase):
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_forward_timeout_exceeded(self):
+    async def test_server_forward_timeout_exceeded(self):
         """
         Tempesta forwards a request to a server during 3 seconds,
         but the server always drops the request.
@@ -259,11 +260,11 @@ class TestServerOptions(TestServerOptionsBase):
         server.drop_conn_when_request_received = True
         server.conns_n = 2
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         time_start = time.monotonic()
-        client.send_request(client.create_request(method="GET", headers=[]), "504")
+        await client.send_request(client.create_request(method="GET", headers=[]), "504")
         time_end = time.monotonic()
 
         self.assertGreater(time_end - time_start, 2, "Tempesta evicted a request earlier.")
@@ -273,7 +274,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_forward_timeout_not_exceeded(self):
+    async def test_server_forward_timeout_not_exceeded(self):
         """
         Tempesta forwards a request to a server during 3 seconds.
         The server drops the request the first second and then returns a response.
@@ -297,13 +298,13 @@ class TestServerOptions(TestServerOptionsBase):
         server.drop_conn_when_request_received = True
         server.conns_n = 2
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
-        time.sleep(1)
+        await asyncio.sleep(1)
         server.drop_conn_when_request_received = False
-        client.wait_for_response(timeout=5, strict=True)
+        await client.wait_for_response(timeout=5, strict=True)
 
         self.assertEqual(client.last_response.status, "200")
         self.assertTrue(
@@ -318,7 +319,7 @@ class TestServerOptions(TestServerOptionsBase):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_forward_retries(self, name, server_forward_retries):
+    async def test_server_forward_retries(self, name, server_forward_retries):
         """
         Tempesta forwards a request to a server 6/1 times,
         but the server always drops this request.
@@ -342,10 +343,10 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(client.create_request(method="GET", headers=[]), "504")
+        await client.send_request(client.create_request(method="GET", headers=[]), "504")
 
         self.assertTrue(
             self.loggers.dmesg.find(
@@ -361,7 +362,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_forward_retries_not_exceeded(self):
+    async def test_server_forward_retries_not_exceeded(self):
         """
         Tempesta forwards a request to a server 100 times,
         but the server drops first 50 requests and then returns a response.
@@ -385,13 +386,13 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
-        server.wait_for_requests(50, strict=True)
+        await server.wait_for_requests(50, strict=True)
         server.drop_conn_when_request_received = False
-        client.wait_for_response(timeout=5, strict=True)
+        await client.wait_for_response(timeout=5, strict=True)
 
         self.assertTrue(
             self.loggers.dmesg.find(
@@ -407,7 +408,7 @@ class TestServerOptions(TestServerOptionsBase):
             "to server for `server_forward_retries`.",
         )
 
-    def test_requests_after_nonidempotent_request_conn_n_1(self):
+    async def test_requests_after_nonidempotent_request_conn_n_1(self):
         """
         The client sends a nonidempotent request and few idempotent requests.
         Tempesta forwards the nonidempotent request to single connection
@@ -429,18 +430,18 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="POST", headers=[]))
-        server.wait_for_requests(1, strict=True)  # it's necessary for stability
+        await server.wait_for_requests(1, strict=True)  # it's necessary for stability
 
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * 5)
 
-        client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close(strict=True)
         self.assertIsNone(client.last_response)
 
-    def test_requests_after_nonidempotent_request_conn_n_2(self):
+    async def test_requests_after_nonidempotent_request_conn_n_2(self):
         """
         The client sends a nonidempotent request and few idempotent requests.
         Tempesta forwards the nonidempotent request to first connection
@@ -460,18 +461,18 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="POST", headers=[]))
 
-        server.wait_for_requests(1, strict=True)  # it's necessary for stability
+        await server.wait_for_requests(1, strict=True)  # it's necessary for stability
         server.set_response("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
 
         request = client.create_request(method="GET", headers=[])
         idempotent_req_n = 5
         client.make_requests([request] * idempotent_req_n)
 
-        client.wait_for_response(n=idempotent_req_n, strict=True)
+        await client.wait_for_response(n=idempotent_req_n, strict=True)
         self.assertEqual(
             {1, idempotent_req_n},
             set(con.nrreq for con in server.connections),
@@ -481,7 +482,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_queue_size_exceeded(self):
+    async def test_server_queue_size_exceeded(self):
         """
         The client sends the number of requests equal to `server_queue_size`
         and Tempesta forwards them. Tempesta marks the connection as dead
@@ -510,12 +511,12 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * server_queue_size)
-        server.wait_for_requests(server_queue_size, strict=True)
+        await server.wait_for_requests(server_queue_size, strict=True)
         client.make_requests([request] * 10)
         self.assertTrue(client.wait_for_connection_close())
 
@@ -526,7 +527,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_queue_size_not_exceeded(self):
+    async def test_server_queue_size_not_exceeded(self):
         """
         The client sends the number of requests equal to `server_queue_size`
         and Tempesta forwards them (client does not exceed the limit).
@@ -555,12 +556,12 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * server_queue_size)
-        server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3, strict=True)
         self.assertTrue(client.wait_for_connection_close())
 
         self.assertEqual(client.statuses, {})
@@ -572,7 +573,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_queue_size_pipeline_disable(self):
+    async def test_server_queue_size_pipeline_disable(self):
         """
         Test for http 1.
         `server_queue_size 1` disables pipelined requests to connections.
@@ -598,12 +599,12 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy-1")
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * 5)
-        server.wait_for_requests(server_queue_size, strict=True)
+        await server.wait_for_requests(server_queue_size, strict=True)
         self.assertTrue(client.wait_for_connection_close())
 
         self.assertTrue(
@@ -613,7 +614,7 @@ class TestServerOptions(TestServerOptionsBase):
         self.assertEqual(len(server.requests), 1)
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_retry_nonidempotent_enabled(self):
+    async def test_server_retry_nonidempotent_enabled(self):
         server = self.get_server("deproxy")
         server.drop_conn_when_request_received = True
         server.conns_n = 2
@@ -630,10 +631,10 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(client.create_request(method="POST", headers=[]), "504")
+        await client.send_request(client.create_request(method="POST", headers=[]), "504")
 
         self.assertTrue(
             self.loggers.dmesg.find(
@@ -646,7 +647,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_retry_nonidempotent_disabled(self):
+    async def test_server_retry_nonidempotent_disabled(self):
         server = self.get_server("deproxy")
         server.drop_conn_when_request_received = True
         server.conns_n = 2
@@ -662,10 +663,10 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(client.create_request(method="POST", headers=[]), "504")
+        await client.send_request(client.create_request(method="POST", headers=[]), "504")
 
         self.assertTrue(
             self.loggers.dmesg.find(
@@ -678,7 +679,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_connect_retries_exceeded_conns_n_1(self):
+    async def test_server_connect_retries_exceeded_conns_n_1(self):
         """
         Tempesta forwards a request to a server connection,
         but the server drops this connection and doesn't accept a new connection.
@@ -702,14 +703,14 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         sniffer = analyzer.Sniffer(node=remote.tempesta, host="Tempesta", timeout=15, ports=[8000])
-        sniffer.start()
+        await sniffer.start()
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(server.wait_for_requests(n=1))
+        self.assertTrue(await server.wait_for_requests(n=1))
         server.reset_new_connections()
 
         self.assertTrue(client.wait_for_response(timeout=15))
@@ -733,7 +734,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_connect_retries_exceeded_conns_n_2(self):
+    async def test_server_connect_retries_exceeded_conns_n_2(self):
         """
         Tempesta forwards a request to a server connection,
         but the server drops this connection and doesn't accept a new connection.
@@ -756,13 +757,13 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
-        sniffer.start()
+        await sniffer.start()
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(server.wait_for_requests(1))
+        self.assertTrue(await server.wait_for_requests(1))
         server.reset_new_connections()
         server.drop_conn_when_request_received = False
 
@@ -788,7 +789,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_server_connect_retries_not_exceeded(self):
+    async def test_server_connect_retries_not_exceeded(self):
         """
         Tempesta forwards a request to a server connection,
         but the server drops this connection and doesn't accept a new connection
@@ -811,16 +812,16 @@ class TestServerOptions(TestServerOptionsBase):
         """
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(server.wait_for_requests(1))
+        self.assertTrue(await server.wait_for_requests(1))
         server.reset_new_connections()
         server.drop_conn_when_request_received = False
 
-        time.sleep(2)
+        await asyncio.sleep(2)
         # Do not call the start method here because it reset all variables
         server.run_start()
 
