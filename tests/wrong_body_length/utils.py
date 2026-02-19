@@ -75,14 +75,14 @@ class TestContentLengthBase(TempestaTest, base=True):
     srv_msg_other_errors: int
     expected_requests_to_server: int
 
-    def _test(self):
+    async def _test(self):
         """
         Send request with correct or incorrect data to server and check if response have been
         received.
         """
         srv: StaticDeproxyServer = self.get_server("deproxy")
         srv.keep_alive = self.keep_alive
-        self.start_all_services()
+        await self.start_all_services()
 
         client: DeproxyClient = self.get_client("deproxy")
         client.parsing = False
@@ -112,7 +112,7 @@ class TestContentLengthBase(TempestaTest, base=True):
                 + f"{self.request_body}"
             )
 
-        client.send_request(
+        await client.send_request(
             request=request,
             expected_status_code=self.expected_response_status,
         )

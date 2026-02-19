@@ -52,9 +52,9 @@ class H2RequestContentLengthBase(TestContentLengthBase, base=True):
     cl_msg_other_errors = 0
     srv_msg_other_errors = 0
 
-    def _test(self):
+    async def _test(self):
         srv = self.get_server("deproxy")
-        super()._test()
+        await super()._test()
         if self.expected_response_status in ["200", "204"]:
             self.assertIn("content-length", srv.last_request.headers)
 
@@ -108,10 +108,10 @@ class RequestLongBodyLength(H2RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         self.request_method = "PUT"
-        self._test()
+        await self._test()
