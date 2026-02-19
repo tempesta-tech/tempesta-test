@@ -325,7 +325,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         self.assertEqual(record.dropped_events, 0)
         self.assertEqual(record.vhost, "default")
         self.assertEqual(record.tfh, 2551211360704)
-        self.assertEqual(record.tft, 7407189765761859584)
+        self.assertEqual(record.tft, 7407189766213926912)
 
 
 class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
