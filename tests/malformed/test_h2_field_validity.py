@@ -48,9 +48,9 @@ block_action error reply;
         },
     ]
 
-    def send_response_and_check_connection_is_closed(self, header: list):
+    async def send_response_and_check_connection_is_closed(self, header: list):
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
@@ -65,13 +65,13 @@ block_action error reply;
             + header,
             huffman=False,
         )
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual("400", client.last_response.status)
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         client.stop()
 
-    def test_ascii_uppercase_in_header_name(self):
+    async def test_ascii_uppercase_in_header_name(self):
         """
         A field name MUST NOT contain characters in the ranges 0x00-0x20, 0x41-0x5a,
         or 0x7f-0xff (all ranges inclusive). This specifically excludes all non-visible
@@ -81,13 +81,17 @@ block_action error reply;
         """
         symbol = random.randint(0x41, 0x5A).to_bytes(1, "big")
         with self.subTest(symbol=symbol, msg="Subtest with one random symbols."):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+            await self.send_response_and_check_connection_is_closed(
+                [(b"x-my-hdr" + symbol, b"value")]
+            )
 
         symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x41, 0x5A)])
         with self.subTest(msg="Subtest with symbols from 0x41 to 0x5a"):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
+            await self.send_response_and_check_connection_is_closed(
+                [(b"x-my-hdr" + symbols, b"value")]
+            )
 
-    def test_ascii_from_0x7f_to_0xff_in_header_name(self):
+    async def test_ascii_from_0x7f_to_0xff_in_header_name(self):
         """
         A field name MUST NOT contain characters in the ranges 0x00-0x20, 0x41-0x5a,
         or 0x7f-0xff (all ranges inclusive). This specifically excludes all non-visible
@@ -97,13 +101,17 @@ block_action error reply;
         """
         symbol = random.randint(0x7F, 0xFF).to_bytes(1, "big")
         with self.subTest(hex=symbol, msg="Subtest with one random symbols."):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+            await self.send_response_and_check_connection_is_closed(
+                [(b"x-my-hdr" + symbol, b"value")]
+            )
 
         symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x7F, 0xFF)])
         with self.subTest(msg="Subtest with symbols from 0x7f to 0xff"):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
+            await self.send_response_and_check_connection_is_closed(
+                [(b"x-my-hdr" + symbols, b"value")]
+            )
 
-    def test_ascii_from_0x00_to_0x20_in_header_name(self):
+    async def test_ascii_from_0x00_to_0x20_in_header_name(self):
         """
         A field name MUST NOT contain characters in the ranges 0x00-0x20, 0x41-0x5a,
         or 0x7f-0xff (all ranges inclusive). This specifically excludes all non-visible
@@ -113,13 +121,17 @@ block_action error reply;
         """
         symbol = random.randint(0x00, 0x20).to_bytes(1, "big")
         with self.subTest(hex=symbol, msg="Subtest with one random symbols."):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbol, b"value")])
+            await self.send_response_and_check_connection_is_closed(
+                [(b"x-my-hdr" + symbol, b"value")]
+            )
 
         symbols = b"".join([symbol.to_bytes(1, "big") for symbol in range(0x00, 0x20)])
         with self.subTest(msg="Subtest with symbols from 0x7f to 0xff"):
-            self.send_response_and_check_connection_is_closed([(b"x-my-hdr" + symbols, b"value")])
+            await self.send_response_and_check_connection_is_closed(
+                [(b"x-my-hdr" + symbols, b"value")]
+            )
 
-    def test_ascii_0x00_0x0a_0x0d_in_header_value(self):
+    async def test_ascii_0x00_0x0a_0x0d_in_header_value(self):
         """
         A field value MUST NOT contain the zero value (ASCII NUL, 0x00),
         line feed (ASCII LF, 0x0a), or carriage return (ASCII CR, 0x0d) at any position.
@@ -127,11 +139,11 @@ block_action error reply;
         """
         for symbol in [b"\x00", b"\x0a", b"\x0d"]:
             with self.subTest(symbol=symbol):
-                self.send_response_and_check_connection_is_closed(
+                await self.send_response_and_check_connection_is_closed(
                     [(b"x-my-hdr", b"val" + symbol + b"ue")]
                 )
 
-    def test_ascii_0x20_and_0x09_in_header_value(self):
+    async def test_ascii_0x20_and_0x09_in_header_value(self):
         """
         A field value MUST NOT start or end with an ASCII whitespace character
         (ASCII SP or HTAB, 0x20 or 0x09).
@@ -140,13 +152,15 @@ block_action error reply;
         for symbol in [b"\x20", b"\x09"]:
             for header_value in [b"value" + symbol, symbol + b"value"]:
                 with self.subTest(header_value=header_value, symbol=symbol):
-                    self.send_response_and_check_connection_is_closed([(b"x-my-hdr", header_value)])
+                    await self.send_response_and_check_connection_is_closed(
+                        [(b"x-my-hdr", header_value)]
+                    )
 
 
 class TestH2HeaderFieldResponse(TestH2HeaderFieldRequest):
-    def send_response_and_check_connection_is_closed(self, header: list):
+    async def send_response_and_check_connection_is_closed(self, header: list):
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         server = self.get_server("deproxy")
         server.set_response(
@@ -163,7 +177,7 @@ class TestH2HeaderFieldResponse(TestH2HeaderFieldRequest):
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             [
                 (":authority", "example.com"),
                 (":path", "/"),
@@ -173,6 +187,6 @@ class TestH2HeaderFieldResponse(TestH2HeaderFieldRequest):
             "502",
         )
 
-    def test_ascii_uppercase_in_header_name(self):
+    async def test_ascii_uppercase_in_header_name(self):
         """Tempesta converts all characters to lowercase."""
         pass

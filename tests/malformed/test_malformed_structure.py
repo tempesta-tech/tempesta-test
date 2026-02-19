@@ -36,15 +36,15 @@ server ${server_ip}:8000;
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def common_check(self, request, expect="400"):
-        self.start_all_services()
+    async def common_check(self, request, expect="400"):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(request, expect)
+        await client.send_request(request, expect)
 
-    def test_lfcr(self):
+    async def test_lfcr(self):
         """
         \r actually don't belong to the line, where it placed.
         it belongs to the next line
@@ -59,9 +59,9 @@ server ${server_ip}:8000;
         """
 
         request = "GET / HTTP/1.1\n\r" "Host: localhost\n\r" "\n\r"
-        self.common_check(request, "400")
+        await self.common_check(request, "400")
 
-    def test_space(self):
+    async def test_space(self):
         """
         https://tools.ietf.org/html/rfc7230#section-3.2.4
         No whitespace is allowed between the header field-name and colon.  In
@@ -75,22 +75,18 @@ server ${server_ip}:8000;
         request = "GET / HTTP/1.1\r\n" "Host : localhost\r\n" "\r\n"
         expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
 
+        await self.start_all_services()
         deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
         deproxy_cl.make_request(request)
-        has_resp = deproxy_cl.wait_for_response(timeout=5)
+        has_resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(has_resp, "Response not received")
         status = int(deproxy_cl.last_response.status)
         self.assertTrue(status == 200 or status == 400)
         if status == 200:
             self.assertEqual(deproxy_srv.last_request, expect)
 
-    def test_crSPlf(self):
+    async def test_crSPlf(self):
         """
         https://tools.ietf.org/html/rfc7230#section-3
 
@@ -117,4 +113,4 @@ server ${server_ip}:8000;
         \r is neither a VCHAR nor obs-text
         """
         request = "GET / HTTP/1.1\r\n" "Host: localhost\r \n" "\r\n"
-        self.common_check(request, "400")
+        await self.common_check(request, "400")
