@@ -41,19 +41,21 @@ class TestClickhouseLogsBaseTest(tester.TempestaTest):
     ]
 
     @staticmethod
-    def send_simple_request(deproxy_client, request=None, expected_status: str = "201") -> None:
+    async def send_simple_request(
+        deproxy_client, request=None, expected_status: str = "201"
+    ) -> None:
         """
         The simple request with 200-code response
         """
-        deproxy_client.send_request(
+        await deproxy_client.send_request(
             request=request or deproxy_client.create_request(method="GET", headers=[]),
             expected_status_code=expected_status,
             timeout=10,
         )
 
-    def setUp(self):
-        super().setUp()
-        self.start_all_services(client=False)
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.start_all_services(client=False)
 
 
 class TestClickhouseLogsBufferConfiguration(tester.TempestaTest):
@@ -97,7 +99,7 @@ class TestClickhouseLogsBufferConfiguration(tester.TempestaTest):
             ),
         ]
     )
-    def test_invalid_mmap_buffer(self, name, mmap_size: str, fail_pattern: str):
+    async def test_invalid_mmap_buffer(self, name, mmap_size: str, fail_pattern: str):
         """
         Check the Tempesta FW doesn't start with invalid a mmap size value
         """
@@ -110,7 +112,9 @@ class TestClickhouseLogsBufferConfiguration(tester.TempestaTest):
             msg="Tempesta FW started with mmap_log_buffer_size > 128 MB or < 4 KB.",
         ):
             self.get_tempesta().start()
-        self.assertTrue(self.loggers.dmesg.find(fail_pattern), "Not found ERROR msg in dmesg.")
+        self.assertTrue(
+            await self.loggers.dmesg.find(fail_pattern), "Not found ERROR msg in dmesg."
+        )
 
     @marks.Parameterize.expand(
         [
@@ -118,18 +122,18 @@ class TestClickhouseLogsBufferConfiguration(tester.TempestaTest):
             marks.Param(name="128M", mmap_size="128M"),
         ]
     )
-    def test_mmap_buffer(self, name, mmap_size: str):
+    async def test_mmap_buffer(self, name, mmap_size: str):
         """
         Check the buffer works fine with a valid mmap value
         """
         tempesta = self.get_tempesta()
         tempesta.config.defconfig += f"mmap_log_buffer_size {mmap_size};"
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(client.create_request(method="GET", headers=[]))
+        await client.send_request(client.create_request(method="GET", headers=[]))
 
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
+        await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
 
 class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
@@ -142,16 +146,16 @@ class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
         """
     )
 
-    def test_dmesg_toggled_off(self):
+    async def test_dmesg_toggled_off(self):
         """
         Toggle off the dmesg logs sending
         """
         client = self.get_client("deproxy")
         client.start()
 
-        self.send_simple_request(client)
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
-        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
+        await self.send_simple_request(client)
+        await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
+        await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
 
 class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
@@ -164,14 +168,14 @@ class TestClickhouseTFWLoggerFile(TestClickhouseLogsBaseTest):
         """
     )
 
-    def test_twf_logger_file(self):
+    async def test_twf_logger_file(self):
         """
         Check the content of tfw_logger daemon access log
         """
-        self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find("Daemon started"))
+        await self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find("Daemon started"))
 
         self.get_tempesta().stop_tempesta()
-        self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find("Device closed"))
+        await self.assertWaitUntilTrue(lambda: self.loggers.clickhouse.find("Device closed"))
 
 
 class TestNoLogs(TestClickhouseLogsBaseTest):
@@ -182,18 +186,18 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         """
     )
 
-    def test_dmesg_clickhouse_toggled_off(self):
+    async def test_dmesg_clickhouse_toggled_off(self):
         """
         Turn off all the logs
         """
         client = self.get_client("deproxy")
         client.start()
 
-        self.send_simple_request(client)
-        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
+        await self.send_simple_request(client)
+        await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
 
         self.assertFalse(self.get_tempesta().tfw_log_file_exists())
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
+        await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
 
 class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
@@ -206,18 +210,18 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         """
     )
 
-    def test_clickhouse_toggled_off(self):
+    async def test_clickhouse_toggled_off(self):
         """
         Turn on the only dmesg logging
         """
         client = self.get_client("deproxy")
         client.start()
 
-        self.send_simple_request(client)
-        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+        await self.send_simple_request(client)
+        await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
 
         self.assertFalse(self.get_tempesta().tfw_log_file_exists())
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
+        await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 0)
 
 
 class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
@@ -277,7 +281,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
             ),
         ]
     )
-    def test_clickhouse_record_data(self, name, response, expected_status, content_length):
+    async def test_clickhouse_record_data(self, name, response, expected_status, content_length):
         """
         Verify the clickhouse log record data
         """
@@ -287,7 +291,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         client = self.get_client("deproxy")
         client.start()
 
-        self.send_simple_request(
+        await self.send_simple_request(
             client,
             client.create_request(
                 uri="/test",
@@ -303,8 +307,8 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
             expected_status=expected_status,
         )
 
-        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
+        await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+        await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         record = self.loggers.clickhouse.access_log_last_message()
         t1 = record.timestamp.replace(tzinfo=timezone.utc)
@@ -333,26 +337,26 @@ class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
         {"id": "deproxy", "type": "deproxy", "port": "8000", "response": "static"},
     ]
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
 
         deproxy_server = self.get_server("deproxy")
         deproxy_server.set_response(
             "HTTP/1.1 500 Internal Server Error\r\n" "Content-Length: 8\r\n\r\n12345678"
         )
 
-    def test_clickhouse_record_data_with_post(self):
+    async def test_clickhouse_record_data_with_post(self):
         """
         Verify the clickhouse log record data
         """
         client = self.get_client("deproxy")
         client.start()
 
-        self.send_simple_request(
+        await self.send_simple_request(
             client, client.create_request(uri="/", method="POST", headers=[]), expected_status="500"
         )
 
-        self.assertWaitUntilCountEqual(
+        await self.assertWaitUntilCountEqual(
             lambda: self.loggers.clickhouse.access_log_find(
                 status=500, method="POST", content_length=8, dropped_events=0
             ),
@@ -361,7 +365,7 @@ class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
 
 
 class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
-    def test_correctness_time_of_logs_after_server_delay(self):
+    async def test_correctness_time_of_logs_after_server_delay(self):
         """
         Verify the correctness of the clickhouse record
         timestamp value and timezone, response time
@@ -374,12 +378,12 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
 
         time_before = datetime.now(tz=timezone.utc)
 
-        self.send_simple_request(client)
+        await self.send_simple_request(client)
 
         time_after = datetime.now(tz=timezone.utc)
         self.assertEqual((time_after - time_before).seconds, 2)
-        self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
-        self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
+        await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
+        await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
 
         record = self.loggers.clickhouse.access_log_last_message()
         self.assertIsNone(record.timestamp.tzname())
@@ -418,7 +422,7 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         },
     ]
 
-    def test_immediate_log_appearance(self):
+    async def test_immediate_log_appearance(self):
         """
         This test demonstrates the original problem
         """
@@ -427,14 +431,14 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         client = self.get_client("curl")
 
         client.start()
-        self.assertTrue(client.wait_for_finish())
+        self.assertTrue(await client.wait_for_finish())
         client.stop()
 
-        self.assertWaitUntilEqual(
-            func=self.loggers.clickhouse.access_log_records_count, second=1, poll_freq=0.01
+        await self.assertWaitUntilEqual(
+            func=self.loggers.clickhouse.access_log_records_count, second=1
         )
 
-    def test_multiple_requests(self):
+    async def test_multiple_requests(self):
         """
         Test that multiple requests are send
         """
@@ -443,9 +447,9 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         client = self.get_client("parallel")
 
         client.start()
-        self.assertTrue(client.wait_for_finish())
+        self.assertTrue(await client.wait_for_finish())
         client.stop()
 
-        self.assertWaitUntilEqual(
-            func=self.loggers.clickhouse.access_log_records_count, second=5, poll_freq=0.01
+        await self.assertWaitUntilEqual(
+            func=self.loggers.clickhouse.access_log_records_count, second=5
         )
