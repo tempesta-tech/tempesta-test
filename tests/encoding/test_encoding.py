@@ -20,16 +20,16 @@ LARGE_BODY_CHUNK_SIZE_2 = 10
 
 
 class CommonUtils:
-    def start_all(self):
+    async def start_all(self):
         srv = self.get_server("backend")
         srv.keep_alive = 1
         srv.start()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.start_all_clients()
         self.deproxy_manager.start()
-        self.assertTrue(srv.wait_for_connections(1))
+        self.assertTrue(await srv.wait_for_connections(1))
 
-    def send_req(self, client, request=None):
+    async def send_req(self, client, request=None):
         request = (
             (
                 "GET / HTTP/1.1\r\n"
@@ -41,7 +41,7 @@ class CommonUtils:
             else request
         )
         client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await client.wait_for_response(timeout=5)
         return got_response
 
 
@@ -102,7 +102,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         self.backends[0]["response_content"] += util.encode_chunked(self.body, self.chunk_size)
         super().setUp()
 
-    def run_test(self, method, body_expected):
+    async def run_test(self, method, body_expected):
         client = self.get_client("client")
         server = self.get_server("backend")
 
@@ -113,7 +113,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             (":method", method),
         ]
         client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await client.wait_for_response(timeout=5)
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
@@ -133,7 +133,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
 
         # from now on the response is cached
         client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await client.wait_for_response(timeout=5)
 
         self.assertTrue(got_response, "Got no response")
         self.assertEqual(client.last_response.status, "200")
@@ -150,9 +150,9 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
         else:
             self.assertEqual(len(server.requests), 2)
 
-    def test(self):
-        self.start_all()
-        self.run_test("GET", True)
+    async def test(self):
+        await self.start_all()
+        await self.run_test("GET", True)
 
 
 class TestH2BodyDechunkingWithMovingBody(TestH2BodyDechunking):
@@ -199,13 +199,13 @@ class TestH2BodyDechunkingWithMovingBody(TestH2BodyDechunking):
     body = BODY_PAYLOAD
     chunk_size = 2
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
         client = self.get_client("client")
         client.update_initial_settings(max_header_list_size=65536 * 2)
         client.send_bytes(client.h2_connection.data_to_send())
-        self.assertTrue(client.wait_for_ack_settings())
-        self.run_test("GET", True)
+        self.assertTrue(await client.wait_for_ack_settings())
+        await self.run_test("GET", True)
 
 
 class TestH2EmptyResponseBodyDechunking(TestH2BodyDechunking):
@@ -223,10 +223,10 @@ class TestH2EmptyResponseBodyDechunkingHead(TestH2BodyDechunking):
 
     body = None
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
-        self.run_test("HEAD", False)
+        await self.start_all()
+        await self.run_test("HEAD", False)
 
 
 class TestH2LargeResponseBodyDechunking(TestH2BodyDechunking):
@@ -286,17 +286,17 @@ class TestH1ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
         client_1 = self.get_client("client-1")
         client_2 = self.get_client("client-2")
         server = self.get_server("backend")
         request = "GET / HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip, br, chunked\r\n\r\n"
 
-        client_1.send_request(request, "200")
+        await client_1.send_request(request, "200")
 
         #  second request
-        client_2.send_request(request, "200")
+        await client_2.send_request(request, "200")
         self.assertEqual(len(server.requests), 2, "The response has to be server from cache")
 
 
@@ -345,8 +345,8 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
 
@@ -357,7 +357,7 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
             (":method", "GET"),
         ]
         client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await client.wait_for_response(timeout=5)
         response1 = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
@@ -397,13 +397,13 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         self.backends[0]["response_content"] += util.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
         server = self.get_server("backend")
 
-        got_response = self.send_req(client)
+        got_response = await self.send_req(client)
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "There should be a response")
@@ -413,7 +413,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         )
 
         # second request
-        got_response = self.send_req(client)
+        got_response = await self.send_req(client)
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "There should be a response")
@@ -451,13 +451,13 @@ class TestH1BothTEAndCE(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
 
-        got_response = self.send_req(client)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await self.send_req(client)
+        got_response = await client.wait_for_response(timeout=5)
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
@@ -512,8 +512,8 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
         self.backends[0]["response_content"] += util.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
         super().setUp()
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
 
@@ -524,7 +524,7 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
             (":method", "GET"),
         ]
         client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await client.wait_for_response(timeout=5)
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
@@ -602,15 +602,15 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         )
         super().setUp()
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
         server = self.get_server("backend")
 
         for from_ in ("backend", "cache"):
             with self.subTest(response_from=from_):
-                client.send_request(self.request, "200")
+                await client.send_request(self.request, "200")
                 response = client.last_response
                 self.assertIsNone(client.last_response.headers.get("Trailer"))
                 if self.h2:
@@ -710,8 +710,8 @@ class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
 
@@ -722,7 +722,7 @@ class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
             (":method", "GET"),
         ]
         client.make_request(request)
-        got_response = client.wait_for_response(timeout=5)
+        got_response = await client.wait_for_response(timeout=5)
         response = client.responses[-1] if len(client.responses) else None
 
         self.assertTrue(got_response, "Got no response")
@@ -751,8 +751,8 @@ class TestRequestTEAndCL(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
         client.parsing = False
@@ -764,7 +764,7 @@ class TestRequestTEAndCL(tester.TempestaTest, CommonUtils):
             "the body does not actually matter"
         )
 
-        self.send_req(client, request)
+        await self.send_req(client, request)
         self.assertEqual(client.last_response.status, "400")
 
 
@@ -789,8 +789,8 @@ class TestRequestChunkedNotLast(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all()
 
         client = self.get_client("client")
         client.parsing = False
@@ -801,5 +801,5 @@ class TestRequestChunkedNotLast(tester.TempestaTest, CommonUtils):
             "the body does not actually matter"
         )
 
-        self.send_req(client, request)
+        await self.send_req(client, request)
         self.assertEqual(client.last_response.status, "400")
