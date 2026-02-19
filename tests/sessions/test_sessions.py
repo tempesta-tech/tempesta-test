@@ -1,5 +1,5 @@
+import asyncio
 import re
-import time
 
 from framework.test_suite import tester
 
@@ -77,8 +77,8 @@ class StickySessions(tester.TempestaTest):
         }
     ]
 
-    def client_send_first_req(self, client):
-        client.send_request(client.create_request(method="GET", headers=[]), "302")
+    async def client_send_first_req(self, client):
+        await client.send_request(client.create_request(method="GET", headers=[]), "302")
 
         c_header = client.last_response.headers.get("Set-Cookie", None)
         self.assertIsNotNone(c_header, "Set-Cookie header is missing in the response")
@@ -88,8 +88,8 @@ class StickySessions(tester.TempestaTest):
 
         return cookie
 
-    def client_send_next_req(self, client, cookie):
-        client.send_request(
+    async def client_send_next_req(self, client, cookie):
+        await client.send_request(
             client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")]),
             "200",
         )
@@ -97,23 +97,16 @@ class StickySessions(tester.TempestaTest):
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
-    def test_sessions(self):
-        self.start_all()
+    async def test_sessions(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
-        cookie = self.client_send_first_req(client)
-        s_id = self.client_send_next_req(client, cookie)
+        cookie = await self.client_send_first_req(client)
+        s_id = await self.client_send_next_req(client, cookie)
         # Repeat the requests with the cookie set, all the following requests
         # will be forwarded to the same server.
         for _ in range(ATTEMPTS):
-            new_s_id = self.client_send_next_req(client, cookie)
+            new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Sticky session was forwarded to not-pinned server")
 
 
@@ -231,17 +224,17 @@ class StickySessionsPersistense(StickySessions):
         }
     ]
 
-    def test_sessions(self):
+    async def test_sessions(self):
         """
         Backend goes offline, but client still tries to access the resource,
         TempestaFW responds with 502 status code. But when the server is back
         online, it again serves the responses.
         """
-        self.start_all()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
-        cookie = self.client_send_first_req(client)
-        s_id = self.client_send_next_req(client, cookie)
+        cookie = await self.client_send_first_req(client)
+        s_id = await self.client_send_next_req(client, cookie)
         # If server is down, and the allow_failover option is not present,
         # new requests in the session won't be forwarded to any other backends.
         # But when the server is back online, it will continue to serve the
@@ -250,14 +243,14 @@ class StickySessionsPersistense(StickySessions):
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
         # Remove after 2111 in Tempesta will be implemented
-        time.sleep(1)
+        await asyncio.sleep(1)
         req = client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")])
         for _ in range(ATTEMPTS):
-            client.send_request(req, "502")
+            await client.send_request(req, "502")
         srv.start()
-        self.assertTrue(srv.wait_for_connections(timeout=3), "Can't restart backend server")
+        self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
-            new_s_id = self.client_send_next_req(client, cookie)
+            new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Sticky session was forwarded to not-pinned server")
 
 
@@ -383,48 +376,48 @@ class StickySessionsFailover(StickySessions):
         }
     ]
 
-    def test_sessions(self):
+    async def test_sessions(self):
         """
         Backend goes offline, another backend from the primary group takes the
         load. When the original backend server goes back online, the session
         remains on fallbacked server.
         """
-        self.start_all()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
-        cookie = self.client_send_first_req(client)
-        s_id = self.client_send_next_req(client, cookie)
+        cookie = await self.client_send_first_req(client)
+        s_id = await self.client_send_next_req(client, cookie)
 
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
         # Remove after 2111 in Tempesta will be implemented
-        time.sleep(1)
+        await asyncio.sleep(1)
 
-        failovered_s_id = self.client_send_next_req(client, cookie)
+        failovered_s_id = await self.client_send_next_req(client, cookie)
         self.assertIn(
             failovered_s_id, ["server-1", "server-2"], "session is pinned to unexpected server"
         )
 
         srv.start()
-        self.assertTrue(srv.wait_for_connections(timeout=3), "Can't restart backend server")
+        self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
-            new_s_id = self.client_send_next_req(client, cookie)
+            new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(
                 failovered_s_id, new_s_id, "Sticky session was forwarded to not-pinned server"
             )
 
-    def test_sessions_reserved_server(self):
+    async def test_sessions_reserved_server(self):
         """
         Same as test_sessions(), but a server from a reserved server group picks
         up the load. The session remains on the backend server even if primary
         servers are back online.
         """
-        self.start_all()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
-        cookie = self.client_send_first_req(client)
-        self.client_send_next_req(client, cookie)
+        cookie = await self.client_send_first_req(client)
+        await self.client_send_next_req(client, cookie)
 
         srv1 = self.get_server("server-1")
         srv1.stop()
@@ -434,19 +427,19 @@ class StickySessionsFailover(StickySessions):
         # We need this sleep to be shure that srv1 and srv2 is
         # really stopped and all connections is closed.
         # (Remove after #2111 in Tempesta)
-        time.sleep(1)
+        await asyncio.sleep(1)
 
-        failovered_s_id = self.client_send_next_req(client, cookie)
+        failovered_s_id = await self.client_send_next_req(client, cookie)
         self.assertIn(
             failovered_s_id, ["server-3", "server-4"], "session is pinned to unexpected server"
         )
 
         srv1.start()
         srv2.start()
-        self.assertTrue(srv1.wait_for_connections(timeout=3), "Can't restart backend server")
-        self.assertTrue(srv2.wait_for_connections(timeout=3), "Can't restart backend server")
+        self.assertTrue(await srv1.wait_for_connections(timeout=3), "Can't restart backend server")
+        self.assertTrue(await srv2.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
-            new_s_id = self.client_send_next_req(client, cookie)
+            new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(
                 failovered_s_id, new_s_id, "Sticky session was forwarded to not-pinned server"
             )

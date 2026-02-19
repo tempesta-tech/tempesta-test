@@ -2,8 +2,8 @@
 Basic tests for Tempesta cookies.
 """
 
+import asyncio
 import re
-import time
 
 from framework.helpers import dmesg, error, remote, tf_cfg
 from framework.test_suite import marks, tester
@@ -83,10 +83,10 @@ class CookiesNotEnabled(tester.TempestaTest):
                 return client.get("support_cookies", False)
         return False
 
-    def client_send_req(self, client, req):
+    async def client_send_req(self, client, req):
         curr_responses = len(client.responses)
         client.make_request(req)
-        client.wait_for_response(timeout=1)
+        await client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses))
 
         return client.responses[-1]
@@ -102,12 +102,12 @@ class CookiesNotEnabled(tester.TempestaTest):
             return None
         return (cookie_name, match.group(1))
 
-    def client_get(self, client_name, vhost, cookie_name=None):
+    async def client_get(self, client_name, vhost, cookie_name=None):
         """Make a request and process sticky cookie challenge if required."""
         client = self.get_client(client_name)
 
         req = "GET / HTTP/1.1\r\n" "Host: %s\r\n" "\r\n" % vhost
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         if response.status == "200":
             return True
 
@@ -135,29 +135,22 @@ class CookiesNotEnabled(tester.TempestaTest):
             "Cookie: %s=%s\r\n"
             "\r\n" % (vhost, cookie[0], cookie[1])
         )
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         if response.status == "200":
             return True
 
         return False
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
-    def test_cookie(self):
-        self.start_all()
+    async def test_cookie(self):
+        await self.start_all_services()
         vhost = "localhost"
 
         self.assertTrue(
-            self.client_get("client-no-cookies", vhost), "Client couldn't access resource"
+            await self.client_get("client-no-cookies", vhost), "Client couldn't access resource"
         )
 
         self.assertTrue(
-            self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
+            await self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
         )
 
 
@@ -180,9 +173,9 @@ class CookiesEnabled(CookiesNotEnabled):
         """
     }
 
-    def test_cookie(self):
+    async def test_cookie(self):
         self.disable_deproxy_auto_parser()
-        super().test_cookie()
+        await super().test_cookie()
 
 
 class CookiesEnforced(CookiesNotEnabled):
@@ -204,17 +197,17 @@ class CookiesEnforced(CookiesNotEnabled):
         """
     }
 
-    def test_cookie(self):
-        self.start_all()
+    async def test_cookie(self):
+        await self.start_all_services()
         vhost = "localhost"
 
         self.assertFalse(
-            self.client_get("client-no-cookies", vhost),
+            await self.client_get("client-no-cookies", vhost),
             "Client accessed resource without cookie challenge",
         )
 
         self.assertTrue(
-            self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
+            await self.client_get("client-with-cookies", vhost), "Client couldn't access resource"
         )
 
 
@@ -263,21 +256,21 @@ class CookiesMaxMisses(tester.TempestaTest):
             ),
         ]
     )
-    def test_max_misses_(self, name, headers):
+    async def test_max_misses_(self, name, headers):
         """
         Tempesta MUST close connection when requests of client does not contain cookie
         (or contain invalid cookie) and the number of requests greater than max_misses.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("client")
         request = client.create_request(method="GET", headers=headers)
 
         for _ in range(self.max_misses + 1):
-            client.send_request(request)
+            await client.send_request(request)
 
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
 
 class VhostCookies(CookiesNotEnabled):
@@ -331,90 +324,90 @@ class VhostCookies(CookiesNotEnabled):
         """
     }
 
-    def test_cookie(self):
-        self.start_all()
+    async def test_cookie(self):
+        await self.start_all_services()
 
         # Default cookie name is used, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh1.com"),
+            await self.client_get("client-no-cookies", "vh1.com"),
             "Client accessed resource without cookie challenge",
         )
         self.assertFalse(
-            self.client_get("client-with-cookies", "vh1.com"),
+            await self.client_get("client-with-cookies", "vh1.com"),
             "Client accessed resource without cookie challenge",
         )
         # Cookie name from vhost_1, client can pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh1.com", cookie_name="c_vh1"),
+            await self.client_get("client-no-cookies", "vh1.com", cookie_name="c_vh1"),
             "Client accessed resource without cookie challenge",
         )
         self.assertTrue(
-            self.client_get("client-with-cookies", "vh1.com", cookie_name="c_vh1"),
+            await self.client_get("client-with-cookies", "vh1.com", cookie_name="c_vh1"),
             "Client couldn't access resource",
         )
         # Cookie name from vhost_2, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh1.com", cookie_name="c_vh2"),
+            await self.client_get("client-no-cookies", "vh1.com", cookie_name="c_vh2"),
             "Client accessed resource without cookie challenge",
         )
         self.assertFalse(
-            self.client_get("client-with-cookies", "vh1.com", cookie_name="c_vh2"),
+            await self.client_get("client-with-cookies", "vh1.com", cookie_name="c_vh2"),
             "Client accessed resource without cookie challenge",
         )
         # Cookie name from vhost_3, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh1.com", cookie_name="c_vh3"),
+            await self.client_get("client-no-cookies", "vh1.com", cookie_name="c_vh3"),
             "Client accessed resource without cookie challenge",
         )
         self.assertFalse(
-            self.client_get("client-with-cookies", "vh1.com", cookie_name="c_vh3"),
+            await self.client_get("client-with-cookies", "vh1.com", cookie_name="c_vh3"),
             "Client accessed resource without cookie challenge",
         )
 
         # Default cookie name is used, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh2.com"),
+            await self.client_get("client-no-cookies", "vh2.com"),
             "Client accessed resource without cookie challenge",
         )
         self.assertFalse(
-            self.client_get("client-with-cookies", "vh2.com"),
+            await self.client_get("client-with-cookies", "vh2.com"),
             "Client accessed resource without cookie challenge",
         )
         # Cookie name from vhost_1, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh2.com", cookie_name="c_vh1"),
+            await self.client_get("client-no-cookies", "vh2.com", cookie_name="c_vh1"),
             "Client accessed resource without cookie challenge",
         )
         self.assertFalse(
-            self.client_get("client-with-cookies", "vh2.com", cookie_name="c_vh1"),
+            await self.client_get("client-with-cookies", "vh2.com", cookie_name="c_vh1"),
             "Client accessed resource without cookie challenge",
         )
         # Cookie name from vhost_2, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh2.com", cookie_name="c_vh2"),
+            await self.client_get("client-no-cookies", "vh2.com", cookie_name="c_vh2"),
             "Client accessed resource without cookie challenge",
         )
         self.assertTrue(
-            self.client_get("client-with-cookies", "vh2.com", cookie_name="c_vh2"),
+            await self.client_get("client-with-cookies", "vh2.com", cookie_name="c_vh2"),
             "Client couldn't access resource",
         )
         # Cookie name from vhost_3, client can't pass cookie challenge.
         self.assertFalse(
-            self.client_get("client-no-cookies", "vh2.com", cookie_name="c_vh3"),
+            await self.client_get("client-no-cookies", "vh2.com", cookie_name="c_vh3"),
             "Client accessed resource without cookie challenge",
         )
         self.assertFalse(
-            self.client_get("client-with-cookies", "vh2.com", cookie_name="c_vh3"),
+            await self.client_get("client-with-cookies", "vh2.com", cookie_name="c_vh3"),
             "Client accessed resource without cookie challenge",
         )
 
         self.disable_deproxy_auto_parser()
         # Enforce mode is disabled for vhost_3, cookie challenge is not required
         self.assertTrue(
-            self.client_get("client-no-cookies", "vh3.com"), "Client couldn't access resource"
+            await self.client_get("client-no-cookies", "vh3.com"), "Client couldn't access resource"
         )
         self.assertTrue(
-            self.client_get("client-with-cookies", "vh3.com", cookie_name="c_vh3"),
+            await self.client_get("client-with-cookies", "vh3.com", cookie_name="c_vh3"),
             "Client couldn't access resource",
         )
 
@@ -493,12 +486,12 @@ class CookieLifetime(CookiesNotEnabled):
         """
     }
 
-    def test_cookie(self):
-        self.start_all()
+    async def test_cookie(self):
+        await self.start_all_services()
         client = self.get_client("client-with-cookies")
 
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         self.assertEqual(
             response.status,
             "302",
@@ -512,7 +505,7 @@ class CookieLifetime(CookiesNotEnabled):
             "Cookie: %s=%s\r\n"
             "\r\n" % (cookie[0], cookie[1])
         )
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         self.assertEqual(
             response.status,
             "200",
@@ -524,14 +517,14 @@ class CookieLifetime(CookiesNotEnabled):
             response.headers.get("Set-Cookie", None),
             "Set-Cookie header is mistakenly set in the response",
         )
-        time.sleep(5)
+        await asyncio.sleep(5)
         req = (
             "GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "Cookie: %s=%s\r\n"
             "\r\n" % (cookie[0], cookie[1])
         )
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         self.assertEqual(response.status, "302", "Unexpected redirect status code")
 
 
@@ -568,17 +561,17 @@ vhost example.com {
 )
 class StickyCookieConfig(tester.TempestaTest):
     @dmesg.unlimited_rate_on_tempesta_node
-    def check_cannot_start_impl(self, msg):
+    async def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
         with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
-            self.start_tempesta()
+            await self.start_tempesta()
         self.assertTrue(
             self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
         workdir = tf_cfg.cfg.get("Tempesta", "workdir")
         remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.js.tpl {workdir}")
@@ -643,14 +636,14 @@ class StickyCookieConfig(tester.TempestaTest):
             ),
         ]
     )
-    def test(self, name, cookie_config, msg):
+    async def test(self, name, cookie_config, msg):
         tempesta_conf = self.get_tempesta().config
 
         tempesta_conf.set_defconfig(tempesta_conf.defconfig % cookie_config)
         if msg is not None:
-            self.check_cannot_start_impl(msg)
+            await self.check_cannot_start_impl(msg)
         else:
-            self.start_all_services()
+            await self.start_all_services()
 
 
 class StickyCookieOptions(tester.TempestaTest):
@@ -701,10 +694,10 @@ class StickyCookieOptions(tester.TempestaTest):
     ]
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def check_cannot_start_impl(self, msg):
+    async def check_cannot_start_impl(self, msg):
         self.oops_ignore = ["WARNING", "ERROR"]
         with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
-            self.start_tempesta()
+            await self.start_tempesta()
         self.assertTrue(
             self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
@@ -805,7 +798,7 @@ class StickyCookieOptions(tester.TempestaTest):
             ),
         ]
     )
-    def test(
+    async def test(
         self,
         name,
         cookie_options_global,
@@ -823,10 +816,10 @@ class StickyCookieOptions(tester.TempestaTest):
         tempesta_conf.set_defconfig(
             tempesta_conf.defconfig % (cookie_options_global, cookie_options_vhost)
         )
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(client.create_request(method="GET", headers=[]), "302")
+        await client.send_request(client.create_request(method="GET", headers=[]), "302")
         set_cookie = client.last_response.headers.get("Set-Cookie", None)
         cookie_opt = set_cookie.split("; ")
         for opt in options_global_in_response:
@@ -834,7 +827,7 @@ class StickyCookieOptions(tester.TempestaTest):
         for opt in cookie_opt[1:]:
             self.assertIn(opt, options_global_in_response)
 
-        client.send_request(
+        await client.send_request(
             client.create_request(method="GET", authority="example.com", headers=[]), "302"
         )
         set_cookie = client.last_response.headers.get("Set-Cookie", None)
@@ -863,11 +856,11 @@ class StickyCookieOptions(tester.TempestaTest):
             ),
         ]
     )
-    def test_dublicate(self, name, options, msg):
+    async def test_dublicate(self, name, options, msg):
         tempesta_conf = self.get_tempesta().config
 
         tempesta_conf.set_defconfig(tempesta_conf.defconfig % (options, "cookie_options;"))
-        self.check_cannot_start_impl(msg)
+        await self.check_cannot_start_impl(msg)
 
 
 DOCKER_RESP_BODY = "a" * 100000
@@ -953,12 +946,12 @@ class TestCookieDocker(tester.TempestaTest):
         },
     ]
 
-    def test(self):
-        self.start_all_services()
+    async def test(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", uri="/", headers=[])
-        client.send_request(request=request, expected_status_code="302")
+        await client.send_request(request=request, expected_status_code="302")
         request = client.create_request(
             method="GET", uri="/", headers=[("Cookie", client.last_response.headers["set-cookie"])]
         )
-        client.send_request(request=request, expected_status_code="200")
+        await client.send_request(request=request, expected_status_code="200")

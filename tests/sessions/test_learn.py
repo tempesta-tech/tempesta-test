@@ -1,5 +1,5 @@
+import asyncio
 import re
-import time
 
 from framework.helpers import dmesg
 from framework.test_suite import tester
@@ -16,13 +16,6 @@ ATTEMPTS = 64
 
 
 class LearnSessionsBase(tester.TempestaTest):
-    def wait_all_connections(self, tmt=1):
-        sids = self.get_servers_id()
-        for sid in sids:
-            srv = self.get_server(sid)
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
 
     def reconfigure_responses(self, sid_resp_sent):
         for sid in ["server-1", "server-2", "server-3"]:
@@ -37,17 +30,17 @@ class LearnSessionsBase(tester.TempestaTest):
                 "HTTP/1.1 %s\r\n" "Server-id: %s\r\n" "Content-Length: 0\r\n\r\n" % (status, sid)
             )
 
-    def client_send_req(self, client, req):
+    async def client_send_req(self, client, req):
         curr_responses = len(client.responses)
         client.make_request(req)
-        client.wait_for_response(timeout=1)
+        await client.wait_for_response(timeout=1)
         self.assertEqual(curr_responses + 1, len(client.responses))
 
         return client.responses[-1]
 
-    def client_send_first_req(self, client):
+    async def client_send_first_req(self, client):
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
 
         self.assertEqual(response.status, "200", "unexpected response status code")
         c_header = response.headers.get("Set-Cookie", None)
@@ -61,25 +54,18 @@ class LearnSessionsBase(tester.TempestaTest):
 
         return (s_id, cookie)
 
-    def client_send_next_req(self, client, cookie):
+    async def client_send_next_req(self, client, cookie):
         req = (
             "GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "Cookie: %s=%s\r\n"
             "\r\n" % (cookie[0], cookie[1])
         )
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         self.assertEqual(response.status, "200", "unexpected response status code")
         s_id = response.headers.get("Server-id", None)
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
 
 
 class LearnSessions(LearnSessionsBase):
@@ -144,14 +130,6 @@ class LearnSessions(LearnSessionsBase):
         }
     ]
 
-    def wait_all_connections(self, tmt=1):
-        sids = self.get_servers_id()
-        for sid in sids:
-            srv = self.get_server(sid)
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
-
     def reconfigure_responses(self, sid_resp_sent):
         for sid in ["server-1", "server-2", "server-3"]:
             srv = self.get_server(sid)
@@ -163,52 +141,45 @@ class LearnSessions(LearnSessionsBase):
                 "HTTP/1.1 %s\r\n" "Server-id: %s\r\n" "Content-Length: 0\r\n\r\n" % (status, sid)
             )
 
-    def client_send_next_req(self, client, cookie):
+    async def client_send_next_req(self, client, cookie):
         req = (
             "GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "Cookie: %s=%s\r\n"
             "\r\n" % (cookie[0], cookie[1])
         )
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         self.assertEqual(response.status, "200", "unexpected response status code")
         s_id = response.headers.get("Server-id", None)
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
-    def test_sessions(self):
-        self.start_all()
+    async def test_sessions(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        s_id, cookie = self.client_send_first_req(client)
+        s_id, cookie = await self.client_send_first_req(client)
         self.reconfigure_responses(s_id)
         # Repeat the requests with the cookie set, all the following requests
         # will be forwarded to the same server.
         for _ in range(ATTEMPTS):
-            new_s_id = self.client_send_next_req(client, cookie)
+            new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Learnt session was forwarded to not-pinned server")
 
-    def test_backend_fail(self):
+    async def test_backend_fail(self):
         """
         Backend goes offline, but client still tries to access the resource,
         TempestaFW responds with 502 status code. But when the server is back
         online, it again serves the responses.
         """
-        self.start_all()
+        await self.start_all_services()
         client = self.get_client("deproxy")
-        s_id, cookie = self.client_send_first_req(client)
+        s_id, cookie = await self.client_send_first_req(client)
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
         srv.stop()
         # Remove after 2111 in Tempesta will be implemented
-        time.sleep(1)
+        await asyncio.sleep(1)
         for _ in range(ATTEMPTS):
             req = (
                 "GET / HTTP/1.1\r\n"
@@ -218,15 +189,15 @@ class LearnSessions(LearnSessionsBase):
             )
             client.make_request(req)
 
-        self.assertTrue(client.wait_for_response(20))
+        self.assertTrue(await client.wait_for_response(20))
 
         self.assertEqual(len(client.responses), ATTEMPTS + 1)
         for resp in client.responses[1:]:
             self.assertEqual(resp.status, "502", "unexpected response status code")
         srv.start()
-        self.assertTrue(srv.wait_for_connections(timeout=3), "Can't restart backend server")
+        self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
-            new_s_id = self.client_send_next_req(client, cookie)
+            new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Sticky session was forwarded to not-pinned server")
 
 
@@ -283,18 +254,18 @@ class LearnSessionsMultipleSameSetCookie(LearnSessionsBase):
             del self.klog
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self):
+    async def test(self):
         """
         Check that we stop processing Set-Cookie header if there are
         more than one Set-Cookie header field in the same response with
         the same cookie-name, but don't drop response, just write warning
         in dmesg.
         """
-        self.start_all()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        response = self.client_send_req(client, req)
+        response = await self.client_send_req(client, req)
         self.assertEqual(response.status, "200", "unexpected response status code")
 
         self.assertTrue(

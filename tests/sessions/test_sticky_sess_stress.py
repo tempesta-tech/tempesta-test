@@ -89,15 +89,15 @@ frang_limits {http_strict_host_checking false;}
     ]
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_one_client(self):
-        self.start_all_services(client=False)
+    async def test_one_client(self):
+        await self.start_all_services(client=False)
 
         wrk = self.get_client("wrk")
         wrk.set_script("cookie-one-client")
         wrk.threads = 1
 
         wrk.start()
-        self.wait_while_busy(wrk)
+        await self.wait_while_busy(wrk)
         wrk.stop()
         self.assertIsNotNone(wrk.statuses.get(200))
 
@@ -122,15 +122,15 @@ frang_limits {http_strict_host_checking false;}
         )
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_many_clients(self):
-        self.start_all_services(client=False)
+    async def test_many_clients(self):
+        await self.start_all_services(client=False)
 
         wrk = self.get_client("wrk")
         wrk.set_script("cookie-many-clients")
         wrk.threads = wrk.connections
 
         wrk.start()
-        self.wait_while_busy(wrk)
+        await self.wait_while_busy(wrk)
         wrk.stop()
         self.assertIsNotNone(wrk.statuses.get(200))
 
