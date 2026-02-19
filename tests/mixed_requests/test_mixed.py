@@ -270,50 +270,44 @@ frang_limits {
     }
 
     @dmesg.limited_rate_on_tempesta_node
-    def routine(self, lua):
-        nginx = self.get_server("nginx")
+    async def routine(self, lua):
+        await self.start_all_services(client=False)
+
         wrk = self.get_client("wrk")
-
         wrk.set_script("wrk", lua)
-
-        nginx.start()
-        nginx.wait_for_connections(timeout=3)
-
-        self.start_tempesta()
-
         wrk.start()
-        self.wait_while_busy(wrk)
+        await self.wait_while_busy(wrk)
         wrk.stop()
 
         self.assertIn(405, wrk.statuses)
         self.assertNotIn(403, wrk.statuses)
         self.assertGreater(wrk.statuses[405], 0)
 
-    def test_pipeline(self):
-        self.routine(pipeline_lua)
+    async def test_pipeline(self):
+        await self.routine(pipeline_lua)
 
-    def test_real(self):
-        self.routine(lua_real)
+    async def test_real(self):
+        await self.routine(lua_real)
 
-    def test_real2(self):
-        self.routine(lua_real2)
+    async def test_real2(self):
+        await self.routine(lua_real2)
 
-    def test_real_pipelined(self):
-        self.routine(lua_real_pipelined)
+    async def test_real_pipelined(self):
+        await self.routine(lua_real_pipelined)
 
-    def test_get_post(self):
-        self.routine(lua_get_post)
+    async def test_get_post(self):
+        await self.routine(lua_get_post)
 
-    def test_head_get(self):
-        self.routine(lua_head_get)
+    async def test_head_get(self):
+        await self.routine(lua_head_get)
 
-    def test_post_empty(self):
-        self.routine(lua_post_empty)
+    async def test_post_empty(self):
+        await self.routine(lua_post_empty)
 
-    def test_post_small(self):
-        self.routine(lua_post_small)
+    async def test_post_small(self):
+        await self.routine(lua_post_small)
 
-    def test_post_big(self):
+    async def test_post_big(self):
         # Too big text to put it here explicitly
 
         text = "content " * 8192
@@ -329,32 +323,26 @@ frang_limits {
             "wrk.body    = body"
         )
 
-        self.routine(lua_post_big)
+        await self.routine(lua_post_big)
 
-    def test_mixed(self):
-        self.routine(lua_mixed)
+    async def test_mixed(self):
+        await self.routine(lua_mixed)
 
-    def test_trace(self):
+    async def test_trace(self):
         lua_trace = 'wrk.method = "TRACE"\n' 'wrk.uri = "/"\n'
+        await self.start_all_services(client=False)
 
-        nginx = self.get_server("nginx")
         wrk = self.get_client("wrk")
-
         wrk.set_script("wrk", lua_trace)
 
-        nginx.start()
-        nginx.wait_for_connections(timeout=3)
-
-        self.start_tempesta()
-
         wrk.start()
-        self.wait_while_busy(wrk)
+        await self.wait_while_busy(wrk)
         wrk.stop()
         self.assertNotIn(200, wrk.statuses)
         self.assertIn(405, wrk.statuses)
         self.assertGreater(wrk.statuses[405], 0)
 
-    def test_connect(self):
+    async def test_connect(self):
         lua_connect = 'wrk.method = "CONNECT"\n' 'wrk.uri = "/"\n'
 
-        self.routine(lua_connect)
+        await self.routine(lua_connect)
