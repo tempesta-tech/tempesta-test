@@ -56,14 +56,14 @@ server ${server_ip}:8000;
         for n in range(clients_n)
     ]
 
-    def __test_common(self):
+    def disable_close_connection_and_send_requests(self):
         self.start_all_services()
         request = self.get_client("deproxy-0").create_request(
             method="GET", headers=[("Content-Type", "invalid")]
         )
 
         for client in self.get_clients():
-            client.not_close_connection_for_fin = True
+            client.close_connection_for_tcp_fin = False
 
         for client in self.get_clients():
             client.send_request(request)
@@ -76,7 +76,7 @@ server ${server_ip}:8000;
         database, otherwise if client connection hung we can't destroy it during Tempesta
         FW stopping.
         """
-        self.__test_common()
+        self.disable_close_connection_and_send_requests()
         self.get_tempesta().stop()
 
     def test_tcp_fin_timeout(self):
@@ -86,17 +86,15 @@ server ${server_ip}:8000;
         expired.
         """
         tcp_fin_timeout = 10
-        self.__test_common()
+        self.disable_close_connection_and_send_requests()
         time.sleep(tcp_fin_timeout + 1)
 
-        """
-        TODO:
-        When we can handle TCP RST in deproxy client in a special way,
-        just check that all client connections were closed here after
-        receiving TCP RST from Tempesta FW. Now we check that there
-        is no hung connections and Tempesta FW stopped and unloaded
-        fastly.
-        """
         t = time.time()
         self.get_tempesta().stop()
         self.assertLess(time.time() - t, 5)
+
+        for client in self.get_clients():
+            client.stop()
+            self.assertTrue(
+                client.is_rst_received, "Client don't receive TCP RST when Tempesta FW closes."
+            )
