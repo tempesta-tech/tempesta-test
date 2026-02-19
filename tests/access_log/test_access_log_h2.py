@@ -131,14 +131,14 @@ tls_match_any_server_name;
             marks.Param(name="403_frang", status="403", uri=f"/{'1' * 1100}"),
         ]
     )
-    def test_response(self, name, status: str, uri: str):
-        self.start_all_services()
+    async def test_response(self, name, status: str, uri: str):
+        await self.start_all_services()
 
         referer = f"http2-referer-{status}"
         user_agent = f"http2-user-agent-{status}"
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", uri=uri, headers=[("referer", referer), ("user-agent", user_agent)]
             ),
@@ -162,8 +162,8 @@ tls_match_any_server_name;
             ),
         )
 
-    def test_response_truncated_uri(self):
-        self.start_all_services()
+    async def test_response_truncated_uri(self):
+        await self.start_all_services()
 
         referer = f"http2-referer"
         user_agent = f"http2-user-agent"
@@ -175,14 +175,14 @@ tls_match_any_server_name;
             uri=f"{base_uri}{'_' * 1000}",
             headers=[("referer", referer), ("user-agent", user_agent)],
         )
-        client.send_request(request, expected_status_code="200")
+        await client.send_request(request, expected_status_code="200")
 
         msg = AccessLogLine.from_dmesg(self.loggers.dmesg)
         self.assertEqual(msg.uri[: len(base_uri)], base_uri, "Invalid URI")
         self.assertEqual(msg.uri[-3:], "...", "URI does not look like truncated")
 
-    def test_chunked_response(self):
-        self.start_all_services()
+    async def test_chunked_response(self):
+        await self.start_all_services()
 
         body_size = 158036
         server = self.get_server("chunked")
@@ -199,7 +199,7 @@ tls_match_any_server_name;
         )
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", uri="/chunked", headers=[("User-Agent", "deproxy")]
             ),

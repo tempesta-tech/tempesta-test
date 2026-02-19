@@ -97,17 +97,17 @@ class CheckedResponses(tester.TempestaTest):
             )
         )
 
-    def send_request_and_get_dmesg(self, klog, request_as_str, response_as_str=HTTP_200_OK):
+    async def send_request_and_get_dmesg(self, klog, request_as_str, response_as_str=HTTP_200_OK):
         self.get_server("0").response = response_as_str
         deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_request(request_as_str)
-        deproxy_cl.wait_for_response()
+        await deproxy_cl.wait_for_response()
         return AccessLogLine.from_dmesg(klog)
 
     # send request that will be replied with specified
     # `status` and `body` and check dmesg for expected access_log string
-    def check_response(self, klog, status, body):
+    async def check_response(self, klog, status, body):
         user_agent = "ua-code-string-%d" % status
         referer = "referer-code-string-%d" % status
         request = self.make_request(
@@ -118,7 +118,7 @@ class CheckedResponses(tester.TempestaTest):
         deproxy_cl = self.get_client("client")
         deproxy_cl.start()
         deproxy_cl.make_request(request)
-        deproxy_cl.wait_for_response()
+        await deproxy_cl.wait_for_response()
         self.assertEqual(int(deproxy_cl.last_response.status), status)
         klog.update()
 
@@ -131,20 +131,13 @@ class CheckedResponses(tester.TempestaTest):
 
         self.assertTrue(found, "Expected log string <<%s>> not found in dmesg" % log_string)
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        srv = self.get_server("0")
-        self.assertTrue(srv.wait_for_connections(timeout=1))
-
 
 #######################################
 # Happy-path tests (backend response) #
 #######################################
 class AccessLogTest(CheckedResponses):
-    def test_success_path_http1x(self):
-        self.start_all()
+    async def test_success_path_http1x(self):
+        await self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         for status, body in [
             (200, "body http ok"),
@@ -153,15 +146,15 @@ class AccessLogTest(CheckedResponses):
             (404, "not-found body"),
             (500, "internal-server-error body"),
         ]:
-            self.check_response(klog, status, body)
+            await self.check_response(klog, status, body)
 
-    def test_uri_truncate(self):
-        self.start_all()
+    async def test_uri_truncate(self):
+        await self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request(
             "/too-long-uri_" + "1" * 4000, user_agent="user-agent", referer="referer"
         )
-        msg = self.send_request_and_get_dmesg(klog, req)
+        msg = await self.send_request_and_get_dmesg(klog, req)
         self.assertTrue(msg is not None, "No access_log message in dmesg")
         self.assertEqual(msg.method, "GET", "Wrong method")
         self.assertEqual(msg.status, 200, "Wrong HTTP status")
@@ -173,13 +166,13 @@ class AccessLogTest(CheckedResponses):
         self.assertEqual(msg.referer, "referer", "Wrong referer")
         self.assertNotEqual(msg.address, "-", "Wrong ip")
 
-    def test_bad_user_agent(self):
+    async def test_bad_user_agent(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        await self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.get_client("client").parsing = False
         req = self.make_request("/some-uri", user_agent="bad\nagent", referer="Ok-Referer")
-        msg = self.send_request_and_get_dmesg(klog, req)
+        msg = await self.send_request_and_get_dmesg(klog, req)
         self.assertTrue(msg is not None, "No access_log message in dmesg")
         self.assertNotEqual(msg.status, 0, "Empty response status")
         # Make sure that some fields are properly set
@@ -204,13 +197,13 @@ class AccessLogFrang(CheckedResponses):
         """
     }
 
-    def test_frang(self):
-        self.start_all()
+    async def test_frang(self):
+        await self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request(
             "/longer-than-10-symbols-uri", user_agent="user-agent", referer="referer"
         )
-        msg = self.send_request_and_get_dmesg(klog, req)
+        msg = await self.send_request_and_get_dmesg(klog, req)
         self.assertTrue(msg is not None, "No access_log message in dmesg")
         self.assertEqual(msg.method, "GET", "Wrong method")
         self.assertEqual(msg.status, 403, "Wrong HTTP status")
