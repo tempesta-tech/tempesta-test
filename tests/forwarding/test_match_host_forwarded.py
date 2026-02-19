@@ -159,18 +159,18 @@ class TestMatchHost(tester.TempestaTest):
             ),
         ]
     )
-    def test(self, name, uri, host, headers, status, sid):
+    async def test(self, name, uri, host, headers, status, sid):
         """
         Send requests with different hosts
         and check correctness of forwarding
         comparing id of the last request on
         client and server.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server(sid)
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET", uri=uri, authority=host, headers=headers + [("x-req-id", str(name))]
             ),
