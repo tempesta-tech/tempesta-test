@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy import deproxy_message
@@ -157,7 +157,7 @@ tls_match_any_server_name;
                 response_content_length=len(client.last_response.body),
                 referer=referer,
                 user_agent=user_agent,
-                tft="66cb8f00d4250002",
+                tft="66cb8f00ef170002",
                 tfh="b23a008c0340",
             ),
         )
@@ -222,7 +222,7 @@ tls_match_any_server_name;
                 response_content_length=body_size,
                 referer="-",
                 user_agent="deproxy",
-                tft="66cb8f00d4250002",
+                tft="66cb8f00ef170002",
                 tfh="1031008c0280",
             ),
         )

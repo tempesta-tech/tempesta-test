@@ -9,7 +9,7 @@ from framework.helpers.cert_generator_x509 import CertGenerator
 from framework.test_suite import marks, tester
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2017-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
@@ -223,16 +223,16 @@ class BaseWsPing(tester.TempestaTest):
         async with websockets.connect(
             f"{proto}://{TEMPESTA_IP}:{port}", ssl=ssl_context
         ) as websocket:
-            await websocket.send("request")
+            await websocket.send(b"request")
             response_body = await websocket.recv()
-            self.assertEquals(response_body, "response")
+            self.assertEqual(response_body, b"response")
 
     # Backend
 
     async def handler(self, websocket, path):
         request_body = await websocket.recv()
-        self.assertEquals(request_body, "request")
-        await websocket.send("response")
+        self.assertEqual(request_body, b"request")
+        await websocket.send(b"response")
 
     @staticmethod
     def cleanup_ws_servers(test):
