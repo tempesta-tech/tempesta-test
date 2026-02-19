@@ -4,7 +4,7 @@ Tests for health monitoring functionality.
 
 from __future__ import print_function
 
-import time
+import asyncio
 from collections import defaultdict
 
 from framework.deproxy.deproxy_message import HttpMessage
@@ -184,9 +184,9 @@ return 200;
             res[curl.response_msg[:-1]] += 1
         return res
 
-    def test(self):
+    async def test(self):
         """Test health monitor functionality with described stages"""
-        self.start_tempesta()
+        await self.start_tempesta()
 
         # 1
         back1 = self.get_server("nginx1")
@@ -280,29 +280,29 @@ class TestHealthStat(tester.TempestaTest):
         self.tempesta["config"] = tempesta_config
         super().setUp()
 
-    def test_smoke(self):
-        self.start_all_services()
+    async def test_smoke(self):
+        await self.start_all_services()
         c = self.get_client("deproxy")
         s = self.get_server("deproxy")
         tfw = self.get_tempesta()
 
         for status in [400, 200, 500, 502, 504, 200, 404]:
             s.set_response(f"HTTP/1.1 {status} FOO\r\nContent-Length: 0\r\n\r\n")
-            c.send_request(c.simple_get, expected_status_code=str(status))
+            await c.send_request(c.simple_get, expected_status_code=str(status))
 
         tfw.get_stats()
         self.assertEqual(tfw.stats.health_statuses[200], 2)
         self.assertEqual(tfw.stats.health_statuses[5], 3)
 
-    def test_cached_responses_included(self):
-        self.start_all_services()
+    async def test_cached_responses_included(self):
+        await self.start_all_services()
         c = self.get_client("deproxy")
         s = self.get_server("deproxy")
         tfw = self.get_tempesta()
 
         s.set_response(f"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
         for status in range(3):
-            c.send_request(c.simple_get, expected_status_code="200")
+            await c.send_request(c.simple_get, expected_status_code="200")
 
         tfw.get_stats()
         # cached responses are accounted
@@ -351,8 +351,8 @@ class TestHealthStatServer(tester.TempestaTest):
         },
     ]
 
-    def test_smoke(self):
-        self.start_all_services()
+    async def test_smoke(self):
+        await self.start_all_services()
         c = self.get_client("deproxy")
         s = self.get_server("deproxy")
         stats = tempesta.ServerStats(
@@ -361,7 +361,7 @@ class TestHealthStatServer(tester.TempestaTest):
 
         for status in [200, 400, 500, 502, 504, 400, 404, 403]:
             s.set_response(f"HTTP/1.1 {status} FOO\r\nContent-Length: 0\r\n\r\n")
-            c.send_request(c.simple_get, expected_status_code=str(status))
+            await c.send_request(c.simple_get, expected_status_code=str(status))
 
         # 200 is always enabled, even if another status codes are configured explicitly
         self.assertEqual(stats.health_statuses[200], 1)
@@ -417,7 +417,7 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         }
     ]
 
-    def test(self):
+    async def test(self):
         """
         This test reproduce crash from #2066 issue in Tempesta FW:
         When health monitor is enabled Tempesta FW sends request to
@@ -427,10 +427,10 @@ class TestHealthMonitorForDisabledServer(tester.TempestaTest):
         request and because health motinor requests have no connection
         pointer kernel BUG occurs.
         """
-        self.start_all_services()
+        await self.start_all_services()
         s = self.get_server("deproxy")
         s.drop_conn_when_request_received = True
-        time.sleep(1)
+        await asyncio.sleep(1)
 
 
 class TestHmMalformedResponse(tester.TempestaTest):
@@ -482,17 +482,17 @@ class TestHmMalformedResponse(tester.TempestaTest):
         if hasattr(self, "klog"):
             del self.klog
 
-    def test(self):
+    async def test(self):
         """
         Waiting for at list one response.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         server = self.get_server("deproxy")
 
-        server.wait_for_requests(1)
+        await server.wait_for_requests(1)
 
         warning = "Health Monitor response malformed"
-        self.assertTrue(self.klog.find(warning, dmesg.amount_positive))
+        self.assertTrue(await self.klog.afind(warning, dmesg.amount_positive))
 
 
 # CRC tests
@@ -596,7 +596,7 @@ class TestHmCrc(tester.TempestaTest):
     - In the auto mode:
       - The first response is for CRC calculation.
       - The second one the same and should be pass CRC check.
-      - The the third one has different body and in this way
+      - The third one has different body and in this way
         different CRC.
     - In the predefined mode step 1 is skipped.
     """
@@ -616,8 +616,8 @@ class TestHmCrc(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
         # Cleanup part
@@ -631,7 +631,7 @@ class TestHmCrc(tester.TempestaTest):
         content_length = len(content)
         return f"HTTP/1.0 200 OK\r\nContent-Length:{content_length}\r\n\r\n{content}"
 
-    def test(self):
+    async def test(self):
         """
         Test doesn't use client.
         The scope of interest is a Tempesta<->Server interchange.
@@ -640,22 +640,22 @@ class TestHmCrc(tester.TempestaTest):
         n = 1
 
         server = self.get_server("deproxy")
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         server.set_response(self.build_response(self.content[0]))
         # step 1
         if self.auto_mode:
-            self.assertTrue(server.wait_for_requests(n, timeout=12))
+            self.assertTrue(await server.wait_for_requests(n, timeout=12))
             n += 1
 
         # step 2
-        self.assertTrue(server.wait_for_requests(n, timeout=12))
+        self.assertTrue(await server.wait_for_requests(n, timeout=12))
         n += 1
-        self.assertFalse(self.klog.find(warning))
+        self.assertFalse(await self.klog.find(warning))
 
         # step 3
         server.set_response(self.build_response(self.content[1]))
-        self.assertTrue(server.wait_for_requests(n, timeout=12))
-        self.assertTrue(self.klog.find(warning))
+        self.assertTrue(await server.wait_for_requests(n, timeout=12))
+        self.assertTrue(await self.klog.find(warning))
 
 
 class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
@@ -702,9 +702,9 @@ class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
             marks.Param(name="4_hm", hm_num=4),
         ]
     )
-    def test_hm_pipelined(self, name, hm_num):
+    async def test_hm_pipelined(self, name, hm_num):
         requests_n = len(self.get_clients())
-        srv = self.setup_and_start(requests_n + 1)
+        srv = await self.setup_and_start(requests_n + 1)
         self.disable_deproxy_auto_parser()
 
         srv.set_response(
@@ -718,12 +718,13 @@ class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
         for client, i in zip(clients, list(range(1, 5))):
             if i == hm_num:
                 self.assertTrue(
-                    srv.wait_for_requests(i), "Server did not receive hm request from TempestaFW."
+                    await srv.wait_for_requests(i),
+                    "Server did not receive hm request from TempestaFW.",
                 )
                 i = i + 1
             client.make_request(self.get_request)
-            self.assertTrue(srv.wait_for_requests(i))
+            self.assertTrue(await srv.wait_for_requests(i))
 
         for client in clients:
-            self.assertTrue(client.wait_for_response())
+            self.assertTrue(await client.wait_for_response())
             self.assertEqual(client.last_response.status, "200")
