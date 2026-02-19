@@ -138,9 +138,9 @@ class TestLogicBase(tester.TempestaTest, base=True):
     directive: str
     h2: bool
 
-    def base_scenario(self, config: str, optional_headers: list, expected_headers: list):
+    async def base_scenario(self, config: str, optional_headers: list, expected_headers: list):
         update_tempesta_config(tempesta=self.get_tempesta(), config=config, cache=self.cache)
-        self.start_all_services()
+        await self.start_all_services()
         self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
@@ -150,7 +150,7 @@ class TestLogicBase(tester.TempestaTest, base=True):
 
         # send 2 requests for checking cache and dynamic table
         for _ in range(2 if self.cache else self.requests_n):
-            client.send_request(
+            await client.send_request(
                 (
                     generate_h2_request(optional_headers)
                     if self.h2
@@ -173,49 +173,49 @@ class TestLogicBase(tester.TempestaTest, base=True):
 
         return client, server
 
-    def test_set_non_exist_header(self):
+    async def test_set_non_exist_header(self):
         """
         Header will be added in request/response if it is missing from base request/response.
         """
-        self.base_scenario(
+        await self.base_scenario(
             config=f'{self.directive}_hdr_set non-exist-header "qwe";\n',
             optional_headers=[],
             expected_headers=[("non-exist-header", "qwe")],
         )
 
-    def test_set_exist_header(self):
-        self.base_scenario(
+    async def test_set_exist_header(self):
+        await self.base_scenario(
             config=f'{self.directive}_hdr_set exist-header "qwe";\n',
             optional_headers=[("exist-header", "123")],
             expected_headers=[("exist-header", "qwe")],
         )
 
-    def test_set_exist_special_header(self):
+    async def test_set_exist_special_header(self):
         header_name = "set-cookie" if self.directive == "resp" else "if-none-match"
         header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
         new_hdr_value = '"test=cookie2"' if self.directive == "resp" else r'"\"asd\""'
         expected_new_hdr_value = "test=cookie2" if self.directive == "resp" else r'"asd"'
-        self.base_scenario(
+        await self.base_scenario(
             config=f"{self.directive}_hdr_set {header_name} {new_hdr_value};\n",
             optional_headers=[(header_name, header_value)],
             expected_headers=[(header_name, expected_new_hdr_value)],
         )
 
-    def test_add_non_exist_header(self):
+    async def test_add_non_exist_header(self):
         """
         Header will be added in request/response if it is missing from base request/response.
         """
-        self.base_scenario(
+        await self.base_scenario(
             config=f'{self.directive}_hdr_add non-exist-header "qwe";\n',
             optional_headers=[],
             expected_headers=[("non-exist-header", "qwe")],
         )
 
-    def test_delete_headers(self):
+    async def test_delete_headers(self):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-        client, server = self.base_scenario(
+        client, server = await self.base_scenario(
             config=f"{self.directive}_hdr_set x-my-hdr;\n",
             optional_headers=[("x-my-hdr", "original header")],
             expected_headers=[],
@@ -228,11 +228,11 @@ class TestLogicBase(tester.TempestaTest, base=True):
             self.assertNotIn("x-my-hdr", client.last_response.headers.keys())
             self.assertIn("x-my-hdr", server.last_request.headers.keys())
 
-    def test_delete_many_headers(self):
+    async def test_delete_many_headers(self):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
-        client, server = self.base_scenario(
+        client, server = await self.base_scenario(
             config=f"{self.directive}_hdr_set x-my-hdr;\n",
             optional_headers=[("x-my-hdr", "original header"), ("x-my-hdr", "original header")],
             expected_headers=[],
@@ -245,13 +245,13 @@ class TestLogicBase(tester.TempestaTest, base=True):
             self.assertNotIn("x-my-hdr", client.last_response.headers.keys())
             self.assertIn("x-my-hdr", server.last_request.headers.keys())
 
-    def test_delete_special_headers(self):
+    async def test_delete_special_headers(self):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
         header_name = "set-cookie" if self.directive == "resp" else "if-none-match"
         header_value = "test=cookie" if self.directive == "resp" else '"qwe"'
-        client, server = self.base_scenario(
+        client, server = await self.base_scenario(
             config=f"{self.directive}_hdr_set {header_name};\n",
             optional_headers=[(header_name, header_value)],
             expected_headers=[],
@@ -264,13 +264,13 @@ class TestLogicBase(tester.TempestaTest, base=True):
             self.assertNotIn(header_name, client.last_response.headers.keys())
             self.assertIn(header_name, server.last_request.headers.keys())
 
-    def test_delete_many_special_headers(self):
+    async def test_delete_many_special_headers(self):
         """
         Headers must be removed from base request/response if header is in base request/response.
         """
         header_name = "set-cookie" if self.directive == "resp" else "forwarded"
         header_value = "test=cookie" if self.directive == "resp" else "for=tempesta.com"
-        client, server = self.base_scenario(
+        client, server = await self.base_scenario(
             config=f"{self.directive}_hdr_set {header_name};\n",
             optional_headers=[(header_name, header_value), (header_name, header_value)],
             expected_headers=[],
@@ -283,30 +283,30 @@ class TestLogicBase(tester.TempestaTest, base=True):
             self.assertNotIn(header_name, client.last_response.headers.keys())
             self.assertIn(header_name, server.last_request.headers.keys())
 
-    def test_delete_non_exist_header(self):
+    async def test_delete_non_exist_header(self):
         """Request/response does not modify if header is missing from base request/response."""
-        self.base_scenario(
+        await self.base_scenario(
             config=f"{self.directive}_hdr_set non-exist-header;\n",
             optional_headers=[],
             expected_headers=[],
         )
 
-    def test_set_large_header(self):
-        self.base_scenario(
+    async def test_set_large_header(self):
+        await self.base_scenario(
             config=f'{self.directive}_hdr_set x-my-hdr "{"12" * 2000}";\n',
             optional_headers=[],
             expected_headers=[("x-my-hdr", "12" * 2000)],
         )
 
-    def test_set_header_name_greater_than_1024(self):
-        self.base_scenario(
+    async def test_set_header_name_greater_than_1024(self):
+        await self.base_scenario(
             config=f'{self.directive}_hdr_set {"a" * (MAX_HEADER_NAME + 10)} "value";\n',
             optional_headers=[],
             expected_headers=[("a" * (MAX_HEADER_NAME + 10), "value")],
         )
 
-    def test_set_long_header_name(self):
-        self.base_scenario(
+    async def test_set_long_header_name(self):
+        await self.base_scenario(
             config=(
                 f'{self.directive}_hdr_set {"a" * MAX_HEADER_NAME} "value";\n'
                 f'{self.directive}_hdr_set {"b" * MAX_HEADER_NAME} "value";\n'
@@ -322,8 +322,8 @@ class TestLogicBase(tester.TempestaTest, base=True):
             ],
         )
 
-    def test_long_header_name(self):
-        self.base_scenario(
+    async def test_long_header_name(self):
+        await self.base_scenario(
             config=f'{self.directive}_hdr_set {"a" * MAX_HEADER_NAME} "value1";\n',
             optional_headers=[
                 ("a" * MAX_HEADER_NAME, "value"),
@@ -383,7 +383,7 @@ class TestManyRequestHeaders(tester.TempestaTest):
     requests_n = 1
     __headers_n = 64 // 4
 
-    def test_many_headers(self):
+    async def test_many_headers(self):
         set_headers = [(f"set-header-{step}", str(step) * 1000) for step in range(self.__headers_n)]
         add_headers = [(f"add-header-{step}", str(step) * 1000) for step in range(self.__headers_n)]
         exist_header = [
@@ -408,7 +408,7 @@ class TestManyRequestHeaders(tester.TempestaTest):
             for header in expected_changed_header
         )
 
-        TestLogicBase.base_scenario(
+        await TestLogicBase.base_scenario(
             self,
             config="".join(config),
             optional_headers=exist_header + changed_headers,
@@ -443,9 +443,9 @@ class TestRespHeaderH2(H2Config, TestLogicBase):
     requests_n = 1
     h2 = True
 
-    def test_add_header_from_static_table(self):
+    async def test_add_header_from_static_table(self):
         """Tempesta must add header from static table as byte."""
-        client, server = self.base_scenario(
+        client, server = await self.base_scenario(
             config=f'{self.directive}_hdr_set cache-control "no-cache";\n',
             optional_headers=[],
             expected_headers=[("cache-control", "no-cache")],
@@ -453,14 +453,14 @@ class TestRespHeaderH2(H2Config, TestLogicBase):
 
         self.assertIn(b"\x08no-cache", client.last_response_buffer)
 
-    def test_add_header_from_dynamic_table(self):
+    async def test_add_header_from_dynamic_table(self):
         """Tempesta must add header from dynamic table for second response."""
         update_tempesta_config(
             tempesta=self.get_tempesta(),
             config=f'{self.directive}_hdr_set x-my-hdr "text";\n',
             cache=self.cache,
         )
-        self.start_all_services()
+        await self.start_all_services()
 
         optional_headers = [("x-my-hdr", "text")]
         request = generate_h2_request(optional_headers)
@@ -469,10 +469,10 @@ class TestRespHeaderH2(H2Config, TestLogicBase):
         server = self.get_server("deproxy")
         server.set_response(generate_response(optional_headers))
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertIn(b"\x08x-my-hdr\x04text", client.last_response_buffer)
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertNotIn(b"x-my-hdr\x04text", client.last_response_buffer)
         self.assertIn(b"\xbe", client.last_response_buffer)
 
@@ -483,8 +483,8 @@ class TestCachedRespHeaderH2(H2Config, TestLogicBase):
     requests_n = 2
     h2 = True
 
-    def test_add_header_from_static_table(self):
-        TestRespHeaderH2.test_add_header_from_static_table(self)
+    async def test_add_header_from_static_table(self):
+        await TestRespHeaderH2.test_add_header_from_static_table(self)
 
 
 class TestManyRequestHeadersH2(H2Config, TestManyRequestHeaders):
@@ -544,11 +544,11 @@ class TestReqHdrSetHost(tester.TempestaTest):
 
         return expected_request
 
-    def test_req_hdr_set_host(self):
+    async def test_req_hdr_set_host(self):
         expected_headers = [("host", "host-overriden")]
         config = f'{self.directive}_hdr_set host "host-overriden";\n'
         update_tempesta_config(tempesta=self.get_tempesta(), config=config, cache=False)
-        self.start_all_services()
+        await self.start_all_services()
         self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
@@ -556,7 +556,7 @@ class TestReqHdrSetHost(tester.TempestaTest):
 
         server.set_response(generate_response())
 
-        client.send_request(
+        await client.send_request(
             generate_h2_request() if self.h2 else generate_http1_request(),
             "200",
         )
