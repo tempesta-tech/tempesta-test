@@ -64,14 +64,14 @@ cache 0;
     ]
 
     @marks.set_stress_mtu
-    def _test(self, client_id: str, header: str, body_func: Callable):
+    async def _test(self, client_id: str, header: str, body_func: Callable):
         """
         Send GET request and receive response with long body. Check that Tempesta does not crash.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         self.disable_deproxy_auto_parser()
 
-        server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
+        server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
@@ -87,7 +87,7 @@ cache 0;
         client: curl_client.CurlClient = self.get_client(client_id)
         client.options = [" --raw"]
         client.start()
-        self.assertTrue(client.wait_for_finish(timeout=100))
+        self.assertTrue(await client.wait_for_finish(timeout=100))
         client.stop()
 
         self.assertIsNotNone(client.last_response)
@@ -103,64 +103,64 @@ cache 0;
             srv_msg_forwarded=1,
         )
 
-    def test_http(self):
-        self._test(
+    async def test_http(self):
+        await self._test(
             client_id="curl-http",
             header=f"Content-Length: {BODY_SIZE}",
             body_func=utils.create_simpple_body,
         )
 
-    def test_https(self):
-        self._test(
+    async def test_https(self):
+        await self._test(
             client_id="curl-https",
             header=f"Content-Length: {BODY_SIZE}",
             body_func=utils.create_simpple_body,
         )
 
-    def test_h2(self):
-        self._test(
+    async def test_h2(self):
+        await self._test(
             client_id="curl-h2",
             header=f"Content-Length: {BODY_SIZE}",
             body_func=utils.create_simpple_body,
         )
 
-    def test_http_one_big_chunk(self):
-        self._test(
+    async def test_http_one_big_chunk(self):
+        await self._test(
             client_id="curl-http",
             header="Transfer-Encoding: chunked",
             body_func=utils.create_one_big_chunk,
         )
 
-    def test_https_one_big_chunk(self):
-        self._test(
+    async def test_https_one_big_chunk(self):
+        await self._test(
             client_id="curl-https",
             header="Transfer-Encoding: chunked",
             body_func=utils.create_one_big_chunk,
         )
 
-    def test_h2_one_big_chunk(self):
-        self._test(
+    async def test_h2_one_big_chunk(self):
+        await self._test(
             client_id="curl-h2",
             header="Transfer-Encoding: chunked",
             body_func=utils.create_one_big_chunk,
         )
 
-    def test_http_many_big_chunks(self):
-        self._test(
+    async def test_http_many_big_chunks(self):
+        await self._test(
             client_id="curl-http",
             header="Transfer-Encoding: chunked",
             body_func=utils.create_many_big_chunks,
         )
 
-    def test_https_many_big_chunks(self):
-        self._test(
+    async def test_https_many_big_chunks(self):
+        await self._test(
             client_id="curl-https",
             header="Transfer-Encoding: chunked",
             body_func=utils.create_many_big_chunks,
         )
 
-    def test_h2_many_big_chunks(self):
-        self._test(
+    async def test_h2_many_big_chunks(self):
+        await self._test(
             client_id="curl-h2",
             header="Transfer-Encoding: chunked",
             body_func=utils.create_many_big_chunks,
