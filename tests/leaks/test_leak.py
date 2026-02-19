@@ -6,9 +6,9 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import re
 import unittest
-from time import sleep
 
 import run_config
 from framework.helpers import dmesg, remote, tf_cfg
@@ -25,10 +25,10 @@ REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 
-def drop_caches():
+async def drop_caches():
     """Drop caches"""
     remote.tempesta.run_cmd("echo 3 > /proc/sys/vm/drop_caches")
-    sleep(1)
+    await asyncio.sleep(1)
 
 
 def has_kmemleak():
@@ -66,16 +66,16 @@ def get_memory_lines(*names):
     return lines
 
 
-def slab_memory():
+async def slab_memory():
     """Get amount of slab used memory"""
-    drop_caches()
+    await drop_caches()
     (slabmem,) = get_memory_lines("Slab")
     return slabmem
 
 
-def free_and_cached_memory():
+async def free_and_cached_memory():
     """Measure free memory usage"""
-    drop_caches()
+    await drop_caches()
     freemem, cached = get_memory_lines("MemFree", "Cached")
     return freemem + cached
 
@@ -175,17 +175,17 @@ frang_limits {http_strict_host_checking false;}
     client_name: str
 
     @dmesg.limited_rate_on_tempesta_node
-    def run_routine(self, backend, client):
+    async def run_routine(self, backend, client):
         tempesta = self.get_tempesta()
-        self.start_all_services()
-        self.wait_while_busy(client)
+        await self.start_all_services()
+        await self.wait_while_busy(client)
         client.stop()
         tempesta.stop()
         backend.get_stats()
         self.assertGreater(backend.requests, 0)
         backend.stop()
 
-    def test_kmemleak(self):
+    async def test_kmemleak(self):
         """Detecting leaks with kmemleak"""
         if not has_kmemleak():
             return unittest.TestCase.skipTest(self, "No kmemleak")
@@ -194,12 +194,12 @@ frang_limits {http_strict_host_checking false;}
         client = self.get_client(self.client_name)
 
         kml1 = read_kmemleaks()
-        self.run_routine(nginx, client)
+        await self.run_routine(nginx, client)
         kml2 = read_kmemleaks()
 
         self.assertEqual(kml1, kml2)
 
-    def test_slab_memory(self):
+    async def test_slab_memory(self):
         """Detecting leaks with slab memory measure"""
         if not has_meminfo():
             return unittest.TestCase.skipTest(self, "No meminfo")
@@ -207,15 +207,15 @@ frang_limits {http_strict_host_checking false;}
         nginx = self.get_server("nginx")
         client = self.get_client(self.client_name)
 
-        used1 = slab_memory()
-        self.run_routine(nginx, client)
-        used2 = slab_memory()
+        used1 = await slab_memory()
+        await self.run_routine(nginx, client)
+        used2 = await slab_memory()
 
         self.assertLess(used2 - used1, self.memory_leak_threshold)
 
     @marks.check_memory_consumption
-    def test_used_memory(self):
+    async def test_used_memory(self):
         """Detecting leaks with total used memory measure"""
         nginx = self.get_server("nginx")
         client = self.get_client(self.client_name)
-        self.run_routine(nginx, client)
+        await self.run_routine(nginx, client)
