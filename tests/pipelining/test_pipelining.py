@@ -124,7 +124,7 @@ server ${server_ip}:8000;
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def test_pipelined(self):
+    async def test_pipelined(self):
         # Check that responses goes in the same order as requests
 
         request = [
@@ -137,10 +137,10 @@ server ${server_ip}:8000;
         deproxy_cl = self.get_client("deproxy")
 
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl.make_requests(request, pipelined=True)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
 
         self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
@@ -149,7 +149,7 @@ server ${server_ip}:8000;
         for i in range(len(deproxy_cl.responses)):
             self.assertEqual(deproxy_cl.responses[i].body, "/" + str(i))
 
-    def test_2_pipelined(self):
+    async def test_2_pipelined(self):
         # Check that responses goes in the same order as requests
         request = [
             "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -165,13 +165,13 @@ server ${server_ip}:8000;
         deproxy_cl = self.get_client("deproxy")
 
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl.make_requests(request, pipelined=True)
-        deproxy_cl.wait_for_response(timeout=5)
+        await deproxy_cl.wait_for_response(timeout=5)
 
         deproxy_cl.make_requests(request2, pipelined=True)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
 
         self.assertTrue(resp, "Response not received")
         self.assertEqual(6, len(deproxy_cl.responses))
@@ -210,7 +210,7 @@ class TestPipelineResponsesOrderWithClosingConnection(tester.TempestaTest):
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def test_failovering(self):
+    async def test_failovering(self):
         # Check that responses goes in the same order as requests
         # This test differs from previous ones in server: it closes connections
         # every 4 requests
@@ -227,7 +227,7 @@ class TestPipelineResponsesOrderWithClosingConnection(tester.TempestaTest):
         deproxy_cl = self.get_client("deproxy")
 
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl.make_requests(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
@@ -271,7 +271,7 @@ server ${server_ip}:8000;
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def test_pipelined(self):
+    async def test_pipelined(self):
         # Check that responses goes in the same order as requests
         request = [
             "GET /0 HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
@@ -283,7 +283,7 @@ server ${server_ip}:8000;
         deproxy_srv = self.get_server("deproxy")
 
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl.make_requests(request, pipelined=True)
 
@@ -312,7 +312,7 @@ Connection: keep-alive
         },
     ]
 
-    def test_failovering(self):
+    async def test_failovering(self):
         # Check that responses goes in the same order as requests
         # This test differs from previous one in server: it closes connections
         # every 4 requests
@@ -328,7 +328,7 @@ Connection: keep-alive
         deproxy_srv = self.get_server("deproxy_ka")
         deproxy_cl = self.get_client("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl.make_request(request, pipelined=True)
         resp = deproxy_cl.wait_for_response(timeout=5)
@@ -376,8 +376,8 @@ class H2MultiplexedTest(tester.TempestaTest):
         """
     }
 
-    def test_bodyless(self):
-        self.start_all_services()
+    async def test_bodyless(self):
+        await self.start_all_services()
 
         REQ_NUM = 10
         head = [
@@ -395,7 +395,7 @@ class H2MultiplexedTest(tester.TempestaTest):
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(request)
 
-        deproxy_cl.wait_for_response(timeout=5)
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(REQ_NUM, len(deproxy_cl.responses))
         self.assertEqual(REQ_NUM, len(deproxy_srv.requests))
 
@@ -478,18 +478,18 @@ class TestPipelinedNonIdempotentRequests(tester.TempestaTest):
     def __set_method(request: str, method_name: str) -> str:
         return request.format(method=method_name)
 
-    def _test(self, requests: list[str], correct_order: str):
+    async def _test(self, requests: list[str], correct_order: str):
         global REQUESTS_EXECUTION_SEQUENCE
 
         REQUESTS_EXECUTION_SEQUENCE = []
         __requests = [self.__set_method(request, self.method) for request in requests]
 
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(__requests, pipelined=True)
-        deproxy_cl.wait_for_response(timeout=5)
+        await deproxy_cl.wait_for_response(timeout=5)
 
         self.assertEqual(3, len(deproxy_cl.responses))
 
@@ -531,12 +531,12 @@ class TestPipelinedNonIdempotentRequests(tester.TempestaTest):
             ),
         ]
     )
-    def test_pipelined(self, name: str, requests: list[str], correct_order: str):
+    async def test_pipelined(self, name: str, requests: list[str], correct_order: str):
         """
         Here we check the response orders and EXECUTING order. The non-idempotent requests should block all further
         idempotent requests.
         """
-        self._test(requests, correct_order)
+        await self._test(requests, correct_order)
 
 
 class TestPipelinedNonIdempotentRequestsGET(TestPipelinedNonIdempotentRequests):
@@ -597,8 +597,8 @@ class TestPipelinedNonIdempotentRequestsGET(TestPipelinedNonIdempotentRequests):
             ),
         ]
     )
-    def test_pipelined(self, name: str, requests: list[str], correct_order: str):
-        self._test(requests, correct_order)
+    async def test_pipelined(self, name: str, requests: list[str], correct_order: str):
+        await self._test(requests, correct_order)
 
 
 class TestPipelinedNonIdempotentRequestsH2GET(TestPipelinedNonIdempotentRequests):
@@ -667,5 +667,5 @@ class TestPipelinedNonIdempotentRequestsH2GET(TestPipelinedNonIdempotentRequests
             ),
         ]
     )
-    def test_pipelined(self, name: str, requests: list[str], correct_order: str):
-        self._test(requests, correct_order)
+    async def test_pipelined(self, name: str, requests: list[str], correct_order: str):
+        await self._test(requests, correct_order)
