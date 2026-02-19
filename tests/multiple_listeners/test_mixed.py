@@ -159,12 +159,7 @@ class TestMixedListeners(tester.TempestaTest):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
-    def start_all(self):
-        """Start server and tempesta."""
-        self.start_all_servers()
-        self.start_tempesta()
-
-    def make_curl_request(self, curl_client_id: str) -> str:
+    async def make_curl_request(self, curl_client_id: str) -> str:
         """
         Make `curl` request.
 
@@ -176,7 +171,7 @@ class TestMixedListeners(tester.TempestaTest):
         """
         client: ExternalTester = self.get_client(curl_client_id)
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         return client.response_msg
 
@@ -201,16 +196,16 @@ class TestMixedListeners(tester.TempestaTest):
                 "Error for curl",
             )
 
-    def test_mixed_h2_success(self):
+    async def test_mixed_h2_success(self):
         """
         Test h2 success situation.
 
         One `true` client apply h2 client for h2 socket,
         second `false` client apply h2 client for https socket,
         """
-        self.start_all()
+        await self.start_all_services(client=False)
 
-        self.check_curl_response(self.make_curl_request("curl-h2-true"), fail=False)
+        self.check_curl_response(await self.make_curl_request("curl-h2-true"), fail=False)
         self.assertRaises(
             ssl.SSLError,
             establish_client_server_connection,
@@ -218,26 +213,26 @@ class TestMixedListeners(tester.TempestaTest):
             protocols=["h2"],
         )
 
-    def test_mixed_https_success(self):
+    async def test_mixed_https_success(self):
         """
         Test https success situation.
 
         One `true` client apply https client for https socket,
         second `false` client apply https client for h2 socket,
         """
-        self.start_all()
+        await self.start_all_services(client=False)
 
-        self.check_curl_response(self.make_curl_request("curl-https-true"), fail=False)
-        self.check_curl_response(self.make_curl_request("curl-https-false"), fail=True)
+        self.check_curl_response(await self.make_curl_request("curl-https-true"), fail=False)
+        self.check_curl_response(await self.make_curl_request("curl-https-false"), fail=True)
 
-    def test_h2_https_success(self):
+    async def test_h2_https_success(self):
         """
         Test https success situation.
 
         According to Tempesta FW configuration, both h2 and HTTPS protocols
         should be available on a single port.
         """
-        self.start_all()
+        await self.start_all_services(client=False)
 
-        self.check_curl_response(self.make_curl_request("curl-h2"), fail=False)
-        self.check_curl_response(self.make_curl_request("curl-https"), fail=False)
+        self.check_curl_response(await self.make_curl_request("curl-h2"), fail=False)
+        self.check_curl_response(await self.make_curl_request("curl-https"), fail=False)

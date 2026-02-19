@@ -1416,13 +1416,8 @@ class TestMultipleListening(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-
     @dmesg.limited_rate_on_tempesta_node
-    def test_multiple_listeners_success(self):
+    async def test_multiple_listeners_success(self):
         # h2spec
         for cli in self.clients:
             if cli[ID].startswith("h2spec"):
@@ -1431,7 +1426,7 @@ class TestMultipleListening(tester.TempestaTest):
                 )
                 h2spec.options.append(H2SPEC_EXTRA_SETTINGS)
 
-        self.start_all()
+        await self.start_all_services()
 
         for cli in self.clients:
             # h2spec
@@ -1439,7 +1434,7 @@ class TestMultipleListening(tester.TempestaTest):
                 h2spec = self.get_client(
                     cli[ID],
                 )
-                self.wait_while_busy(h2spec)
+                await self.wait_while_busy(h2spec)
                 h2spec.stop()
                 self.assertIn(
                     H2SPEC_OK,
@@ -1452,7 +1447,7 @@ class TestMultipleListening(tester.TempestaTest):
                     cli[ID],
                 )
                 curl.start()
-                self.wait_while_busy(curl)
+                await self.wait_while_busy(curl)
                 curl.stop()
                 self.assertIn(
                     STATUS_OK,
