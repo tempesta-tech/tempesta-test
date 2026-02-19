@@ -32,20 +32,13 @@ class ContentTypeTestBase(tester.TempestaTest):
         }
     ]
 
-    def setUp(self):
-        super(ContentTypeTestBase, self).setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.start_all_services()
         self.deproxy_srv = self.get_server("deproxy")
-        self.deproxy_srv.start()
-        self.assertEqual(0, len(self.deproxy_srv.requests))
-
-        self.start_tempesta()
-
         self.deproxy_cl = self.get_client("deproxy")
-        self.deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(self.deproxy_srv.wait_for_connections(timeout=3))
 
-    def do_test_replacement(self, content_type, expected_content_type):
+    async def do_test_replacement(self, content_type, expected_content_type):
         """Perform a parametrized test of Content-Type string.
 
         content_type may contain any number of placeholders ({}) which will be
@@ -68,7 +61,7 @@ class ContentTypeTestBase(tester.TempestaTest):
         ):
             request = request_tmpl.format(*state)
             self.deproxy_cl.make_request(request)
-            resp = self.deproxy_cl.wait_for_response(timeout=5)
+            resp = await self.deproxy_cl.wait_for_response(timeout=5)
             self.assertTrue(resp, "Response not received")
 
         for server_req in self.deproxy_srv.requests:
@@ -77,13 +70,13 @@ class ContentTypeTestBase(tester.TempestaTest):
             self.assertIsNotNone(val)
             self.assertEqual(val, expected_content_type)
 
-    def expect_content_type_rebuilt(self):
-        self.do_test_replacement(
+    async def expect_content_type_rebuilt(self):
+        await self.do_test_replacement(
             " multipart/form-data; tmp=123; boundary=456", "multipart/form-data; boundary=456"
         )
 
-    def expect_content_type_intact(self):
-        self.do_test_replacement(
+    async def expect_content_type_intact(self):
+        await self.do_test_replacement(
             " multipart/form-data; tmp=123; boundary=456",
             "multipart/form-data; tmp=123; boundary=456",
         )
@@ -110,26 +103,26 @@ class ContentTypeHeaderReconstructTest(ContentTypeTestBase):
         ),
     }
 
-    def test_replacement_unquoted_1(self):
-        self.do_test_replacement(
+    async def test_replacement_unquoted_1(self):
+        await self.do_test_replacement(
             'multiPART/form-data;{}boundary=helloworld{};{}o_param="123" ',
             "multipart/form-data; boundary=helloworld",
         )
 
-    def test_replacement_unquoted_2(self):
-        self.do_test_replacement(
+    async def test_replacement_unquoted_2(self):
+        await self.do_test_replacement(
             'multiPART/form-data;{}o_param="123";{}boundary=helloworld{}',
             "multipart/form-data; boundary=helloworld",
         )
 
-    def test_replacement_quoted(self):
-        self.do_test_replacement(
+    async def test_replacement_quoted(self):
+        await self.do_test_replacement(
             '{}multiPart/form-data{}; boundary="helloworld"{}',
             'multipart/form-data; boundary="helloworld"',
         )
 
-    def test_replacement_escaped(self):
-        self.do_test_replacement(
+    async def test_replacement_escaped(self):
+        await self.do_test_replacement(
             ' multiPart/form-data; boundary="hello\\"world"',
             'multipart/form-data; boundary="hello\\"world"',
         )
@@ -155,8 +148,8 @@ class ConfigParameterAbsent(ContentTypeTestBase):
         ),
     }
 
-    def test(self):
-        self.expect_content_type_intact()
+    async def test(self):
+        await self.expect_content_type_intact()
 
 
 class ConfigParameterAtTopLevel(ContentTypeTestBase):
@@ -180,8 +173,8 @@ class ConfigParameterAtTopLevel(ContentTypeTestBase):
         ),
     }
 
-    def test(self):
-        self.expect_content_type_rebuilt()
+    async def test(self):
+        await self.expect_content_type_rebuilt()
 
 
 class ConfigParameterAtVhost(ContentTypeTestBase):
@@ -205,8 +198,8 @@ class ConfigParameterAtVhost(ContentTypeTestBase):
         ),
     }
 
-    def test(self):
-        self.expect_content_type_rebuilt()
+    async def test(self):
+        await self.expect_content_type_rebuilt()
 
 
 class ConfigParameterAtLocation(ContentTypeTestBase):
@@ -230,5 +223,5 @@ class ConfigParameterAtLocation(ContentTypeTestBase):
         ),
     }
 
-    def test(self):
-        self.expect_content_type_rebuilt()
+    async def test(self):
+        await self.expect_content_type_rebuilt()
