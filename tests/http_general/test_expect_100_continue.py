@@ -1,4 +1,4 @@
-import time
+import asyncio
 
 from framework.test_suite import tester
 
@@ -40,19 +40,19 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         )
     }
 
-    def test_send_full_request(self):
+    async def test_send_full_request(self):
         """
         Send request that contains 'Expect: 100-continue' header and body. Don't wait
         for 100-continue response. Due to we send body right after header without any
         time intervals '101-continue' response must not be sent by Tempesta. Only one
         response is expected in this test.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
         client.start()
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="PUT",
                 headers=[
@@ -67,19 +67,19 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             expected_status_code="200",
         )
 
-    def test_regular_behaviour(self):
+    async def test_regular_behaviour(self):
         """
         Send request that contains 'Expect: 100-continue' header and body. Send only
         headers, then wait for 100-continue response, and send after that body,
         wait for server response.
         """
         self.disable_deproxy_auto_parser()
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
         client.start()
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="PUT",
                 headers=[
@@ -93,10 +93,10 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             expected_status_code="100",
         )
         client.send_bytes(b"1" * 9, expect_response=True)
-        client.wait_for_response(strict=True)
+        await client.wait_for_response(strict=True)
         self.assertEqual(client.last_response.status, "200")
 
-    def test_request_pipeline_delay(self):
+    async def test_request_pipeline_delay(self):
         """
         Send two pipelined requests, the first request will be forwarded to upstream,
         then Tempesta processes second request that contains 'Expect: 100-continue'
@@ -108,7 +108,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         """
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
         server.delay_before_sending_response = 2
@@ -142,7 +142,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        client.wait_for_response(timeout=10)
+        await client.wait_for_response(timeout=10)
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -151,7 +151,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         )
 
         client.send_bytes(b"1" * 9, expect_response=True)
-        client.wait_for_response(strict=True)
+        await client.wait_for_response(strict=True)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -159,14 +159,14 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
-    def test_request_pipeline_delay_no_wait(self):
+    async def test_request_pipeline_delay_no_wait(self):
         """
         Tempesta should remove response 100-continue
         if the request body comes earlier than responding starts
         """
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
         server.delay_before_sending_response = 2
@@ -199,10 +199,10 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        time.sleep(0.2)
+        await asyncio.sleep(0.2)
         client.send_bytes(b"1" * 9)
 
-        client.wait_for_response(timeout=10)
+        await client.wait_for_response(timeout=10)
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -210,10 +210,10 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
-    def test_request_pipeline_delay_3_requests(self):
+    async def test_request_pipeline_delay_3_requests(self):
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
         server.delay_before_sending_response = 2
@@ -246,7 +246,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        client.wait_for_response(timeout=10)
+        await client.wait_for_response(timeout=10)
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -262,7 +262,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         )
         client.send_bytes(b"{}" + request.msg.encode(), expect_response=True)
         client.methods.append("GET")
-        client.wait_for_response(strict=True, n=4)
+        await client.wait_for_response(strict=True, n=4)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -270,10 +270,10 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
-    def test_request_pipeline_3_requests_empty_body(self):
+    async def test_request_pipeline_3_requests_empty_body(self):
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         server = self.get_server("deproxy")
         server.delay_before_sending_response = 2
@@ -312,7 +312,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        client.wait_for_response(timeout=10)
+        await client.wait_for_response(timeout=10)
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -320,10 +320,10 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
-    def test_request_pipeline_3_requests_encoding_chunked(self):
+    async def test_request_pipeline_3_requests_encoding_chunked(self):
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
         client.start()
@@ -360,7 +360,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        client.wait_for_response(timeout=10)
+        await client.wait_for_response(timeout=10)
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -368,10 +368,10 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             "Invalid responses sequence",
         )
 
-    def test_request_pipeline_3_all_100(self):
+    async def test_request_pipeline_3_all_100(self):
         self.disable_deproxy_auto_parser()
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
         client.start()
@@ -414,7 +414,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             ],
             pipelined=True,
         )
-        client.wait_for_response(timeout=10)
+        await client.wait_for_response(timeout=10)
 
         self.assertEqual(
             [int(response.status) for response in client.responses],
