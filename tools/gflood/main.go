@@ -32,6 +32,7 @@ var (
 	host       	string
 	headerFieldSize int = 1000
 	headersCount    int
+	source_ip	string
 	debug		int
 )
 
@@ -48,6 +49,7 @@ func init() {
 	flag.Uint64Var(&streams_num, "streams", 10, "number of streams in each connection")
 	flag.Int64Var(&conn_delay, "conn_delay", 0, "connection delay in ms")
 	flag.IntVar(&headersCount, "headers_cnt", 5, "count of headers per request")
+	flag.StringVar(&source_ip, "source_ip", "", "client souce ip")
 	flag.IntVar(&debug, "debug", 0, "debug level")
 	flag.Parse()
 
@@ -70,7 +72,19 @@ func main() {
 	log.Printf("Starting %d connections in %d threads", connections, threads)
 	var conn_per_thread int = connections / threads
 	var rem int = connections % threads
+	var ips []string
 
+	if source_ip != "" {
+		ips = strings.Fields(source_ip)
+		for _, ip := range ips {
+			if net.ParseIP(ip) == nil {
+				log.Printf("invalid IP: %s\n", ip)
+				return
+			}	
+		}
+	}
+
+	ip_num := 0
 	for i := 0; i < threads; i++ {
 		if conn_delay > 0 {
 			time.Sleep(time.Duration(conn_delay) * time.Millisecond)
@@ -82,7 +96,15 @@ func main() {
 		}
 		go func(i int, inc int) {
 			for j := 0; j < conn_per_thread + inc; j++ {
-				connection(i)
+				var s_ip = ""
+				if len(ips) != 0 {
+					s_ip = ips[ip_num]
+				}
+				connection(i, s_ip)
+				if len(ips) != 0 {
+					ip_num = ip_num + 1
+					ip_num = ip_num % len(ips)
+				}
 				nfinished := atomic.AddInt64(&finished, 1)
 				if (nfinished == int64(connections)) {
 					log.Printf("All connections are finished, stopping program\n")
@@ -99,13 +121,30 @@ func main() {
 	<-done
 }
 
-func connection(cid int) {
+func connection(cid int, ip string) {
+	var conn *tls.Conn
+	var err error
+
 	conf := &tls.Config{
-         InsecureSkipVerify: true,
-	 NextProtos: []string{"h2"},
+        	InsecureSkipVerify: true,
+		NextProtos: []string{"h2"},
     	}
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout:  2 * time.Second},
-					"tcp", address, conf)
+    	if ip != "" { 
+    		var sourceAddr = &net.TCPAddr{
+			IP:   net.ParseIP(ip),
+			Port: 0,
+		}
+		conn, err = tls.DialWithDialer(&net.Dialer{
+							Timeout:  2 * time.Second,
+							LocalAddr: sourceAddr,
+						},
+						"tcp", address, conf)
+	} else {
+		conn, err = tls.DialWithDialer(&net.Dialer{
+							Timeout:  2 * time.Second,
+						},
+						"tcp", address, conf)
+	}
 	if err != nil {
 		if (debug > 0) {
 			log.Printf("Connection error. Filtered?: %s\n", err)
