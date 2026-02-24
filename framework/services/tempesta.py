@@ -480,18 +480,14 @@ class Tempesta(stateful.Stateful):
             env.update({"TFW_DEV": tf_cfg.cfg.get("Tempesta", "interfaces")})
         self.node.run_cmd(cmd, timeout=timeout or 30, env=env)
 
-    def stop_tempesta(self):
-        cmd = "%s/scripts/tempesta.sh --stop" % self.srcdir
-        self.node.run_cmd(cmd, timeout=30)
+    def stop_tempesta(self) -> None:
+        self.node.run_cmd(f"{self.srcdir}/scripts/tempesta.sh --stop", timeout=30)
 
-    def get_stats(self):
-        cmd = "cat /proc/tempesta/perfstat"
-        stdout, _ = self.node.run_cmd(cmd)
-        self.stats.parse(stdout)
+    def get_stats(self) -> None:
+        self.stats.parse(self.node.run_cmd("cat /proc/tempesta/perfstat")[0])
 
-    def get_server_stats(self, path):
-        cmd = "cat /proc/tempesta/servers/%s" % (path)
-        return self.node.run_cmd(cmd)
+    def get_server_stats(self, path: str) -> tuple[bytes, bytes]:
+        return self.node.run_cmd(f"cat /proc/tempesta/servers/{path}")
 
 
 class TempestaFI(Tempesta):

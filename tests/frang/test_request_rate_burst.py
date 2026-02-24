@@ -171,12 +171,12 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         self.sniffer.stop()
 
-        self.assert_reset_socks(self.sniffer.packets, [c2])
-        self.assert_unreset_socks(self.sniffer.packets, [c1])
         self.assertFrangWarning(
             warning=f"Warning: block client: {c2.bind_addr}", expected=range(1, 3)
         )
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
+        self.assert_reset_socks(self.sniffer.packets, [c2])
+        self.assert_unreset_socks(self.sniffer.packets, [c1])
 
     @marks.retry_if_not_conditions
     def test_two_clients_one_ip(self):
@@ -201,9 +201,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         self.sniffer.stop()
 
-        self.assert_reset_socks(self.sniffer.packets, [c1, c2])
         self.assertFrangWarning(warning="Warning: block client:", expected=range(1, 6))
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
+        self.assert_reset_socks(self.sniffer.packets, [c1, c2])
 
 
 @marks.parameterize_class(
