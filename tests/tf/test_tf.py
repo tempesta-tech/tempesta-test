@@ -145,8 +145,8 @@ class TestTFt(tester.TempestaTest):
                 name="hash_for_client_block_by_conn",
                 tempesta_tf_config="""
 					tft {
-						hash 66cb9fd8d4250000 0 10;
-						hash 66cb8f00d4250002 0 10;
+						hash 66cb9fd8ef170000 0 10;
+						hash 66cb8f00ef170002 0 10;
 					}
 				""",
                 expected_block=True,
