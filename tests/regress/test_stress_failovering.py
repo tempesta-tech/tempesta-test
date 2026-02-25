@@ -117,20 +117,20 @@ class FailoveringStressTestBase(tester.TempestaTest, base=True):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         for backend in self.backends:
             backend["config"] = backend["config"] % self.ka_requests
-        super().setUp()
+        await super().asyncSetUp()
 
-    def run_test(self) -> None:
+    async def run_test(self) -> None:
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # launch H2Load
         client = self.get_client("h2load")
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
@@ -164,12 +164,12 @@ class TestStressFailovering(FailoveringStressTestBase):
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    def test_failovering(self, name, tfw_config) -> None:
+    async def test_failovering(self, name, tfw_config) -> None:
         """Small amount of keep-alive requests, make Tempesta failover
         connections on a high rates.
         """
         tfw_config(self)
-        self.run_test()
+        await self.run_test()
 
         tempesta = self.get_tempesta()
         tempesta.get_stats()
@@ -179,6 +179,3 @@ class TestStressFailovering(FailoveringStressTestBase):
             tempesta.stats.cl_msg_forwarded,
         )
         self.assertTrue(tempesta.stats.cl_msg_other_errors > 0)
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
