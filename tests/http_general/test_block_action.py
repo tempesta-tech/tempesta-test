@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
+
 import run_config
 from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_client import BaseDeproxyClient
@@ -80,9 +82,9 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
     """
 
     @staticmethod
-    def setup_sniffer() -> analyzer.Sniffer:
+    async def setup_sniffer() -> analyzer.Sniffer:
         sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80, 443))
-        sniffer.start()
+        await sniffer.start()
         return sniffer
 
     def check_fin_no_rst_in_sniffer(
@@ -110,14 +112,14 @@ class BlockActionReply(BlockActionBase):
         }
         tester.TempestaTest.setUp(self)
 
-    def check_last_error_response(self, client, expected_status_code):
+    async def check_last_error_response(self, client, expected_status_code):
         """
         In case of TCP segmentation and attack we can't be sure that client
         receive response, because kernel send TCP RST to client when we
         receive some data on the DEAD sock.
         """
         if not run_config.TCP_SEGMENTATION:
-            self.assertTrue(client.wait_for_response())
+            self.assertTrue(await client.wait_for_response())
             self.assertEqual(client.last_response.status, expected_status_code)
             self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
@@ -127,18 +129,18 @@ class BlockActionReply(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_attack_reply(self, name, client_id):
+    async def test_block_action_attack_reply(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
         )
-        self.check_last_error_response(client, expected_status_code="403")
+        await self.check_last_error_response(client, expected_status_code="403")
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
@@ -147,19 +149,19 @@ class BlockActionReply(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_error_reply_with_conn_close(self, name, client_id):
+    async def test_block_action_error_reply_with_conn_close(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
             expected_status_code="400",
         )
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
@@ -168,13 +170,13 @@ class BlockActionReply(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_error_reply(self, name, client_id):
+    async def test_block_action_error_reply(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nX-Forwarded-For: 1.1.1.1.1.1\r\n\r\n",
             expected_status_code="400",
         )
@@ -182,7 +184,7 @@ class BlockActionReply(BlockActionBase):
 
         self.assertFalse(client.connection_is_closed())
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\n\r\n",
             expected_status_code="200",
         )
@@ -197,11 +199,11 @@ class BlockActionReply(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_error_reply_multiple_requests(self, name, client_id):
+    async def test_block_action_error_reply_multiple_requests(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
         client.make_requests(
             requests=[
@@ -210,7 +212,7 @@ class BlockActionReply(BlockActionBase):
             ],
             pipelined=True,
         )
-        client.wait_for_response()
+        await client.wait_for_response()
         self.assertEqual(len(client.responses), 2)
         self.assertFalse(client.connection_is_closed())
 
@@ -224,7 +226,7 @@ class BlockActionReply(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_attack_reply_not_on_req_rcv_event(self, name, client_id):
+    async def test_block_action_attack_reply_not_on_req_rcv_event(self, name, client_id):
         """
         Special test case when on_req_recv_event variable in C
         code is set to false, and connection closing is handled
@@ -233,10 +235,10 @@ class BlockActionReply(BlockActionBase):
         """
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: frang.com\r\n\r\n",
             expected_status_code="200",
         )
@@ -244,9 +246,9 @@ class BlockActionReply(BlockActionBase):
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: frang.com\r\n\r\n",
         )
-        self.check_last_error_response(client, expected_status_code="403")
+        await self.check_last_error_response(client, expected_status_code="403")
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
 
@@ -311,19 +313,19 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_error_reply_with_conn_close(self, name, client_id):
+    async def test_block_action_error_reply_with_conn_close(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\nContent-Type: invalid\r\n\r\n",
             expected_status_code="400",
         )
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
@@ -341,17 +343,17 @@ class BlockActionDrop(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_attack_drop(self, name, client_id):
+    async def test_block_action_attack_drop(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
         )
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
 
         self.check_rst_no_fin_in_sniffer(sniffer, [client])
@@ -362,17 +364,17 @@ class BlockActionDrop(BlockActionBase):
             marks.Param(name="https", client_id="deproxy_ssl"),
         ]
     )
-    def test_block_action_error_drop(self, name, client_id):
+    async def test_block_action_error_drop(self, name, client_id):
         client = self.get_client(client_id)
 
-        sniffer = self.setup_sniffer()
-        self.start_all_services()
+        sniffer = await self.setup_sniffer()
+        await self.start_all_services()
 
         client.make_request(
             request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
         )
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
 
         self.check_rst_no_fin_in_sniffer(sniffer, [client])
