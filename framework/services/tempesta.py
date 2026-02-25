@@ -459,12 +459,12 @@ class Tempesta(stateful.Stateful):
 
     def run_start(self):
         self.clear_stats()
-        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --start")
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --time-output --start")
 
     def reload(self, timeout: float = None) -> None:
         """Live reconfiguration"""
         self._logger.info("Reconfiguring TempestaFW")
-        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --reload", timeout)
+        self._do_run(f"{self.srcdir}/scripts/tempesta.sh --time-output --reload", timeout)
 
     def _do_run(self, cmd: str, timeout: float = None) -> None:
         cfg_content = self.config.get_config()
@@ -481,7 +481,7 @@ class Tempesta(stateful.Stateful):
         self.node.run_cmd(cmd, timeout=timeout or 30, env=env)
 
     def stop_tempesta(self) -> None:
-        self.node.run_cmd(f"{self.srcdir}/scripts/tempesta.sh --stop", timeout=30)
+        self.node.run_cmd(f"{self.srcdir}/scripts/tempesta.sh --time-output --stop", timeout=60)
 
     def get_stats(self) -> None:
         self.stats.parse(self.node.run_cmd("cat /proc/tempesta/perfstat")[0])
