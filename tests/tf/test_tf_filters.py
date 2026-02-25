@@ -2,6 +2,7 @@
 Tests for TF Hash Filtering and Configuration Parsing
 """
 
+import asyncio
 import typing
 
 from framework.helpers import remote, tf_cfg
@@ -95,23 +96,23 @@ class BaseTFTestSuite(tester.TempestaTest):
 
     hash_type: typing.Literal["tft", "tfh"] = None
 
-    def clean_up(self):
+    async def clean_up(self):
         remote.tempesta.remove_file(self.additional_conf_file)
 
-    def setUp(self):
-        super().setUp()
-        self.addCleanup(self.clean_up)
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.addAsyncCleanup(self.clean_up)
 
     def get_hash(self, fingerprint: AccessLogLine) -> str:
         return getattr(fingerprint, self.hash_type)
 
-    def get_fingerprints(self) -> list[str or None]:
+    def get_fingerprints(self) -> list[str | None]:
         return self.loggers.dmesg.log_findall('.*"tft=(\w+)" "tfh=(\w+)"')
 
-    def get_client_fingerprint(self, name: str) -> AccessLogLine:
+    async def get_client_fingerprint(self, name: str) -> AccessLogLine:
         client = self.get_client(name)
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.assertEqual(client.stdout, self.response_ok)
@@ -257,21 +258,23 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
         clients = list(map(self.get_client, [name for name in clients if name.startswith(prefix)]))
         return len(list(filter(lambda item: item.stdout == value, clients)))
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.clients = [
             self.__gen_client("limited", value, self.limited_client) for value in range(2)
         ]
         self.clients += [
             self.__gen_client("different", value, self.different_client) for value in range(2)
         ]
-        super().setUp()
+        await super().asyncSetUp()
 
-    def test_tf_hash_difference(self):
-        self.start_all_services(client=False)
+    async def test_tf_hash_difference(self):
+        await self.start_all_services(client=False)
 
         client_names = list(map(lambda __client: __client["id"], self.clients))
         clients = list(map(self.get_client, client_names))
-        fingerprints = list(map(self.get_client_fingerprint, client_names))
+        fingerprints = await asyncio.gather(
+            *[self.get_client_fingerprint(name) for name in client_names]
+        )
 
         self.assertEqual(self.get_hash(fingerprints[0]), self.get_hash(fingerprints[1]))
         self.assertEqual(self.get_hash(fingerprints[-1]), self.get_hash(fingerprints[-2]))
@@ -280,7 +283,7 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
         self.set_config_tf_hash(self.get_hash(fingerprints[0]))
 
         list(map(lambda __client: __client.start(), clients))
-        list(map(self.wait_while_busy, clients))
+        await asyncio.gather(*[self.wait_while_busy(client) for client in clients])
         list(map(lambda __client: __client.stop(), clients))
 
         self.assertEqual(
@@ -311,21 +314,21 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.update_config_with_tf_hash_limit(
             tft_hash=self.just_valid_tft_hash_string,
             tfh_hash=self.just_valid_tfh_hash_string,
             reload=False,
         )
-        super().setUp()
+        await super().asyncSetUp()
 
-    def test_default_values(self):
+    async def test_default_values(self):
         """
         Verify the default tf filters
         does not affect the application
         """
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.deproxy_manager.start()
 
         limited_1 = self.get_client("limited-1")
@@ -334,8 +337,8 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
         limited_1.start()
         limited_2.start()
 
-        self.wait_while_busy(limited_1)
-        self.wait_while_busy(limited_2)
+        await self.wait_while_busy(limited_1)
+        await self.wait_while_busy(limited_2)
 
         limited_1.stop()
         limited_2.stop()
@@ -375,13 +378,14 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
 class TestConfig(BaseTFTestSuite):
     tft_block: str = ""
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.write_tf_config(self.tft_block)
-        super().setUp()
+        await super().asyncSetUp()
 
-    def test_config(self):
+    async def test_config(self):
         self.oops_ignore = ["ERROR"]
-        self.assertRaises(ProcessBadExitStatusException, self.start_tempesta)
+        with self.assertRaises(ProcessBadExitStatusException):
+            await self.start_tempesta()
 
 
 @marks.parameterize_class(
@@ -406,30 +410,30 @@ class TestRestartAppWithUpdatedHash(BaseTFTestSuite):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.update_config_with_tf_hash_limit(
             tft_hash=self.just_valid_tft_hash_string,
             tfh_hash=self.just_valid_tfh_hash_string,
             reload=False,
         )
-        super().setUp()
+        await super().asyncSetUp()
 
-    def test_restart_ok(self):
+    async def test_restart_ok(self):
         """
         Verify successful application restart with
         tf configuration
         """
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.get_tempesta().restart()
 
-    def test_reload_ok(self):
+    async def test_reload_ok(self):
         """
         Verify successful application reload with
         tf configuration
         """
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.get_tempesta().reload()
 
 
@@ -461,24 +465,24 @@ class TestClearHashes(BaseTFTestSuite):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.update_config_with_tf_hash_limit(
             tft_hash=self.just_valid_tft_hash_string,
             tfh_hash=self.just_valid_tfh_hash_string,
             reload=False,
         )
-        super().setUp()
+        await super().asyncSetUp()
 
-    def test_clear_traffic_block(self):
-        self.start_all_services(client=False)
+    async def test_clear_traffic_block(self):
+        await self.start_all_services(client=False)
 
-        fingerprint = self.get_client_fingerprint("curl")
+        fingerprint = await self.get_client_fingerprint("curl")
 
         self.set_config_tf_hash(self.get_hash(fingerprint))
 
         blocked_client = self.get_client("blocked")
         blocked_client.start()
-        self.wait_while_busy(blocked_client)
+        await self.wait_while_busy(blocked_client)
         blocked_client.stop()
         self.assertIn(
             "Connection reset by peer",
@@ -489,7 +493,7 @@ class TestClearHashes(BaseTFTestSuite):
         self.update_config_with_tf_hash_limit()
         client = self.get_client("curl")
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertEqual(
             client.stdout,
