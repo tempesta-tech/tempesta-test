@@ -425,7 +425,7 @@ class Tempesta(stateful.Stateful):
         super().clear_stats()
         self.stats.clear()
 
-    def wait_while_logger_start(self, timeout: int = 5) -> bool:
+    async def wait_while_logger_start(self, timeout: int = 5) -> bool:
         """
         Block thread until tfw_logger starts
         """
@@ -441,7 +441,7 @@ class Tempesta(stateful.Stateful):
 
             return False
 
-        return wait_until(wait_cond=wait, timeout=timeout, poll_freq=0.1)
+        return await wait_until(wait_cond=wait, timeout=timeout)
 
     @staticmethod
     def tfw_logger_signal(signal: typing.Literal["STOP", "CONT"]) -> None:

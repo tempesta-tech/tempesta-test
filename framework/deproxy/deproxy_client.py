@@ -261,7 +261,9 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     @abc.abstractmethod
     def make_request(self, request, **kwargs): ...
 
-    def send_request(self, request, expected_status_code: Optional[str] = None, timeout=5) -> None:
+    async def send_request(
+        self, request, expected_status_code: Optional[str] = None, timeout=5
+    ) -> None:
         """
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
@@ -269,7 +271,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         curr_responses = len(self.responses)
 
         self.make_request(request)
-        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
+        await self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
 
         if expected_status_code:
             assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
@@ -284,12 +286,12 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if expect_response:
             self.valid_req_num += 1
 
-    def wait_for_connection_open(self, timeout=5, strict=False, adjust_timeout=True):
+    async def wait_for_connection_open(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             lambda: not self.conn_is_active,
             timeout,
             abort_cond=lambda: not self.connecting,
@@ -301,12 +303,12 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             ), f"Timeout exceeded while waiting connection open: {timeout}"
         return timeout_not_exceeded
 
-    def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
+    async def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             lambda: not self.connection_is_closed(),
             timeout,
             abort_cond=lambda: self.state == stateful.STATE_ERROR,
@@ -318,14 +320,14 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             ), f"Timeout exceeded while waiting connection close: {timeout}"
         return timeout_not_exceeded
 
-    def wait_for_response(
+    async def wait_for_response(
         self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
     ):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
         """
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
             abort_cond=lambda: self.connection_is_closed() and not self.connecting,
@@ -662,33 +664,33 @@ class DeproxyClientH2(BaseDeproxyClient):
 
         self.send_bytes(data=self.h2_connection.data_to_send())
 
-    def wait_for_ack_settings(self, timeout=5):
+    async def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
-        return util.wait_until(
+        return await util.wait_until(
             lambda: not self.ack_settings,
             timeout,
             abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
-    def wait_for_reset_stream(self, stream_id: int, timeout=5):
+    async def wait_for_reset_stream(self, stream_id: int, timeout=5):
         """Wait RST_STREAM frame for stream."""
-        return util.wait_until(
+        return await util.wait_until(
             lambda: not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id),
             timeout,
             abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
-    def wait_for_headers_frame(self, stream_id: int, timeout=5):
+    async def wait_for_headers_frame(self, stream_id: int, timeout=5):
         """Wait HEADERS frame for stream."""
         stream: h2.connection.H2Stream = self.h2_connection._get_stream_by_id(stream_id=stream_id)
-        return util.wait_until(
+        return await util.wait_until(
             lambda: not stream.state_machine.headers_received,
             timeout,
             abort_cond=lambda: self.connection_is_closed() and not self.connecting,
         )
 
-    def wait_for_ping_frames(self, ping_count: int, timeout=5):
-        return util.wait_until(
+    async def wait_for_ping_frames(self, ping_count: int, timeout=5):
+        return await util.wait_until(
             lambda: self._ping_received < ping_count,
             timeout,
             abort_cond=lambda: self.connection_is_closed() and not self.connecting,

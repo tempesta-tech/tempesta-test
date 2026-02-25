@@ -1,6 +1,5 @@
 import os
 import re
-import time
 
 from framework.helpers import port_checks, remote, tf_cfg, util
 from framework.helpers.util import fill_template
@@ -63,19 +62,15 @@ class Nginx(stateful.Stateful):
             # Get rid of stats requests influence to statistics.
             self._requests = int(m.group(2)) - self._stats_ask_times
 
-    def wait_for_connections(self, timeout=1):
+    async def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        t = time.time()
-        while t - t0 <= timeout:
+        def wait():
             self.get_stats()
-            if self.active_conns >= self.conns_n:
-                return True
-            time.sleep(0.001)  # to prevent redundant CPU usage
-            t = time.time()
-        return False
+            return self.active_conns != self.conns_n
+
+        return await util.wait_until(wait, timeout)
 
     def run_start(self):
         self.clear_stats()
@@ -115,9 +110,11 @@ class Nginx(stateful.Stateful):
         self.get_stats()
         return self._requests
 
-    def wait_for_requests(self, n: int, timeout=1, strict=False, adjust_timeout=False) -> bool:
+    async def wait_for_requests(
+        self, n: int, timeout=1, strict=False, adjust_timeout=False
+    ) -> bool:
         """wait for the `n` number of responses to be received"""
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             lambda: self.requests < n,
             timeout=timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,

@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import functools
 import resource
 import time
@@ -24,9 +25,9 @@ def set_mtu(mtu: int, disable_pmtu: bool = False):
 
     def decorator(test):
         @functools.wraps(test)
-        def wrapper(self, *args, **kwargs):
+        async def wrapper(self, *args, **kwargs):
             with networker.change_mtu_and_restore_interfaces(mtu=mtu, disable_pmtu=disable_pmtu):
-                test(self, *args, **kwargs)
+                return await test(self, *args, **kwargs)
 
         return wrapper
 
@@ -40,11 +41,11 @@ def set_stress_mtu(test):
     """
 
     @functools.wraps(test)
-    def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):
         with networker.change_mtu_and_restore_interfaces(
             mtu=int(tf_cfg.cfg.get("General", "stress_mtu")), disable_pmtu=False
         ):
-            test(self, *args, **kwargs)
+            return await test(self, *args, **kwargs)
 
     return wrapper
 
@@ -63,16 +64,16 @@ def extend_tests_with_tso_gro_gso_enable_disable(mtu: int):
                 delattr(cls, name)
 
         def test_tso_gro_gso_enabled(test):
-            def wrapper(self, *args, **kwargs):
+            async def wrapper(self, *args, **kwargs):
                 with networker.change_and_restore_tso_gro_gso(tso_gro_gso=True, mtu=mtu):
-                    test(self, *args, **kwargs)
+                    return await test(self, *args, **kwargs)
 
             return wrapper
 
         def test_tso_gro_gso_disabled(test):
-            def wrapper(self, *args, **kwargs):
+            async def wrapper(self, *args, **kwargs):
                 with networker.change_and_restore_tso_gro_gso(tso_gro_gso=False, mtu=mtu):
-                    test(self, *args, **kwargs)
+                    return await test(self, *args, **kwargs)
 
             return wrapper
 
@@ -99,9 +100,9 @@ def change_tso_gro_gso(*, tso_gro_gso: bool, mtu: int):
 
     def decorator(test):
         @functools.wraps(test)
-        def wrapper(self, *args, **kwargs):
+        async def wrapper(self, *args, **kwargs):
             with networker.change_and_restore_tso_gro_gso(tso_gro_gso=tso_gro_gso, mtu=mtu):
-                test(self, *args, **kwargs)
+                return await test(self, *args, **kwargs)
 
         return wrapper
 
@@ -111,9 +112,9 @@ def change_tso_gro_gso(*, tso_gro_gso: bool, mtu: int):
 def change_tcp_options(mtu: int, tcp_options: dict[str, str]):
     def decorator(test):
         @functools.wraps(test)
-        def wrapper(self, *args, **kwargs):
+        async def wrapper(self, *args, **kwargs):
             with networker.change_and_restore_tcp_options(mtu=mtu, tcp_options=tcp_options):
-                test(self, *args, **kwargs)
+                return await test(self, *args, **kwargs)
 
         return wrapper
 
@@ -127,11 +128,11 @@ def change_ulimit(ulimit: int):
 
     def decorator(test):
         @functools.wraps(test)
-        def wrapper(self: tester.TempestaTest, *args, **kwargs):
+        async def wrapper(self: tester.TempestaTest, *args, **kwargs):
             soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
             try:
                 resource.setrlimit(resource.RLIMIT_NOFILE, (ulimit, ulimit))
-                test(self, *args, **kwargs)
+                return await test(self, *args, **kwargs)
             finally:
                 resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
@@ -160,10 +161,10 @@ def retry_if_not_conditions(test):
     """
 
     @functools.wraps(test)
-    def wrapper(self: tester.TempestaTest, *args, **kwargs):
+    async def wrapper(self: tester.TempestaTest, *args, **kwargs):
         for attempt in range(1, 4):
             try:
-                test(self, *args, **kwargs)
+                return await test(self, *args, **kwargs)
                 return
             except error.TestConditionsAreNotCompleted:
                 test_logger.warning(
@@ -173,7 +174,7 @@ def retry_if_not_conditions(test):
                 for service in self.get_all_services():
                     service.stop()
                 # Wait for 1 second before retrying
-                time.sleep(1)
+                await asyncio.sleep(1)
 
         # If the test fails after 3 attempts, raise an exception
         raise error.TestConditionsAreNotCompleted(self.id(), attempt)
@@ -241,9 +242,9 @@ def check_memory_consumption(test):
     """
 
     @functools.wraps(test)
-    def wrapper(self: tester.TempestaTest, *args, **kwargs):
+    async def wrapper(self: tester.TempestaTest, *args, **kwargs):
         with memworker.check_memory_consumptions(self):
-            test(self, *args, **kwargs)
+            return await test(self, *args, **kwargs)
 
     return wrapper
 

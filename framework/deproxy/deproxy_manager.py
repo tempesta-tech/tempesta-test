@@ -2,7 +2,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import errno
 import select
 import threading
 import time

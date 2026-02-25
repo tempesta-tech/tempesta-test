@@ -1,5 +1,6 @@
 from __future__ import annotations, print_function
 
+import asyncio
 import dataclasses
 import datetime
 import os
@@ -61,87 +62,82 @@ class TempestaLoggers:
 
 
 class WaitUntilAsserts(unittest.TestCase):
-    def assertWaitUntilEqual(
+    async def assertWaitUntilEqual(
         self,
         func: typing.Callable,
         second,
         msg: str = None,
         timeout: int = 5,
-        poll_freq: float = 0.1,
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() != second, timeout=timeout, poll_freq=poll_freq
-        )
+        success = await util.wait_until(wait_cond=lambda: func() != second, timeout=timeout)
 
         if success:
             return None
 
         self.fail(self._formatMessage(msg, f"Not equals even after {timeout} seconds"))
 
-    def assertWaitUntilNotEqual(
+    async def assertWaitUntilNotEqual(
         self,
         func: typing.Callable,
         second,
         msg: str = None,
         timeout: int = 5,
-        poll_freq: float = 0.1,
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() == second, timeout=timeout, poll_freq=poll_freq
-        )
+        success = await util.wait_until(wait_cond=lambda: func() == second, timeout=timeout)
 
         if success:
             return None
 
         self.fail(self._formatMessage(msg, f"Still equals even after {timeout} seconds"))
 
-    def assertWaitUntilIsNotNone(
-        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    async def assertWaitUntilIsNotNone(
+        self,
+        func: typing.Callable,
+        msg: str = None,
+        timeout: int = 5,
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() is None, timeout=timeout, poll_freq=poll_freq
-        )
+        success = await util.wait_until(wait_cond=lambda: func() is None, timeout=timeout)
 
         if success:
             return None
 
         self.fail(self._formatMessage(msg, f"Is None event after {timeout} seconds"))
 
-    def assertWaitUntilCountEqual(
+    async def assertWaitUntilCountEqual(
         self,
         func: typing.Callable,
         count,
         msg: str = None,
         timeout: int = 5,
-        poll_freq: float = 0.1,
     ):
-        success = util.wait_until(
-            wait_cond=lambda: len(func()) != count, timeout=timeout, poll_freq=poll_freq
-        )
+        success = await util.wait_until(wait_cond=lambda: len(func()) != count, timeout=timeout)
 
         if success:
             return None
 
         self.fail(self._formatMessage(msg, f"Count is not equals event after {timeout} seconds"))
 
-    def assertWaitUntilTrue(
-        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    async def assertWaitUntilTrue(
+        self,
+        func: typing.Callable,
+        msg: str = None,
+        timeout: int = 5,
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() is False, timeout=timeout, poll_freq=poll_freq
-        )
+        success = await util.wait_until(wait_cond=lambda: func() is False, timeout=timeout)
 
         if success:
             return None
 
         self.fail(self._formatMessage(msg, f"Is False event after {timeout} seconds"))
 
-    def assertWaitUntilFalse(
-        self, func: typing.Callable, msg: str = None, timeout: int = 5, poll_freq: float = 0.1
+    async def assertWaitUntilFalse(
+        self,
+        func: typing.Callable,
+        msg: str = None,
+        timeout: int = 5,
+        poll_freq: float = run_config.asyncio_freq,
     ):
-        success = util.wait_until(
-            wait_cond=lambda: func() is True, timeout=timeout, poll_freq=poll_freq
-        )
+        success = await util.wait_until(wait_cond=lambda: func() is True, timeout=timeout)
 
         if success:
             return None
@@ -149,7 +145,7 @@ class WaitUntilAsserts(unittest.TestCase):
         self.fail(self._formatMessage(msg, f"Is True event after {timeout} seconds"))
 
 
-class TempestaTest(WaitUntilAsserts, unittest.TestCase):
+class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     """Basic tempesta test class.
     Tempesta tests should have:
     1) backends: [...]
@@ -358,11 +354,13 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             if not srv.is_running():
                 raise Exception("Can not start server %s" % sid)
 
-    def start_tempesta(self):
+    async def start_tempesta(self):
         """Start Tempesta and wait until the initialization process finish."""
         # "modules are started" string is only logged in debug builds while
         # "Tempesta FW is ready" is logged at all levels.
-        with dmesg.wait_for_msg(re.escape("[tempesta fw] Tempesta FW is ready"), strict=False):
+        async with dmesg.wait_for_msg(
+            re.escape("[tempesta fw] Tempesta FW is ready"), strict=False
+        ):
             self.__tempesta.start()
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
@@ -374,7 +372,11 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             if not client.is_running():
                 raise Exception("Can not start client %s" % cid)
 
-    def setUp(self):
+    # async def asyncSetUp(self):
+    #     if not await remote.wait_available():
+    #         raise Exception("Tempesta node is unavailable")
+
+    async def asyncSetUp(self):
         # `unittest.TestLoader.discover` returns initialized objects, we can't
         # raise `SkipTest` inside of `TempestaTest.__init__` because we are unable
         # to interfere `unittest` code and catch that exception inside of it.
@@ -383,7 +385,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             self.skipTest("This is an abstract class")
 
         test_logger.info(f"setUp '{self.id()}'")
-        if not remote.wait_available():
+        if not await remote.wait_available():
             raise Exception("Tempesta node is unavailable")
         self.__exceptions = dict()
         self.__servers = {}
@@ -403,17 +405,17 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.__create_clients()
         self.__run_tcpdump()
         # Cleanup part
-        self.addCleanup(self.cleanup_check_memory_leaks)
-        self.addCleanup(self.cleanup_deproxy_auto_parser)
-        self.addCleanup(self.cleanup_check_exceptions_in_deproxy_auto_parser)
-        self.addCleanup(self.cleanup_check_dmesg)
-        self.addCleanup(self.cleanup_stop_tcpdump)
-        self.addCleanup(self.cleanup_interfaces)
-        self.addCleanup(self.cleanup_deproxy)
-        self.addCleanup(self.cleanup_services)
+        self.addAsyncCleanup(self.cleanup_check_memory_leaks)
+        self.addAsyncCleanup(self.cleanup_deproxy_auto_parser)
+        self.addAsyncCleanup(self.cleanup_check_exceptions_in_deproxy_auto_parser)
+        self.addAsyncCleanup(self.cleanup_check_dmesg)
+        self.addAsyncCleanup(self.cleanup_stop_tcpdump)
+        self.addAsyncCleanup(self.cleanup_interfaces)
+        self.addAsyncCleanup(self.cleanup_deproxy)
+        self.addAsyncCleanup(self.cleanup_services)
         test_logger.info(f"setUp completed '{self.id()}'")
 
-    def cleanup_services(self):
+    async def cleanup_services(self):
         test_logger.info("Cleanup: stopping all services...")
 
         for service in self.get_all_services():
@@ -430,7 +432,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         if self.__exceptions:
             raise error.ServiceStoppingException(self.__exceptions)
 
-    def cleanup_deproxy(self):
+    async def cleanup_deproxy(self):
         test_logger.info("Cleanup: finish all deproxy sockets...")
         try:
             self.deproxy_manager.finish_all_deproxy()
@@ -439,18 +441,18 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.deproxy_manager = None
         test_logger.info("Cleanup: all deproxy sockets are closed.")
 
-    def cleanup_interfaces(self):
+    async def cleanup_interfaces(self):
         test_logger.info("Cleanup: Removing interfaces")
         networker = NetWorker(node=remote.client)
         networker.remove_routes(self.__ips)
         networker.remove_interfaces(self.__ips)
         self.__ips = []
 
-    def cleanup_stop_tcpdump(self):
+    async def cleanup_stop_tcpdump(self):
         test_logger.info("Cleanup: stopping tcpdump")
         self.__stop_tcpdump()
 
-    def cleanup_check_dmesg(self):
+    async def cleanup_check_dmesg(self):
         test_logger.info("Cleanup: checking dmesg")
         self.loggers.dmesg.update()
 
@@ -472,21 +474,21 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         self.oops_ignore = []
         self.loggers = None
 
-    def cleanup_deproxy_auto_parser(self):
+    async def cleanup_deproxy_auto_parser(self):
         test_logger.info("Cleanup: Cleanup the deproxy auto parser.")
         self._deproxy_auto_parser.cleanup()
         self._deproxy_auto_parser = None
 
-    def cleanup_check_exceptions_in_deproxy_auto_parser(self):
+    async def cleanup_check_exceptions_in_deproxy_auto_parser(self):
         test_logger.info("Cleanup: Check exceptions in the deproxy auto parser.")
         self._deproxy_auto_parser.check_exceptions()
 
-    def cleanup_check_memory_leaks(self):
+    async def cleanup_check_memory_leaks(self):
         if run_config.CHECK_MEMORY_LEAKS:
             test_logger.info("Cleanup: Check memory leaks.")
             self._memworker.check_memory_consumption_of_test(self._mem_stats, self)
 
-    def wait_while_busy(self, *items, timeout=20):
+    async def wait_while_busy(self, *items, timeout=20):
         if items is None:
             return
 
@@ -494,31 +496,32 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         for item in items:
             if item.is_running():
                 test_logger.debug(f'Client "{item}" wait for finish')
-                success = success and item.wait_for_finish(timeout)
+                success = success and await item.wait_for_finish(timeout)
                 test_logger.debug(f'Waiting for client "{item}" is completed')
 
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
-    def wait_all_connections(self, tmt=5):
-        for sid in self.__servers:
-            srv = self.__servers[sid]
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
+    async def wait_all_connections(self, tmt=5):
+        await asyncio.gather(
+            *[srv.wait_for_connections(timeout=tmt) for srv in self.get_servers()],
+            return_exceptions=True,
+        )
 
-    def start_all_services(self, client: bool = True) -> None:
+    async def start_all_services(self, client: bool = True) -> None:
         """Start all services."""
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         if "deproxy" or "deproxy_h2" in [
             element["type"] for element in (self.clients + self.backends)
         ]:
             self.deproxy_manager.start()
 
-        self.assertTrue(self.wait_all_connections())
-        self.assertTrue(self.__tempesta.wait_while_logger_start())
+        conn_task = asyncio.create_task(self.wait_all_connections())
+        tfw_logger_task = asyncio.create_task(self.__tempesta.wait_while_logger_start())
+
+        await asyncio.gather(conn_task, tfw_logger_task, return_exceptions=True)
 
         if client:
             self.start_all_clients()

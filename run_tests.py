@@ -2,6 +2,7 @@
 
 import getopt
 import inspect
+import logging
 import os
 import re
 import resource
@@ -20,6 +21,9 @@ from framework.test_suite.tester import test_logger
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+logging.getLogger("asyncio").setLevel(logging.ERROR)
+logging.getLogger("asyncio").propagate = False
 
 
 def usage():

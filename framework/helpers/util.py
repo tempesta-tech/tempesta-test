@@ -2,14 +2,17 @@
 Utils for the testing framework.
 """
 
+import asyncio
+import inspect
 import time
 import typing
 from string import Template
+from typing import Coroutine
 
 import run_config
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2019-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2019-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -19,10 +22,9 @@ def __adjust_timeout_for_tcp_segmentation(timeout: int) -> int:
     return timeout
 
 
-def wait_until(
+async def wait_until(
     wait_cond: typing.Callable,
     timeout=5,
-    poll_freq=0.01,
     abort_cond: typing.Callable = lambda: False,
     adjust_timeout: bool = False,
 ) -> typing.Optional[bool]:
@@ -37,7 +39,7 @@ def wait_until(
             return not wait_cond()  # check wait_cond for the last time
         if abort_cond():
             return None
-        time.sleep(poll_freq)
+        await asyncio.sleep(run_config.asyncio_freq)
 
     return True
 
@@ -47,13 +49,27 @@ class ForEach:
         self.objects = objects
 
     def __getattr__(self, name):
-        if not callable(getattr(self.objects[0], name)):
+        attr = getattr(self.objects[0], name)
+
+        if not callable(attr):
             return [getattr(o, name) for o in self.objects]
 
-        def wrapper(*args, **kwargs):
-            return [getattr(o, name)(*args, **kwargs) for o in self.objects]
+        is_async = inspect.iscoroutinefunction(attr)
 
-        return wrapper
+        if not is_async:
+
+            def wrapper(*args, **kwargs):
+                return [getattr(o, name)(*args, **kwargs) for o in self.objects]
+
+            return wrapper
+        else:
+
+            async def async_wrapper(*args, **kwargs):
+                return await asyncio.gather(
+                    *[getattr(o, name)(*args, **kwargs) for o in self.objects]
+                )
+
+            return async_wrapper
 
     def __iter__(self):
         for o in self.objects:

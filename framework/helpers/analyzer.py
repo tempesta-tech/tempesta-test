@@ -5,6 +5,7 @@ Instruments for network traffic analysis.
 from __future__ import print_function
 
 import abc
+import asyncio
 
 from scapy.all import *
 
@@ -56,10 +57,10 @@ class Sniffer(object, metaclass=abc.ABCMeta):
         with open(self.dump_file, "wb") as f:
             f.write(stdout)
 
-    def start(self):
+    async def start(self):
         self.thread = Thread(target=self.sniff)
         self.thread.start()
-        util.wait_until(lambda: not self.thread.is_alive())
+        await util.wait_until(lambda: not self.thread.is_alive())
 
     def stop(self):
         if self.thread:

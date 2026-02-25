@@ -246,19 +246,15 @@ class StaticDeproxyServer(BaseDeproxy):
         for conn in connections:
             conn._handle_close()
 
-    def wait_for_connections(self, timeout=1):
+    async def wait_for_connections(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
             return False
+        return await util.wait_until(lambda: len(self._connections) < self.conns_n, timeout)
 
-        return util.wait_until(
-            lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
-        )
-
-    def wait_for_connections_closed(self, timeout=1):
+    async def wait_for_connections_closed(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
             return False
-
-        return util.wait_until(lambda: len(self._connections) != 0, timeout, poll_freq=0.001)
+        return await util.wait_until(lambda: len(self._connections) != 0, timeout)
 
     def flush(self):
         for conn in self._connections:
@@ -325,9 +321,11 @@ class StaticDeproxyServer(BaseDeproxy):
 
         return self.__response, False
 
-    def wait_for_requests(self, n: int, timeout=10, strict=False, adjust_timeout=False) -> bool:
+    async def wait_for_requests(
+        self, n: int, timeout=10, strict=False, adjust_timeout=False
+    ) -> bool:
         """wait for the `n` number of responses to be received"""
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             lambda: len(self.requests) < n,
             timeout=timeout,
             abort_cond=lambda: not self.accepting,

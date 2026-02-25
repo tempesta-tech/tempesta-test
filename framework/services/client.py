@@ -158,5 +158,5 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
     def set_user_agent(self, ua):
         self.options.append("-H 'User-Agent: %s'" % ua)
 
-    def wait_for_finish(self, timeout=5) -> bool:
-        return util.wait_until(lambda: self.is_busy(verbose=False), timeout)
+    async def wait_for_finish(self, timeout=5) -> bool:
+        return await util.wait_until(lambda: self.is_busy(verbose=False), timeout)

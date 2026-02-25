@@ -5,6 +5,7 @@ from framework.helpers import tf_cfg
 # This is necessary for tests when response headers exceed 64 CONTINUATION frames.
 h2.frame_buffer.CONTINUATION_BACKLOG = 100000
 
+asyncio_freq = float(tf_cfg.cfg.get("General", "asyncio_freq"))
 # ------------------------------------
 # General params from tests_config.ini
 # ------------------------------------

@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import json
 import tarfile
 import time
@@ -11,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
 
-from framework.helpers import error, port_checks, remote
+from framework.helpers import error, port_checks, remote, util
 from framework.helpers.util import fill_template
 from framework.services import stateful
 
@@ -128,7 +129,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             error.bug(self._form_error(action="run"))
         self.container_id = stdout.decode().strip()
 
-    def wait_for_connections(self, timeout=5):
+    async def wait_for_connections(self, timeout=1):
         """
         Wait until the container becomes healthy
         and Tempesta establishes connections to the server ports.
@@ -144,7 +145,7 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
                 ports=self.ports.keys(),
             ):
                 return True
-            time.sleep(0.001)  # to prevent redundant CPU usage
+            await asyncio.sleep(0.001)  # to prevent redundant CPU usage
             t = time.time()
 
         return False
