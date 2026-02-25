@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
+import asyncio
 
 from hyperframe.frame import DataFrame, HeadersFrame
 
@@ -70,12 +70,12 @@ block_action error reply;
     ]
 
     @unlimited_rate_on_tempesta_node
-    def test_http_body_len(self):
+    async def test_http_body_len(self):
         """
         Client send request with body > 1 GB and Tempest MUST return a 403 response
         because by default `http_body_len` is 1 GB.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
         client.start()
@@ -91,52 +91,54 @@ block_action error reply;
         df.flags.add("END_STREAM")
         client.send_bytes(df.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response(30))
+        self.assertTrue(await client.wait_for_response(30))
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
+        self.assertTrue(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     @unlimited_rate_on_tempesta_node
-    def test_http_strict_host_checking(self):
+    async def test_http_strict_host_checking(self):
         """
         Client send request with different host and authority headers. Tempesta MUST return a 403
         response because by default `http_strict_host_checking` is True
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
         client.parsing = False
 
         client.start()
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", headers=[("host", "otherhost")], authority="localhost"
             ),
             expected_status_code="403",
         )
-        self.assertTrue(self.loggers.dmesg.find("frang: Request :authority differs from Host for"))
+        self.assertTrue(
+            await self.loggers.dmesg.find("frang: Request :authority differs from Host for")
+        )
 
     @unlimited_rate_on_tempesta_node
-    def test_http_ct_required(self):
+    async def test_http_ct_required(self):
         """
         Client send request without Content-Type header. Tempesta MUST return a 200 response
         because by default `http_ct_required` is False and Content-Type is optional
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
         client.start()
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="POST", headers=[]),
             expected_status_code="200",
         )
-        self.assertFalse(self.loggers.dmesg.find("frang: Content-Type header field for"))
+        self.assertFalse(await self.loggers.dmesg.find("frang: Content-Type header field for"))
 
     @unlimited_rate_on_tempesta_node
-    def test_http_trailer_split_allowed(self):
+    async def test_http_trailer_split_allowed(self):
         """
         Client send request with same header in headers and trailer. Tempesta MUST return a 403
         response because by default `http_trailer_split_allowed` is false.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
         client.start()
@@ -154,88 +156,92 @@ block_action error reply;
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP field appear in header and trailer"))
+        self.assertTrue(
+            await self.loggers.dmesg.find("frang: HTTP field appear in header and trailer")
+        )
 
     @unlimited_rate_on_tempesta_node
-    def test_http_methods(self):
+    async def test_http_methods(self):
         """
         Client send PUT request. Tempesta MUST return a 403 response because by default
         `http_methods` is get post head.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
         client.start()
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="PUT", headers=[]),
             expected_status_code="403",
         )
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method"))
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method"))
 
     @limited_rate_on_tempesta_node
-    def test_concurrent_tcp_connections(self):
+    async def test_concurrent_tcp_connections(self):
         """
         Client create 1010 connections and Tempesta MUST accept 1000 connections because
         by default `concurrent_tcp_connections` is 1000.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("wrk")
         client.connections = 1010
         client.options.append(f"--header 'Host: tempesta-tech.com'")
 
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.assertTrue(
-            self.loggers.dmesg.find("frang: connections max num. exceeded for", amount_positive)
+            await self.loggers.dmesg.find(
+                "frang: connections max num. exceeded for", amount_positive
+            )
         )
         self.assertGreater(client.statuses[200], 0)
 
     @unlimited_rate_on_tempesta_node
-    def test_http_header_cnt(self):
+    async def test_http_header_cnt(self):
         """
         Client send request with 60 headers. Tempesta MUST return a 403 response because
         by default `http_header_cnt` is 50.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
         client.start()
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="POST", headers=[("x-my-hdr", "value") for _ in range(60)]
             ),
             expected_status_code="403",
         )
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP headers count exceeded for"))
+        self.assertTrue(await self.loggers.dmesg.find("frang: HTTP headers count exceeded for"))
 
     @unlimited_rate_on_tempesta_node
-    def test_ip_block(self):
+    async def test_ip_block(self):
         """
         Client creates 2 connections and sends an invalid request in the first connection.
         Tempesta MUST block the first connection and accept the second connection because
         by default `ip_block` is off.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client_1 = self.get_client("deproxy-1")
         client_2 = self.get_client("deproxy-2")
 
         client_1.start()
-        client_1.send_request(
+        await client_1.send_request(
             request=client_1.create_request(method="PUT", headers=[]),
             expected_status_code="403",
         )
 
         client_2.start()
-        client_2.send_request(
+        await client_2.send_request(
             request=client_2.create_request(method="POST", headers=[]),
             expected_status_code="200",
         )
 
-        self.assertTrue(self.loggers.dmesg.find("frang: "))
+        self.assertTrue(await self.loggers.dmesg.find("frang: "))
 
 
 class TestOverridingInheritance(tester.TempestaTest):
@@ -298,7 +304,7 @@ block_action error reply;
         self.get_tempesta().config.defconfig = new_config + frang_config
 
     @unlimited_rate_on_tempesta_node
-    def test_two_connection_frang_limits_in_global_config(self):
+    async def test_two_connection_frang_limits_in_global_config(self):
         """
         Tempesta config has two global `frang_limits` with `http_hdr_len` (connection limit)
         directive. Only the last will be used.
@@ -309,13 +315,13 @@ block_action error reply;
             frang_limits {http_hdr_len 100;}
             """
         )
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             client.create_request(method="POST", headers=[("x-my-xdr", "a" * 150)]), "403"
         )
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
+        self.assertTrue(await self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
 
     @marks.Parameterize.expand(
         [
@@ -352,21 +358,21 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_ip_block_unset_in_global_config(self, name, config):
+    async def test_ip_block_unset_in_global_config(self, name, config):
         """
         Tempesta config has two global `frang_limits` one contains `ip_block` and another one
         doesn't that means ip block is off. However in this case `ip_block` is always on.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         client.make_request(
             client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a" * 150)])
         )
-        client.wait_for_connection_close(strict=True)
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
-        self.assertTrue(self.loggers.dmesg.find("Warning: block client"))
+        await client.wait_for_connection_close(strict=True)
+        self.assertTrue(await self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
+        self.assertTrue(await self.loggers.dmesg.find("Warning: block client"))
 
         another_client = self.get_client("another-ip")
         another_client.make_request(
@@ -374,14 +380,18 @@ block_action error reply;
                 authority="another", method="GET", headers=[("x-my-xdr", "a" * 150)]
             )
         )
-        another_client.wait_for_connection_close(strict=True)
+        await another_client.wait_for_connection_close(strict=True)
         self.assertTrue(
-            self.loggers.dmesg.find("frang: HTTP header length exceeded for", cond=amount_equals(2))
+            await self.loggers.dmesg.find(
+                "frang: HTTP header length exceeded for", cond=amount_equals(2)
+            )
         )
-        self.assertTrue(self.loggers.dmesg.find("Warning: block client", cond=amount_equals(2)))
+        self.assertTrue(
+            await self.loggers.dmesg.find("Warning: block client", cond=amount_equals(2))
+        )
 
     @unlimited_rate_on_tempesta_node
-    def test_ip_block_override_in_global_config(self):
+    async def test_ip_block_override_in_global_config(self):
         """
         Tempesta config has two `ip_block` the first sets permanent block duration the second sets
         only 1 second duration. The second `ip_block` globally overrides the first. To verify that
@@ -402,18 +412,18 @@ block_action error reply;
                     }
                 """
         )
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         client.make_request(
             client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a" * 150)])
         )
-        client.wait_for_connection_close(strict=True)
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
-        self.assertTrue(self.loggers.dmesg.find("Warning: block client"))
-        time.sleep(2)
+        await client.wait_for_connection_close(strict=True)
+        self.assertTrue(await self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
+        self.assertTrue(await self.loggers.dmesg.find("Warning: block client"))
+        await asyncio.sleep(2)
         client.restart()
-        client.send_request(
+        await client.send_request(
             client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a")]), "200"
         )
 
@@ -440,17 +450,17 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_two_message_frang_limits(self, name, config: str):
+    async def test_two_message_frang_limits(self, name, config: str):
         """
         Tempesta config has two global/vhost `frang_limits` with `http_methods` (message limit)
         directive. `default` vhost/location will be used the last config.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request(method="GET", headers=[]), "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(client.create_request(method="GET", headers=[]), "403")
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @marks.Parameterize.expand(
         [
@@ -493,7 +503,7 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test(self, name, config):
+    async def test(self, name, config):
         """
         Tempesta config has double frang_limits in location or connection frang limit in
         a vhost/location. It is incorrect. It must not work.
@@ -501,7 +511,7 @@ block_action error reply;
         self.__update_tempesta_config(config)
         self.oops_ignore.append("ERROR")
         with self.assertRaises(ProcessBadExitStatusException):
-            self.start_tempesta()
+            await self.start_tempesta()
 
     @marks.Parameterize.expand(
         [
@@ -538,20 +548,22 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_inheritance(self, name, config: str):
+    async def test_inheritance(self, name, config: str):
         """
         The vhost/location inherits the last `frang_limits` so Tempesta MUST block request with
         GET method. By default `http_methods` is get post head.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(
+            client.create_request(method="GET", uri="/vhost_1", headers=[]), "403"
+        )
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @unlimited_rate_on_tempesta_node
-    def test_inheritance_global_to_location(self):
+    async def test_inheritance_global_to_location(self):
         """
         The global location inherit the last `frang_limits` so Tempesta MUST block
         request with GET method because `http_methods` in global config is post put.
@@ -562,14 +574,16 @@ block_action error reply;
             location prefix "/vhost_1" {cache_fulfill * *;}
         """
         )
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(
+            client.create_request(method="GET", uri="/vhost_1", headers=[]), "403"
+        )
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @unlimited_rate_on_tempesta_node
-    def test_inheritance_vhost_to_location_limits_after_location(self):
+    async def test_inheritance_vhost_to_location_limits_after_location(self):
         """
         Tempesta config has a frang_limits in vhost after location and:
           - default location in vhost inherits this frang_limits;
@@ -586,19 +600,21 @@ block_action error reply;
             http_chain {-> vhost_1;}
         """
         )
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         # request to location /vhost_1 with http_methods get post head (global limits)
-        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "200")
+        await client.send_request(
+            client.create_request(method="GET", uri="/vhost_1", headers=[]), "200"
+        )
         self.loggers.dmesg.update()
         self.assertEqual(
             0, len(self.loggers.dmesg.log_findall("frang: restricted HTTP method for"))
         )
 
         # request to vhost vhost_1 with http_methods post put (vhost limits and default location)
-        client.send_request(client.create_request(method="HEAD", uri="/", headers=[]), "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(client.create_request(method="HEAD", uri="/", headers=[]), "403")
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     @marks.Parameterize.expand(
         [
@@ -626,17 +642,21 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_inheritance_default_to_several(self, name, config: str):
+    async def test_inheritance_default_to_several(self, name, config: str):
         """
         All vhost/location inherits the default `frang_limits` so Tempesta MUST NOT block same
         requests to different vhost/location because they have same frang_limits.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "200")
-        client.send_request(client.create_request(method="GET", uri="/vhost_2", headers=[]), "200")
+        await client.send_request(
+            client.create_request(method="GET", uri="/vhost_1", headers=[]), "200"
+        )
+        await client.send_request(
+            client.create_request(method="GET", uri="/vhost_2", headers=[]), "200"
+        )
         self.loggers.dmesg.update()
         self.assertEqual(0, len(self.loggers.dmesg.log_findall("frang: ")))
 
@@ -693,24 +713,26 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_overriding(self, name, config: str):
+    async def test_overriding(self, name, config: str):
         """
         Tempesta has different frang limits in global/vhost/location.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request(method="GET", uri="/vhost_1", headers=[]), "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(
+            client.create_request(method="GET", uri="/vhost_1", headers=[]), "403"
+        )
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
-    def _test_not_override_http_methods(self):
+    async def _test_not_override_http_methods(self):
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(client.create_request(method="GET", headers=[]), "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(client.create_request(method="GET", headers=[]), "403")
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
-    def _test_not_override_concurrent_tcp_connections(self):
+    async def _test_not_override_concurrent_tcp_connections(self):
         client = self.get_client("deproxy")
         client_1 = self.get_client("deproxy_1")
         client.start()
@@ -719,51 +741,55 @@ block_action error reply;
         client.make_request(client.create_request(method="GET", headers=[]))
         client_1.make_request(client.create_request(method="GET", headers=[]))
 
-        client.wait_for_response(timeout=2)
-        client_1.wait_for_response(timeout=2)
+        await client.wait_for_response(timeout=2)
+        await client_1.wait_for_response(timeout=2)
 
-        self.assertTrue(self.loggers.dmesg.find("frang: connections max num. exceeded for"))
+        self.assertTrue(await self.loggers.dmesg.find("frang: connections max num. exceeded for"))
         self.assertEqual(1, len(client.responses) + len(client_1.responses))
 
-    def _test_not_override_http_body_len_0(self):
+    async def _test_not_override_http_body_len_0(self):
         client = self.get_client("deproxy_http")
         client.start()
         request = (
             f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1000\r\n\r\n{'x' * 1000}"
         )
-        client.send_request(request, "200")
-        self.assertFalse(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
+        await client.send_request(request, "200")
+        self.assertFalse(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
-    def _test_not_override_http_body_len_1(self):
+    async def _test_not_override_http_body_len_1(self):
         client = self.get_client("deproxy_http")
         client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
-        client.send_request(request, "403")
-        self.assertTrue(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
+        await client.send_request(request, "403")
+        self.assertTrue(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
-    def _test_not_override_http_body_len_2(self):
+    async def _test_not_override_http_body_len_2(self):
         client = self.get_client("deproxy_http")
         client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
-        client.send_request(request, "200")
-        self.assertFalse(self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
+        await client.send_request(request, "200")
+        self.assertFalse(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
-    def _test_not_override_http_resp_code_block_1(self):
+    async def _test_not_override_http_resp_code_block_1(self):
         client = self.get_client("deproxy")
         client.start()
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
-        client.wait_for_response(5)
-        self.assertFalse(self.loggers.dmesg.find("frang: http_resp_code_block limit exceeded for"))
+        await client.wait_for_response(5)
+        self.assertFalse(
+            await self.loggers.dmesg.find("frang: http_resp_code_block limit exceeded for")
+        )
 
-    def _test_not_override_http_resp_code_block_2(self):
+    async def _test_not_override_http_resp_code_block_2(self):
         client = self.get_client("deproxy")
         client.start()
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
-        client.wait_for_response(5)
-        self.assertTrue(self.loggers.dmesg.find("frang: http_resp_code_block limit exceeded for"))
+        await client.wait_for_response(5)
+        self.assertTrue(
+            await self.loggers.dmesg.find("frang: http_resp_code_block limit exceeded for")
+        )
         self.assertEqual(len(client.responses), 2)
 
     @marks.Parameterize.expand(
@@ -884,7 +910,7 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_default_not_override(self, name, config: str, test_function):
+    async def test_default_not_override(self, name, config: str, test_function):
         """
         This test checks that default value from second frang config
         doesn't override previoulsy set value.
@@ -892,29 +918,29 @@ block_action error reply;
         override previoulsy set value.
         """
         self.__update_tempesta_config(config)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         test_function(self)
 
-    def _test_override_http_methods_after_reload(self):
+    async def _test_override_http_methods_after_reload(self):
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(client.create_request(method="GET", headers=[]), "200")
-        self.assertFalse(self.loggers.dmesg.find("frang: restricted HTTP method for"))
+        await client.send_request(client.create_request(method="GET", headers=[]), "200")
+        self.assertFalse(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
-    def _test_override_ct_vals_after_reload(self):
+    async def _test_override_ct_vals_after_reload(self):
         client = self.get_client("deproxy")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(method="POST", headers=[("content-type", "text/html")]), "200"
         )
-        self.assertFalse(self.loggers.dmesg.find("frang: restricted Content-Type for"))
-        client.send_request(
+        self.assertFalse(await self.loggers.dmesg.find("frang: restricted Content-Type for"))
+        await client.send_request(
             client.create_request(
                 method="POST", authority="tests.com", headers=[("content-type", "text/html")]
             ),
             "403",
         )
-        self.assertTrue(self.loggers.dmesg.find("frang: restricted Content-Type for"))
+        self.assertTrue(await self.loggers.dmesg.find("frang: restricted Content-Type for"))
 
     @marks.Parameterize.expand(
         [
@@ -932,7 +958,7 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_default_override_after_reload(
+    async def test_default_override_after_reload(
         self, name, first_config: str, second_config: str, test_function
     ):
         """
@@ -941,7 +967,7 @@ block_action error reply;
         """
         config = self.get_tempesta().config.defconfig
         self.__update_tempesta_config(first_config)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         self.get_tempesta().config.defconfig = config
         self.__update_tempesta_config(second_config)
         self.get_tempesta().reload()
@@ -1195,7 +1221,7 @@ block_action error reply;
         ]
     )
     @unlimited_rate_on_tempesta_node
-    def test_default_override_after_fail_reload(
+    async def test_default_override_after_fail_reload(
         self, name, first_config: str, second_config: str, test_function
     ):
         """
@@ -1204,7 +1230,7 @@ block_action error reply;
         """
         config = self.get_tempesta().config.defconfig
         self.__update_tempesta_config(first_config)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         self.oops_ignore.append("ERROR")
 
         wrong_config = """
@@ -1223,4 +1249,4 @@ block_action error reply;
         self.get_tempesta().config.defconfig = config
         self.__update_tempesta_config(second_config)
         self.get_tempesta().reload()
-        test_function(self)
+        await test_function(self)

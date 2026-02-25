@@ -25,8 +25,8 @@ class HttpHeaderChunkCnt(FrangTestCase):
         "Content-type: text/plain\r\n" "Content-Length: 0\r\n\r\n",
     ]
 
-    def base_scenario(self, frang_config: str, requests: list[str], **kwargs):
-        self.set_frang_config("\n".join([frang_config, "http_strict_host_checking false;"]))
+    async def base_scenario(self, frang_config: str, requests: list[str], **kwargs):
+        await self.set_frang_config("\n".join([frang_config, "http_strict_host_checking false;"]))
 
         client = self.get_client("deproxy-1")
         client.parsing = False
@@ -34,32 +34,34 @@ class HttpHeaderChunkCnt(FrangTestCase):
         for data in requests:
             client.make_request(data)
         client.valid_req_num = 1
-        client.wait_for_response()
+        await client.wait_for_response()
         return client
 
-    def test_chunk_cnt_ok(self):
+    async def test_chunk_cnt_ok(self):
         """Set up `http_header_chunk_cnt 3;` and make request with 3 header chunk"""
         self.disable_deproxy_auto_parser()
-        client = self.base_scenario(
+        client = await self.base_scenario(
             frang_config="http_header_chunk_cnt 3;",
             requests=self.requests,
         )
-        self.check_response(client, "200", self.error)
+        await self.check_response(client, "200", self.error)
 
-    def test_chunk_cnt_ok_2(self):
+    async def test_chunk_cnt_ok_2(self):
         """Set up `http_header_chunk_cnt 5;` and make request with 3 header chunk"""
         self.disable_deproxy_auto_parser()
-        client = self.base_scenario(
+        client = await self.base_scenario(
             frang_config="http_header_chunk_cnt 5;",
             requests=self.requests,
         )
-        self.check_response(client, "200", self.error)
+        await self.check_response(client, "200", self.error)
 
-    def test_chunk_cnt_invalid(self):
+    async def test_chunk_cnt_invalid(self):
         """Set up `http_header_chunk_cnt 2;` and make request with 3 header chunk"""
         self.disable_deproxy_auto_parser()
-        client = self.base_scenario(frang_config="http_header_chunk_cnt 2;", requests=self.requests)
-        self.check_response(client, "403", self.error)
+        client = await self.base_scenario(
+            frang_config="http_header_chunk_cnt 2;", requests=self.requests
+        )
+        await self.check_response(client, "403", self.error)
 
 
 class HttpBodyChunkCnt(HttpHeaderChunkCnt):
@@ -74,30 +76,36 @@ class HttpBodyChunkCnt(HttpHeaderChunkCnt):
         "4",
     ]
 
-    def test_chunk_cnt_ok(self):
+    async def test_chunk_cnt_ok(self):
         """Set up `http_body_chunk_cnt 4;` and make request with 4 body chunk"""
         self.disable_deproxy_auto_parser()
-        client = self.base_scenario(frang_config="http_body_chunk_cnt 4;", requests=self.requests)
-        self.check_response(client, "200", self.error)
+        client = await self.base_scenario(
+            frang_config="http_body_chunk_cnt 4;", requests=self.requests
+        )
+        await self.check_response(client, "200", self.error)
 
-    def test_chunk_cnt_ok_2(self):
+    async def test_chunk_cnt_ok_2(self):
         """Set up `http_body_chunk_cnt 10;` and make request with 4 body chunk"""
         self.disable_deproxy_auto_parser()
-        client = self.base_scenario(frang_config="http_body_chunk_cnt 10;", requests=self.requests)
-        self.check_response(client, "200", self.error)
+        client = await self.base_scenario(
+            frang_config="http_body_chunk_cnt 10;", requests=self.requests
+        )
+        await self.check_response(client, "200", self.error)
 
-    def test_chunk_cnt_invalid(self):
+    async def test_chunk_cnt_invalid(self):
         """Set up `http_body_chunk_cnt 3;` and make request with 4 body chunk"""
         self.disable_deproxy_auto_parser()
-        client = self.base_scenario(frang_config="http_body_chunk_cnt 3;", requests=self.requests)
-        self.check_response(client, "403", self.error)
+        client = await self.base_scenario(
+            frang_config="http_body_chunk_cnt 3;", requests=self.requests
+        )
+        await self.check_response(client, "403", self.error)
 
 
 class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
     segment_size: int
 
-    def base_scenario(self, frang_config: str, requests: list, disable_hshc: bool = False):
-        self.set_frang_config(
+    async def base_scenario(self, frang_config: str, requests: list, disable_hshc: bool = False):
+        await self.set_frang_config(
             "\n".join(
                 [frang_config] + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
@@ -109,12 +117,12 @@ class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
 
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
         client.h2_connection.clear_outbound_data_buffer()
 
         client.segment_size = self.segment_size
         client.make_request(requests[0], huffman=False)
-        client.wait_for_response(3)
+        await client.wait_for_response(3)
         return client
 
 

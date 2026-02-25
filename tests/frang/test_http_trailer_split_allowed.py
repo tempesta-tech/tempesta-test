@@ -26,8 +26,8 @@ REQUEST_WITH_TRAILER = (
 
 
 class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
-    def test_accepted_request(self):
-        client = self.base_scenario(
+    async def test_accepted_request(self):
+        client = await self.base_scenario(
             frang_config="http_trailer_split_allowed true;",
             requests=[
                 REQUEST_WITH_TRAILER,
@@ -45,20 +45,20 @@ class FrangHttpTrailerSplitLimitOnTestCase(FrangTestCase):
                 "POST / HTTP/1.1\r\nHost: debian\r\nHdrTest: testVal\r\n\r\n",
             ],
         )
-        self.check_response(client, status_code="200", warning_msg=WARN)
+        await self.check_response(client, status_code="200", warning_msg=WARN)
 
-    def test_disable_trailer_split_allowed(self):
+    async def test_disable_trailer_split_allowed(self):
         """Test with disable `http_trailer_split_allowed` directive."""
-        client = self.base_scenario(
+        client = await self.base_scenario(
             frang_config="http_trailer_split_allowed false;",
             requests=["POST / HTTP/1.1\r\nHost: debian\r\nHdrTest: testVal\r\n\r\n"],
         )
-        self.check_response(client, status_code="200", warning_msg=WARN)
+        await self.check_response(client, status_code="200", warning_msg=WARN)
 
-    def test_default_trailer_split_allowed(self):
+    async def test_default_trailer_split_allowed(self):
         """Test with default (false) `http_trailer_split_allowed` directive."""
-        client = self.base_scenario(frang_config="", requests=[REQUEST_WITH_TRAILER])
-        self.check_response(client, status_code="403", warning_msg=WARN)
+        client = await self.base_scenario(frang_config="", requests=[REQUEST_WITH_TRAILER])
+        await self.check_response(client, status_code="403", warning_msg=WARN)
 
 
 class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
@@ -81,8 +81,8 @@ class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
             ),
         ]
     )
-    def test(self, name, config: str, expected_status: str):
-        self.set_frang_config(f"{config}http_strict_host_checking false;")
+    async def test(self, name, config: str, expected_status: str):
+        await self.set_frang_config(f"{config}http_strict_host_checking false;")
 
         client = self.get_client("deproxy-1")
         client.start()
@@ -105,5 +105,5 @@ class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
         )
         client.send_bytes(data=tf.serialize() + cf.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
-        self.check_response(client, status_code=expected_status, warning_msg=WARN)
+        self.assertTrue(await client.wait_for_response())
+        await self.check_response(client, status_code=expected_status, warning_msg=WARN)

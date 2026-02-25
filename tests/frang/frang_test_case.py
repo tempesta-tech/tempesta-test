@@ -81,19 +81,19 @@ block_action attack reply;
             del self.klog
 
     # TODO: rename to set_frang_cfg_and_start
-    def set_frang_config(self, frang_config: str):
+    async def set_frang_config(self, frang_config: str):
         self.get_tempesta().config.set_defconfig(
             self.get_tempesta().config.defconfig
             % {
                 "frang_config": frang_config,
             }
         )
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
-    def base_scenario(
+    async def base_scenario(
         self, frang_config: str, requests: list, disable_hshc: bool = False, huffman: bool = True
     ) -> DeproxyClient:
-        self.set_frang_config(
+        await self.set_frang_config(
             "\n".join(
                 [frang_config] + (["http_strict_host_checking false;"] if disable_hshc else [])
             )
@@ -107,18 +107,18 @@ block_action attack reply;
                 client.make_request(request, huffman=huffman)
             else:
                 client.make_request(request)
-            client.wait_for_response(3)
+            await client.wait_for_response(3)
         return client
 
-    def _check_frang_warning(self, client, status_code: str, warning_msg: str):
+    async def _check_frang_warning(self, client, status_code: str, warning_msg: str):
         if status_code == "200":
             self.assertFalse(client.connection_is_closed())
-            self.assertFrangWarning(warning=warning_msg, expected=0)
+            await self.assertFrangWarning(warning=warning_msg, expected=0)
         else:
-            self.assertTrue(client.wait_for_connection_close())
-            self.assertFrangWarning(warning=warning_msg, expected=1)
+            self.assertTrue(await client.wait_for_connection_close())
+            await self.assertFrangWarning(warning=warning_msg, expected=1)
 
-    def check_last_response(self, client, status_code: str, warning_msg: str):
+    async def check_last_response(self, client, status_code: str, warning_msg: str):
         """
         We can't be sure that client receive error response in case of TCP
         segmentation, because if we receive some data from client after
@@ -129,9 +129,9 @@ block_action attack reply;
             self.assertEqual(
                 client.last_response.status, status_code, "HTTP response status codes mismatch."
             )
-        self._check_frang_warning(client, status_code, warning_msg)
+        await self._check_frang_warning(client, status_code, warning_msg)
 
-    def check_response(self, client, status_code: str, warning_msg: str):
+    async def check_response(self, client, status_code: str, warning_msg: str):
         """
         We can't be sure that client receive error response in case of TCP
         segmentation, because if we receive some data from client after
@@ -144,16 +144,18 @@ block_action attack reply;
                     response.status, status_code, "HTTP response status codes mismatch."
                 )
 
-        self._check_frang_warning(client, status_code, warning_msg)
+        await self._check_frang_warning(client, status_code, warning_msg)
 
     def check_connections(self, clients, warning: str, resets_expected: Union[int, range]):
         warns_occured = self.assertFrangWarning(warning, resets_expected)
         reset_conn_n = sum(c.reset_conn_n for c in clients)
         self.assertEqual(reset_conn_n, warns_occured)
 
-    def assertFrangWarning(self, warning: str, expected: Union[int, range]):
+    async def assertFrangWarning(self, warning: str, expected: Union[int, range]):
         if type(expected) is range:
-            found_greater_eq = self.klog.find(warning, cond=dmesg.amount_greater_eq(expected.start))
+            found_greater_eq = await self.klog.find(
+                warning, cond=dmesg.amount_greater_eq(expected.start)
+            )
             amount = len(self.klog.log_findall(warning))
             self.assertTrue(
                 found_greater_eq,
@@ -167,18 +169,20 @@ block_action attack reply;
                 f"Amount of '{warning}' warnings in dmesg is more then {expected.stop}: {amount}",
             )
         else:
-            self.assertTrue(self.klog.find(warning, cond=dmesg.amount_equals(expected)), expected)
+            self.assertTrue(
+                await self.klog.find(warning, cond=dmesg.amount_equals(expected)), expected
+            )
 
         return len(self.klog.log_findall(warning))
 
-    def run_rate_check(self, client, conn_n, is_tls):
+    async def run_rate_check(self, client, conn_n, is_tls):
         tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
         ctype = "tls" if is_tls else "tcp"
         client.options = [
             f" -address {tempesta_ip}:443 -connections {conn_n} -sni tempesta-tech.com -conn_type {ctype}"
         ]
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertEqual(0, client.returncode)
 

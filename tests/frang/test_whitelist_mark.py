@@ -88,47 +88,47 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         self.prepare_js_templates()
         return super().setUp()
 
-    def test_whitelisted_basic_request(self):
+    async def test_whitelisted_basic_request(self):
         self.set_nf_mark(1)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="200",
         )
 
-    def test_whitelisted_basic_request_xforwarded_for(self):
+    async def test_whitelisted_basic_request_xforwarded_for(self):
         self.set_nf_mark(1)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(uri="/", method="GET", headers=[("x-forwarded-for", "1.2.3.4")]),
             expected_status_code="200",
         )
 
-    def test_whitelisted_frang_http_uri_len(self):
+    async def test_whitelisted_frang_http_uri_len(self):
         self.set_nf_mark(1)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.start()
-        client.send_request(
+        await client.send_request(
             # very long uri
             client.create_request(uri="/" + "a" * 25, method="GET", headers=[]),
             expected_status_code="200",
         )
 
-    def test_whitelisted_frang_http_uri_len_xforwarded_for(self):
+    async def test_whitelisted_frang_http_uri_len_xforwarded_for(self):
         self.set_nf_mark(1)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.start()
-        client.send_request(
+        await client.send_request(
             # very long uri
             client.create_request(
                 uri="/" + "a" * 25, method="GET", headers=[("x-forwarded-for", "1.2.3.4")]
@@ -136,7 +136,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
             expected_status_code="200",
         )
 
-    def test_whitelisted_frang_connection_rate(self):
+    async def test_whitelisted_frang_connection_rate(self):
         self.set_nf_mark(1)
 
         connections = 5
@@ -145,10 +145,10 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         curl.parallel = connections
         curl.dump_headers = False
 
-        self.start_all_services()
+        await self.start_all_services()
 
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         # we expect all requests to receive 200
         self.assertEqual(
@@ -157,12 +157,12 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
             "Client is whitelisted, but connection rate is still aplied.",
         )
 
-    def test_non_whitelisted_request_are_js_challenged(self):
-        self.start_all_services(client=False)
+    async def test_non_whitelisted_request_are_js_challenged(self):
+        await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
         client.start()
-        client.send_request(
+        await client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="403",
         )

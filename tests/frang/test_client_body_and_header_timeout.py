@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
+import asyncio
 
 from hyperframe.frame import ContinuationFrame, HeadersFrame
 
@@ -19,17 +19,17 @@ class TestTimeoutBase(FrangTestCase):
     error: str
     frang_config: str
 
-    def send_request_with_sleep(self, sleep: float):
+    async def send_request_with_sleep(self, sleep: float):
         self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy-1")
         client.parsing = False
         client.start()
 
         client.make_request(request=self.request_segment_1, end_stream=False)
-        time.sleep(sleep)
+        await asyncio.sleep(sleep)
         client.make_request(self.request_segment_2)
         client.valid_req_num = 1
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
 
 
 class ClientBodyTimeout(TestTimeoutBase):
@@ -45,16 +45,16 @@ class ClientBodyTimeout(TestTimeoutBase):
     error = "Warning: frang: client body timeout exceeded"
     frang_config = f"client_body_timeout {TIMEOUT};"
 
-    def test_timeout_ok(self):
-        self.set_frang_config(frang_config=self.frang_config)
-        self.send_request_with_sleep(sleep=TIMEOUT / 2)
-        self.check_last_response(self.get_client("deproxy-1"), "200", self.error)
+    async def test_timeout_ok(self):
+        await self.set_frang_config(frang_config=self.frang_config)
+        await self.send_request_with_sleep(sleep=TIMEOUT / 2)
+        await self.check_last_response(self.get_client("deproxy-1"), "200", self.error)
 
-    def test_timeout_invalid(self):
-        self.set_frang_config(frang_config=self.frang_config)
-        self.send_request_with_sleep(sleep=TIMEOUT * 1.5)
+    async def test_timeout_invalid(self):
+        await self.set_frang_config(frang_config=self.frang_config)
+        await self.send_request_with_sleep(sleep=TIMEOUT * 1.5)
 
-        self.check_last_response(self.get_client("deproxy-1"), "403", self.error)
+        await self.check_last_response(self.get_client("deproxy-1"), "403", self.error)
 
 
 class ClientHeaderTimeout(ClientBodyTimeout):
@@ -93,7 +93,7 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
 
-    def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
+    async def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
         self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy-1")
         client.start()
@@ -102,7 +102,7 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         self.__setup_connection(client)
 
         # timeout counter is created for each stream.
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
 
         stream = client.init_stream_for_send(client.stream_id)
         header_frame = HeadersFrame(
@@ -119,19 +119,19 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
 
         # sleep after TLS handshake and exchange SETTINGS frame
         if timeout_before_send:
-            time.sleep(TIMEOUT + 1)
+            await asyncio.sleep(TIMEOUT + 1)
 
         client.send_bytes(header_frame.serialize())
-        time.sleep(sleep)
+        await asyncio.sleep(sleep)
         client.send_bytes(cont_frame.serialize())
 
         client.valid_req_num += 1
-        client.wait_for_response(strict=True)
+        await client.wait_for_response(strict=True)
 
-    def test_starting_timeout_counter(self):
+    async def test_starting_timeout_counter(self):
         """
         Timeout counter starts when first header in current stream is received.
         """
-        self.set_frang_config(frang_config=self.frang_config)
-        self.send_request_with_sleep(sleep=TIMEOUT / 2, timeout_before_send=True)
-        self.check_last_response(self.get_client("deproxy-1"), "200", self.error)
+        await self.set_frang_config(frang_config=self.frang_config)
+        await self.send_request_with_sleep(sleep=TIMEOUT / 2, timeout_before_send=True)
+        await self.check_last_response(self.get_client("deproxy-1"), "200", self.error)
