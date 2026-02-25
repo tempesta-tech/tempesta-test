@@ -21,9 +21,9 @@ from tests.http2_general.helpers import H2Base
 
 
 class TestH2Frame(H2Base):
-    def test_data_framing(self):
+    async def test_data_framing(self):
         """Send many 1 byte frames in request."""
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
         request_body = "x" * 100
@@ -33,13 +33,13 @@ class TestH2Frame(H2Base):
             deproxy_cl.make_request(request=byte, end_stream=False)
         deproxy_cl.make_request(request=request_body[-1], end_stream=True)
 
-        self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
+        await self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
 
-    def test_empty_last_data_frame(self):
+    async def test_empty_last_data_frame(self):
         """
         Send request with empty last data frame. It is valid request. RFC 9113 6.9.1.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
         request_body = "123"
@@ -48,63 +48,63 @@ class TestH2Frame(H2Base):
         deproxy_cl.make_request(request=request_body, end_stream=False)
         deproxy_cl.make_request(request="", end_stream=True)
 
-        self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
+        await self.__assert_test(client=deproxy_cl, request_body=request_body, request_number=1)
 
-    def test_empty_data_frame_mixed(self):
+    async def test_empty_data_frame_mixed(self):
         """
         Send request with empty DATA frame after non empty.
         Tempesta treats empty DATA frames without END_STREAM as inavalid.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
         request_body = "123"
 
         deproxy_cl.update_initial_settings()
         deproxy_cl.send_bytes(deproxy_cl.h2_connection.data_to_send())
-        deproxy_cl.wait_for_ack_settings()
+        await deproxy_cl.wait_for_ack_settings()
 
         deproxy_cl.make_request(request=self.post_request, end_stream=False)
         deproxy_cl.make_request(request=request_body, end_stream=False)
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_empty_data_frame(self):
+    async def test_empty_data_frame(self):
         """
         Send request with empty DATA frame.
         Tempesta treats empty DATA frames without END_STREAM as inavalid.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
         request_body = "123"
 
         deproxy_cl.update_initial_settings()
         deproxy_cl.send_bytes(deproxy_cl.h2_connection.data_to_send())
-        deproxy_cl.wait_for_ack_settings()
+        await deproxy_cl.wait_for_ack_settings()
 
         deproxy_cl.make_request(request=self.post_request, end_stream=False)
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize())
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_opening_same_stream_after_invalid(self):
+    async def test_opening_same_stream_after_invalid(self):
         """
         Try to open stream with invalid HEADERS frame.
         Then try to open stream with same id.
         Connection should be closed.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
         deproxy_cl.update_initial_settings()
         deproxy_cl.send_bytes(deproxy_cl.h2_connection.data_to_send())
-        deproxy_cl.wait_for_ack_settings()
+        await deproxy_cl.wait_for_ack_settings()
 
         stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
         deproxy_cl.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
@@ -126,21 +126,21 @@ class TestH2Frame(H2Base):
         )
 
         deproxy_cl.send_bytes(hf_bad.serialize() + hf_good.serialize())
-        self.assertTrue(deproxy_cl.wait_for_reset_stream(stream.stream_id))
-        self.assertTrue(deproxy_cl.wait_for_connection_close())
+        self.assertTrue(await deproxy_cl.wait_for_reset_stream(stream.stream_id))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close())
 
-    def test_multiple_empty_headers_frames(self):
+    async def test_multiple_empty_headers_frames(self):
         """
         An endpoint that receives a HEADERS frame without the END_STREAM flag set
         after receiving the HEADERS frame that opens a request or after receiving
         a final (non-informational) status code MUST treat the corresponding
         request or response as malformed (Section 8.1.1).
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
-        self.initiate_h2_connection(deproxy_cl)
+        await self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
         stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
@@ -158,7 +158,7 @@ class TestH2Frame(H2Base):
             deproxy_cl.send_bytes(hf_empty.serialize())
         deproxy_cl.send_bytes(hf_end.serialize(), expect_response=True)
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     @marks.Parameterize.expand(
@@ -167,18 +167,18 @@ class TestH2Frame(H2Base):
             marks.Param(name="no_end_headers", flags=[]),
         ]
     )
-    def test_empty_headers_frame(self, name, flags):
+    async def test_empty_headers_frame(self, name, flags):
         """
         An endpoint that receives a HEADERS frame without the END_STREAM flag set
         after receiving the HEADERS frame that opens a request or after receiving
         a final (non-informational) status code MUST treat the corresponding
         request or response as malformed (Section 8.1.1).
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
-        self.initiate_h2_connection(deproxy_cl)
+        await self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
         stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
@@ -191,19 +191,19 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(hf_start.serialize())
         deproxy_cl.send_bytes(hf_empty.serialize())
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_empty_headers_empty_continuation_multiple(self):
+    async def test_empty_headers_empty_continuation_multiple(self):
         """
         Test flooding multiple CONTINUATION with END_HEADERS
         that sends after empty HEADERS frame.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
-        self.initiate_h2_connection(deproxy_cl)
+        await self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
         stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
@@ -213,19 +213,19 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(cf_empty.serialize())
         deproxy_cl.send_bytes(cf_empty.serialize())
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_empty_continuation_end_headers(self):
+    async def test_empty_continuation_end_headers(self):
         """
         Test handling empty CONTINUATION frame with END_HEADERS
         END_HEADERS that used for closing HEADERS block.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
-        self.initiate_h2_connection(deproxy_cl)
+        await self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
         stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
@@ -238,18 +238,18 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(hf_start.serialize())
         deproxy_cl.send_bytes(cf_empty.serialize(), expect_response=False)
         deproxy_cl.send_bytes(df_end.serialize(), expect_response=True)
-        self.__assert_test(client=deproxy_cl, request_body="", request_number=1)
+        await self.__assert_test(client=deproxy_cl, request_body="", request_number=1)
 
-    def test_empty_continuation_frame(self):
+    async def test_empty_continuation_frame(self):
         """
         Test handling empty CONTINUATION frame w/o END_HEADERS.
         PROTOCOL_ERROR is expected.
         """
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
-        self.initiate_h2_connection(deproxy_cl)
+        await self.initiate_h2_connection(deproxy_cl)
         # create stream and change state machine in H2Connection object
         stream = deproxy_cl.init_stream_for_send(deproxy_cl.stream_id)
 
@@ -265,21 +265,21 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(cf_empty_end.serialize(), expect_response=False)
         deproxy_cl.send_bytes(df_end.serialize(), expect_response=False)
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close(timeout=5))
+        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_settings_frame(self):
+    async def test_settings_frame(self):
         """
         Create tls connection and send preamble + correct settings frame.
         Tempesta must accept settings and return settings + ack settings frames.
         Then client send ack settings frame and Tempesta must correctly accept it.
         """
-        self.start_all_services(client=True)
+        await self.start_all_services(client=True)
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
         # initiate_connection() generates preamble + settings frame with default variables
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
 
         # send empty setting frame with ack flag.
         client.send_bytes(client.h2_connection.data_to_send())
@@ -287,11 +287,11 @@ class TestH2Frame(H2Base):
 
         # send header frame after exchanging settings and make sure
         # that connection is open.
-        client.send_request(self.post_request, "200")
+        await client.send_request(self.post_request, "200")
 
-    def test_window_update_frame(self):
+    async def test_window_update_frame(self):
         """Tempesta must handle WindowUpdate frame."""
-        self.start_all_services(client=True)
+        await self.start_all_services(client=True)
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
@@ -301,7 +301,7 @@ class TestH2Frame(H2Base):
         # send preamble + settings frame
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
         # send WindowUpdate frame with window size increment = 5000
         client.h2_connection.increment_flow_control_window(5000)
@@ -310,12 +310,12 @@ class TestH2Frame(H2Base):
 
         # send header frame after sending WindowUpdate and make sure
         # that connection is working correctly.
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
         self.assertFalse(client.connection_is_closed())
 
-    def test_continuation_frame(self):
+    async def test_continuation_frame(self):
         """Tempesta must handle CONTINUATION frame."""
-        self.start_all_services()
+        await self.start_all_services()
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
@@ -325,21 +325,21 @@ class TestH2Frame(H2Base):
 
         # H2Connection separates headers to HEADERS + CONTINUATION frames
         # if they are larger than 16384 bytes
-        client.send_request(
+        await client.send_request(
             request=self.get_request + [("qwerty", "x" * 5000) for _ in range(4)],
             expected_status_code="200",
         )
 
         self.assertFalse(client.connection_is_closed())
 
-    def test_rst_frame_in_request(self):
+    async def test_rst_frame_in_request(self):
         """
         Tempesta must handle RST_STREAM frame and close stream but other streams MUST work.
         """
         client = self.get_client("deproxy")
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
         # client opens streams with id 1, 3 and does not close them
         client.make_request(request=self.post_request, end_stream=False)
@@ -352,17 +352,17 @@ class TestH2Frame(H2Base):
         client.send_bytes(client.h2_connection.data_to_send())
 
         # Client send DATA frame in stream 3 and it MUST receive response
-        client.send_request("qwe", "200")
+        await client.send_request("qwe", "200")
 
         # Tempesta allows creating new streams.
         client.stream_id = 5
-        client.send_request(self.post_request, "200")
+        await client.send_request(self.post_request, "200")
 
         self.assertFalse(
             client.connection_is_closed(), "Tempesta closed connection after receiving RST_STREAM."
         )
 
-    def test_rst_frame_in_response(self):
+    async def test_rst_frame_in_response(self):
         """
         When Tempesta returns RST_STREAM:
          - open streams must not be closed;
@@ -372,8 +372,8 @@ class TestH2Frame(H2Base):
         client = self.get_client("deproxy")
         client.parsing = False
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
         # client opens stream with id 1 and does not close it
         client.make_request(request=self.post_request, end_stream=False)
@@ -381,16 +381,16 @@ class TestH2Frame(H2Base):
         # client send invalid request and Tempesta returns RST_STREAM
         stream_with_rst = 3
         client.stream_id = stream_with_rst
-        client.send_request(self.get_request + [("x-forwarded-for", "1.1.1.1.1.1")], "400")
+        await client.send_request(self.get_request + [("x-forwarded-for", "1.1.1.1.1.1")], "400")
 
         # client open new stream
         client.make_request(self.get_request, end_stream=True)
-        client.wait_for_response(3)
+        await client.wait_for_response(3)
 
         # client send DATA frame in stream 1 and it must be open.
         client.stream_id = 1
         client.make_request("body", end_stream=True)
-        client.wait_for_response(3)
+        await client.wait_for_response(3)
 
         self.assertRaises(
             StreamClosedError, client.h2_connection._get_stream_by_id, stream_with_rst
@@ -399,7 +399,7 @@ class TestH2Frame(H2Base):
             client.connection_is_closed(), "Tempesta closed connection after sending RST_STREAM."
         )
 
-    def test_rst_stream_with_id_0(self):
+    async def test_rst_stream_with_id_0(self):
         """
         RST_STREAM frames MUST be associated with a stream. If a RST_STREAM frame
         is received with a stream identifier of 0x00, the recipient MUST treat this
@@ -408,19 +408,19 @@ class TestH2Frame(H2Base):
         """
         client = self.get_client("deproxy")
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
         # send RST_STREAM with id 0
         client.send_bytes(b"\x00\x00\x04\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 
         self.assertTrue(
-            client.wait_for_connection_close(),
+            await client.wait_for_connection_close(),
             "Tempesta did not close connection after receiving RST_STREAM with id 0.",
         )
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_goaway_frame_in_response(self):
+    async def test_goaway_frame_in_response(self):
         """
         Tempesta must:
          - close all streams for connection error (GOAWAY);
@@ -436,8 +436,8 @@ class TestH2Frame(H2Base):
         """
         client = self.get_client("deproxy")
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
         # Client opens many streams and does not close them
         for stream_id in range(1, 6, 2):
@@ -448,7 +448,9 @@ class TestH2Frame(H2Base):
         # Tempesta MUST return GOAWAY frame with PROTOCOL_ERROR
         client.send_bytes(b"\x00\x00\x03\x00\x01\x00\x00\x00\x00asd")
 
-        self.assertTrue(client.wait_for_connection_close(), "Tempesta did not send GOAWAY frame.")
+        self.assertTrue(
+            await client.wait_for_connection_close(), "Tempesta did not send GOAWAY frame."
+        )
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
         self.assertEqual(
             client.last_stream_id,
@@ -456,7 +458,7 @@ class TestH2Frame(H2Base):
             "Tempesta returned invalid last_stream_id in GOAWAY frame.",
         )
 
-    def test_goaway_frame_in_request(self):
+    async def test_goaway_frame_in_request(self):
         """
         Tempesta must not close connection after receiving GOAWAY frame.
 
@@ -466,8 +468,8 @@ class TestH2Frame(H2Base):
         """
         client = self.get_client("deproxy")
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
         # Client opens many streams and does not close them
         for stream_id in range(1, 6, 2):
@@ -486,17 +488,18 @@ class TestH2Frame(H2Base):
             client.make_request(request="asd", end_stream=True)
 
         self.assertTrue(
-            client.wait_for_response(), "Tempesta closed connection after receiving GOAWAY frame."
+            await client.wait_for_response(),
+            "Tempesta closed connection after receiving GOAWAY frame.",
         )
 
-    def test_trailer_header_frame_without_end_stream(self):
+    async def test_trailer_header_frame_without_end_stream(self):
         """
         The RFC allows 2 headers frame in one stream - first for headers and second for trailers.
         """
         client = self.get_client("deproxy")
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
         client.make_request(self.post_request, end_stream=False)
         hf = HeadersFrame(
@@ -506,13 +509,13 @@ class TestH2Frame(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def __assert_test(self, client, request_body: str, request_number: int):
+    async def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
 
-        self.assertTrue(client.wait_for_response(timeout=5))
+        self.assertTrue(await client.wait_for_response(timeout=5))
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.requests), request_number)
         checks.check_tempesta_request_and_response_stats(
@@ -530,14 +533,14 @@ class TestH2Frame(H2Base):
 
 
 class TestH2FrameEnabledDisabledTsoGroGsoBase(H2Base):
-    def setup_tests(self):
-        self.start_all_services()
+    async def setup_tests(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
         client.update_initial_settings(header_table_size=512)
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
         client.h2_connection.clear_outbound_data_buffer()
 
         return client, server
@@ -548,15 +551,15 @@ DEFAULT_MTU = 1500
 
 @marks.extend_tests_with_tso_gro_gso_enable_disable(mtu=DEFAULT_MTU)
 class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBase):
-    def test_headers_frame_with_continuation(self):
-        client, server = self.setup_tests()
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 0)
+    async def test_headers_frame_with_continuation(self):
+        client, server = await self.setup_tests()
+        await self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 0)
 
-    def test_headers_frame_without_continuation(self):
-        client, server = self.setup_tests()
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 1000, 0)
+    async def test_headers_frame_without_continuation(self):
+        client, server = await self.setup_tests()
+        await self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 1000, 0)
 
-    def test_mixed_frames_long_headers(self):
+    async def test_mixed_frames_long_headers(self):
         """
         Other frames (from any stream) MUST NOT occur between
         the HEADERS frame and any CONTINUATION frames that might
@@ -566,17 +569,21 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         config += "ctrl_frame_rate_multiplier 16;\n"
         self.get_tempesta().config.set_defconfig(config)
 
-        client, server = self.setup_tests()
+        client, server = await self.setup_tests()
 
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 3, 50, 50000, 1000)
+        await self.__send_header_and_data_frames_with_mixed_frames(
+            client, server, 3, 50, 50000, 1000
+        )
 
-    def test_data_frame(self):
-        client, server = self.setup_tests()
-        self.__send_header_and_data_frames_with_mixed_frames(client, server, 1, 0, 50000, 100000)
+    async def test_data_frame(self):
+        client, server = await self.setup_tests()
+        await self.__send_header_and_data_frames_with_mixed_frames(
+            client, server, 1, 0, 50000, 100000
+        )
 
-    def test_headers_frame_for_local_resp_invalid_req_d(self):
-        client, server = self.setup_tests()
-        client.send_request(
+    async def test_headers_frame_for_local_resp_invalid_req_d(self):
+        client, server = await self.setup_tests()
+        await client.send_request(
             request=[
                 HeaderTuple(":authority", "bad.com"),
                 HeaderTuple(":path", "/"),
@@ -599,7 +606,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
 
         return hf.serialize()
 
-    def __send_header_and_data_frames_with_mixed_frames(
+    async def __send_header_and_data_frames_with_mixed_frames(
         self, client, server, count, extra_settings_cnt, header_len, body_len, timeout=5
     ):
         header = ("qwerty", "x" * header_len)
@@ -625,7 +632,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
                 expect_response=False,
             )
         client.valid_req_num += count
-        self.assertTrue(client.wait_for_response(timeout))
+        self.assertTrue(await client.wait_for_response(timeout))
         self.assertFalse(client.connection_is_closed())
 
         for i in range(count):
@@ -640,7 +647,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
 
         # First ack was received when we establish connection
         self.assertTrue(
-            util.wait_until(
+            await util.wait_until(
                 lambda: client.ack_cnt - 1 != extra_settings_cnt,
                 timeout,
                 abort_cond=lambda: client.state != stateful.STATE_STARTED,
@@ -685,8 +692,8 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(TestH2FrameEnabledDisabled
             marks.Param(name="long", header_len=50000, body_len=50000),
         ]
     )
-    def test_headers_frame_for_local_resp_sticky_cookie(self, name, header_len, body_len):
-        client, server = self.setup_tests()
+    async def test_headers_frame_for_local_resp_sticky_cookie(self, name, header_len, body_len):
+        client, server = await self.setup_tests()
         header = ("qwerty", "x" * header_len)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -697,9 +704,9 @@ class TestH2FrameEnabledDisabledTsoGroGsoStickyCookie(TestH2FrameEnabledDisabled
             + ("x" * body_len)
         )
 
-        client.send_request(request=self.post_request, expected_status_code="302")
+        await client.send_request(request=self.post_request, expected_status_code="302")
         self.post_request.append(HeaderTuple("Cookie", client.last_response.headers["set-cookie"]))
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.post_request.pop()
 
 
@@ -762,8 +769,8 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
             ),
         ]
     )
-    def test_headers_frame_for_local_resp_cache(self, name, header, body, date, status):
-        client, server = self.setup_tests()
+    async def test_headers_frame_for_local_resp_cache(self, name, header, body, date, status):
+        client, server = await self.setup_tests()
 
         header = ("qwerty", "x" * header)
         server.set_response(
@@ -782,10 +789,10 @@ class TestH2FrameEnabledDisabledTsoGroGsoCache(TestH2FrameEnabledDisabledTsoGroG
             HeaderTuple(":method", "GET"),
         ]
 
-        client.send_request(request=headers, expected_status_code="200")
+        await client.send_request(request=headers, expected_status_code="200")
 
         headers.append(HeaderTuple("if-modified-since", date))
-        client.send_request(request=headers, expected_status_code=status)
+        await client.send_request(request=headers, expected_status_code=status)
 
 
 class TestPostponedFrames(H2Base):
@@ -809,11 +816,11 @@ class TestPostponedFrames(H2Base):
         ]
     )
     @marks.change_tso_gro_gso(tso_gro_gso=False, mtu=100)
-    def test(self, name, header, token):
+    async def test(self, name, header, token):
         config = self.get_tempesta().config.defconfig
         config += "ctrl_frame_rate_multiplier 256;\n"
         self.get_tempesta().config.set_defconfig(config)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.set_response(
@@ -828,7 +835,7 @@ class TestPostponedFrames(H2Base):
         )
         client.update_initial_settings(initial_window_size=0)
         client.send_bytes(client.h2_connection.data_to_send())
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
         ping_count = 500
 
@@ -837,17 +844,17 @@ class TestPostponedFrames(H2Base):
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(client.wait_for_ping_frames(ping_count))
+        self.assertTrue(await client.wait_for_headers_frame(stream_id))
+        self.assertTrue(await client.wait_for_ping_frames(ping_count))
 
         client.send_settings_frame(initial_window_size=65535)
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
         for _ in range(0, ping_count):
             self._ping(client)
 
-        self.assertTrue(client.wait_for_headers_frame(stream_id))
-        self.assertTrue(client.wait_for_ping_frames(2 * ping_count))
+        self.assertTrue(await client.wait_for_headers_frame(stream_id))
+        self.assertTrue(await client.wait_for_ping_frames(2 * ping_count))
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertTrue(client.last_response.status, "200")

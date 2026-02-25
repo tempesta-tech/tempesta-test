@@ -33,31 +33,31 @@ from tests.http2_general.helpers import (
     ]
 )
 class TestBlockActionH2(BlockActionH2Base):
-    def setUp(self):
+    async def asyncSetUp(self):
         path = generate_custom_error_page(self.ERROR_RESPONSE_BODY)
         self.tempesta = {
             "config": self.tempesta_tmpl % ("reply", "reply", self.resp_tempesta_conf.format(path)),
         }
-        H2Base.setUp(self)
+        await H2Base.asyncSetUp(self)
 
     def check_sniffer_for_attack_reply(self, sniffer, clients: list[BaseDeproxyClient]):
         self.check_fin_and_rst_in_sniffer(sniffer, clients)
 
-    def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
+    async def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
         if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-            self.assertTrue(client.wait_for_response())
+            self.assertTrue(await client.wait_for_response())
             self.assertEqual(client.last_response.status, expected_status_code)
             self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
             client.assert_error_code(expected_error_code=expected_goaway_code)
         else:
-            self.assertFalse(client.wait_for_response())
-        self.assertTrue(client.wait_for_connection_close())
+            self.assertFalse(await client.wait_for_response())
+        self.assertTrue(await client.wait_for_connection_close())
 
-    def test_block_action_attack_reply(self):
+    async def test_block_action_attack_reply(self):
         client = self.get_client("deproxy")
 
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
+        sniffer = await self.setup_sniffer()
+        await self.start_services_and_initiate_conn(client)
 
         client.make_request(
             request=[
@@ -68,19 +68,19 @@ class TestBlockActionH2(BlockActionH2Base):
             ],
         )
 
-        self.check_last_error_response(
+        await self.check_last_error_response(
             client, expected_status_code="403", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
 
         self.check_sniffer_for_attack_reply(sniffer, [client])
 
-    def test_block_action_error_reply(self):
+    async def test_block_action_error_reply(self):
         client = self.get_client("deproxy")
 
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
+        sniffer = await self.setup_sniffer()
+        await self.start_services_and_initiate_conn(client)
 
-        client.send_request(
+        await client.send_request(
             request=[
                 HeaderTuple(":authority", "good.com"),
                 HeaderTuple(":path", "/"),
@@ -93,7 +93,7 @@ class TestBlockActionH2(BlockActionH2Base):
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
         self.assertFalse(client.connection_is_closed())
 
-        client.send_request(
+        await client.send_request(
             request=[
                 HeaderTuple(":authority", "good.com"),
                 HeaderTuple(":path", "/"),
@@ -107,11 +107,11 @@ class TestBlockActionH2(BlockActionH2Base):
         self.assert_not_fin_socks(sniffer.packets, [client])
         self.assert_unreset_socks(sniffer.packets, [client])
 
-    def test_block_action_error_reply_with_conn_close(self):
+    async def test_block_action_error_reply_with_conn_close(self):
         client = self.get_client("deproxy")
 
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
+        sniffer = await self.setup_sniffer()
+        await self.start_services_and_initiate_conn(client)
 
         client.make_request(
             request=[
@@ -122,12 +122,12 @@ class TestBlockActionH2(BlockActionH2Base):
                 HeaderTuple("Content-Type", "invalid"),
             ],
         )
-        self.check_last_error_response(
+        await self.check_last_error_response(
             client, expected_status_code="400", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
-    def test_block_action_attack_reply_not_on_req_rcv_event(self):
+    async def test_block_action_attack_reply_not_on_req_rcv_event(self):
         """
         Special test case when on_req_recv_event variable in C
         code is set to false, and connection closing is handled
@@ -136,10 +136,10 @@ class TestBlockActionH2(BlockActionH2Base):
         """
         client = self.get_client("deproxy")
 
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
+        sniffer = await self.setup_sniffer()
+        await self.start_services_and_initiate_conn(client)
 
-        client.send_request(
+        await client.send_request(
             request=[
                 HeaderTuple(":authority", "frang.com"),
                 HeaderTuple(":path", "/"),
@@ -158,7 +158,7 @@ class TestBlockActionH2(BlockActionH2Base):
             ],
         )
 
-        self.check_last_error_response(
+        await self.check_last_error_response(
             client, expected_status_code="403", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
 
@@ -168,17 +168,17 @@ class TestBlockActionH2(BlockActionH2Base):
 class TestBlockActionH2Drop(BlockActionH2Base):
     INITIAL_WINDOW_SIZE = 65535
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta = {
             "config": self.tempesta_tmpl % ("drop", "drop", ""),
         }
-        H2Base.setUp(self)
+        await H2Base.asyncSetUp(self)
 
-    def test_block_action_attack_drop(self):
+    async def test_block_action_attack_drop(self):
         client = self.get_client("deproxy")
 
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
+        sniffer = await self.setup_sniffer()
+        await self.start_services_and_initiate_conn(client)
 
         client.make_request(
             request=[
@@ -189,16 +189,16 @@ class TestBlockActionH2Drop(BlockActionH2Base):
             ],
         )
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
 
         self.check_rst_no_fin_in_sniffer(sniffer, [client])
 
-    def test_block_action_error_drop(self):
+    async def test_block_action_error_drop(self):
         client = self.get_client("deproxy")
 
-        sniffer = self.setup_sniffer()
-        self.start_services_and_initiate_conn(client)
+        sniffer = await self.setup_sniffer()
+        await self.start_services_and_initiate_conn(client)
 
         client.make_request(
             request=[
@@ -210,7 +210,7 @@ class TestBlockActionH2Drop(BlockActionH2Base):
             end_stream=False,
         )
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         self.assertIsNone(client.last_response)
 
         self.check_rst_no_fin_in_sniffer(sniffer, [client])

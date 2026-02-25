@@ -106,30 +106,30 @@ DEPROXY_CLIENT_H2 = {
 
 
 class HeadersParsing(H2Base):
-    def test_small_header_in_request(self):
+    async def test_small_header_in_request(self):
         """Request with small header name length completes successfully."""
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
         for length in range(1, 5):
             header = "x" * length
-            client.send_request(
+            await client.send_request(
                 self.get_request + [(header, "test")],
                 "200",
             )
 
-    def test_transfer_encoding_header_in_request(self):
+    async def test_transfer_encoding_header_in_request(self):
         """
         The only exception to this is the TE header field, which MAY be present in an HTTP/2
         request; when it is, it MUST NOT contain any value other than "trailers".
         RFC 9113 8.2.2
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
-        client.send_request(
+        await client.send_request(
             (
                 self.post_request + [("transfer-encoding", "chunked")],
                 "123",
@@ -137,20 +137,20 @@ class HeadersParsing(H2Base):
             "400",
         )
 
-    def test_long_header_name_in_request(self):
+    async def test_long_header_name_in_request(self):
         """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
         for length, status_code in ((1023, "200"), (1024, "200"), (1025, "400")):
             with self.subTest(length=length, status_code=status_code):
-                self.start_all_services()
+                await self.start_all_services()
 
                 client = self.get_client("deproxy")
-                client.send_request(self.post_request + [("a" * length, "text")], status_code)
+                await client.send_request(self.post_request + [("a" * length, "text")], status_code)
 
-    def test_long_header_name_in_response(self):
+    async def test_long_header_name_in_response(self):
         """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
         for length, status_code in ((1023, "200"), (1024, "200"), (1025, "502")):
             with self.subTest(length=length, status_code=status_code):
-                self.start_all_services()
+                await self.start_all_services()
 
                 client = self.get_client("deproxy")
                 server = self.get_server("deproxy")
@@ -161,7 +161,7 @@ class HeadersParsing(H2Base):
                     + f"{'a' * length}: text\r\n"
                     + "Content-Length: 0\r\n\r\n"
                 )
-                client.send_request(self.post_request, status_code)
+                await client.send_request(self.post_request, status_code)
 
 
 @marks.parameterize_class(
@@ -243,18 +243,18 @@ sticky {
             ),
         ]
     )
-    def test(self, name, cookies, expected_status_code):
-        self.start_all_services()
+    async def test(self, name, cookies, expected_status_code):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
 
-        client.send_request(client.create_request("GET", []), "302")
+        await client.send_request(client.create_request("GET", []), "302")
         # get a sticky cookie from a response headers
         tfw_cookie = client.last_response.headers.get("set-cookie").split("; ")[0].split("=")
 
         sticky_cookie = f"{tfw_cookie[0]}={tfw_cookie[1]}"
         for _ in range(2):  # first as string and second as bytes from dynamic table
-            client.send_request(
+            await client.send_request(
                 request=client.create_request(
                     method="GET",
                     headers=[("cookie", cookies.format(sticky_cookie))],
@@ -262,30 +262,32 @@ sticky {
                 expected_status_code=expected_status_code,
             )
             if expected_status_code != "200":
-                self.assertTrue(client.wait_for_connection_close())
+                self.assertTrue(await client.wait_for_connection_close())
                 break
 
 
 class DuplicateSingularHeader(H2Base):
-    def test_two_header_as_bytes_from_dynamic_table(self):
+    async def test_two_header_as_bytes_from_dynamic_table(self):
         client = self.get_client("deproxy")
         client.parsing = False
 
-        self.start_all_services()
+        await self.start_all_services()
 
         # save "referer" header into dynamic table
-        client.send_request(self.get_request + [("referer", "test1")], "200")
+        await client.send_request(self.get_request + [("referer", "test1")], "200")
         # send two "referer" headers as bytes (\xbe, 62 index) from dynamic table
-        client.send_request(self.get_request + [("referer", "test1"), ("referer", "test1")], "400")
+        await client.send_request(
+            self.get_request + [("referer", "test1"), ("referer", "test1")], "400"
+        )
 
-    def test_header_as_string_value(self):
+    async def test_header_as_string_value(self):
         client = self.get_client("deproxy")
         client.parsing = False
 
-        self.start_all_services()
+        await self.start_all_services()
 
         # save "referer" header into dynamic table
-        client.send_request(self.get_request + [("referer", "test1")], "200")
+        await client.send_request(self.get_request + [("referer", "test1")], "200")
 
         client.h2_connection.send_headers(stream_id=3, headers=self.get_request, end_stream=True)
         client.methods.append("GET")
@@ -296,51 +298,53 @@ class DuplicateSingularHeader(H2Base):
             data=b"\x00\x00\x14\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe@\x07referer\x05test1",
             expect_response=True,
         )
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "400")
 
-    def test_header_from_static_table_and_dynamic_table(self):
+    async def test_header_from_static_table_and_dynamic_table(self):
         client = self.get_client("deproxy")
         client.parsing = False
 
-        self.start_all_services()
+        await self.start_all_services()
 
         # save two "referer" header:
         # first as byte from static table (key) and value as string
         # second as byte from dynamic table
-        client.send_request(self.get_request + [("referer", "test1"), ("referer", "test1")], "400")
+        await client.send_request(
+            self.get_request + [("referer", "test1"), ("referer", "test1")], "400"
+        )
 
 
 class TestPseudoHeaders(H2Base):
-    def test_invalid_pseudo_header(self):
+    async def test_invalid_pseudo_header(self):
         """
         Endpoints MUST NOT generate pseudo-header fields other than those defined in this document.
         RFC 9113 8.3
         """
-        self.__test(self.post_request + [(":content-length", "0")])
+        await self.__test(self.post_request + [(":content-length", "0")])
 
-    def test_duplicate_pseudo_header(self):
+    async def test_duplicate_pseudo_header(self):
         """
         The same pseudo-header field name MUST NOT appear more than once in a field block.
         A field block for an HTTP request or response that contains a repeated pseudo-header
         field name MUST be treated as malformed.
         RFC 9113 8.3
         """
-        self.__test(self.post_request + [(":path", "/")])
+        await self.__test(self.post_request + [(":path", "/")])
 
-    def test_status_header_in_request(self):
+    async def test_status_header_in_request(self):
         """
         Pseudo-header fields defined for responses MUST NOT appear in requests.
         RFC 9113 8.3
         """
-        self.__test(self.post_request + [(":status", "200")])
+        await self.__test(self.post_request + [(":status", "200")])
 
-    def test_regular_header_before_pseudo_header(self):
+    async def test_regular_header_before_pseudo_header(self):
         """
         All pseudo-header fields MUST appear in a field block before all regular field lines.
         RFC 9113 8.3
         """
-        self.__test(
+        await self.__test(
             [
                 (":authority", "example.com"),
                 (":path", "/"),
@@ -350,13 +354,13 @@ class TestPseudoHeaders(H2Base):
             ]
         )
 
-    def test_authority_with_scheme_and_path(self):
+    async def test_authority_with_scheme_and_path(self):
         """
         ":authority" MUST NOT include the deprecated userinfo subcomponent for "http"
         or "https" schemed URIs.
         RFC 9113 8.3.1
         """
-        self.__test(
+        await self.__test(
             [
                 (":path", "/"),
                 (":scheme", "https"),
@@ -365,14 +369,14 @@ class TestPseudoHeaders(H2Base):
             ]
         )
 
-    def test_without_path_header(self):
+    async def test_without_path_header(self):
         """
         All HTTP/2 requests MUST include exactly one valid value for the ":method",
         ":scheme", and ":path" pseudo-header fields, unless they are CONNECT
         requests. An HTTP request that omits mandatory pseudo-header fields is malformed.
         RFC 9113 8.3.1
         """
-        self.__test(
+        await self.__test(
             [
                 (":authority", "example.com"),
                 (":scheme", "https"),
@@ -380,14 +384,14 @@ class TestPseudoHeaders(H2Base):
             ]
         )
 
-    def test_without_scheme_header(self):
+    async def test_without_scheme_header(self):
         """
         All HTTP/2 requests MUST include exactly one valid value for the ":method",
         ":scheme", and ":path" pseudo-header fields, unless they are CONNECT
         requests. An HTTP request that omits mandatory pseudo-header fields is malformed.
         RFC 9113 8.3.1
         """
-        self.__test(
+        await self.__test(
             [
                 (":authority", "example.com"),
                 (":path", "/"),
@@ -395,14 +399,14 @@ class TestPseudoHeaders(H2Base):
             ]
         )
 
-    def test_without_method_header(self):
+    async def test_without_method_header(self):
         """
         All HTTP/2 requests MUST include exactly one valid value for the ":method",
         ":scheme", and ":path" pseudo-header fields, unless they are CONNECT
         requests. An HTTP request that omits mandatory pseudo-header fields is malformed.
         RFC 9113 8.3.1
         """
-        self.__test(
+        await self.__test(
             [
                 (":authority", "example.com"),
                 (":path", "/"),
@@ -410,13 +414,13 @@ class TestPseudoHeaders(H2Base):
             ]
         )
 
-    def test_connect_method_with_path_and_scheme(self):
+    async def test_connect_method_with_path_and_scheme(self):
         """
         The ":scheme" and ":path" pseudo-header fields MUST be omitted.
         A CONNECT request that does not conform to these restrictions is malformed.
         RFC 9113 8.5
         """
-        self.__test(
+        await self.__test(
             [
                 (":method", "CONNECT"),
                 (":authority", "www.example.com:443"),
@@ -425,18 +429,18 @@ class TestPseudoHeaders(H2Base):
             ]
         )
 
-    def __test(self, request: list):
-        self.start_all_services()
+    async def __test(self, request: list):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request,
             "400",
         )
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
 
 class TestIncorrectIfModifiedSince(H2Base):
@@ -457,8 +461,8 @@ cache_methods GET HEAD POST;
 """,
     }
 
-    def __test(self, if_modified_since, huffman):
-        self.start_all_services()
+    async def __test(self, if_modified_since, huffman):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -474,14 +478,14 @@ cache_methods GET HEAD POST;
             client.create_request(method="GET", headers=[]),
             huffman=huffman,
         )
-        client.wait_for_response()
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
 
         client.make_request(
             client.create_request(method="GET", headers=[("if-modified-since", if_modified_since)]),
             huffman=huffman,
         )
-        client.wait_for_response()
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
 
     @marks.Parameterize.expand(
@@ -498,12 +502,12 @@ cache_methods GET HEAD POST;
             ),
         ]
     )
-    def test(self, name, if_modified_since, huffman):
+    async def test(self, name, if_modified_since, huffman):
         """
         Tests check that Tempesta FW ignores date from
         incorrect `if-modified-since` header.
         """
-        self.__test(if_modified_since, huffman)
+        await self.__test(if_modified_since, huffman)
 
     @marks.Parameterize.expand(
         [
@@ -520,7 +524,7 @@ cache_methods GET HEAD POST;
         ]
     )
     @unittest.expectedFailure
-    def test_expect_fail(self, name, if_modified_since, huffman):
+    async def test_expect_fail(self, name, if_modified_since, huffman):
         """
         Tempesta FW doesn't check that there is any invalid
         bytes after GMT in the date. So although according RFC
@@ -528,19 +532,19 @@ cache_methods GET HEAD POST;
         header Tempesta FW uses it and decides that response is not
         modified.
         """
-        self.__test(if_modified_since, huffman)
+        await self.__test(if_modified_since, huffman)
 
-    def test_many_if_modified_since(self):
+    async def test_many_if_modified_since(self):
         """
         This test checks that Tempesta FW drops request
         with several `if-modified-since` headers according
         RFC.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 headers=[
@@ -554,27 +558,27 @@ cache_methods GET HEAD POST;
 
 
 class TestConnectionHeaders(H2Base):
-    def __test_request(self, header: tuple):
+    async def __test_request(self, header: tuple):
         """
         An endpoint MUST NOT generate an HTTP/2 message containing connection-specific
         header fields. Any message containing connection-specific header fields MUST be treated
         as malformed.
         RFC 9113 8.2.2
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(self.post_request + [header], "400")
-        self.assertTrue(client.wait_for_connection_close())
+        await client.send_request(self.post_request + [header], "400")
+        self.assertTrue(await client.wait_for_connection_close())
 
-    def __test_response(self, header: tuple):
+    async def __test_response(self, header: tuple):
         """
         An intermediary transforming an HTTP/1.x message to HTTP/2 MUST remove connection-specific
         header fields or their messages will be treated by other HTTP/2 endpoints as malformed.
         RFC 9113 8.2.2
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         client.parsing = False
@@ -588,39 +592,39 @@ class TestConnectionHeaders(H2Base):
         )
 
         header = (header[0].lower(), header[1])
-        client.send_request(self.post_request, "200")
+        await client.send_request(self.post_request, "200")
         self.assertNotIn(header, client.last_response.headers.headers)
 
-    def test_TE_header_in_request(self):
-        self.__test_request(header=("te", "gzip"))
+    async def test_TE_header_in_request(self):
+        await self.__test_request(header=("te", "gzip"))
 
-    def test_connection_header_in_request(self):
-        self.__test_request(header=("connection", "keep-alive"))
+    async def test_connection_header_in_request(self):
+        await self.__test_request(header=("connection", "keep-alive"))
 
-    def test_keep_alive_header_in_request(self):
-        self.__test_request(header=("keep-alive", "timeout=5, max=10"))
+    async def test_keep_alive_header_in_request(self):
+        await self.__test_request(header=("keep-alive", "timeout=5, max=10"))
 
-    def test_proxy_connection_header_in_request(self):
-        self.__test_request(header=("proxy-connection", "keep-alive"))
+    async def test_proxy_connection_header_in_request(self):
+        await self.__test_request(header=("proxy-connection", "keep-alive"))
 
-    def test_upgrade_header_in_request(self):
-        self.__test_request(header=("upgrade", "websocket"))
+    async def test_upgrade_header_in_request(self):
+        await self.__test_request(header=("upgrade", "websocket"))
 
-    def test_connection_header_in_response(self):
-        self.__test_response(header=("connection", "keep-alive"))
+    async def test_connection_header_in_response(self):
+        await self.__test_response(header=("connection", "keep-alive"))
 
-    def test_keep_alive_header_in_response(self):
-        self.__test_response(header=("keep-alive", "timeout=5, max=10"))
+    async def test_keep_alive_header_in_response(self):
+        await self.__test_response(header=("keep-alive", "timeout=5, max=10"))
 
-    def test_proxy_connection_header_in_response(self):
-        self.__test_response(header=("proxy-connection", "keep-alive"))
+    async def test_proxy_connection_header_in_response(self):
+        await self.__test_response(header=("proxy-connection", "keep-alive"))
 
-    def test_upgrade_header_in_response(self):
-        self.__test_response(header=("upgrade", "websocket"))
+    async def test_upgrade_header_in_response(self):
+        await self.__test_response(header=("upgrade", "websocket"))
 
-    def test_TE_header_in_response(self):
+    async def test_TE_header_in_response(self):
         self.disable_deproxy_auto_parser()
-        self.__test_response(header=("te", "gzip"))
+        await self.__test_response(header=("te", "gzip"))
 
 
 class TestSplitCookies(H2Base):
@@ -629,14 +633,14 @@ class TestSplitCookies(H2Base):
     into single header when proxying to backend
     """
 
-    def test_split_cookies(self):
+    async def test_split_cookies(self):
         client = self.get_client("deproxy")
         client.parsing = False
 
-        self.start_all_services()
+        await self.start_all_services()
 
         cookies = {"foo": "bar", "bar": "baz"}
-        client.send_request(
+        await client.send_request(
             self.get_request + [("cookie", f"{name}={val}") for name, val in cookies.items()], "200"
         )
 
@@ -651,12 +655,12 @@ class TestSplitCookies(H2Base):
 
 
 class TestH2Host(H2Base):
-    def test_host_missing(self):
-        self.start_all_services()
+    async def test_host_missing(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -665,32 +669,32 @@ class TestH2Host(H2Base):
             expected_status_code="400",
         )
 
-    def test_empty_authority_header(self):
-        self.start_all_services()
+    async def test_empty_authority_header(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[(":path", "/"), (":scheme", "https"), (":method", "GET"), (":authority", "")],
             expected_status_code="400",
         )
 
-    def test_empty_host_header(self):
-        self.start_all_services()
+    async def test_empty_host_header(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[(":path", "/"), (":scheme", "https"), (":method", "GET"), ("host", "")],
             expected_status_code="400",
         )
 
-    def test_host_authority_ok(self):
-        self.start_all_services()
+    async def test_host_authority_ok(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -700,12 +704,12 @@ class TestH2Host(H2Base):
             expected_status_code="200",
         )
 
-    def test_host_header_ok(self):
-        self.start_all_services()
+    async def test_host_header_ok(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -715,12 +719,12 @@ class TestH2Host(H2Base):
             expected_status_code="200",
         )
 
-    def test_different_host_and_authority_headers(self):
-        self.start_all_services()
+    async def test_different_host_and_authority_headers(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -731,13 +735,13 @@ class TestH2Host(H2Base):
             expected_status_code="200",
         )
 
-    def test_forwarded_and_empty_host_header(self):
+    async def test_forwarded_and_empty_host_header(self):
         """Host header must be present. Forwarded header does not set host header."""
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -757,11 +761,11 @@ class TestTrailers(H2Base):
         (":authority", "localhost"),
     ]
 
-    def __create_connection_and_get_client(self):
-        self.start_all_services()
+    async def __create_connection_and_get_client(self):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
 
         # create stream and change state machine in H2Connection object
         stream = client.init_stream_for_send(client.stream_id)
@@ -833,9 +837,11 @@ class TestTrailers(H2Base):
             ),
         ]
     )
-    def test_trailers_in_request(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
+    async def test_trailers_in_request(
+        self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code
+    ):
         """Send trailers after DATA frame and receive a 200 response."""
-        client = self.__create_connection_and_get_client()
+        client = await self.__create_connection_and_get_client()
         server = self.get_server("deproxy")
         self.__send_headers_and_data_frames(client)
 
@@ -847,7 +853,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=tf1.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(
             expected_status_code, client.last_response.status, "HTTP response code missmatch."
         )
@@ -856,7 +862,7 @@ class TestTrailers(H2Base):
             self.assertIn(tr1, server.last_request.headers)
             self.assertIn(tr2, server.last_request.headers)
 
-    def test_trailers_invalid_header_in_request(self):
+    async def test_trailers_invalid_header_in_request(self):
         """
         A sender MUST NOT generate a trailer that contains a field necessary
         for message framing (e.g., Transfer-Encoding and Content-Length),
@@ -866,7 +872,7 @@ class TestTrailers(H2Base):
         7.1 of [RFC7231]), or determining how to process the payload (e.g.,
         Content-Encoding, Content-Type, Content-Range, and Trailer).
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client("deproxy")
         for header in [
             ("accept", "*/*"),
@@ -884,7 +890,7 @@ class TestTrailers(H2Base):
         ]:
             with self.subTest(msg=f"The request with trailer - `{header[0]}: {header[1]}`"):
                 client.restart()
-                self.initiate_h2_connection(client)
+                await self.initiate_h2_connection(client)
                 client.init_stream_for_send(1)
                 self.__send_headers_and_data_frames(client)
 
@@ -896,15 +902,15 @@ class TestTrailers(H2Base):
                 )
                 client.send_bytes(data=tf.serialize(), expect_response=True)
 
-                self.assertTrue(client.wait_for_response())
+                self.assertTrue(await client.wait_for_response())
                 self.assertEqual("403", client.last_response.status)
-                self.assertTrue(client.wait_for_connection_close())
+                self.assertTrue(await client.wait_for_connection_close())
 
-    def test_trailers_with_continuation_frame_in_request(self):
+    async def test_trailers_with_continuation_frame_in_request(self):
         """
         Send trailers (HEADER and CONTINUATION frames) after DATA frame and receive a 200 response.
         """
-        client = self.__create_connection_and_get_client()
+        client = await self.__create_connection_and_get_client()
         self.__send_headers_and_data_frames(client)
 
         # create and send trailers into HEADERS frame with END_STREAM and not END_HEADERS
@@ -924,7 +930,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=cf.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
 
     @marks.Parameterize.expand(
@@ -933,13 +939,13 @@ class TestTrailers(H2Base):
             marks.Param(name="no_end_headers", flags=[]),
         ]
     )
-    def test_trailers_with_empty_continuation_frame_in_request(self, name, flags):
+    async def test_trailers_with_empty_continuation_frame_in_request(self, name, flags):
         """
         Send trailers (HEADER and empty CONTINUATION frames) after DATA
         frame and receive a 200 response in case when CONTINUATION has
         END_HEADERS flag and GO_AWAY protocol error otherwise.
         """
-        client = self.__create_connection_and_get_client()
+        client = await self.__create_connection_and_get_client()
         self.__send_headers_and_data_frames(client)
 
         # create and send trailers into HEADERS frame with END_STREAM and not END_HEADERS
@@ -959,18 +965,18 @@ class TestTrailers(H2Base):
         client.send_bytes(data=cf.serialize(), expect_response=expected_response)
 
         if expected_response:
-            self.assertTrue(client.wait_for_response())
+            self.assertTrue(await client.wait_for_response())
             self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
         else:
-            self.assertTrue(client.wait_for_connection_close(timeout=5))
+            self.assertTrue(await client.wait_for_connection_close(timeout=5))
             client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_trailers_with_pseudo_headers_in_request(self):
+    async def test_trailers_with_pseudo_headers_in_request(self):
         """
         Trailers MUST NOT include pseudo-header fields.
         RFC 9113 8.1
         """
-        client = self.__create_connection_and_get_client()
+        client = await self.__create_connection_and_get_client()
         self.__send_headers_and_data_frames(
             client, [(":path", "/"), (":authority", "localhost"), (":method", "POST")]
         )
@@ -983,10 +989,10 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual("403", client.last_response.status, "HTTP response code missmatch.")
 
-    def test_trailers_without_end_stream_in_request(self):
+    async def test_trailers_without_end_stream_in_request(self):
         """
         An endpoint that receives a HEADERS frame without the END_STREAM flag set after
         receiving the HEADERS frame that opens a request or after receiving a final
@@ -994,7 +1000,7 @@ class TestTrailers(H2Base):
         as malformed.
         RFC 9113 8.1
         """
-        client = self.__create_connection_and_get_client()
+        client = await self.__create_connection_and_get_client()
         self.__send_headers_and_data_frames(client)
 
         # create and send trailers into HEADERS frame with END_STREAM and END_HEADERS
@@ -1005,7 +1011,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual("400", client.last_response.status, "HTTP response code missmatch.")
 
     @marks.Parameterize.expand(
@@ -1030,13 +1036,13 @@ class TestTrailers(H2Base):
             ),
         ]
     )
-    def test_trailers_in_response(self, name, response):
-        self.start_all_services()
+    async def test_trailers_in_response(self, name, response):
+        await self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(response)
 
         client = self.get_client("deproxy")
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
         self.assertIsNone(client.last_response.headers.get("Trailer"))
         self.assertIsNone(client.last_response.headers.get("X-Token"))
         """
@@ -1061,19 +1067,19 @@ class CurlTestBase(tester.TempestaTest):
         },
     ]
 
-    def run_test(self, served_from_cache=False):
+    async def run_test(self, served_from_cache=False):
         curl = self.get_client("curl")
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         self.start_all_clients()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         self.assertIn("200", curl.response_msg)
 
         self.start_all_clients()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         self.assertIn("200", curl.response_msg)
 
@@ -1085,22 +1091,17 @@ class CurlTestBase(tester.TempestaTest):
             msg="Unexpected number forwarded requests to backend",
         )
 
-    def run_deproxy_test(self, served_from_cache=False):
+    async def run_deproxy_test(self, served_from_cache=False):
+        await self.start_all_services(client=False)
+
         curl = self.get_client("curl")
-
-        self.start_all_servers()
-        self.start_tempesta()
-
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
-        self.wait_while_busy(curl)
+        curl.start()
+        await self.wait_while_busy(curl)
         curl.stop()
         self.assertIn("200", curl.response_msg)
 
         self.start_all_clients()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         self.assertIn("200", curl.response_msg)
 
@@ -1138,8 +1139,8 @@ return 200;
         "config": TEMPESTA_CONFIG % "",
     }
 
-    def test(self):
-        CurlTestBase.run_test(self)
+    async def test(self):
+        await CurlTestBase.run_test(self)
 
 
 class BackendSetCoookieH2(tester.TempestaTest):
@@ -1181,14 +1182,14 @@ return 200;
         "config": TEMPESTA_CONFIG % "cache_fulfill * *;",
     }
 
-    def test(self, served_from_cache=True):
+    async def test(self, served_from_cache=True):
         curl = self.get_client("curl")
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         self.start_all_clients()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         self.assertEqual(
             0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
         )
@@ -1203,7 +1204,7 @@ return 200;
         self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
 
         self.start_all_clients()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         self.assertEqual(
             0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
         )
@@ -1243,8 +1244,8 @@ return 200;
         "config": TEMPESTA_CONFIG % "cache_fulfill * *;",
     }
 
-    def test(self):
-        CurlTestBase.run_test(self, served_from_cache=True)
+    async def test(self):
+        await CurlTestBase.run_test(self, served_from_cache=True)
 
 
 class AddBackendLongHeaders(CurlTestBase):
@@ -1289,8 +1290,8 @@ return 200;
         "config": TEMPESTA_CONFIG % "",
     }
 
-    def test(self):
-        CurlTestBase.run_test(self)
+    async def test(self):
+        await CurlTestBase.run_test(self)
 
 
 class AddBackendLongHeadersCache(CurlTestBase):
@@ -1335,8 +1336,8 @@ return 200;
         "config": TEMPESTA_CONFIG % "cache_fulfill * *;",
     }
 
-    def test(self):
-        CurlTestBase.run_test(self, served_from_cache=True)
+    async def test(self):
+        await CurlTestBase.run_test(self, served_from_cache=True)
 
 
 class LowercaseAddBackendHeaders(CurlTestBase):
@@ -1366,8 +1367,8 @@ return 200;
         "config": TEMPESTA_CONFIG % "",
     }
 
-    def test(self):
-        CurlTestBase.run_test(self)
+    async def test(self):
+        await CurlTestBase.run_test(self)
 
 
 class LowercaseAddBackendHeadersCache(CurlTestBase):
@@ -1397,8 +1398,8 @@ return 200;
         "config": TEMPESTA_CONFIG % "cache_fulfill * *;",
     }
 
-    def test(self):
-        CurlTestBase.run_test(self, served_from_cache=True)
+    async def test(self):
+        await CurlTestBase.run_test(self, served_from_cache=True)
 
 
 def deproxy_backend_config(headers):
@@ -1431,8 +1432,8 @@ class HeadersEmptyCache(CurlTestBase):
         "config": TEMPESTA_DEPROXY_CONFIG % "cache_fulfill * *;",
     }
 
-    def test(self):
-        CurlTestBase.run_deproxy_test(self, served_from_cache=True)
+    async def test(self):
+        await CurlTestBase.run_deproxy_test(self, served_from_cache=True)
 
 
 class HeadersSpacedCache(CurlTestBase):
@@ -1453,8 +1454,8 @@ class HeadersSpacedCache(CurlTestBase):
         "config": TEMPESTA_DEPROXY_CONFIG % "cache_fulfill * *;",
     }
 
-    def test(self):
-        CurlTestBase.run_deproxy_test(self, served_from_cache=True)
+    async def test(self):
+        await CurlTestBase.run_deproxy_test(self, served_from_cache=True)
 
 
 class MissingDateServerWithBodyTest(tester.TempestaTest):
@@ -1502,15 +1503,8 @@ class MissingDateServerWithBodyTest(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
-    def test(self):
-        self.start_all()
+    async def test(self):
+        await self.start_all_services()
 
         head = [
             (":authority", "localhost"),
@@ -1522,7 +1516,7 @@ class MissingDateServerWithBodyTest(tester.TempestaTest):
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(head)
 
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp)
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
@@ -1594,7 +1588,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
-    def test_blocked_by_max_headers_count(self, name, huffman):
+    async def test_blocked_by_max_headers_count(self, name, huffman):
         """
         Total header length is 251 bytes, greater then 250.
         :method" "GET" (10 + 32 extra byte according RFC)
@@ -1603,20 +1597,20 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         ":authority" "localhost" (19 + 32)
         "a" "a" * 43
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(
             deproxy_cl.create_request(method="GET", headers=[("a", "a" * 43)]), huffman=huffman
         )
 
-        deproxy_cl.wait_for_response(strict=True)
+        await deproxy_cl.wait_for_response(strict=True)
         self.assertEqual(deproxy_cl.last_response.status, "403")
 
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
-    def test_not_blocked_by_max_headers_count(self, name, huffman):
+    async def test_not_blocked_by_max_headers_count(self, name, huffman):
         """
         Total header length is 250 bytes, not greater then 250.
         :method" "GET" (10 + 32 extra byte according RFC)
@@ -1625,14 +1619,14 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         ":authority" "localhost" (19 + 32)
         "a" "a" * 42
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(
             deproxy_cl.create_request(method="GET", headers=[("a", "a" * 42)]), huffman=huffman
         )
 
-        deproxy_cl.wait_for_response(strict=True)
+        await deproxy_cl.wait_for_response(strict=True)
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
 
@@ -1715,8 +1709,8 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
             500: "Internal Server Error",
         }
 
-    def test_request_success(self):
-        self.start_all_services()
+    async def test_request_success(self):
+        await self.start_all_services()
         self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
@@ -1730,7 +1724,7 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
                     "Server: debian\r\n"
                     "Content-Length: 0\r\n\r\n\r\n"
                 )
-                client.send_request(
+                await client.send_request(
                     request=client.create_request(method=self.method, headers=[]),
                     expected_status_code=str(status),
                 )
@@ -1804,10 +1798,10 @@ class TestContentTypeWithEmptyBody(tester.TempestaTest):
     ]
     method: str = None
 
-    def test_request_success(self):
-        self.start_all_services()
+    async def test_request_success(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method=self.method, headers=[]),
             expected_status_code="200",
         )

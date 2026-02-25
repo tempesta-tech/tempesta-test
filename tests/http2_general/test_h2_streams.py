@@ -16,14 +16,14 @@ from tests.http2_general.helpers import H2Base
 
 
 class TestH2Stream(H2Base):
-    def test_max_concurrent_stream(self):
+    async def test_max_concurrent_stream(self):
         """
         An endpoint that receives a HEADERS frame that causes its advertised concurrent
         stream limit to be exceeded MUST treat this as a stream error
         of type PROTOCOL_ERROR or REFUSED_STREAM.
         RFC 9113 5.1.2
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         max_streams = 100
@@ -36,11 +36,11 @@ class TestH2Stream(H2Base):
         client.h2_connection.remote_settings.acknowledge()
 
         client.make_request(request=self.post_request, end_stream=True)
-        self.assertTrue(client.wait_for_reset_stream(stream_id=client.stream_id - 2))
+        self.assertTrue(await client.wait_for_reset_stream(stream_id=client.stream_id - 2))
 
         client.assert_error_code(expected_error_code=ErrorCodes.REFUSED_STREAM)
 
-    def test_max_concurrent_stream_not_exceeded(self):
+    async def test_max_concurrent_stream_not_exceeded(self):
         """
         Check that Tempesta FW closes previously closed streams,
         during new streams allocation.
@@ -48,7 +48,7 @@ class TestH2Stream(H2Base):
         new_config = self.get_tempesta().config.defconfig
         self.get_tempesta().config.defconfig = new_config + "max_concurrent_streams 10;\r\n"
 
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -62,24 +62,24 @@ class TestH2Stream(H2Base):
         max_streams = 10
 
         for _ in range(2):
-            client.send_request(self.post_request, "200")
+            await client.send_request(self.post_request, "200")
 
         client.send_settings_frame(initial_window_size=0)
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
         for _ in range(max_streams):
             client.make_request(self.post_request)
 
         client.send_settings_frame(initial_window_size=65536)
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
-        client.wait_for_response()
+        await client.wait_for_response()
         self.assertEqual(len(client.responses), 12)
         self.assertEqual(list(resp.status for resp in client.responses), ["200"] * 12)
 
-    def test_reuse_stream_id(self):
+    async def test_reuse_stream_id(self):
         """
         Stream identifiers cannot be reused.
 
@@ -87,22 +87,22 @@ class TestH2Stream(H2Base):
         respond with a connection error of type PROTOCOL_ERROR.
         RFC 9113 5.1.1
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
 
         # send headers frame with stream_id = 1
-        client.send_request(self.post_request, "200")
+        await client.send_request(self.post_request, "200")
         # send headers frame with stream_id = 1 again.
         client.send_bytes(
             data=b"\x00\x00\n\x01\x05\x00\x00\x00\x01A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        client.wait_for_response(1)
+        await client.wait_for_response(1)
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_headers_frame_with_zero_stream_id(self):
+    async def test_headers_frame_with_zero_stream_id(self):
         """
         The identifier of a newly established stream MUST be numerically greater
         than all streams that the initiating endpoint has opened or reserved.
@@ -111,20 +111,20 @@ class TestH2Stream(H2Base):
         respond with a connection error of type PROTOCOL_ERROR.
         RFC 9113 5.1.1
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         # add preamble + settings frame with default variable into data_to_send
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
         # send headers frame with stream_id = 0.
         client.send_bytes(
             b"\x00\x00\n\x01\x05\x00\x00\x00\x00A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        client.wait_for_response(1)
+        await client.wait_for_response(1)
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_request_with_even_numbered_stream_id(self):
+    async def test_request_with_even_numbered_stream_id(self):
         """
         Streams initiated by a client MUST use odd-numbered stream identifiers.
 
@@ -132,19 +132,19 @@ class TestH2Stream(H2Base):
         respond with a connection error of type PROTOCOL_ERROR.
         RFC 9113 5.1.1
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
         # send headers frame with stream_id = 2.
         client.send_bytes(
             b"\x00\x00\n\x01\x05\x00\x00\x00\x02A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        client.wait_for_response(1)
+        await client.wait_for_response(1)
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    def test_request_with_large_stream_id(self):
+    async def test_request_with_large_stream_id(self):
         """
         stream id >= 0x7fffffff (2**31-1).
 
@@ -152,9 +152,9 @@ class TestH2Stream(H2Base):
         and the bit MUST remain unset (0x00) when sending and MUST be ignored when receiving.
         RFC 9113 4.2
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
 
         # Create stream that H2Connection object does not raise error.
         # We are creating stream with id = 2 ** 31 - 1 because Tempesta must return response
@@ -171,7 +171,7 @@ class TestH2Stream(H2Base):
             expect_response=True,
         )
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
 
 
@@ -260,9 +260,9 @@ class TestMultiplexing(tester.TempestaTest):
          """
     }
 
-    def test_base_multiplexing(self):
+    async def test_base_multiplexing(self):
         """Exchange of different frames in responses and requests"""
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         clients = self.get_clients()
         servers = list(self.get_servers())
         requests = int(tf_cfg.cfg.get("General", "stress_requests_count"))
@@ -288,7 +288,7 @@ class TestMultiplexing(tester.TempestaTest):
 
         for client in clients:
             client.start()
-        self.wait_while_busy(*clients)
+        await self.wait_while_busy(*clients)
         for client in clients:
             client.stop()
 

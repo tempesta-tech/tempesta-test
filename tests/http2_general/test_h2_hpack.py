@@ -4,10 +4,10 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import itertools
 import random
 import string
-import time
 
 from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
@@ -32,26 +32,26 @@ def randomword(length):
 
 
 class TestHpackBase(H2Base):
-    def change_header_table_size(self, client, new_table_size):
+    async def change_header_table_size(self, client, new_table_size):
         client.send_settings_frame(header_table_size=new_table_size)
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
 
-    def setup_settings_header_table_tests(self):
-        self.start_all_services()
+    async def setup_settings_header_table_tests(self):
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
 
         return client, server
 
-    def change_header_table_size_and_send_request(self, client, new_table_size, header):
-        self.change_header_table_size(client, new_table_size)
+    async def change_header_table_size_and_send_request(self, client, new_table_size, header):
+        await self.change_header_table_size(client, new_table_size)
 
-        client.send_request(request=self.post_request, expected_status_code="200")
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
 
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(
@@ -62,15 +62,15 @@ class TestHpackBase(H2Base):
 
 
 class TestHpack(TestHpackBase):
-    def test_static_table(self):
+    async def test_static_table(self):
         """
         Send request with headers from static table.
         Client should receive response with 200 status.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=[
                 HeaderTuple(":authority", "example.com"),
                 HeaderTuple(":path", "/"),
@@ -81,15 +81,15 @@ class TestHpack(TestHpackBase):
             expected_status_code="200",
         )
 
-    def test_never_indexed(self):
+    async def test_never_indexed(self):
         """
         Send request with headers as plain text (no static table).
         Client should receive response with 200 status.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=[
                 NeverIndexedHeaderTuple(":authority", "example.com"),
                 NeverIndexedHeaderTuple(":path", "/"),
@@ -100,12 +100,12 @@ class TestHpack(TestHpackBase):
             expected_status_code="200",
         )
 
-    def test_disable_huffman(self):
+    async def test_disable_huffman(self):
         """
         Send request without Huffman encoder. Huffman is enabled by default for H2Connection.
         Client should receive response with 200 status.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
@@ -116,15 +116,15 @@ class TestHpack(TestHpackBase):
             end_stream=True,
             huffman=False,
         )
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
 
-    def test_settings_header_table_size(self):
+    async def test_settings_header_table_size(self):
         """
         Client sets non-default value for SETTINGS_HEADER_TABLE_SIZE.
         Tempesta must not encode headers larger than set size.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -142,13 +142,13 @@ class TestHpack(TestHpackBase):
         )
 
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
 
         # Tempesta must not save large header in dynamic table.
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
 
         # Client received large header as plain text.
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
 
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
@@ -163,12 +163,12 @@ class TestHpack(TestHpackBase):
             "Tempesta encode large header, but HEADER_TABLE_SIZE smaller than this header.",
         )
 
-    def test_relloc_hpack_table(self):
+    async def test_relloc_hpack_table(self):
         """
         When count of entries in hpack dynamic table exceeded it's size
         Tempesta FW realloc hpack dynamic table. This test check it.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
@@ -184,7 +184,7 @@ class TestHpack(TestHpackBase):
                 val = ord("a") + j
 
                 first_indexed_header = [HeaderTuple(chr(key) * (125 - i), chr(val) * (125 - i))]
-                client.send_request(
+                await client.send_request(
                     request=(
                         headers
                         + [NeverIndexedHeaderTuple(":authority", "localhost")]
@@ -193,7 +193,7 @@ class TestHpack(TestHpackBase):
                     expected_status_code="200",
                 )
 
-    def test_rewrite_dynamic_table_for_request(self):
+    async def test_rewrite_dynamic_table_for_request(self):
         """
         "Before a new entry is added to the dynamic table, entries are evicted
         from the end of the dynamic table until the size of the dynamic table
@@ -201,7 +201,7 @@ class TestHpack(TestHpackBase):
         table is empty."
         RFC 7541 4.4
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
@@ -213,7 +213,7 @@ class TestHpack(TestHpackBase):
         # send request with max size header in dynamic table
         # Tempesta MUST write header to table
         first_indexed_header = [HeaderTuple("a", "a" * 4063)]
-        client.send_request(
+        await client.send_request(
             request=(
                 headers
                 + [NeverIndexedHeaderTuple(":authority", "localhost")]
@@ -225,7 +225,7 @@ class TestHpack(TestHpackBase):
         # Tempesta MUST rewrite header to dynamic table.
         # Dynamic table does not have header from first request.
         second_indexed_header = [HeaderTuple("x", "x")]
-        client.send_request(
+        await client.send_request(
             request=(
                 headers
                 + [NeverIndexedHeaderTuple(":authority", "localhost")]
@@ -246,7 +246,7 @@ class TestHpack(TestHpackBase):
             b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe",
             expect_response=True,
         )
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
 
         # Last forwarded request from Tempesta MUST have second indexed header
         server = self.get_server("deproxy")
@@ -254,7 +254,7 @@ class TestHpack(TestHpackBase):
         self.assertIn(second_indexed_header[0], server.last_request.headers.items())
         self.assertNotIn(first_indexed_header[0], server.last_request.headers.items())
 
-    def test_rewrite_dynamic_table_for_response(self):
+    async def test_rewrite_dynamic_table_for_response(self):
         """
         "Before a new entry is added to the dynamic table, entries are evicted
         from the end of the dynamic table until the size of the dynamic table
@@ -262,7 +262,7 @@ class TestHpack(TestHpackBase):
         table is empty."
         RFC 7541 4.4
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
         server = self.get_server("deproxy")
         client.parsing = False
@@ -277,11 +277,11 @@ class TestHpack(TestHpackBase):
             "\r\n"
         )
 
-        client.send_request(request=self.get_request, expected_status_code="200")
+        await client.send_request(request=self.get_request, expected_status_code="200")
 
         # Second request must contain all response headers as new indexed field
         # because they will be rewritten in table in cycle.
-        client.send_request(request=self.get_request, expected_status_code="200")
+        await client.send_request(request=self.get_request, expected_status_code="200")
 
         for header in (
             f"2.0 tempesta_fw (Tempesta FW {tempesta.version()})".encode(),  # Via header
@@ -296,23 +296,23 @@ class TestHpack(TestHpackBase):
                 "Tempesta does not encode via header as expected.",
             )
 
-    def test_clearing_dynamic_table(self):
+    async def test_clearing_dynamic_table(self):
         """
         "an attempt to add an entry larger than the maximum size causes the table
         to be emptied of all existing entries and results in an empty table."
         RFC 7541 4.4
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(
+        await client.send_request(
             # Tempesta save header with 1k bytes in dynamic table.
             request=(self.get_request + [HeaderTuple("a", "a" * 1000)]),
             expected_status_code="200",
         )
 
-        client.send_request(
+        await client.send_request(
             # Tempesta MUST clear dynamic table
             # because new indexed header is larger than 4096 bytes
             request=(self.get_request + [HeaderTuple("a", "a" * 6000)]),
@@ -332,10 +332,10 @@ class TestHpack(TestHpackBase):
             expect_response=True,
         )
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "400", "HTTP response status codes mismatch.")
 
-    def test_clearing_dynamic_table_with_settings_frame(self):
+    async def test_clearing_dynamic_table_with_settings_frame(self):
         """
         "A change in the maximum size of the dynamic table is signaled via
         a dynamic table size update.
@@ -343,11 +343,11 @@ class TestHpack(TestHpackBase):
         a maximum size of 0, which can subsequently be restored."
         RFC 7541 4.2
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
 
         # Tempesta forwards response with via header and saves it in dynamic table.
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(
                 b"2.0 tempesta_fw (Tempesta FW " + tempesta.version().encode() + b")"
@@ -355,7 +355,7 @@ class TestHpack(TestHpackBase):
         )
 
         # Tempesta forwards header from dynamic table. Via header is indexed.
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
                 b"2.0 tempesta_fw (Tempesta FW " + tempesta.version().encode() + b")"
@@ -364,13 +364,13 @@ class TestHpack(TestHpackBase):
 
         # Tempesta MUST clear dynamic table when receive SETTINGS_HEADER_TABLE_SIZE = 0
         client.send_settings_frame(header_table_size=0)
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
         client.send_settings_frame(header_table_size=4096)
-        self.assertTrue(client.wait_for_ack_settings())
+        self.assertTrue(await client.wait_for_ack_settings())
 
         # Tempesta MUST saves via header in dynamic table again. Via header is indexed again.
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(
                 b"2.0 tempesta_fw (Tempesta FW " + tempesta.version().encode() + b")"
@@ -378,18 +378,18 @@ class TestHpack(TestHpackBase):
         )
 
         # Tempesta forwards header from dynamic table again.
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
                 b"2.0 tempesta_fw (Tempesta FW " + tempesta.version().encode() + b")"
             )
         )
 
-    def test_settings_header_table_stress(self):
+    async def test_settings_header_table_stress(self):
         config = self.get_tempesta().config.defconfig
         config += "ctrl_frame_rate_multiplier 256;\n"
         self.get_tempesta().config.set_defconfig(config)
-        client, server = self.setup_settings_header_table_tests()
+        client, server = await self.setup_settings_header_table_tests()
 
         for new_table_size in range(128, 0, -1):
             header = "x" * new_table_size * 2
@@ -401,7 +401,7 @@ class TestHpack(TestHpackBase):
                 "Content-Length: 0\r\n"
                 "\r\n"
             )
-            self.change_header_table_size_and_send_request(client, new_table_size, header)
+            await self.change_header_table_size_and_send_request(client, new_table_size, header)
 
         for new_table_size in range(0, 128, 1):
             header = "x" * new_table_size * 2
@@ -413,15 +413,15 @@ class TestHpack(TestHpackBase):
                 "Content-Length: 0\r\n"
                 "\r\n"
             )
-            self.change_header_table_size_and_send_request(client, new_table_size, header)
+            await self.change_header_table_size_and_send_request(client, new_table_size, header)
 
-    def test_bytes_of_table_size_in_header_frame_1(self):
+    async def test_bytes_of_table_size_in_header_frame_1(self):
         """
         This dynamic table size update MUST occur at the beginning of the first header
         block following the change to the dynamic table size.
         RFC 7541 4.2
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         error_msg = "Tempesta did not add dynamic table size ({0}) before first header block."
@@ -429,7 +429,7 @@ class TestHpack(TestHpackBase):
         # Client set HEADER_TABLE_SIZE = 1024 bytes and expected \x3f\xe1\x07
         # bytes in first header frame
         client.update_initial_settings(header_table_size=1024)
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x07"),
             error_msg.format(1024),
@@ -439,20 +439,20 @@ class TestHpack(TestHpackBase):
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
         # and we expect \x3f\xe1\x07 bytes in first header frame
         client.send_settings_frame(header_table_size=12288)
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x1f"),
             error_msg.format(4096),
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
-    def test_bytes_of_table_size_in_header_frame_2(self):
+    async def test_bytes_of_table_size_in_header_frame_2(self):
         """
         This dynamic table size update MUST occur at the beginning of the first header
         block following the change to the dynamic table size.
         RFC 7541 4.2
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
 
@@ -460,7 +460,7 @@ class TestHpack(TestHpackBase):
         # and this default value for table size.
         # Therefore Tempesta does not return bytes of table size in header frame.
         client.update_initial_settings(header_table_size=12288)
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertFalse(
             client.check_header_presence_in_last_response_buffer(
                 b"\x3f\xe1\x1f",
@@ -469,18 +469,18 @@ class TestHpack(TestHpackBase):
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
-    def test_send_invalid_request_after_setting_header_table_size(self):
+    async def test_send_invalid_request_after_setting_header_table_size(self):
         """
         This dynamic table size update MUST occur at the beginning of the first header
         block following the change to the dynamic table size.
         RFC 7541 4.2
         """
 
-        client, server = self.setup_settings_header_table_tests()
+        client, server = await self.setup_settings_header_table_tests()
 
         # This test checks RFC 7541 4.2 for response on invalid request.
-        self.change_header_table_size(client, 2048)
-        client.send_request(
+        await self.change_header_table_size(client, 2048)
+        await client.send_request(
             request=[
                 HeaderTuple(":authority", "bad.com"),
                 HeaderTuple(":path", "/"),
@@ -491,15 +491,15 @@ class TestHpack(TestHpackBase):
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
-    def test_http_headers_code_charater_is_invalid_in_header(self):
+    async def test_http_headers_code_charater_is_invalid_in_header(self):
         """
         This test checks that '1' is invalid character for http header data.
         It is necessary, because we lead on this fact in tempesta code, when
         we determine that skb contains headers.
         """
-        client, server = self.setup_settings_header_table_tests()
+        client, server = await self.setup_settings_header_table_tests()
 
-        self.change_header_table_size(client, 2048)
+        await self.change_header_table_size(client, 2048)
         header = ("qwerty", chr(1) * 100)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -509,17 +509,17 @@ class TestHpack(TestHpackBase):
             "Content-Length: 0\r\n\r\n"
         )
 
-        client.send_request(request=self.post_request, expected_status_code="502")
+        await client.send_request(request=self.post_request, expected_status_code="502")
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
-    def test_big_header_after_setting_header_table_size(self):
+    async def test_big_header_after_setting_header_table_size(self):
         """
         This test checks RFC 7541 4.2 for a large header. This case
         needs a special test, since we split skb with large header.
         """
-        client, server = self.setup_settings_header_table_tests()
+        client, server = await self.setup_settings_header_table_tests()
 
-        self.change_header_table_size(client, 2048)
+        await self.change_header_table_size(client, 2048)
         header = ("qwerty", "x" * 50000)
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -529,19 +529,19 @@ class TestHpack(TestHpackBase):
             "Content-Length: 0\r\n\r\n"
         )
 
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertIsNotNone(client.last_response.headers.get(header[0]))
         self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
-    def test_big_header_in_response(self):
+    async def test_big_header_in_response(self):
         """Tempesta must forward header response with header > 64 KB."""
         header_size = 500000
         header = ("qwerty", "x" * header_size)
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
         client.update_initial_settings(max_header_list_size=header_size * 2)
 
         server.set_response(
@@ -552,12 +552,12 @@ class TestHpack(TestHpackBase):
             + "Content-Length: 0\r\n\r\n"
         )
 
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
 
         self.assertIsNotNone(client.last_response.headers.get(header[0]))
         self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
 
-    def test_big_header_and_body_in_response(self):
+    async def test_big_header_and_body_in_response(self):
         """Tempesta must forward response with header and body > 64 KB."""
         size = 500000
         header = ("qwerty", "x" * size)
@@ -565,7 +565,7 @@ class TestHpack(TestHpackBase):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
         client.update_initial_settings(max_header_list_size=size * 2)
 
         server.set_response(
@@ -577,13 +577,13 @@ class TestHpack(TestHpackBase):
             + response_body
         )
 
-        client.send_request(request=self.post_request, expected_status_code="200")
+        await client.send_request(request=self.post_request, expected_status_code="200")
 
         self.assertIsNotNone(client.last_response.headers.get(header[0]))
         self.assertEqual(len(client.last_response.headers.get(header[0])), len(header[1]))
         self.assertEqual(client.last_response.body, response_body)
 
-    def test_get_method_as_string(self):
+    async def test_get_method_as_string(self):
         """
         Client send request with method GET as string value.
         Request must be processed as usual.
@@ -591,8 +591,8 @@ class TestHpack(TestHpackBase):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
         client.h2_connection.encoder.huffman = False
 
         client.h2_connection.send_headers(stream_id=1, headers=self.get_request, end_stream=True)
@@ -601,11 +601,11 @@ class TestHpack(TestHpackBase):
             expect_response=True,
         )
 
-        self.assertTrue(client.wait_for_response(3))
+        self.assertTrue(await client.wait_for_response(3))
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(server.last_request.method, "GET")
 
-    def test_big_header_in_request(self):
+    async def test_big_header_in_request(self):
         """
         Tempesta FW allocates several chunks from the pool for
         each big header during huffman decoding. This test checks
@@ -613,7 +613,7 @@ class TestHpack(TestHpackBase):
         alllocation. In this case Tempesta FW copies all chunks
         to the new place.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
 
         request = client.create_request(
@@ -633,7 +633,7 @@ class TestHpack(TestHpackBase):
                 (randomword(333), randomword(33333)),
             ],
         )
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
 
 class TestHpackMethod(TestHpackBase):
@@ -655,7 +655,7 @@ class TestHpackMethod(TestHpackBase):
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
-    def test_unknown_method_dynamic_table(self, name, huffman):
+    async def test_unknown_method_dynamic_table(self, name, huffman):
         """
         Verifies correctness of processing unknown method that
         stored in dynamic table.
@@ -668,25 +668,25 @@ class TestHpackMethod(TestHpackBase):
         self.get_tempesta().config.defconfig = (
             config + "frang_limits {http_strict_host_checking false; http_methods unknown;}\n"
         )
-        self.start_all_services()
+        await self.start_all_services()
 
         for count, method in enumerate(methods):
             request = client.create_request(method=method, headers=[])
 
             # send request two times, header :method must be processed from dynamyc table
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertTrue(await client.wait_for_response(timeout=5))
             self.assertEqual(server.last_request.method, method)
 
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertTrue(await client.wait_for_response(timeout=5))
             self.assertEqual(server.last_request.method, method)
             self.assertEqual(2 * (count + 1), len(server.requests))
 
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
-    def test_known_method_dynamic_table(self, name, huffman):
+    async def test_known_method_dynamic_table(self, name, huffman):
         """
         Verifies correctness of processing known method that
         stored in dynamic table.
@@ -716,18 +716,18 @@ class TestHpackMethod(TestHpackBase):
             + "frang_limits {http_strict_host_checking false; http_methods %s;}\n"
             % " ".join(methods)
         )
-        self.start_all_services()
+        await self.start_all_services()
 
         for count, method in enumerate(methods):
             request = client.create_request(method=method, headers=[])
 
             # send request two times, header :method must be processed from dynamyc table
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertTrue(await client.wait_for_response(timeout=5))
             self.assertEqual(server.last_request.method, method)
 
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(client.wait_for_response(timeout=5))
+            self.assertTrue(await client.wait_for_response(timeout=5))
             self.assertEqual(server.last_request.method, method)
             self.assertEqual(2 * (count + 1), len(server.requests))
 
@@ -762,20 +762,20 @@ class TestHpackStickyCookie(TestHpackBase):
         """
     }
 
-    def test_h2_cookie_after_setting_header_table_size(self):
+    async def test_h2_cookie_after_setting_header_table_size(self):
         """
         This dynamic table size update MUST occur at the beginning of the first header
         block following the change to the dynamic table size.
         RFC 7541 4.2
         """
-        client, server = self.setup_settings_header_table_tests()
+        client, server = await self.setup_settings_header_table_tests()
 
         # This test checks RFC 7541 4.2 for response with cookie.
-        self.change_header_table_size(client, 2048)
-        client.send_request(request=self.post_request, expected_status_code="302")
+        await self.change_header_table_size(client, 2048)
+        await client.send_request(request=self.post_request, expected_status_code="302")
         self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
 
-        client.send_request(
+        await client.send_request(
             request=self.post_request
             + [HeaderTuple("Cookie", client.last_response.headers["set-cookie"])],
             expected_status_code="200",
@@ -808,13 +808,17 @@ class TestHpackCache(TestHpackBase):
         """
     }
 
-    def test_h2_cache_304_after_setting_header_table_size(self):
-        self.__test_h2_cache_after_setting_header_table_size("Mon, 12 Dec 2024 13:59:39 GMT", "304")
+    async def test_h2_cache_304_after_setting_header_table_size(self):
+        await self.__test_h2_cache_after_setting_header_table_size(
+            "Mon, 12 Dec 2024 13:59:39 GMT", "304"
+        )
 
-    def test_h2_cache_200_after_setting_header_table_size(self):
-        self.__test_h2_cache_after_setting_header_table_size("Mon, 12 Dec 2020 13:59:39 GMT", "200")
+    async def test_h2_cache_200_after_setting_header_table_size(self):
+        await self.__test_h2_cache_after_setting_header_table_size(
+            "Mon, 12 Dec 2020 13:59:39 GMT", "200"
+        )
 
-    def test_cache_response_from_dynamic_table(self):
+    async def test_cache_response_from_dynamic_table(self):
         """Tempesta must respond from cache to http2 client using hpack dynamic table."""
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
@@ -827,16 +831,16 @@ class TestHpackCache(TestHpackBase):
             + "Content-Length: 0\r\n\r\n"
         )
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
-        client.send_request(self.get_request, "200")
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
 
         self.assertEqual(1, len(server.requests))
         self._check_cached_response_from_dynamic_table(client)
 
-    def test_cache_response_from_dynamic_table_for_different_client(self):
+    async def test_cache_response_from_dynamic_table_for_different_client(self):
         """
         Tempesta must respond from cache to http2 client using hpack dynamic table.
         But Tempesta must return headers as text for new connection.
@@ -852,19 +856,19 @@ class TestHpackCache(TestHpackBase):
             + "Content-Length: 0\r\n\r\n"
         )
 
-        self.start_all_services()
-        self.initiate_h2_connection(client)
+        await self.start_all_services()
+        await self.initiate_h2_connection(client)
 
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
         client.stop()
 
         client.start()
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
 
         self.assertEqual(1, len(server.requests))
         self._check_cached_response_as_text(client)
 
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
 
         self.assertEqual(1, len(server.requests))
         self._check_cached_response_from_dynamic_table(client)
@@ -900,13 +904,13 @@ class TestHpackCache(TestHpackBase):
             "for a new connection, but the text were expected.",
         )
 
-    def __test_h2_cache_after_setting_header_table_size(self, date, status_code):
+    async def __test_h2_cache_after_setting_header_table_size(self, date, status_code):
         """
         This dynamic table size update MUST occur at the beginning of the first header
         block following the change to the dynamic table size.
         RFC 7541 4.2
         """
-        client, server = self.setup_settings_header_table_tests()
+        client, server = await self.setup_settings_header_table_tests()
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -923,13 +927,13 @@ class TestHpackCache(TestHpackBase):
             HeaderTuple(":method", "GET"),
         ]
 
-        client.send_request(request=headers, expected_status_code="200")
+        await client.send_request(request=headers, expected_status_code="200")
 
         # This test checks RFC 7541 4.2 for responses from cache with
         # different stus codes.
-        self.change_header_table_size(client, 1024)
+        await self.change_header_table_size(client, 1024)
         headers.append(HeaderTuple("if-modified-since", date))
-        client.send_request(request=headers, expected_status_code=status_code)
+        await client.send_request(request=headers, expected_status_code=status_code)
         self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
 
@@ -942,7 +946,7 @@ class TestFramePayloadLength(H2Base):
     """
 
     @staticmethod
-    def __make_request(client, data: bytes):
+    async def __make_request(client, data: bytes):
         # Create stream for H2Connection to escape error
         client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = client.init_stream_for_send(client.stream_id)
@@ -951,17 +955,17 @@ class TestFramePayloadLength(H2Base):
         # add method in list to escape IndexError
         client.methods.append("POST")
         client.send_bytes(data, True)
-        client.wait_for_response(1)
+        await client.wait_for_response(1)
 
-    def test_small_frame_payload_length(self):
-        self.start_all_services()
+    async def test_small_frame_payload_length(self):
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
 
         # Tempesta and deproxy must save headers in dynamic table.
-        client.send_request(self.get_request + [("asd", "qwe")], "200")
+        await client.send_request(self.get_request + [("asd", "qwe")], "200")
 
         # Tempesta return 200 response because extra bytes will be ignored.
-        self.__make_request(
+        await self.__make_request(
             client,
             # header count - 5, headers - 8.
             b"\x00\x00\x05\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe\xbe\xbe\xbe",
@@ -971,33 +975,33 @@ class TestFramePayloadLength(H2Base):
         client.make_request(self.get_request)
 
         # Client will be blocked because Tempesta received extra bytes
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         client.assert_error_code(expected_error_code=ErrorCodes.FRAME_SIZE_ERROR)
 
-    def test_large_frame_payload_length(self):
-        self.start_all_services()
+    async def test_large_frame_payload_length(self):
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
 
         # Tempesta and deproxy must save headers in dynamic table.
-        client.send_request(self.get_request + [("asd", "qwe")], "200")
+        await client.send_request(self.get_request + [("asd", "qwe")], "200")
 
         # Tempesta does not return response because it does not receive all bytes.
         # Therefore, client must not wait for response.
         client.valid_req_num = 0
-        self.__make_request(
+        await self.__make_request(
             client,
             # header count - 7, headers - 5.
             b"\x00\x00\x07\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe",
         )
 
         client.stream_id += 2
-        client.send_request(self.get_request, "400")
+        await client.send_request(self.get_request, "400")
 
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
         client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
 
-    def test_invalid_data(self):
-        self.start_all_services()
+    async def test_invalid_data(self):
+        await self.start_all_services()
         client: DeproxyClientH2 = self.get_client("deproxy")
 
         client.update_initial_settings()
@@ -1005,10 +1009,10 @@ class TestFramePayloadLength(H2Base):
 
         # send headers frame with stream_id = 1, header count = 3
         # and headers bytes - \x09\x02\x00 (invalid bytes)
-        self.__make_request(client, b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00")
+        await self.__make_request(client, b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00")
 
         self.assertEqual(client.last_response.status, "400")
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
 
 SIZE_BYTES = encode_integer(10, 5)
@@ -1037,7 +1041,7 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
             ),
         ]
     )
-    def test(self, name, data, expected_status_code):
+    async def test(self, name, data, expected_status_code):
         """
         A change in the maximum size of the dynamic table is signaled
         via a dynamic table size update (see Section 6.3). This dynamic
@@ -1048,10 +1052,10 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         In this test we send maximum size of the dynamic table in the
         middle and at the end of the of the first header block.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
 
         stream = client.init_stream_for_send(client.stream_id)
 
@@ -1065,11 +1069,11 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         client.send_bytes(
             client.h2_connection.data_to_send() + frame.serialize(), expect_response=True
         )
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, expected_status_code)
         if expected_status_code != "200":
             client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
 
 class TestHpackBomb(TestHpackBase):
@@ -1100,12 +1104,12 @@ class TestHpackBomb(TestHpackBase):
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
     )
-    def test_hpack_bomb(self, name, huffman):
+    async def test_hpack_bomb(self, name, huffman):
         """
         A HPACK bomb request causes the connection to be torn down with the
         error code ENHANCE_YOUR_CALM.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client: DeproxyClientH2 = self.get_client("deproxy")
         client.parsing = False
 
@@ -1122,7 +1126,7 @@ class TestHpackBomb(TestHpackBase):
                 )
 
                 # wait for tempesta to save header in dynamic table
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
 
                 # Generate and send attack frames. It repeatedly refers to the first entry for 16kB.
                 client.stream_id += 2
@@ -1134,9 +1138,9 @@ class TestHpackBomb(TestHpackBase):
                 )
 
                 client.send_bytes(data=attack_frame.serialize(), expect_response=True)
-                self.assertTrue(client.wait_for_response())
+                self.assertTrue(await client.wait_for_response())
                 self.assertEqual(client.last_response.status, "403")
-                self.assertTrue(client.wait_for_connection_close())
+                self.assertTrue(await client.wait_for_connection_close())
                 client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
 
@@ -1245,7 +1249,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             self.assertIsNotNone(val)
             self.assertEqual(val, expected)
 
-    def __do_test_replacement(self, client, server, content_type, expected_content_type):
+    async def __do_test_replacement(self, client, server, content_type, expected_content_type):
         number_of_whitespace_places = content_type.count("{}")
 
         for state in itertools.product(
@@ -1256,14 +1260,14 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 headers=[("content-type", content_type.format(*state))],
             )
 
-            client.send_request(request, "200")
+            await client.send_request(request, "200")
             self.__check_server_resp(server, "content-type", expected_content_type)
 
-            client.send_request(request, "200")
+            await client.send_request(request, "200")
             self.__check_server_resp(server, "content-type", expected_content_type)
 
-    def test_content_length_field_from_hpack_table(self):
-        self.start_all_services()
+    async def test_content_length_field_from_hpack_table(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         request = client.create_request(
@@ -1272,24 +1276,24 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             body="aaaaaaaaaa",
         )
 
-        client.send_request(request, "200")
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
+        await client.send_request(request, "200")
 
-    def test_content_type_from_hpack_table(self):
+    async def test_content_type_from_hpack_table(self):
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        self.__do_test_replacement(
+        await self.__do_test_replacement(
             client,
             server,
             'multiPART/form-data;{}boundary=helloworld{};{}o_param="123" ',
             "multipart/form-data; boundary=helloworld",
         )
 
-    def test_method_override_from_hpack_table(self):
-        self.start_all_services()
+    async def test_method_override_from_hpack_table(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -1302,16 +1306,16 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         tempesta.config.set_defconfig(self.tempesta_override_allowed["config"])
         tempesta.reload()
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         tempesta = self.get_tempesta()
         tempesta.config.set_defconfig(self.tempesta["config"])
         tempesta.reload()
 
-        client.send_request(request, "403")
+        await client.send_request(request, "403")
 
-    def test_pragma_from_hpack_table(self):
-        self.start_all_services()
+    async def test_pragma_from_hpack_table(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -1324,15 +1328,15 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         tempesta.config.set_defconfig(self.tempesta_cache["config"])
         tempesta.reload()
 
-        client.send_request(request, "200")
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertEqual(2, len(server.requests))
 
         request = client.create_request(method="GET", headers=[])
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertEqual(3, len(server.requests))
 
     def __reload_tempesta_with_tfh(self, tf_config):
@@ -1340,8 +1344,8 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         tempesta.config.defconfig += tf_config
         tempesta.reload()
 
-    def test_referer_from_hpack_table(self):
-        self.start_all_services()
+    async def test_referer_from_hpack_table(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -1349,7 +1353,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             method="GET",
             headers=[("referer", "http://tempesta-tech.com:8080")],
         )
-        client.send_request(request_hashed, "200")
+        await client.send_request(request_hashed, "200")
 
         last_response = self.loggers.dmesg.access_log_last_message()
         # Do not allow requests with same hash from the client.
@@ -1363,14 +1367,16 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         # Referer is false allow request
         request = client.create_request(method="GET", headers=[])
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertEqual(2, len(server.requests))
 
         # Request with same hash is blocked
-        client.send_request(request_hashed, "403")
+        await client.send_request(request_hashed, "403")
         self.assertEqual(2, len(server.requests))
 
-    def __send_add_check_req_with_huffman(self, client, request, huffman, expected_status_code):
+    async def __send_add_check_req_with_huffman(
+        self, client, request, huffman, expected_status_code
+    ):
         # create stream and change state machine in H2Connection object
         stream = client.init_stream_for_send(client.stream_id)
 
@@ -1381,7 +1387,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=True)
 
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, expected_status_code)
 
         client.stream_id += 2
@@ -1550,13 +1556,13 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             ),
         ]
     )
-    def test_cookie_from_hpack_table(self, name, huffman, first_request, second_request):
-        self.start_all_services()
+    async def test_cookie_from_hpack_table(self, name, huffman, first_request, second_request):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        self.initiate_h2_connection(client)
-        self.__send_add_check_req_with_huffman(client, first_request, huffman, "200")
+        await self.initiate_h2_connection(client)
+        await self.__send_add_check_req_with_huffman(client, first_request, huffman, "200")
         tfh = self.loggers.dmesg.access_log_last_message().tfh
 
         request_to_save_cookie_in_hpack = [
@@ -1569,7 +1575,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             HeaderTuple("cookie", "a=bdsfds; dd=ddsfdsffds"),
         ]
 
-        self.__send_add_check_req_with_huffman(
+        await self.__send_add_check_req_with_huffman(
             client, request_to_save_cookie_in_hpack, huffman, "200"
         )
 
@@ -1583,15 +1589,15 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
 
         # Cookie was reloaded from hpack table, count is 6 blocked.
-        self.__send_add_check_req_with_huffman(client, second_request, huffman, "403")
+        await self.__send_add_check_req_with_huffman(client, second_request, huffman, "403")
 
         client.restart()
-        self.initiate_h2_connection(client)
+        await self.initiate_h2_connection(client)
 
         # Request which was previously successful is blocked.
-        self.__send_add_check_req_with_huffman(client, first_request, huffman, "403")
+        await self.__send_add_check_req_with_huffman(client, first_request, huffman, "403")
 
-    def test_if_many_if_modify_since_from_hpack(self):
+    async def test_if_many_if_modify_since_from_hpack(self):
         """
         Check that we drop request with several `if-modify-since` headers
         during restoring it from hpack table.
@@ -1601,18 +1607,18 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         header field is defined as a comma-separated list [i.e., #(values)]
         or the header field is a well-known exception.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET", headers=[("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT")]
             ),
             "200",
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 headers=[
@@ -1624,18 +1630,18 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             "400",
         )
 
-    def test_big_header_and_header_from_hpack(self):
+    async def test_big_header_and_header_from_hpack(self):
         """
         Tempesta FW allocates extra memory during hpack
         decoding. This test checks how Tempesta FW uses
         this memory for decoding headers from hpack
         dynamic table.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 headers=[
@@ -1648,7 +1654,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             "200",
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 headers=[

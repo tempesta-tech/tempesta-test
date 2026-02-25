@@ -95,12 +95,11 @@ class H2Spec(tester.TempestaTest):
         "config": TEMPESTA_CONFIG,
     }
 
-    def test_h2_specs(self):
+    async def test_h2_specs(self):
+        await self.start_all_services()
+
         h2spec = self.get_client("h2spec")
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.wait_while_busy(h2spec)
+        await self.wait_while_busy(h2spec)
         h2spec.stop()
         self.assertEqual(0, h2spec.returncode)
         assert "0 failed" in h2spec.response_msg, h2spec.response_msg

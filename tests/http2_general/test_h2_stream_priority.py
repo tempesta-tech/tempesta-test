@@ -46,8 +46,8 @@ class TestPriorityBase(H2Base):
         """
     }
 
-    def setup_test_priority(self, extra_header="", initial_window_size=0):
-        self.start_all_services()
+    async def setup_test_priority(self, extra_header="", initial_window_size=0):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         server.set_response(
@@ -61,10 +61,10 @@ class TestPriorityBase(H2Base):
 
         client.update_initial_settings(initial_window_size=initial_window_size)
         client.send_bytes(client.h2_connection.data_to_send())
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
         return client, server
 
-    def wait_for_responses(
+    async def wait_for_responses(
         self,
         client,
         stream_id_list=None,
@@ -73,12 +73,12 @@ class TestPriorityBase(H2Base):
     ):
         if stream_id_list:
             for stream_id in stream_id_list:
-                client.wait_for_headers_frame(
+                await client.wait_for_headers_frame(
                     stream_id, timeout=15 if run_config.TCP_SEGMENTATION else 5
                 )
         client.send_settings_frame(initial_window_size=initial_window_size)
-        client.wait_for_ack_settings()
-        self.assertTrue(client.wait_for_response(timeout=timeout))
+        await client.wait_for_ack_settings()
+        self.assertTrue(await client.wait_for_response(timeout=timeout))
 
     def check_response_sequence(self, client, expected_length, expected_sequence=None):
         self.assertEqual(expected_length, len(client.response_sequence))
@@ -151,14 +151,14 @@ class TestPriorityBase(H2Base):
 
 class TestStreamPriorityInHeaders(TestPriorityBase):
     @marks.set_mtu(DEFAULT_MTU)
-    def test_priority_same_weight(self):
+    async def test_priority_same_weight(self):
         """
         Client send headers with priority information, each new
         created stream depends from stream root stream. All
         streams have the same weight. They should be processed
         according there id.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         for _ in range(6):
             client.make_request(
                 self.post_request,
@@ -167,11 +167,11 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
                 priority_depends_on=None,
                 priority_exclusive=False,
             )
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11])
         self.check_response_sequence(client, 6, [1, 3, 5, 7, 9, 11])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_non_existing_stream(self):
+    async def test_stream_priority_from_non_existing_stream(self):
         """
         Client send headers with priority information,
         each new created stream depends from non existing stream.
@@ -179,7 +179,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
         root stream, so stream dependencies play no role, only
         stream weight affect priority.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         client.make_request(
             self.post_request,
             end_stream=True,
@@ -209,11 +209,11 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
             priority_exclusive=False,
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7])
+        await self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [7, 5, 3, 1])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_existing_stream(self):
+    async def test_stream_priority_from_existing_stream(self):
         """
         Client send headers with priority information,
         each new created stream depends from existing stream.
@@ -221,7 +221,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
         role, since data for dependent stream is not sent,
         while parent stream is active.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         client.make_request(
             self.post_request,
             end_stream=True,
@@ -251,28 +251,28 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
             priority_exclusive=False,
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7])
+        await self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [1, 3, 5, 7])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_existing_stream_complex(self):
+    async def test_stream_priority_from_existing_stream_complex(self):
         """
         Same as previos, but much more complex priority tree.
         """
-        client, server = self.setup_test_priority()
-        self._test_stream_priority_from_existing_stream_complex(client, server)
+        client, server = await self.setup_test_priority()
+        await self._test_stream_priority_from_existing_stream_complex(client, server)
 
-    def _test_stream_priority_from_existing_stream_complex(self, client, server):
+    async def _test_stream_priority_from_existing_stream_complex(self, client, server):
         self.build_complex_priority_tree(client)
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 7, 9, 5, 11, 13])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_existing_stream_complex_exclusive(self):
+    async def test_stream_priority_from_existing_stream_complex_exclusive(self):
         """
         Build stream dependency tree using exclusive flag
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         self.build_complex_priority_tree(client)
         client.make_request(
             self.post_request,
@@ -282,27 +282,27 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
             priority_exclusive=True,
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
         self.check_response_sequence(client, 8, [1, 15, 3, 7, 9, 5, 11, 13])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_existing_stream_with_removal(self):
+    async def test_stream_priority_from_existing_stream_with_removal(self):
         """
         Build stream dependency tree, close several streams from this
         tree. Check stream dependency tree after removal of several
         streams.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         """
         Build stream dependency tree same as it was in one of the previous test
         """
-        self._test_stream_priority_from_existing_stream_complex(client, server)
+        await self._test_stream_priority_from_existing_stream_complex(client, server)
         """
 		When count of closed streams is greater then 5, the creation of new
 		stream leads to deletion of one of the old closed streams.
 		"""
         client.send_settings_frame(initial_window_size=0)
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
 
         client.make_request(
             self.post_request,
@@ -321,9 +321,9 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
         )
 
         client.send_settings_frame(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
-        client.wait_for_ack_settings()
+        await client.wait_for_ack_settings()
 
-        self.wait_for_responses(client, [15, 17])
+        await self.wait_for_responses(client, [15, 17])
         self.check_response_sequence(client, 2, [15, 17])
 
 
@@ -336,8 +336,8 @@ information.
 
 class TestStreamPriorityInPriorityFrames(TestPriorityBase):
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_non_existing_stream(self):
-        client, server = self.setup_test_priority()
+    async def test_stream_priority_from_non_existing_stream(self):
+        client, server = await self.setup_test_priority()
         client.send_bytes(
             PriorityFrame(stream_id=1, depends_on=3, stream_weight=0, exclusive=False).serialize()
         )
@@ -355,12 +355,12 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase):
             [self.post_request, self.post_request, self.post_request, self.post_request]
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7])
+        await self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [7, 5, 3, 1])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_existing_stream(self):
-        client, server = self.setup_test_priority()
+    async def test_stream_priority_from_existing_stream(self):
+        client, server = await self.setup_test_priority()
         client.send_bytes(
             PriorityFrame(stream_id=1, depends_on=0, stream_weight=0, exclusive=False).serialize()
         )
@@ -381,15 +381,15 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase):
         )
         client.make_request(self.post_request)
 
-        self.wait_for_responses(client, [1, 3, 5, 7])
+        await self.wait_for_responses(client, [1, 3, 5, 7])
         self.check_response_sequence(client, 4, [1, 3, 5, 7])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_from_existing_stream_complex(self):
+    async def test_stream_priority_from_existing_stream_complex(self):
         """
         Same as previos, but much more complex priority tree.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         client.send_bytes(
             PriorityFrame(stream_id=1, depends_on=0, stream_weight=0, exclusive=False).serialize()
         )
@@ -427,7 +427,7 @@ class TestStreamPriorityInPriorityFrames(TestPriorityBase):
         )
         client.make_request(self.post_request)
 
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 7, 9, 5, 11, 13])
 
 
@@ -439,27 +439,27 @@ because of changing streams priority
 
 class TestStreamPriorityTreeRebuild(TestPriorityBase):
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_change_parent_stream_not_exlusive(self):
+    async def test_stream_change_parent_stream_not_exlusive(self):
         """
         Simple case, stream with several childs change it's parent.
         New parent is not one of streams child. Stream dependency is
         not exclusive.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         self.build_complex_priority_tree(client)
         client.send_bytes(
             PriorityFrame(stream_id=5, depends_on=3, stream_weight=16, exclusive=False).serialize()
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 7, 5, 11, 13, 9])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_change_parent_stream_exlusive(self):
+    async def test_stream_change_parent_stream_exlusive(self):
         """
         Same as previous, but stream dependecy is exclusive.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         self.build_complex_priority_tree(client)
         client.send_bytes(PriorityFrame(stream_id=7, depends_on=3, stream_weight=16).serialize())
         client.send_bytes(PriorityFrame(stream_id=9, depends_on=3, stream_weight=64).serialize())
@@ -467,15 +467,15 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase):
             PriorityFrame(stream_id=5, depends_on=3, stream_weight=16, exclusive=True).serialize()
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13])
         self.check_response_sequence(client, 7, [1, 3, 5, 11, 9, 7, 13])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_change_parent_stream_not_exlusive_with_rebuild(self):
+    async def test_stream_change_parent_stream_not_exlusive_with_rebuild(self):
         """
         Same as first test, but new parent is a child of stream.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         self.build_complex_priority_tree(client)
         client.make_request(
             self.post_request,
@@ -488,15 +488,15 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase):
             PriorityFrame(stream_id=1, depends_on=11, stream_weight=1, exclusive=False).serialize()
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
         self.check_response_sequence(client, 8, [11, 15, 1, 3, 7, 9, 5, 13])
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_change_parent_stream_exlusive_with_rebuild(self):
+    async def test_stream_change_parent_stream_exlusive_with_rebuild(self):
         """
         Same as first test, but new parent is a child of stream.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
         self.build_complex_priority_tree(client)
         client.make_request(
             self.post_request,
@@ -509,7 +509,7 @@ class TestStreamPriorityTreeRebuild(TestPriorityBase):
             PriorityFrame(stream_id=1, depends_on=11, stream_weight=1, exclusive=True).serialize()
         )
 
-        self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
+        await self.wait_for_responses(client, [1, 3, 5, 7, 9, 11, 13, 15])
         self.check_response_sequence(client, 8, [11, 1, 3, 7, 9, 15, 5, 13])
 
 
@@ -546,8 +546,8 @@ class TestStreamPriorityStress(TestPriorityBase):
     }
 
     @marks.set_mtu(DEFAULT_MTU)
-    def test_stream_priority_stress(self):
-        client, server = self.setup_test_priority()
+    async def test_stream_priority_stress(self):
+        client, server = await self.setup_test_priority()
         first_level_streams = []
         for weight in range(1, 257):
             first_level_streams.append(client.stream_id)
@@ -577,7 +577,7 @@ class TestStreamPriorityStress(TestPriorityBase):
             )
             weight = weight + 1
 
-        self.wait_for_responses(client, timeout=120)
+        await self.wait_for_responses(client, timeout=120)
         self.check_response_sequence(client, 256 + 256 * 2)
 
 
@@ -614,13 +614,13 @@ class TestMaxConcurrentStreams(TestPriorityBase):
 
     max_concurrent_streams = 10
 
-    def test_max_concurent_stream_exceed_by_stream(self):
+    async def test_max_concurent_stream_exceed_by_stream(self):
         """
         If creation of new stream leads to exceeding of max_concurrent_streams, we should reset
         this stream. Check that all streams, which creation leads to exceedion of max_concurrent_streams
         will be reset and all previos streams will be finished successfully.
         """
-        client, server = self.setup_test_priority()
+        client, server = await self.setup_test_priority()
 
         prev_stream_id = 0
         self.assertTrue(
@@ -648,12 +648,12 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         for i in range(0, self.max_concurrent_streams):
             stream_id = client.stream_id
             client.make_request(self.post_request)
-            self.assertTrue(client.wait_for_reset_stream(stream_id=stream_id))
+            self.assertTrue(await client.wait_for_reset_stream(stream_id=stream_id))
 
         return client
 
-    def test_opening_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
-        client = self.test_max_concurent_stream_exceed_by_stream()
+    async def test_opening_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
+        client = await self.test_max_concurent_stream_exceed_by_stream()
 
         client.reinit_hpack_encoder()
         client.valid_req_num = 0
@@ -661,26 +661,26 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         for i in range(0, self.max_concurrent_streams):
             client.make_request(self.post_request)
 
-        self.wait_for_responses(client, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
+        await self.wait_for_responses(client, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
         self.check_response_sequence(client, 10, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
 
-    def test_opening_not_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
-        client = self.test_max_concurent_stream_exceed_by_stream()
+    async def test_opening_not_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
+        client = await self.test_max_concurent_stream_exceed_by_stream()
 
         client.reinit_hpack_encoder()
         client.valid_req_num = 0
         client.stream_id = 41
         client.make_request(self.post_request)
-        self.wait_for_responses(client)
+        await self.wait_for_responses(client)
         self.check_response_sequence(client, 1)
 
-    def test_max_concurent_stream_exceed_by_priority_frame(self):
+    async def test_max_concurent_stream_exceed_by_priority_frame(self):
         """
         If creation of new stream leads to exceeding of max_concurrent_streams, we should reset
         this stream. But according to RFC we can't reset idle streams, so Tempesta FW just
         close the connetion with PROTOCOL_ERROR.
         """
-        client, server = self.setup_test_priority(initial_window_size=1000)
+        client, server = await self.setup_test_priority(initial_window_size=1000)
 
         self.assertTrue(self.max_concurrent_streams == 10)
         for i in range(0, self.max_concurrent_streams - 1):
@@ -699,5 +699,5 @@ class TestMaxConcurrentStreams(TestPriorityBase):
 
         # Here we should wait for a long time since initial_window_size is small, and connection
         # will be closed after all pending data will be send.
-        self.assertTrue(client.wait_for_connection_close(timeout=10))
+        self.assertTrue(await client.wait_for_connection_close(timeout=10))
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)

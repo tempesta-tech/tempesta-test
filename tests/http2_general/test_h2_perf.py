@@ -92,13 +92,13 @@ class TLSPerf(tester.TempestaTest):
         "config": TEMPESTA_CONFIG,
     }
 
-    def test(self):
+    async def test(self):
         tls_perf = self.get_client("tls-perf")
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         tls_perf.start()
-        self.wait_while_busy(tls_perf)
+        await self.wait_while_busy(tls_perf)
         tls_perf.stop()
 
         self.assertFalse(tls_perf.stderr)
