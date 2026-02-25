@@ -1,4 +1,3 @@
-import asyncio
 import ssl
 
 import requests
@@ -206,8 +205,8 @@ class BaseWsPing(tester.TempestaTest):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.ws_servers = []
 
     # Client
@@ -250,14 +249,14 @@ class BaseWsPing(tester.TempestaTest):
         self.ws_servers.append(
             await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099)
         )
-        self.start_tempesta()
+        await self.start_tempesta()
         for _ in range(4):
             await self.ws_ping_test(tempesta_port, is_ssl)
 
 
 class TestWsPing(BaseWsPing):
-    def test(self):
-        asyncio.run(self._test(tempesta_port=81, is_ssl=False))
+    async def test(self):
+        await self._test(tempesta_port=81, is_ssl=False)
 
 
 @marks.parameterize_class(
@@ -295,8 +294,8 @@ http_chain {
         self.tempesta["config"] = self.tempesta_template["config"] % self.proto
         super().setUp()
 
-    def test(self):
-        asyncio.run(self._test(tempesta_port=82, is_ssl=True))
+    async def test(self):
+        await self._test(tempesta_port=82, is_ssl=True)
 
 
 class TestWssPingProxy(BaseWsPing):
@@ -327,9 +326,9 @@ class TestWssPingProxy(BaseWsPing):
         remote.server.copy_file(cert_generator.f_cert, cert_generator.serialize_cert().decode())
         remote.server.copy_file(cert_generator.f_key, cert_generator.serialize_priv_key().decode())
 
-    def test(self):
+    async def test(self):
         self.start_all_servers()
-        asyncio.run(self._test(tempesta_port=82, is_ssl=True))
+        await self._test(tempesta_port=82, is_ssl=True)
 
 
 class TestWsCache(BaseWsPing):
@@ -360,8 +359,8 @@ class TestWsCache(BaseWsPing):
         r = requests.get(f"http://{TEMPESTA_IP}:{port}", auth=("user", "pass"), headers=headers_)
         self.assertIn(r.status_code, expected_status)
 
-    def test(self):
-        asyncio.run(self._test(tempesta_port=81, is_ssl=False))
+    async def test(self):
+        await self._test(tempesta_port=81, is_ssl=False)
 
     @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
@@ -369,7 +368,7 @@ class TestWsCache(BaseWsPing):
             self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
         )
         self.ws_servers.append(server)
-        self.start_tempesta()
+        await self.start_tempesta()
         await self.ws_ping_test(tempesta_port, is_ssl)
         server.close(close_connections=True)
         await server.wait_closed()
@@ -392,8 +391,8 @@ class TestWssStress(BaseWsPing):
         return fib
 
     @marks.change_ulimit(ulimit=10000)
-    def test(self):
-        asyncio.run(self._test(tempesta_port=82, is_ssl=True))
+    async def test(self):
+        await self._test(tempesta_port=82, is_ssl=True)
 
     @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
@@ -401,7 +400,7 @@ class TestWssStress(BaseWsPing):
             self.ws_servers.append(
                 await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
             )
-        self.start_tempesta()
+        await self.start_tempesta()
         count = 0
         for _ in range(4000):
             count += 1
@@ -451,8 +450,8 @@ class TestWssPipelining(BaseWsPing):
     ]
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self):
-        asyncio.run(self._test())
+    async def test(self):
+        await self._test()
 
     @BaseWsPing.cleanup_ws_servers
     async def _test(self):
@@ -461,13 +460,13 @@ class TestWssPipelining(BaseWsPing):
                 self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
             )
         )
-        self.start_all_services()
+        await self.start_all_services()
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.request, pipelined=True)
-        deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
+        await deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 pattern="Request dropped: Pipelined request received after UPGRADE request",
                 cond=dmesg.amount_positive,
             ),
@@ -500,8 +499,8 @@ class TestWsScheduler(BaseWsPing):
         """,
     }
 
-    def test(self):
-        asyncio.run(self._test(tempesta_port=81, is_ssl=False))
+    async def test(self):
+        await self._test(tempesta_port=81, is_ssl=False)
 
     @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
@@ -509,7 +508,7 @@ class TestWsScheduler(BaseWsPing):
             self.ws_servers.append(
                 await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
             )
-        self.start_tempesta()
+        await self.start_tempesta()
         for _ in range(256):
             await self.ws_ping_test(tempesta_port, is_ssl)
 
@@ -531,8 +530,8 @@ class TestRestartOnUpgrade(BaseWsPing):
                 break
         return fib
 
-    def test(self):
-        asyncio.run(self._test(tempesta_port=81, is_ssl=False))
+    async def test(self):
+        await self._test(tempesta_port=81, is_ssl=False)
 
     @BaseWsPing.cleanup_ws_servers
     async def _test(self, tempesta_port: int, is_ssl: bool):
@@ -541,7 +540,7 @@ class TestRestartOnUpgrade(BaseWsPing):
                 self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=10
             )
         )
-        self.start_tempesta()
+        await self.start_tempesta()
         for i in range(1500):
             await self.ws_ping_test(tempesta_port, is_ssl)
             if i in self.fibo(1500):
