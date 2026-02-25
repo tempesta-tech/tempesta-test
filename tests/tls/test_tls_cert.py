@@ -899,14 +899,14 @@ http {
                 frang_limits {http_strict_host_checking false;}
                 vhost localhost {
                     proxy_pass sg;
-                    tls_certificate /tmp/tempesta/localhost.crt;
-                    tls_certificate_key /tmp/tempesta/localhost.key;
+                    tls_certificate path/localhost.crt;
+                    tls_certificate_key path/localhost.key;
                 }
 
                 vhost private.example.com {
                     proxy_pass sg;
-                    tls_certificate /tmp/tempesta/private.crt;
-                    tls_certificate_key /tmp/tempesta/private.key;
+                    tls_certificate path/private.crt;
+                    tls_certificate_key path/private.key;
                 }
                 
                 http_chain {
@@ -933,14 +933,14 @@ http {
                 frang_limits {http_strict_host_checking false;}
                 vhost private.example.com {
                     proxy_pass sg;
-                    tls_certificate /tmp/tempesta/localhost.crt;
-                    tls_certificate_key /tmp/tempesta/localhost.key;
+                    tls_certificate path/localhost.crt;
+                    tls_certificate_key path/localhost.key;
                 }
 
                 vhost localhost {
                     proxy_pass sg;
-                    tls_certificate /tmp/tempesta/private.crt;
-                    tls_certificate_key /tmp/tempesta/private.key;
+                    tls_certificate path/private.crt;
+                    tls_certificate_key path/private.key;
                 }
 
                 http_chain {
@@ -1217,6 +1217,7 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
     async def run_alterative_access(self):
         """Try to access multiple hosts in alterating order."""
+        generate_certificate(san=["example.com", "*.example.com"])
         REQ_NUM = 4
         self.assertFalse(REQ_NUM % 2, "REQ_NUM should be even")
         host_iter = cycle(["a.example.com", "localhost"])
