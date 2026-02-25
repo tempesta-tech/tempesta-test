@@ -58,7 +58,7 @@ class NginxProxyMixin:
     to compare the result with Tempesta under the same circumstances.
     """
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.backends = [
             *self.backends[:],
             {
@@ -69,7 +69,7 @@ class NginxProxyMixin:
                 "config": NGINX_PROXY_CONFIG,
             },
         ]
-        super().setUp()
+        await super().asyncSetUp()
 
     def start_all(self):
         # Start servers, but not Tempesta
@@ -91,7 +91,7 @@ class NginxProxyMixin:
 class NginxStressBase(NginxProxyMixin, tester.TempestaTest, base=True):
     @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
+    async def test(self):
         # Start servers, but not Tempesta
         self.start_all()
         wrk = self.get_client("wrk")
@@ -99,7 +99,7 @@ class NginxStressBase(NginxProxyMixin, tester.TempestaTest, base=True):
         wrk.timeout = 0
 
         wrk.start()
-        self.wait_while_busy(wrk, timeout=20)
+        await self.wait_while_busy(wrk, timeout=20)
         wrk.stop()
 
         self.assertGreater(wrk.statuses[200], 0)
@@ -141,9 +141,9 @@ class NginxTlsCurlStress(NginxProxyMixin, BaseCurlStress):
 
     proto = "https"
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.clients = [{**client, "ssl": True} for client in self.clients]
-        super().setUp()
+        await super().asyncSetUp()
 
 
 class NginxH2CurlStress(NginxProxyMixin, BaseCurlStress):
@@ -151,6 +151,6 @@ class NginxH2CurlStress(NginxProxyMixin, BaseCurlStress):
 
     proto = "h2"
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.clients = [{**client, "http2": True} for client in self.clients]
-        super().setUp()
+        await super().asyncSetUp()

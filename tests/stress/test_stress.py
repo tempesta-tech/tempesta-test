@@ -336,7 +336,7 @@ max_concurrent_streams 10000;
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    def test(self, name, proto, tfw_port, http_option):
+    async def test(self, name, proto, tfw_port, http_option):
         with networker.change_mtu_and_restore_interfaces(mtu=self.mtu, disable_pmtu=False):
             with networker.create_and_cleanup_interfaces(
                 node=remote.server, number_of_ip=self.server_interfaces_n
@@ -345,7 +345,7 @@ max_concurrent_streams 10000;
                 self._generate_tempesta_config_with_multiple_srv_group(server_listeners)
                 self._add_nginx_backends(server_listeners)
 
-                self.start_all_services(client=False)
+                await self.start_all_services(client=False)
 
                 client = self.get_client("h2load")
                 tempesta_ip = tf_cfg.cfg.get("Tempesta", "ip")
@@ -362,7 +362,7 @@ max_concurrent_streams 10000;
                 ]
 
                 client.start()
-                self.wait_while_busy(
+                await self.wait_while_busy(
                     client, timeout=DURATION * 10
                 )  # The MTU80 tests require more time
                 client.stop()
@@ -415,8 +415,8 @@ class TlsWrkStressDocker(tester.TempestaTest):
     @marks.set_stress_mtu
     @marks.check_memory_consumption
     @dmesg.limited_rate_on_tempesta_node
-    def test_concurrent_connections(self):
-        self.start_all_services(client=False)
+    async def test_concurrent_connections(self):
+        await self.start_all_services(client=False)
         wrk = self.get_client("wrk")
         wrk.set_script("foo", content='wrk.method="GET"')
         wrk.connections = CONCURRENT_CONNECTIONS
@@ -425,7 +425,7 @@ class TlsWrkStressDocker(tester.TempestaTest):
         wrk.timeout = 0
 
         wrk.start()
-        self.wait_while_busy(wrk, timeout=20)
+        await self.wait_while_busy(wrk, timeout=20)
         wrk.stop()
 
         self.assertGreater(wrk.statuses.get(200, 0), 0)
@@ -495,24 +495,19 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
         }
         super().setUp()
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(1))
-
-    def make_requests(self, client_id):
+    async def make_requests(self, client_id):
         client = self.get_client(client_id)
-        self.start_all()
+        await self.start_all_services(client=False)
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertEqual(client.statuses[200], REQUESTS_COUNT)
         if client.last_response:
             self.assertFalse(client.last_response.stderr)
 
-    def range_requests(self, uri_is_same):
+    async def range_requests(self, uri_is_same):
         """Send requests sequentially, stop on error."""
-        self.start_all()
+        await self.start_all_services(client=False)
         client = self.get_client("single")
         started = time.time()
         delta = 0
@@ -521,7 +516,7 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
             delta = time.time() - started
             client.set_uri("/" if uri_is_same else f"/{i}")
             client.start()
-            self.wait_while_busy(client)
+            await self.wait_while_busy(client)
             client.stop()
 
             response = client.last_response
@@ -533,23 +528,23 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
             )
 
     @marks.set_stress_mtu
-    def test_range_requests(self):
-        self.range_requests(False)
+    async def test_range_requests(self):
+        await self.range_requests(False)
 
     @marks.set_stress_mtu
-    def test_sequential_requests(self):
+    async def test_sequential_requests(self):
         """Send requests sequentially, continue on errors."""
-        self.make_requests("sequential")
+        await self.make_requests("sequential")
 
     @marks.set_stress_mtu
-    def test_pipelined_requests(self):
+    async def test_pipelined_requests(self):
         """Send requests in a single pipeline."""
-        self.make_requests("pipelined")
+        await self.make_requests("pipelined")
 
     @marks.set_stress_mtu
-    def test_concurrent_requests(self):
+    async def test_concurrent_requests(self):
         """Send requests in parallel."""
-        self.make_requests("concurrent")
+        await self.make_requests("concurrent")
 
 
 @marks.parameterize_class(
@@ -609,7 +604,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
             self.clients = [{**client, "http2": True} for client in self.clients]
         super().setUp()
 
-    def test_cache_eviction_tdb(self):
+    async def test_cache_eviction_tdb(self):
         """
         Client sends many requests to different uris to fill tdb cache.
         Then client sends many PURGE requests to clear the cache.
@@ -625,19 +620,19 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         # Test must ignore ERROR in dmesg, or it will get fail in tearDown.
         self.oops_ignore.append("ERROR")
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         for step in range(20):
             client.set_uri(f"/{step}/[1-256]")
             client.start()
-            self.wait_while_busy(client)
+            await self.wait_while_busy(client)
             client.stop()
             tempesta.get_stats()
             self.assertGreater(tempesta.stats.cache_objects, 0)
 
             client_purge.set_uri(f"/{step}/[1-256]")
             client_purge.start()
-            self.wait_while_busy(client_purge)
+            await self.wait_while_busy(client_purge)
             client_purge.stop()
             tempesta.get_stats()
             self.assertEqual(tempesta.stats.cache_objects, 0)
@@ -743,11 +738,11 @@ class RequestStress(tester.TempestaTest):
 
     @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
-    def _test_wrk(self, client_id: str, method: str):
+    async def _test_wrk(self, client_id: str, method: str):
         """
         HTTP stress test generated by `wrk` with concurrent connections and large body in request.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client = self.get_client(client_id)
         client.set_script(
             script="request_1k",
@@ -765,42 +760,42 @@ class RequestStress(tester.TempestaTest):
         client.timeout = 0
 
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
     @marks.set_stress_mtu
     @dmesg.limited_rate_on_tempesta_node
-    def _test_h2load(self, method: str):
-        self.start_all_services(client=False)
+    async def _test_h2load(self, method: str):
+        await self.start_all_services(client=False)
         client = self.get_client("h2load")
         client.options[0] += f' -H ":method:{method}"'
 
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
-    def test_http_post_request(self):
-        self._test_wrk(client_id="wrk-http", method="POST")
+    async def test_http_post_request(self):
+        await self._test_wrk(client_id="wrk-http", method="POST")
 
-    def test_http_put_request(self):
-        self._test_wrk(client_id="wrk-http", method="PUT")
+    async def test_http_put_request(self):
+        await self._test_wrk(client_id="wrk-http", method="PUT")
 
-    def test_https_post_request(self):
-        self._test_wrk(client_id="wrk-https", method="POST")
+    async def test_https_post_request(self):
+        await self._test_wrk(client_id="wrk-https", method="POST")
 
-    def test_https_put_request(self):
-        self._test_wrk(client_id="wrk-https", method="PUT")
+    async def test_https_put_request(self):
+        await self._test_wrk(client_id="wrk-https", method="PUT")
 
-    def test_h2_post_request(self):
-        self._test_h2load(method="POST")
+    async def test_h2_post_request(self):
+        await self._test_h2load(method="POST")
 
-    def test_h2_put_request(self):
-        self._test_h2load(method="PUT")
+    async def test_h2_put_request(self):
+        await self._test_h2load(method="PUT")
 
 
 class TestContinuationFlood(tester.TempestaTest):
@@ -842,13 +837,11 @@ class TestContinuationFlood(tester.TempestaTest):
     }
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
+    async def test(self):
         client = self.get_client("gflood")
 
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.wait_while_busy(client)
+        await self.start_all_services(client=True)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertEqual(0, client.returncode)
 
@@ -899,12 +892,12 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
         },
     ]
 
-    def _test(self, cmd_args):
-        self.start_all_services(client=False)
+    async def _test(self, cmd_args):
+        await self.start_all_services(client=False)
         flood_client = self.get_client("ctrl_frames_flood")
         flood_client.options = [cmd_args % tf_cfg.cfg.get("Tempesta", "ip")]
         flood_client.start()
-        self.wait_while_busy(flood_client)
+        await self.wait_while_busy(flood_client)
         flood_client.stop()
 
     def _check_ping_frame_exceeded(self):
@@ -992,7 +985,7 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, cmd_args, check_func):
+    async def test(self, name, cmd_args, check_func):
         server = self.get_server("deproxy")
         response_body = 2000 * "a"
         server.set_response(
@@ -1002,7 +995,7 @@ class TestRequestsUnderCtrlFrameFlood(FrangTestCase):
             + f"Content-Length: {len(response_body)}\r\n\r\n"
             + response_body
         )
-        self._test(cmd_args)
+        await self._test(cmd_args)
         check_func(self)
 
 

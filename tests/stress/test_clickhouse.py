@@ -2,8 +2,8 @@
 Verify tfw_logger logging
 """
 
+import asyncio
 import re
-import time
 
 import run_config
 from framework.helpers import tf_cfg
@@ -55,9 +55,9 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         super().setUp()
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
     def h2load_total_requests(self, text: str) -> int:
         res = re.findall(
@@ -65,14 +65,14 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         )
         return sum([int(requests) for requests in res[0]])
 
-    def test_all_logs_under_load(self):
+    async def test_all_logs_under_load(self):
         client = self.get_client("h2load")
         client.start()
 
         half_of_duration = run_config.DURATION / 2
-        time.sleep(int(half_of_duration))
+        await asyncio.sleep(int(half_of_duration))
 
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
@@ -85,17 +85,17 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         self.assertEqual(clickhouse_collected_rows, dmesg_logs_count)
         self.assertEqual(h2_total_requests, dmesg_logs_count)
 
-    def test_all_logs_with_reload(self):
+    async def test_all_logs_with_reload(self):
         client = self.get_client("h2load")
         client.start()
 
         tempesta = self.get_tempesta()
 
         half_of_duration = run_config.DURATION / 2
-        time.sleep(int(half_of_duration))
+        await asyncio.sleep(int(half_of_duration))
         tempesta.reload()
 
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
@@ -108,17 +108,17 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         self.assertEqual(clickhouse_collected_rows, dmesg_logs_records)
         self.assertEqual(h2_total_requests, dmesg_logs_records)
 
-    def test_tfw_logger_stop_cont(self):
+    async def test_tfw_logger_stop_cont(self):
         client = self.get_client("h2load")
         client.start()
 
         half_of_duration = run_config.DURATION / 2
-        time.sleep(int(half_of_duration))
+        await asyncio.sleep(int(half_of_duration))
 
         self.get_tempesta().tfw_logger_signal("STOP")
         self.get_tempesta().tfw_logger_signal("CONT")
 
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())

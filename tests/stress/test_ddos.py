@@ -2,8 +2,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import os
-import time
 import unittest
 from pathlib import Path
 
@@ -183,11 +183,11 @@ http_chain {{
 
     backend_page_size = 114842  # this is an arbitrary number.
 
-    def make_response(self, curl, uri: str) -> None:
+    async def make_response(self, curl, uri: str) -> None:
         curl.headers["Host"] = "tempesta-tech.com"
         curl.set_uri(uri)
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
 
     @classmethod
@@ -229,7 +229,7 @@ http_chain {{
         cls.networker.remove_interfaces(cls.proxies)
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
+    async def test(self):
         """
         I used the mhddos utility for testing.
         It is implemented using python3 and has been reworked to match our requirements.
@@ -281,7 +281,7 @@ http_chain {{
           - probably upstream should move to a separate VM. The lack of resources
             should be excluded;
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("mhddos")
         curl = self.get_client("curl")
@@ -289,9 +289,9 @@ http_chain {{
 
         # save and check a response in cache before attack
         for _ in range(2):
-            self.make_response(curl, "/large.html")
+            await self.make_response(curl, "/large.html")
             self.assertEqual(curl.last_response.status, 200)
-            time.sleep(0.2)  # *_burst directives can be equal to 1
+        await asyncio.sleep(0.2)  # *_burst directives can be equal to 1
         self.assertIsNotNone(
             curl.last_response.headers.get("age", None),
             "TempestaFW didn't return the response from the cache before the attack started.",
@@ -307,9 +307,9 @@ http_chain {{
         ]
         client.start()
 
-        time.sleep(DURATION / 2)
+        await asyncio.sleep(DURATION / 2)
         # Get a response from the cache after the attack started.
-        self.make_response(curl, "/large.html")
+        await self.make_response(curl, "/large.html")
         error_msg = (
             "TempestaFW didn't return the response from the cache after the attack started. "
             "The connection was created during the attack"
@@ -324,7 +324,7 @@ http_chain {{
         # TODO: https://github.com/tempesta-tech/tempesta-test/issues/38
         #  issue - add checks to receiving a response from upstream
 
-        self.assertTrue(client.wait_for_finish(timeout=DURATION + 5))
+        self.assertTrue(await client.wait_for_finish(timeout=DURATION + 5))
         client.stop()
 
         tempesta.get_stats()
