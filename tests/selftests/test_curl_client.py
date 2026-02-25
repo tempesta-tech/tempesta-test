@@ -172,30 +172,24 @@ class TestCurlClient(tester.TempestaTest):
         """
     }
 
-    def setUp(self):
-        super().setUp()
-        self.start_all()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.start_all_services(client=False)
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
-    def get_response(self, client) -> CurlResponse:
+    async def get_response(self, client) -> CurlResponse:
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         return client.last_response
 
-    def test_check_curl_binary_version(self):
+    async def test_check_curl_binary_version(self):
         client = self.get_client("default")
-        self.get_response(client)
+        await self.get_response(client)
         client._check_binary_version()
 
-    def test_default_request_completed(self):
+    async def test_default_request_completed(self):
         client = self.get_client("default")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(len(client.responses), 1)
         self.assertEqual(response.status, 200)
         self.assertFalse(response.stderr)
@@ -206,39 +200,39 @@ class TestCurlClient(tester.TempestaTest):
             self.assertFalse(client.last_stats["errormsg"])
             self.assertGreaterEqual(client.last_stats["time_total"], 0)
 
-    def test_request_completed_with_output_disabled(self):
+    async def test_request_completed_with_output_disabled(self):
         client = self.get_client("no_output")
         client.output_path.unlink(missing_ok=True)
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(len(client.responses), 1)
         self.assertEqual(response.status, 200)
         self.assertFalse(response.stderr)
         self.assertFalse(response.stdout)
 
-    def test_ssl_request_completed(self):
+    async def test_ssl_request_completed(self):
         client = self.get_client("ssl")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.proto, "1.1")
         self.assertEqual(response.status, 200)
         self.assertEqual(response.stdout, "test")
         self.assertTrue(response.headers["via"].startswith("1.1"))
 
-    def test_http2_request_completed(self):
+    async def test_http2_request_completed(self):
         client = self.get_client("h2")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.proto, "2")
         self.assertEqual(response.status, 200)
         self.assertEqual(response.stdout, "test")
         self.assertTrue(response.headers["via"].startswith("2.0"))
 
-    def test_error_on_wrong_port(self):
+    async def test_error_on_wrong_port(self):
         client = self.get_client("wrong_port")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertFalse(response)
 
-    def test_headers_parsed(self):
+    async def test_headers_parsed(self):
         client = self.get_client("default")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         headers = response.headers
 
         with self.subTest("headers"):
@@ -250,83 +244,83 @@ class TestCurlClient(tester.TempestaTest):
             self.assertEqual(response.multi_headers["content-length"], ["4"])
             self.assertEqual(response.multi_headers["x-header"], ["Test-Value-1", "Test-Value-2"])
 
-    def test_cookies(self):
+    async def test_cookies(self):
         client = self.get_client("cookie")
         client.clear_cookies()
         self.assertFalse(client.cookie_jar_path.exists())
 
         with self.subTest("Cookie saved"):
-            response = self.get_response(client)
+            response = await self.get_response(client)
             request = self.get_server("deproxy").last_request
             self.assertFalse(request.headers["cookie"])
             self.assertTrue(client.cookie_jar_path.exists())
 
         with self.subTest("Cookie loaded"):
-            response = self.get_response(client)
+            response = await self.get_response(client)
             request = self.get_server("deproxy").last_request
             self.assertEqual(request.headers["cookie"], "curl=test")
 
-    def test_multiple_requests_completed(self):
+    async def test_multiple_requests_completed(self):
         client = self.get_client("multi")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.status, 200)
         self.assertEqual([r.status for r in client.responses], [200, 200])
         self.assertEqual(client.statuses, {200: 2})
 
-    def test_headers_sended(self):
+    async def test_headers_sended(self):
         client = self.get_client("send_headers")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         request = self.get_server("deproxy").last_request
         self.assertEqual(request.headers["header-sended"], "OK")
         self.assertEqual(response.headers["connection"], "close")
 
-    def test_set_header_after_initialization(self):
+    async def test_set_header_after_initialization(self):
         client = self.get_client("default")
         client.headers["New-Header"] = "OK"
-        response = self.get_response(client)
+        response = await self.get_response(client)
         request = self.get_server("deproxy").last_request
         self.assertEqual(request.headers["new-header"], "OK")
 
-    def test_cmd_args_processed(self):
+    async def test_cmd_args_processed(self):
         client = self.get_client("with_args")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.status, 200)
         self.assertTrue(response.stderr.startswith("*   Trying"))
 
-    def test_uri_changed(self):
+    async def test_uri_changed(self):
         client = self.get_client("default")
         client.set_uri("/314")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.status, 200)
         request = self.get_server("deproxy").last_request
         self.assertEqual(request.uri, "/314")
 
-    def test_options_added(self):
+    async def test_options_added(self):
         client = self.get_client("default")
         client.options.append("--head")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.status, 200)
         self.assertTrue(response.stdout.startswith("HTTP/1.1 200"))
 
-    def test_certificate_error(self):
+    async def test_certificate_error(self):
         client = self.get_client("check_cert")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertTrue(client.last_stats["errormsg"])
 
-    def test_data_posted(self):
+    async def test_data_posted(self):
         client = self.get_client("post")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(response.status, 200)
         request = self.get_server("deproxy").last_request
         self.assertEqual(request.method, "POST")
         self.assertEqual(request.body, "param1=1&param2=2")
 
-    def test_parallel_mod_enabled(self):
+    async def test_parallel_mod_enabled(self):
         client = self.get_client("parallel")
         server = self.get_server("deproxy")
         # dump_headers may work incorrectly with parallel client
         client.dump_headers = False
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertIn("--parallel-max 2", client.form_command())
         self.assertEqual(len(server.requests), 10)
         self.assertEqual(client.requests, 10)
@@ -338,7 +332,7 @@ class TestCurlClient(tester.TempestaTest):
             for stat in client.stats:
                 self.assertEqual(stat["response_code"], 200)
 
-    def test_stats_after_multiple_requests(self):
+    async def test_stats_after_multiple_requests(self):
         client = self.get_client("default")
         server = self.get_server("deproxy")
         self.assertEqual(client.requests, 0)
@@ -348,7 +342,7 @@ class TestCurlClient(tester.TempestaTest):
         for i in range(2):
             with self.subTest("make request", i=i):
                 self.assertEqual(len(server.requests), i)
-                self.get_response(client)
+                await self.get_response(client)
                 self.assertEqual(client.requests, 1)
                 self.assertEqual(len(client.responses), 1)
                 results = client.results()
@@ -359,7 +353,7 @@ class TestCurlClient(tester.TempestaTest):
                 )
 
         client.set_uri("/[1-3]")
-        response = self.get_response(client)
+        response = await self.get_response(client)
         self.assertEqual(client.requests, 3)
         self.assertEqual(
             client.results(),

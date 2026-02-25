@@ -69,35 +69,30 @@ class TestDockerServer(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(5))
-
-    def get_response(self, host, uri="/"):
+    async def get_response(self, host, uri="/"):
         client = self.get_client("default")
         client.headers["Host"] = host
         client.set_uri(uri)
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         return client.last_response
 
-    def test_request_to_server_completed(self):
-        self.start_all()
+    async def test_request_to_server_completed(self):
+        await self.start_all_services(client=False)
 
         with self.subTest("python -m http.server"):
-            response = self.get_response("python-simple-server")
+            response = await self.get_response("python-simple-server")
             self.assertEqual(response.status, 200)
             self.assertIn("Directory listing", response.stdout)
 
         with self.subTest("python hello.py"):
-            response = self.get_response("python-hello")
+            response = await self.get_response("python-hello")
             self.assertEqual(response.status, 200)
             self.assertEqual(response.stdout, self.response_body)
 
         with self.subTest("httpbin"):
-            response = self.get_response("httpbin", "/status/202")
+            response = await self.get_response("httpbin", "/status/202")
             self.assertEqual(response.status, 202)
 
 
@@ -119,7 +114,7 @@ class TestHealthCheck(tester.TempestaTest):
         """
     }
 
-    def test_service_long_start(self):
+    async def test_service_long_start(self):
         """
         Test that requests succeed when web server start is delayed
         from the time the container was started.
@@ -130,28 +125,28 @@ class TestHealthCheck(tester.TempestaTest):
         server.start()
         self.assertEqual(server.health_status, "starting")
 
-        self.start_tempesta()
+        await self.start_tempesta()
 
-        self.assertFalse(server.wait_for_connections(timeout=1))
-        self.assertTrue(server.wait_for_connections(timeout=3))
+        self.assertFalse(await server.wait_for_connections(timeout=1))
+        self.assertTrue(await server.wait_for_connections(timeout=3))
         self.assertEqual(server.health_status, "healthy")
 
-    def test_unhealthy_server(self):
+    async def test_unhealthy_server(self):
         server = self.get_server("default")
         server.cmd_args = "-c 'import time ; time.sleep(10)'"
 
         server.start()
 
         self.assertEqual(server.health_status, "starting")
-        self.assertFalse(server.wait_for_connections(timeout=7))
+        self.assertFalse(await server.wait_for_connections(timeout=7))
         self.assertEqual(server.health_status, "unhealthy")
 
-    def test_override_default_healthcheck(self):
+    async def test_override_default_healthcheck(self):
         server = self.get_server("default")
         server.options = "--health-interval 0.1s --health-cmd 'exit 0'"
         server.cmd_args = "-c 'import time ; time.sleep(10)'"
 
         server.start()
 
-        server.wait_for_connections(timeout=1)
+        await server.wait_for_connections(timeout=1)
         self.assertEqual(server.health_status, "healthy")

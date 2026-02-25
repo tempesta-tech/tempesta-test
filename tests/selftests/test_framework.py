@@ -123,15 +123,15 @@ server ${server_ip}:8000;
     ]
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_wrk_client(self):
+    async def test_wrk_client(self):
         """Check results for 'wrk' client"""
         nginx: nginx_server.Nginx = self.get_server("nginx")
         nginx.start()
-        self.start_tempesta()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
+        await self.start_tempesta()
+        self.assertTrue(await nginx.wait_for_connections(timeout=1))
         wrk1: wrk_client.Wrk = self.get_client("wrk_1")
         wrk1.start()
-        self.wait_while_busy(wrk1)
+        await self.wait_while_busy(wrk1)
         wrk1.stop()
 
         self.assertNotEqual(
@@ -141,19 +141,19 @@ server ${server_ip}:8000;
         )
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_double_wrk(self):
+    async def test_double_wrk(self):
         """Check the parallel work of two "wrk" clients"""
         nginx: nginx_server.Nginx = self.get_server("nginx")
         nginx.start()
-        self.start_tempesta()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
+        await self.start_tempesta()
+        self.assertTrue(await nginx.wait_for_connections(timeout=1))
 
         wrk1: wrk_client.Wrk = self.get_client("wrk_1")
         wrk2: wrk_client.Wrk = self.get_client("wrk_2")
 
         wrk1.start()
         wrk2.start()
-        self.wait_while_busy(wrk1, wrk2)
+        await self.wait_while_busy(wrk1, wrk2)
         wrk1.stop()
         wrk2.stop()
 
@@ -169,17 +169,17 @@ server ${server_ip}:8000;
             msg=err_msg,
         )
 
-    def test_deproxy_srv(self):
+    async def test_deproxy_srv(self):
         """Simple test with deproxy server and check tempesta stats"""
         deproxy: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
         deproxy.start()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(deproxy.wait_for_connections(timeout=1))
+        self.assertTrue(await deproxy.wait_for_connections(timeout=1))
 
         curl = self.get_client("curl")
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
 
         tempesta: Tempesta = self.get_tempesta()
@@ -191,29 +191,29 @@ server ${server_ip}:8000;
             msg="Count of server request does not match tempesta stats.",
         )
 
-    def test_deproxy_srv_direct(self):
+    async def test_deproxy_srv_direct(self):
         """Simple test with deproxy server"""
         deproxy = self.get_server("deproxy")
         deproxy.start()
         self.deproxy_manager.start()
         wrk0 = self.get_client("wrk_0")
         wrk0.start()
-        self.wait_while_busy(wrk0)
+        await self.wait_while_busy(wrk0)
         wrk0.stop()
 
-    def test_deproxy_client(self):
+    async def test_deproxy_client(self):
         """Simple test with deproxy client"""
         nginx = self.get_server("nginx")
         nginx.start()
-        self.start_tempesta()
+        await self.start_tempesta()
         deproxy = self.get_client("deproxy")
         deproxy.start()
         self.deproxy_manager.start()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
+        self.assertTrue(await nginx.wait_for_connections(timeout=1))
         deproxy.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        deproxy.wait_for_response(timeout=5)
+        await deproxy.wait_for_response(timeout=5)
 
-    def test_deproxy_client_direct(self):
+    async def test_deproxy_client_direct(self):
         """Simple test with deproxy client"""
         nginx = self.get_server("nginx")
         nginx.start()
@@ -221,21 +221,21 @@ server ${server_ip}:8000;
         deproxy.start()
         self.deproxy_manager.start()
         deproxy.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        deproxy.wait_for_response(timeout=5)
+        await deproxy.wait_for_response(timeout=5)
 
-    def test_deproxy_srvclient(self):
+    async def test_deproxy_srvclient(self):
         """Simple test with deproxy server"""
         dsrv = self.get_server("deproxy")
         dsrv.start()
-        self.start_tempesta()
+        await self.start_tempesta()
         cl = self.get_client("deproxy")
         cl.start()
         self.deproxy_manager.start()
-        self.assertTrue(dsrv.wait_for_connections(timeout=1))
+        self.assertTrue(await dsrv.wait_for_connections(timeout=1))
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        cl.wait_for_response(timeout=5)
+        await cl.wait_for_response(timeout=5)
 
-    def test_deproxy_srvclient_direct(self):
+    async def test_deproxy_srvclient_direct(self):
         """Simple test with deproxy server"""
         dsrv = self.get_server("deproxy")
         dsrv.start()
@@ -244,9 +244,9 @@ server ${server_ip}:8000;
         self.deproxy_manager.start()
         self.disable_deproxy_auto_parser()
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        cl.wait_for_response(timeout=5)
+        await cl.wait_for_response(timeout=5)
 
-    def test_deproxy_srvclient_direct_check(self):
+    async def test_deproxy_srvclient_direct_check(self):
         """Simple test with deproxy server"""
         dsrv = self.get_server("deproxy")
         dsrv.start()
@@ -255,22 +255,22 @@ server ${server_ip}:8000;
         self.deproxy_manager.start()
         self.disable_deproxy_auto_parser()
         cl.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        cl.wait_for_response(timeout=5)
+        await cl.wait_for_response(timeout=5)
         # expected response
         send = deproxy_message.Response(dsrv.response.decode())
         send.set_expected()
         self.assertEqual(cl.last_response, send)
 
-    def test_curl(self):
+    async def test_curl(self):
         """Check results for 'curl' client"""
         nginx: nginx_server.Nginx = self.get_server("nginx")
         nginx.start()
-        self.start_tempesta()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
+        await self.start_tempesta()
+        self.assertTrue(await nginx.wait_for_connections(timeout=1))
 
         curl: external_client.ExternalTester = self.get_client("curl")
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
 
         self.assertIn(
@@ -279,19 +279,19 @@ server ${server_ip}:8000;
             "HTTP response status codes mismatch",
         )
 
-    def test_double_curl(self):
+    async def test_double_curl(self):
         """Check the parallel work of two "curl" clients"""
         nginx: nginx_server.Nginx = self.get_server("nginx")
         nginx.start()
-        self.start_tempesta()
-        self.assertTrue(nginx.wait_for_connections(timeout=1))
+        await self.start_tempesta()
+        self.assertTrue(await nginx.wait_for_connections(timeout=1))
 
         curl: external_client.ExternalTester = self.get_client("curl")
         curl1: external_client.ExternalTester = self.get_client("curl_1")
 
         curl.start()
         curl1.start()
-        self.wait_while_busy(curl, curl1)
+        await self.wait_while_busy(curl, curl1)
         curl.stop()
         curl1.stop()
 
@@ -307,7 +307,7 @@ server ${server_ip}:8000;
             err_msg,
         )
 
-    def test_client_large_data_output(self):
+    async def test_client_large_data_output(self):
         """
         Check that a large amount of data from the external client
         does not cause problems.
@@ -319,7 +319,7 @@ server ${server_ip}:8000;
         client: external_client.ExternalTester = self.get_client("large_output")
 
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.assertEqual(client.response_msg, "@" * LARGE_OUTPUT_LEN)
