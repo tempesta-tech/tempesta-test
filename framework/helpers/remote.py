@@ -261,7 +261,12 @@ class LocalNode(ANode):
             except subprocess.TimeoutExpired as to_exc:
                 current_proc.kill()
                 stdout, stderr = current_proc.communicate()
-                raise error.ProcessKilledException() from to_exc
+                raise error.ProcessKilledException(
+                    message=f"The '{cmd}' didn't have enough time.",
+                    stdout=stdout,
+                    stderr=stderr,
+                    rt=current_proc.returncode,
+                ) from to_exc
 
             except Exception as exc:
                 err_msg = f"Error running command `{cmd}`"
