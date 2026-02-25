@@ -4,8 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import re
-import time
 
 from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_message import MAX_MESSAGE_SIZE, HttpMessage
@@ -130,8 +130,8 @@ class TestFailFunctionBase(tester.TempestaTest):
         cmd = f"echo 0 > /sys/kernel/debug/fail_function/space"
         cmd = remote.client.run_cmd(cmd)
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.addCleanup(TestFailFunctionBase.teardown_fail_function_test)
 
 
@@ -226,7 +226,7 @@ class TestStress(TestFailFunctionBaseStress):
             ),
         ]
     )
-    def test_stress(self, name, func_name, client_id, retval):
+    async def test_stress(self, name, func_name, client_id, retval):
         server = self.get_server("deproxy")
         server.conns_n = 1
         server.set_response(
@@ -236,14 +236,14 @@ class TestStress(TestFailFunctionBaseStress):
                 date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 10, -1, 0, 0)
         client = self.get_client(client_id)
 
         self.oops_ignore = ["ERROR"]
         client.start()
-        self.wait_while_busy(client, timeout=50)
+        await self.wait_while_busy(client, timeout=50)
         client.stop()
 
 
@@ -513,7 +513,7 @@ sched hash;
             ),
         ]
     )
-    def test(self, name, func_name, extra_config, space, retval):
+    async def test(self, name, func_name, extra_config, space, retval):
         self.get_tempesta().config.set_defconfig(self.base_tempesta_config)
         self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
@@ -885,7 +885,9 @@ http_chain {{
             ),
         ]
     )
-    def test_init_modules(self, name, func_name, config, module_path, module_name_preload, retval):
+    async def test_init_modules(
+        self, name, func_name, config, module_path, module_name_preload, retval
+    ):
         self.get_tempesta().config.set_defconfig(config)
         self.oops_ignore = ["ERROR"]
         space = 0
@@ -912,7 +914,7 @@ http_chain {{
             TestFailFunctionBaseStress.teardown_fail_function_test()
             space = space + 1
 
-    def test_abort_srv_connection_on_graceful_shutdown(self):
+    async def test_abort_srv_connection_on_graceful_shutdown(self):
         """
         Tempesta FW try to stop server connections gracefully if
         grace_shutdown_time is not 0. If graceful shutdown fails
@@ -967,7 +969,7 @@ http_chain {{
         self.deproxy_manager.start()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
-            self.assertTrue(server.wait_for_connections(timeout=5))
+            self.assertTrue(await server.wait_for_connections(timeout=5))
 
         self.get_tempesta().config.set_defconfig(
             f"""
@@ -982,11 +984,11 @@ grace_shutdown_time 1;
         self.get_tempesta().reload()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
-            self.assertTrue(server.wait_for_connections_closed(timeout=5))
+            self.assertTrue(await server.wait_for_connections_closed(timeout=5))
         server = self.get_server("deproxy_1")
-        self.assertTrue(server.wait_for_connections(timeout=5))
+        self.assertTrue(await server.wait_for_connections(timeout=5))
 
-    def test_failed_disconnect_srv_connection(self):
+    async def test_failed_disconnect_srv_connection(self):
         """
         Tempesta FW try to stop and disconnect all server connections
         on Tempesta shutdown. If disconnec fails Tempesta FW abort all
@@ -1039,13 +1041,13 @@ http_chain {{
         self.deproxy_manager.start()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
-            self.assertTrue(server.wait_for_connections(timeout=5))
+            self.assertTrue(await server.wait_for_connections(timeout=5))
         self.get_tempesta().stop_tempesta()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
-            self.assertTrue(server.wait_for_connections_closed())
+            self.assertTrue(await server.wait_for_connections_closed())
 
-    def test_abort_client_connection(self):
+    async def test_abort_client_connection(self):
         """
         This test checks that Tempesta FW correctly close
         client connections if `__tfw_wq_push` fails.
@@ -1087,11 +1089,11 @@ http_chain {{
         )
         server.start()
         self.deproxy_manager.start()
-        self.assertTrue(server.wait_for_connections(timeout=5))
+        self.assertTrue(await server.wait_for_connections(timeout=5))
 
         client = self.get_client("deproxy_h2")
         client.start()
-        client.send_request(client.create_request(method="GET", headers=[]), "200")
+        await client.send_request(client.create_request(method="GET", headers=[]), "200")
         self.get_tempesta().stop()
 
     @marks.Parameterize.expand(
@@ -1128,7 +1130,7 @@ server {SERVER_IP}:8000 conns_n=10;
             ),
         ]
     )
-    def test_tls(self, name, func_name, base_config, new_config, space, retval):
+    async def test_tls(self, name, func_name, base_config, new_config, space, retval):
         self.get_tempesta().config.set_defconfig(base_config)
         self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
@@ -1139,9 +1141,9 @@ server {SERVER_IP}:8000 conns_n=10;
         with self.assertRaises(error.ProcessBadExitStatusException):
             self.get_tempesta().reload()
 
-    def client_send_first_req(self, client):
+    async def client_send_first_req(self, client):
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        client.send_request(req, "200")
+        await client.send_request(req, "200")
         response = client.last_response
 
         c_header = response.headers.get("Set-Cookie", None)
@@ -1190,7 +1192,7 @@ grace_shutdown_time 5;
             ),
         ]
     )
-    def test_learn(self, name, func_name, extra_config_1, extra_config_2, space, retval):
+    async def test_learn(self, name, func_name, extra_config_1, extra_config_2, space, retval):
         self.get_tempesta().config.set_defconfig(self.base_tempesta_config + extra_config_1)
         self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
@@ -1210,20 +1212,20 @@ grace_shutdown_time 5;
 
         server.start()
         self.deproxy_manager.start()
-        self.assertTrue(server.wait_for_connections(timeout=5))
+        self.assertTrue(await server.wait_for_connections(timeout=5))
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
         client.start()
 
-        cookie = self.client_send_first_req(client)
+        cookie = await self.client_send_first_req(client)
         request = (
             "GET / HTTP/1.1\r\n"
             "Host: localhost\r\n"
             "Cookie: %s=%s\r\n"
             "\r\n" % (cookie[0], cookie[1])
         )
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.get_tempesta().config.set_defconfig(self.base_tempesta_config + extra_config_2)
         self.get_tempesta().reload()
@@ -1280,7 +1282,7 @@ class TestSched(TestFailFunctionBaseStress):
             ),
         ]
     )
-    def test_stress(self, name, func_name, retval):
+    async def test_stress(self, name, func_name, retval):
         server = self.get_server("deproxy")
         server.conns_n = 10
         server.set_response(
@@ -1290,7 +1292,7 @@ class TestSched(TestFailFunctionBaseStress):
                 date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 15, -1, 0, retval)
         self.get_tempesta().reload()
@@ -1299,7 +1301,7 @@ class TestSched(TestFailFunctionBaseStress):
 
         self.oops_ignore = ["ERROR"]
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
 
@@ -1707,8 +1709,8 @@ class TestFailFunction(TestFailFunctionBase):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, space, response, retval):
-        self._test(name, func_name, id, msg, times, space, response, retval)
+    async def test(self, name, func_name, id, msg, times, space, response, retval):
+        await self._test(name, func_name, id, msg, times, space, response, retval)
 
     @marks.Parameterize.expand(
         [
@@ -1746,10 +1748,10 @@ class TestFailFunction(TestFailFunctionBase):
     )
     @marks.set_mtu(mtu=100)
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_mtu_100(self, name, func_name, id, msg, times, space, response, retval):
-        self._test(name, func_name, id, msg, times, space, response, retval)
+    async def test_mtu_100(self, name, func_name, id, msg, times, space, response, retval):
+        await self._test(name, func_name, id, msg, times, space, response, retval)
 
-    def _test(self, name, func_name, id, msg, times, space, response, retval):
+    async def _test(self, name, func_name, id, msg, times, space, response, retval):
         """
         Basic test to check how Tempesta FW works when some internal
         function fails. Function should be marked as ALLOW_ERROR_INJECTION
@@ -1758,7 +1760,7 @@ class TestFailFunction(TestFailFunctionBase):
         server = self.get_server("deproxy")
         server.conns_n = 1
         server.set_response(response)
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, times, space, retval)
         client = self.get_client(id)
@@ -1770,12 +1772,12 @@ class TestFailFunction(TestFailFunctionBase):
 
         # This is necessary to be sure that Tempesta FW write
         # appropriate message in dmesg.
-        self.assertFalse(client.wait_for_response(3))
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertFalse(await client.wait_for_response(3))
+        self.assertTrue(await client.wait_for_connection_close())
 
         if msg:
             self.assertTrue(
-                self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
+                await self.loggers.dmesg.afind(msg, cond=dmesg.amount_positive),
                 "Tempesta doesn't report error",
             )
 
@@ -1783,7 +1785,7 @@ class TestFailFunction(TestFailFunctionBase):
 class TestFailFunctionPrepareResp(TestFailFunctionBase):
     @marks.set_mtu(mtu=100)
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_tfw_h2_prep_resp_for_error_response(self):
+    async def test_tfw_h2_prep_resp_for_error_response(self):
         """
         Basic test to check how Tempesta FW works when some internal
         function fails. Function should be marked as ALLOW_ERROR_INJECTION
@@ -1802,7 +1804,7 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
             + f"{header[0]}: {header[1]}\r\n"
             + f"Content-Length: 0\r\n\r\n"
         )
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         TestFailFunctionBaseStress.setup_fail_function_test(
             "tfw_h2_append_predefined_body", 100, -1, 0, -12
@@ -1816,22 +1818,22 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
         self.assertTrue(
-            client.wait_for_ack_settings(),
+            await client.wait_for_ack_settings(),
             "Tempesta foes not returns SETTINGS frame with ACK flag.",
         )
 
         self.oops_ignore = ["ERROR"]
         client.make_request(request1)
-        server.wait_for_requests(1)
+        await server.wait_for_requests(1)
         client.make_request(request2)
 
         # This is necessary to be sure that Tempesta FW write
         # appropriate message in dmesg.
-        self.assertFalse(client.wait_for_response(3))
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertFalse(await client.wait_for_response(3))
+        self.assertTrue(await client.wait_for_connection_close())
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_tfw_h2_prep_resp_for_sticky_ccokie(self):
+    async def test_tfw_h2_prep_resp_for_sticky_ccokie(self):
         server = self.get_server("deproxy")
         server.conns_n = 1
         self.disable_deproxy_auto_parser()
@@ -1861,7 +1863,7 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
             )
         ),
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         TestFailFunctionBaseStress.setup_fail_function_test(
             "tfw_h2_append_predefined_body", 100, 1, 0, -12
         )
@@ -1874,9 +1876,9 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
 
         # This is necessary to be sure that Tempesta FW write
         # appropriate message in dmesg.
-        self.assertTrue(client.wait_for_response(3))
+        self.assertTrue(await client.wait_for_response(3))
         self.assertEqual(client.last_response.status, "500")
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
 
 class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
@@ -1919,11 +1921,11 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test(self, name, func_name, id, msg, times, retval):
+    async def test(self, name, func_name, id, msg, times, retval):
         srv = self.get_server("deproxy")
         srv.pipelined = 3
         srv.conns_n = 1
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, times, 0, retval)
 
         i = 0
@@ -1933,23 +1935,23 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
             request = client.create_request(method="GET", headers=[])
             client.start()
             client.make_request(request)
-            srv.wait_for_requests(i)
+            await srv.wait_for_requests(i)
 
         i = 0
         for id in self.clients_ids:
             i = i + 1
             client = self.get_client(id)
             if i >= 2:
-                self.assertFalse(client.wait_for_response(1))
+                self.assertFalse(await client.wait_for_response(1))
             else:
-                self.assertTrue(client.wait_for_response())
+                self.assertTrue(await client.wait_for_response())
                 self.assertTrue(client.last_response.status, "200")
         self.assertTrue(
-            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
+            await self.loggers.dmesg.afind(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
 
-        srv.wait_for_connections()
+        await srv.wait_for_connections()
         req_count = i
 
         i = 0
@@ -1959,9 +1961,9 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
             client = self.get_client(id)
             if i >= 2:
                 j = j + 1
-                self.assertTrue(srv.wait_for_requests(req_count + j))
+                self.assertTrue(await srv.wait_for_requests(req_count + j))
                 srv.flush()
-                self.assertTrue(client.wait_for_response())
+                self.assertTrue(await client.wait_for_response())
                 self.assertEqual(client.last_response.status, "200")
 
 
@@ -2039,7 +2041,7 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
             ),
         ]
     )
-    def test(
+    async def test(
         self,
         name,
         func_name,
@@ -2053,7 +2055,7 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         """
         server = self.get_server("deproxy")
         server.hang_on_req_num = hang_on_req_num
-        self.start_all_services()
+        await self.start_all_services()
 
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, 0, 0)
 
@@ -2066,7 +2068,7 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         )
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -2077,7 +2079,7 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
         )
 
         # Wait while response become stale
-        time.sleep(3)
+        await asyncio.sleep(3)
 
         server.set_response(
             deproxy_message.Response.create(
@@ -2087,7 +2089,7 @@ class TestFailFunctionStaleFwd(TestFailFunctionBase):
             )
         )
 
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
@@ -2143,7 +2145,7 @@ class TestFailFunctionMsgAdjust(TestFailFunctionBase):
             ),
         ]
     )
-    def test(
+    async def test(
         self,
         name,
         func_name,
@@ -2154,7 +2156,7 @@ class TestFailFunctionMsgAdjust(TestFailFunctionBase):
         Test the response on message adjusting failure. Keep access log on it adds coverage.
         """
         server = self.get_server("deproxy")
-        self.start_all_services()
+        await self.start_all_services()
 
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, 0, -4089)
 
@@ -2167,7 +2169,7 @@ class TestFailFunctionMsgAdjust(TestFailFunctionBase):
         )
 
         client = self.get_client(client)
-        client.send_request(
+        await client.send_request(
             client.create_request(
                 method="GET",
                 uri="/",
