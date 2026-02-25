@@ -50,16 +50,6 @@ class TlsIntegrityTester(tester.TempestaTest):
         }
     ]
 
-    def start_all(self):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
-        )
-
     @staticmethod
     def make_resp(body):
         return (
@@ -77,7 +67,7 @@ class TlsIntegrityTester(tester.TempestaTest):
             "\r\n" + ("x" * req_len)
         )
 
-    def common_check(self, req_len, resp_len):
+    async def common_check(self, req_len, resp_len):
         resp_body = "x" * resp_len
         hash1 = hashlib.md5(resp_body.encode()).digest()
 
@@ -86,7 +76,7 @@ class TlsIntegrityTester(tester.TempestaTest):
         for clnt in self.clients:
             client = self.get_client(clnt["id"])
             client.make_request(self.make_req(req_len))
-            res = client.wait_for_response(timeout=5)
+            res = await client.wait_for_response(timeout=5)
             self.assertTrue(
                 res, "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
             )
@@ -95,13 +85,13 @@ class TlsIntegrityTester(tester.TempestaTest):
             self.assertTrue(hash1 == hash2, "Bad response checksum")
 
     @contextmanager
-    def tcp_flow_check(self, resp_len, mtu=1500):
+    async def tcp_flow_check(self, resp_len, mtu=1500):
         """Check how Tempesta generates TCP segments for TLS records."""
         # Run the sniffer first to let it start in separate thread.
         sniffer = analyzer.AnalyzerTCPSegmentation(
             remote.tempesta, "Tempesta", timeout=3, ports=(443, 8000)
         )
-        sniffer.start()
+        await sniffer.start()
 
         resp_body = "x" * resp_len
         self.get_server("deproxy").set_response(self.make_resp(resp_body))
@@ -110,7 +100,7 @@ class TlsIntegrityTester(tester.TempestaTest):
 
         with networker.change_and_restore_tso_gro_gso(tso_gro_gso=False, mtu=mtu):
             client.make_request(self.make_req(1))
-            self.assertTrue(client.wait_for_response(timeout=1))
+            self.assertTrue(await client.wait_for_response(timeout=1))
             sniffer.stop()
             self.assertTrue(sniffer.check_results(client.addr[0]), "Not optimal TCP flow")
 
@@ -130,19 +120,19 @@ class Proxy(TlsIntegrityTester):
         """
     }
 
-    def test_various_req_resp_sizes(self):
-        self.start_all()
-        self.common_check(1, 1)
-        self.common_check(19, 19)
-        self.common_check(567, 567)
-        self.common_check(1755, 1755)
-        self.common_check(4096, 4096)
-        self.common_check(16380, 16380)
-        self.common_check(65536, 65536)
+    async def test_various_req_resp_sizes(self):
+        await self.start_all_services()
+        await self.common_check(1, 1)
+        await self.common_check(19, 19)
+        await self.common_check(567, 567)
+        await self.common_check(1755, 1755)
+        await self.common_check(4096, 4096)
+        await self.common_check(16380, 16380)
+        await self.common_check(65536, 65536)
         if not run_config.TCP_SEGMENTATION:
-            self.common_check(1000000, 1000000)
+            await self.common_check(1000000, 1000000)
 
-    def test_tcp_segs(self):
+    async def test_tcp_segs(self):
         """
         This is a functional test for tcp_segmentation
         you can run in this example we pass 7020 bytes
@@ -155,8 +145,8 @@ class Proxy(TlsIntegrityTester):
         Set payload and mtu in test like code below and
         run test with -v -v to see what happens
         """
-        self.start_all()
-        self.tcp_flow_check(7020, mtu=1500)
+        await self.start_all_services()
+        await self.tcp_flow_check(7020, mtu=1500)
 
 
 class ProxyH2(H2Base, Proxy):
@@ -234,17 +224,17 @@ class Cache(TlsIntegrityTester):
         """
     }
 
-    def test_various_req_resp_sizes(self):
-        self.start_all()
-        self.common_check(1, 1)
-        self.common_check(19, 19)
-        self.common_check(567, 567)
-        self.common_check(1755, 1755)
-        self.common_check(4096, 4096)
+    async def test_various_req_resp_sizes(self):
+        await self.start_all_services()
+        await self.common_check(1, 1)
+        await self.common_check(19, 19)
+        await self.common_check(567, 567)
+        await self.common_check(1755, 1755)
+        await self.common_check(4096, 4096)
         if not run_config.TCP_SEGMENTATION:
-            self.common_check(16380, 16380)
-            self.common_check(65536, 65536)
-            self.common_check(1000000, 1000000)
+            await self.common_check(16380, 16380)
+            await self.common_check(65536, 65536)
+            await self.common_check(1000000, 1000000)
 
 
 class CacheH2(H2Base, Cache):
@@ -299,7 +289,7 @@ class ManyClients(Cache):
         """
     }
 
-    def common_check(self, req_len, resp_len):
+    async def common_check(self, req_len, resp_len):
         resp_body = "x" * resp_len
         hash1 = hashlib.md5(resp_body.encode()).digest()
 
@@ -313,7 +303,7 @@ class ManyClients(Cache):
 
         for client in clients:
             self.assertTrue(
-                client.wait_for_response(timeout=25),
+                await client.wait_for_response(timeout=25),
                 "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len),
             )
 
@@ -387,16 +377,6 @@ class CloseConnection(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
-        )
-
     @staticmethod
     def make_resp(body):
         return (
@@ -413,7 +393,7 @@ class CloseConnection(tester.TempestaTest):
             "Connection: close\r\n\r\n"
         )
 
-    def common_check(self, req_len, resp_len):
+    async def common_check(self, req_len, resp_len):
         resp_body = "x" * resp_len
         hash1 = hashlib.md5(resp_body.encode()).digest()
 
@@ -421,7 +401,7 @@ class CloseConnection(tester.TempestaTest):
 
         client = self.get_client(self.clients[0]["id"])
         client.make_request(self.make_req(req_len))
-        res = client.wait_for_response(timeout=5)
+        res = await client.wait_for_response(timeout=5)
         self.assertTrue(
             res, "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
         )
@@ -429,34 +409,34 @@ class CloseConnection(tester.TempestaTest):
         hash2 = hashlib.md5(resp.encode()).digest()
         self.assertTrue(hash1 == hash2, "Bad response checksum")
 
-    def test1(self):
-        self.start_all()
-        self.common_check(1, 1)
+    async def test1(self):
+        await self.start_all_services()
+        await self.common_check(1, 1)
 
-    def test2(self):
-        self.start_all()
-        self.common_check(19, 19)
+    async def test2(self):
+        await self.start_all_services()
+        await self.common_check(19, 19)
 
-    def test3(self):
-        self.start_all()
-        self.common_check(567, 567)
+    async def test3(self):
+        await self.start_all_services()
+        await self.common_check(567, 567)
 
-    def test4(self):
-        self.start_all()
-        self.common_check(1755, 1755)
+    async def test4(self):
+        await self.start_all_services()
+        await self.common_check(1755, 1755)
 
-    def test5(self):
-        self.start_all()
-        self.common_check(4096, 4096)
+    async def test5(self):
+        await self.start_all_services()
+        await self.common_check(4096, 4096)
 
-    def test6(self):
-        self.start_all()
-        self.common_check(16380, 16380)
+    async def test6(self):
+        await self.start_all_services()
+        await self.common_check(16380, 16380)
 
-    def test7(self):
-        self.start_all()
-        self.common_check(65536, 65536)
+    async def test7(self):
+        await self.start_all_services()
+        await self.common_check(65536, 65536)
 
-    def test8(self):
-        self.start_all()
-        self.common_check(1000000, 1000000)
+    async def test8(self):
+        await self.start_all_services()
+        await self.common_check(1000000, 1000000)

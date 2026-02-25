@@ -40,30 +40,20 @@ class TlsBasic(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
-        )
-
-    def test_bad_request(self):
-        self.start_all()
+    async def test_bad_request(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request("GET / HTxTP/1.1\nHost: localhost\n\n")
-        res = client.wait_for_response(timeout=1)
+        res = await client.wait_for_response(timeout=1)
         self.assertTrue(res, "Cannot process request")
         status = client.last_response.status
         self.assertEqual(status, "400", "Wrong response status: %s" % status)
 
-    def test_connection_close(self):
-        self.start_all()
+    async def test_connection_close(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request("GET / HTTP/1.1\r\n" "Host: localhost\r\n" "Connection: close\r\n\r\n")
-        res = client.wait_for_response(timeout=1)
+        res = await client.wait_for_response(timeout=1)
         self.assertTrue(res, "Cannot process request")
         status = client.last_response.status
         self.assertEqual(status, "200", "Wrong response status: %s" % status)

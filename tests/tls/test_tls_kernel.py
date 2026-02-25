@@ -22,7 +22,7 @@ class TCrypt(tester.TempestaTest):
     correspondingly (see linux/crypto/tcrypt.c), so test only these algorithms.
     """
 
-    def test_tcrypt(self):
+    async def test_tcrypt(self):
         try:
             remote.tempesta.run_cmd(
                 "for m in 35 37 102 103 104;" " do modprobe tcrypt mode=$m;" "done"
@@ -33,6 +33,3 @@ class TCrypt(tester.TempestaTest):
             # -EAGAIN return code is the successful return code of the module.
             m = re.findall("Resource temporarily unavailable", stderr)
             self.assertEqual(len(m), 5)
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

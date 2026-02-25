@@ -104,9 +104,9 @@ class TestALPN(tester.TempestaTest):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_proto(self, name, tempesta_proto, protocols, expected_proto=0):
+    async def test_proto(self, name, tempesta_proto, protocols, expected_proto=0):
         self.init_config(tempesta_proto)
-        self.start_tempesta()
+        await self.start_tempesta()
 
         self.assertTrue(ssl.HAS_ALPN, "`ssl` library backend does not support ALPN")
 
@@ -141,13 +141,13 @@ class TestALPN(tester.TempestaTest):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_negative(self, name, tempesta_proto, protocols, msg):
+    async def test_negative(self, name, tempesta_proto, protocols, msg):
         """
         Try to establish handshake with unsupported protocol in ALPN protocols list. Tempesta
         must not finish handshake successfully.
         """
         self.init_config(tempesta_proto)
-        self.start_tempesta()
+        await self.start_tempesta()
 
         self.assertTrue(ssl.HAS_ALPN, "`ssl` library backend does not support ALPN")
 
@@ -162,19 +162,21 @@ class TestALPN(tester.TempestaTest):
                 ssock = context.wrap_socket(sock, server_hostname="tempesta-tech.com")
 
         self.assertTrue(
-            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
+            await self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Can't find expected error",
         )
 
-    def test_alpn_default(self):
+    async def test_alpn_default(self):
         """
         Send request to Tempesta h2/h1 listener using empty ALPN. Tempesta must choose HTTP1 by
         default.
         """
         self.init_config("https,h2")
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(client.create_request("GET", [], authority="tempesta-tech.com"), "200")
+        await client.send_request(
+            client.create_request("GET", [], authority="tempesta-tech.com"), "200"
+        )
         # Verify ALPN didn't use.
         self.assertIsNone(client.selected_alpn_protocol())

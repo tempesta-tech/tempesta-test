@@ -66,38 +66,31 @@ class TLSMatchHostSni(tester.TempestaTest):
 
     TLS_WARN = "Warning: frang: vhost by SNI doesn't match vhost by authority"
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        srv = self.get_server("0")
-        self.assertTrue(srv.wait_for_connections(timeout=1))
-
-    def test_host_sni_mismatch(self):
+    async def test_host_sni_mismatch(self):
         """With the `http_strict_host_checking` limit, the host header and SNI name
         must be identical. Otherwise request will be filtered. After client
         send a request that doesnt match his SNI, t is blocked
         """
-        self.start_all()
+        await self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
 
         deproxy_cl = self.get_client("usual-client")
         deproxy_cl.start()
 
         # case 1.1 (sni match)
-        deproxy_cl.make_request(("GET / HTTP/1.1\r\n" "Host: tempesta-tech.com\r\n" "\r\n"))
-        self.assertTrue(deproxy_cl.wait_for_response())
+        deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
+        self.assertTrue(await deproxy_cl.wait_for_response())
         self.assertEqual(1, len(deproxy_cl.responses))
 
         # case 1.2 (sni match with port)
-        deproxy_cl.make_request(("GET / HTTP/1.1\r\n" "Host: tempesta-tech.com:443\r\n" "\r\n"))
-        self.assertTrue(deproxy_cl.wait_for_response())
+        deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com:443\r\n\r\n")
+        self.assertTrue(await deproxy_cl.wait_for_response())
         self.assertEqual(2, len(deproxy_cl.responses))
 
         # case 2 (sni mismatch)
-        deproxy_cl.make_request(("GET / HTTP/1.1\r\n" "Host: example.com\r\n" "\r\n"))
-        self.assertFalse(deproxy_cl.wait_for_response())
+        deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+        self.assertFalse(await deproxy_cl.wait_for_response())
         self.assertEqual(2, len(deproxy_cl.responses))
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close())
-        self.assertTrue(klog.find(self.TLS_WARN), "Frang limits warning is not shown")
+        self.assertTrue(await deproxy_cl.wait_for_connection_close())
+        self.assertTrue(await klog.find(self.TLS_WARN), "Frang limits warning is not shown")

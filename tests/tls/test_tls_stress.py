@@ -2,6 +2,7 @@
 TLS Stress tests - load Tempesta FW with multiple TLS connections.
 """
 
+import asyncio
 import threading
 
 from framework.helpers import dmesg, remote
@@ -94,16 +95,16 @@ class StressTls(tester.TempestaTest):
     }
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
+    async def test(self):
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         wrk = self.get_client("0")
         wrk.set_script("foo", content="")
         # Wrk can't handle very big amound of TLS connections.
         wrk.connections = min(int(CONCURRENT_CONNECTIONS), 100)
         wrk.start()
-        self.wait_while_busy(wrk)
+        await self.wait_while_busy(wrk)
         wrk.stop()
 
         self.assertTrue(200 in wrk.statuses)
@@ -172,7 +173,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
 
     stop_flag = False
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.cgen = CertGenerator()
         self.cgen.key = {"alg": "rsa", "len": 4096}
         self.cgen.sign_alg = "sha256"
@@ -186,18 +187,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             "config": self.tempesta_tmpl % (cert_path, key_path),
             "custom_cert": True,
         }
-        tester.TempestaTest.setUp(self)
-
-    def check_alg(self, alg):
-        tls_perf = self.get_client(alg)
-
-        self.start_all_servers()
-        self.start_tempesta()
-        tls_perf.start()
-        self.wait_while_busy(tls_perf)
-        tls_perf.stop()
-
-        self.assertFalse(tls_perf.stderr)
+        await super().asyncSetUp()
 
     @marks.Parameterize.expand(
         [
@@ -207,8 +197,16 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             marks.Param(name="DHE-RSA-AES256-CCM", alg="tls-perf-DHE-RSA-AES256-CCM"),
         ]
     )
-    def test(self, name, alg):
-        self.check_alg(alg)
+    async def test(self, name, alg):
+        tls_perf = self.get_client(alg)
+
+        self.start_all_servers()
+        await self.start_tempesta()
+        tls_perf.start()
+        await self.wait_while_busy(tls_perf)
+        tls_perf.stop()
+
+        self.assertFalse(tls_perf.stderr)
 
     def __reload_tempesta(self):
         tempesta = self.get_tempesta()
@@ -218,7 +216,6 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
             under heavy load.
             """
             tempesta.reload(timeout=60)
-        self.stop_flag = False
 
     @marks.Parameterize.expand(
         [
@@ -229,7 +226,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    def test_stress(self, name, alg):
+    async def test_stress(self, name, alg):
         """
         Check how Tempesta FW update sertificates under load.
         Each time when Tempesta started, all certificates
@@ -237,7 +234,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         """
         tls_perf = self.get_client(alg)
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         t = threading.Thread(target=self.__reload_tempesta)
         t.start()
@@ -247,7 +244,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         """
         for i in range(0, 5):
             tls_perf.start()
-            self.wait_while_busy(tls_perf)
+            await self.wait_while_busy(tls_perf)
             tls_perf.stop()
         self.stop_flag = True
         t.join()
