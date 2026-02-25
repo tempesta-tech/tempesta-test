@@ -24,50 +24,50 @@ class RatioDynamicH2(test_ratio_dynamic_recalc.RatioDynamic):
         },
     ]
 
-    def test_load_distribution(self):
-        super(RatioDynamicH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioDynamicH2, self).test_load_distribution()
 
 
 class RatioDynamicMinH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioDynamicMin):
-    def test_load_distribution(self):
-        super(RatioDynamicMinH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioDynamicMinH2, self).test_load_distribution()
 
 
 class RatioDynamicMaxH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioDynamicMax):
-    def test_load_distribution(self):
-        super(RatioDynamicMaxH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioDynamicMaxH2, self).test_load_distribution()
 
 
 class RatioDynamicAvH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioDynamicAv):
-    def test_load_distribution(self):
-        super(RatioDynamicAvH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioDynamicAvH2, self).test_load_distribution()
 
 
 class RatioDynamicPercH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioDynamicPerc):
-    def test_load_distribution(self):
-        super(RatioDynamicPercH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioDynamicPercH2, self).test_load_distribution()
 
 
 class RatioPredictH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioPredict):
-    def test_load_distribution(self):
-        super(RatioPredictH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioPredictH2, self).test_load_distribution()
 
 
 class RatioPredictMinH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioPredictMin):
-    def test_load_distribution(self):
-        super(RatioPredictMinH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioPredictMinH2, self).test_load_distribution()
 
 
 class RatioPredictMaxH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioPredictMax):
-    def test_load_distribution(self):
-        super(RatioPredictMaxH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioPredictMaxH2, self).test_load_distribution()
 
 
 class RatioPredictAvH2(RatioDynamicH2, test_ratio_dynamic_recalc.RatioPredictAv):
-    def test_load_distribution(self):
-        super(RatioPredictAvH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioPredictAvH2, self).test_load_distribution()
 
 
 class RatioPredictPerc(RatioDynamicH2, test_ratio_dynamic_recalc.RatioPredictPerc):
-    def test_load_distribution(self):
-        super(RatioPredictPerc, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioPredictPerc, self).test_load_distribution()

@@ -142,7 +142,7 @@ class RatioDynamic(tester.TempestaTest):
 
     min_duration = max(DURATION, 30)
 
-    def run_test(self, srv_const, srv_dyn, new_server_name=None):
+    async def run_test(self, srv_const, srv_dyn, new_server_name=None):
         """Run wrk and get performance statistics from backends and Tempesta.
         If 'new_server_name' of 'srv_dyn' is set, first reload its
         configuration.
@@ -159,7 +159,7 @@ class RatioDynamic(tester.TempestaTest):
             client.options[0] += f" --duration {self.min_duration}"
 
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         return (srv_const, srv_dyn)
@@ -192,7 +192,7 @@ class RatioDynamic(tester.TempestaTest):
 
         return w_const, w_dyn
 
-    def test_load_distribution(self):
+    async def test_load_distribution(self):
         """Configure slow and fast servers. The faster server is the more
         weight it should get.
         """
@@ -200,7 +200,7 @@ class RatioDynamic(tester.TempestaTest):
         srv_dyn = self.get_server("nginx_dynamic")
         srv_const.start()
         srv_dyn.start()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         perfstat = {
             "client_requests": 0,
@@ -210,18 +210,18 @@ class RatioDynamic(tester.TempestaTest):
             "dyn_server_requests": 0,
         }
 
-        servers = self.run_test(srv_const, srv_dyn)
+        servers = await self.run_test(srv_const, srv_dyn)
         self.calc_weight(servers, perfstat)
 
         _, srv_dyn = servers
-        servers = self.run_test(srv_const, srv_dyn, "nginx_dynamic_slow")
+        servers = await self.run_test(srv_const, srv_dyn, "nginx_dynamic_slow")
         w_const, w_dyn = self.calc_weight(servers, perfstat)
         self.assertGreater(
             w_const, w_dyn, msg=("Slower server got higher weight. " "%d vs %d" % (w_const, w_dyn))
         )
 
         _, srv_dyn = servers
-        servers = self.run_test(srv_const, srv_dyn, "nginx_dynamic_fast")
+        servers = await self.run_test(srv_const, srv_dyn, "nginx_dynamic_fast")
         w_const, w_dyn = self.calc_weight(servers, perfstat)
         self.assertLess(
             w_const, w_dyn, msg=("Slower server got higher weight. " "%d vs %d" % (w_const, w_dyn))

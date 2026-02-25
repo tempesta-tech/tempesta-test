@@ -48,18 +48,18 @@ cache 0;
     # Number of different Uris
     uri_n = 10
 
-    def test_hash_scheduler(self):
+    async def test_hash_scheduler(self):
         """Check that the same server connection is used for the same resource."""
         client = self.get_client("deproxy")
 
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         for _ in range(self.messages):
             for uri in range(self.uri_n):
                 client.make_request(self._generate_request(uri))
 
-        client.wait_for_response()
+        await client.wait_for_response()
 
         self.__check_distribution_of_requests()
 

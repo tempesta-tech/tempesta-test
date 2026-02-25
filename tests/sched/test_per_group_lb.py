@@ -305,7 +305,7 @@ class AllDefaults(tester.TempestaTest):
         else:
             self.check_dynamic_lb(group, group_name)
 
-    def test_inherit(self):
+    async def test_inherit(self):
         client_1 = self.get_client("client_vhost_1")
         client_2 = self.get_client("client_vhost_2")
 
@@ -315,9 +315,9 @@ class AllDefaults(tester.TempestaTest):
             client_1.options[0] += ' -H "Host: example.com"'
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(client_1, client_2)
+        await self.wait_while_busy(client_1, client_2)
 
         servers = self.get_servers()
         for srv in servers:

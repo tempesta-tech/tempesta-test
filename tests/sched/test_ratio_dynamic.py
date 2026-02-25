@@ -212,7 +212,7 @@ class RatioDynamic(tester.TempestaTest):
     min_server_weight = 30
     min_duration = max(DURATION, 5)
 
-    def test_load_distribution(self):
+    async def test_load_distribution(self):
         """Configure slow and fast servers. The faster server, the more
         weight it should get.
         """
@@ -224,10 +224,10 @@ class RatioDynamic(tester.TempestaTest):
             client.options[0] += f" --duration {self.min_duration}"
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.start_all_clients()
 
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         tempesta = self.get_tempesta()

@@ -25,10 +25,10 @@ class RatioH2(test_ratio_static.Ratio):
         }
     ]
 
-    def test_load_distribution(self):
-        super(RatioH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioH2, self).test_load_distribution()
 
 
 class RatioVariableConnsH2(RatioH2, test_ratio_static.RatioVariableConns):
-    def test_load_distribution(self):
-        super(RatioVariableConnsH2, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioVariableConnsH2, self).test_load_distribution()

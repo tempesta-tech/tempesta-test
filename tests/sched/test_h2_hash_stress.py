@@ -25,10 +25,10 @@ class BindToServerH2(test_hash_stress.BindToServer):
         },
     ]
 
-    def test_hash(self):
-        super(BindToServerH2, self).test_hash()
+    async def test_hash(self):
+        await super(BindToServerH2, self).test_hash()
 
 
 class BindToServerFailoveringH2(BindToServerH2, test_hash_stress.BindToServerFailovering):
-    def test_hash(self):
-        super(BindToServerFailoveringH2, self).test_hash()
+    async def test_hash(self):
+        await super(BindToServerFailoveringH2, self).test_hash()
