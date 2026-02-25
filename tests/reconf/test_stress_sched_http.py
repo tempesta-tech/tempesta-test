@@ -92,9 +92,9 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
-    def setUp(self) -> None:
+    async def asyncSetUp(self) -> None:
         self.clients.extend(self.curl_clients)
-        super().setUp()
+        await super().asyncSetUp()
         self.addCleanup(self.cleanup_clients)
         self.addCleanup(self.cleanup_client_cmd_opt)
 
@@ -107,10 +107,10 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
         client.options[0] = self._change_uri_cmd_opt(client)
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_reconfig_on_the_fly_for_sched_http(self) -> None:
+    async def test_reconfig_on_the_fly_for_sched_http(self) -> None:
         """Test Tempesta for change config on the fly."""
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # start config Tempesta check (before reload)
         self._check_start_tfw_config(
@@ -124,10 +124,10 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
         client_h2.start()
 
         # sending curl requests before reconfig Tempesta
-        response = self.make_curl_request("curl-origin-h2")
+        response = await self.make_curl_request("curl-origin-h2")
         self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
-        response = self.make_curl_request("curl-alternate-h2")
+        response = await self.make_curl_request("curl-alternate-h2")
         self.assertIn(STATUS_FORBIDDEN, response, msg=self.dbg_msg)
 
         # config Tempesta change,
@@ -142,11 +142,11 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
 
         # sending curl requests after reconfig Tempesta
         for client in [client["id"] for client in self.curl_clients]:
-            response = self.make_curl_request(client)
+            response = await self.make_curl_request(client)
             self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # H2Load stop
-        self.wait_while_busy(client_h2)
+        await self.wait_while_busy(client_h2)
         client_h2.stop()
 
     def _change_uri_cmd_opt(self, client: ExternalTester, path: str = None) -> str:
@@ -177,6 +177,3 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
                 f'uri == "/{vhost}" -> {vhost};',
                 tempesta.config.get_config(),
             )
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -96,9 +96,9 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
 
     min_server_weight = 30
 
-    def test_reconf_on_the_fly_for_dynamic_ratio_sched(self) -> None:
+    async def test_reconf_on_the_fly_for_dynamic_ratio_sched(self) -> None:
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # check Tempesta config (before reload)
         self._check_start_tfw_config(
@@ -109,7 +109,7 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
         # launch h2load
         client = self.get_client("h2load")
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
 
         self.check_servers_weights()
 
@@ -125,7 +125,7 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load after Tempesta reload
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.check_servers_weights()
@@ -156,6 +156,3 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
                 break
             prev_weight = weight
             prev_name = name
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -107,10 +107,10 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
         for step in range(backends_count)
     ]
 
-    def test_reconf_on_the_fly_for_hash_sched(self):
+    async def test_reconf_on_the_fly_for_hash_sched(self):
         """Test of changing the scheduler attached to a server group."""
         # launch all services and getting Tempesta instance
-        self.start_all_services()
+        await self.start_all_services()
         tempesta = self.get_tempesta()
 
         # check Tempesta config (before reload)
@@ -118,7 +118,7 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
 
         # launch H2Load
         client = self.get_client("h2load")
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
@@ -138,7 +138,7 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load after Tempesta reload
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
@@ -174,6 +174,3 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
         self.assertTrue(loaded_servers)
 
         return loaded_servers[0]
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

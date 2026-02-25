@@ -125,11 +125,11 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
         "config": TEMPESTA_CONFIG,
     }
 
-    def test_reconf_on_the_fly_for_grace_shutdown(self) -> None:
+    async def test_reconf_on_the_fly_for_grace_shutdown(self) -> None:
         """Test of grace shutdown to a server group."""
         # 1
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         tempesta = self.get_tempesta()
         client = self.get_client("h2load")
 
@@ -137,13 +137,13 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
         self._check_start_tfw_config(SRV_GRP_START, SRV_GRP_AFTER_RELOAD)
 
         # perform `init` request
-        response = self.make_curl_client_request("curl", headers={"Host": "app.com"})
+        response = await self.make_curl_client_request("curl", headers={"Host": "app.com"})
         self.assertEqual(response.status, http.HTTPStatus.FOUND)
         self.assertIn("__tfw", response.headers["set-cookie"])
 
         # perform curl request
         cookie_header = {"Cookie": response.headers["set-cookie"]}
-        response = self.make_curl_client_request("curl", headers=cookie_header)
+        response = await self.make_curl_client_request("curl", headers=cookie_header)
         self.assertEqual(response.status, http.HTTPStatus.OK)
 
         # check Total pinned sessions in servers statistics
@@ -166,12 +166,9 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
 
         # 3
         # perform curl request
-        response = self.make_curl_client_request("curl", headers=cookie_header)
+        response = await self.make_curl_client_request("curl", headers=cookie_header)
         self.assertEqual(response.status, http.HTTPStatus.OK)
 
         # h2load stop
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

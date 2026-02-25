@@ -97,9 +97,9 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
 
     dbg_msg = "Server {0} received {1} requests, but [{2}, {3}] was expected"
 
-    def test_reconf_on_the_fly_for_static_ratio_sched(self) -> None:
+    async def test_reconf_on_the_fly_for_static_ratio_sched(self) -> None:
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # getting servers instances
         servers = self.get_servers()
@@ -110,7 +110,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
         # launch h2load
         client = self.get_client("h2load")
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
 
         # get statistics on expected requests
         s_reqs_expected: float = self.get_n_expected_reqs(servers)
@@ -141,7 +141,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load after Tempesta reload
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
 
         # get statistics on expected requests
         s_reqs_expected: float = self.get_n_expected_reqs(servers)
@@ -169,6 +169,3 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
         for srv in servers:
             srv.get_stats()
         return tempesta.stats.cl_msg_forwarded / len(servers)
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

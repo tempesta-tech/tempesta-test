@@ -38,7 +38,7 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
         },
     ]
 
-    def make_curl_request(self, curl_client_id: str) -> str:
+    async def make_curl_request(self, curl_client_id: str) -> str:
         """
         Make `curl` request.
 
@@ -50,7 +50,7 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
         """
         client = self.get_client(curl_client_id)
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         self.assertEqual(
             0,
             client.returncode,
@@ -59,7 +59,7 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
         client.stop()
         return client.response_msg
 
-    def make_curl_client_request(
+    async def make_curl_client_request(
         self,
         curl_client_id: str,
         headers: dict[str, str] = None,
@@ -85,7 +85,7 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
                 curl.headers[key] = val
 
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         self.assertEqual(
             0,
             curl.returncode,
@@ -155,6 +155,3 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
             reloaded_conf_item,
             tempesta.config.get_config(),
         )
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
