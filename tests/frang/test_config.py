@@ -919,7 +919,7 @@ block_action error reply;
         """
         self.__update_tempesta_config(config)
         await self.start_all_services(client=False)
-        test_function(self)
+        await test_function(self)
 
     async def _test_override_http_methods_after_reload(self):
         client = self.get_client("deproxy")
@@ -971,7 +971,7 @@ block_action error reply;
         self.get_tempesta().config.defconfig = config
         self.__update_tempesta_config(second_config)
         self.get_tempesta().reload()
-        test_function(self)
+        await test_function(self)
 
     @marks.Parameterize.expand(
         [

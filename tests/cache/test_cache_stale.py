@@ -45,13 +45,13 @@ cache_fulfill * *;
 """
     }
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta["config"] = self.tempesta_tmpl["config"] % {
             "proto": self.proto,
         }
         if self.proto == "h2":
             self.clients = [{**client, "type": "deproxy_h2"} for client in self.clients]
-        tester.TempestaTest.setUp(self)
+        await super().asyncSetUp()
 
     async def use_stale_base(
         self, resp_status, use_stale, resp1_headers, resp2_headers, expect_status, expect_stale

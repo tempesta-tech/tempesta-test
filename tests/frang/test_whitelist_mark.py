@@ -84,9 +84,9 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         remote.tempesta.run_cmd("cp %s %s" % (js_code, workdir))
         remote.tempesta.run_cmd("cp %s %s/js_challenge.tpl" % (template, workdir))
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.prepare_js_templates()
-        return super().setUp()
+        return await super().asyncSetUp()
 
     async def test_whitelisted_basic_request(self):
         self.set_nf_mark(1)

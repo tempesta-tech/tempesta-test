@@ -191,7 +191,7 @@ http_chain {{
         curl.stop()
 
     @classmethod
-    def setUpClass(cls):
+    async def asyncSetUpClass(cls):
         super().setUpClass()
         cls.addClassCleanup(cls.cleanup_proxies)
 
@@ -206,8 +206,8 @@ http_chain {{
         remote.client.mkdir(f"{MHDDOS_DIR}/files/")
         remote.client.run_cmd(f'echo "{ips_str}" > {PROXY_PATH}')
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.create_large_page()
         self.addCleanup(self.remove_large_page)
 

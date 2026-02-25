@@ -37,7 +37,7 @@ DEPROXY_CLIENT_H2 = {
 
 class BaseJSChallenge(tester.TempestaTest):
     @classmethod
-    def setUpClass(cls):
+    async def asyncSetUpClass(cls):
         super().setUpClass()
         srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
         workdir = tf_cfg.cfg.get("Tempesta", "workdir")
@@ -688,8 +688,8 @@ class JSChallengeCookieExpiresAndMethodOverride(BaseJSChallenge):
         """
     }
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
         # Cleanup part

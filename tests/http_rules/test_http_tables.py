@@ -262,8 +262,8 @@ class HttpTablesMarkSetup:
 class HttpTablesTestMarkRules(HttpTablesTest, HttpTablesMarkSetup):
     match_rules_test = False
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
 
@@ -637,8 +637,8 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
         {"id": 0, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
 

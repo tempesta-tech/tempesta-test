@@ -96,11 +96,11 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
     body = BODY_PAYLOAD
     chunk_size = CHUNK_SIZE
 
-    def setUp(self):
+    async def asyncSetUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += util.encode_chunked(self.body, self.chunk_size)
-        super().setUp()
+        await super().asyncSetUp()
 
     async def run_test(self, method, body_expected):
         client = self.get_client("client")
@@ -391,11 +391,11 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def setUp(self):
+    async def asyncSetUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += util.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
-        super().setUp()
+        await super().asyncSetUp()
 
     async def test(self):
         await self.start_all()
@@ -506,11 +506,11 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
         """
     }
 
-    def setUp(self):
+    async def asyncSetUp(self):
         # add a chunked body
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += util.encode_chunked(BODY_PAYLOAD, CHUNK_SIZE)
-        super().setUp()
+        await super().asyncSetUp()
 
     async def test(self):
         await self.start_all()
@@ -595,12 +595,12 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         (":method", "GET"),
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] += (
             util.encode_chunked(self.payload, CHUNK_SIZE)[:-2] + f"X-Token: {self.token}\r\n\r\n"
         )
-        super().setUp()
+        await super().asyncSetUp()
 
     async def test(self):
         await self.start_all()

@@ -53,10 +53,10 @@ cache_purge_acl ${client_ip};
 
     BODY_LENGTH = 65536
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         self.backends[0]["response_content"] = self.generate_content()
-        super(HeavyChunkedPurgeRespTest, self).setUp()
+        await super(HeavyChunkedPurgeRespTest, self).asyncSetUp()
 
     def generate_content(self):
         body = "x" * self.BODY_LENGTH

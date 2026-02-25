@@ -56,7 +56,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
     ]
 
     async def asyncSetUp(self):
-        super().setUp()
+        await super().asyncSetUp()
         await self.start_all_services(client=False)
 
     def h2load_total_requests(self, text: str) -> int:

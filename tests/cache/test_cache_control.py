@@ -65,7 +65,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
     # Empty if cached/second response is same as first one.
     cached_status = "200"
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta = copy.deepcopy(self.tempesta_template)
         self.tempesta["config"] = self.tempesta["config"] % {
             "tempesta_config": self.tempesta_config or ""
@@ -76,7 +76,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
         if getattr(self, "second_request_headers", None) is None:
             self.second_request_headers = self.request_headers
 
-        super().setUp()
+        await super().asyncSetUp()
 
     async def client_send_req(self, client, headers: dict):
         req_headers = "".join(

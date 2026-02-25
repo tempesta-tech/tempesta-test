@@ -69,8 +69,8 @@ block_action attack reply;
     # waiting for dmesg
     timeout = 0.5
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
         # Cleanup part

@@ -150,7 +150,7 @@ class TestRescheduling(TestServerOptionsBase):
         server.start()
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "Paired request missing, HTTP Response Splitting attack?",
                 cond=dmesg.amount_greater_eq(1),
             ),
@@ -226,7 +226,7 @@ class TestRescheduling(TestServerOptionsBase):
         server.start()
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "Paired request missing, HTTP Response Splitting attack?",
                 cond=dmesg.amount_greater_eq(1),
             ),
@@ -269,7 +269,7 @@ class TestServerOptions(TestServerOptionsBase):
 
         self.assertGreater(time_end - time_start, 2, "Tempesta evicted a request earlier.")
         self.assertTrue(
-            self.loggers.dmesg.find("request evicted: timed out", cond=dmesg.amount_one),
+            await self.loggers.dmesg.find("request evicted: timed out", cond=dmesg.amount_one),
             "An unexpected number of warnings were received",
         )
 
@@ -308,7 +308,7 @@ class TestServerOptions(TestServerOptionsBase):
 
         self.assertEqual(client.last_response.status, "200")
         self.assertTrue(
-            self.loggers.dmesg.find("request evicted: timed out", cond=dmesg.amount_zero),
+            await self.loggers.dmesg.find("request evicted: timed out", cond=dmesg.amount_zero),
             "An unexpected number of warnings were received",
         )
 
@@ -349,7 +349,7 @@ class TestServerOptions(TestServerOptionsBase):
         await client.send_request(client.create_request(method="GET", headers=[]), "504")
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_one
             ),
             "An unexpected number of warnings were received",
@@ -395,7 +395,7 @@ class TestServerOptions(TestServerOptionsBase):
         await client.wait_for_response(timeout=5, strict=True)
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_zero
             ),
             "An unexpected number of warnings were received",
@@ -518,11 +518,11 @@ class TestServerOptions(TestServerOptionsBase):
         client.make_requests([request] * server_queue_size)
         await server.wait_for_requests(server_queue_size, strict=True)
         client.make_requests([request] * 10)
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
         self.assertEqual(client.statuses, {502: 10})
         self.assertTrue(
-            self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
+            await self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
             "An unexpected number of warnings were received",
         )
 
@@ -562,11 +562,11 @@ class TestServerOptions(TestServerOptionsBase):
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * server_queue_size)
         await server.wait_for_requests(3, strict=True)
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
         self.assertEqual(client.statuses, {})
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request evicted: timed out, status 504", cond=dmesg.amount_zero
             ),
             "An unexpected number of warnings were received",
@@ -605,10 +605,10 @@ class TestServerOptions(TestServerOptionsBase):
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * 5)
         await server.wait_for_requests(server_queue_size, strict=True)
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
         self.assertTrue(
-            self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
+            await self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
             "An unexpected number of warnings were received",
         )
         self.assertEqual(len(server.requests), 1)
@@ -637,7 +637,7 @@ class TestServerOptions(TestServerOptionsBase):
         await client.send_request(client.create_request(method="POST", headers=[]), "504")
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_one
             ),
             "An unexpected number of warnings were received",
@@ -669,7 +669,7 @@ class TestServerOptions(TestServerOptionsBase):
         await client.send_request(client.create_request(method="POST", headers=[]), "504")
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request evicted: the number of retries exceeded", cond=dmesg.amount_zero
             ),
             "An unexpected number of warnings were received",
@@ -713,7 +713,7 @@ class TestServerOptions(TestServerOptionsBase):
         self.assertTrue(await server.wait_for_requests(n=1))
         server.reset_new_connections()
 
-        self.assertTrue(client.wait_for_response(timeout=15))
+        self.assertTrue(await client.wait_for_response(timeout=15))
         self.assertEqual(client.last_response.status, "502")
 
         sniffer.stop()
@@ -726,7 +726,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request dropped: unable to find an available back end server",
                 cond=dmesg.amount_one,
             ),
@@ -767,7 +767,7 @@ class TestServerOptions(TestServerOptionsBase):
         server.reset_new_connections()
         server.drop_conn_when_request_received = False
 
-        self.assertTrue(client.wait_for_response(15))
+        self.assertTrue(await client.wait_for_response(15))
         self.assertEqual(client.last_response.status, "200")
 
         sniffer.stop()
@@ -781,7 +781,7 @@ class TestServerOptions(TestServerOptionsBase):
         )
 
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request dropped: unable to find an available back end server",
                 cond=dmesg.amount_zero,
             ),
@@ -825,11 +825,11 @@ class TestServerOptions(TestServerOptionsBase):
         # Do not call the start method here because it reset all variables
         server.run_start()
 
-        self.assertTrue(client.wait_for_response(5))
+        self.assertTrue(await client.wait_for_response(5))
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.connections), 2)
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request dropped: unable to find an available back end server",
                 cond=dmesg.amount_zero,
             ),

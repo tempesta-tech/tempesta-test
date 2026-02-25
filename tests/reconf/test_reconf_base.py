@@ -695,8 +695,8 @@ class TestServerOptionsReconf(tester.TempestaTest):
 
     sniffer_timeout = 5
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.dmesg = dmesg.DmesgFinder(disable_ratelimit=True)
         self.sniffer = analyzer.Sniffer(
             node=remote.tempesta, host="Tempesta", timeout=self.sniffer_timeout, ports=[8000]

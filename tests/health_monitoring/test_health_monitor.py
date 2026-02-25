@@ -261,7 +261,7 @@ class TestHealthStat(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         tempesta_config = """
             listen 80;
             listen 443 proto=h2;
@@ -278,7 +278,7 @@ class TestHealthStat(tester.TempestaTest):
                 cache_fulfill * *;
             """
         self.tempesta["config"] = tempesta_config
-        super().setUp()
+        await super().asyncSetUp()
 
     async def test_smoke(self):
         await self.start_all_services()
@@ -471,8 +471,8 @@ class TestHmMalformedResponse(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         self.klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.assert_msg = "Expected nums of warnings in `journalctl`: {exp}, but got {got}"
         # Cleanup part

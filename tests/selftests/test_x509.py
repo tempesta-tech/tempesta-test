@@ -15,7 +15,7 @@ class TestX509CertGenerator(unittest.TestCase):
             f"openssl x509 -text -noout -in {self.cgen.get_file_paths()[0]}"
         )[0].decode()
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.cgen = CertGenerator()
         self.remove_certs()  # initial certs cleanup before testing
         self.addCleanup(self.remove_certs)

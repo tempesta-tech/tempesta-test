@@ -155,7 +155,7 @@ class LargePageNginxBackendMixin:
     def large_page_path(self):
         return Path(tf_cfg.cfg.get("Server", "resources")) / "large.html"
 
-    def setUp(self):
+    async def asyncSetUp(self):
         if self._base:
             self.skipTest("This is an abstract class")
         self.backends = [
@@ -168,7 +168,7 @@ class LargePageNginxBackendMixin:
                 "config": NGINX_LARGE_PAGE_CONFIG,
             },
         ]
-        super().setUp()
+        await super().asyncSetUp()
         self.create_large_page()
         # Cleanup part
         self.addCleanup(self.remove_large_page)
@@ -242,7 +242,7 @@ max_concurrent_streams 10000;
     ]
 
     @classmethod
-    def setUpClass(cls):
+    async def asyncSetUpClass(cls):
         super().setUpClass()
         cls._create_large_page()
         # Cleanup part
@@ -487,13 +487,13 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         if self._base:
             self.skipTest("This is an abstract class")
         self.tempesta = {
             "config": self.tempesta_tmpl % (self.proto),
         }
-        super().setUp()
+        await super().asyncSetUp()
 
     async def make_requests(self, client_id):
         client = self.get_client(client_id)
@@ -594,7 +594,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         if self._base:
             self.skipTest("This is an abstract class")
         self.tempesta = {
@@ -602,7 +602,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         }
         if self.proto == "h2":
             self.clients = [{**client, "http2": True} for client in self.clients]
-        super().setUp()
+        await super().asyncSetUp()
 
     async def test_cache_eviction_tdb(self):
         """
@@ -640,7 +640,7 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
         server.get_stats()
         self.assertGreater(server.requests, 0)
         self.assertTrue(
-            self.loggers.dmesg.find(expected_warning, cond=dmesg.amount_positive),
+            await self.loggers.dmesg.find(expected_warning, cond=dmesg.amount_positive),
             f"Warning '{expected_warning}' wasn't found",
         )
 
@@ -650,9 +650,9 @@ class TlsCurlStress(BaseCurlStress):
 
     proto = "https"
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.clients = [{**client, "ssl": True} for client in self.clients]
-        super().setUp()
+        await super().asyncSetUp()
 
 
 class H2CurlStress(BaseCurlStress):
@@ -660,9 +660,9 @@ class H2CurlStress(BaseCurlStress):
 
     proto = "h2"
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.clients = [{**client, "http2": True} for client in self.clients]
-        super().setUp()
+        await super().asyncSetUp()
 
 
 class RequestStress(tester.TempestaTest):
@@ -726,9 +726,9 @@ class RequestStress(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         remote.client.copy_file(self.fullname, "x" * LARGE_CONTENT_LENGTH)
-        super().setUp()
+        await super().asyncSetUp()
         # Cleanup part
         self.addCleanup(self.cleanup_test_file)
 

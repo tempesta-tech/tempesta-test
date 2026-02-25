@@ -267,11 +267,11 @@ frang_limits {
         + "\r\n"
     )
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta["config"] = self.tempesta_template["config"] % {
             "purge_type": self.purge_type,
         }
-        TempestaTest.setUp(self)
+        await super().asyncSetUp()
 
     async def test_purge(self):
         """

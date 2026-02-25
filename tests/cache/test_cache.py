@@ -2080,7 +2080,7 @@ cache_fulfill * *;
         with self.assertRaises(error.ProcessBadExitStatusException):
             await self.start_tempesta()
 
-        self.assertTrue(self.loggers.dmesg.find(expected_msg))
+        self.assertTrue(await self.loggers.dmesg.find(expected_msg))
 
 
 @marks.parameterize_class(

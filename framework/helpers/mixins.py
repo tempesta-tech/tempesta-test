@@ -11,11 +11,11 @@ __license__ = "GPL2"
 class NetfilterMarkMixin:
     """Mixin to set Netfilter mark."""
 
-    def setUp(self):
+    async def asyncSetUp(self):
         if self._base:
             self.skipTest("This is an abstract class")
         self._nf_mark = None
-        super().setUp()
+        await super().asyncSetUp()
         self.addCleanup(self.cleanup_del_nf_mark)
 
     def cleanup_del_nf_mark(self):

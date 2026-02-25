@@ -566,7 +566,7 @@ class StickyCookieConfig(tester.TempestaTest):
         with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
             await self.start_tempesta()
         self.assertTrue(
-            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
+            await self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
 
@@ -699,7 +699,7 @@ class StickyCookieOptions(tester.TempestaTest):
         with self.assertRaises(error.ProcessBadExitStatusException, msg=""):
             await self.start_tempesta()
         self.assertTrue(
-            self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
+            await self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
 

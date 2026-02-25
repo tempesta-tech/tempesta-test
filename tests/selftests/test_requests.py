@@ -8,7 +8,7 @@ __license__ = "GPL2"
 
 
 class ParseRequest(unittest.TestCase):
-    def setUp(self):
+    async def asyncSetUp(self):
         self.plain = deproxy_message.Request(PLAIN)
         self.reordered = deproxy_message.Request(REORDERED)
         self.duplicated = deproxy_message.Request(DUPLICATED)

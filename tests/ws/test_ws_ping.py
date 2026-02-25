@@ -290,9 +290,9 @@ http_chain {
 """,
     }
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta["config"] = self.tempesta_template["config"] % self.proto
-        super().setUp()
+        await super().asyncSetUp()
 
     async def test(self):
         await self._test(tempesta_port=82, is_ssl=True)
@@ -316,8 +316,8 @@ class TestWssPingProxy(BaseWsPing):
 
     tempesta = {"config": TEMPESTA_NGINX_CONFIG}
 
-    def setUp(self):
-        super().setUp()
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
         cert_generator = CertGenerator(
             cert_path=f"{tf_cfg.cfg.get('Server', 'workdir')}/tempesta.crt",
             key_path=f"{tf_cfg.cfg.get('Server', 'workdir')}/tempesta.key",

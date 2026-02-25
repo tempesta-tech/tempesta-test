@@ -106,11 +106,11 @@ class BlockActionBase(tester.TempestaTest, asserts.Sniffer):
 class BlockActionReply(BlockActionBase):
     ERROR_RESPONSE_BODY = ""
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta = {
             "config": self.tempesta_tmpl % ("reply", "reply"),
         }
-        tester.TempestaTest.setUp(self)
+        await super().asyncSetUp()
 
     async def check_last_error_response(self, client, expected_status_code):
         """
@@ -300,12 +300,12 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
 
         return path
 
-    def setUp(self):
+    async def asyncSetUp(self):
         path = self.__generate_custom_error_page(self.ERROR_RESPONSE_BODY)
         self.tempesta = {
             "config": self.tempesta_tmpl % ("reply", "reply", path),
         }
-        tester.TempestaTest.setUp(self)
+        await super().asyncSetUp()
 
     @marks.Parameterize.expand(
         [
@@ -331,11 +331,11 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
 
 
 class BlockActionDrop(BlockActionBase):
-    def setUp(self):
+    async def asyncSetUp(self):
         self.tempesta = {
             "config": self.tempesta_tmpl % ("drop", "drop"),
         }
-        tester.TempestaTest.setUp(self)
+        await super().asyncSetUp()
 
     @marks.Parameterize.expand(
         [
