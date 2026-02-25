@@ -107,12 +107,12 @@ http_chain {
 
     requests_n = 1
 
-    def test_scheduler(self):
+    async def test_scheduler(self):
         """
         All requests must be forwarded to the right vhosts and
         server groups according to rule in http_chain.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.server_hostname = "tempesta-tech.com"
@@ -129,7 +129,7 @@ http_chain {
                     + ("x" * step)
                 )
 
-                client.send_request(
+                await client.send_request(
                     self.request_with_options(
                         path=option[1],
                         header_name=option[2] if option[2] is not None else "",
@@ -204,12 +204,12 @@ class TestHostBase(tester.TempestaTest):
         for step in range(3)
     ]
 
-    def send_request_and_check_server_request(self, request: str or list, server_id: int):
-        self.start_all_services()
+    async def send_request_and_check_server_request(self, request: str or list, server_id: int):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         server = self.get_server(server_id)
         self.assertIsNotNone(
@@ -227,30 +227,30 @@ class TestHost(TestHostBase):
         },
     ]
 
-    def test_host_in_uri(self):
+    async def test_host_in_uri(self):
         """Host from url has first priority."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(f"GET http://tempesta-tech.com/ HTTP/1.1\r\n" + "Host: badhost\r\n" + "\r\n"),
             server_id=0,
         )
 
-    def test_hdr_host_in_uri(self):
+    async def test_hdr_host_in_uri(self):
         """Host from url is not `hdr host`."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(f"GET http://natsys-lab.com/ HTTP/1.1\r\n" + "Host: badhost\r\n" + "\r\n"),
             server_id=2,
         )
 
-    def test_host_in_host_header(self):
+    async def test_host_in_host_header(self):
         """Host header has second priority."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(f"GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
             server_id=0,
         )
 
-    def test_host_in_forwarded_header(self):
+    async def test_host_in_forwarded_header(self):
         """Forwarded header does not override host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(
                 f"GET / HTTP/1.1\r\n"
                 + "Host: localhost\r\n"
@@ -260,9 +260,9 @@ class TestHost(TestHostBase):
             server_id=2,
         )
 
-    def test_hdr_host_in_forwarded_header(self):
+    async def test_hdr_host_in_forwarded_header(self):
         """Forwarded header does not override host header."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(
                 f"GET / HTTP/1.1\r\n"
                 + "Host: localhost\r\n"
@@ -272,9 +272,9 @@ class TestHost(TestHostBase):
             server_id=2,
         )
 
-    def test_forwarded_header_first(self):
+    async def test_forwarded_header_first(self):
         """Forwarded header does not set hdr host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(
                 f"GET / HTTP/1.1\r\n"
                 + "Forwarded: host=natsys-lab.com\r\n"
@@ -284,9 +284,9 @@ class TestHost(TestHostBase):
             server_id=2,
         )
 
-    def test_forwarded_header_first_2(self):
+    async def test_forwarded_header_first_2(self):
         """Forwarded header does not set host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(
                 f"GET / HTTP/1.1\r\n"
                 + "Forwarded: host=tempesta-tech.com\r\n"
@@ -296,9 +296,9 @@ class TestHost(TestHostBase):
             server_id=2,
         )
 
-    def test_different_host_in_uri_and_host_header(self):
+    async def test_different_host_in_uri_and_host_header(self):
         """Host from url has priority over headers."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=(f"GET http://natsys-lab.com/ HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"),
             server_id=2,
         )

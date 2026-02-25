@@ -192,7 +192,7 @@ class HttpTablesTest(tester.TempestaTest):
 
     match_rules_test = True
 
-    def process(self, client, server, options, step):
+    async def process(self, client, server, options, step):
         uri, header, value, block = options
         request = client.create_request(
             method="GET",
@@ -204,7 +204,7 @@ class HttpTablesTest(tester.TempestaTest):
             request.headers.delete_all(":authority")
             request.headers.add(header, value)
 
-        client.send_request(
+        await client.send_request(
             request, expected_status_code="403" if block and self.match_rules_test else "200"
         )
 
@@ -213,19 +213,19 @@ class HttpTablesTest(tester.TempestaTest):
             self.assertEqual(server.last_request.headers.get(header), value)
         else:
             self.assertIsNone(server.last_request)
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
-    def test_chains(self):
+    async def test_chains(self):
         """
         Test for matching rules in HTTP chains: according to
         test configuration of HTTP tables, requests must be
         forwarded to the right vhosts according to it's
         headers content.
         """
-        self.start_all_services()
+        await self.start_all_services()
         options = len(self.requests_opt)
         for i in range(options):
-            self.process(self.get_client(i), self.get_server(i), self.requests_opt[i], step=i)
+            await self.process(self.get_client(i), self.get_server(i), self.requests_opt[i], step=i)
 
 
 class HttpTablesMarkSetup:
@@ -267,7 +267,7 @@ class HttpTablesTestMarkRules(HttpTablesTest, HttpTablesMarkSetup):
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
 
-    def test_chains(self):
+    async def test_chains(self):
         """T
         est for mark rules in HTTP chains: requests must
         arrive to backends in reverse order, since mark rules are
@@ -275,12 +275,12 @@ class HttpTablesTestMarkRules(HttpTablesTest, HttpTablesMarkSetup):
         configuration for current test - in @tempesta
         class variable).
         """
-        self.start_all_services()
+        await self.start_all_services()
         options = len(self.requests_opt)
         for i in range(options):
             mark = i + 1
             self.set_nf_mark(mark)
-            self.process(
+            await self.process(
                 self.get_client(i), self.get_server(options - mark), self.requests_opt[i], step=i
             )
             self.del_nf_mark(mark)
@@ -329,23 +329,23 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
 
     redirect_location = ""
 
-    def test(self):
-        self.start_all_services()
+    async def test(self):
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("client")
         deproxy_cl.server_hostname = "tempesta-tech.com"
         deproxy_cl.start()
         deproxy_cl.make_request(self.requests)
         if self.resp_status:
-            self.assertTrue(deproxy_cl.wait_for_response())
+            self.assertTrue(await deproxy_cl.wait_for_response())
             if self.redirect_location:
                 self.assertEqual(
                     deproxy_cl.last_response.headers["location"], self.redirect_location
                 )
             self.assertEqual(int(deproxy_cl.last_response.status), self.resp_status)
         else:
-            self.assertFalse(deproxy_cl.wait_for_response(0.5))
-            self.assertTrue(deproxy_cl.wait_for_connection_close())
+            self.assertFalse(await deproxy_cl.wait_for_response(0.5))
+            self.assertTrue(await deproxy_cl.wait_for_connection_close())
 
 
 class HttpTablesTestEmptyMainChainReply(HttpTablesTestBase):
@@ -583,11 +583,11 @@ http_chain {
         )
     }
 
-    def test(self):
+    async def test(self):
         self.oops_ignore = ["ERROR"]
         with self.assertRaises(error.ProcessBadExitStatusException):
-            self.start_tempesta()
-        self.loggers.dmesg.find(
+            await self.start_tempesta()
+        await self.loggers.dmesg.find(
             "ERROR: http_tbl: too many vars (more 8) in redirection url:",
             cond=dmesg.amount_positive,
         )
@@ -642,7 +642,7 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
         # Cleanup part
         self.addCleanup(self.cleanup_marked)
 
-    def test_reject_by_mark(self):
+    async def test_reject_by_mark(self):
         """
         Check how Tempesta set mark to skb according config.
         First of all block all skbs with mark == 1, using iptables,
@@ -652,7 +652,7 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
         tso, gro, gso, because we wan't to check how
         tso_fragment/tsp_fragment works with mark in linux kernel.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client(0)
 
         self.set_reject_nf_mark(1)
@@ -663,12 +663,16 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
 
         client.make_request(request)
 
-        self.assertFalse(client.wait_for_response(timeout=3, strict=False, adjust_timeout=False))
+        self.assertFalse(
+            await client.wait_for_response(timeout=3, strict=False, adjust_timeout=False)
+        )
         self.assertFalse(client.last_response)
 
         self.del_reject_nf_mark(1)
 
-        self.assertTrue(client.wait_for_response(timeout=5, strict=False, adjust_timeout=False))
+        self.assertTrue(
+            await client.wait_for_response(timeout=5, strict=False, adjust_timeout=False)
+        )
         self.assertTrue(client.last_response.status, "200")
 
 
@@ -806,13 +810,13 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
             ),
         ]
     )
-    def test_cookie(self, name, cookie, expected_status_code, server_id):
+    async def test_cookie(self, name, cookie, expected_status_code, server_id):
         """Test for matching rules in HTTP chains: according to
         test configuration of HTTP tables, requests must be
         forwarded to the right vhosts according to it's
         headers content.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client(0)
         server = self.get_server(server_id)
 
@@ -827,7 +831,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
         else:
             headers = [("cookie", cookie) for cookie in cookie]
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/baz/index.html", headers=headers),
             expected_status_code=expected_status_code,
         )
@@ -837,10 +841,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
             # Check if the connection alive (general case) or
             # not (case of 'block' rule matching) after the main
             # message processing. Response 404 is enough here.
-            client.send_request(client.create_request(method="GET", headers=[]), "200")
+            await client.send_request(client.create_request(method="GET", headers=[]), "200")
         else:
             self.assertIsNone(server.last_request)
-            self.assertTrue(client.wait_for_connection_close())
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+            self.assertTrue(await client.wait_for_connection_close())

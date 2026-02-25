@@ -20,8 +20,8 @@ class HttpRulesH2(test_http_rules.HttpRules):
     ]
     requests_n = 2  # client send headers as bytes from dynamic table
 
-    def test_scheduler(self):
-        super(HttpRulesH2, self).test_scheduler()
+    async def test_scheduler(self):
+        await super(HttpRulesH2, self).test_scheduler()
 
     @staticmethod
     def request_with_options(path, header_name, header_value):
@@ -49,9 +49,9 @@ class TestH2Host(TestHostBase):
         },
     ]
 
-    def test_hdr_host_in_authority_header(self):
+    async def test_hdr_host_in_authority_header(self):
         """:authority header is not hdr host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=[
                 (":authority", "natsys-lab.com"),
                 (":path", "/"),
@@ -61,9 +61,9 @@ class TestH2Host(TestHostBase):
             server_id=2,
         )
 
-    def test_host_in_authority_header(self):
+    async def test_host_in_authority_header(self):
         """:authority header is host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=[
                 (":authority", "tempesta-tech.com"),
                 (":path", "/"),
@@ -73,9 +73,9 @@ class TestH2Host(TestHostBase):
             server_id=0,
         )
 
-    def test_host_in_host_header(self):
+    async def test_host_in_host_header(self):
         """Host header is host if :authority header is not present."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -85,9 +85,9 @@ class TestH2Host(TestHostBase):
             server_id=0,
         )
 
-    def test_different_authority_and_host_headers(self):
+    async def test_different_authority_and_host_headers(self):
         """:authority header has first priority."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -98,9 +98,9 @@ class TestH2Host(TestHostBase):
             server_id=2,
         )
 
-    def test_host_in_forwarded_header(self):
+    async def test_host_in_forwarded_header(self):
         """Forwarded header does not override host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
@@ -111,9 +111,9 @@ class TestH2Host(TestHostBase):
             server_id=2,
         )
 
-    def test_hdr_host_in_forwarded_header(self):
+    async def test_hdr_host_in_forwarded_header(self):
         """Forwarded header does not override hdr host."""
-        self.send_request_and_check_server_request(
+        await self.send_request_and_check_server_request(
             request=[
                 (":path", "/"),
                 (":scheme", "https"),
