@@ -6,12 +6,31 @@ import struct
 from contextlib import contextmanager
 from typing import Any, Generator
 
+import psutil
+
 from framework.helpers import remote, tf_cfg
 from framework.helpers.tf_cfg import test_logger
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+_SYSTEM_IPS = []
+for _, addrs in psutil.net_if_addrs().items():
+    for addr in addrs:
+        if addr.family == socket.AF_INET:
+            _SYSTEM_IPS.append(addr.address)
+
+_NON_REMOVING_IPS = set(
+    [
+        tf_cfg.cfg.get("Tempesta", "ip"),
+        tf_cfg.cfg.get("Server", "ip"),
+    ]
+    + _SYSTEM_IPS
+)
+
+
+test_logger.info(f"Non-removing IPs {_NON_REMOVING_IPS}.")
 
 
 class NetWorker:
@@ -37,9 +56,9 @@ class NetWorker:
     @staticmethod
     def _check_ssh_ip_addr(ip: str) -> bool:
         """
-        We must not remove Tempesta and server IPs because it's break the ssh connection
+        We must not remove some IPs because it's break the ssh connection.
         """
-        return ip not in [tf_cfg.cfg.get("Tempesta", "ip"), tf_cfg.cfg.get("Server", "ip")]
+        return ip not in _NON_REMOVING_IPS
 
     @staticmethod
     def ip_str_to_number(ip_addr) -> int:
