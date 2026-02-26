@@ -388,7 +388,7 @@ class TlsVhostHandshakeTest(tester.TempestaTest):
     }
 
     @classmethod
-    async def asyncSetUpClass(cls):
+    def setUpClass(cls):
         super().setUpClass()
         cls.gen_cert("vhost1")
         cls.gen_cert("vhost2")

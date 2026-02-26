@@ -242,7 +242,7 @@ max_concurrent_streams 10000;
     ]
 
     @classmethod
-    async def asyncSetUpClass(cls):
+    def setUpClass(cls):
         super().setUpClass()
         cls._create_large_page()
         # Cleanup part

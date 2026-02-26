@@ -37,7 +37,7 @@ DEPROXY_CLIENT_H2 = {
 
 class BaseJSChallenge(tester.TempestaTest):
     @classmethod
-    async def asyncSetUpClass(cls):
+    def setUpClass(cls):
         super().setUpClass()
         srcdir = tf_cfg.cfg.get("Tempesta", "srcdir")
         workdir = tf_cfg.cfg.get("Tempesta", "workdir")

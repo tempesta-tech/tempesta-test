@@ -191,7 +191,7 @@ http_chain {{
         curl.stop()
 
     @classmethod
-    async def asyncSetUpClass(cls):
+    def setUpClass(cls):
         super().setUpClass()
         cls.addClassCleanup(cls.cleanup_proxies)
 
