@@ -10,10 +10,12 @@ __license__ = "GPL2"
 
 
 class HeavyChunkedPurgeRespTest(tester.TempestaTest):
-    # This is another heavy chunked test for ss_skb_chop_head_tail() function
-    # in context of rewriting PURGE method as GET, issue #1535, now testing
-    # with chunked response
-    #
+    """
+    This is another heavy chunked test for ss_skb_chop_head_tail() function
+    in context of rewriting PURGE method as GET, issue #1535, now testing
+    with chunked response.
+    """
+
     backends_template = [
         {
             "id": "deproxy",
@@ -77,15 +79,15 @@ Connection: keep-alive
         request="",
         expect: list = None,
     ):
-        # Set expect to expected proxied request,
-        # to empty string to skip request check and
-        # to None to check that request is missing
+        """
+        Set expect to expected proxied request,
+        to empty string to skip request check and
+        to None to check that request is missing
+        """
         deproxy_srv = self.get_server("deproxy")
         deproxy_cl = self.get_client("deproxy")
         if chunksize:
             deproxy_srv.segment_size = chunksize
-
-        await self.start_all_services()
 
         await deproxy_cl.send_request(request_0, "200", timeout=30)
         await deproxy_cl.send_request(request, "200", timeout=30)
@@ -109,8 +111,8 @@ Connection: keep-alive
         )
 
     async def test_0_purge_resp_non_hch(self):
-        # Normal (non heavy-chunked) test
-        #
+        """Normal (non heavy-chunked) test"""
+        await self.start_all_services()
         await self.common_check(
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
@@ -124,12 +126,11 @@ Connection: keep-alive
         )
 
     async def test_1_purge_resp_hch(self):
-        # Heavy-chunked test, iterative
-        #
-        response = self.get_server("deproxy").response
+        """Heavy-chunked test, iterative"""
+        await self.start_all_services()
         await self.iterate_test(
             self.common_check,
-            len(response),
+            len(self.get_server("deproxy").response),
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
             expect=[
@@ -142,8 +143,7 @@ Connection: keep-alive
         )
 
     async def iterate_test(self, test_func, msg_size, *args, **kwargs):
-        CHUNK_SIZES = [1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216, 1024 * 1024]
-        for i in range(len(CHUNK_SIZES)):
-            await test_func(CHUNK_SIZES[i], *args, **kwargs)
-            if CHUNK_SIZES[i] > msg_size:
+        for chunk_size in [1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 1500, 9216, 1024 * 1024]:
+            if chunk_size > msg_size:
                 break
+            await test_func(chunk_size, *args, **kwargs)
