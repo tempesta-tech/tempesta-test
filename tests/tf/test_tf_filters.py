@@ -272,9 +272,10 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
 
         client_names = list(map(lambda __client: __client["id"], self.clients))
         clients = list(map(self.get_client, client_names))
-        fingerprints = await asyncio.gather(
-            *[self.get_client_fingerprint(name) for name in client_names]
-        )
+        fingerprints = []
+        for name in client_names:
+            fingerprint = await self.get_client_fingerprint(name)
+            fingerprints.append(fingerprint)
 
         self.assertEqual(self.get_hash(fingerprints[0]), self.get_hash(fingerprints[1]))
         self.assertEqual(self.get_hash(fingerprints[-1]), self.get_hash(fingerprints[-2]))

@@ -9,7 +9,7 @@ __license__ = "GPL2"
 
 
 class TestHeaderCollection(unittest.TestCase):
-    async def asyncSetUp(self):
+    def setUp(self):
         self.headers = deproxy_message.HeaderCollection()
         self.headers.set_expected()
 

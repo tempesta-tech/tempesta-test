@@ -1777,7 +1777,7 @@ class TestFailFunction(TestFailFunctionBase):
 
         if msg:
             self.assertTrue(
-                await self.loggers.dmesg.afind(msg, cond=dmesg.amount_positive),
+                await self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
                 "Tempesta doesn't report error",
             )
 
@@ -1947,7 +1947,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
                 self.assertTrue(await client.wait_for_response())
                 self.assertTrue(client.last_response.status, "200")
         self.assertTrue(
-            await self.loggers.dmesg.afind(msg, cond=dmesg.amount_positive),
+            await self.loggers.dmesg.find(msg, cond=dmesg.amount_positive),
             "Tempesta doesn't report error",
         )
 

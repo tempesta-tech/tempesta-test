@@ -3,7 +3,7 @@ import ssl
 import requests
 import websockets
 
-from framework.helpers import dmesg, remote, tf_cfg
+from framework.helpers import dmesg, remote, tf_cfg, util
 from framework.helpers.cert_generator_x509 import CertGenerator
 from framework.test_suite import marks, tester
 
@@ -207,7 +207,7 @@ class BaseWsPing(tester.TempestaTest):
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
-        self.ws_servers = []
+        self.ws_servers: list[websockets.WebSocketServer] = []
 
     # Client
 
@@ -390,21 +390,29 @@ class TestWssStress(BaseWsPing):
                 break
         return fib
 
-    @marks.change_ulimit(ulimit=10000)
-    async def test(self):
-        await self._test(tempesta_port=82, is_ssl=True)
+    async def wait_for_connections(self, conns_n: int) -> None:
+        tempesta = self.get_tempesta()
 
+        def wait():
+            tempesta.get_stats()
+            return tempesta.stats.__dict__.get("srv_established_connections", 0) != conns_n
+
+        await util.wait_until(wait)
+
+    @marks.change_ulimit(ulimit=10000)
     @BaseWsPing.cleanup_ws_servers
-    async def _test(self, tempesta_port: int, is_ssl: bool):
-        for i in range(50):
+    async def test(self):
+        servers_n = 50
+        for i in range(servers_n):
             self.ws_servers.append(
                 await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
             )
         await self.start_tempesta()
+        await self.wait_for_connections(conns_n=servers_n * 32)  # conns_n == 32
         count = 0
         for _ in range(4000):
             count += 1
-            await self.ws_ping_test(tempesta_port, is_ssl)
+            await self.ws_ping_test(82, True)
             if (4000 - count) in self.fibo(4000):
                 self.get_tempesta().restart()
 

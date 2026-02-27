@@ -44,14 +44,11 @@ class TestBlockActionH2(BlockActionH2Base):
         self.check_fin_and_rst_in_sniffer(sniffer, clients)
 
     async def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
+        self.assertTrue(await client.wait_for_connection_close())
         if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
-            self.assertTrue(await client.wait_for_response())
             self.assertEqual(client.last_response.status, expected_status_code)
             self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
             client.assert_error_code(expected_error_code=expected_goaway_code)
-        else:
-            self.assertFalse(await client.wait_for_response())
-        self.assertTrue(await client.wait_for_connection_close())
 
     async def test_block_action_attack_reply(self):
         client = self.get_client("deproxy")

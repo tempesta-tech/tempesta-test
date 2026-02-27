@@ -265,10 +265,10 @@ class TestFrangRequestRateBurst(FrangTestCase):
         if end_time - start_time > DELAY:
             raise error.TestConditionsAreNotCompleted(self.id())
 
+        if warns_expected:
+            self.assertTrue(await client.wait_for_connection_close())
         await self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=warns_expected)
         await self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=0)
-        if warns_expected:
-            self.assertTrue(client.connection_is_closed())
 
     @marks.Parameterize.expand(
         [

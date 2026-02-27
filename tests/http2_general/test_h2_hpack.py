@@ -1050,16 +1050,15 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         In HTTP/2, this follows a settings acknowledgment (see Section
         6.5.3 of [HTTP2]).
         In this test we send maximum size of the dynamic table in the
-        middle and at the end of the of the first header block.
+        middle and at the end of the first header block.
         """
         await self.start_all_services()
 
         client = self.get_client("deproxy")
         await self.initiate_h2_connection(client)
 
-        stream = client.init_stream_for_send(client.stream_id)
+        client.init_stream_for_send(client.stream_id)
 
-        frame = None
         frame = HeadersFrame(
             stream_id=1,
             data=data,
@@ -1072,8 +1071,8 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, expected_status_code)
         if expected_status_code != "200":
-            client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
             self.assertTrue(await client.wait_for_connection_close())
+            client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
 
 
 class TestHpackBomb(TestHpackBase):
