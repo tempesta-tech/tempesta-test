@@ -5,6 +5,8 @@ __license__ = "GPL2"
 
 import abc
 import dataclasses
+import errno
+import socket
 import ssl
 import sys
 import time
@@ -78,9 +80,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.conn_addr = conn_addr
         self.conn_is_closed = True
         self.__error_codes: list[Exception | ErrorCodes] = []
+        self.__is_rst_received: bool = None
 
         self.rps = 0
         self.parsing = True
+        self.close_connection_for_tcp_fin = True
 
         self.simple_get = self.create_request("GET", headers=[])
 
@@ -99,6 +103,10 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
             # compression.
             self._context.options |= ssl.OP_NO_COMPRESSION
+
+    @property
+    def is_rst_received(self) -> bool:
+        return self.__is_rst_received
 
     @property
     def statuses(self) -> Dict[int, int]:
@@ -200,10 +208,18 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.start_time = time.time()
 
     def _handle_close(self):
-        super()._handle_close()
-        self.writable = self._in_connecting_state
-        self._handle_write = self.__setup_write
-        self.conn_is_closed = True
+        if self.close_connection_for_tcp_fin:
+            try:
+                err = self._socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                self._tcp_logger.info(f"Close with errno={err}")
+                self.__is_rst_received = True if err == errno.EPIPE else False
+            except OSError as why:
+                if why.errno != errno.EBADF:
+                    raise
+            super()._handle_close()
+            self.writable = self._in_connecting_state
+            self._handle_write = self.__setup_write
+            self.conn_is_closed = True
 
     def _handle_error(self):
         type_error, v, _ = sys.exc_info()
@@ -234,6 +250,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.rps = rps
 
     def _stop_deproxy(self):
+        self.close_connection_for_tcp_fin = True
         self._handle_close()
 
     def _run_deproxy(self):

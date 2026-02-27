@@ -14,6 +14,10 @@
             "reason": "These tests should not be run with TCP segmentation. These tests doesn't use deproxy."
         },
         {
+            "name": "tests.multiple_clients",
+            "reason": "These tests should not be run with TCP segmentation. These tests doesn't use deproxy."
+        },
+        {
             "name": "tests.stress",
             "reason": "These tests should not be run with TCP segmentation."
         },
