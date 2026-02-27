@@ -11,46 +11,15 @@ from framework.helpers.analyzer import RST, TCP
 from framework.helpers.error import ProcessBadExitStatusException
 from framework.test_suite import marks, tester
 
-NGINX_CONFIG = """
-pid ${pid};
-worker_processes  auto;
-events {
-    worker_connections   1024;
-    use epoll;
-}
-http {
-    keepalive_timeout ${server_keepalive_timeout};
-    keepalive_requests ${server_keepalive_requests};
-    sendfile         on;
-    tcp_nopush       on;
-    tcp_nodelay      on;
-    open_file_cache max=1000;
-    open_file_cache_valid 30s;
-    open_file_cache_min_uses 2;
-    open_file_cache_errors off;
-    error_log /dev/null emerg;
-    access_log off;
-    server {
-        listen        ${server_ip}:8000;
-        location / {
-            return 200;
-        }
-        location /nginx_status {
-            stub_status on;
-        }
-    }
-}
-"""
-
 
 class TestTrainingBase(tester.TempestaTest):
     backends = [
         {
-            "id": "nginx",
-            "type": "nginx",
+            "id": "deproxy",
+            "type": "deproxy",
             "port": "8000",
-            "status_uri": "http://${server_ip}:8000/nginx_status",
-            "config": NGINX_CONFIG,
+            "response": "static",
+            "response_content": ("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"),
         },
     ]
 
@@ -304,21 +273,35 @@ class TestTrainingRequests(TestTrainingBase):
                 name="default",
                 extra_config="training_z_score_connection_num 1000;\n",
                 req_num=40,
-                block_expected=[23, 25],
+                block_expected=[23, 25, False],
+                frang_config="http_strict_host_checking false;\n",
+            ),
+            marks.Param(
+                name="default",
+                extra_config="training_z_score_connection_num 1000;\n",
+                req_num=40,
+                block_expected=[23, 25, True],
+                frang_config="http_strict_host_checking false;\nip_block 0;\n",
+            ),
+            marks.Param(
+                name="1",
+                extra_config="training_z_score_request_num 1;\ntraining_z_score_connection_num 1000;\n",
+                req_num=40,
+                block_expected=[16, 19, False],
                 frang_config="http_strict_host_checking false;\n",
             ),
             marks.Param(
                 name="1",
                 extra_config="training_z_score_request_num 1;\ntraining_z_score_connection_num 1000;\n",
                 req_num=40,
-                block_expected=[16, 19],
-                frang_config="http_strict_host_checking false;\n",
+                block_expected=[16, 19, True],
+                frang_config="http_strict_host_checking false;\nip_block 0;\n",
             ),
             marks.Param(
                 name="5",
                 extra_config="training_z_score_request_num 5;\ntraining_z_score_connection_num 1000;\n",
                 req_num=40,
-                block_expected=[0, 0],
+                block_expected=[0, 0, False],
                 frang_config="http_strict_host_checking false;\n",
             ),
         ]
@@ -332,6 +315,7 @@ class TestTrainingRequests(TestTrainingBase):
                 self.get_tempesta().config.defconfig + extra_config
             )
         self.start_all_services()
+        server = self.get_server("deproxy")
 
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
@@ -342,7 +326,13 @@ class TestTrainingRequests(TestTrainingBase):
                 client = self.get_client(f"deproxy-interface-{id_}")
                 request = client.create_request(method="GET", headers=[])
                 requests = [request] * (id_ + 1)
+                server.pipelined = id_ + 2
+                server.restart()
+                self.assertTrue(server.wait_for_connections())
                 client.make_requests(requests)
+                self.assertTrue(server.wait_for_requests(id_ + 1))
+                self.assertEqual(len(client.responses), 0)
+                server.flush()
                 client.wait_for_response()
                 self.assertEqual(len(client.responses), id_ + 1)
                 for i in range(id_ + 1):
@@ -350,14 +340,26 @@ class TestTrainingRequests(TestTrainingBase):
                 id_ += 1
             remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
 
+            server.pipelined = req_num
+            server.restart()
+            self.assertTrue(server.wait_for_connections())
             client = self.get_client("deproxy")
             request = client.create_request(method="GET", headers=[])
             requests = [request] * req_num
             client.make_requests(requests)
-            client.wait_for_response()
-
-            self.assertGreaterEqual(len(client.responses), block_expected[0])
-            self.assertLessEqual(len(client.responses), block_expected[1])
+            self.assertTrue(server.wait_for_requests(req_num - block_expected[1]))
+            if block_expected[0] != 0:
+                self.assertFalse(server.wait_for_requests(req_num - block_expected[0]))
+                self.assertTrue(client.wait_for_connection_close())
+            server.pipelined = 0
+            server.restart()
+            self.assertTrue(server.wait_for_connections())
+            client.restart()
+            if not block_expected[2]:
+                client.send_request(request, "200")
+            else:
+                client.make_request(request)
+                self.assertTrue(client.wait_for_connection_close())
 
 
 class TestTrainingStress(TestTrainingBase):
