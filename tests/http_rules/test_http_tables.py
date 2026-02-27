@@ -843,4 +843,177 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
             self.assertTrue(client.wait_for_connection_close())
 
 
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+@marks.parameterize_class(
+    [
+        {
+            "name": "Http",
+            "clients": [{"id": 0, "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}],
+        },
+        {
+            "name": "H2",
+            "clients": [
+                {
+                    "id": 0,
+                    "type": "deproxy_h2",
+                    "addr": "${tempesta_ip}",
+                    "port": "443",
+                    "ssl": True,
+                }
+            ],
+        },
+    ]
+)
+class TestHttpTablesPatternTrimming(tester.TempestaTest):
+    backends = [
+        {
+            "id": 0,
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "vhost-name: vh1\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 1,
+            "type": "deproxy",
+            "port": "8001",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "vhost-name: vh2\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
+        {
+            "id": 4,
+            "type": "deproxy",
+            "port": "8004",
+            "response": "static",
+            "response_content": "HTTP/1.1 200 OK\r\n"
+            "vhost-name: vh3\r\n"
+            "Content-Length: 0\r\n\r\n",
+        },
+    ]
+
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        block_action attack reply;
+        srv_group grp1 {
+            server ${server_ip}:8000;
+        }
+        srv_group grp2 {
+            server ${server_ip}:8001;
+        }
+        srv_group grp3 {
+            server ${server_ip}:8004;
+        }
+        frang_limits {http_strict_host_checking false;}
+        vhost vh1 {
+            proxy_pass grp1;
+        }
+        vhost vh2 {
+            proxy_pass grp2;
+        }
+        vhost vh3 {
+            proxy_pass grp3;
+        }
+        http_chain {
+            hdr "  raw_hdr1" == " hdr_value_1 " -> vh1;
+            hdr "  r  " == " v " -> vh2;
+            -> block;
+        }
+        """
+    }
+
+    def test_spaced_pattern(self):
+        """Test for matching rules which contains leading and trailing spaces.
+        Expected that these spaces ignored and header matched.
+        """
+        self.start_all_services()
+        client = self.get_client(0)
+
+        headers = [("raw_hdr1", "hdr_value_1")]
+        client.send_request(
+            request=client.create_request(method="GET", uri="/", headers=headers),
+            expected_status_code="200",
+        )
+
+        self.assertEqual(client.last_response.headers.get("vhost-name"), "vh1")
+
+        headers = [("r", "v")]
+        client.send_request(
+            request=client.create_request(method="GET", uri="/", headers=headers),
+            expected_status_code="200",
+        )
+
+        self.assertEqual(client.last_response.headers.get("vhost-name"), "vh2")
+
+
+class TestHttpTablesEmptyHdrPattern(tester.TempestaTest):
+    """
+    Empty pattertns are not allowed for header, Tempesta must report an error.
+    """
+
+    host = "tempesta-tech.com"
+    request_uri = "/static"
+    tempesta = {
+        "config": """
+        listen 80;
+        listen 443 proto=h2;
+        tls_certificate ${tempesta_workdir}/tempesta.crt;
+        tls_certificate_key ${tempesta_workdir}/tempesta.key;
+        tls_match_any_server_name;
+        block_action attack reply;
+        srv_group grp1 {
+            server ${server_ip}:8000;
+        }
+        frang_limits {http_strict_host_checking false;}
+        vhost vh1 {
+            proxy_pass grp1;
+        }
+        http_chain {
+            %s
+            -> block;
+        }
+        """
+    }
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="only_spaces_in_name",
+                cfg=f"""hdr "  " == "qwer" -> vh1;""",
+            ),
+            marks.Param(
+                name="empty_name",
+                cfg=f"""hdr "" == "qwer" -> vh1;""",
+            ),
+            marks.Param(
+                name="only_spaces_in_value",
+                cfg=f"""hdr "hdr1" == "   " -> vh1;""",
+            ),
+            marks.Param(
+                name="empty_value",
+                cfg=f"""hdr "hdr1" == "" -> vh1;""",
+            ),
+        ]
+    )
+    def test(self, name, cfg):
+        self.oops_ignore = ["ERROR"]
+
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig = tempesta.config.defconfig % cfg
+
+        try:
+            self.start_tempesta()
+            err_found = False
+        except Exception:
+            err_found = self.loggers.dmesg.find(
+                "ERROR: configuration parsing error:",
+                cond=dmesg.amount_positive,
+            )
+        self.assertTrue(err_found, "Tempesta started successfully, but failure expected")

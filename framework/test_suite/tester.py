@@ -324,8 +324,8 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def get_all_services(self) -> typing.List[Stateful]:
         return (
-            self.get_clients()
-            + ([self.__tempesta] if self.__tempesta is not None else [])
+            ([self.__tempesta] if self.__tempesta is not None else [])
+            + self.get_clients()
             + list(self.get_servers())
             + [self.deproxy_manager]
         )
@@ -360,8 +360,6 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def start_tempesta(self):
         """Start Tempesta and wait until the initialization process finish."""
-        # "modules are started" string is only logged in debug builds while
-        # "Tempesta FW is ready" is logged at all levels.
         with dmesg.wait_for_msg(re.escape("[tempesta fw] Tempesta FW is ready"), strict=False):
             self.__tempesta.start()
             if not self.__tempesta.is_running():
