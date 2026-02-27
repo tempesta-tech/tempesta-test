@@ -73,6 +73,7 @@ class TLSMatchHostSni(tester.TempestaTest):
         srv = self.get_server("0")
         self.assertTrue(srv.wait_for_connections(timeout=1))
 
+    @dmesg.unlimited_rate_on_tempesta_node
     def test_host_sni_mismatch(self):
         """With the `http_strict_host_checking` limit, the host header and SNI name
         must be identical. Otherwise request will be filtered. After client

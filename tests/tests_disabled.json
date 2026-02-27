@@ -190,10 +190,6 @@
             "reason": "The response time varies each time, and it is not possible to predict it exactly."
         },
         {
-            "name": "tests.stress.test_stress.TestContinuationFlood",
-            "reason": "Disabled by test issue #817"
-        },
-        {
             "name": "tests.stress.test_stress.TestStressNoCacheMTU80",
             "reason": "Disabled by test issue #817"
         },
