@@ -502,7 +502,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
     # Should replace all duplicated instances of wait_all_connections
-    async def wait_all_connections(self, tmt=5):
+    async def wait_all_connections(self, tmt=5) -> None:
         await asyncio.gather(
             *[srv.wait_for_connections(timeout=tmt) for srv in self.get_servers()],
             return_exceptions=True,

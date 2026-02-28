@@ -228,7 +228,7 @@ block_action attack drop;
         await c2.send_request(self.REQ, "200")
         # On connection to c4 client - block expected
         c4.start()
-        self.assertFalse(await c4.wait_for_connection_open(timeout=2))
+        self.assertTrue(await c4.wait_for_connection_close(timeout=2))
         self.assertFalse(c4.conn_is_active)
 
         # Reset all current clients with the same IPs
@@ -242,7 +242,7 @@ block_action attack drop;
         # don't adjust timeout. At this moment Tempesta doesn't accepts SYN from blocked client
         # and network not heavy loaded, thus doesn't make sense to wait 60 seconds on tcp
         # segmentation, 5 sec must be enough
-        self.assertFalse(await c5.wait_for_connection_open(timeout=5, adjust_timeout=False))
+        self.assertTrue(await c5.wait_for_connection_close(timeout=5, adjust_timeout=False))
         self.assertFalse(c5.conn_is_active)
 
         self.sniffer.stop()

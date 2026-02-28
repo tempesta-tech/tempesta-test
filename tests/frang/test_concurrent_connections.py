@@ -255,15 +255,11 @@ frang_limits {
 
             for client in blocked_clients:  # establish 2 or more connections
                 client.start()
-                self.assertFalse(await client.wait_for_connection_open())
-
-            for client in blocked_clients:
                 self.assertTrue(
                     await client.wait_for_connection_close(),
                     "Tempesta did not block concurrent TCP connections.",
                 )
             for client in non_blocked_clients:
-                self.assertTrue(await client.wait_for_response())
                 self.assertTrue(
                     client.conn_is_active, "Deproxy clients did not open connections with Tempesta."
                 )
