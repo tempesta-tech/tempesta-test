@@ -1,5 +1,5 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import socket
@@ -42,10 +42,7 @@ class TestH2Ping(tester.TempestaTest):
     }
 
     def test(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
+        self.start_all_services(client=False)
 
         hostname = tf_cfg.cfg.get("Tempesta", "hostname")
         port = 443

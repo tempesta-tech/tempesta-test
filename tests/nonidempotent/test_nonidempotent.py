@@ -88,8 +88,7 @@ http {
 
 class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
     """
-    Simply drops one request which contains '/drop/' part in URI or
-    add a connection to drop list when request contains '/conn_to_drop/' part in URI.
+    Simply drops one request which contains '/drop/' part in URI
     """
 
     def __init__(self, *args, **kwargs):
@@ -157,12 +156,6 @@ class NonIdempotentH2TestBase(tester.TempestaTest, base=True):
 
     requests = []
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-
     def send_requests(self, req_params, client):
         requests = []
         headers = [(":authority", "localhost"), (":scheme", "https")]
@@ -215,7 +208,8 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
         Each request must be forwarded to separate upstream. If both requests
         will be in the same upstream is an error.
         """
-        self.start_all()
+        self.get_server("nginx").conns_n = 2
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
 
@@ -262,13 +256,9 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
 
     requests = [("/nip/drop/", "GET"), ("/regular/", "GET")]
 
-    def start_all(self):
-        NonIdempotentH2TestBase.start_all(self)
-        self.assertTrue(self.wait_all_connections())
-
     def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
@@ -315,13 +305,9 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
 
     requests = [("/nip/drop/", "GET"), ("/regular/", "GET")]
 
-    def start_all(self):
-        NonIdempotentH2TestBase.start_all(self)
-        self.assertTrue(self.wait_all_connections())
-
     def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
@@ -343,12 +329,6 @@ class NonIdempotentH1TestBase(tester.TempestaTest, base=True):
     clients = [{"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"}]
 
     requests = ""
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
 
 
 class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
@@ -387,7 +367,8 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         Each request must be forwarded to separate upstream. If both requests
         will be in the same upstream is an error.
         """
-        self.start_all()
+        self.get_server("nginx").conns_n = 2
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests, pipelined=True)
@@ -431,10 +412,6 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
-    def start_all(self):
-        NonIdempotentH1TestBase.start_all(self)
-        self.assertTrue(self.wait_all_connections())
-
     def test(self):
         """
         This test has difference from HTTP2 version. Non-idempotent request
@@ -442,7 +419,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         by another request. See RFC 7230 6.3.2.
         """
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
@@ -508,13 +485,9 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         "GET /nip/drop/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
-    def start_all(self):
-        NonIdempotentH1TestBase.start_all(self)
-        self.assertTrue(self.wait_all_connections())
-
     def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)

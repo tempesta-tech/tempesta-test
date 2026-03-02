@@ -159,11 +159,6 @@ class TestMixedListeners(tester.TempestaTest):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
-    def start_all(self):
-        """Start server and tempesta."""
-        self.start_all_servers()
-        self.start_tempesta()
-
     def make_curl_request(self, curl_client_id: str) -> str:
         """
         Make `curl` request.
@@ -208,7 +203,7 @@ class TestMixedListeners(tester.TempestaTest):
         One `true` client apply h2 client for h2 socket,
         second `false` client apply h2 client for https socket,
         """
-        self.start_all()
+        self.start_all_services(client=False)
 
         self.check_curl_response(self.make_curl_request("curl-h2-true"), fail=False)
         self.assertRaises(
@@ -225,7 +220,7 @@ class TestMixedListeners(tester.TempestaTest):
         One `true` client apply https client for https socket,
         second `false` client apply https client for h2 socket,
         """
-        self.start_all()
+        self.start_all_services(client=False)
 
         self.check_curl_response(self.make_curl_request("curl-https-true"), fail=False)
         self.check_curl_response(self.make_curl_request("curl-https-false"), fail=True)
@@ -237,7 +232,7 @@ class TestMixedListeners(tester.TempestaTest):
         According to Tempesta FW configuration, both h2 and HTTPS protocols
         should be available on a single port.
         """
-        self.start_all()
+        self.start_all_services(client=False)
 
         self.check_curl_response(self.make_curl_request("curl-h2"), fail=False)
         self.check_curl_response(self.make_curl_request("curl-https"), fail=False)

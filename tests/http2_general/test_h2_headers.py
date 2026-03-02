@@ -1088,13 +1088,7 @@ class CurlTestBase(tester.TempestaTest):
     def run_deproxy_test(self, served_from_cache=False):
         curl = self.get_client("curl")
 
-        self.start_all_servers()
-        self.start_tempesta()
-
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
+        self.start_all_services()
         self.wait_while_busy(curl)
         curl.stop()
         self.assertIn("200", curl.response_msg)
@@ -1502,15 +1496,8 @@ class MissingDateServerWithBodyTest(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [
             (":authority", "localhost"),

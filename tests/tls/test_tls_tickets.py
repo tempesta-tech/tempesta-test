@@ -47,18 +47,11 @@ class TlsTicketTest(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        deproxy_srv = self.get_server("0")
-        deproxy_srv.start()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
-
     def test_no_ticket_support(self):
         """Session ticket extension is not sent to the server, NewSessionTicket
         is not sent by Tempesta.
         """
-        self.start_all()
+        self.start_all_services(client=False)
         hs = TlsHandshake()
         res = hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
@@ -70,7 +63,7 @@ class TlsTicketTest(tester.TempestaTest):
         """
         ticket = ""
         master_secret = ""
-        self.start_all()
+        self.start_all_services(client=False)
         hs = TlsHandshake()
         hs.ticket_data = ""
         res = hs.do_12()
@@ -97,7 +90,7 @@ class TlsTicketTest(tester.TempestaTest):
         ticket and falls back to the full handshake, and a
         NewSessionTicket message is received.
         """
-        self.start_all()
+        self.start_all_services(client=False)
         # random data is inserted, full handshake is processed
         t_random_data = "asdfghjklqwertyuiozxcvbnmqwertyuiopasdfghjklzxcvbnm"
         hs = TlsHandshake()
@@ -202,22 +195,13 @@ class TlsVhostConfusion(tester.TempestaTest):
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
-    def start_all(self):
-        self.gen_certs("tempesta-tech.com")
-        self.gen_certs("tempesta.com")
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        for srv in [self.get_server("0"), self.get_server("1")]:
-            self.assertTrue(srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
-
     def test(self):
         """Session established with one vhost must not be resumed with
         another.
         """
-
-        master_secret = ""
-        self.start_all()
+        self.gen_certs("tempesta-tech.com")
+        self.gen_certs("tempesta.com")
+        self.start_all_services(client=False)
 
         # Obtain a working ticket first
         hs = TlsHandshake()
@@ -350,20 +334,13 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         remote.tempesta.copy_file(cert_path, cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
-    def start_all(self):
-        self.gen_certs("tempesta-tech.com")
-        self.gen_certs("tempesta.com")
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        for srv in [self.get_server("0"), self.get_server("1")]:
-            self.assertTrue(srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
-
     def test(self):
         """Session established with one vhost must not be resumed with
         another.
         """
-        self.start_all()
+        self.gen_certs("tempesta-tech.com")
+        self.gen_certs("tempesta.com")
+        self.start_all_services(client=False)
 
         # Obtain a working ticket first
         hs = TlsHandshake()

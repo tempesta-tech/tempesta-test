@@ -72,23 +72,13 @@ server ${server_ip}:8000;
         of 400 (Bad Request).  A proxy MUST remove any such whitespace from a
         response message before forwarding the message downstream.
         """
-        request = "GET / HTTP/1.1\r\n" "Host : localhost\r\n" "\r\n"
-        expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
-        self.deproxy_manager.start()
-        self.assertTrue(deproxy_srv.wait_for_connections(timeout=1))
-        deproxy_cl.make_request(request)
-        has_resp = deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(has_resp, "Response not received")
-        status = int(deproxy_cl.last_response.status)
-        self.assertTrue(status == 200 or status == 400)
-        if status == 200:
-            self.assertEqual(deproxy_srv.last_request, expect)
+
+        self.start_all_services()
+
+        deproxy_cl.make_request("GET / HTTP/1.1\r\nHost : localhost\r\n\r\n")
+        deproxy_cl.wait_for_response(timeout=5, strict=True)
+        self.assertEqual(deproxy_cl.last_response.status, "400")
 
     def test_crSPlf(self):
         """

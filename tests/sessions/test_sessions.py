@@ -97,15 +97,8 @@ class StickySessions(tester.TempestaTest):
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_sessions(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
         cookie = self.client_send_first_req(client)
@@ -237,7 +230,7 @@ class StickySessionsPersistense(StickySessions):
         TempestaFW responds with 502 status code. But when the server is back
         online, it again serves the responses.
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
         cookie = self.client_send_first_req(client)
@@ -389,7 +382,7 @@ class StickySessionsFailover(StickySessions):
         load. When the original backend server goes back online, the session
         remains on fallbacked server.
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
         cookie = self.client_send_first_req(client)
@@ -420,7 +413,7 @@ class StickySessionsFailover(StickySessions):
         up the load. The session remains on the backend server even if primary
         servers are back online.
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         # Make a first request and remember the backend id
         cookie = self.client_send_first_req(client)

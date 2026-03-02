@@ -246,13 +246,19 @@ class StaticDeproxyServer(BaseDeproxy):
         for conn in connections:
             conn._handle_close()
 
-    def wait_for_connections(self, timeout=1):
+    def wait_for_connections(
+        self, timeout: float = 1.0, strict: bool = False, msg: str = None
+    ) -> bool | None:
         if self.state != stateful.STATE_STARTED:
             return False
 
-        return util.wait_until(
+        result = util.wait_until(
             lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
         )
+
+        if strict:
+            assert result, msg or f"Tempesta FW don't create connection to {self._service_id}."
+        return result
 
     def wait_for_connections_closed(self, timeout=1):
         if self.state != stateful.STATE_STARTED:

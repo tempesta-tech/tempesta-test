@@ -85,20 +85,12 @@ class X509(tester.TempestaTest):
         super(X509, self).__init__(*args, **kwargs)
 
     def check_good_cert(self):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-
         # We have to copy the certificate and key on our own.
         cert_path, key_path = self.cgen.get_file_paths()
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
-        self.start_tempesta()
 
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=self.TIMEOUT), "Cannot start Tempesta"
-        )
+        self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = client.wait_for_response(timeout=X509.TIMEOUT)
@@ -492,12 +484,6 @@ class TlsCertSelectBySan(tester.TempestaTest):
         "custom_cert": True,
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def check_handshake_success(self, sni):
         """Run TLS handshake with the given SNI and check it is completes successfully."""
         hs = TlsHandshake()
@@ -520,7 +506,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         """SAN certificate matches the passed SNI."""
         san = ["example.com", "*.example.com"]
         generate_certificate(san=san)
-        self.start_all()
+        self.start_all_services(client=False)
 
         for sni in (
             "example.com",
@@ -542,7 +528,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         """SAN certificate does not match the passed SNI."""
         san = ["example.com", "*.example.com"]
         generate_certificate(san=san)
-        self.start_all()
+        self.start_all_services(client=False)
 
         for sni in (
             "b.a.example.com",
@@ -567,7 +553,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
         generate_certificate()
-        self.start_all()
+        self.start_all_services(client=False)
 
         for san, sni in (
             (["*.b.c.example.com"], "a.b.c.example.com"),
@@ -588,7 +574,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
         generate_certificate()
-        self.start_all()
+        self.start_all_services(client=False)
 
         for san, sni in (
             (["a.*.example.com"], "a.b.example.com"),
@@ -608,7 +594,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
     def test_unknown_server_name_warning(self):
         """Test that expected 'unknown server name' warning appears in DMESG logs."""
         generate_certificate(san=["example.com", "*.example.com"])
-        self.start_all()
+        self.start_all_services(client=False)
 
         for sni, printable_name in (
             ("localhost", "'localhost'"),
@@ -648,7 +634,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
         generate_certificate(san=[])
         # ignore "Vhost %s com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
-        self.start_all()
+        self.start_all_services(client=False)
 
         for i in range(RELOAD_COUNT):
             generate_certificate(san=next(san_iter))
@@ -723,12 +709,6 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             }
     """
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def reload_with_config(self, template: str):
         """Reconfigure Tempesta with the provided config `template`."""
         desc = {"config": template, "custom_cert": True}
@@ -747,7 +727,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
         generate_certificate(
             cert_name="private", cn="private", san=["example.com", "private.example.com"]
         )
-        self.start_all()
+        self.start_all_services(client=False)
         # save the current config text
         original_config = self.get_tempesta().config.defconfig
 
@@ -1068,13 +1048,6 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         self.tempesta = {"config": self.tempesta_tmpl % (self.frang_limits), "custom_cert": True}
         tester.TempestaTest.setUp(self)
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections(1))
-
     def make_request(self, host):
         """Make request with the specified `host` header and
         return the body of response."""
@@ -1100,7 +1073,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         HOST: example.com
         """
         generate_certificate(cn="example.com", san=["example.com"], cert_name="example")
-        self.start_all()
+        self.start_all_services()
         self.expect_request_processed("example.com", expected_server="server-1")
 
     def test_with_san(self):
@@ -1111,7 +1084,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         HOST: localhost
         """
         generate_certificate(cn="random-name", san=["example.com"], cert_name="example")
-        self.start_all()
+        self.start_all_services()
         self.expect_request_fail("localhost")
 
     def test_with_common_name(self):
@@ -1122,7 +1095,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         HOST: localhost
         """
         generate_certificate(cn="example.com", san=None, cert_name="example")
-        self.start_all()
+        self.start_all_services()
         self.expect_request_fail("localhost")
 
     def test_with_any_host(self):
@@ -1135,7 +1108,7 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         # ignore "Vhost example.com doesn't have certificate with matching SAN/CN"
         self.oops_ignore = ["WARNING"]
         generate_certificate(cn="random-name", san=None, cert_name="example")
-        self.start_all()
+        self.start_all_services()
         self.expect_request_fail("another-random-name")
 
 
@@ -1234,21 +1207,14 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
         }
         tester.TempestaTest.setUp(self)
 
-    def start_all(self):
-        generate_certificate(san=["example.com", "*.example.com"])
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections(1))
-
     def run_alterative_access(self):
         """Try to access multiple hosts in alterating order."""
         REQ_NUM = 4
         self.assertFalse(REQ_NUM % 2, "REQ_NUM should be even")
         host_iter = cycle(["a.example.com", "localhost"])
 
-        self.start_all()
+        generate_certificate(san=["example.com", "*.example.com"])
+        self.start_all_services()
         client = self.get_client("deproxy")
         server1 = self.get_server("server-1")
         server2 = self.get_server("server-2")

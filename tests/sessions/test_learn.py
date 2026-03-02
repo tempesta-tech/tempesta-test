@@ -74,13 +74,6 @@ class LearnSessionsBase(tester.TempestaTest):
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
 
 class LearnSessions(LearnSessionsBase):
     """
@@ -176,15 +169,8 @@ class LearnSessions(LearnSessionsBase):
         self.assertIsNotNone(s_id, "Server-id header is missing in the response")
         return s_id
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_sessions(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
 
         s_id, cookie = self.client_send_first_req(client)
@@ -201,7 +187,7 @@ class LearnSessions(LearnSessionsBase):
         TempestaFW responds with 502 status code. But when the server is back
         online, it again serves the responses.
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         s_id, cookie = self.client_send_first_req(client)
         srv = self.get_server(s_id)
@@ -290,7 +276,7 @@ class LearnSessionsMultipleSameSetCookie(LearnSessionsBase):
         the same cookie-name, but don't drop response, just write warning
         in dmesg.
         """
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
 
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"

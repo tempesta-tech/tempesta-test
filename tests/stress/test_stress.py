@@ -495,14 +495,9 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
         }
         super().setUp()
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(1))
-
     def make_requests(self, client_id):
         client = self.get_client(client_id)
-        self.start_all()
+        self.start_all_services(client=False)
         client.start()
         self.wait_while_busy(client)
         client.stop()
@@ -512,7 +507,7 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
 
     def range_requests(self, uri_is_same):
         """Send requests sequentially, stop on error."""
-        self.start_all()
+        self.start_all_services(client=False)
         client = self.get_client("single")
         started = time.time()
         delta = 0

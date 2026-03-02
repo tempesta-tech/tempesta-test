@@ -71,12 +71,6 @@ class NginxProxyMixin:
         ]
         super().setUp()
 
-    def start_all(self):
-        # Start servers, but not Tempesta
-        self.create_cert()
-        self.start_all_servers()
-        self.deproxy_manager.start()
-
     def create_cert(self):
         server = self.get_server("nginx_proxy")
         workdir = cfg.get("Server", "workdir")
@@ -93,7 +87,9 @@ class NginxStressBase(NginxProxyMixin, tester.TempestaTest, base=True):
     @dmesg.limited_rate_on_tempesta_node
     def test(self):
         # Start servers, but not Tempesta
-        self.start_all()
+        self.create_cert()
+        self.start_all_servers()
+        self.deproxy_manager.start()
         wrk = self.get_client("wrk")
         wrk.set_script("foo", content='wrk.method="GET"')
         wrk.timeout = 0
