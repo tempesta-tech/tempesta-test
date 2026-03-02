@@ -2,6 +2,10 @@
     "disable" : true,
     "disabled" : [
         {
+            "name": "tests.nonidempotent.test_nonidempotent.RetryNonIdempotentPostH1Test",
+            "reason": "These tests should not be run with TCP segmentation. It is difficult to ensure stability in this test."
+        },
+        {
             "name": "tests.fault_injection",
             "reason": "These tests should not be run with TCP segmentation."
         },
