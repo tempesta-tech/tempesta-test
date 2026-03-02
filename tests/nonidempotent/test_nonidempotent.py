@@ -94,25 +94,17 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.do_drop = True
-        self.conn_to_drop = []
 
     def receive_request(
         self, request: deproxy_message.Request, connection: deproxy_server.ServerConnection
     ) -> tuple[bytes, bool]:
         uri = request.uri
 
-        for conn in self.conn_to_drop:
-            conn._handle_close()
-            self.conn_to_drop.remove(conn)
-
+        r, close = super().receive_request(request, connection)
         if "/drop/" in uri and self.do_drop:
             self.do_drop = False
             return "", True
-        elif "/conn_to_drop/" in uri and self.do_drop:
-            self.do_drop = False
-            self.conn_to_drop.append(connection)
-            return "", False
-        return super().receive_request(request, connection)
+        return r, close
 
 
 def build_deproxy_drop(server, name, tester):
@@ -433,7 +425,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
 
 class RetryNonIdempotentPostH1Test(RetryNonIdempotentH1Test):
     requests = [
-        "POST /nonidem/conn_to_drop/ HTTP/1.1\r\ncontent-length: 0\r\nHost: localhost\r\n\r\n",
+        "POST /nonidem/drop/ HTTP/1.1\r\ncontent-length: 0\r\nHost: localhost\r\n\r\n",
         "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
