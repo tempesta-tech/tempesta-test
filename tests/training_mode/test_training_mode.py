@@ -5,6 +5,8 @@ __license__ = "GPL2"
 import threading
 import time
 
+from hyperframe.frame import PingFrame
+
 from framework.deproxy import deproxy_message
 from framework.helpers import analyzer, networker, remote, tf_cfg
 from framework.helpers.analyzer import RST, TCP
@@ -63,6 +65,14 @@ server ${server_ip}:8000;
             )
         client.options = [cmd_args % conn_num]
         return client
+
+    def setup_test(self, extra_config, start_client):
+        self.set_frang_config(frang_config="http_strict_host_checking false;\n")
+        if extra_config:
+            self.get_tempesta().config.defconfig = (
+                self.get_tempesta().config.defconfig + extra_config
+            )
+        self.start_all_services(client=start_client)
 
 
 class TestConfig(TestTrainingBase):
@@ -131,13 +141,6 @@ class TestTrainingConnections(TestTrainingBase):
             "ssl": True,
             "cmd_args": "",
         },
-        {
-            "id": "deproxy",
-            "type": "deproxy",
-            "addr": "${tempesta_ip}",
-            "ssl": True,
-            "port": "443",
-        },
     ] + [
         {
             "id": f"curl-{id_}",
@@ -153,51 +156,37 @@ class TestTrainingConnections(TestTrainingBase):
         [
             marks.Param(
                 name="default",
-                extra_config="training_z_score_request_num 1000;\n",
+                extra_config="""
+                    training_z_score_request_num 1000;
+                    training_z_score_cpu 1000;
+                """,
                 conn_num=40,
-                block_expected=[23, 25, False],
-                frang_config="http_strict_host_checking false;\n",
-            ),
-            marks.Param(
-                name="default_ip_block",
-                extra_config="training_z_score_request_num 1000;\n",
-                conn_num=40,
-                block_expected=[23, 25, True],
-                frang_config="http_strict_host_checking false;\nip_block 0;\n",
+                block_expected=[23, 25],
             ),
             marks.Param(
                 name="1",
-                extra_config="training_z_score_connection_num 1;\ntraining_z_score_request_num 1000;\n",
+                extra_config="""
+                    training_z_score_connection_num 1;
+                    training_z_score_request_num 1000;
+                    training_z_score_cpu 1000;
+                """,
                 conn_num=40,
-                block_expected=[16, 19, False],
-                frang_config="http_strict_host_checking false;\n",
-            ),
-            marks.Param(
-                name="1_ip_block",
-                extra_config="training_z_score_connection_num 1;\ntraining_z_score_request_num 1000;\n",
-                conn_num=40,
-                block_expected=[16, 19, True],
-                frang_config="http_strict_host_checking false;\nip_block 0;\n",
+                block_expected=[16, 19],
             ),
             marks.Param(
                 name="5",
-                extra_config="training_z_score_connection_num 5;\ntraining_z_score_request_num 1000;\n",
+                extra_config="""
+                    training_z_score_connection_num 5;
+                    training_z_score_request_num 1000;
+                    training_z_score_cpu 1000;
+                """,
                 conn_num=40,
-                block_expected=[0, 0, False],
-                frang_config="http_strict_host_checking false;\n",
+                block_expected=[0, 0],
             ),
         ]
     )
-    def test_connection_num_exceeded_z_score(
-        self, name, extra_config, conn_num, block_expected, frang_config
-    ):
-        self.set_frang_config(frang_config=frang_config)
-        if extra_config:
-            self.get_tempesta().config.defconfig = (
-                self.get_tempesta().config.defconfig + extra_config
-            )
-        self.start_all_services(client=False)
-
+    def test_connection_num_exceeded_z_score(self, name, extra_config, conn_num, block_expected):
+        self.setup_test(extra_config, False)
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
         ) as ips:
@@ -224,33 +213,19 @@ class TestTrainingConnections(TestTrainingBase):
         client = self.setup_curl_client(client, conn_num)
 
         client.start()
-        if not block_expected[2]:
-            self.wait_while_busy(client)
-        else:
-            time.sleep(10)
+        self.wait_while_busy(client)
         client.stop()
 
-        if not block_expected[2]:
-            success_cnt = client.response_msg.count("HTTP/1.1 200 OK")
-            self.assertGreaterEqual(conn_num - success_cnt, block_expected[0])
-            self.assertLessEqual(conn_num - success_cnt, block_expected[1])
-
-        client = self.get_client("deproxy")
-        request = client.create_request(method="GET", headers=[])
-        client.start()
-        client.send_request(request)
-
-        if block_expected[2]:
-            self.assertTrue(client.wait_for_connection_close())
-        else:
-            self.assertTrue(client.last_response.status, "200")
+        success_cnt = client.response_msg.count("HTTP/1.1 200 OK")
+        self.assertGreaterEqual(conn_num - success_cnt, block_expected[0])
+        self.assertLessEqual(conn_num - success_cnt, block_expected[1])
 
 
-class TestTrainingRequests(TestTrainingBase):
+class TestTrainingBaseDeproxy(TestTrainingBase):
     clients = [
         {
             "id": "deproxy",
-            "type": "deproxy",
+            "type": "deproxy_h2",
             "addr": "${tempesta_ip}",
             "ssl": True,
             "port": "443",
@@ -267,41 +242,40 @@ class TestTrainingRequests(TestTrainingBase):
         for id_ in range(TestTrainingBase.training_clients_n)
     ]
 
+
+class TestTrainingRequests(TestTrainingBaseDeproxy):
     @marks.Parameterize.expand(
         [
             marks.Param(
                 name="default",
-                extra_config="training_z_score_connection_num 1000;\n",
+                extra_config="""
+                    training_z_score_connection_num 1000;
+                    training_z_score_cpu 1000;
+                """,
                 req_num=40,
-                block_expected=[23, 25, False],
-                frang_config="http_strict_host_checking false;\n",
-            ),
-            marks.Param(
-                name="default",
-                extra_config="training_z_score_connection_num 1000;\n",
-                req_num=40,
-                block_expected=[23, 25, True],
-                frang_config="http_strict_host_checking false;\nip_block 0;\n",
-            ),
-            marks.Param(
-                name="1",
-                extra_config="training_z_score_request_num 1;\ntraining_z_score_connection_num 1000;\n",
-                req_num=40,
-                block_expected=[16, 19, False],
+                block_expected=[23, 25],
                 frang_config="http_strict_host_checking false;\n",
             ),
             marks.Param(
                 name="1",
-                extra_config="training_z_score_request_num 1;\ntraining_z_score_connection_num 1000;\n",
+                extra_config="""
+                    training_z_score_request_num 1;
+                    training_z_score_connection_num 1000;
+                    training_z_score_cpu 1000;
+                """,
                 req_num=40,
-                block_expected=[16, 19, True],
-                frang_config="http_strict_host_checking false;\nip_block 0;\n",
+                block_expected=[16, 19],
+                frang_config="http_strict_host_checking false;\n",
             ),
             marks.Param(
                 name="5",
-                extra_config="training_z_score_request_num 5;\ntraining_z_score_connection_num 1000;\n",
+                extra_config="""
+                    training_z_score_request_num 5;
+                    training_z_score_connection_num 1000;
+                    training_z_score_cpu 1000;
+                """,
                 req_num=40,
-                block_expected=[0, 0, False],
+                block_expected=[0, 0],
                 frang_config="http_strict_host_checking false;\n",
             ),
         ]
@@ -309,12 +283,7 @@ class TestTrainingRequests(TestTrainingBase):
     def test_request_num_exceeded_z_score(
         self, name, extra_config, req_num, block_expected, frang_config
     ):
-        self.set_frang_config(frang_config=frang_config)
-        if extra_config:
-            self.get_tempesta().config.defconfig = (
-                self.get_tempesta().config.defconfig + extra_config
-            )
-        self.start_all_services()
+        self.setup_test(extra_config, True)
         server = self.get_server("deproxy")
 
         with networker.create_and_cleanup_interfaces(
@@ -351,15 +320,59 @@ class TestTrainingRequests(TestTrainingBase):
             if block_expected[0] != 0:
                 self.assertFalse(server.wait_for_requests(req_num - block_expected[0]))
                 self.assertTrue(client.wait_for_connection_close())
-            server.pipelined = 0
-            server.restart()
-            self.assertTrue(server.wait_for_connections())
-            client.restart()
-            if not block_expected[2]:
-                client.send_request(request, "200")
-            else:
-                client.make_request(request)
-                self.assertTrue(client.wait_for_connection_close())
+
+
+class CommonTestCases(TestTrainingBaseDeproxy):
+    def __training(self):
+        with networker.create_and_cleanup_interfaces(
+            node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
+        ) as ips:
+            remote.tempesta.run_cmd("sysctl -w net.tempesta.training=1")
+            id_ = 0
+            for ip in ips:
+                client = self.get_client(f"deproxy-interface-{id_}")
+                request = client.create_request(method="GET", headers=[("a", "a" * 1000)])
+                requests = [request] * (id_ + 1)
+                client.make_requests(requests)
+                client.wait_for_response()
+                self.assertEqual(len(client.responses), id_ + 1)
+                for i in range(id_ + 1):
+                    self.assertTrue(client.responses[i].status, "200")
+                id_ += 1
+            remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
+
+    def test_data_dribble(self):
+        self.setup_test("training_z_score_cpu 3;", True)
+        self.__training()
+        client = self.get_client("deproxy")
+        request = client.create_request(method="GET", headers=[("a", "a" * 1000)])
+        client.segment_size = 1
+        client.make_request(request)
+        self.assertTrue(client.wait_for_connection_close())
+
+    def test_ping_flood(self):
+        self.setup_test(
+            """
+            ctrl_frame_rate_multiplier 1000;
+            training_z_score_cpu 3;
+        """,
+            True,
+        )
+        self.__training()
+        client = self.get_client("deproxy")
+        ping = PingFrame(stream_id=0)
+        client.update_initial_settings()
+        # send preamble + settings frame to Tempesta
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta foes not returns SETTINGS frame with ACK flag.",
+        )
+        client.send_bytes(ping.serialize() * 10000, expect_response=False)
+
+        self.assertTrue(client.wait_for_connection_close())
 
 
 class TestTrainingStress(TestTrainingBase):
@@ -382,6 +395,10 @@ class TestTrainingStress(TestTrainingBase):
 
     stop = False
 
+    def __start(self, extra_config):
+        self.setup_test(extra_config, False)
+        self.stop = False
+
     def _do_reload(self):
         while not self.stop:
             self.get_tempesta().reload()
@@ -394,24 +411,23 @@ class TestTrainingStress(TestTrainingBase):
             remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
             time.sleep(0.5)
 
-    def test_reload_with_training_under_load(self):
-        self.set_frang_config(frang_config="http_strict_host_checking false;\n")
-        self.stop = False
-        self.get_tempesta().config.defconfig = (
-            self.get_tempesta().config.defconfig + "training_z_score_connection_num 1;\n"
-        )
-        self.start_all_services(client=False)
+    def __setup_gflood_client(self, ips):
+        source_ips = ""
+        for ip in ips:
+            source_ips += ip + " "
+        cmd_args = f'-address %s:443 -host tempesta-tech.com -source_ip "%s" -threads 4 -connections 999 -streams 100'
+        client = self.get_client("gflood")
+        client.options = [cmd_args % (tf_cfg.cfg.get("Tempesta", "ip"), source_ips)]
+        return client
+
+    def __test_reload_base(self, extra_config):
+        self.__start(extra_config)
         thread = threading.Thread(target=self._do_reload)
 
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
         ) as ips:
-            source_ips = ""
-            for ip in ips:
-                source_ips += ip + " "
-            cmd_args = f'-address %s:443 -host tempesta-tech.com -source_ip "%s" -threads 4 -connections 999 -streams 100'
-            client = self.get_client("gflood")
-            client.options = [cmd_args % (tf_cfg.cfg.get("Tempesta", "ip"), source_ips)]
+            client = self.__setup_gflood_client(ips)
             remote.tempesta.run_cmd("sysctl -w net.tempesta.training=1")
             self.assertTrainingMode(1)
             thread.start()
@@ -431,26 +447,41 @@ class TestTrainingStress(TestTrainingBase):
         self.wait_while_busy(client)
         client.stop()
 
+    def test_reload_with_training_under_load_cpu(self):
+        self.__test_reload_base(
+            """
+                training_z_score_cpu 1;
+                training_z_score_connection_num 1000;
+                training_z_score_request_num 1000;
+            """
+        )
+
+    def test_reload_with_training_under_load_conn_num(self):
+        self.__test_reload_base(
+            """
+                training_z_score_connection_num 1;
+                training_z_score_cpu 1000;
+            """
+        )
+
+        conn_num = 40
+        client = self.get_client("curl")
+        client = self.setup_curl_client(client, conn_num)
+
+        client.start()
+        self.wait_while_busy(client)
+        client.stop()
+
         success_cnt = client.response_msg.count("HTTP/1.1 200 OK")
         self.assertEqual(conn_num - success_cnt, 0)
 
     def test_restart_training_under_load(self):
-        self.set_frang_config(frang_config="http_strict_host_checking false;\n")
-        self.stop = False
-        self.get_tempesta().config.defconfig = (
-            self.get_tempesta().config.defconfig + "training_z_score_connection_num 1;\n"
-        )
-        self.start_all_services(client=False)
+        self.__start("training_z_score_connection_num 1;")
         thread = threading.Thread(target=self._do_restart_training)
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
         ) as ips:
-            source_ips = ""
-            for ip in ips:
-                source_ips += ip + " "
-            cmd_args = f'-address %s:443 -host tempesta-tech.com -source_ip "%s" -threads 4 -connections 1000 -streams 100'
-            client = self.get_client("gflood")
-            client.options = [cmd_args % (tf_cfg.cfg.get("Tempesta", "ip"), source_ips)]
+            client = self.__setup_gflood_client(ips)
             thread.start()
             client.start()
             self.wait_while_busy(client)
