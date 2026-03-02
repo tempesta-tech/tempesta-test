@@ -98,7 +98,7 @@ class TestH2Stream(H2Base):
             data=b"\x00\x00\n\x01\x05\x00\x00\x00\x01A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        client.wait_for_response(1)
+        client.wait_for_connection_close(strict=True)
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -120,7 +120,7 @@ class TestH2Stream(H2Base):
             b"\x00\x00\n\x01\x05\x00\x00\x00\x00A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        client.wait_for_response(1)
+        client.wait_for_connection_close(strict=True)
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -140,7 +140,7 @@ class TestH2Stream(H2Base):
             b"\x00\x00\n\x01\x05\x00\x00\x00\x02A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        client.wait_for_response(1)
+        client.wait_for_connection_close(strict=True)
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 

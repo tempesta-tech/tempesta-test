@@ -143,6 +143,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         We should not check error codes for TCP segmentation
         because we cannot control the sequence of receiving from Tempesta.
         In some cases, RST TCP will be received earlier.
+        It should call after `wait_for_connection_close` or `wait_for_reset_stream`.
         """
         if not self.segment_size:
             assert (
